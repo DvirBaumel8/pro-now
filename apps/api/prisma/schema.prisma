@@ -1,0 +1,831 @@
+// PRO NOW — Prisma schema
+// Source of truth: /docs/05-DATABASE.md. Do not change without updating
+// that document (see /CLAUDE.md §6). Money = integer minor units. IDs =
+// cuid. Geospatial columns use PostGIS via the postgis extension.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [postgis]
+}
+
+generator json {
+  provider = "prisma-client-js"
+}
+
+// ---------------------------------------------------------------------
+// Identity
+// ---------------------------------------------------------------------
+
+model User {
+  id        String   @id @default(cuid())
+  phone     String   @unique
+  email     String?  @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customerProfile     CustomerProfile?
+  professionalProfile ProfessionalProfile?
+  adminUser           AdminUser?
+
+  @@map("users")
+}
+
+model CustomerProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  fullName  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  addresses Address[]
+  jobs      Job[]
+  reviews   Review[]
+
+  @@map("customer_profiles")
+}
+
+// Verification status machine — see /docs/10-TRUST-VERIFICATION.md §Verification status model
+enum VerificationStatus {
+  DRAFT
+  IDENTITY_PENDING
+  IDENTITY_REVIEW
+  IDENTITY_VERIFIED
+  BUSINESS_PENDING
+  CREDENTIALS_PENDING
+  SERVICE_REVIEW
+  APPROVED
+  LIMITED
+  SUSPENDED
+  REVERIFY_REQUIRED
+  REJECTED
+}
+
+model ProfessionalProfile {
+  id                 String              @id @default(cuid())
+  userId             String              @unique
+  user               User                @relation(fields: [userId], references: [id])
+  legalName          String
+  displayName        String
+  profilePhotoRef    String?
+  verificationStatus VerificationStatus  @default(DRAFT)
+  presenceState      ProPresenceState    @default(OFFLINE)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  identityVerification IdentityVerification?
+  businessProfile      BusinessProfile?
+  documents            ProfessionalDocument[]
+  credentials          ProfessionalCredential[]
+  services             ProfessionalService[]
+  availabilitySessions AvailabilitySession[]
+  locations            ProfessionalLocation[]
+  assignedJobs         Job[]                   @relation("AssignedProfessional")
+  dispatchOffers       DispatchOffer[]
+  reviewsReceived      Review[]
+  externalProfiles     ProfessionalExternalProfile[]
+  payoutAccount        PayoutAccount?
+  riskSignals          RiskSignal[]
+
+  @@map("professional_profiles")
+}
+
+enum ProPresenceState {
+  OFFLINE
+  STARTING_SHIFT
+  AVAILABLE
+  OFFER_RECEIVED
+  RESERVED
+  ASSIGNED
+  EN_ROUTE
+  ARRIVED
+  SERVICING
+  COMPLETING
+  ENDING_SHIFT
+}
+
+model IdentityVerification {
+  id             String   @id @default(cuid())
+  professionalId String   @unique
+  professional   ProfessionalProfile @relation(fields: [professionalId], references: [id])
+  vendorName     String
+  isSandbox      Boolean  @default(true)
+  status         String
+  nameMatch      Boolean?
+  livenessPassed Boolean?
+  documentValid  Boolean?
+  reasonCodes    String[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("identity_verifications")
+}
+
+model BusinessProfile {
+  id             String   @id @default(cuid())
+  professionalId String   @unique
+  professional   ProfessionalProfile @relation(fields: [professionalId], references: [id])
+  tradingName    String?
+  taxStatus      String?
+  yearsExperience Int?
+  languages      String[]
+  vehicleType    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("business_profiles")
+}
+
+model ProfessionalDocument {
+  id             String   @id @default(cuid())
+  professionalId String
+  professional   ProfessionalProfile @relation(fields: [professionalId], references: [id])
+  kind           String // e.g. GOVERNMENT_ID, INSURANCE_CERT
+  storageRef     String  // short-lived signed URL reference, never a public path
+  status         String  @default("PENDING")
+  createdAt      DateTime @default(now())
+
+  @@map("professional_documents")
+  @@index([professionalId])
+}
+
+model ProfessionalCredential {
+  id             String    @id @default(cuid())
+  professionalId String
+  professional   ProfessionalProfile @relation(fields: [professionalId], references: [id])
+  serviceId      String
+  service        Service   @relation(fields: [serviceId], references: [id])
+  type           String    // LICENSE | CERTIFICATE | INSURANCE
+  number         String?
+  issuer         String?
+  documentRef    String?
+  status         String    @default("PENDING") // PENDING | VERIFIED | EXPIRED | REJECTED
+  expiresAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@map("professional_credentials")
+  @@index([professionalId, type, expiresAt])
+}
+
+// ---------------------------------------------------------------------
+// Taxonomy — Department -> Category -> Service -> Variant/Add-on
+// See /docs/09b-SERVICE-CATALOG.md and /docs/_source/01-master-product-bible.md §26.3
+// ---------------------------------------------------------------------
+
+model Department {
+  id        String     @id @default(cuid())
+  code      String     @unique
+  nameHe    String
+  nameEn    String
+  sortOrder Int        @default(0)
+  categories Category[]
+
+  @@map("departments")
+}
+
+model Category {
+  id           String     @id @default(cuid())
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+  code         String     @unique
+  nameHe       String
+  nameEn       String
+  services     Service[]
+
+  @@map("categories")
+  @@index([departmentId])
+}
+
+enum PriceModel {
+  FIXED
+  HOURLY
+  VISIT_QUOTE
+  DISTANCE_TIME
+}
+
+enum BookingMode {
+  NOW
+  BOOK
+  REQUEST
+  HYBRID
+}
+
+model Service {
+  id                String      @id @default(cuid())
+  categoryId        String
+  category          Category    @relation(fields: [categoryId], references: [id])
+  code              String      @unique // matches /docs/09b-SERVICE-CATALOG.md Service ID
+  nameHe            String
+  nameEn            String
+  bookingMode       BookingMode @default(NOW)
+  priceModel        PriceModel
+  typicalDurationMinutesMin Int?
+  typicalDurationMinutesMax Int?
+  trustTier         String      // A | B | C | D | E — see /docs/_source/01-master-product-bible.md §26.7
+  equipmentNotes     String?
+  customerInputsNotes String?
+  createdAt         DateTime    @default(now())
+
+  variants          ServiceVariant[]
+  addOns            ServiceAddOn[]
+  requirements      ServiceRequirement[]
+  professionalServices ProfessionalService[]
+  credentialRequirements ProfessionalCredential[]
+  marketActivations MarketActivation[]
+  jobs              Job[]
+
+  @@map("services")
+  @@index([categoryId])
+}
+
+model ServiceVariant {
+  id        String  @id @default(cuid())
+  serviceId String
+  service   Service @relation(fields: [serviceId], references: [id])
+  nameHe    String
+  priceDeltaMinorUnits Int @default(0)
+
+  @@map("service_variants")
+  @@index([serviceId])
+}
+
+model ServiceAddOn {
+  id        String  @id @default(cuid())
+  serviceId String
+  service   Service @relation(fields: [serviceId], references: [id])
+  nameHe    String
+  priceMinorUnits Int
+
+  @@map("service_add_ons")
+  @@index([serviceId])
+}
+
+model ServiceRequirement {
+  id          String  @id @default(cuid())
+  serviceId   String
+  service     Service @relation(fields: [serviceId], references: [id])
+  requirement String  // e.g. "LICENSE:ELECTRICAL", "IDENTITY", "BUSINESS"
+  mandatory   Boolean @default(true)
+
+  @@map("service_requirements")
+  @@index([serviceId])
+}
+
+enum ProfessionalServiceStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  DISABLED
+  SUSPENDED
+}
+
+model ProfessionalService {
+  id                String   @id @default(cuid())
+  professionalId    String
+  professional      ProfessionalProfile @relation(fields: [professionalId], references: [id])
+  serviceId         String
+  service           Service  @relation(fields: [serviceId], references: [id])
+  status            ProfessionalServiceStatus @default(DRAFT)
+  basePriceMinorUnits Int?
+  travelRadiusMeters Int?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("professional_services")
+  @@unique([professionalId, serviceId])
+  @@index([serviceId, status])
+}
+
+model ServiceArea {
+  id             String  @id @default(cuid())
+  professionalId String
+  centerLat      Float
+  centerLng      Float
+  radiusMeters   Int
+
+  @@map("service_areas")
+  @@index([professionalId])
+}
+
+model MarketActivation {
+  id                        String   @id @default(cuid())
+  marketCode                String   // e.g. "IL-TLV-GUSHDAN"
+  serviceId                 String
+  service                   Service  @relation(fields: [serviceId], references: [id])
+  customerVisible           Boolean  @default(false)
+  providerOnboardingEnabled Boolean  @default(false)
+  dispatchEnabled           Boolean  @default(false)
+  effectiveFrom             DateTime @default(now())
+  effectiveTo               DateTime?
+
+  @@map("market_activations")
+  @@unique([marketCode, serviceId])
+}
+
+// ---------------------------------------------------------------------
+// Addresses, availability, location
+// ---------------------------------------------------------------------
+
+model Address {
+  id           String   @id @default(cuid())
+  customerId   String
+  customer     CustomerProfile @relation(fields: [customerId], references: [id])
+  label        String?
+  formatted    String
+  lat          Float
+  lng          Float
+  placeId      String?
+  createdAt    DateTime @default(now())
+
+  jobs Job[]
+
+  @@map("addresses")
+  @@index([customerId])
+}
+
+model AvailabilitySession {
+  id                String    @id @default(cuid())
+  professionalId    String
+  professional      ProfessionalProfile @relation(fields: [professionalId], references: [id])
+  startedAt         DateTime  @default(now())
+  endedAt           DateTime?
+  enabledServiceIds String[]
+  status            String    @default("ACTIVE") // ACTIVE | ENDED
+  jobsOffered       Int       @default(0)
+  jobsAccepted      Int       @default(0)
+  jobsCompleted     Int       @default(0)
+
+  @@map("availability_sessions")
+  @@index([professionalId, status])
+}
+
+model ProfessionalLocation {
+  id             String   @id @default(cuid())
+  professionalId String
+  professional   ProfessionalProfile @relation(fields: [professionalId], references: [id])
+  lat            Float
+  lng            Float
+  accuracyMeters Float?
+  headingDegrees Float?
+  speedMps       Float?
+  capturedAt     DateTime
+  receivedAt     DateTime @default(now())
+
+  @@map("professional_locations")
+  @@index([professionalId, receivedAt])
+}
+
+// ---------------------------------------------------------------------
+// Jobs — see /docs/07-JOB-STATE-MACHINE.md
+// ---------------------------------------------------------------------
+
+enum JobStatus {
+  DRAFT
+  SEARCHING
+  OFFERING
+  PRO_ASSIGNED
+  PRO_EN_ROUTE
+  PRO_ARRIVED
+  DIAGNOSIS
+  WAITING_QUOTE_APPROVAL
+  IN_PROGRESS
+  COMPLETION_PENDING
+  COMPLETED
+  PAYMENT_PENDING
+  PAYMENT_CAPTURED
+  REVIEW_PENDING
+  CLOSED
+  CANCELLED
+  DISPUTED
+}
+
+model Job {
+  id                String    @id @default(cuid())
+  customerId        String
+  customer          CustomerProfile @relation(fields: [customerId], references: [id])
+  serviceId         String
+  service           Service   @relation(fields: [serviceId], references: [id])
+  addressId         String
+  address           Address   @relation(fields: [addressId], references: [id])
+  assignedProfessionalId String?
+  assignedProfessional   ProfessionalProfile? @relation("AssignedProfessional", fields: [assignedProfessionalId], references: [id])
+
+  status            JobStatus @default(DRAFT)
+  description       String?
+  structuredAnswers Json?
+  approvedQuoteId   String?   @unique
+
+  idempotencyKey    String?   @unique
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  media             JobMedia[]
+  events            JobEvent[]
+  offers            DispatchOffer[]
+  quotes            Quote[]
+  payments          Payment[]
+  review            Review?
+
+  @@map("jobs")
+  @@index([status])
+  @@index([customerId])
+  @@index([assignedProfessionalId])
+}
+
+model JobMedia {
+  id        String   @id @default(cuid())
+  jobId     String
+  job       Job      @relation(fields: [jobId], references: [id])
+  kind      String   // PHOTO | VIDEO | VOICE_NOTE
+  storageRef String
+  createdAt DateTime @default(now())
+
+  @@map("job_media")
+  @@index([jobId])
+}
+
+model JobEvent {
+  id         String   @id @default(cuid())
+  jobId      String
+  job        Job      @relation(fields: [jobId], references: [id])
+  type       String
+  actor      String   // CUSTOMER | PROFESSIONAL | SYSTEM | OPS
+  actorId    String?
+  metadata   Json?
+  requestId  String?
+  createdAt  DateTime @default(now())
+
+  @@map("job_events")
+  @@index([jobId, createdAt])
+}
+
+enum DispatchOfferStatus {
+  CREATED
+  SENT
+  VIEWED
+  ACCEPTED
+  SKIPPED
+  EXPIRED
+  REVOKED
+}
+
+model DispatchOffer {
+  id             String   @id @default(cuid())
+  jobId          String
+  job            Job      @relation(fields: [jobId], references: [id])
+  professionalId String
+  professional   ProfessionalProfile @relation(fields: [professionalId], references: [id])
+  status         DispatchOfferStatus @default(CREATED)
+  offeredAt      DateTime @default(now())
+  expiresAt      DateTime
+  respondedAt    DateTime?
+  scoreSnapshot  Float?
+  etaSecondsSnapshot Int?
+  payoutMinorUnitsSnapshot Int?
+
+  @@map("dispatch_offers")
+  @@index([jobId, status])
+  @@index([professionalId, status])
+  // Prevents a duplicate *live* offer for the same job/professional pair.
+  @@unique([jobId, professionalId, status])
+}
+
+model Quote {
+  id             String   @id @default(cuid())
+  jobId          String
+  job            Job      @relation(fields: [jobId], references: [id])
+  version        Int      @default(1)
+  versionHash    String
+  status         String   @default("SENT") // SENT | APPROVED | DECLINED | SUPERSEDED
+  totalMinorUnits Int
+  notes          String?
+  createdAt      DateTime @default(now())
+
+  lineItems QuoteItem[]
+
+  @@map("quotes")
+  @@index([jobId, version])
+}
+
+model QuoteItem {
+  id        String @id @default(cuid())
+  quoteId   String
+  quote     Quote  @relation(fields: [quoteId], references: [id])
+  description String
+  quantity  Float
+  unitPriceMinorUnits Int
+  kind      String @default("OTHER") // LABOR | MATERIALS | OTHER
+
+  @@map("quote_items")
+  @@index([quoteId])
+}
+
+// ---------------------------------------------------------------------
+// Payments & ledger — see /docs/09-PAYMENTS.md
+// ---------------------------------------------------------------------
+
+enum PaymentStatus {
+  CREATED
+  AUTHORIZING
+  AUTHORIZED
+  CAPTURING
+  CAPTURED
+  FAILED
+  REFUND_PENDING
+  PARTIALLY_REFUNDED
+  REFUNDED
+}
+
+model Payment {
+  id                String   @id @default(cuid())
+  jobId             String
+  job               Job      @relation(fields: [jobId], references: [id])
+  status            PaymentStatus @default(CREATED)
+  amountMinorUnits  Int
+  currency          String   @default("ILS")
+  providerName      String
+  isSandbox         Boolean  @default(true)
+  providerReference String?
+  idempotencyKey    String   @unique
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  events PaymentEvent[]
+  ledgerEntries LedgerEntry[]
+  refunds Refund[]
+
+  @@map("payments")
+  @@index([jobId])
+}
+
+model PaymentEvent {
+  id                String   @id @default(cuid())
+  paymentId         String
+  payment           Payment  @relation(fields: [paymentId], references: [id])
+  providerEventId   String   @unique
+  type              String
+  rawPayload        Json?
+  createdAt         DateTime @default(now())
+
+  @@map("payment_events")
+}
+
+model LedgerEntry {
+  id          String   @id @default(cuid())
+  paymentId   String
+  payment     Payment  @relation(fields: [paymentId], references: [id])
+  entryType   String   // CUSTOMER_CHARGE | PLATFORM_FEE | PROFESSIONAL_PAYABLE | REFUND
+  amountMinorUnits Int // signed
+  currency    String   @default("ILS")
+  createdAt   DateTime @default(now())
+
+  @@map("ledger_entries")
+  @@index([paymentId])
+}
+
+model PayoutAccount {
+  id             String   @id @default(cuid())
+  professionalId String   @unique
+  professional   ProfessionalProfile @relation(fields: [professionalId], references: [id])
+  providerName   String
+  isSandbox      Boolean  @default(true)
+  status         String   @default("PENDING") // PENDING | ACTIVE | RESTRICTED
+  createdAt      DateTime @default(now())
+
+  payouts Payout[]
+
+  @@map("payout_accounts")
+}
+
+model Payout {
+  id              String   @id @default(cuid())
+  payoutAccountId String
+  payoutAccount   PayoutAccount @relation(fields: [payoutAccountId], references: [id])
+  amountMinorUnits Int
+  status          String   @default("PENDING") // PENDING | PAID | FAILED
+  createdAt       DateTime @default(now())
+
+  @@map("payouts")
+}
+
+model Refund {
+  id        String   @id @default(cuid())
+  paymentId String
+  payment   Payment  @relation(fields: [paymentId], references: [id])
+  amountMinorUnits Int
+  reason    String?
+  status    String   @default("PENDING")
+  createdAt DateTime @default(now())
+
+  @@map("refunds")
+}
+
+// ---------------------------------------------------------------------
+// Reviews & reputation — see /docs/10-TRUST-VERIFICATION.md
+// ---------------------------------------------------------------------
+
+model Review {
+  id             String   @id @default(cuid())
+  jobId          String   @unique
+  job            Job      @relation(fields: [jobId], references: [id])
+  reviewerId     String
+  reviewer       CustomerProfile @relation(fields: [reviewerId], references: [id])
+  professionalId String
+  professional   ProfessionalProfile @relation(fields: [professionalId], references: [id])
+  overallRating  Int
+  text           String?
+  moderationStatus String @default("PUBLISHED")
+  createdAt      DateTime @default(now())
+
+  dimensions ReviewDimension[]
+
+  @@map("reviews")
+  @@unique([reviewerId, jobId])
+  @@index([professionalId])
+}
+
+model ReviewDimension {
+  id       String @id @default(cuid())
+  reviewId String
+  review   Review @relation(fields: [reviewId], references: [id])
+  name     String // professionalism | punctuality | quality
+  score    Int
+
+  @@map("review_dimensions")
+}
+
+model ExternalReputationSource {
+  id   String @id @default(cuid())
+  code String @unique // GOOGLE | OTHER
+
+  profiles ProfessionalExternalProfile[]
+
+  @@map("external_reputation_sources")
+}
+
+model ProfessionalExternalProfile {
+  id                String   @id @default(cuid())
+  professionalId    String
+  professional      ProfessionalProfile @relation(fields: [professionalId], references: [id])
+  sourceId          String
+  source            ExternalReputationSource @relation(fields: [sourceId], references: [id])
+  externalProfileId String
+  profileUrl        String?
+  linkStatus        String   @default("PENDING") // PENDING | LINKED | UNLINKED
+  createdAt         DateTime @default(now())
+
+  snapshots ExternalRatingSnapshot[]
+
+  @@map("professional_external_profiles")
+  @@index([professionalId])
+}
+
+model ExternalRatingSnapshot {
+  id           String   @id @default(cuid())
+  profileId    String
+  profile      ProfessionalExternalProfile @relation(fields: [profileId], references: [id])
+  rating       Float?
+  reviewCount  Int?
+  lastVerifiedAt DateTime?
+  createdAt    DateTime @default(now())
+
+  @@map("external_rating_snapshots")
+}
+
+// ---------------------------------------------------------------------
+// Chat, notifications, support, risk, admin, audit
+// ---------------------------------------------------------------------
+
+model ChatThread {
+  id        String   @id @default(cuid())
+  jobId     String
+  createdAt DateTime @default(now())
+
+  messages ChatMessage[]
+
+  @@map("chat_threads")
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  threadId  String
+  thread    ChatThread @relation(fields: [threadId], references: [id])
+  senderId  String
+  body      String
+  createdAt DateTime @default(now())
+
+  @@map("chat_messages")
+  @@index([threadId, createdAt])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  body      String
+  data      Json?
+  deliveredAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@map("notifications")
+  @@index([userId, createdAt])
+}
+
+model Dispute {
+  id        String   @id @default(cuid())
+  jobId     String
+  reason    String
+  status    String   @default("OPEN")
+  createdAt DateTime @default(now())
+
+  @@map("disputes")
+}
+
+model SupportTicket {
+  id        String   @id @default(cuid())
+  jobId     String?
+  userId    String
+  subject   String
+  status    String   @default("OPEN")
+  createdAt DateTime @default(now())
+
+  @@map("support_tickets")
+}
+
+model RiskSignal {
+  id             String   @id @default(cuid())
+  professionalId String
+  professional   ProfessionalProfile @relation(fields: [professionalId], references: [id])
+  signalType     String
+  severity       String   @default("LOW")
+  createdAt      DateTime @default(now())
+
+  actions RiskAction[]
+
+  @@map("risk_signals")
+  @@index([professionalId])
+}
+
+model RiskAction {
+  id           String   @id @default(cuid())
+  riskSignalId String
+  riskSignal   RiskSignal @relation(fields: [riskSignalId], references: [id])
+  action       String   // ALLOW | STEP_UP_VERIFICATION | MANUAL_REVIEW | TEMPORARY_LIMIT | SERVICE_DISABLE | SUSPEND | REVERIFY
+  reasonCode   String
+  actorAdminId String?
+  createdAt    DateTime @default(now())
+
+  @@map("risk_actions")
+}
+
+model BlockedRelationship {
+  id          String @id @default(cuid())
+  customerId  String
+  professionalId String
+  createdAt   DateTime @default(now())
+
+  @@map("blocked_relationships")
+  @@unique([customerId, professionalId])
+}
+
+model AdminUser {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  role      String   // OPS | TRUST_SAFETY | FINANCE | SUPER_ADMIN
+  createdAt DateTime @default(now())
+
+  @@map("admin_users")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String
+  action     String
+  targetType String
+  targetId   String
+  beforeJson Json?
+  afterJson  Json?
+  reason     String?
+  requestId  String?
+  createdAt  DateTime @default(now())
+
+  @@map("audit_logs")
+  @@index([targetType, targetId])
+}
+
+model AppConfig {
+  key       String   @id
+  value     Json
+  updatedBy String?
+  updatedAt DateTime @updatedAt
+
+  @@map("app_config")
+}

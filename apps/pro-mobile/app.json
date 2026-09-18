@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "PRO NOW — Pro",
+    "slug": "pro-now-pro",
+    "scheme": "pronow-pro",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "bundleIdentifier": "com.pronow.pro",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "כדי לשלוח אליך עבודות קרובות ולחשב זמני הגעה, PRO NOW משתמשת במיקום שלך בזמן שאתה זמין לעבודה.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "מיקום ברקע נדרש רק בזמן שאתה Online או בדרך ללקוח, כדי לשמור על עדכון ETA מדויק.",
+        "NSCameraUsageDescription": "כדי לצלם תיעוד עבודה ומסמכי אימות."
+      }
+    },
+    "android": {
+      "package": "com.pronow.pro",
+      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION", "ACCESS_BACKGROUND_LOCATION", "CAMERA"]
+    },
+    "extra": {
+      "apiBaseUrl": "http://localhost:4000"
+    }
+  }
+}

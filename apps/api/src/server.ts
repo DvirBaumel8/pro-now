@@ -1,0 +1,68 @@
+import Fastify from "fastify";
+import websocketPlugin from "@fastify/websocket";
+import { loadEnv } from "@pro-now/config";
+
+import prismaPlugin from "./plugins/prisma";
+import redisPlugin from "./plugins/redis";
+import providersPlugin from "./plugins/providers";
+import authContextPlugin from "./plugins/auth-context";
+
+import authRoutes from "./routes/auth";
+import catalogRoutes from "./routes/catalog";
+import jobsRoutes from "./routes/jobs";
+import offersRoutes from "./routes/offers";
+import proRoutes from "./routes/pro";
+import quotesRoutes from "./routes/quotes";
+import reviewsRoutes from "./routes/reviews";
+import { registerJobSocket } from "./realtime/job-socket";
+
+declare module "fastify" {
+  interface FastifyInstance {
+    config: ReturnType<typeof loadEnv>;
+  }
+}
+
+export async function buildServer() {
+  const config = loadEnv();
+  const app = Fastify({ logger: true });
+  app.decorate("config", config);
+
+  await app.register(websocketPlugin);
+  await app.register(prismaPlugin);
+  await app.register(redisPlugin);
+  await app.register(providersPlugin);
+  await app.register(authContextPlugin);
+
+  app.get("/health", async () => ({ ok: true, sandbox: config.NODE_ENV !== "production" }));
+
+  await app.register(authRoutes);
+  await app.register(catalogRoutes);
+  await app.register(jobsRoutes);
+  await app.register(offersRoutes);
+  await app.register(proRoutes);
+  await app.register(quotesRoutes);
+  await app.register(reviewsRoutes);
+
+  registerJobSocket(app);
+
+  app.setErrorHandler((err, req, reply) => {
+    req.log.error({ err }, "Unhandled error");
+    const status = (err as any).statusCode ?? 500;
+    reply.status(status).send({
+      code: (err as any).code ?? "INTERNAL_ERROR",
+      message: status >= 500 ? "Internal server error" : err.message,
+      requestId: req.id,
+    });
+  });
+
+  return app;
+}
+
+if (require.main === module) {
+  buildServer()
+    .then((app) => app.listen({ port: app.config.PORT, host: "0.0.0.0" }))
+    .catch((err) => {
+      console.error(err);
+      process.exit(1);
+    });
+}

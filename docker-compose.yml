@@ -1,0 +1,37 @@
+version: "3.9"
+
+# Local development infrastructure only. Never used for staging/production,
+# per PRO NOW engineering rules (see /CLAUDE.md and /docs/16-DEPLOYMENT.md).
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: pro-now-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: pronow
+      POSTGRES_PASSWORD: pronow_local_only
+      POSTGRES_DB: pronow
+    ports:
+      - "5432:5432"
+    volumes:
+      - pronow_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pronow"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: pro-now-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pronow_pg_data:

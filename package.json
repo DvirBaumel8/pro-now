@@ -1,0 +1,28 @@
+{
+  "name": "pro-now",
+  "private": true,
+  "version": "0.1.0",
+  "description": "PRO NOW — real-time ONLINE-FIRST / NOW-FIRST mobile services marketplace monorepo.",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev -w apps/api",
+    "dev:admin": "npm run dev -w apps/admin",
+    "dev:customer": "npm run start -w apps/customer-mobile",
+    "dev:pro": "npm run start -w apps/pro-mobile",
+    "build": "npm run build --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "db:migrate": "npm run db:migrate -w apps/api",
+    "db:seed": "npm run db:seed -w apps/api"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
