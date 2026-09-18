@@ -213,6 +213,41 @@ first real compile surfaces, then run `npm run typecheck`, `npm run lint`,
 and `npm test`, and only then treat the epic statuses in §6 as more than
 "written, self-consistent, believed correct."
 
+### 7a. What this session verified anyway, without any network access
+
+The registry block stops third-party dependency installation specifically.
+It does not stop static analysis or running pure/near-pure logic through
+the TypeScript/Node tooling that is already globally available in this
+sandbox (no `npm install` involved). So before closing this report, four
+real checks were run and are reproducible (`scripts/verify-domain-logic.ts`
+is committed so this isn't a one-off claim):
+
+| Check | Method | Result |
+|---|---|---|
+| JSON validity | `JSON.parse` on every `*.json` in the repo | **PASS** — 22/22 files parse |
+| TS/TSX syntax | TypeScript compiler API parser on every `.ts`/`.tsx` file (no type resolution, no node_modules needed) | **PASS** — 85/85 files, zero syntax errors |
+| Import resolution | every relative import and every `@pro-now/*` workspace import resolves to a real file on disk (third-party imports like `fastify`/`expo`/`@prisma/client` are skipped — that's exactly the part the registry block prevents verifying) | **PASS** — 85/85 files |
+| Domain logic — real execution | `tsx` (globally installed, no registry contact) actually imports and runs, not just parses, `transitions.ts`, `pro-presence-transitions.ts`, `eligibility.ts`, `scoring.ts`, `pricing-adapter.ts`, and `atomic-accept.ts` — 28 real assertions, including a genuine concurrency test: two simultaneous `acceptOffer()` calls for the same offer, run with real JS-engine concurrency (`Promise.allSettled`) against in-memory fakes standing in for Prisma/Redis | **PASS** — 28/28 assertions |
+
+Honest limits of that last check, stated plainly: it proves the exported
+`acceptOffer()` function and its Redis-lock fast path are race-safe under
+real concurrent invocation, and that the job/offer state guards inside the
+transaction are correct — but it runs against **hand-written in-memory
+fakes**, not a real PostgreSQL connection, so it does **not** exercise the
+actual `SELECT ... FOR UPDATE` row lock, which is the mechanism
+`atomic-accept.ts`'s own doc comment names as "the actual source of
+correctness." That specific guarantee is still unverified and stays the
+top item in §8 below.
+
+What remains genuinely unverified after this pass: everything that needs
+an actual `npm install` — Prisma Client generation and the real Postgres
+row lock, Redis in a real outage/latency scenario, Fastify actually
+booting and serving HTTP, the Expo/Next.js apps bundling and rendering,
+and the existing vitest suite under `apps/api/test/*.test.ts` (which this
+session's own hand-rolled script deliberately duplicates the intent of,
+using `node:assert` instead of `vitest`, precisely because vitest itself
+isn't installable here).
+
 ## 8. Recommended next epic
 
 Given §6 and §7: **do not start Epic 8+ yet.** The correct next step,

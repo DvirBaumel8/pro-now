@@ -50,6 +50,21 @@ pre-verified green. Please run the steps below yourself and treat
 `/docs/EPIC-0-REPORT.md §Verification status` as the honest record of what
 is and isn't confirmed working.
 
+That said, this session did run one meaningful check without any network
+access: `npm run verify:domain` (see `scripts/verify-domain-logic.ts`)
+actually imports and executes — not just parses — the core domain logic
+(job/presence state machines, dispatch eligibility, scoring, all 4 pricing
+adapters, and a real concurrency test of the dispatch atomic-accept path
+against in-memory fakes) using the globally-available `tsx`, and every one
+of its 28 assertions passes. It is not a replacement for the real vitest
+suite or a real Postgres/Redis, but it's a genuine, reproducible signal
+that the business logic itself is sound, independent of the install
+question. Run it any time with:
+
+```bash
+npm run verify:domain   # or: npx tsx scripts/verify-domain-logic.ts
+```
+
 ## Setup
 
 ```bash
