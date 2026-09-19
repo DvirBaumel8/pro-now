@@ -161,11 +161,20 @@ await visit('auth-phone', null, [CUST]);
 await visit('customer-home', CUST, []);
 await visit('service', CUST, ['פתיחת סתימה']);
 await visit('category-drill', CUST, ['שיפוץ והתקנות']);
+await visit('arrival-verify', CUST, [
+  'פתיחת סתימה',
+  'בקשת בעל מקצוע עכשיו',
+  'שליחת הקריאה',
+  // The search runs for real; the tracking screen only exists after it ends.
+  async () => p.waitForTimeout(7000),
+  'המקצוען יצא לדרך',
+  'המקצוען כמעט אצלך',
+]);
 await visit('person-fit', CUST, ['אנשים שמגיעים אליך', 'תספורת עד הבית', 'הצג איך נראית התאמה אישית']);
 await visit('service-scheduled', CUST, ['שיפוץ והתקנות', 'הרכבת רהיטים']);
 await visit('describe', CUST, ['פתיחת סתימה', 'בקשת בעל מקצוע עכשיו']);
-await visit('calls', CUST, ['הקריאות שלי']);
-await visit('card', CUST, ['הכרטיס שלי']);
+await visit('calls', CUST, [async () => p.getByLabel('הקריאות שלי').first().click()]);
+await visit('card', CUST, [async () => p.getByLabel('החשבון שלי').first().click()]);
 await visit('pro-shift-offline', PRO, []);
 await visit('pro-presence', PRO, ['ניהול']);
 await visit('pro-shift-online', PRO, ['התחלת משמרת']);

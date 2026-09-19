@@ -418,6 +418,7 @@ export const personFitCandidates = [
   {
     seed: "pro_barber_1",
     displayNameHe: "דוגמה ט׳ (תצוגה)",
+    headlineHe: "ספרית עד הבית · תספורות ועיצוב",
     specialtiesHe: ["תספורת גבר", "עיצוב זקן", "פייד"],
     ratingAverage: 4.8,
     ratingCount: 63,
@@ -431,6 +432,7 @@ export const personFitCandidates = [
   {
     seed: "pro_barber_2",
     displayNameHe: "דוגמה י׳ (תצוגה)",
+    headlineHe: "ספרית עד הבית · נשים וילדים",
     specialtiesHe: ["תספורת אישה", "פן", "תספורת ילדים"],
     // No average yet, and the screen says "חדש ב-PRO NOW" rather than
     // inventing one. A single review is not a reputation.
@@ -445,6 +447,7 @@ export const personFitCandidates = [
   {
     seed: "pro_barber_3",
     displayNameHe: "דוגמה י״א (תצוגה)",
+    headlineHe: "ספר עד הבית · גברים וילדים",
     specialtiesHe: ["תספורת גבר", "מכונה", "עד הבית בערב"],
     ratingAverage: 4.6,
     ratingCount: 21,
@@ -452,5 +455,48 @@ export const personFitCandidates = [
     portfolio: [{ id: "w1", uri: null, captionHe: "תספורת מכונה" }],
   },
 ];
+
+/**
+ * WHY THIS MATCH — assembled from facts, never from a score.
+ *
+ * Each reason has to be something the server could stand behind: a declared
+ * specialty that matches what the customer actually asked for, presence
+ * right now, the real distance. Nothing here is a judgement about the
+ * person, and nothing is a percentage. The screen explains the match
+ * instead of asserting one — which is also the only version of "AI" this
+ * product can honestly show today.
+ *
+ * A reason with no supporting fact is simply not produced, so a thin match
+ * shows one line rather than three invented ones.
+ */
+export function matchReasons(args: {
+  specialtiesHe: string[];
+  /** What the customer chose or typed, lower-cased by the caller. */
+  askedForHe: string[];
+  onlineNow: boolean;
+  etaMinutes: number | null;
+  completedJobs: number;
+}): { id: string; textHe: string; kind: "SKILL" | "LIVE" | "DISTANCE" | "HISTORY" }[] {
+  const out: { id: string; textHe: string; kind: "SKILL" | "LIVE" | "DISTANCE" | "HISTORY" }[] = [];
+
+  // A specialty counts only when the customer actually mentioned it.
+  const hit = args.specialtiesHe.find((sp) =>
+    args.askedForHe.some((a) => a.includes(sp) || sp.includes(a))
+  );
+  if (hit) out.push({ id: "skill", textHe: `מתמחה ב${hit}`, kind: "SKILL" });
+
+  if (args.onlineNow) out.push({ id: "live", textHe: "זמינה עכשיו", kind: "LIVE" });
+
+  if (typeof args.etaMinutes === "number") {
+    out.push({ id: "distance", textHe: `${args.etaMinutes} דקות ממך`, kind: "DISTANCE" });
+  }
+
+  // History is a reason only when there is enough of it to mean something.
+  if (args.completedJobs >= 25) {
+    out.push({ id: "history", textHe: `${args.completedJobs} עבודות דרך PRO NOW`, kind: "HISTORY" });
+  }
+
+  return out;
+}
 
 export { pilotServiceById };

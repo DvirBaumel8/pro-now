@@ -79,6 +79,8 @@ export const palette = {
 
   // Berry — danger, disputes
   berry500: "#E01E5A",
+  /** Berry as TEXT on ivory. berry500 measures 4.33:1 there — just under. */
+  berry700: "#B8003F",
   /**
    * Berry is 3.94:1 as text on the professional's near-black surface —
    * below WCAG, and it is the colour that carries "פג תוקף" and a negative

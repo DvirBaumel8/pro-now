@@ -11,7 +11,11 @@ import {
   DescribeFaultBody,
   JobCompleteBody,
 
+  ActiveJobCapsule,
+  ArrivalVerifyBody,
+  CAPSULE_HEIGHT,
   NavGlyph,
+  UtilityRow,
   Persona,
   ProEarningsBody,
   MatchConfirmBody,
@@ -51,6 +55,7 @@ import {
   catalogServicePages,
   eligibilityFor,
   isPersonFit,
+  matchReasons,
   personFitCandidates,
   photoPromptFor,
 } from "./catalogAdapter";
@@ -157,6 +162,8 @@ type CustomerRoute =
   /** PERSON_FIT only: the system proposes, the customer confirms. */
   | { name: "matchconfirm"; serviceId: string; index: number }
   | { name: "tracking"; stage: "assigned" | "enroute" | "arrived" }
+  /** The minute before the knock. See ArrivalVerifyBody. */
+  | { name: "arrival" }
   | { name: "quote" }
   | { name: "complete" };
 
@@ -533,19 +540,64 @@ function CustomerApp({
         }
       : null;
 
+  const arrivalAdvance =
+    tab === "home" && route.name === "arrival"
+      ? {
+          label: "אימתתי את הקוד — הוא נכנס",
+          next: () => go({ name: "tracking", stage: "arrived" }),
+        }
+      : null;
+
   const advance =
     tab === "home" && route.name === "tracking"
       ? route.stage === "assigned"
         ? { label: "המקצוען יצא לדרך", next: () => go({ name: "tracking", stage: "enroute" }) }
         : route.stage === "enroute"
-          ? { label: "המקצוען הגיע ומתחיל לעבוד", next: () => go({ name: "tracking", stage: "arrived" }) }
+          ? { label: "המקצוען כמעט אצלך", next: () => go({ name: "arrival" }) }
           : { label: "המקצוען שלח הצעת מחיר", next: () => go({ name: "quote" }) }
       : null;
 
-  const demo = advance ?? previewMatch;
+  const demo = advance ?? arrivalAdvance ?? previewMatch;
 
-  const BAR = 64;
-  const bodyH = height - BAR - (demo ? DEMO_H : 0);
+  /**
+   * A thin utility row instead of a bar at the bottom. It is 56px and it
+   * carries two destinations, not four.
+   */
+  /*
+   * ON EVERY SCREEN EXCEPT THE JOB'S OWN.
+   *
+   * The capsule exists so a live job is never lost while the customer is
+   * doing something else. On the job's own screens it is noise — the whole
+   * screen is already about that job — and the first version showed it
+   * while merely browsing a service page, advertising an unrelated call.
+   */
+  const jobScreens = [
+    "tracking",
+    "arrival",
+    "chat",
+    "quote",
+    "complete",
+    "searching",
+    "matchconfirm",
+  ];
+  const capsule =
+    customerOpenCall.length > 0 && !jobScreens.includes(route.name)
+      ? {
+          textHe: `${customerOpenCall[0]!.proNameHe} · ${customerOpenCall[0]!.stateHe}`,
+          etaMinutes: customerOpenCall[0]!.etaMinutes,
+          onPress: () => go({ name: "tracking", stage: "enroute" }),
+        }
+      : null;
+
+  const UTIL = 56;
+  const bodyH = height - UTIL - (demo ? DEMO_H : 0) - (capsule ? CAPSULE_HEIGHT : 0);
+
+  /**
+   * The live job, as one sentence. Present only while there is a job to
+   * talk about — a capsule that is always there is a navigation bar with
+   * extra steps.
+   */
+
 
   // The search advances on its own, the way it will in production when the
   // server answers — so the wait is experienced rather than described.
@@ -762,26 +814,57 @@ function CustomerApp({
       case "matchconfirm": {
         const page = SERVICE_PAGES[route.serviceId]!;
         const c = personFitCandidates[route.index % personFitCandidates.length]!;
+        const etaMin = matchFixture.eta ? Math.round(matchFixture.eta.etaSeconds / 60) : null;
+        /*
+         * The arrival clock, computed from the ETA rather than stored. "14
+         * דקות" is a duration; "אצלך בערך ב-22:48" is a plan, and a person
+         * deciding whether to let someone into their home is making a plan.
+         */
+        const arrival = etaMin === null ? null : new Date(Date.now() + etaMin * 60_000);
+        // No ETA means no arrival time — not a guessed one.
+        const arrivalClockHe =
+          arrival === null
+            ? null
+            : `${String(arrival.getHours()).padStart(2, "0")}:${String(
+                arrival.getMinutes()
+              ).padStart(2, "0")}`;
         return (
           <MatchConfirmBody
             serviceNameHe={page.nameHe}
             displayNameHe={c.displayNameHe}
-            seed={c.seed}
-            specialtiesHe={c.specialtiesHe}
+            headlineHe={c.headlineHe}
+            /*
+             * No photo, and no illustrated stand-in either. A face on a
+             * proposed professional — drawn or photographed — asserts that
+             * this specific person exists and is free right now. The
+             * monogram occupies exactly the space a real approved photo
+             * will, so nothing about this screen changes on the day one
+             * arrives.
+             */
+            photoUri={null}
             portfolio={c.portfolio}
+            reasons={matchReasons({
+              specialtiesHe: c.specialtiesHe,
+              // What the customer actually said — their typed sentence and
+              // whichever symptoms they tapped. Nothing else counts as
+              // having been asked for.
+              askedForHe: [
+                faultText.toLowerCase(),
+                ...intakeAnswers.flatMap((a) => a.optionIds ?? []),
+                ...(page.symptomsHe ?? []),
+              ].filter(Boolean),
+              onlineNow: true,
+              etaMinutes: etaMin,
+              completedJobs: c.completedJobs,
+            })}
             ratingAverage={c.ratingAverage}
             ratingCount={c.ratingCount}
             completedJobs={c.completedJobs}
             credentialsHe={page.requiredCredentialsHe}
             eta={matchFixture.eta}
+            arrivalClockHe={arrivalClockHe}
             price={page.price}
-            /*
-             * Bounded on purpose. Three proposals, then the screen says
-             * that is what there is. Unlimited alternatives would turn a
-             * two-tap booking into a browsing session and teach customers
-             * to keep looking instead of to trust the match.
-             */
-            alternativesLeft={personFitCandidates.length - 1 - route.index}
+            hasAlternative={route.index < personFitCandidates.length - 1}
             onAccept={() => go({ name: "tracking", stage: "assigned" })}
             onAnother={() =>
               go({ name: "matchconfirm", serviceId: route.serviceId, index: route.index + 1 })
@@ -809,6 +892,31 @@ function CustomerApp({
             onCall={() => setSheet("call")}
             onMessage={() => go({ name: "chat" })}
             onSafety={() => setSheet("safety")}
+            width={width}
+            height={bodyH}
+          />
+        );
+      case "arrival":
+        return (
+          <ArrivalVerifyBody
+            displayNameHe={matchFixture.professional.displayName}
+            /* No invented face here either — the monogram holds the space. */
+            photoUri={null}
+            headlineHe={`${trackedService.nameHe} · ${matchFixture.professional.proNowCompletedJobs} עבודות דרך PRO NOW`}
+            /*
+             * In production this comes from the server with the assignment.
+             * A code the client can derive is a code an impostor's client
+             * can derive, so it is never computed here — the prototype
+             * carries a fixed one and says nothing that implies otherwise.
+             */
+            codeHe="4821"
+            vehicleHe="יונדאי i20 לבנה"
+            plateTailHe="47"
+            etaMinutes={2}
+            onCall={() => setSheet("call")}
+            onMessage={() => go({ name: "chat" })}
+            onShare={() => setSheet("safety")}
+            onReport={() => setSheet("safety")}
             width={width}
             height={bodyH}
           />
@@ -881,6 +989,30 @@ function CustomerApp({
 
   return (
     <View style={{ width, height }}>
+      <UtilityRow
+        width={width}
+        addressLabelHe={addressLabel}
+        onChangeAddress={() => go({ name: "address" })}
+        onCalls={() => {
+          setTab("calls");
+          setRoute({ name: "home" });
+        }}
+        onAccount={() => {
+          setTab("card");
+          setRoute({ name: "home" });
+        }}
+        trailing={
+          <Pressable
+            onPress={onSwitch}
+            accessibilityRole="button"
+            accessibilityLabel="מעבר לצד בעל המקצוע"
+            style={styles.sideSwitch}
+          >
+            <Text style={styles.sideSwitchText}>מקצוען</Text>
+          </Pressable>
+        }
+      />
+
       <View style={{ height: bodyH }}>{body}</View>
 
       {demo ? <DemoBar label={demo.label} onPress={demo.next} width={width} /> : null}
@@ -943,22 +1075,23 @@ function CustomerApp({
         </Text>
       </Sheet>
 
-      <TabBar
-        width={width}
-        height={BAR}
-        items={[
-          { key: "home", label: "בית", mark: "home" as const },
-          { key: "calls", label: "הקריאות שלי", mark: "list" as const },
-          { key: "card", label: "הכרטיס שלי", mark: "person" as const },
-        ]}
-        active={tab}
-        onPress={(k) => {
-          setTab(k as CustomerTab);
-          if (k === "home") setRoute({ name: "home" });
-        }}
-        onSwitch={onSwitch}
-        switchLabel="מקצוען"
-      />
+      {/*
+        * NO TAB BAR HERE. The customer's home is a command surface — it asks
+        * one question, and four permanent doors underneath it imply the
+        * answer might be somewhere else. Navigation lives in a thin top row;
+        * a live job gets its own capsule, which is not navigation and does
+        * not pretend to be. (Visual System v1, and the reasoning is in
+        * CommandChrome.tsx.)
+        */}
+      {capsule ? (
+        <ActiveJobCapsule
+          textHe={capsule.textHe}
+          etaMinutes={capsule.etaMinutes}
+          onPress={capsule.onPress}
+          width={width}
+        />
+      ) : null}
+
     </View>
   );
 }
@@ -1733,6 +1866,22 @@ const styles = StyleSheet.create({
    * defect the palette split was written to remove. Ink on coral is 5.99:1.
    */
   sheetPrimaryText: { ...t.bodyStrong, fontSize: 16, color: customerTheme.colors.onAction },
+  /*
+   * The side switch is a prototype affordance, not product navigation —
+   * a real customer has no professional side to jump to. It sits quietly
+   * at the bottom-left rather than occupying a slot in a navigation bar.
+   */
+  sideSwitch: {
+    minHeight: 44,
+    minWidth: 68,
+    alignItems: "center",
+    marginLeft: spacing.xs,
+    justifyContent: "center",
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.pill,
+    backgroundColor: tint.trust(0.14),
+  },
+  sideSwitchText: { ...t.caption, fontSize: 12, fontWeight: "700", color: customerTheme.colors.trust },
   sheetSecondary: { minHeight: 48, alignItems: "center", justifyContent: "center", marginTop: spacing.sm },
   sheetSecondaryText: { ...t.captionStrong, color: customerTheme.colors.statusDanger },
   sheetNote: {

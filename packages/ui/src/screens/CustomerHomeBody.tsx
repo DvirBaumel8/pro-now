@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import type { AreaAvailabilityView } from "@pro-now/types";
 
@@ -7,7 +7,7 @@ import { lex, prosFreeShort } from "../lexicon";
 import { matchServicesByText, type ServiceMatchRule } from "../service-match";
 import { resolveHomeSupply } from "../home-supply";
 import { customerTheme, elevation, radii, spacing, tint, type } from "../theme";
-import { Mark, PinMark, type MarkName } from "../components/marks";
+import { Mark, type MarkName } from "../components/marks";
 import { HeroFlourish, SectionHeader } from "../components/surfaces";
 import { ServiceRow } from "../components/ServiceTile";
 import { LiveServiceCard, Pulse } from "../components/LiveServiceCard";
@@ -96,8 +96,12 @@ export interface HomeRecentItem {
 export interface CustomerHomeBodyProps {
   /** Short greeting, e.g. "ערב טוב". Locale/time logic lives in the app. */
   greetingHe: string;
-  /** The saved address this request will default to. */
-  addressLabelHe: string;
+  /**
+   * @deprecated The address lives in the app's utility row now, so it is on
+   * every screen rather than only this one. Kept so existing callers do not
+   * break; ignored here.
+   */
+  addressLabelHe?: string;
   services: HomeServiceItem[];
   recent?: HomeRecentItem[];
   /**
@@ -119,6 +123,7 @@ export interface CustomerHomeBodyProps {
   /** Total professionals online, for callers with no snapshot yet. */
   totalAvailableNow?: number | null;
   onSelectService?: (id: string) => void;
+  /** @deprecated Moved to the utility row. */
   onChangeAddress?: () => void;
 
   /**
@@ -152,7 +157,6 @@ const ALL = "הכול";
 
 export function CustomerHomeBody({
   greetingHe,
-  addressLabelHe,
   services,
   recent = [],
   availability,
@@ -160,7 +164,6 @@ export function CustomerHomeBody({
   matchRules,
   totalAvailableNow,
   onSelectService,
-  onChangeAddress,
   capture,
   width = 390,
 }: CustomerHomeBodyProps) {
@@ -281,14 +284,12 @@ export function CustomerHomeBody({
       <View style={styles.hero}>
         <HeroFlourish color={colors.action} opacity={0.1} />
 
-        <Pressable onPress={onChangeAddress} accessibilityRole="button" style={styles.addressRow}>
-          <PinMark size={15} color={colors.textSecondary} />
-          <Text style={styles.addressText} numberOfLines={1}>
-            {addressLabelHe}
-          </Text>
-          <Text style={styles.addressChevron}>⌄</Text>
-        </Pressable>
-
+        {/*
+          * The address moved to the utility row at the top of the app, so
+          * it is on every screen rather than only this one — and showing it
+          * twice on the home screen was the kind of duplication that makes
+          * a reader wonder which of the two is the real control.
+          */}
         <Text style={styles.greeting}>{greetingHe}</Text>
         <Text style={styles.headline}>{lex.homeQuestion}</Text>
 
