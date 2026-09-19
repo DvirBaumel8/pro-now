@@ -49,6 +49,8 @@ export interface ServiceDetailBodyProps {
   /** Credentials required for this service, per /CLAUDE.md §3. */
   requiredCredentialsHe: string[];
   onRequestNow?: () => void;
+  /** Re-runs the supply query. The honest action when nobody is online. */
+  onRecheck?: () => void;
   onBack?: () => void;
   width?: number;
   height?: number;
@@ -66,6 +68,7 @@ export function ServiceDetailBody({
   availableNowCount,
   requiredCredentialsHe,
   onRequestNow,
+  onRecheck,
   onBack,
   width = 390,
   height = 780,
@@ -110,7 +113,7 @@ export function ServiceDetailBody({
             ) : availableNowCount === 0 ? (
               <View style={[styles.supplyPill, { backgroundColor: tint.warning(0.14) }]}>
                 <Text style={[styles.supplyText, { color: colors.textPrimary }]}>
-                  אין כרגע בעלי מקצוע זמינים באזור שלך
+                  כרגע אין בעלי מקצוע זמינים באזור שלך
                 </Text>
               </View>
             ) : (
@@ -193,24 +196,31 @@ export function ServiceDetailBody({
       </ScrollView>
 
       {/* ---------------- CTA ---------------- */}
+      {/*
+       * When nobody is online the screen offers the action that actually
+       * exists — check again — and states the true reason. It deliberately
+       * does NOT offer to notify the customer: PRO NOW has no availability
+       * watch, and a button that promises a push nobody will send is a
+       * fabricated capability, which /CLAUDE.md §3 rules out just as firmly
+       * as fabricated supply. When the watch is built, this is where it goes.
+       */}
       <View style={styles.cta}>
         <Pressable
-          onPress={onRequestNow}
-          disabled={!canDispatch}
+          onPress={canDispatch ? onRequestNow : onRecheck}
           accessibilityRole="button"
-          accessibilityLabel={`בקשת ${nameHe} עכשיו`}
+          accessibilityLabel={canDispatch ? `בקשת ${nameHe} עכשיו` : "בדיקה מחדש של הזמינות"}
           style={({ pressed }) => [
             styles.ctaBtn,
-            !canDispatch && { backgroundColor: colors.border },
+            !canDispatch && styles.ctaBtnQuiet,
             pressed && { opacity: 0.88 },
           ]}
         >
-          <Text style={[styles.ctaLabel, !canDispatch && { color: colors.textSecondary }]}>
-            {canDispatch ? "בקשת בעל מקצוע עכשיו" : "אין זמינות כרגע"}
+          <Text style={[styles.ctaLabel, !canDispatch && { color: colors.textPrimary }]}>
+            {canDispatch ? "בקשת בעל מקצוע עכשיו" : "בדיקה מחדש"}
           </Text>
         </Pressable>
         <Text style={styles.ctaNote}>
-          {canDispatch ? "לא מחויב עד שתאשר את ההתאמה" : "נעדכן אותך כשתהיה זמינות באזור שלך"}
+          {canDispatch ? "לא מחויב עד שתאשר את ההתאמה" : "הזמינות משתנה לאורך היום"}
         </Text>
       </View>
     </View>
@@ -373,6 +383,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  // Outlined rather than greyed-out: "check again" is a real, enabled action,
+  // and a disabled-looking button would say the screen is a dead end.
+  ctaBtnQuiet: { backgroundColor: "transparent", borderWidth: 1.5, borderColor: colors.border },
   ctaLabel: { ...type.bodyStrong, fontSize: 17, color: "#06210F" },
   ctaNote: {
     ...type.caption,

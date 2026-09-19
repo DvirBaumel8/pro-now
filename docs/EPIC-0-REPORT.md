@@ -835,3 +835,44 @@ with a wrapped grid, which is correct on both device and browser).
 The §10.8 Prisma blocker, the §10.7 RTL decision, and the four product
 decisions in §10.6 awaiting Amit's confirmation. None of this pass depends
 on them, and none of it resolves them.
+
+### 11.6 ChatGPT review of this pass, and what it changed
+
+The pass was sent to Amit's ChatGPT thread for a second opinion. It approved
+the direction and returned two corrections worth acting on immediately, plus
+a direction for the next round.
+
+**Correction 1 — a fabricated capability in my own copy.** The zero-supply
+state on C04 read "נעדכן אותך כשתהיה זמינות באזור שלך". There is no
+availability watch in PRO NOW. A button that promises a notification nobody
+will send is a fabricated *capability*, which /CLAUDE.md §3 rules out as
+firmly as fabricated supply — and it was in a screen I had just written to
+enforce that same rule. The screen now offers the action that actually
+exists: an enabled, outlined "בדיקה מחדש" with the true reason underneath
+("הזמינות משתנה לאורך היום"). An outline rather than a greyed-out button,
+because re-checking is a real action and a dead-looking control would say
+the screen is a dead end. When a real watch is built, that is where it goes.
+
+**Correction 2 — trust needs a hierarchy, not just separation.** Keeping
+PRO NOW's rating apart from an imported Google rating was right, but giving
+them equal visual weight made the customer decode three trust systems. PRO
+NOW's rating and job count now own the hero row; the external rating sits
+quietly below it, still labelled by source, as corroboration. And a
+professional with no PRO NOW rating now reads "חדש" rather than three
+dashes — dashes say *missing data*, "new" is the same fact stated truthfully
+and usefully.
+
+**Direction for the next pass**, recorded here rather than acted on: stop
+polishing screens and design the *live* experience — real availability
+counts surfaced from the backend on home and service pages, the map as the
+stage rather than a backdrop, and a job offer that arrives as an event
+(haptic, server countdown, large payout, one decisive Accept) rather than as
+another card. It also pushed back on reading "fewer squares" as "squares
+with a larger radius": some screens should have no container at all —
+edge-to-edge imagery, type directly on the background, large numbers without
+a card. A card should mean "this is a self-contained unit", not "text needs
+somewhere to sit".
+
+It also noted, correctly, that the premium feel cannot be judged at all
+until a real licensed photography set exists. `ImageSlot` is the slot; the
+photography is a business decision (/CLAUDE.md §4) and is Amit's to make.

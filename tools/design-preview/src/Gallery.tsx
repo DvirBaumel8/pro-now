@@ -220,7 +220,7 @@ export function Gallery() {
           <ServiceDetailBody {...serviceDetailLeak} width={PHONE_W} height={PHONE_H} />
         </Frame>
 
-        <Frame caption="C04 · תעריף שעתי · אפס זמינות — הכפתור כבוי, לא מבטיח">
+        <Frame caption="C04 · תעריף שעתי · אפס זמינות — בדיקה מחדש, לא הבטחת התראה">
           <ServiceDetailBody {...serviceDetailElectric} width={PHONE_W} height={PHONE_H} />
         </Frame>
       </Section>
@@ -230,7 +230,7 @@ export function Gallery() {
         title="פרופיל בעל מקצוע"
         subtitle="C12 · שלוש עובדות נפרדות: דירוג PRO NOW, עבודות שהושלמו, ומוניטין חיצוני — לעולם לא מאוחדות לציון אחד."
       >
-        <Frame caption="C12 · ותיק · דירוג, ביקורות, מוניטין Google בנפרד" height={980}>
+        <Frame caption="C12 · ותיק · PRO NOW בראש, Google כאישוש שקט מתחת" height={980}>
           <ProProfileBody
             professional={matchFixture.professional}
             services={profileServices}
@@ -244,7 +244,7 @@ export function Gallery() {
           />
         </Frame>
 
-        <Frame caption="C12 · חדש · אין דירוג, אין ביקורות, אין תצלומים — וזה נראה ככה" height={980}>
+        <Frame caption="C12 · חדש · ״חדש ב-PRO NOW״ במקום מקפים" height={980}>
           <ProProfileBody
             professional={matchNewProFixture.professional}
             services={profileServices.slice(0, 1)}

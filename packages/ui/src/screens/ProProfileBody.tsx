@@ -128,20 +128,36 @@ export function ProProfileBody({
               .join(" · ")}
           </Text>
 
-          {/* The three facts, side by side, each labelled with its source. */}
+          {/*
+           * Trust has a primary source and a secondary one, and they are not
+           * given equal weight. PRO NOW's own rating and job count are the
+           * facts this product is accountable for, so they own the hero row;
+           * an imported external rating is corroboration and sits quieter,
+           * below, still labelled by its source. They are never summed — the
+           * separation is the point (/docs/10-TRUST-VERIFICATION.md).
+           *
+           * A professional with no PRO NOW rating yet is NEW, not deficient.
+           * Three dashes read as missing data; "חדש ב-PRO NOW" is the true
+           * and more useful statement of the same fact.
+           */}
           <View style={styles.factRow}>
-            <Fact
-              value={rating ? rating.rating : "—"}
-              label={rating ? `${rating.count} ביקורות` : "אין דירוג עדיין"}
-              icon={<StarMark size={15} color={rating ? colors.statusWarning : colors.textSecondary} />}
-              muted={!rating}
-            />
-            <View style={styles.factDivider} />
-            <Fact
-              value={professional.proNowCompletedJobs > 0 ? String(professional.proNowCompletedJobs) : "—"}
-              label={jobs ? "עבודות ב-PRO NOW" : "טרם הושלמו עבודות"}
-              muted={professional.proNowCompletedJobs === 0}
-            />
+            {rating ? (
+              <>
+                <Fact
+                  value={rating.rating}
+                  label={`${rating.count} ביקורות`}
+                  icon={<StarMark size={15} color={colors.statusWarning} />}
+                />
+                <View style={styles.factDivider} />
+                <Fact value={String(professional.proNowCompletedJobs)} label="עבודות ב-PRO NOW" />
+              </>
+            ) : (
+              <Fact
+                value="חדש"
+                label={jobs ?? "טרם הושלמו עבודות ב-PRO NOW"}
+                icon={<ShieldCheckMark size={15} color={colors.action} />}
+              />
+            )}
             <View style={styles.factDivider} />
             <Fact
               value={fromPriceMinorUnits !== null ? formatMoney(money(fromPriceMinorUnits, "ILS")) : "—"}
@@ -149,6 +165,16 @@ export function ProProfileBody({
               muted={fromPriceMinorUnits === null}
             />
           </View>
+
+          {professional.externalReputation &&
+          professional.externalReputation.ratingAverage !== null &&
+          professional.externalReputation.ratingCount ? (
+            <Text style={styles.extQuiet} numberOfLines={1}>
+              מחוץ ל-PRO NOW · {professional.externalReputation.source}{" "}
+              {professional.externalReputation.ratingAverage.toFixed(1)} ·{" "}
+              {professional.externalReputation.ratingCount} ביקורות
+            </Text>
+          ) : null}
         </View>
 
         {/* ---------------- Verification ---------------- */}
@@ -391,6 +417,13 @@ const styles = StyleSheet.create({
   factDivider: { width: 1, backgroundColor: colors.border, marginVertical: spacing.xs },
   factValueRow: { flexDirection: "row-reverse", alignItems: "center", gap: 4 },
   factValue: { ...type.h3, ...tabular, color: colors.textPrimary },
+  extQuiet: {
+    ...type.caption,
+    color: colors.textSecondary,
+    marginTop: spacing.md,
+    writingDirection: "rtl",
+  },
+
   factLabel: {
     ...type.caption,
     fontSize: 11,
