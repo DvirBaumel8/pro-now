@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Animated, Easing, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 
 import {
   AddressPickerBody,
@@ -8,6 +8,7 @@ import {
   JobCompleteBody,
   Mark,
   Persona,
+  ProJobBody,
   ProOfferBody,
   ProOnlineBody,
   ProProfileBody,
@@ -24,7 +25,7 @@ import {
   type as t,
 } from "@pro-now/ui";
 import type { LiveLocationState } from "@pro-now/ui";
-import type { ProPresenceState } from "@pro-now/types";
+import type { JobState, ProPresenceState } from "@pro-now/types";
 
 import { matchFixture, offerFixture } from "./fixtures";
 import {
@@ -33,6 +34,9 @@ import {
   customerOpenCall,
   homeRecent,
   homeServices,
+  jobDescription,
+  jobMedia,
+  jobSymptoms,
   matchRules,
   savedAddresses,
   proServices,
@@ -364,11 +368,7 @@ function CustomerApp({
     <View style={{ width, height }}>
       <View style={{ height: bodyH }}>{body}</View>
 
-      {advance ? (
-        <Pressable style={styles.advance} onPress={advance.next}>
-          <Text style={styles.advanceText}>▶ {advance.label}</Text>
-        </Pressable>
-      ) : null}
+      {advance ? <DemoBar label={advance.label} onPress={advance.next} width={width} /> : null}
 
       <TabBar
         width={width}
@@ -399,6 +399,7 @@ function ProApp({ width, height, onSwitch }: { width: number; height: number; on
   const [presence, setPresence] = useState<ProPresenceState>("OFFLINE");
   const [offerAt, setOfferAt] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const [job, setJob] = useState<JobState | null>(null);
 
   const BAR = 64;
   const bodyH = height - BAR;
@@ -430,6 +431,26 @@ function ProApp({ width, height, onSwitch }: { width: number; height: number; on
       }
     : null;
 
+  const JOB_FLOW: JobState[] = [
+    "PRO_ASSIGNED",
+    "PRO_EN_ROUTE",
+    "PRO_ARRIVED",
+    "DIAGNOSIS",
+    "WAITING_QUOTE_APPROVAL",
+    "IN_PROGRESS",
+    "COMPLETED",
+  ];
+  const advanceJob = () => {
+    if (!job) return;
+    const i = JOB_FLOW.indexOf(job);
+    const next = JOB_FLOW[i + 1];
+    if (!next || next === "COMPLETED") {
+      setJob(null);
+      return;
+    }
+    setJob(next);
+  };
+
   const body =
     tab === "profile" ? (
       <ProProfileBody
@@ -443,12 +464,24 @@ function ProApp({ width, height, onSwitch }: { width: number; height: number; on
         width={width}
         height={bodyH}
       />
-    ) : offer ? (
-      <ProOfferBody
-        offer={offer}
-        nowMs={now}
-        onAccept={() => setOfferAt(null)}
-        onSkip={() => setOfferAt(null)}
+    ) : job ? (
+      <ProJobBody
+        status={job}
+        serviceNameHe="תיקון נזילה בברז"
+        mark="plumbing"
+        addressHe="רחוב הברזל 12, רמת אביב, תל אביב"
+        accessNoteHe="קומה 3, דירה 9 · קוד כניסה 1408"
+        routeEtaMinutes={9}
+        distanceHe="2.4 ק״מ"
+        customerNameHe="אמית (תצוגה)"
+        customerSeed="cust_demo_1"
+        symptomsHe={jobSymptoms}
+        descriptionHe={jobDescription}
+        media={jobMedia}
+        payoutMinorUnits={job === "DIAGNOSIS" || job === "WAITING_QUOTE_APPROVAL" ? null : 13400}
+        payoutIsEstimate={false}
+        onAdvance={advanceJob}
+        onSendQuote={advanceJob}
         width={width}
         height={bodyH}
       />
@@ -469,10 +502,29 @@ function ProApp({ width, height, onSwitch }: { width: number; height: number; on
     <View style={{ width, height }}>
       <View style={{ height: bodyH }}>{body}</View>
 
-      {tab === "shift" && presence === "AVAILABLE" && !offer ? (
-        <Pressable style={[styles.advance, styles.advanceDark]} onPress={() => setOfferAt(Date.now())}>
-          <Text style={styles.advanceText}>▶ נכנסת עבודה</Text>
-        </Pressable>
+      {/*
+        * An offer ARRIVES. It does not replace a tab — it rises over
+        * whatever the professional was looking at, the way a call does,
+        * because that is what makes it an event rather than a page.
+        */}
+      {offer ? (
+        <RiseIn key={offerAt ?? 0} width={width} height={height}>
+          <ProOfferBody
+            offer={offer}
+            nowMs={now}
+            onAccept={() => {
+              setOfferAt(null);
+              setJob("PRO_ASSIGNED");
+            }}
+            onSkip={() => setOfferAt(null)}
+            width={width}
+            height={height}
+          />
+        </RiseIn>
+      ) : null}
+
+      {tab === "shift" && presence === "AVAILABLE" && !offer && !job ? (
+        <DemoBar dark label="נכנסת עבודה" onPress={() => setOfferAt(Date.now())} width={width} />
       ) : null}
 
       <TabBar
@@ -493,6 +545,80 @@ function ProApp({ width, height, onSwitch }: { width: number; height: number; on
 }
 
 // ---------------------------------------------------------------------
+
+/**
+ * The control that drives the prototype forward.
+ *
+ * It used to be a small pill floating over the content, and the first person
+ * to use it could not hit it. That is a real finding about tap targets, not
+ * a prototype quirk: a control that advances the whole demo has no business
+ * being the smallest thing on screen. It is now a full-width bar with a
+ * 56px target, sitting in its own space above the tab bar rather than
+ * hovering over someone else's text.
+ */
+function DemoBar({
+  label,
+  onPress,
+  width,
+  dark = false,
+}: {
+  label: string;
+  onPress: () => void;
+  width: number;
+  dark?: boolean;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      style={({ pressed }) => [
+        styles.demoBar,
+        { width, backgroundColor: dark ? "rgba(247,243,250,0.10)" : "rgba(23,18,31,0.92)" },
+        pressed && { opacity: 0.85 },
+      ]}
+    >
+      <Text style={styles.demoBarText}>{label}</Text>
+      <Text style={styles.demoBarHint}>הדגמה · לחץ כדי להתקדם</Text>
+    </Pressable>
+  );
+}
+
+/** Slides and fades a full-screen layer in from below. */
+function RiseIn({
+  children,
+  width,
+  height,
+}: {
+  children: React.ReactNode;
+  width: number;
+  height: number;
+}) {
+  const v = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(v, {
+      toValue: 1,
+      duration: 420,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [v]);
+
+  return (
+    <Animated.View
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        width,
+        height,
+        opacity: v,
+        transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [height * 0.45, 0] }) }],
+      }}
+    >
+      {children}
+    </Animated.View>
+  );
+}
 
 function TabBar({
   items,
@@ -569,17 +695,17 @@ const styles = StyleSheet.create({
   },
   noticeText: { ...t.caption, color: "#FFFFFF", textAlign: "center", writingDirection: "rtl" },
 
-  advance: {
+  demoBar: {
     position: "absolute",
-    bottom: 84,
-    alignSelf: "center",
-    backgroundColor: "rgba(23,18,31,0.9)",
-    paddingVertical: 9,
-    paddingHorizontal: spacing.lg,
-    borderRadius: radii.pill,
+    bottom: 64,
+    left: 0,
+    minHeight: 56,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 8,
   },
-  advanceDark: { backgroundColor: "rgba(247,243,250,0.16)" },
-  advanceText: { ...t.captionStrong, color: "#FFFFFF", writingDirection: "rtl" },
+  demoBarText: { ...t.bodyStrong, fontSize: 16, color: "#FFFFFF", writingDirection: "rtl" },
+  demoBarHint: { ...t.caption, fontSize: 11, color: "rgba(255,255,255,0.65)", writingDirection: "rtl" },
 
   bar: {
     flexDirection: "row-reverse",

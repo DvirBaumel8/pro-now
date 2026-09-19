@@ -2,6 +2,7 @@ import type { AreaAvailabilityView, QuoteView } from "@pro-now/types";
 import type {
   HomeRecentItem,
   HomeServiceItem,
+  JobMediaItem,
   ProProfileReviewItem,
   ProProfileServiceItem,
   CustomerCallHistoryItem,
@@ -369,3 +370,25 @@ export const savedAddresses: SavedAddress[] = [
     forSomeoneElseNameHe: "סבא יוסף (תצוגה)",
   },
 ];
+
+// ---------------------------------------------------------------------
+// The job, from the professional's side
+// ---------------------------------------------------------------------
+
+/**
+ * What the customer actually sent: the symptoms they tapped, a sentence in
+ * their own words, a voice note and two photos. The media have no real
+ * files here — `uri: null` — and the screen says so rather than miming
+ * playback.
+ */
+export const jobMedia: JobMediaItem[] = [
+  { id: "m1", kind: "VOICE", subjectHe: "הקלטה מהלקוח", seconds: 14, uri: null },
+  { id: "m2", kind: "PHOTO", subjectHe: "ארון מתחת לכיור · מים", uri: null },
+  { id: "m3", kind: "PHOTO", subjectHe: "הברז מקרוב", uri: null },
+  { id: "m4", kind: "PHOTO", subjectHe: "כתם על הקיר", uri: null },
+];
+
+export const jobSymptoms = ["מים מתחת לכיור", "ברז מטפטף", "כתם רטוב בקיר"];
+
+export const jobDescription =
+  "מאתמול בערב יש מים בארון מתחת לכיור במטבח. ניגבתי וזה חזר. הברז גם מטפטף קצת. יש שם ארון עץ אז אני מעדיף שמישהו יגיע היום.";
