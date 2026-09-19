@@ -10,6 +10,7 @@ import authContextPlugin from "./plugins/auth-context";
 import authRoutes from "./routes/auth";
 import catalogRoutes from "./routes/catalog";
 import jobsRoutes from "./routes/jobs";
+import matchRoutes from "./routes/match";
 import offersRoutes from "./routes/offers";
 import proRoutes from "./routes/pro";
 import quotesRoutes from "./routes/quotes";
@@ -38,6 +39,7 @@ export async function buildServer() {
   await app.register(authRoutes);
   await app.register(catalogRoutes);
   await app.register(jobsRoutes);
+  await app.register(matchRoutes);
   await app.register(offersRoutes);
   await app.register(proRoutes);
   await app.register(quotesRoutes);

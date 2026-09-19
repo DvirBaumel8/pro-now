@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 import type { MapsRoutingProvider } from "@pro-now/types";
+import { evaluateServiceCredentials } from "./credential-eligibility";
 import { evaluateEligibility } from "./eligibility";
 import { rankCandidates, DEFAULT_SCORING_WEIGHTS, type ScoringWeights } from "./scoring";
 
@@ -32,7 +33,7 @@ export async function triggerDispatch(
 ): Promise<DispatchOutcome> {
   const job = await prisma.job.findUniqueOrThrow({
     where: { id: jobId },
-    include: { address: true, service: true },
+    include: { address: true, service: { include: { requirements: true } } },
   });
 
   await prisma.job.update({ where: { id: jobId }, data: { status: "SEARCHING" } });
@@ -63,25 +64,32 @@ export async function triggerDispatch(
 
   // Step 2 — eligibility (explainable, per-candidate reason codes).
   const now = Date.now();
+  const evaluatedAt = new Date(now);
+  const serviceRequirements = job.service.requirements;
+
   const eligible = nearbyProfessionals.filter((pro) => {
     const latestLocation = pro.locations[0];
     const locationAgeSeconds = latestLocation
       ? (now - latestLocation.receivedAt.getTime()) / 1000
       : Number.POSITIVE_INFINITY;
 
-    const requiredCredential = pro.credentials[0];
-    const requiredCredentialsCurrent =
-      pro.credentials.length === 0 ||
-      (requiredCredential?.status === "VERIFIED" &&
-        (!requiredCredential.expiresAt || requiredCredential.expiresAt > new Date()));
+    // Every mandatory credential this SERVICE requires must be on file,
+    // VERIFIED and unexpired — see credential-eligibility.ts for why this is
+    // not `credentials.length === 0 || credentials[0].status === "VERIFIED"`.
+    const credentialEvaluation = evaluateServiceCredentials(
+      serviceRequirements,
+      pro.credentials,
+      evaluatedAt
+    );
 
     const result = evaluateEligibility(
       {
         professionalId: pro.id,
         presenceState: pro.presenceState,
+        accountVerificationStatus: pro.verificationStatus,
         locationAgeSeconds,
         serviceApproved: pro.services.length > 0,
-        requiredCredentialsCurrent,
+        requiredCredentialsCurrent: credentialEvaluation.satisfied,
         insideServiceArea: true, // refined by real service-area geometry in a later epic
         alreadyAssignedToAnotherJob: false,
         isRiskLimitedForService: false,

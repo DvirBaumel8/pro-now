@@ -1,5 +1,6 @@
 import Constants from "expo-constants";
 import type {
+  OfferCardView,
   ProfessionalVerificationView,
   ProPresenceState,
   QuoteView,
@@ -45,6 +46,8 @@ export const api = {
   endShift: (sessionId: string) => request<{ ok: boolean }>(`/v1/pro/shifts/${sessionId}/end`, { method: "POST" }),
   pingLocation: (input: { lat: number; lng: number; capturedAt: string }) =>
     request<{ ok: boolean }>("/v1/pro/location", { method: "POST", body: JSON.stringify(input) }),
+  /** The live offer, or null when there is none (204). */
+  getCurrentOffer: () => request<OfferCardView | null>("/v1/pro/offers/current"),
   acceptOffer: (offerId: string) => request<{ ok: boolean; jobId: string }>(`/v1/offers/${offerId}/accept`, { method: "POST" }),
   skipOffer: (offerId: string) => request<{ ok: boolean }>(`/v1/offers/${offerId}/skip`, { method: "POST" }),
   arrive: (jobId: string) => request<{ ok: boolean }>(`/v1/jobs/${jobId}/arrive`, { method: "POST" }),

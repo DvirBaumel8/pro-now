@@ -1,7 +1,8 @@
 import type { FastifyInstance } from "fastify";
 import { startShiftSchema, locationPingSchema } from "@pro-now/validation";
 import { assertPresenceTransition, canEndShift } from "../domain/job/pro-presence-transitions";
-import type { ProPresenceState } from "@pro-now/types";
+import type { OfferCardView, ProPresenceState } from "@pro-now/types";
+import { coarseAreaLabel } from "../domain/privacy/area-label";
 
 /**
  * See /docs/06-API-SPEC.md, /docs/07-JOB-STATE-MACHINE.md §Professional
@@ -99,5 +100,82 @@ export default async function proRoutes(app: FastifyInstance) {
     });
     if (!professional) return reply.status(404).send({ code: "PROFESSIONAL_NOT_FOUND", message: "No professional profile" });
     return reply.send({ professional });
+  });
+
+  /**
+   * GET /v1/pro/offers/current — the payload behind the professional's
+   * offer card.
+   *
+   * Two rules are enforced here rather than in the client, because a client
+   * cannot be trusted to withhold data it has been given:
+   *
+   *  - The customer's precise address is NEVER included before the job is
+   *    assigned. Only a coarse area label derived by
+   *    `domain/privacy/area-label.ts` crosses the wire
+   *    (/docs/12-PRIVACY.md).
+   *  - The expected payout is included whenever it is knowable, and is
+   *    `null` — not a plausible placeholder — when it is not
+   *    (/CLAUDE.md §3, transparent provider payout).
+   */
+  app.get("/v1/pro/offers/current", { onRequest: app.requireAuth }, async (req, reply) => {
+    const professional = await app.prisma.professionalProfile.findUnique({
+      where: { userId: req.user!.userId },
+    });
+    if (!professional) {
+      return reply.status(404).send({ code: "PROFESSIONAL_NOT_FOUND", message: "No professional profile" });
+    }
+
+    const offer = await app.prisma.dispatchOffer.findFirst({
+      where: {
+        professionalId: professional.id,
+        status: { in: ["CREATED", "SENT", "VIEWED"] },
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { offeredAt: "desc" },
+      include: { job: { include: { service: true, address: true } } },
+    });
+
+    if (!offer) return reply.status(204).send();
+
+    const priceModel: string = offer.job.service.priceModel;
+
+    /*
+     * A VISIT_QUOTE job's payout is genuinely not knowable before the
+     * on-site diagnosis produces a quote, so it is reported as unknown.
+     * HOURLY depends on hours actually worked, so it is knowable only as an
+     * estimate. FIXED and DISTANCE_TIME resolve to the snapshot taken at
+     * dispatch time.
+     */
+    const payoutSnapshot: number | null = offer.payoutMinorUnitsSnapshot ?? null;
+    const payoutIsEstimate = priceModel === "HOURLY" || priceModel === "DISTANCE_TIME";
+    const expectedPayoutMinorUnits = priceModel === "VISIT_QUOTE" && payoutSnapshot === null ? null : payoutSnapshot;
+
+    const result: OfferCardView = {
+      offerId: offer.id,
+      jobId: offer.jobId,
+      serviceNameHe: offer.job.service.nameHe,
+      serviceCode: offer.job.service.code,
+      priceModel: offer.job.service.priceModel,
+      currency: "ILS",
+      offeredAt: offer.offeredAt.toISOString(),
+      expiresAt: offer.expiresAt.toISOString(),
+      eta:
+        offer.etaSecondsSnapshot === null || offer.etaSecondsSnapshot === undefined
+          ? null
+          : {
+              etaSeconds: offer.etaSecondsSnapshot,
+              distanceMeters: null,
+              // The snapshot does not record its provenance; under-claim.
+              isRouteBased: false,
+              computedAt: offer.offeredAt.toISOString(),
+            },
+      expectedPayoutMinorUnits,
+      payoutIsEstimate,
+      // Coarse area only — see the note above and area-label.ts.
+      customerAreaLabel: coarseAreaLabel(offer.job.address?.formatted ?? null),
+      jobDescription: offer.job.description ?? null,
+    };
+
+    return reply.send(result);
   });
 }

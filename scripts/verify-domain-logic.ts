@@ -131,7 +131,8 @@ check("canEndShift(isSupportOverride=true) always true, even mid-job", () => {
 
 console.log("\n== Dispatch eligibility (eligibility.ts) — real execution ==");
 const fullyEligible: DispatchCandidate = {
-  professionalId: "pro-1", presenceState: "AVAILABLE", locationAgeSeconds: 10, serviceApproved: true,
+  professionalId: "pro-1", presenceState: "AVAILABLE", accountVerificationStatus: "APPROVED",
+  locationAgeSeconds: 10, serviceApproved: true,
   requiredCredentialsCurrent: true, insideServiceArea: true, alreadyAssignedToAnotherJob: false,
   isRiskLimitedForService: false, isBlockedAgainstCustomer: false, equipmentMatches: true, marketActive: true,
 };
@@ -150,12 +151,14 @@ check("stale location + expired credential produce exactly those two explainable
 });
 check("a candidate excluded for every possible reason gets every corresponding code, nothing silently dropped", () => {
   const worst: DispatchCandidate = {
-    professionalId: "pro-2", presenceState: "OFFLINE", locationAgeSeconds: 99999, serviceApproved: false,
+    professionalId: "pro-2", presenceState: "OFFLINE", accountVerificationStatus: "SUSPENDED",
+    locationAgeSeconds: 99999, serviceApproved: false,
     requiredCredentialsCurrent: false, insideServiceArea: false, alreadyAssignedToAnotherJob: true,
     isRiskLimitedForService: true, isBlockedAgainstCustomer: true, equipmentMatches: false, marketActive: false,
   };
   const result = evaluateEligibility(worst, { locationFreshnessThresholdSeconds: 120 });
-  assert.equal(result.reasonCodes.length, 10);
+  // 11 codes since ACCOUNT_NOT_APPROVED was added as its own explainable reason.
+  assert.equal(result.reasonCodes.length, 11);
 });
 check("filterEligible maps over the whole candidate list preserving professionalId", () => {
   const results = filterEligible([fullyEligible, { ...fullyEligible, professionalId: "pro-3", marketActive: false }], {

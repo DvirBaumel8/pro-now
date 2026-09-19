@@ -78,3 +78,25 @@ Real, diverse, consented/licensed professional photography. No generated
 fake review avatars in production. Portfolio images belong to providers and
 carry moderation/reporting. One consistent icon library. Never embed text
 in marketing-style images inside functional UI.
+
+---
+
+## Implemented components (`packages/ui`)
+
+| Component | Side | Purpose |
+|---|---|---|
+| `MatchCard` / `MatchCardSkeleton` | Customer | C09 match found — professional, factual badges, dominant ETA, price by archetype |
+| `OfferCard` / `OfferCardSkeleton` | Professional | P16 incoming offer — server-deadline countdown, payout before acceptance, coarse area |
+| `VerificationBadge` | Both | One enumerated, factual trust fact |
+| `Avatar`, `StatusPill`, `MetaChip`, `LiveDot`, `Skeleton`, `Divider`, `SectionLabel` | Both | Shared primitives |
+
+Presentation logic that could otherwise fabricate something — ETA rounding,
+rating display, countdown, payout disclosure, the hourly minimum — lives in
+`packages/ui/src/format.ts` as pure functions, and is unit-tested. A card
+must not compute those inline.
+
+**Reviewing the components:** `npm run preview:design` starts a browser
+gallery (`tools/design-preview`) that renders the real components, including
+their loading and honest-absence states. Note its `index.html` is
+deliberately `dir="ltr"` — see /docs/EPIC-0-REPORT.md §10.7 for why, and for
+the outstanding RTL decision.

@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
-import crypto from "node:crypto";
 import { createQuoteSchema, approveQuoteSchema } from "@pro-now/validation";
+import { buildQuoteVersion } from "../domain/pricing/quote-hash";
 import { assertTransition } from "../domain/job/transitions";
 
 /**
@@ -19,12 +19,10 @@ export default async function quotesRoutes(app: FastifyInstance) {
 
     assertTransition(job.status, "WAITING_QUOTE_APPROVAL", "PROFESSIONAL");
 
-    const totalMinorUnits = body.lineItems.reduce((sum, li) => sum + li.unitPriceMinorUnits * li.quantity, 0);
     const latestVersion = await app.prisma.quote.count({ where: { jobId } });
-    const versionHash = crypto
-      .createHash("sha256")
-      .update(JSON.stringify({ jobId, version: latestVersion + 1, lineItems: body.lineItems, totalMinorUnits }))
-      .digest("hex");
+    // Total and hash are built together so the hash can never bind a total
+    // different from the one stored — see domain/pricing/quote-hash.ts.
+    const { totalMinorUnits, versionHash } = buildQuoteVersion(jobId, latestVersion + 1, body.lineItems);
 
     // Supersede any prior quote for this job.
     await app.prisma.quote.updateMany({ where: { jobId, status: "SENT" }, data: { status: "SUPERSEDED" } });
@@ -34,7 +32,7 @@ export default async function quotesRoutes(app: FastifyInstance) {
         jobId,
         version: latestVersion + 1,
         versionHash,
-        totalMinorUnits: Math.round(totalMinorUnits),
+        totalMinorUnits,
         notes: body.notes,
         lineItems: {
           create: body.lineItems.map((li) => ({

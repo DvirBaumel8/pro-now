@@ -134,10 +134,30 @@ model BusinessProfile {
   yearsExperience Int?
   languages      String[]
   vehicleType    String?
+
+  // The existence of this row means the professional ENTERED business
+  // details, not that anyone checked them. The customer-facing "עסק אומת"
+  // badge is driven by this explicit status and nothing else — see
+  // /docs/10-TRUST-VERIFICATION.md §Onboarding step 3.
+  verificationStatus BusinessVerificationStatus @default(UNVERIFIED)
+  verifiedAt         DateTime?
+  // Who/what established the status (reviewer id, registry name). Kept as a
+  // free string until the review tooling exists.
+  verificationSource String?
+
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   @@map("business_profiles")
+  @@index([verificationStatus])
+}
+
+enum BusinessVerificationStatus {
+  UNVERIFIED
+  PENDING
+  VERIFIED
+  REJECTED
+  REVERIFY_REQUIRED
 }
 
 model ProfessionalDocument {
@@ -291,7 +311,29 @@ model ProfessionalService {
   serviceId         String
   service           Service  @relation(fields: [serviceId], references: [id])
   status            ProfessionalServiceStatus @default(DRAFT)
+
+  // ---- Pricing configuration -----------------------------------------
+  // All money is integer minor units (/CLAUDE.md §3). Which of these apply
+  // is decided by the SERVICE's priceModel, per /docs/09-PAYMENTS.md
+  // §Pricing archetypes:
+  //
+  //   FIXED         → basePriceMinorUnits is the whole price.
+  //   VISIT_QUOTE   → basePriceMinorUnits is the visit fee; the rest of the
+  //                   job is priced by an approved quote.
+  //   HOURLY        → basePriceMinorUnits is the rate PER HOUR, and
+  //                   minimumBillableMinutes is the minimum charged.
+  //   DISTANCE_TIME → basePriceMinorUnits is the fixed base component,
+  //                   perKmMinorUnits the distance rate, and
+  //                   minimumFareMinorUnits the floor.
+  //
+  // No default amounts are set here: actual prices are a professional's own
+  // commercial decision, and the pilot price points are a business decision
+  // (/CLAUDE.md §4). Nulls mean "not configured", never "free".
   basePriceMinorUnits Int?
+  minimumBillableMinutes Int?
+  perKmMinorUnits        Int?
+  minimumFareMinorUnits  Int?
+
   travelRadiusMeters Int?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt

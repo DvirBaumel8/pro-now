@@ -521,3 +521,232 @@ Everything in §6's table that says "tests passing" can now be read as true
 for the five domain-logic suites, and only for those. Every claim that
 depends on a database, a booted server, or a rendered screen is still
 unverified.
+
+---
+
+## 10. Second pass — trust correctness, the two decision cards, and a visual harness
+
+§9 closed the "nothing has ever been run" gap. This section covers the work
+that followed: the defects found once the code could actually be exercised,
+the two cards the marketplace's decision moments turn on, and a way to look
+at them without a simulator.
+
+### 10.1 Trust defects fixed (Epic 3's Definition of Done)
+
+Epic 3's DoD — "an expired required credential actually removes that
+service's dispatch eligibility, in a test" — had no test. Writing it
+surfaced that the rule itself was wrong. It lived inline in
+`dispatch-service.ts` as:
+
+```ts
+pro.credentials.length === 0 ||
+  (pro.credentials[0]?.status === "VERIFIED" && (!expiresAt || expiresAt > new Date()))
+```
+
+Three defects, each of which would have dispatched an under-verified
+professional into a customer's home:
+
+1. **A missing mandatory credential passed as current.** `length === 0`
+   short-circuits to eligible, so a professional who had never uploaded a
+   legally-required licence was treated exactly like one who had.
+2. **Only `credentials[0]` was ever examined.** With two required
+   credentials, an expired second one was never looked at.
+3. **`ServiceRequirement` was never consulted at all**, so `mandatory` vs
+   optional could not be distinguished.
+
+A fourth defect sat next to them, in `eligibility.ts`: the candidate query
+filtered on `presenceState` but never on `verificationStatus`, so a
+**SUSPENDED or mid-onboarding account that was merely "AVAILABLE" could be
+dispatched**. Being online is a presence fact; being trusted is not.
+
+Fixes: a new pure module `domain/dispatch/credential-eligibility.ts`
+(`evaluateServiceCredentials` + `isAccountDispatchable`), wired into
+`dispatch-service.ts`, with `ACCOUNT_NOT_APPROVED` added as its own
+explainable reason code. **27 tests** cover it, including expiry exactly at
+`now`, a renewed credential held beside an expired one, a `CERTIFICATE` not
+satisfying a `LICENSE` requirement, and every non-APPROVED verification
+status.
+
+### 10.2 Money-integrity defect fixed (Epic 9)
+
+The quote hash is what makes "the customer approved *this* version"
+enforceable. The route hashed an **unrounded float total** while persisting
+`Math.round(total)`, so with a fractional quantity the hash bound a total
+that was never stored — the one thing the hash exists to prevent.
+
+Extracted to `domain/pricing/quote-hash.ts`, which computes the total and
+the hash together so they cannot disagree, rounds **per line** (a line is
+displayed as its own currency amount, so it must itself be representable),
+and rejects non-integer unit prices outright. **15 tests**.
+
+### 10.3 The row lock — no longer the top unverified item
+
+§9.7 called this "the single most important gap": `atomic-accept.ts`'s own
+doc comment names `SELECT ... FOR UPDATE` as "the actual source of
+correctness", and it had never run against a real database.
+
+`npm run verify:rowlock` (`scripts/verify-row-lock.ts`) now proves it
+against live PostgreSQL 16 via `pg`, with **no Prisma involved**, so the
+Prisma blocker does not gate it. It runs two races:
+
+- **A control**, with `FOR UPDATE` removed: both accepts succeed and the job
+  is double-assigned. This matters — it shows the harness genuinely
+  reproduces the race, so the second result is not a false pass.
+- **The guarantee**, with the exact locking statement the code issues:
+  exactly one winner, job `PRO_ASSIGNED` to that winner, one offer
+  `ACCEPTED`, the loser `REVOKED`, and a late accept refused.
+
+**7/7 checks pass** at the server's `read committed` default.
+
+### 10.4 The two cards
+
+The marketplace has two moments that decide whether it works: a customer
+deciding to let a stranger into their home, and a professional deciding
+whether a job is worth taking. Both are now real components in
+`packages/ui`, built against the wire types rather than props a caller can
+fill in by hand.
+
+**`MatchCard`** (customer). Renders only `JobMatchView`. There is no prop
+for a name, rating, ETA or price, so the §9.8 failure — a screen that
+fetched the real job and then displayed an invented professional — is not
+expressible any more. Honest absences are first-class: no ETA yet renders
+"מחשבים זמן הגעה…", a professional with no history renders "בעל מקצוע חדש",
+and a coarse (non-route) ETA is visibly marked as an initial estimate.
+
+**`OfferCard`** (professional). Counts down to the **server's** `expiresAt`
+rather than a client-side constant, shows the expected payout before
+acceptance, and says in words when the payout is genuinely not knowable
+yet instead of printing a plausible number. It carries no prop that could
+hold a precise customer address.
+
+Both were wired into the real screens, which fixed two more defects:
+
+- `OfferScreen` counted down from a hard-coded `OFFER_TIMEOUT_SECONDS = 30`
+  and navigated away on its own timer — a client deciding an expiry only the
+  server may decide. It also navigated with a literal `"demo-job"` id
+  instead of the `jobId` the accept response returns, so the next screen
+  would have loaded the wrong job.
+- `MatchScreen`'s fabricated card (the §9.8 blocker) is gone.
+
+New endpoints feed them: `GET /v1/jobs/:id/match` and
+`GET /v1/pro/offers/current`. Both are **UNVERIFIED** — they typecheck and
+are correct by construction, but cannot be executed until Prisma is
+unblocked (§10.8).
+
+### 10.5 Privacy control, made testable
+
+`GET /v1/pro/offers/current` must not leak the customer's exact address
+before assignment, and the schema has no area column — only
+`Address.formatted`. Rather than inline the derivation in the route, it is
+`domain/privacy/area-label.ts`: drop any component carrying a digit (street
+number, postcode), keep at most the two broadest remaining components, and
+never emit a digit. **8 tests**, because an untested privacy control is one
+that regresses silently.
+
+### 10.6 Trust decisions taken in consultation
+
+Four product questions came out of this work. They were put to the product
+side (via the ChatGPT thread Amit is running the product from) rather than
+decided unilaterally, per /CLAUDE.md §4. **Amit should confirm these.**
+
+1. **Business verification.** `BusinessProfile` had no verification field,
+   so "עסק אומת" could only have been inferred from the row existing — which
+   means the professional typed something in, not that anyone checked it.
+   Added an explicit `BusinessVerificationStatus` enum
+   (UNVERIFIED / PENDING / VERIFIED / REJECTED / REVERIFY_REQUIRED) plus
+   `verifiedAt` and `verificationSource`. The badge renders only on
+   `VERIFIED`.
+2. **Pricing configuration.** HOURLY and DISTANCE_TIME could not be shown
+   in full. Added `minimumBillableMinutes`, `perKmMinorUnits` and
+   `minimumFareMinorUnits` to `ProfessionalService`, with the meaning of
+   `basePriceMinorUnits` per archetype documented in the schema. **No
+   amounts were seeded** — real prices are a professional's own commercial
+   decision and the pilot price points are a business decision.
+3. **Sandbox KYC.** A sandbox identity result now produces **no** badge.
+   `IdentityVerification.isSandbox` gates it, because showing "זהות אומתה"
+   for a stub response is presenting mocked data as production.
+4. **Rating threshold — changed on product feedback.** The first
+   implementation hid the PRO NOW rating below three reviews. The product
+   side pushed back: a professional can complete a job, receive a genuine
+   verified review, and watch it vanish, which reads as the platform
+   withholding real information. The rating is now shown from the first
+   verified review and **always together with its count** ("★ 5.0 ·
+   ביקורת מאומתת אחת"), which supplies the context without manufacturing
+   statistical confidence.
+
+### 10.7 Visual verification without a simulator
+
+§9.7 noted the mobile apps were proven to *bundle*, not to *render*.
+`tools/design-preview` is a developer-only gallery (Vite +
+`react-native-web`) that renders the actual `packages/ui` components in a
+browser, so every card state — including the honest-absence and expired
+ones — can be reviewed and screenshotted. `npm run preview:design`.
+
+It also surfaced a genuine cross-platform issue: **the apps simulate RTL
+with `flexDirection: "row-reverse"` instead of enabling
+`I18nManager.forceRTL`.** On a device `isRTL` is false, so `row-reverse`
+lays out right-to-left and looks correct. In a browser, CSS `row-reverse`
+inside a `dir="rtl"` container flips a *second* time and renders the mirror
+image. The gallery is therefore `dir="ltr"` (documented in its
+`index.html`) so it is faithful to the device.
+
+**This is a latent fragility, not a shipped bug**, since web is not a
+target — but the layout is correct by accident rather than by construction,
+and it would invert the day anyone enables RTL properly. The durable fix is
+`forceRTL` plus logical `row`, which needs a device to verify. Recorded
+here as a finding; not attempted blind.
+
+Related: `writingDirection: "rtl"` was added wherever Hebrew prose is
+right-aligned, so trailing punctuation lands on the correct side.
+
+### 10.8 Current verification state
+
+| Check | Result |
+|---|---|
+| `npm install` | **PASS** |
+| Lint (10 workspaces) | **CLEAN** |
+| Typecheck | **9 of 10 clean** — `apps/api` blocked, see below |
+| Unit tests | **PASS — 146** (118 api + 28 ui), up from 25 |
+| `verify:domain` | **PASS — 28/28** |
+| `verify:rowlock` (real Postgres) | **PASS — 7/7** |
+| Prisma schema (WASM validator) | **PASS — 47 models, 9 enums, 409 fields** |
+| `next build` | **PASS — 7 pages** |
+| Expo bundles (both apps) | **PASS — 735 modules each** |
+| Design gallery build + render | **PASS** |
+
+**Still BLOCKED, unchanged from §9.7:** `binaries.prisma.sh` returns 403
+through the egress proxy. Therefore `prisma generate`, `migrate` and `seed`
+have never run; `apps/api` keeps exactly 7 typecheck errors that all trace
+to `PrismaClient` being the ungenerated `any` stub; the server does not
+boot; and **the schema changes in §10.6 have no migration yet**. Per
+/CLAUDE.md §6 ("use migrations for every schema change"), generating and
+applying that migration is a required follow-up, not an optional one. No
+schema change described here may be called done until it exists.
+
+Ways to unblock, in order of preference:
+
+1. Allow `binaries.prisma.sh` on HTTPS/443 in the egress policy.
+2. Run the Prisma steps on a machine without the sandbox's egress
+   restriction, from the same repo.
+3. Point `PRISMA_ENGINES_MIRROR` at an approved internal mirror — Prisma
+   supports this officially for restricted environments.
+
+A Prisma 7/8 migration was considered and rejected: 7 downloads from the
+same host, and the Rust-free line is only on the 8.x release-candidate
+channel. Changing a major dependency to route around an egress rule, in the
+middle of a verification pass, would trade a known blocker for an unknown
+one.
+
+### 10.9 Recommended next steps
+
+1. Unblock Prisma (§10.8). Everything below waits on it.
+2. `prisma generate` → fix the `apps/api` errors it reveals (the 7 that
+   vanish, and the new ones that appear where `pro`/`tx` stop being `any`)
+   → **create the migration for §10.6** → `migrate dev` → `db seed`.
+3. Promote the row-lock proof from `scripts/verify-row-lock.ts` into a
+   Prisma-based integration test, so it runs through the real
+   `acceptOffer()` rather than a faithful reimplementation of its SQL.
+4. Boot the API and walk one NOW loop end-to-end against seeded data —
+   including the two new endpoints, which are still UNVERIFIED.
+5. Decide the RTL question in §10.7 with a device in hand.
+6. Then Epic 7 (realtime resync), and the rest of Epic 8.

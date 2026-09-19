@@ -1,0 +1,28 @@
+{
+  "name": "@pro-now/design-preview",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Developer-only gallery that renders packages/ui components in a browser via react-native-web. Not a shipping target.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --port 4173",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@pro-now/types": "*",
+    "@pro-now/ui": "*",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "react-native-web": "^0.19.12"
+  },
+  "devDependencies": {
+    "@types/react": "~18.2.79",
+    "@types/react-dom": "~18.2.25",
+    "@vitejs/plugin-react": "^4.3.1",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.0"
+  }
+}

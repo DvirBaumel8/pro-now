@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="he" dir="ltr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PRO NOW — גלריית רכיבים</title>
+    <!--
+      dir="ltr" is deliberate and is NOT a layout bug.
+
+      apps/customer-mobile and apps/pro-mobile achieve their Hebrew RTL
+      layout with `flexDirection: "row-reverse"` rather than by enabling
+      React Native's own RTL mode (I18nManager.forceRTL). On a device,
+      I18nManager.isRTL is false, so `row-reverse` lays rows out right-to-
+      left and the screens look correct.
+
+      In the browser, react-native-web emits CSS `row-reverse`. Inside a
+      dir="rtl" container that flips a second time and every row renders
+      left-to-right — the mirror image of the device. Keeping this document
+      LTR makes the gallery faithful to what a phone actually shows.
+
+      Hebrew text still renders right-to-left either way: that comes from
+      Unicode bidi, not from this attribute.
+
+      The underlying inconsistency is recorded as a finding in
+      /docs/EPIC-0-REPORT.md — the durable fix is to enable forceRTL and use
+      logical `row`, which is a change that needs a device to verify.
+    -->
+    <style>
+      :root { color-scheme: light dark; }
+      html, body, #root { height: 100%; margin: 0; }
+      body {
+        font-family: "Noto Sans Hebrew", "Heebo", "Assistant", -apple-system,
+          BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: #F2F1EC;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

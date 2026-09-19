@@ -1,98 +1,131 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import React, { useCallback, useEffect, useState } from "react";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { proTheme, typography, spacing, radius } from "@pro-now/ui";
+import type { OfferCardView } from "@pro-now/types";
+import { OfferCard, OfferCardSkeleton, proTheme, spacing, typography } from "@pro-now/ui";
+
 import type { ProStackParamList } from "../navigation/types";
 import { api } from "../api/client";
 
 type Props = NativeStackScreenProps<ProStackParamList, "Offer">;
 
-const OFFER_TIMEOUT_SECONDS = 30; // server-configured; see /docs/08-DISPATCH-ENGINE.md
-
 /**
- * P16 — Offer. See /docs/02-UX-FLOWS.md and
- * /docs/03-DESIGN-SYSTEM.md §22: "את/ה מקבל/ת ₪X" is the most prominent
- * money line. The countdown here is a UI convenience only — the server's
- * `expires_at` on the DispatchOffer is the real authority
- * (/docs/08-DISPATCH-ENGINE.md: "never trusted from the client's countdown").
+ * P16 — Incoming offer. See /docs/02-UX-FLOWS.md and
+ * /docs/03-DESIGN-SYSTEM.md §22.
+ *
+ * Two defects in the previous version are fixed here and are worth naming,
+ * because both were cases of the client deciding something only the server
+ * may decide (/CLAUDE.md §3):
+ *
+ *  1. It counted down from a hard-coded `OFFER_TIMEOUT_SECONDS = 30` and
+ *     navigated away when its own timer hit zero. The offer's real deadline
+ *     is `DispatchOffer.expiresAt`, which the server issues and which the
+ *     admin-configurable dispatch timeout can change at any time. The card
+ *     now counts down to the server's `expiresAt`, and an expired countdown
+ *     only disables the actions — the server still decides the outcome.
+ *  2. On a successful accept it navigated with a literal `"demo-job"` id
+ *     instead of the `jobId` the accept response returns, so the next
+ *     screen would have loaded the wrong job.
  */
 export function OfferScreen({ route, navigation }: Props) {
   const { offerId } = route.params;
-  const [secondsLeft, setSecondsLeft] = useState(OFFER_TIMEOUT_SECONDS);
+
+  const [offer, setOffer] = useState<OfferCardView | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [responding, setResponding] = useState(false);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setSecondsLeft((s) => {
-        if (s <= 1) {
-          clearInterval(interval);
+    let cancelled = false;
+
+    api
+      .getCurrentOffer()
+      .then((result) => {
+        if (cancelled) return;
+        if (!result) {
+          // No live offer any more — the server has already moved on.
           navigation.replace("Online");
-          return 0;
+          return;
         }
-        return s - 1;
+        setOffer(result);
+        setError(null);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : "שגיאה לא צפויה");
       });
-    }, 1000);
-    return () => clearInterval(interval);
+
+    return () => {
+      cancelled = true;
+    };
   }, [navigation]);
 
-  async function respond(action: "accept" | "skip") {
+  const handleAccept = useCallback(async () => {
     setResponding(true);
     try {
-      if (action === "accept") {
-        await api.acceptOffer(offerId);
-        navigation.replace("Navigation", { jobId: "demo-job" });
-      } else {
-        await api.skipOffer(offerId);
-        navigation.replace("Online");
-      }
+      const result = await api.acceptOffer(offer?.offerId ?? offerId);
+      // Navigate with the jobId the SERVER returned, never a local guess.
+      navigation.replace("Navigation", { jobId: result.jobId });
     } catch {
-      // OFFER_NO_LONGER_AVAILABLE or a network error — return to Online
-      // rather than leaving the professional stuck on a dead offer.
+      // OFFER_NO_LONGER_AVAILABLE, an expiry, or a network error — return to
+      // Online rather than stranding the professional on a dead offer.
       navigation.replace("Online");
     } finally {
       setResponding(false);
     }
+  }, [navigation, offer, offerId]);
+
+  const handleSkip = useCallback(async () => {
+    setResponding(true);
+    try {
+      await api.skipOffer(offer?.offerId ?? offerId);
+    } catch {
+      // A failed skip is not worth blocking on; the offer expires anyway.
+    } finally {
+      setResponding(false);
+      navigation.replace("Online");
+    }
+  }, [navigation, offer, offerId]);
+
+  if (error) {
+    return (
+      <View style={styles.stateContainer}>
+        <Text style={styles.stateTitle}>לא הצלחנו לטעון את ההצעה</Text>
+        <Text style={styles.stateDetail}>{error}</Text>
+      </View>
+    );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.countdownRing}>
-        <Text style={styles.countdownValue}>{secondsLeft}</Text>
-      </View>
-
-      <Text style={styles.serviceTitle}>נזילה מתחת לכיור</Text>
-      <Text style={styles.meta}>📍 8 דקות ממך · תמונות: 3</Text>
-      <Text style={styles.customerNote}>"כשפותחים את הברז יוצאים מים מלמטה."</Text>
-
-      <View style={styles.payoutCard}>
-        <Text style={styles.payoutLabel}>את/ה מקבל/ת</Text>
-        <Text style={styles.payoutValue}>₪161</Text>
-        <Text style={styles.payoutSub}>מחיר ללקוח ₪179 · עמלת פלטפורמה ₪18</Text>
-      </View>
-
-      <TouchableOpacity style={styles.acceptButton} onPress={() => respond("accept")} disabled={responding} accessibilityRole="button">
-        <Text style={styles.acceptLabel}>קבל עבודה</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.skipButton} onPress={() => respond("skip")} disabled={responding} accessibilityRole="button">
-        <Text style={styles.skipLabel}>דלג</Text>
-      </TouchableOpacity>
-    </View>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      {offer ? (
+        <OfferCard offer={offer} onAccept={handleAccept} onSkip={handleSkip} responding={responding} />
+      ) : (
+        <OfferCardSkeleton />
+      )}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: proTheme.colors.bg, padding: spacing.lg, alignItems: "center", justifyContent: "center" },
-  countdownRing: { width: 64, height: 64, borderRadius: 32, borderWidth: 3, borderColor: proTheme.colors.action, alignItems: "center", justifyContent: "center", marginBottom: spacing.lg },
-  countdownValue: { ...typography.h2, color: proTheme.colors.textPrimary },
-  serviceTitle: { ...typography.h1, color: proTheme.colors.textPrimary, textAlign: "center" },
-  meta: { ...typography.body, color: proTheme.colors.textSecondary, marginTop: spacing.xs },
-  customerNote: { ...typography.caption, color: proTheme.colors.textSecondary, marginTop: spacing.md, textAlign: "center", fontStyle: "italic" },
-  payoutCard: { backgroundColor: proTheme.colors.surface, borderRadius: radius.lg, padding: spacing.lg, alignItems: "center", marginTop: spacing.xl, alignSelf: "stretch" },
-  payoutLabel: { ...typography.caption, color: proTheme.colors.textSecondary },
-  payoutValue: { ...typography.display, color: proTheme.colors.action, marginTop: 4 },
-  payoutSub: { ...typography.caption, color: proTheme.colors.textSecondary, marginTop: 4 },
-  acceptButton: { backgroundColor: proTheme.colors.action, borderRadius: radius.md, padding: spacing.lg, alignItems: "center", marginTop: spacing.xl, alignSelf: "stretch" },
-  acceptLabel: { ...typography.button, color: "#03130A" },
-  skipButton: { padding: spacing.md, alignItems: "center" },
-  skipLabel: { ...typography.body, color: proTheme.colors.textSecondary },
+  container: { flex: 1, backgroundColor: proTheme.colors.bg },
+  content: { padding: spacing.lg, paddingTop: spacing.xl },
+  stateContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+    padding: spacing.xl,
+    backgroundColor: proTheme.colors.bg,
+  },
+  stateTitle: {
+    ...typography.h2,
+    color: proTheme.colors.textPrimary,
+    textAlign: "center",
+    writingDirection: "rtl",
+  },
+  stateDetail: {
+    ...typography.caption,
+    color: proTheme.colors.textSecondary,
+    textAlign: "center",
+    writingDirection: "rtl",
+  },
 });

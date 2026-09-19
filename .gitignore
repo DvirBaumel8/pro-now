@@ -12,3 +12,4 @@ coverage/
 prisma/*.db
 apps/api/generated/
 *.tsbuildinfo
+tools/design-preview/dist/

@@ -5,7 +5,8 @@
   "description": "PRO NOW — real-time ONLINE-FIRST / NOW-FIRST mobile services marketplace monorepo.",
   "workspaces": [
     "apps/*",
-    "packages/*"
+    "packages/*",
+    "tools/*"
   ],
   "scripts": {
     "dev:api": "npm run dev -w apps/api",
@@ -18,12 +19,17 @@
     "test": "npm run test --workspaces --if-present",
     "db:migrate": "npm run db:migrate -w apps/api",
     "db:seed": "npm run db:seed -w apps/api",
-    "verify:domain": "tsx scripts/verify-domain-logic.ts"
+    "verify:domain": "tsx scripts/verify-domain-logic.ts",
+    "verify:rowlock": "tsx scripts/verify-row-lock.ts",
+    "preview:design": "npm run dev -w @pro-now/design-preview",
+    "preview:build": "npm run build -w @pro-now/design-preview"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
+    "@types/pg": "^8.23.1",
     "eslint": "^9.39.5",
     "globals": "^15.15.0",
+    "pg": "^8.23.0",
     "tsx": "^4.19.0",
     "typescript": "^5.5.4",
     "typescript-eslint": "^8.70.0"

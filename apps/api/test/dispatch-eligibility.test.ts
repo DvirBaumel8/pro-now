@@ -4,6 +4,7 @@ import { evaluateEligibility, filterEligible, type DispatchCandidate } from "../
 const baseCandidate: DispatchCandidate = {
   professionalId: "pro_1",
   presenceState: "AVAILABLE",
+  accountVerificationStatus: "APPROVED",
   locationAgeSeconds: 10,
   serviceApproved: true,
   requiredCredentialsCurrent: true,
@@ -46,6 +47,18 @@ describe("dispatch eligibility — /docs/08-DISPATCH-ENGINE.md §Pipeline step 2
     const result = evaluateEligibility({ ...baseCandidate, isBlockedAgainstCustomer: true }, policy);
     expect(result.eligible).toBe(false);
     expect(result.reasonCodes).toContain("BLOCKED_RELATIONSHIP");
+  });
+
+  it("excludes a SUSPENDED account even when presence says AVAILABLE", () => {
+    const result = evaluateEligibility({ ...baseCandidate, accountVerificationStatus: "SUSPENDED" }, policy);
+    expect(result.eligible).toBe(false);
+    expect(result.reasonCodes).toContain("ACCOUNT_NOT_APPROVED");
+  });
+
+  it("excludes an account still mid-onboarding (IDENTITY_VERIFIED is not APPROVED)", () => {
+    const result = evaluateEligibility({ ...baseCandidate, accountVerificationStatus: "IDENTITY_VERIFIED" }, policy);
+    expect(result.eligible).toBe(false);
+    expect(result.reasonCodes).toContain("ACCOUNT_NOT_APPROVED");
   });
 
   it("filterEligible returns a result per candidate, never silently drops one", () => {

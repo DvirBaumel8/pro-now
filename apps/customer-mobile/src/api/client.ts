@@ -2,6 +2,7 @@ import Constants from "expo-constants";
 import type {
   CatalogResponse,
   DispatchResultView,
+  JobMatchView,
   JobView,
   ReviewView,
 } from "@pro-now/types";
@@ -55,6 +56,8 @@ export const api = {
   createJob: (input: { serviceId: string; addressId: string; description?: string }, idempotencyKey: string) =>
     request<{ job: JobView; dispatch: DispatchResultView }>("/v1/jobs", { method: "POST", headers: { "Idempotency-Key": idempotencyKey }, body: JSON.stringify(input) }),
   getJob: (id: string) => request<{ job: JobView }>(`/v1/jobs/${id}`),
+  /** Everything the match card renders — see /docs/06-API-SPEC.md. */
+  getMatch: (jobId: string) => request<JobMatchView>(`/v1/jobs/${jobId}/match`),
   approveQuote: (quoteId: string, quoteVersionHash: string, idempotencyKey: string) =>
     request<{ ok: boolean }>(`/v1/quotes/${quoteId}/approve`, { method: "POST", headers: { "Idempotency-Key": idempotencyKey }, body: JSON.stringify({ quoteVersionHash }) }),
   submitReview: (jobId: string, input: { overallRating: number; text?: string }) =>

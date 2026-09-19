@@ -5,9 +5,17 @@
  * these candidates (PostGIS pre-filter happens in SQL before this runs).
  */
 
+import { isAccountDispatchable } from "./credential-eligibility";
+
 export interface DispatchCandidate {
   professionalId: string;
   presenceState: string; // expect "AVAILABLE"
+  /**
+   * `ProfessionalProfile.verificationStatus`. Only APPROVED may be
+   * dispatched — see /docs/10-TRUST-VERIFICATION.md §Verification status
+   * model. Being "AVAILABLE" is a presence fact, not a trust fact.
+   */
+  accountVerificationStatus: string;
   locationAgeSeconds: number;
   serviceApproved: boolean;
   requiredCredentialsCurrent: boolean;
@@ -41,6 +49,7 @@ export function evaluateEligibility(
   const reasonCodes: string[] = [];
 
   if (candidate.presenceState !== "AVAILABLE") reasonCodes.push("NOT_AVAILABLE");
+  if (!isAccountDispatchable(candidate.accountVerificationStatus)) reasonCodes.push("ACCOUNT_NOT_APPROVED");
   if (candidate.locationAgeSeconds > policy.locationFreshnessThresholdSeconds) reasonCodes.push("LOCATION_STALE");
   if (!candidate.serviceApproved) reasonCodes.push("SERVICE_NOT_APPROVED");
   if (!candidate.requiredCredentialsCurrent) reasonCodes.push("CREDENTIAL_EXPIRED_OR_MISSING");

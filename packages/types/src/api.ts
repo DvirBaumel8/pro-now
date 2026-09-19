@@ -185,3 +185,122 @@ export interface ApiErrorResponse {
 }
 
 export type { JobActor };
+
+// ---------------------------------------------------------------------
+// Match & offer payloads — the two cards the marketplace turns on
+// ---------------------------------------------------------------------
+
+/**
+ * Factual, enumerated trust facts only. There is deliberately no numeric
+ * "trust score" field anywhere in this file — /CLAUDE.md §3 forbids
+ * fabricating one, and an enumerated list cannot be quietly turned into one.
+ */
+export type VerificationBadgeKind =
+  | "IDENTITY_VERIFIED"
+  | "BUSINESS_VERIFIED"
+  | "LICENSE_VERIFIED"
+  | "CREDENTIALS_CHECKED"
+  | "EXTERNAL_REPUTATION_LINKED";
+
+/**
+ * Reputation imported from an external platform. Always carried separately
+ * from PRO NOW's own rating and never merged into a single score
+ * (/docs/10-TRUST-VERIFICATION.md §Reputation import).
+ */
+export interface ExternalReputationView {
+  source: string;
+  ratingAverage: number | null;
+  ratingCount: number | null;
+  profileUrl: string | null;
+}
+
+export interface ProfessionalSummaryView {
+  id: string;
+  displayName: string;
+  profilePhotoUrl: string | null;
+  verifications: VerificationBadgeKind[];
+  /** Jobs completed through PRO NOW. Never an imported or invented count. */
+  proNowCompletedJobs: number;
+  /** null until there are enough PRO NOW reviews to show an average. */
+  proNowRatingAverage: number | null;
+  proNowRatingCount: number;
+  externalReputation: ExternalReputationView | null;
+}
+
+/**
+ * A real ETA. `isRouteBased: false` means it came from the coarse fallback
+ * (haversine + average speed), not a routing provider — the UI MUST then
+ * present it as approximate rather than as a route ETA
+ * (see providers/maps-routing-provider.ts).
+ */
+export interface EtaView {
+  etaSeconds: number;
+  distanceMeters: number | null;
+  isRouteBased: boolean;
+  computedAt: string;
+}
+
+/**
+ * What the customer is committing to at the moment of match. Structured
+ * numbers only — the Hebrew explanation of each pricing model is client
+ * copy, not an API field, so wording can change without an API release.
+ *
+ * Exactly the fields relevant to `priceModel` are populated.
+ */
+export interface PriceQuoteView {
+  priceModel: PriceModel;
+  currency: string;
+  /** FIXED */
+  fixedTotalMinorUnits?: number | null;
+  /** VISIT_QUOTE — the visit fee is knowable; the job total is not, yet. */
+  visitFeeMinorUnits?: number | null;
+  /** HOURLY — rate per hour plus the minimum charged duration. */
+  hourlyRateMinorUnits?: number | null;
+  minimumBillableMinutes?: number | null;
+  /** DISTANCE_TIME — fixed base, per-kilometre rate, and a fare floor. */
+  baseMinorUnits?: number | null;
+  perKmMinorUnits?: number | null;
+  minimumFareMinorUnits?: number | null;
+}
+
+/** GET /v1/jobs/:id/match — everything the customer's match card renders. */
+export interface JobMatchView {
+  jobId: string;
+  status: JobState;
+  serviceNameHe: string;
+  professional: ProfessionalSummaryView;
+  /** null when no ETA has been computed yet — never substitute a guess. */
+  eta: EtaView | null;
+  price: PriceQuoteView;
+}
+
+/** GET /v1/pro/offers/current — everything the professional's offer card renders. */
+export interface OfferCardView {
+  offerId: string;
+  jobId: string;
+  serviceNameHe: string;
+  serviceCode: string;
+  priceModel: PriceModel;
+  currency: string;
+  /** Server-authoritative deadline; the client only counts down to it. */
+  expiresAt: string;
+  offeredAt: string;
+  /** Travel from the professional's current position to the customer. */
+  eta: EtaView | null;
+  /**
+   * Expected payout, shown BEFORE accepting whenever the amount is knowable
+   * (/CLAUDE.md §3 — transparent provider payout). null means genuinely not
+   * knowable yet (e.g. VISIT_QUOTE before the quote exists); the UI must say
+   * so rather than display a plausible number.
+   */
+  expectedPayoutMinorUnits: number | null;
+  /** True when the payout depends on outcome (hours worked, final quote). */
+  payoutIsEstimate: boolean;
+  /**
+   * Approximate area only. The exact address is released after acceptance —
+   * pre-assignment location precision is a privacy rule
+   * (/docs/12-PRIVACY.md), not a UI nicety.
+   */
+  customerAreaLabel: string;
+  jobDescription: string | null;
+}

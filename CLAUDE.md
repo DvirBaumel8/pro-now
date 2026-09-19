@@ -117,6 +117,7 @@ blocks the epic's stated acceptance criteria.
 /packages/config         — shared config/env schema
 /packages/api-client     — typed client consumed by mobile/admin
 /packages/validation     — shared zod schemas (request/response validation)
+/tools/design-preview    — developer-only browser gallery for packages/ui (not a shipping target)
 ```
 
 ## 9. Current status
@@ -124,11 +125,15 @@ blocks the epic's stated acceptance criteria.
 See `/docs/EPIC-0-REPORT.md` for the as-built state, contradictions found
 between source documents, and the recommended next epic.
 
-**Read `§9 Verification pass` in that report first** — it is the current
-truth about what has actually been installed, compiled, linted, bundled and
-executed, and it supersedes the older `§7`/`§8`. Short version: lint, the
-unit tests, the admin build and both mobile bundles are green; `apps/api`
-cannot typecheck, boot, migrate or seed because Prisma's engine host
-(`binaries.prisma.sh`) is blocked by egress policy. Do not describe any
-database-, server- or screen-dependent behaviour as verified until that is
-resolved.
+**Read `§10` in that report first**, then `§9` — together they are the
+current truth about what has actually been installed, compiled, linted,
+bundled, rendered and executed. They supersede the older `§7`/`§8`.
+
+Short version: lint is clean across 10 workspaces, 146 unit tests pass, the
+admin build and both mobile bundles are green, and the `SELECT ... FOR
+UPDATE` row lock is proven against real PostgreSQL (`npm run
+verify:rowlock`). `apps/api` still cannot typecheck, boot, migrate or seed,
+because Prisma's engine host (`binaries.prisma.sh`) is blocked by egress
+policy — so **the schema changes in §10.6 have no migration yet**, and
+nothing database-, server- or screen-dependent may be described as verified
+until that is resolved.
