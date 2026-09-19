@@ -125,15 +125,21 @@ blocks the epic's stated acceptance criteria.
 See `/docs/EPIC-0-REPORT.md` for the as-built state, contradictions found
 between source documents, and the recommended next epic.
 
-**Read `§10` in that report first**, then `§9` — together they are the
-current truth about what has actually been installed, compiled, linted,
-bundled, rendered and executed. They supersede the older `§7`/`§8`.
+**Read `§12` in that report first**, then `§11` and `§10` — together they
+are the current truth about what has actually been installed, compiled,
+linted, bundled, rendered and executed. They supersede the older
+`§7`/`§8`.
 
-Short version: lint is clean across 10 workspaces, 146 unit tests pass, the
-admin build and both mobile bundles are green, and the `SELECT ... FOR
-UPDATE` row lock is proven against real PostgreSQL (`npm run
-verify:rowlock`). `apps/api` still cannot typecheck, boot, migrate or seed,
-because Prisma's engine host (`binaries.prisma.sh`) is blocked by egress
-policy — so **the schema changes in §10.6 have no migration yet**, and
-nothing database-, server- or screen-dependent may be described as verified
-until that is resolved.
+Short version: lint is clean across 10 workspaces, 152 unit tests pass, the
+admin build and both mobile bundles are green, the **baseline migration
+exists** (`apps/api/prisma/migrations/0_init`, derived from the schema by
+`npm run db:ddl`) and is verified against a real PostgreSQL 16 + PostGIS 3.4
+in both directions (`npm run db:verify` — 1411/1411), and the `SELECT ...
+FOR UPDATE` row lock is proven **against those real tables** (`npm run
+verify:rowlock` — 7/7, with a control).
+
+Prisma's engine host (`binaries.prisma.sh`) is blocked by organization
+egress policy in this container, for every Prisma version 5.x–8.x. That is
+permanent here and is why the migration is hand-authored rather than
+generated. `prisma generate` still has to run on a machine that can reach
+that host before `apps/api` will typecheck or boot — see §12.5.
