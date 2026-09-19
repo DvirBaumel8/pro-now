@@ -11,11 +11,13 @@ import type {
   ProProfileServiceItem,
   CustomerCallHistoryItem,
   CustomerOpenCall,
+  ProServiceEligibility,
   ProServiceToggle,
   ReceiptLine,
   SavedAddress,
   ServiceMatchRule,
   ServiceDetailBodyProps,
+  VerificationStep,
 } from "@pro-now/ui";
 
 /**
@@ -507,4 +509,68 @@ export const earningJobs: EarningJob[] = [
     ],
     netMinorUnits: 23157,
   },
+];
+
+// ---------------------------------------------------------------------
+// Verification
+// ---------------------------------------------------------------------
+
+/**
+ * A professional part-way through: identity done, business in review, the
+ * electrician's licence expired, insurance fine.
+ *
+ * The identity step is SANDBOX on purpose. The KYC vendor has not been
+ * chosen (/CLAUDE.md §4), so the adapter runs against a stub — and a stub
+ * result must not produce a verification badge. Showing the state honestly
+ * is the whole point of having the state.
+ */
+export const verificationSteps: VerificationStep[] = [
+  {
+    id: "v_identity",
+    titleHe: "אימות זהות",
+    explainHe: "תעודת זהות וסלפי, כדי שנדע שמי שמגיע הוא מי שנרשם.",
+    state: "SANDBOX",
+  },
+  {
+    id: "v_business",
+    titleHe: "עסק פעיל",
+    explainHe: "עוסק מורשה או פטור על שמך.",
+    state: "IN_REVIEW",
+    actionHe: "הוגש לפני יומיים. בדיקה נמשכת עד 3 ימי עסקים.",
+  },
+  {
+    id: "v_license_electric",
+    titleHe: "רישיון חשמלאי",
+    explainHe: "רישיון בתוקף מרשות החשמל.",
+    state: "EXPIRED",
+    actionHe: "הרישיון פג ב-1.9. העלה רישיון מחודש כדי לחזור לקבל עבודות חשמל.",
+    gatesServicesHe: ["עבודות חשמל"],
+  },
+  {
+    id: "v_insurance",
+    titleHe: "ביטוח צד ג׳",
+    explainHe: "כיסוי לנזק אפשרי בבית הלקוח.",
+    state: "VERIFIED",
+    validUntilHe: "בתוקף עד מרץ 2027",
+  },
+  {
+    id: "v_bank",
+    titleHe: "פרטי תשלום",
+    explainHe: "חשבון הבנק שאליו מועברת התמורה.",
+    state: "NOT_STARTED",
+    gatesServicesHe: ["כל השירותים"],
+  },
+];
+
+export const proEligibility: ProServiceEligibility[] = [
+  { id: "p1", nameHe: "תיקון נזילה", mark: "plumbing", live: true, blockedByHe: null },
+  { id: "p2", nameHe: "פתיחת סתימות", mark: "plumbing", live: true, blockedByHe: null },
+  {
+    id: "p3",
+    nameHe: "עבודות חשמל",
+    mark: "electrical",
+    live: false,
+    blockedByHe: "רישיון חשמלאי פג תוקף",
+  },
+  { id: "p4", nameHe: "מיזוג אוויר", mark: "climate", live: false, blockedByHe: "כבוי על ידך" },
 ];

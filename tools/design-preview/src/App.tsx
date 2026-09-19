@@ -5,6 +5,7 @@ import {
   AddressPickerBody,
   CallsListBody,
   ChatBody,
+  ConnectionBanner,
   CustomerHomeBody,
   CustomerProfileBody,
   DescribeFaultBody,
@@ -15,6 +16,7 @@ import {
   ProJobBody,
   ProOfferBody,
   ProOnlineBody,
+  ProVerificationBody,
   ProProfileBody,
   QuoteApprovalBody,
   SearchingBody,
@@ -30,7 +32,7 @@ import {
   type as t,
 } from "@pro-now/ui";
 import type { LiveLocationState } from "@pro-now/ui";
-import type { ChatMessage } from "@pro-now/ui";
+import type { ChatMessage, ConnectionState } from "@pro-now/ui";
 import type { JobState, ProPresenceState } from "@pro-now/types";
 
 import { matchFixture, offerFixture } from "./fixtures";
@@ -44,7 +46,9 @@ import {
   customerQuickReplies,
   earningDays,
   earningJobs,
+  proEligibility,
   proQuickReplies,
+  verificationSteps,
   homeRecent,
   homeServices,
   jobDescription,
@@ -93,7 +97,7 @@ function nowHHMM(): string {
 }
 
 type CustomerTab = "home" | "calls" | "card";
-type ProTab = "shift" | "earnings" | "profile";
+type ProTab = "shift" | "earnings" | "verify" | "profile";
 type Side = "customer" | "pro";
 
 type CustomerRoute =
@@ -131,6 +135,46 @@ function useLiveSnapshot() {
   );
 }
 
+/**
+ * The connection state, from the browser rather than from a toggle.
+ *
+ * `navigator.onLine` is genuinely wired here: switching the phone to
+ * aeroplane mode changes the banner. When the connection returns the app
+ * spends a moment in `reconnecting` before declaring itself online, because
+ * "the radio is back" and "we have fresh data" are different facts and
+ * collapsing them is how a stale ETA gets presented as current.
+ */
+function useConnection(): [ConnectionState, () => void] {
+  const [state, setState] = useState<ConnectionState>(() =>
+    typeof navigator !== "undefined" && navigator.onLine === false ? "offline" : "online"
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const goOffline = () => setState("offline");
+    const goOnline = () => {
+      setState("reconnecting");
+      setTimeout(() => setState("online"), 1400);
+    };
+    window.addEventListener("offline", goOffline);
+    window.addEventListener("online", goOnline);
+    return () => {
+      window.removeEventListener("offline", goOffline);
+      window.removeEventListener("online", goOnline);
+    };
+  }, []);
+
+  const retry = useCallback(() => {
+    setState("reconnecting");
+    setTimeout(
+      () => setState(typeof navigator !== "undefined" && !navigator.onLine ? "offline" : "online"),
+      1200
+    );
+  }, []);
+
+  return [state, retry];
+}
+
 export function App() {
   const { width, height } = useWindowDimensions();
   // The prototype fills whatever it is given: a phone at home-screen size,
@@ -140,6 +184,13 @@ export function App() {
 
   const [side, setSide] = useState<Side>("customer");
   const [notice, setNotice] = useState(true);
+  const [connection, retryConnection] = useConnection();
+  // Measured rather than assumed: the banner's height depends on how much
+  // text the current state needs, and guessing it leaves a gap or a clip.
+  const [bannerH, setBannerH] = useState(0);
+  useEffect(() => {
+    if (connection === "online") setBannerH(0);
+  }, [connection]);
 
   useEffect(() => {
     const id = setTimeout(() => setNotice(false), 6000);
@@ -149,14 +200,31 @@ export function App() {
   return (
     <View style={[styles.root, { backgroundColor: side === "pro" ? proTheme.colors.bg : customerTheme.colors.bg }]}>
       <View style={{ width: w, height: h, overflow: "hidden" }}>
+        {/*
+          * The banner sits IN the layout rather than over it. An overlay
+          * would cover whichever header happened to be beneath it, and a
+          * message about the data being wrong should not hide the data.
+          */}
+        <View onLayout={(e) => setBannerH(e.nativeEvent.layout.height)}>
+          <ConnectionBanner
+            state={connection}
+            colors={side === "pro" ? proTheme.colors : customerTheme.colors}
+            duringLiveJob
+            onRetry={retryConnection}
+          />
+        </View>
+
         {side === "customer" ? (
-          <CustomerApp width={w} height={h} onSwitch={() => setSide("pro")} />
+          <CustomerApp width={w} height={h - bannerH} onSwitch={() => setSide("pro")} />
         ) : (
-          <ProApp width={w} height={h} onSwitch={() => setSide("customer")} />
+          <ProApp width={w} height={h - bannerH} onSwitch={() => setSide("customer")} />
         )}
 
         {notice ? (
-          <Pressable style={styles.notice} onPress={() => setNotice(false)}>
+          // Offset by the banner, which is in the layout above this overlay.
+          // Without it the prototype notice lands on top of the message
+          // saying the data may be wrong — the less important of the two.
+          <Pressable style={[styles.notice, { top: bannerH + spacing.lg }]} onPress={() => setNotice(false)}>
             <Text style={styles.noticeText}>
               אב־טיפוס. אין שרת — כל הנתונים הם דוגמאות. גע כדי לסגור.
             </Text>
@@ -633,6 +701,16 @@ function ProApp({ width, height, onSwitch }: { width: number; height: number; on
       width={width}
       height={bodyH}
     />
+  ) : tab === "verify" ? (
+    <ProVerificationBody
+      displayNameHe="דוגמה ד׳ (תצוגה)"
+      steps={verificationSteps}
+      services={proEligibility}
+      onOpenStep={() => setProSheet("services")}
+      onBack={() => setTab("shift")}
+      width={width}
+      height={bodyH}
+    />
   ) :
     tab === "profile" ? (
       <ProProfileBody
@@ -776,6 +854,7 @@ function ProApp({ width, height, onSwitch }: { width: number; height: number; on
         items={[
           { key: "shift", label: lex.shift, mark: "clock" as const },
           { key: "earnings", label: lex.payout, mark: "handyman" as const },
+          { key: "verify", label: lex.verified, mark: "clock" as const },
           { key: "profile", label: "הפרופיל", mark: "person" as const },
         ]}
         active={tab}
@@ -931,7 +1010,6 @@ const styles = StyleSheet.create({
 
   notice: {
     position: "absolute",
-    top: spacing.lg,
     left: spacing.lg,
     right: spacing.lg,
     backgroundColor: "rgba(23,18,31,0.92)",
