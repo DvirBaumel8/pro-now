@@ -255,6 +255,30 @@ export const tint = {
  * product lives or dies by — the ETA and the payout — which
  * /docs/03-DESIGN-SYSTEM.md requires to be visually dominant.
  */
+/**
+ * THE SEMANTIC SCALE (Visual System v1 §1).
+ *
+ * Seven names, and a local `fontSize:` is a bug. The old scale had eleven
+ * sizes with overlapping jobs — h1 and display both meant "big" — so every
+ * screen picked its own and the app ended up with no hierarchy, just a range
+ * of sizes. A name per job means two screens showing the same KIND of thing
+ * show it at the same size without anyone coordinating.
+ *
+ * `type` below stays as the implementation of these names plus the legacy
+ * aliases the existing screens use; `scale` is what new code reads.
+ */
+export const scale = {
+  display: 56,
+  hero: 44,
+  title: 32,
+  section: 24,
+  body: 17,
+  meta: 14,
+  micro: 12,
+} as const;
+
+export type ScaleName = keyof typeof scale;
+
 export const type = {
   displayXL: { fontSize: 64, lineHeight: 66, fontWeight: "700" as const, letterSpacing: -1.5 },
   display: { fontSize: 46, lineHeight: 50, fontWeight: "700" as const, letterSpacing: -1 },

@@ -3,25 +3,42 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import type { EtaView, JobState, ProfessionalSummaryView } from "@pro-now/types";
 
-import { customerTheme, radii, spacing, tint, type } from "../theme";
 import { formatCompletedJobs, formatEta, formatProNowRating } from "../format";
-import { MapSurface } from "../components/MapSurface";
-import { BottomSheet, Chip, RingedAvatar } from "../components/surfaces";
-import { JobProgress } from "../components/JobProgress";
-import { ClockMark, ShieldCheckMark, StarMark } from "../components/marks";
+import { customerTheme, palette, radii, scale, spacing, tabular, type } from "../theme";
+import { HeroMetric } from "../components/HeroMetric";
+import { ProviderPortrait } from "../components/ProviderPortrait";
+import { RealMapSurface } from "../components/RealMapSurface";
+import { ScreenShell } from "../components/ScreenShell";
+import { ShieldCheckMark, StarMark } from "../components/marks";
 
 /**
- * C10 — Live job. The screen the customer actually sits and watches.
+ * C07 — following the professional in.
  *
- * Contact is deliberately abstracted: the buttons say "call" and "message",
- * and the app routes them through the masking vendor rather than exposing
- * either party's number. The vendor is an open decision (/CLAUDE.md §4), so
- * this body takes callbacks and never a phone number — there is no prop
- * here that could leak one.
+ * REBUILT TO THE SYSTEM (Visual System v1 §8 in the screen map). This screen
+ * was the clearest example of the drift Amit spotted: a light surface, a
+ * drawn street map, three stacked elevated cards, and an ETA smaller than
+ * the same number on the match screen. Beside the new screens it read as a
+ * different app, which it effectively was.
  *
- * The ETA re-uses `formatEta`, so a coarse fallback estimate is marked as
- * approximate here exactly as it is on the match card. Consistency matters:
- * a number that was hedged on one screen must not look certain on the next.
+ * Three decisions carried over from the system:
+ *
+ * 1. **The map IS the screen**, not a picture inside a card. This is one of
+ *    the two places a real map is honest — an assignment exists and both
+ *    sides need the location to execute (§11) — so it gets the whole
+ *    surface and everything else floats on it.
+ * 2. **Dark, and earned.** A dark customer screen requires a live state
+ *    (§12). This one has the most live state in the product: someone is
+ *    physically moving toward you.
+ * 3. **The ETA is the hero.** "When does he arrive" is the only question
+ *    this screen answers (§9), so the number that answers it is the largest
+ *    thing on it — and it renders through `HeroMetric`, which means an
+ *    unknown ETA is a sentence about why rather than a dash.
+ *
+ * WHAT IS NOT HERE: the four-step progress rail. It was decoration dressed
+ * as information — the customer already knows the professional has not
+ * finished, and a rail showing three greyed-out future steps mostly
+ * advertises how much has not happened yet. The current state is a word,
+ * and the ETA is the fact.
  */
 
 const colors = customerTheme.colors;
@@ -55,6 +72,8 @@ export function TrackingBody({
   const etaDisplay = formatEta(eta);
   const rating = formatProNowRating(professional.proNowRatingAverage, professional.proNowRatingCount);
   const jobsLine = formatCompletedJobs(professional.proNowCompletedJobs);
+  // Anything past the search means a professional is attached to this job.
+  const assigned = status !== "SEARCHING" && status !== "DRAFT" && status !== "OFFERING";
 
   const headline =
     status === "PRO_EN_ROUTE"
@@ -67,156 +86,219 @@ export function TrackingBody({
             ? "יוצא אליך"
             : "מעדכנים…";
 
+  /*
+   * Why the ETA is missing, in the honest version of each case. A dash
+   * would be shorter and would tell the customer nothing except that
+   * something is wrong.
+   */
+  const etaUnknownHe =
+    status === "PRO_ARRIVED"
+      ? "הגיע אליך"
+      : status === "IN_PROGRESS"
+        ? "נמצא אצלך ועובד"
+        : "זמן ההגעה יחושב כשייצא לדרך";
+
+  // The map gets the top 54%; the sheet sizes itself and overlaps the rest.
+  const mapH = Math.round(height * 0.54);
+
   return (
-    <View style={[styles.screen, { width, height }]}>
-      <MapSurface
-        colors={colors}
-        height={height}
-        showAssignedMarker
-        statusText={etaDisplay ? `${headline} · ${etaDisplay.value} ${etaDisplay.unit}` : headline}
-        style={styles.map}
-      />
+    <ScreenShell side="customer" tone="dark" liveState="ROUTE" width={width} height={height}>
+      <RealMapSurface assigned={assigned} width={width} height={mapH} tone="dark" />
 
-      <View style={styles.sheetWrap}>
-        <BottomSheet colors={colors}>
-          <JobProgress status={status} colors={colors} />
-
-          {/* --- ETA headline --- */}
-          <View style={styles.etaRow}>
-            <View>
-              <Text style={styles.headline}>{headline}</Text>
-              <Text style={styles.service}>{serviceNameHe}</Text>
-            </View>
-            {etaDisplay ? (
-              <View style={styles.etaBlock}>
-                <Text style={styles.etaValue}>{etaDisplay.value}</Text>
-                <Text style={styles.etaUnit}>{etaDisplay.unit}</Text>
-              </View>
-            ) : null}
-          </View>
-
-          {etaDisplay?.isApproximate ? (
-            <Text style={styles.etaNote}>זמן ההגעה הוא הערכה ראשונית ויתעדכן</Text>
-          ) : null}
-
-          <View style={styles.divider} />
-
-          {/* --- Professional --- */}
-          <View style={styles.proRow}>
-            <RingedAvatar
-              seed={professional.id}
-              size={58}
-              uri={professional.profilePhotoUrl}
-              name={professional.displayName}
-              colors={colors}
-            />
-            <View style={styles.proText}>
-              <Text style={styles.proName} numberOfLines={1}>
-                {professional.displayName}
-              </Text>
-              <View style={styles.proMeta}>
-                {rating ? (
-                  <>
-                    <StarMark size={13} />
-                    <Text style={styles.proMetaText}>{rating.rating}</Text>
-                    <Text style={styles.proMetaDim}>({rating.count})</Text>
-                  </>
-                ) : null}
-                {rating && jobsLine ? <Text style={styles.proMetaDim}>·</Text> : null}
-                {jobsLine ? <Text style={styles.proMetaDim}>{jobsLine}</Text> : null}
-              </View>
-            </View>
-            {professional.verifications.includes("IDENTITY_VERIFIED") ? (
-              <View style={styles.verifiedBubble}>
-                <ShieldCheckMark size={18} color={colors.action} />
-              </View>
-            ) : null}
-          </View>
-
-          {/* --- Contact. No phone number crosses this boundary. --- */}
-          <View style={styles.actions}>
-            <Pressable onPress={onCall} accessibilityRole="button" style={styles.actionBtn}>
-              <Text style={styles.actionLabel}>שיחה</Text>
-            </Pressable>
-            <Pressable onPress={onMessage} accessibilityRole="button" style={styles.actionBtn}>
-              <Text style={styles.actionLabel}>הודעה</Text>
-            </Pressable>
-            <Pressable onPress={onSafety} accessibilityRole="button" style={[styles.actionBtn, styles.safetyBtn]}>
-              <Text style={[styles.actionLabel, { color: colors.statusDanger }]}>בטיחות</Text>
-            </Pressable>
-          </View>
-
-          {priceLineHe ? (
-            <View style={styles.priceRow}>
-              <ClockMark size={15} color={colors.textSecondary} />
-              <Text style={styles.priceText}>{priceLineHe}</Text>
-            </View>
-          ) : null}
-
-          <View style={styles.chipRow}>
-            <Chip label="המספרים מוסתרים משני הצדדים" colors={colors} tone="neutral" />
-          </View>
-        </BottomSheet>
+      {/* The state, as one word, over the map. */}
+      <View style={styles.statusPill} pointerEvents="none">
+        <Text style={styles.statusText}>{headline}</Text>
       </View>
-    </View>
+
+      {/*
+        * ONE elevated surface, anchored to the BOTTOM and sized by its
+        * content. Pinning it to a fraction of the screen left a stretch of
+        * empty white under the last line on a tall phone — the sheet has as
+        * much to say as it has, and the map takes the rest.
+        */}
+      <View style={styles.sheet}>
+        <View style={styles.grabber} />
+
+        <View style={styles.heroRow}>
+          <View style={styles.heroText}>
+            <Text style={styles.service} numberOfLines={2}>
+              {serviceNameHe}
+            </Text>
+            {/*
+              * The four-step rail is gone, and the doc comment above says
+              * why. It also could not fit: at this width its labels
+              * truncated to "מחפ…" and "בדרך…", which is a progress
+              * indicator that has stopped indicating progress.
+              */}
+            <Text style={styles.state} numberOfLines={1}>
+              {headline}
+            </Text>
+          </View>
+          <HeroMetric
+            value={etaDisplay ? String(etaDisplay.value) : null}
+            unitHe={etaDisplay ? etaDisplay.unit : null}
+            labelHe={etaDisplay?.isApproximate ? "זמן הגעה · משוער" : "זמן הגעה"}
+            unknownReasonHe={etaUnknownHe}
+            size="hero"
+            tone="light"
+          />
+        </View>
+
+        <View style={styles.divider} />
+
+        <View style={styles.proRow}>
+          <ProviderPortrait
+            photoUri={professional.profilePhotoUrl}
+            displayNameHe={professional.displayName}
+            size={54}
+            tone="light"
+          />
+          <View style={styles.proText}>
+            <Text style={styles.proName} numberOfLines={1}>
+              {professional.displayName}
+            </Text>
+            <View style={styles.proMeta}>
+              {rating ? (
+                <>
+                  <StarMark size={13} />
+                  <Text style={styles.proMetaStrong}>{rating.rating}</Text>
+                  <Text style={styles.proMetaDim}>({rating.count})</Text>
+                </>
+              ) : null}
+              {rating && jobsLine ? <Text style={styles.proMetaDim}>·</Text> : null}
+              {jobsLine ? <Text style={styles.proMetaDim}>{jobsLine}</Text> : null}
+            </View>
+          </View>
+          {professional.verifications.includes("IDENTITY_VERIFIED") ? (
+            <View style={styles.verified}>
+              <ShieldCheckMark size={17} color={colors.trust} />
+            </View>
+          ) : null}
+        </View>
+
+        {/* Contact. No phone number crosses this boundary. */}
+        <View style={styles.actions}>
+          <Act labelHe="שיחה" onPress={onCall} />
+          <Act labelHe="הודעה" onPress={onMessage} />
+          <Act labelHe="בטיחות" onPress={onSafety} danger />
+        </View>
+
+        {priceLineHe ? <Text style={styles.price}>{priceLineHe}</Text> : null}
+        <Text style={styles.masked}>המספרים מוסתרים משני הצדדים</Text>
+      </View>
+    </ScreenShell>
+  );
+}
+
+function Act({
+  labelHe,
+  onPress,
+  danger,
+}: {
+  labelHe: string;
+  onPress?: () => void;
+  danger?: boolean;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={labelHe}
+      style={({ pressed }) => [styles.act, pressed && { opacity: 0.88 }]}
+    >
+      <Text style={[styles.actText, danger && { color: colors.statusDanger }]} numberOfLines={1}>
+        {labelHe}
+      </Text>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { backgroundColor: colors.bg, overflow: "hidden", borderRadius: radii.xl },
-  map: { ...StyleSheet.absoluteFillObject, borderRadius: 0 },
-  sheetWrap: { position: "absolute", left: 0, right: 0, bottom: 0 },
+  statusPill: {
+    position: "absolute",
+    top: spacing.lg,
+    alignSelf: "center",
+    paddingHorizontal: spacing.lg,
+    minHeight: 34,
+    justifyContent: "center",
+    borderRadius: radii.pill,
+    backgroundColor: "rgba(16,12,22,0.82)",
+  },
+  statusText: { ...type.captionStrong, fontSize: scale.meta, color: "#FFFFFF", writingDirection: "rtl" },
 
-  etaRow: {
-    flexDirection: "row-reverse",
-    alignItems: "flex-end",
-    justifyContent: "space-between",
+  sheet: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingBottom: spacing.xl,
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: radii.sheet,
+    borderTopRightRadius: radii.sheet,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    // Elevation only — a surface is raised or outlined, never both (§5).
+    shadowColor: palette.ink900,
+    shadowOpacity: 0.18,
+    shadowRadius: 28,
+    shadowOffset: { width: 0, height: -6 },
+    elevation: 12,
+  },
+  grabber: {
+    alignSelf: "center",
+    width: 38,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.border,
+    marginBottom: spacing.lg,
+  },
+
+  heroRow: { flexDirection: "row-reverse", alignItems: "flex-start", justifyContent: "space-between", gap: spacing.md },
+  heroText: { flex: 1, alignItems: "flex-end", gap: spacing.sm },
+  service: { ...type.h3, color: colors.textPrimary, textAlign: "right", writingDirection: "rtl" },
+  state: { ...type.caption, color: colors.textSecondary, textAlign: "right", writingDirection: "rtl" },
+
+  divider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.lg },
+
+  proRow: { flexDirection: "row-reverse", alignItems: "center", gap: spacing.md },
+  proText: { flex: 1, alignItems: "flex-end", gap: 2 },
+  proName: { ...type.bodyStrong, color: colors.textPrimary, writingDirection: "rtl" },
+  proMeta: { flexDirection: "row-reverse", alignItems: "center", gap: 4, flexWrap: "wrap" },
+  proMetaStrong: { ...type.caption, ...tabular, color: colors.textPrimary, fontWeight: "700" },
+  proMetaDim: { ...type.caption, color: colors.textSecondary, writingDirection: "rtl" },
+  verified: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(11,124,100,0.1)",
+  },
+
+  actions: { flexDirection: "row-reverse", gap: spacing.sm, marginTop: spacing.lg },
+  act: {
+    flex: 1,
+    minHeight: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radii.md,
+    backgroundColor: colors.surfaceElevated,
+  },
+  actText: { ...type.captionStrong, fontSize: scale.meta, color: colors.textPrimary },
+
+  price: {
+    ...type.caption,
+    color: colors.textSecondary,
+    textAlign: "right",
+    writingDirection: "rtl",
     marginTop: spacing.lg,
   },
-  headline: { ...type.h1, color: colors.textPrimary, textAlign: "right", writingDirection: "rtl" },
-  service: { ...type.caption, color: colors.textSecondary, textAlign: "right", writingDirection: "rtl" },
-  etaBlock: { flexDirection: "row-reverse", alignItems: "baseline", gap: 5 },
-  etaValue: { ...type.display, color: colors.actionText, fontVariant: ["tabular-nums"] },
-  etaUnit: { ...type.h3, color: colors.actionText },
-  etaNote: {
+  masked: {
     ...type.caption,
+    fontSize: scale.micro,
     color: colors.textSecondary,
     textAlign: "right",
     writingDirection: "rtl",
     marginTop: 4,
   },
-
-  divider: { height: StyleSheet.hairlineWidth * 2, backgroundColor: colors.border, marginVertical: spacing.lg },
-
-  proRow: { flexDirection: "row-reverse", alignItems: "center", gap: spacing.md },
-  proText: { flex: 1, alignItems: "flex-end", gap: 3 },
-  proName: { ...type.bodyStrong, color: colors.textPrimary, textAlign: "right", writingDirection: "rtl" },
-  proMeta: { flexDirection: "row-reverse", alignItems: "center", gap: 4, flexWrap: "wrap" },
-  proMetaText: { ...type.caption, color: colors.textPrimary, fontWeight: "700" },
-  proMetaDim: { ...type.caption, color: colors.textSecondary, writingDirection: "rtl" },
-  verifiedBubble: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: tint.action(),
-  },
-
-  actions: { flexDirection: "row-reverse", gap: spacing.sm, marginTop: spacing.lg },
-  actionBtn: {
-    flex: 1,
-    minHeight: 46,
-    borderRadius: radii.md,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.bg,
-  },
-  safetyBtn: { backgroundColor: tint.danger(0.08) },
-  actionLabel: { ...type.captionStrong, color: colors.textPrimary },
-
-  priceRow: { flexDirection: "row-reverse", alignItems: "center", gap: 6, marginTop: spacing.lg },
-  priceText: { ...type.caption, color: colors.textSecondary, writingDirection: "rtl" },
-
-  chipRow: { flexDirection: "row-reverse", marginTop: spacing.md },
 });
