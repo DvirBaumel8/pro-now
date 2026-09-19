@@ -304,3 +304,53 @@ export interface OfferCardView {
   customerAreaLabel: string;
   jobDescription: string | null;
 }
+
+// ---------------------------------------------------------------------
+// Live availability — GET /v1/areas/:areaCode/availability
+// ---------------------------------------------------------------------
+
+/**
+ * Supply for ONE service in one coarse area, at one instant.
+ *
+ * `availableNow` counts professionals who are ONLINE **and** dispatch-eligible
+ * for that specific service (/CLAUDE.md §3 — eligibility is per service, not
+ * per account). A professional who is online but whose licence for this
+ * service has lapsed is not counted, because counting them would mean the
+ * number promises something dispatch would then refuse to deliver.
+ *
+ * There is deliberately no "approximately" or "busy" field. A count is a
+ * count; anything softer is a mood, and a mood cannot be verified.
+ */
+export interface ServiceAvailabilityView {
+  serviceId: string;
+  availableNow: number;
+  /**
+   * Travel time of the nearest eligible professional, or null when no
+   * routing result exists yet. Null is common and must render as absence.
+   */
+  nearestEtaSeconds: number | null;
+}
+
+/**
+ * A snapshot of live supply for a coarse area.
+ *
+ * The two fields that matter most are `computedAt` and `staleAfterSeconds`,
+ * and they exist because of the failure mode this whole feature invites: a
+ * count fetched once, cached in a screen, and still cheerfully displayed
+ * three minutes later when every one of those professionals has gone offline.
+ * That is not a stale cache, it is a false promise — the same one
+ * /CLAUDE.md §3 forbids inventing outright.
+ *
+ * So the server states how long its own answer may be trusted, and
+ * `readAvailability()` below enforces it. The client is not allowed to
+ * decide that a number is "probably still fine".
+ */
+export interface AreaAvailabilityView {
+  /** Coarse area these counts describe. Never a precise address. */
+  areaLabel: string;
+  /** ISO-8601 instant the server computed this. */
+  computedAt: string;
+  /** After this many seconds, these counts must be treated as unknown. */
+  staleAfterSeconds: number;
+  services: ServiceAvailabilityView[];
+}

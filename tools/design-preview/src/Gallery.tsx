@@ -32,6 +32,8 @@ import {
   offerUnknownPayoutFixture,
 } from "./fixtures";
 import {
+  AVAILABILITY_AT_MS,
+  availabilitySnapshot,
   homeRecent,
   homeServices,
   profileReviews,
@@ -160,6 +162,28 @@ export function Gallery() {
             addressLabelHe="הרצליה פיתוח"
             services={homeServices.map((s) => ({ ...s, availableNowCount: null }))}
             totalAvailableNow={null}
+            width={PHONE_W}
+          />
+        </Frame>
+
+        <Frame caption="C01 · LIVE · תמונת מצב טרייה מהשרת (בת 10 שניות)">
+          <CustomerHomeBody
+            greetingHe="ערב טוב"
+            addressLabelHe={availabilitySnapshot.areaLabel}
+            services={homeServices}
+            availability={availabilitySnapshot}
+            nowMs={AVAILABILITY_AT_MS + 10_000}
+            width={PHONE_W}
+          />
+        </Frame>
+
+        <Frame caption="C01 · LIVE · אותה תמונת מצב אחרי שפג תוקפה — כל המספרים נעלמים יחד">
+          <CustomerHomeBody
+            greetingHe="ערב טוב"
+            addressLabelHe={availabilitySnapshot.areaLabel}
+            services={homeServices}
+            availability={availabilitySnapshot}
+            nowMs={AVAILABILITY_AT_MS + 61_000}
             width={PHONE_W}
           />
         </Frame>

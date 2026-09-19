@@ -1,6 +1,7 @@
 export * from "./money";
 export * from "./job";
 export * from "./api";
+export * from "./availability";
 export * from "./policy";
 export * from "./providers/payment-provider";
 export * from "./providers/identity-verification-provider";

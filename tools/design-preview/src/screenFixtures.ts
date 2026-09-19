@@ -1,4 +1,4 @@
-import type { QuoteView } from "@pro-now/types";
+import type { AreaAvailabilityView, QuoteView } from "@pro-now/types";
 import type {
   HomeRecentItem,
   HomeServiceItem,
@@ -210,3 +210,33 @@ export const receiptLines: ReceiptLine[] = [
   { id: "l3", labelHe: "דמי ביקור ואבחון", amountMinorUnits: 17900 },
   { id: "l4", labelHe: "קיזוז דמי ביקור", amountMinorUnits: 17900, negative: true },
 ];
+
+
+// ---------------------------------------------------------------------
+// Live availability snapshots
+// ---------------------------------------------------------------------
+
+/**
+ * The gallery shows the SAME snapshot read at three different moments, so a
+ * reviewer can see the freshness rule work rather than take it on trust:
+ * fresh, at the edge of the window, and past it. Past it, every count on the
+ * screen disappears at once — which is the behaviour that makes "זמין עכשיו"
+ * mean something.
+ */
+export const AVAILABILITY_AT = "2026-09-19T12:00:00.000Z";
+export const AVAILABILITY_AT_MS = Date.parse(AVAILABILITY_AT);
+
+export const availabilitySnapshot: AreaAvailabilityView = {
+  areaLabel: "רמת אביב, תל אביב",
+  computedAt: AVAILABILITY_AT,
+  staleAfterSeconds: 60,
+  services: [
+    { serviceId: "svc-leak", availableNow: 4, nearestEtaSeconds: 480 },
+    { serviceId: "svc-electric", availableNow: 2, nearestEtaSeconds: 900 },
+    { serviceId: "svc-lock", availableNow: 1, nearestEtaSeconds: 1200 },
+    // Reported by the server as genuinely zero — different from absent.
+    { serviceId: "svc-ac", availableNow: 0, nearestEtaSeconds: null },
+    // svc-moving and svc-paint are absent from the snapshot entirely: the
+    // server has no reading for them, and the tiles must show nothing.
+  ],
+};

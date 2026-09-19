@@ -76,3 +76,58 @@ export const reviewSchema = z.object({
 export type ReviewInput = z.infer<typeof reviewSchema>;
 
 export const idempotencyKeyHeaderSchema = z.string().min(8).max(200);
+
+// ---------------------------------------------------------------------
+// Live availability
+// ---------------------------------------------------------------------
+
+/**
+ * Response shape for GET /v1/areas/:areaCode/availability.
+ *
+ * This one is validated on the CLIENT side too, which is unusual here and
+ * deliberate. Everywhere else the rule is "never trust the client"; for
+ * availability the matching rule is "never trust a payload just because it
+ * came from the server". A malformed count — a float, a negative, a string
+ * that happens to parse — would sail into `readAvailability()` and come out
+ * the other side as a confident number on a customer's screen.
+ *
+ * `strict()` matters as much as the field types: an unexpected extra field
+ * means the client and server disagree about what this endpoint is, and
+ * guessing at that point is how a rename silently becomes a wrong number.
+ */
+export const serviceAvailabilitySchema = z
+  .object({
+    serviceId: z.string().min(1),
+    // Integer and non-negative: there is no such thing as 1.5 or -2 people.
+    availableNow: z.number().int().nonnegative(),
+    // Null is a normal, expected value — no route has been computed yet.
+    nearestEtaSeconds: z.number().int().nonnegative().nullable(),
+  })
+  .strict();
+
+export const areaAvailabilitySchema = z
+  .object({
+    areaLabel: z.string().min(1),
+    computedAt: z.string().datetime(),
+    // A zero or negative window would mean "trust this forever", which is the
+    // opposite of what the field is for.
+    staleAfterSeconds: z.number().int().positive(),
+    services: z.array(serviceAvailabilitySchema),
+  })
+  .strict();
+
+export type AreaAvailabilityPayload = z.infer<typeof areaAvailabilitySchema>;
+
+/**
+ * Parse a payload into something safe to read, or `null`.
+ *
+ * Returning null rather than throwing is the point: a failed availability
+ * fetch must degrade to "we don't know right now", which every screen
+ * already renders. Throwing would tempt a caller into a catch block that
+ * falls back to the last good value — which is exactly the stale-number bug
+ * this whole path exists to prevent.
+ */
+export function parseAreaAvailability(input: unknown): AreaAvailabilityPayload | null {
+  const result = areaAvailabilitySchema.safeParse(input);
+  return result.success ? result.data : null;
+}

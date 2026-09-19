@@ -1,6 +1,9 @@
 import React from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
+import type { AreaAvailabilityView } from "@pro-now/types";
+
+import { resolveHomeSupply } from "../home-supply";
 import { customerTheme, radii, spacing, tint, type } from "../theme";
 import { Mark, PinMark, type MarkName } from "../components/marks";
 import { HeroFlourish, SectionHeader } from "../components/surfaces";
@@ -29,6 +32,11 @@ export interface HomeServiceItem {
   mark: MarkName;
   photoSubject: string;
   photoUri?: string | null;
+  /**
+   * Fallback count for callers with no live snapshot yet. When
+   * `availability` is supplied it wins, because a snapshot carries its own
+   * expiry and a bare number does not.
+   */
   availableNowCount?: number | null;
   priceHint?: string | null;
 }
@@ -47,7 +55,18 @@ export interface CustomerHomeBodyProps {
   addressLabelHe: string;
   services: HomeServiceItem[];
   recent?: HomeRecentItem[];
-  /** Total professionals online across all services, if the server reports it. */
+  /**
+   * The live supply snapshot. Preferred over `totalAvailableNow` and over
+   * each tile's `availableNowCount`, because it is the only form that can
+   * expire: `readAvailability()` drops the whole thing once the server's own
+   * freshness window has passed, and every count on this screen goes back to
+   * absent in the same instant. A screen cannot hold a number the server has
+   * stopped standing behind.
+   */
+  availability?: AreaAvailabilityView | null;
+  /** Injected by tests and the gallery so the freshness rule is observable. */
+  nowMs?: number;
+  /** Total professionals online, for callers with no snapshot yet. */
   totalAvailableNow?: number | null;
   onSelectService?: (id: string) => void;
   onChangeAddress?: () => void;
@@ -59,6 +78,8 @@ export function CustomerHomeBody({
   addressLabelHe,
   services,
   recent = [],
+  availability,
+  nowMs,
   totalAvailableNow,
   onSelectService,
   onChangeAddress,
@@ -66,7 +87,17 @@ export function CustomerHomeBody({
 }: CustomerHomeBodyProps) {
   const gutter = spacing.lg;
   const tileWidth = (width - gutter * 2 - spacing.md) / 2;
-  const showSupply = typeof totalAvailableNow === "number" && totalAvailableNow > 0;
+
+  // The source-of-truth rule lives in resolveHomeSupply, where it is tested.
+  // See that file for why it must not be re-implemented inline.
+  const supply = resolveHomeSupply({
+    availability,
+    nowMs,
+    legacyTotal: totalAvailableNow,
+    legacyCounts: Object.fromEntries(services.map((s) => [s.id, s.availableNowCount])),
+  });
+  const total = supply.total;
+  const showSupply = typeof total === "number" && total > 0;
 
   return (
     <ScrollView style={[styles.screen, { width }]} contentContainerStyle={{ paddingBottom: spacing.xxl }}>
@@ -88,11 +119,17 @@ export function CustomerHomeBody({
         {showSupply ? (
           <View style={styles.supplyPill}>
             <View style={styles.supplyDot} />
-            <Text style={styles.supplyText}>{totalAvailableNow} בעלי מקצוע זמינים באזור שלך</Text>
+            <Text style={styles.supplyText}>
+              {total === 1
+                ? "בעל מקצוע אחד זמין עכשיו באזור שלך"
+                : `${total} בעלי מקצוע זמינים עכשיו באזור שלך`}
+            </Text>
           </View>
         ) : (
           // Honest absence. Not "0 available" — the server simply has not
-          // told us, and guessing here would be inventing supply.
+          // told us, and guessing here would be inventing supply. The copy is
+          // the same whether the snapshot is missing or expired, because to
+          // the customer those are the same fact: we do not know right now.
           <Text style={styles.supplyUnknown}>בוחרים שירות ואנחנו בודקים מי זמין עכשיו</Text>
         )}
       </View>
@@ -108,7 +145,7 @@ export function CustomerHomeBody({
               mark={s.mark}
               photoSubject={s.photoSubject}
               photoUri={s.photoUri}
-              availableNowCount={s.availableNowCount}
+              availableNowCount={supply.countFor(s.id)}
               priceHint={s.priceHint}
               colors={colors}
               width={tileWidth}

@@ -14,11 +14,19 @@ import type { ThemeColors } from "./primitives";
  * separates this from a directory of icons in boxes.
  *
  * `availableNowCount` is the number of professionals the SERVER currently
- * reports as online and eligible for this service. It is optional because
- * it is frequently unknown, and when it is unknown the tile shows nothing
- * rather than "0 available" or a plausible number — /CLAUDE.md §3 forbids
- * fabricating availability, and an idle marketplace must be allowed to look
- * idle.
+ * reports as online and eligible for this service. It has THREE states, and
+ * the tile renders three different things, because collapsing any two of
+ * them is a lie:
+ *
+ *   n > 0   a green count — supply exists and dispatch will find it
+ *   0       a muted "אין זמינות כרגע" — the server checked and there is none
+ *   null    nothing at all — the server has not said, and neither will we
+ *
+ * The 0/null distinction is the one that is easy to lose and expensive to
+ * lose. Rendering "no data" as "none available" tells the customer the
+ * marketplace is empty when it may be busy; rendering "none available" as
+ * "no data" invites them to tap into a dispatch that cannot succeed. Both
+ * are /CLAUDE.md §3 failures, in opposite directions.
  */
 
 export interface ServiceTileProps {
@@ -49,7 +57,9 @@ export function ServiceTile({
   width,
   onPress,
 }: ServiceTileProps) {
-  const hasSupply = typeof availableNowCount === "number" && availableNowCount > 0;
+  const known = typeof availableNowCount === "number";
+  const hasSupply = known && (availableNowCount as number) > 0;
+  const knownEmpty = known && (availableNowCount as number) === 0;
 
   return (
     <Pressable
@@ -80,7 +90,13 @@ export function ServiceTile({
         {hasSupply ? (
           <View style={[styles.supply, { backgroundColor: tint.action(0.92) }]}>
             <View style={styles.supplyDot} />
-            <Text style={styles.supplyText}>{availableNowCount} זמינים עכשיו</Text>
+            <Text style={styles.supplyText}>
+              {availableNowCount === 1 ? "אחד זמין עכשיו" : `${availableNowCount} זמינים עכשיו`}
+            </Text>
+          </View>
+        ) : knownEmpty ? (
+          <View style={[styles.supply, styles.supplyEmpty]}>
+            <Text style={[styles.supplyText, { color: "#F3F5F3" }]}>אין זמינות כרגע</Text>
           </View>
         ) : null}
       </View>
@@ -113,6 +129,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+
+  // Same shape and position as the green pill, so the eye reads them as the
+  // same fact reported differently — not as two unrelated badges.
+  supplyEmpty: { backgroundColor: "rgba(20,21,26,0.62)" },
 
   supply: {
     position: "absolute",

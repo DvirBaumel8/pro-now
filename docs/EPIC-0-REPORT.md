@@ -1051,3 +1051,91 @@ needs a real availability endpoint before any of it can appear. It is a
 server feature wearing a UI costume, and inventing the numbers in the client
 is precisely the failure the rest of this work exists to prevent. It waits
 for `prisma generate` and a booted API (§12.5).
+
+---
+
+## 14. The LIVE layer, built so it cannot lie
+
+§13.3 said the live supply counts had to wait for a real endpoint. That was
+half right: the *numbers* wait for the server, but the *rules* that keep them
+honest do not, and building those first is what makes the endpoint safe to
+plug in rather than dangerous.
+
+### 14.1 The failure this is designed against
+
+"12 מקצוענים זמינים עכשיו" is true for a few seconds. After that it is a
+number that used to be true, which is worse than no number: the customer
+acts on it, dispatch finds nobody, and the one promise the product rests on
+— online means online — is broken by a stale variable rather than by a lie
+anyone chose to tell.
+
+So the contract carries its own expiry. `AreaAvailabilityView` has
+`computedAt` and `staleAfterSeconds`: **the server states how long its own
+answer may be trusted**, and the client is not allowed to decide the number
+is "probably still fine".
+
+### 14.2 Three pure, tested layers
+
+- **`readAvailability()`** (`packages/types/src/availability.ts`) applies the
+  freshness window and returns `null` for every untrustworthy case — missing
+  snapshot, unparseable timestamp, future timestamp (the clocks disagree, and
+  a client clock is not evidence about supply), non-positive window, expired.
+  They collapse to one outcome so the UI has exactly one absence state and no
+  path where a half-valid snapshot leaks a number. A corrupted per-service
+  count (negative, fractional) is dropped rather than rendered as confident
+  supply. **10 tests.**
+- **`areaAvailabilitySchema`** (`packages/validation`) validates the payload
+  on the *client* too. Everywhere else the rule is "never trust the client";
+  here the matching rule is "never trust a payload just because it came from
+  the server". `.strict()` matters as much as the types: an unexpected field
+  means client and server disagree about what the endpoint is, and guessing
+  at that point is how a rename becomes a wrong number. `parseAreaAvailability`
+  returns `null` rather than throwing, so a bad response degrades to "we
+  don't know" instead of tempting a catch block into reusing the last good
+  value. **11 tests.**
+- **`resolveHomeSupply()`** (`packages/ui/src/home-supply.ts`) decides which
+  source of truth wins. **5 tests**, one of which is a regression test for a
+  real bug — see below.
+
+### 14.3 The bug the gallery caught
+
+The freshness rule was implemented correctly and then silently undone one
+line later. `CustomerHomeBody` fell back to the older per-tile props when the
+snapshot expired, so the header went quiet while the tiles carried on
+displaying 4, 2 and 1 — the exact stale-number failure `readAvailability` was
+written to prevent, rebuilt by accident directly beneath it.
+
+It passed typecheck. It passed lint. It read fine. It was caught by putting
+the same snapshot on screen at three different moments and looking at the
+third one.
+
+The rule is now stated once, in `resolveHomeSupply`, and tested: **a caller
+that supplies a snapshot has opted into that snapshot's lifetime.** When it
+expires, every number on the screen becomes unknown together. No partial
+credit, no fallback — a number that was never fresh cannot repair one that
+has gone stale. An explicit `null` snapshot counts as opting in too, so a
+failed fetch cannot leak props either.
+
+### 14.4 Zero is not unknown
+
+The tiles now render three states, not two:
+
+| value | tile shows |
+|---|---|
+| `n > 0` | green count — supply exists and dispatch will find it |
+| `0` | muted "אין זמינות כרגע" — the server checked, there is none |
+| `null` | nothing — the server has not said, and neither do we |
+
+Collapsing 0 into null tells a customer the marketplace is empty when it may
+be busy; collapsing null into 0 invites them into a dispatch that cannot
+succeed. Both are §3 failures, in opposite directions. The two pills share a
+shape and position so the eye reads them as one fact reported differently.
+
+### 14.5 What is left for the server
+
+`GET /v1/areas/:areaCode/availability` returning `AreaAvailabilityView`.
+Counting only professionals who are ONLINE **and** dispatch-eligible for that
+specific service is the whole correctness requirement — an online
+professional whose licence for that service has lapsed must not be counted,
+because the count would promise what dispatch would then refuse. The UI is
+already wired and will show nothing until that endpoint exists.
