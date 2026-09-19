@@ -37,7 +37,16 @@
 import { Client } from "pg";
 
 const DATABASE_URL = process.env.DATABASE_URL;
-const SCHEMA = "rowlock_verify";
+/**
+ * The race now runs against the REAL tables produced by the baseline
+ * migration, in `public`, with their real enum columns and real foreign
+ * keys — not against a simplified mirror. That upgrade was blocked until
+ * the migration existed (see /docs/EPIC-0-REPORT.md §12): a lock proven
+ * only against a hand-made copy of two tables proves the SQL, not the
+ * schema. Running it here means a constraint that would reject the write
+ * in production rejects it in this test too.
+ */
+const SCHEMA = "public";
 
 let passed = 0;
 let failed = 0;
@@ -59,34 +68,66 @@ function connect(): Client {
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function setup(admin: Client) {
-  await admin.query(`DROP SCHEMA IF EXISTS ${SCHEMA} CASCADE`);
-  await admin.query(`CREATE SCHEMA ${SCHEMA}`);
-  // Mirrors the columns atomic-accept.ts actually reads and writes.
-  await admin.query(`
-    CREATE TABLE ${SCHEMA}.jobs (
-      id                       text PRIMARY KEY,
-      status                   text NOT NULL,
-      assigned_professional_id text
-    )
-  `);
-  await admin.query(`
-    CREATE TABLE ${SCHEMA}.dispatch_offers (
-      id              text PRIMARY KEY,
-      job_id          text NOT NULL REFERENCES ${SCHEMA}.jobs(id),
-      professional_id text NOT NULL,
-      status          text NOT NULL
-    )
-  `);
+  // No table creation: the tables under test are the migrated ones. If the
+  // migration has not been applied, this fails loudly here rather than
+  // quietly testing a mirror that happens to be convenient.
+  const { rows } = await admin.query(
+    `SELECT to_regclass('public.jobs') AS jobs, to_regclass('public.dispatch_offers') AS offers`
+  );
+  if (!rows[0].jobs || !rows[0].offers) {
+    throw new Error(
+      "public.jobs / public.dispatch_offers do not exist — apply apps/api/prisma/migrations/0_init first"
+    );
+  }
 }
 
+/**
+ * The job row cannot exist on its own: it is anchored by real foreign keys
+ * to a customer, an address and a service, and the two competing offers are
+ * anchored to real professional rows. Seeding that whole chain is the point
+ * — it is what makes this a test of the schema and not only of the lock.
+ */
 async function resetFixture(admin: Client) {
-  await admin.query(`DELETE FROM ${SCHEMA}.dispatch_offers`);
-  await admin.query(`DELETE FROM ${SCHEMA}.jobs`);
-  await admin.query(`INSERT INTO ${SCHEMA}.jobs (id, status) VALUES ('job_1', 'OFFERING')`);
   await admin.query(`
-    INSERT INTO ${SCHEMA}.dispatch_offers (id, job_id, professional_id, status) VALUES
-      ('offer_a', 'job_1', 'pro_a', 'SENT'),
-      ('offer_b', 'job_1', 'pro_b', 'SENT')
+    DELETE FROM dispatch_offers WHERE "jobId" = 'job_1';
+    DELETE FROM jobs WHERE id = 'job_1';
+    DELETE FROM addresses WHERE id = 'addr_1';
+    DELETE FROM services WHERE id = 'svc_1';
+    DELETE FROM categories WHERE id = 'cat_1';
+    DELETE FROM departments WHERE id = 'dep_1';
+    DELETE FROM professional_profiles WHERE id IN ('pro_a', 'pro_b');
+    DELETE FROM customer_profiles WHERE id = 'cust_1';
+    DELETE FROM users WHERE id IN ('u_cust', 'u_pro_a', 'u_pro_b');
+  `);
+
+  await admin.query(`
+    INSERT INTO users (id, phone, "updatedAt") VALUES
+      ('u_cust', '+972500000001', NOW()),
+      ('u_pro_a', '+972500000002', NOW()),
+      ('u_pro_b', '+972500000003', NOW());
+
+    INSERT INTO customer_profiles (id, "userId", "updatedAt")
+      VALUES ('cust_1', 'u_cust', NOW());
+
+    INSERT INTO professional_profiles (id, "userId", "legalName", "displayName", "verificationStatus", "updatedAt") VALUES
+      ('pro_a', 'u_pro_a', 'Fixture A', 'Fixture A', 'APPROVED', NOW()),
+      ('pro_b', 'u_pro_b', 'Fixture B', 'Fixture B', 'APPROVED', NOW());
+
+    INSERT INTO departments (id, code, "nameHe", "nameEn") VALUES ('dep_1', 'HOME', 'בית', 'Home');
+    INSERT INTO categories (id, "departmentId", code, "nameHe", "nameEn")
+      VALUES ('cat_1', 'dep_1', 'PLUMB', 'אינסטלציה', 'Plumbing');
+    INSERT INTO services (id, "categoryId", code, "nameHe", "nameEn", "priceModel", "trustTier")
+      VALUES ('svc_1', 'cat_1', 'LEAK', 'תיקון נזילה', 'Leak repair', 'VISIT_QUOTE', 'B');
+
+    INSERT INTO addresses (id, "customerId", formatted, lat, lng)
+      VALUES ('addr_1', 'cust_1', 'תל אביב', 32.0853, 34.7818);
+
+    INSERT INTO jobs (id, "customerId", "serviceId", "addressId", status, "updatedAt")
+      VALUES ('job_1', 'cust_1', 'svc_1', 'addr_1', 'OFFERING', NOW());
+
+    INSERT INTO dispatch_offers (id, "jobId", "professionalId", status, "expiresAt") VALUES
+      ('offer_a', 'job_1', 'pro_a', 'SENT', NOW() + interval '30 seconds'),
+      ('offer_b', 'job_1', 'pro_b', 'SENT', NOW() + interval '30 seconds');
   `);
 }
 
@@ -106,7 +147,7 @@ async function attemptAccept(
   try {
     const lockClause = opts.useRowLock ? " FOR UPDATE" : "";
     const job = await client.query<{ id: string; status: string }>(
-      `SELECT id, status FROM ${SCHEMA}.jobs WHERE id = (SELECT job_id FROM ${SCHEMA}.dispatch_offers WHERE id = $1)${lockClause}`,
+      `SELECT id, status FROM jobs WHERE id = (SELECT "jobId" FROM dispatch_offers WHERE id = $1)${lockClause}`,
       [offerId]
     );
     const row = job.rows[0];
@@ -121,13 +162,13 @@ async function attemptAccept(
       return { rejected: true };
     }
 
-    await client.query(`UPDATE ${SCHEMA}.dispatch_offers SET status = 'ACCEPTED' WHERE id = $1`, [offerId]);
+    await client.query(`UPDATE dispatch_offers SET status = 'ACCEPTED', "respondedAt" = NOW() WHERE id = $1`, [offerId]);
     await client.query(
-      `UPDATE ${SCHEMA}.dispatch_offers SET status = 'REVOKED' WHERE job_id = $1 AND id <> $2 AND status IN ('CREATED','SENT','VIEWED')`,
+      `UPDATE dispatch_offers SET status = 'REVOKED' WHERE "jobId" = $1 AND id <> $2 AND status IN ('CREATED','SENT','VIEWED')`,
       [row.id, offerId]
     );
     await client.query(
-      `UPDATE ${SCHEMA}.jobs SET status = 'PRO_ASSIGNED', assigned_professional_id = $1 WHERE id = $2`,
+      `UPDATE jobs SET status = 'PRO_ASSIGNED', "assignedProfessionalId" = $1, "updatedAt" = NOW() WHERE id = $2`,
       [professionalId, row.id]
     );
     await client.query("COMMIT");
@@ -160,10 +201,10 @@ async function runRace(admin: Client, useRowLock: boolean) {
       .map((v) => v.winner);
 
     const job = await admin.query<{ status: string; assigned_professional_id: string | null }>(
-      `SELECT status, assigned_professional_id FROM ${SCHEMA}.jobs WHERE id = 'job_1'`
+      `SELECT status, "assignedProfessionalId" AS assigned_professional_id FROM jobs WHERE id = 'job_1'`
     );
     const offers = await admin.query<{ id: string; status: string }>(
-      `SELECT id, status FROM ${SCHEMA}.dispatch_offers ORDER BY id`
+      `SELECT id, status FROM dispatch_offers WHERE "jobId" = 'job_1' ORDER BY id`
     );
 
     return { winners, job: job.rows[0]!, offers: offers.rows };
@@ -238,7 +279,21 @@ async function main() {
       await late.end();
     }
   } finally {
-    await admin.query(`DROP SCHEMA IF EXISTS ${SCHEMA} CASCADE`).catch(() => undefined);
+    // Never drop `public` — this runs against the real schema now. The
+    // fixture rows are removed instead, and only the ones this test made.
+    await admin
+      .query(`
+        DELETE FROM dispatch_offers WHERE "jobId" = 'job_1';
+        DELETE FROM jobs WHERE id = 'job_1';
+        DELETE FROM addresses WHERE id = 'addr_1';
+        DELETE FROM services WHERE id = 'svc_1';
+        DELETE FROM categories WHERE id = 'cat_1';
+        DELETE FROM departments WHERE id = 'dep_1';
+        DELETE FROM professional_profiles WHERE id IN ('pro_a', 'pro_b');
+        DELETE FROM customer_profiles WHERE id = 'cust_1';
+        DELETE FROM users WHERE id IN ('u_cust', 'u_pro_a', 'u_pro_b');
+      `)
+      .catch(() => undefined);
     await admin.end();
   }
 

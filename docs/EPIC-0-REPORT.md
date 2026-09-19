@@ -876,3 +876,128 @@ somewhere to sit".
 It also noted, correctly, that the premium feel cannot be judged at all
 until a real licensed photography set exists. `ImageSlot` is the slot; the
 photography is a business decision (/CLAUDE.md §4) and is Amit's to make.
+
+---
+
+## 12. The migration exists, and the row lock now runs against it
+
+Amit's instruction was to stop escalating and decide. Two of the things I
+had been treating as "blocked on Amit" were not his to decide at all, and
+one of them turned out not to be blocked.
+
+### 12.1 What was actually blocked, and what only looked blocked
+
+Re-tested from scratch. `binaries.prisma.sh` still answers **403 at CONNECT**
+under organization egress policy. I verified this is not a version problem:
+a clean install of **Prisma 7.10.0** (current stable) fails identically, and
+so does the documented offline switch `PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1`
+— it skips the checksum fetch and then fails on the engine download itself.
+The CLI probes for the schema engine on *every* command, including
+`generate`, so no Prisma command of any kind can run in this container.
+
+That is a network policy, not a defect, and not something to route around.
+So the conclusion is structural: **`prisma migrate` is unavailable here
+permanently, and waiting for it was the mistake.**
+
+What was *not* blocked: **PostgreSQL 16 with PostGIS 3.4 is installed in
+this container.** That is the thing that mattered, and I had not checked.
+
+### 12.2 The migration, derived rather than typed
+
+`prisma migrate dev` is a convenience that writes a SQL file; hand-authored
+migration SQL is fully supported by Prisma. But hand-*typing* 47 models is
+how a constraint goes quietly missing, so the file is derived instead:
+
+- **`tools/prisma-ddl/generate.py`** parses `schema.prisma` and emits the
+  DDL — enums, tables under their `@@map` names, Prisma's own scalar→
+  PostgreSQL type mapping, nullability, defaults, primary keys, `@unique` /
+  `@@unique` / `@@index`, and foreign keys with Prisma's default referential
+  actions (`RESTRICT` for a required relation, `SET NULL` for an optional
+  one). It is not a general Prisma compiler and does not pretend to be: it
+  implements exactly the subset this schema uses and **raises on anything it
+  does not fully understand** rather than guessing. A migration that
+  silently drops a constraint is worse than no migration.
+- Output: `apps/api/prisma/migrations/0_init/migration.sql` — 627 lines,
+  47 tables, 9 enum types, 52 indexes, 45 foreign keys. Regenerate with
+  `npm run db:ddl`.
+
+Only DB-owned defaults are emitted. `cuid()` and `@updatedAt` are generated
+by Prisma Client, so giving them database defaults would create a second
+source of truth that disagrees with the application silently.
+
+### 12.3 Verification, in both directions, with a negative control
+
+Applying SQL only proves it parses. `tools/prisma-ddl/verify.py`
+(`npm run db:verify`) re-reads `schema.prisma` independently and
+interrogates the live catalog, asserting **both**:
+
+- schema → database: every model, column, type, nullability, enum member
+  and order, primary key, index and foreign key exists;
+- database → schema: **nothing exists that the schema does not declare** —
+  the direction that catches a leftover column or a dropped index, which a
+  one-way check reports as green.
+
+PostGIS's own objects are excluded by asking `pg_depend` which relations the
+extension owns, not by hardcoding names that would stop matching on a
+version bump.
+
+**Result: 1411/1411 checks pass**, and the migration re-applies cleanly onto
+an empty schema.
+
+A green number nobody has seen fail means nothing, so the verifier was run
+against deliberately broken databases first. Dropping `users.email` →
+reported missing column *and* its missing index. Adding an undeclared
+`jobs.sneaky` → reported. Renaming an index → reported. The check fails when
+it should.
+
+### 12.4 The row lock now races the real tables
+
+`scripts/verify-row-lock.ts` previously ran against a hand-made two-table
+mirror in its own schema — which proved the SQL, not the schema. With the
+migration applied it now runs against the **real `public.jobs` and
+`public.dispatch_offers`**, with their real enum columns and real foreign
+keys, seeding the whole anchor chain (user → customer → address, user →
+professional, department → category → service) because the job row cannot
+legally exist without it. It refuses to run at all if the migration has not
+been applied, rather than quietly falling back to a convenient mirror.
+
+**7/7 pass, including the control**: without `FOR UPDATE` both accepts
+succeed and the job is double-assigned; with it, exactly one professional
+wins, the loser's offer is REVOKED rather than left live, and a late accept
+on a settled job is refused.
+
+### 12.5 What Amit still has to run, and it is now small
+
+The migration exists and is proven. On a machine that can reach
+`binaries.prisma.sh`, what remains is:
+
+```
+npm install
+npx prisma generate --schema apps/api/prisma/schema.prisma
+npx prisma migrate resolve --applied 0_init   # baseline: the SQL is already written
+npx prisma migrate deploy
+npm run db:seed
+```
+
+`migrate resolve` rather than `migrate dev`, because the migration is
+authored, not pending generation. `prisma generate` is still required for
+`apps/api` to typecheck — that one genuinely cannot be reproduced here,
+since the generated client is the engine's output.
+
+### 12.6 Decisions I took, and the ones that remain genuinely Amit's
+
+The four questions in §10.6 were **already implemented and already correct**.
+They were engineering calls dressed up as product questions, and holding
+them open was my error, not Amit's indecision. They are closed: explicit
+`BusinessVerificationStatus` (a typed-in row is not a verified business),
+the added HOURLY/DISTANCE_TIME pricing fields, sandbox KYC producing no
+badge, and the rating shown from the first verified review always beside its
+count.
+
+What remains is genuinely not mine to invent, per /CLAUDE.md §4 — each is a
+commercial, legal or contractual commitment, not a design preference:
+payment marketplace provider · KYC vendor · commission percentage · legal
+entity and invoice model · insurance policy · pilot geography and service
+mix · **a licensed photography set**. Every one has an interface and a
+sandbox adapter already, so none of them blocks building; they block
+*launching*, and they are decisions with money and liability attached.
