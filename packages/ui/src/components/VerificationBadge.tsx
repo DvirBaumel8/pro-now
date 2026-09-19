@@ -1,6 +1,8 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 
+import { palette, scale } from "../theme";
+
 /**
  * Factual trust badges only — see /docs/10-TRUST-VERIFICATION.md.
  * Never render an arbitrary numeric "trust score"; only these enumerated,
@@ -41,5 +43,5 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   checkmark: { color: "#0FA47F", fontWeight: "700" },
-  label: { color: "#0FA47F", fontSize: 13, fontWeight: "600" },
+  label: { color: palette.trust700, fontSize: scale.meta, fontWeight: "600" },
 });

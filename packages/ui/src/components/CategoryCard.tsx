@@ -1,7 +1,7 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { customerTheme, elevation, radii, spacing, tint, type } from "../theme";
+import { customerTheme, radii, spacing, tint, type } from "../theme";
 import { Mark, type MarkName } from "./marks";
 import { Pulse } from "./LiveServiceCard";
 
@@ -15,11 +15,32 @@ import { Pulse } from "./LiveServiceCard";
  * house, in their body, or in moving something. Broad first, specific after
  * — the direction that matches how anyone actually narrows a question.
  *
- * The live count is the one specific thing a category card may carry,
- * because it is the only thing on it that changes minute to minute: how many
- * of its services have someone reachable right now. Zero renders as absent
- * rather than as "0 פנויים", which is a number that makes a whole category
- * look dead when it is merely quiet.
+ * ---------------------------------------------------------------------
+ * WHY THIS IS NO LONGER A CARD
+ * ---------------------------------------------------------------------
+ * It was a two-column grid of bordered, shadowed tiles — each with an icon
+ * chip, a name and a status line. The review verdict was blunt and correct:
+ * "הקטגוריות ב־Home לא צריכות להרגיש כמו dashboard ארגוני… יש נטייה שכל
+ * רעיון יקבל מלבן משלו."
+ *
+ * Three things were wrong with the tile, in increasing order of importance.
+ *
+ * It broke §5 outright — border AND shadow on the same surface, the one
+ * combination the system forbids by name.
+ *
+ * It wasted the width. A 2-up grid gives each category about 170px, which is
+ * why the names wrapped to two lines and the live line had to be shortened
+ * to fit. A full-width row gives the same name the whole screen.
+ *
+ * And it flattened the answer. Six equal rectangles say "six equivalent
+ * options, choose one" — a menu. What we want it to say is "here is how the
+ * catalogue is shaped", and a list says that with no boxes at all: type for
+ * the name, space for the grouping, a hairline where two things genuinely
+ * separate.
+ *
+ * The live count stays, because it is the one thing here that changes minute
+ * to minute. Zero renders as absent rather than "0 פנויים" — a number that
+ * makes a whole category look dead when it is merely quiet.
  */
 
 const colors = customerTheme.colors;
@@ -30,7 +51,8 @@ export interface CategoryCardProps {
   serviceCount: number;
   /** Services in this category with someone reachable now. */
   liveCount: number;
-  width: number;
+  /** Ignored. Kept so existing callers do not break; the row is full-width. */
+  width?: number;
   onPress?: () => void;
 }
 
@@ -39,55 +61,57 @@ export function CategoryCard({
   mark,
   serviceCount,
   liveCount,
-  width,
   onPress,
 }: CategoryCardProps) {
+  const live = liveCount > 0;
+
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={
-        liveCount > 0 ? `${nameHe}, ${liveCount} שירותים פנויים עכשיו` : nameHe
+        live ? `${nameHe}, ${liveCount} שירותים פנויים עכשיו` : nameHe
       }
       style={({ pressed }) => [
-        styles.card,
-        { width },
-        elevation(1),
-        pressed && { opacity: 0.94, transform: [{ scale: 0.985 }] },
+        styles.row,
+        pressed && { backgroundColor: tint.neutralLight(0.04) },
       ]}
     >
       <View style={styles.markWrap}>
-        <Mark name={mark} size={24} color={colors.textPrimary} />
+        <Mark name={mark} size={22} color={colors.textPrimary} />
       </View>
 
-      <Text style={styles.name} numberOfLines={2}>
-        {nameHe}
-      </Text>
-
-      {liveCount > 0 ? (
-        <View style={styles.live}>
-          <Pulse color={colors.action} size={6} />
-          <Text style={styles.liveText} numberOfLines={1}>
-            {liveCount === 1 ? "שירות אחד פנוי עכשיו" : `${liveCount} פנויים עכשיו`}
-          </Text>
-        </View>
-      ) : (
-        <Text style={styles.meta} numberOfLines={1}>
-          {serviceCount === 1 ? "שירות אחד" : `${serviceCount} שירותים`}
+      <View style={styles.text}>
+        <Text style={styles.name} numberOfLines={1}>
+          {nameHe}
         </Text>
-      )}
+        {live ? (
+          <View style={styles.live}>
+            <Pulse color={colors.action} size={6} />
+            <Text style={styles.liveText} numberOfLines={1}>
+              {liveCount === 1 ? "שירות אחד פנוי עכשיו" : `${liveCount} שירותים פנויים עכשיו`}
+            </Text>
+          </View>
+        ) : (
+          <Text style={styles.meta} numberOfLines={1}>
+            {serviceCount === 1 ? "שירות אחד" : `${serviceCount} שירותים`}
+          </Text>
+        )}
+      </View>
+
+      <Text style={styles.go}>‹</Text>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-    minHeight: 124,
+  row: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: spacing.md,
+    minHeight: 64,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radii.md,
   },
   markWrap: {
     width: 42,
@@ -96,18 +120,26 @@ const styles = StyleSheet.create({
     backgroundColor: tint.neutralLight(0.05),
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: spacing.sm,
   },
+  text: { flex: 1, gap: 2 },
   name: {
     ...type.bodyStrong,
-    fontSize: 15,
-    lineHeight: 20,
     color: colors.textPrimary,
     textAlign: "right",
     writingDirection: "rtl",
-    flex: 1,
   },
-  live: { flexDirection: "row-reverse", alignItems: "center", gap: 6, marginTop: spacing.sm },
-  liveText: { ...type.caption, fontSize: 12, fontWeight: "700", color: colors.actionText, writingDirection: "rtl", flexShrink: 1 },
-  meta: { ...type.caption, fontSize: 12, color: colors.textSecondary, textAlign: "right", writingDirection: "rtl", marginTop: spacing.sm },
+  live: { flexDirection: "row-reverse", alignItems: "center", gap: 6 },
+  liveText: {
+    ...type.metaStrong,
+    color: colors.actionText,
+    writingDirection: "rtl",
+    flexShrink: 1,
+  },
+  meta: {
+    ...type.meta,
+    color: colors.textSecondary,
+    textAlign: "right",
+    writingDirection: "rtl",
+  },
+  go: { color: colors.textSecondary, ...type.section, fontWeight: "400", lineHeight: 26 },
 });

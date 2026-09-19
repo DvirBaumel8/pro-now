@@ -2,7 +2,7 @@ import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 
-import { customerTheme, elevation, palette, radii, spacing, tint, type } from "../theme";
+import { customerTheme, elevation, palette, radii, scale, spacing, tint, type } from "../theme";
 import { lex } from "../lexicon";
 import { ShieldCheckMark } from "../components/marks";
 import { Persona, PersonaStack } from "../components/Persona";
@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
   brand: { ...type.overline, color: colors.actionText, letterSpacing: 2 },
   headline: {
     ...type.displayXL,
-    fontSize: 42,
+    fontSize: scale.hero,
     lineHeight: 48,
     color: colors.textPrimary,
     textAlign: "right",

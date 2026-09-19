@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-
 
 import type { IntakeAnswer, IntakeQuestion, ServiceIntake } from "@pro-now/types";
 
-import { customerTheme, elevation, radii, spacing, tabular, tint, type } from "../theme";
+import { customerTheme, elevation, radii, scale, spacing, tabular, tint, type } from "../theme";
 import { Mark, type MarkName, ShieldCheckMark } from "../components/marks";
 import { ImageSlot, SectionHeader, Surface } from "../components/surfaces";
 
@@ -449,7 +449,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  backGlyph: { fontSize: 28, lineHeight: 28, color: colors.textPrimary, fontWeight: "300" },
+  backGlyph: { fontSize: scale.section, lineHeight: 28, color: colors.textPrimary, fontWeight: "300" },
   markBubble: {
     width: 48,
     height: 48,
@@ -482,7 +482,7 @@ const styles = StyleSheet.create({
   q: { marginBottom: spacing.lg },
   qPrompt: {
     ...type.bodyStrong,
-    fontSize: 15,
+    fontSize: scale.meta,
     color: colors.textPrimary,
     textAlign: "right",
     writingDirection: "rtl",
@@ -504,7 +504,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   qOptOn: { borderColor: colors.action, backgroundColor: tint.action(0.1) },
-  qOptText: { ...type.caption, fontSize: 14, color: colors.textPrimary, writingDirection: "rtl" },
+  qOptText: { ...type.caption, fontSize: scale.meta, color: colors.textPrimary, writingDirection: "rtl" },
   qOptTextOn: { color: colors.actionText, fontWeight: "700" },
   qUnit: { ...type.caption, color: colors.textSecondary, writingDirection: "rtl" },
   qInput: {
@@ -538,7 +538,7 @@ const styles = StyleSheet.create({
   recordBtnActive: { backgroundColor: tint.danger(0.12) },
   recordDot: { width: 14, height: 14, borderRadius: 7, backgroundColor: colors.action },
   recordDotActive: { backgroundColor: colors.statusDanger, borderRadius: 3 },
-  recordLabel: { ...type.bodyStrong, fontSize: 15, color: colors.actionText, writingDirection: "rtl" },
+  recordLabel: { ...type.bodyStrong, fontSize: scale.meta, color: colors.actionText, writingDirection: "rtl" },
 
   voiceDone: { flexDirection: "row-reverse", alignItems: "center", gap: spacing.md },
   voiceBadge: {
@@ -574,7 +574,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  photoRemoveText: { color: "#FFFFFF", fontSize: 15, lineHeight: 17 },
+  photoRemoveText: { color: "#FFFFFF", fontSize: scale.meta, lineHeight: 17 },
   photoAdd: {
     width: "31%",
     aspectRatio: 1,
@@ -586,8 +586,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: colors.surface,
   },
-  photoAddPlus: { fontSize: 26, color: colors.actionText, lineHeight: 30 },
-  photoAddText: { ...type.caption, fontSize: 11, color: colors.textSecondary },
+  photoAddPlus: { fontSize: scale.section, color: colors.actionText, lineHeight: 30 },
+  photoAddText: { ...type.caption, fontSize: scale.micro, color: colors.textSecondary },
 
   textArea: {
     minHeight: 96,
@@ -597,7 +597,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: spacing.md,
     ...type.body,
-    fontSize: 15,
+    fontSize: scale.meta,
     color: colors.textPrimary,
     writingDirection: "rtl",
     textAlignVertical: "top",
@@ -629,7 +629,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  ctaLabel: { ...type.bodyStrong, fontSize: 17, color: colors.onAction },
+  ctaLabel: { ...type.bodyStrong, fontSize: scale.body, color: colors.onAction },
   ctaNote: {
     ...type.caption,
     color: colors.textSecondary,

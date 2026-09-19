@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 
-import { customerTheme, elevation, radii, spacing, tint, type } from "../theme";
+import { customerTheme, elevation, radii, scale, spacing, tint, type } from "../theme";
 import { ClockMark, PinMark, ShieldCheckMark } from "../components/marks";
 import { Persona } from "../components/Persona";
 import { SectionHeader, Surface } from "../components/surfaces";
@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  backGlyph: { fontSize: 28, lineHeight: 28, color: colors.textPrimary, fontWeight: "300" },
+  backGlyph: { fontSize: scale.section, lineHeight: 28, color: colors.textPrimary, fontWeight: "300" },
   title: { ...type.h1, color: colors.textPrimary, writingDirection: "rtl", textAlign: "right" },
   subtitle: {
     ...type.caption,
@@ -381,14 +381,14 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     paddingHorizontal: spacing.md,
     ...type.body,
-    fontSize: 15,
+    fontSize: scale.meta,
     color: colors.textPrimary,
     writingDirection: "rtl",
   },
 
   switchRow: { flexDirection: "row-reverse", alignItems: "center", gap: spacing.md },
   switchText: { flex: 1, alignItems: "flex-end" },
-  switchTitle: { ...type.bodyStrong, fontSize: 15, color: colors.textPrimary, writingDirection: "rtl" },
+  switchTitle: { ...type.bodyStrong, fontSize: scale.meta, color: colors.textPrimary, writingDirection: "rtl" },
   switchSub: {
     ...type.caption,
     color: colors.textSecondary,
@@ -424,5 +424,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  ctaLabel: { ...type.bodyStrong, fontSize: 17, color: colors.onAction },
+  ctaLabel: { ...type.bodyStrong, fontSize: scale.body, color: colors.onAction },
 });

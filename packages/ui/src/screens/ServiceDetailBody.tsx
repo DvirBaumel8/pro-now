@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import type { PriceQuoteView } from "@pro-now/types";
 
-import { customerTheme, elevation, imageRatio, radii, spacing, tabular, tint, type } from "../theme";
+import { customerTheme, elevation, imageRatio, radii, scale, spacing, tabular, tint, type } from "../theme";
 import { priceExplainer } from "../pricing-copy";
 import { ClockMark, Mark, type MarkName, ShieldCheckMark } from "../components/marks";
 import { ImageSlot, SectionHeader, Surface } from "../components/surfaces";
@@ -349,7 +349,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  backGlyph: { fontSize: 26, lineHeight: 28, color: colors.textPrimary, fontWeight: "300" },
+  backGlyph: { fontSize: scale.section, lineHeight: 28, color: colors.textPrimary, fontWeight: "300" },
   heroBubble: {
     position: "absolute",
     bottom: -22,
@@ -413,7 +413,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     maxWidth: "100%",
   },
-  symptomText: { ...type.caption, fontSize: 14, color: colors.textPrimary, writingDirection: "rtl" },
+  symptomText: { ...type.caption, fontSize: scale.meta, color: colors.textPrimary, writingDirection: "rtl" },
   symptomNote: {
     ...type.caption,
     color: colors.textSecondary,
@@ -426,11 +426,11 @@ const styles = StyleSheet.create({
   bullets: { gap: spacing.sm },
   bullet: { flexDirection: "row-reverse", alignItems: "flex-start", gap: spacing.md },
   bulletGlyph: { width: 22, height: 22, borderRadius: 11, alignItems: "center", justifyContent: "center", marginTop: 1 },
-  bulletGlyphText: { fontSize: 13, fontWeight: "700" },
+  bulletGlyphText: { fontSize: scale.micro, fontWeight: "700" },
   bulletText: {
     ...type.body,
     flex: 1,
-    fontSize: 15,
+    fontSize: scale.meta,
     color: colors.textPrimary,
     textAlign: "right",
     writingDirection: "rtl",
@@ -460,7 +460,7 @@ const styles = StyleSheet.create({
   stepText: {
     ...type.body,
     flex: 1,
-    fontSize: 15,
+    fontSize: scale.meta,
     color: colors.textPrimary,
     textAlign: "right",
     writingDirection: "rtl",
@@ -496,7 +496,7 @@ const styles = StyleSheet.create({
   // Outlined rather than greyed-out: "check again" is a real, enabled action,
   // and a disabled-looking button would say the screen is a dead end.
   ctaBtnQuiet: { backgroundColor: "transparent", borderWidth: 1.5, borderColor: colors.border },
-  ctaLabel: { ...type.bodyStrong, fontSize: 17, color: colors.onAction },
+  ctaLabel: { ...type.bodyStrong, fontSize: scale.body, color: colors.onAction },
   ctaNote: {
     ...type.caption,
     color: colors.textSecondary,

@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { formatMoney, money, type QuoteView } from "@pro-now/types";
 
-import { customerTheme, elevation, radii, spacing, tabular, tint, type } from "../theme";
+import { customerTheme, elevation, radii, scale, spacing, tabular, tint, type } from "../theme";
 import { ShieldCheckMark } from "../components/marks";
 import { RingedAvatar, SectionHeader, Surface } from "../components/surfaces";
 
@@ -240,7 +240,7 @@ const styles = StyleSheet.create({
   },
   lineDivided: { borderTopWidth: StyleSheet.hairlineWidth * 2, borderTopColor: colors.border },
   lineText: { flex: 1, alignItems: "flex-end" },
-  lineDesc: { ...type.body, fontSize: 15, color: colors.textPrimary, textAlign: "right", writingDirection: "rtl" },
+  lineDesc: { ...type.body, fontSize: scale.meta, color: colors.textPrimary, textAlign: "right", writingDirection: "rtl" },
   lineMeta: { ...type.caption, color: colors.textSecondary, textAlign: "right", writingDirection: "rtl", marginTop: 1 },
   lineTotal: { ...type.bodyStrong, ...tabular, color: colors.textPrimary, minWidth: 74, textAlign: "left" },
 
@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 
-  notes: { ...type.body, fontSize: 15, color: colors.textPrimary, textAlign: "right", writingDirection: "rtl", lineHeight: 22 },
+  notes: { ...type.body, fontSize: scale.meta, color: colors.textPrimary, textAlign: "right", writingDirection: "rtl", lineHeight: 22 },
 
   hashRow: { flexDirection: "row-reverse", alignItems: "flex-start", gap: spacing.sm },
   hashText: {
@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  primaryLabel: { ...type.bodyStrong, fontSize: 17, color: colors.onAction },
+  primaryLabel: { ...type.bodyStrong, fontSize: scale.body, color: colors.onAction },
   secondaryRow: { flexDirection: "row-reverse", justifyContent: "space-between", marginTop: spacing.sm },
   secondary: { paddingVertical: spacing.md, paddingHorizontal: spacing.sm, minHeight: 44, justifyContent: "center" },
   secondaryLabel: { ...type.captionStrong, color: colors.textSecondary },

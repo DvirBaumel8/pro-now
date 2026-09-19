@@ -1,7 +1,7 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
-import { radii, spacing, type } from "../theme";
+import { radii, scale, spacing, type } from "../theme";
 import { LiveField } from "./LiveField";
 
 /**
@@ -93,5 +93,5 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     backgroundColor: "rgba(16,12,22,0.7)",
   },
-  noteText: { ...type.caption, fontSize: 11, color: "rgba(247,243,250,0.75)", writingDirection: "rtl" },
+  noteText: { ...type.caption, fontSize: scale.micro, color: "rgba(247,243,250,0.75)", writingDirection: "rtl" },
 });

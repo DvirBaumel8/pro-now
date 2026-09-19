@@ -1,30 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet, ScrollView, useWindowDimensions } from "react-native";
 
-import {
-  CustomerHomeBody,
-  CustomerProfileBody,
-  Persona,
-  PersonaStack,
-  JobCompleteBody,
-  MatchCard,
-  MatchCardSkeleton,
-  OfferCard,
-  OfferCardSkeleton,
-  ProOfferBody,
-  ProOnlineBody,
-  ProShiftBody,
-  ProProfileBody,
-  QuoteApprovalBody,
-  SearchingBody,
-  ServiceDetailBody,
-  TrackingBody,
-  customerTheme,
-  proTheme,
-  radii,
-  spacing,
-  type as t,
-} from "@pro-now/ui";
+import { CustomerHomeBody, CustomerProfileBody, customerTheme, JobCompleteBody, MatchCard, MatchCardSkeleton, OfferCard, OfferCardSkeleton, Persona, PersonaStack, ProOfferBody, ProOnlineBody, ProProfileBody, ProShiftBody, proTheme, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, spacing, TrackingBody, type as t } from "@pro-now/ui";
 
 import {
   FROZEN_NOW_MS,
@@ -699,7 +676,7 @@ const styles = StyleSheet.create({
   pageContent: { paddingBottom: spacing.xxl * 2 },
 
   header: { paddingHorizontal: spacing.md, paddingVertical: spacing.xxl, alignItems: "flex-end" },
-  h1: { ...t.h1, fontSize: 34, color: "#17121F", textAlign: "right", writingDirection: "rtl" },
+  h1: { ...t.h1, fontSize: scale.title, color: "#17121F", textAlign: "right", writingDirection: "rtl" },
   headerNote: {
     ...t.body,
     color: "#5A5266",
@@ -757,7 +734,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     writingDirection: "rtl",
   },
-  castTrade: { ...t.caption, fontSize: 11, color: "#5A5266", writingDirection: "rtl" },
+  castTrade: { ...t.caption, fontSize: scale.micro, color: "#5A5266", writingDirection: "rtl" },
 
   stackRow: {
     flexDirection: "row-reverse",

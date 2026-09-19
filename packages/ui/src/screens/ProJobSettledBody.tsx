@@ -3,7 +3,7 @@ import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-nativ
 
 import { formatMoney, money } from "@pro-now/types";
 
-import { proTheme, radii, spacing, tabular, tint, type } from "../theme";
+import { proTheme, radii, scale, spacing, tabular, tint, type } from "../theme";
 import { formatOnlineDuration } from "../shift-metrics";
 
 /**
@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: spacing.lg,
   },
-  tickGlyph: { color: colors.trust, fontSize: 24, lineHeight: 28 },
+  tickGlyph: { color: colors.trust, fontSize: scale.section, lineHeight: 28 },
   label: { ...type.overline, color: colors.textSecondary },
   added: { ...type.display, ...tabular, color: colors.trust, marginTop: 2 },
   divider: {
@@ -206,7 +206,7 @@ const styles = StyleSheet.create({
   },
   nextText: {
     ...type.caption,
-    fontSize: 14,
+    fontSize: scale.meta,
     color: colors.trust,
     textAlign: "right",
     writingDirection: "rtl",

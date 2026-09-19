@@ -1,52 +1,73 @@
 import React, { useMemo, useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import type { AreaAvailabilityView } from "@pro-now/types";
 
-import { lex, prosFreeShort } from "../lexicon";
+import { prosFreeShort } from "../lexicon";
 import { matchServicesByText, type ServiceMatchRule } from "../service-match";
 import { resolveHomeSupply } from "../home-supply";
-import { customerTheme, elevation, radii, spacing, tint, type } from "../theme";
-import { Mark, type MarkName } from "../components/marks";
-import { HeroFlourish, SectionHeader } from "../components/surfaces";
-import { ServiceRow } from "../components/ServiceTile";
-import { LiveServiceCard, Pulse } from "../components/LiveServiceCard";
-import { IntentCapture } from "../components/IntentCapture";
-import { CategoryCard } from "../components/CategoryCard";
-import { RtlRow } from "../components/RtlRow";
+import { customerDarkTheme, customerTheme, elevation, radii, spacing, tabular, tint, type } from "../theme";
+import { type MarkName } from "../components/marks";
+import { NavGlyph } from "../components/NavGlyph";
+import { CaptureCard } from "../components/CaptureCard";
+import { CategoryGrid, type CategoryTile } from "../components/CategoryGrid";
+import { IntentSuggestions } from "../components/IntentSuggestions";
 import { ServiceListRow } from "../components/ServiceListRow";
+import { Pulse } from "../components/LiveServiceCard";
 
 /**
- * C01 — Home. "מה צריך עכשיו?"
+ * C01 — Home. "מה אתם צריכים עכשיו?"
  *
  * Presentational only: it takes data and callbacks, holds no fetching and no
  * navigation, so the same body is used by `apps/customer-mobile` and by the
  * design gallery. That is what keeps the reviewed design and the shipped
  * design the same thing.
  *
- * The honesty rule that shapes this screen: supply is passed through from
- * the server PER SERVICE and is frequently unknown. A tile with an unknown
- * count shows no count — never "0", never a plausible number
- * (/CLAUDE.md §3). A quiet marketplace is allowed to look quiet; that is
- * the price of the promise that "online" means online.
+ * ---------------------------------------------------------------------
+ * DARK, AND THAT IS A REVERSAL
+ * ---------------------------------------------------------------------
+ * Visual System v1 §12 said the customer's app is light and that a dark
+ * customer surface must be justified by a live state. This screen was
+ * rebuilt on warm ivory to obey it. Amit looked at the result — "זה ממש לא
+ * הכיוון" — and pointed at the visual board, which renders this exact
+ * screen dark and uses white only for the capture card. ChatGPT had left
+ * its own rule behind the moment it drew the thing.
  *
- * WHY THERE IS NO TOTAL. An earlier version led with "7 מקצוענים פנויים
- * עכשיו לידך", and the first person to use it asked the right question:
- * seven of what? The app does not yet know whether they need a plumber or a
- * locksmith, and seven professionals across eight trades says nothing about
- * whether the one they need is reachable. Worse, it reads as readiness — so
- * a customer with a burst pipe sees "7 available" and taps into a dispatch
- * that finds nobody, because all seven paint walls.
+ * When the person who owns the product and the person who wrote the rule
+ * both pick the same picture, the rule is what is wrong. The argument
+ * behind §12 was that wall-to-wall dark "reads as a trading app" — and that
+ * is an argument about FLAT dark. Dark with depth, one lit panel, real
+ * photography and a single live colour does not read as a terminal. It
+ * reads as evening, which is when boilers actually break.
  *
- * An aggregate is not a small inaccuracy here; it is the promise this
- * product is built on, stated about a group that cannot keep it. So supply
- * appears only where it is actionable: attached to a specific service. The
- * catalogue is split instead — what is genuinely reachable right now first,
- * everything else below — which answers "what can I actually get now?"
- * without ever claiming a number the customer cannot use.
+ * So: the customer is dark, and light is now the accent — reserved for the
+ * surfaces meant to be touched or read closely. The quote screen stays
+ * light for the reason that was always the strongest part of the old rule:
+ * money and consent should feel like a document, not like a live event.
+ *
+ * ---------------------------------------------------------------------
+ * THE ORDER OF THE SCREEN
+ * ---------------------------------------------------------------------
+ * Capture first, categories second. Amit's objection to the original —
+ * "למה זה ישר מכוון אותי לדברים האלה?" — went to the premise, not the
+ * layout: a grid of named services decides, before the customer has said a
+ * word, that the answer is one of twelve things we thought of. That is a
+ * directory with better typography. A person knows their PROBLEM; turning
+ * it into the right professional is our job.
+ *
+ * ---------------------------------------------------------------------
+ * AND WHY THERE IS NO TOTAL
+ * ---------------------------------------------------------------------
+ * An earlier version led with "7 מקצוענים פנויים עכשיו לידך", and the first
+ * person to read it asked the right question: seven of what? Seven
+ * professionals across eight trades says nothing about whether the one you
+ * need is reachable — worse, it reads as readiness, so a customer with a
+ * burst pipe taps into a dispatch that finds nobody because all seven paint
+ * walls. Supply therefore appears only where it is actionable: attached to
+ * a specific service, and never invented (/CLAUDE.md §3).
  */
 
-const colors = customerTheme.colors;
+const colors = customerDarkTheme.colors;
 
 export interface HomeServiceItem {
   id: string;
@@ -97,9 +118,10 @@ export interface CustomerHomeBodyProps {
   /** Short greeting, e.g. "ערב טוב". Locale/time logic lives in the app. */
   greetingHe: string;
   /**
-   * @deprecated The address lives in the app's utility row now, so it is on
-   * every screen rather than only this one. Kept so existing callers do not
-   * break; ignored here.
+   * Where the professional is being sent. It lives on THIS screen and not
+   * in a global chrome row: it is a property of the request being made, and
+   * a customer who is ordering to their mother's flat needs to see that at
+   * the moment they order, not on the settings screen.
    */
   addressLabelHe?: string;
   services: HomeServiceItem[];
@@ -123,7 +145,6 @@ export interface CustomerHomeBodyProps {
   /** Total professionals online, for callers with no snapshot yet. */
   totalAvailableNow?: number | null;
   onSelectService?: (id: string) => void;
-  /** @deprecated Moved to the utility row. */
   onChangeAddress?: () => void;
 
   /**
@@ -148,6 +169,7 @@ export interface CustomerHomeBodyProps {
     onStopRecord?: () => void;
     onDeleteVoice?: () => void;
     onAddPhoto?: () => void;
+    onAddFromLibrary?: () => void;
     onClearPhotos?: () => void;
   };
   width?: number;
@@ -157,6 +179,7 @@ const ALL = "הכול";
 
 export function CustomerHomeBody({
   greetingHe,
+  addressLabelHe,
   services,
   recent = [],
   availability,
@@ -164,10 +187,12 @@ export function CustomerHomeBody({
   matchRules,
   totalAvailableNow,
   onSelectService,
+  onChangeAddress,
   capture,
   width = 390,
 }: CustomerHomeBodyProps) {
   const gutter = spacing.lg;
+  const inner = width - gutter * 2;
 
   // The source-of-truth rule lives in resolveHomeSupply, where it is tested.
   // See that file for why it must not be re-implemented inline.
@@ -177,28 +202,18 @@ export function CustomerHomeBody({
     legacyTotal: totalAvailableNow,
     legacyCounts: Object.fromEntries(services.map((s) => [s.id, s.availableNowCount])),
   });
-  /*
-   * Ordering IS the message. Services the server can actually deliver right
-   * now come first under "פנויים עכשיו לידך"; everything else follows. When
-   * nothing is known, there is no split at all and the catalogue is just a
-   * catalogue — which is the honest picture of not knowing.
-   */
-  const free = services.filter((s) => {
+
+  const isFree = (s: HomeServiceItem) => {
     const st = supply.supplyFor(s.id).state;
     return st === "AVAILABLE" || st === "LIMITED";
-  });
+  };
+  const free = services.filter(isFree);
 
-  /*
-   * Describing the problem is how people actually think — "there's water
-   * under the sink", not "plumbing". The box routes that to a SERVICE; which
-   * professional comes is still dispatch's decision, which is why the
-   * matcher cannot reach a person (see service-match.ts).
-   */
   const [query, setQuery] = useState("");
 
   /**
    * The department filter. `ALL` is a value, not a null — a nullable filter
-   * ends up with two code paths that drift, and the chip row needs a real
+   * ends up with two code paths that drift, and the drill-down needs a real
    * selected item anyway.
    */
   const departments = useMemo(() => {
@@ -214,6 +229,7 @@ export function CustomerHomeBody({
     () => (dept === ALL ? services : services.filter((s) => s.departmentHe === dept)),
     [services, dept]
   );
+
   const matched = useMemo(() => {
     if (!matchRules || query.trim().length < 2) return null;
     const ids = matchServicesByText(query, matchRules).map((m) => m.serviceId);
@@ -223,11 +239,11 @@ export function CustomerHomeBody({
   /**
    * The match, dressed with live supply.
    *
-   * The recommendation is only worth acting on if it also says whether
-   * anyone is there — "נראה שזה פתיחת סתימה" is a guess; "פתיחת סתימה · 3
-   * פנויים · 11 דק׳" is a decision the customer can make.
+   * A recommendation is only worth acting on if it also says whether anyone
+   * is there — "נראה שזה פתיחת סתימה" is a guess; "פתיחת סתימה · 3 פנויים ·
+   * 11 דק׳" is a decision the customer can make.
    */
-  const intentMatches = useMemo(() => {
+  const suggestions = useMemo(() => {
     if (matched === null) return null;
     return matched.map((m) => {
       const sup = supply.supplyFor(m.id);
@@ -239,14 +255,14 @@ export function CustomerHomeBody({
         supplyHe: m.comingSoon
           ? "בקרוב"
           : m.scheduledOnly
-          ? "בתיאום מראש"
-          : m.notInMarket
-            ? "עוד לא באזור שלך"
-            : live
-              ? prosFreeShort(sup.count ?? 0, sup.nearestRouteEtaMinutes)
-              : sup.state === "UNAVAILABLE"
-                ? "אין פנויים כרגע"
-                : "נבדוק כשתבחר",
+            ? "בתיאום מראש"
+            : m.notInMarket
+              ? "עוד לא באזור שלך"
+              : live
+                ? prosFreeShort(sup.count ?? 0, sup.nearestRouteEtaMinutes)
+                : sup.state === "UNAVAILABLE"
+                  ? "אין פנויים כרגע"
+                  : "נבדוק כשתבחרו",
         supplyTone: live
           ? sup.state === "LIMITED"
             ? ("warning" as const)
@@ -256,54 +272,188 @@ export function CustomerHomeBody({
     });
   }, [matched, supply]);
 
-  const catWidth = (width - gutter * 2 - spacing.md) / 2;
-  const isFree = (s: HomeServiceItem) => {
-    const st = supply.supplyFor(s.id).state;
-    return st === "AVAILABLE" || st === "LIMITED";
-  };
+  /**
+   * Six departments as tiles.
+   *
+   * A grid, not the list an earlier pass built: six is not a list, it is a
+   * shape taken in at a glance. See CategoryGrid for the full argument and
+   * for why these tiles carry no shadow and no border.
+   */
+  const MAX_TILES = 5;
+  const tiles: CategoryTile[] = departments.slice(0, MAX_TILES).map((d) => {
+    const inDept = services.filter((s) => s.departmentHe === d);
+    return {
+      id: d,
+      nameHe: d,
+      mark: (inDept[0]?.departmentMark ?? inDept[0]?.mark ?? "handyman") as MarkName,
+      liveCount: inDept.filter(isFree).length,
+    };
+  });
+  const overflow = departments.length - tiles.length;
+
+  const hasText = query.trim().length >= 2;
+  const hasMedia = (capture?.photos ?? 0) > 0 || (capture?.voiceSeconds ?? 0) > 0;
+
+  /* ------------------------------------------------------------------
+   * DRILL-DOWN — one department, and its three states told apart.
+   * ------------------------------------------------------------------
+   * The review's note was that "נבחר עבורך", "בקרוב אליך" and "נבדוק ביחד"
+   * are three different KINDS of thing rendered as three near-identical
+   * rectangles: "ההבדל הסמנטי ביניהן צריך להיות מורגש דרך layout,
+   * typography ופעולה — לא רק copy."
+   *
+   * "Someone can be at your door in eleven minutes" and "we have not
+   * launched this yet" are not two values of one field. So they are split
+   * into groups with their own headings, and the reachable ones are
+   * physically bigger. See ServiceListRow's `emphasis`.
+   */
+  if (dept !== ALL) {
+    const reachable = listed.filter(isFree);
+    /*
+     * THREE SILENCES, NOT ONE. "בקרוב" (not launched), "בתיאום מראש"
+     * (never dispatched now, by the nature of the work) and "נבדוק
+     * כשתבחרו" (dispatchable, supply unknown until asked) are three
+     * different facts about the world, and the review caught them rendered
+     * as one grey column: "ההבדל הסמנטי ביניהן צריך להיות מורגש דרך
+     * layout, typography ופעולה — לא רק copy."
+     *
+     * Collapsing them is also the exact small lie that makes a whole
+     * screen untrustworthy. Telling someone a locksmith is "not urgent"
+     * because we have not signed one up in their city is not a rounding
+     * error; it is a different statement.
+     */
+    const soon = listed.filter((s2) => !isFree(s2) && s2.comingSoon);
+    const scheduled = listed.filter((s2) => !isFree(s2) && !s2.comingSoon && s2.scheduledOnly);
+    const elsewhere = listed.filter((s2) => !isFree(s2) && !s2.comingSoon && !s2.scheduledOnly && s2.notInMarket);
+    const unknown = listed.filter(
+      (s2) => !isFree(s2) && !s2.comingSoon && !s2.scheduledOnly && !s2.notInMarket
+    );
+
+    const quietGroups: { titleHe: string; noteHe: string; items: HomeServiceItem[] }[] = [
+      {
+        titleHe: "נבדוק ביחד",
+        noteHe: "השירות פעיל. כמה אנשים פנויים תלוי ברגע — נבדוק ברגע שתבחרו.",
+        items: unknown,
+      },
+      {
+        titleHe: "בתיאום מראש",
+        noteHe: "עבודות שלפי טבען לא מתחילות ברגע — קובעים מועד.",
+        items: scheduled,
+      },
+      { titleHe: "עוד לא באזור שלכם", noteHe: "פעיל אצלנו, פשוט עוד לא כאן.", items: elsewhere },
+      { titleHe: "בקרוב", noteHe: "בדרך למוצר, עוד לא נפתח.", items: soon },
+    ].filter((g) => g.items.length > 0);
+
+    return (
+      <ScrollView
+        style={[styles.screen, { width }]}
+        contentContainerStyle={{ paddingBottom: spacing.xxl }}
+      >
+        <View style={{ paddingHorizontal: gutter, paddingTop: spacing.md }}>
+          <Pressable
+            onPress={() => setDept(ALL)}
+            accessibilityRole="button"
+            accessibilityLabel="כל הקטגוריות"
+            style={styles.back}
+          >
+            <Text style={styles.backText}>כל הקטגוריות ›</Text>
+          </Pressable>
+
+          <Text style={styles.deptTitle}>{dept}</Text>
+
+          {/* ------------------------------------------------------------
+              WHAT CAN HAPPEN NOW GETS THE LIGHT.
+              On a dark app, a white surface is the strongest signal
+              available, and this is the one place on the screen where
+              tapping leads to a person arriving. Nothing else here earns
+              it — which is the point: the difference between "now" and
+              "not now" should be visible from across the room, not read.
+              ------------------------------------------------------------ */}
+          {reachable.length > 0 ? (
+            <View style={[styles.liveCard, { width: inner }]}>
+              <View style={styles.groupHead}>
+                <Pulse color={customerTheme.colors.action} size={6} />
+                <Text style={styles.liveCardTitle}>אפשר עכשיו</Text>
+              </View>
+              <View style={styles.rows}>
+                {reachable.map((s2) => (
+                  <ServiceListRow
+                    key={s2.id}
+                    nameHe={s2.nameHe}
+                    mark={s2.mark}
+                    descriptionHe={s2.descriptionHe}
+                    supply={supply.supplyFor(s2.id)}
+                    emphasis="live"
+                    tone="light"
+                    onPress={() => onSelectService?.(s2.id)}
+                  />
+                ))}
+              </View>
+            </View>
+          ) : null}
+
+          {quietGroups.map((g) => (
+            <View key={g.titleHe} style={styles.group}>
+              <Text style={styles.groupTitleQuiet}>{g.titleHe}</Text>
+              <Text style={styles.groupNote}>{g.noteHe}</Text>
+              <View style={styles.rows}>
+                {g.items.map((s2) => (
+                  <ServiceListRow
+                    key={s2.id}
+                    nameHe={s2.nameHe}
+                    mark={s2.mark}
+                    supply={supply.supplyFor(s2.id)}
+                    scheduledOnly={s2.scheduledOnly}
+                    notInMarket={s2.notInMarket}
+                    comingSoon={s2.comingSoon}
+                    emphasis="quiet"
+                    tone="dark"
+                    onPress={() => onSelectService?.(s2.id)}
+                  />
+                ))}
+              </View>
+            </View>
+          ))}
+        </View>
+      </ScrollView>
+    );
+  }
 
   return (
-    <ScrollView style={[styles.screen, { width }]} contentContainerStyle={{ paddingBottom: spacing.xxl }}>
-      {/* ---------------------------------------------------------------
-          HERO — capture first. Not a menu.
+    <ScrollView
+      style={[styles.screen, { width }]}
+      contentContainerStyle={{ paddingBottom: spacing.xxl }}
+      keyboardShouldPersistTaps="handled"
+    >
+      <View style={{ paddingHorizontal: gutter }}>
+        {/* Where we are sending someone. A property of the request, not a
+            setting — so it sits with the request. */}
+        {addressLabelHe ? (
+          <Pressable
+            onPress={onChangeAddress}
+            accessibilityRole="button"
+            accessibilityLabel="שינוי כתובת"
+            style={styles.address}
+          >
+            <NavGlyph name="home" size={14} color={colors.textSecondary} />
+            <Text style={styles.addressText} numberOfLines={1}>
+              {addressLabelHe}
+            </Text>
+            <Text style={styles.addressChevron}>⌄</Text>
+          </Pressable>
+        ) : null}
 
-          The screen used to open with named services, and Amit's objection
-          went straight to the premise: "למה זה ישר מכוון אותי לדברים האלה?"
-          A grid of service names decides, before the customer has said
-          anything, that the answer is one of twelve things we thought of
-          first. That is a directory. The whole reason to build this instead
-          of a directory is that a person knows their PROBLEM — water under
-          the sink, a back that has hurt since Tuesday — and turning that
-          into the right professional is our job, not theirs.
-
-          So the first thing on the screen is a place to say it, record it
-          or show it. Categories come second, and specific services third,
-          after the customer has narrowed things the way people actually
-          narrow things: broad, then less broad.
-          --------------------------------------------------------------- */}
-      <View style={styles.hero}>
-        <HeroFlourish color={colors.action} opacity={0.1} />
-
-        {/*
-          * The address moved to the utility row at the top of the app, so
-          * it is on every screen rather than only this one — and showing it
-          * twice on the home screen was the kind of duplication that makes
-          * a reader wonder which of the two is the real control.
-          */}
-        <Text style={styles.greeting}>{greetingHe}</Text>
-        <Text style={styles.headline}>{lex.homeQuestion}</Text>
+        {greetingHe ? <Text style={styles.greeting}>{greetingHe}</Text> : null}
+        <Text style={styles.headline}>מה אתם צריכים עכשיו?</Text>
 
         {matchRules ? (
           <View style={{ marginTop: spacing.lg }}>
-            <IntentCapture
-              width={width - gutter * 2}
+            <CaptureCard
+              width={inner}
               text={query}
               onChangeText={setQuery}
-              matches={intentMatches}
-              media={{
-                photos: capture?.photos ?? 0,
-                voiceSeconds: capture?.voiceSeconds ?? null,
-              }}
+              photos={capture?.photos ?? 0}
+              voiceSeconds={capture?.voiceSeconds ?? null}
               recording={capture?.recording ?? false}
               recordSeconds={capture?.recordSeconds ?? 0}
               canRecord={capture?.canRecord ?? false}
@@ -311,128 +461,100 @@ export function CustomerHomeBody({
               onStopRecord={capture?.onStopRecord}
               onDeleteVoice={capture?.onDeleteVoice}
               onAddPhoto={capture?.onAddPhoto}
+              onAddFromLibrary={capture?.onAddFromLibrary}
               onClearPhotos={capture?.onClearPhotos}
-              onPick={(id) => onSelectService?.(id)}
-              onBrowse={() => setDept(ALL)}
             />
           </View>
         ) : null}
-      </View>
 
-      {/* ---------------------------------------------------------------
-          CATEGORIES — broad, and only as specific as a live count.
-          --------------------------------------------------------------- */}
-      {departments.length > 1 ? (
-        <View style={{ paddingHorizontal: gutter, marginTop: spacing.xl }}>
-          <SectionHeader
-            title={dept === ALL ? "במה נעזור?" : dept}
-            colors={colors}
-            action={dept === ALL ? undefined : "כל הקטגוריות"}
-            onAction={dept === ALL ? undefined : () => setDept(ALL)}
-          />
-          {dept === ALL ? (
-            <View style={styles.catGrid}>
-              {departments.map((d) => {
-                const inDept = services.filter((s) => s.departmentHe === d);
+        {suggestions !== null || hasMedia ? (
+          <View style={{ marginTop: spacing.lg }}>
+            <IntentSuggestions
+              width={inner}
+              matches={suggestions}
+              hasText={hasText}
+              hasMedia={hasMedia}
+              onPick={(id) => onSelectService?.(id)}
+              onBrowse={() => setQuery("")}
+            />
+          </View>
+        ) : null}
+
+        {/* --- or pick a category --- */}
+        {tiles.length > 1 ? (
+          <View style={{ marginTop: spacing.xl }}>
+            <Text style={styles.orPick}>או בחרו קטגוריה</Text>
+            <CategoryGrid
+              width={inner}
+              tiles={tiles}
+              moreLabelHe={overflow > 0 ? "עוד קטגוריות" : null}
+              onSelect={(id) => setDept(id)}
+              onMore={() => setDept(departments[MAX_TILES] ?? ALL)}
+            />
+          </View>
+        ) : null}
+
+        {/* ---------------------------------------------------------------
+            WHAT CAN ACTUALLY HAPPEN RIGHT NOW.
+            Rows, not a panel in a box: this is a short live readout, and
+            boxing it turned it into a table of figures in review.
+            --------------------------------------------------------------- */}
+        {free.length > 0 ? (
+          <View style={{ marginTop: spacing.xl }}>
+            <View style={styles.groupHead}>
+              <Pulse color={colors.action} size={6} />
+              <Text style={styles.groupTitle}>אפשר להזמין עכשיו</Text>
+            </View>
+            <View style={styles.rows}>
+              {free.slice(0, 4).map((s2) => {
+                const sup = supply.supplyFor(s2.id);
                 return (
-                  <CategoryCard
-                    key={d}
-                    nameHe={d}
-                    mark={inDept[0]?.departmentMark ?? inDept[0]?.mark ?? "handyman"}
-                    serviceCount={inDept.length}
-                    liveCount={inDept.filter((s) => isFree(s)).length}
-                    width={catWidth}
-                    onPress={() => setDept(d)}
-                  />
+                  <Pressable
+                    key={s2.id}
+                    onPress={() => onSelectService?.(s2.id)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${s2.nameHe} · ${prosFreeShort(sup.count ?? 0, sup.nearestRouteEtaMinutes)}`}
+                    style={({ pressed }) => [styles.liveRow, pressed && { opacity: 0.75 }]}
+                  >
+                    <Text style={styles.liveName} numberOfLines={1}>
+                      {s2.nameHe}
+                    </Text>
+                    {typeof sup.nearestRouteEtaMinutes === "number" ? (
+                      <Text style={styles.liveEta}>{sup.nearestRouteEtaMinutes} דק׳</Text>
+                    ) : (
+                      <Text style={styles.liveSoft}>פנוי</Text>
+                    )}
+                  </Pressable>
                 );
               })}
             </View>
-          ) : (
-            <View style={{ marginHorizontal: -spacing.sm, marginTop: spacing.sm }}>
-              {listed.map((s) => (
-                <ServiceListRow
-                  key={s.id}
-                  nameHe={s.nameHe}
-                  mark={s.mark}
-                  descriptionHe={s.descriptionHe}
-                  supply={supply.supplyFor(s.id)}
-                  scheduledOnly={s.scheduledOnly}
-                  notInMarket={s.notInMarket}
-                  comingSoon={s.comingSoon}
-                  onPress={() => onSelectService?.(s.id)}
-                />
+          </View>
+        ) : null}
+
+        {/* --- Recent --- */}
+        {recent.length > 0 ? (
+          <View style={{ marginTop: spacing.xl }}>
+            <Text style={styles.groupTitleQuiet}>הזמנתם לאחרונה</Text>
+            <View style={styles.rows}>
+              {recent.map((r) => (
+                <Pressable
+                  key={r.id}
+                  onPress={() => onSelectService?.(r.id)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${r.nameHe} · ${r.metaHe}`}
+                  style={({ pressed }) => [styles.liveRow, pressed && { opacity: 0.75 }]}
+                >
+                  <Text style={styles.liveName} numberOfLines={1}>
+                    {r.nameHe}
+                  </Text>
+                  <Text style={styles.liveSoft} numberOfLines={1}>
+                    {r.metaHe}
+                  </Text>
+                </Pressable>
               ))}
             </View>
-          )}
-        </View>
-      ) : null}
-
-      {/* ---------------------------------------------------------------
-          זמין עכשיו — a short, horizontal, live row.
-
-          Horizontal because "what can I have in the next hour" is a small
-          set that should never make the customer scroll: if six things are
-          reachable, six is the whole answer and it fits in a swipe. The
-          vertical space below belongs to the catalogue, which is long.
-          --------------------------------------------------------------- */}
-      {free.length > 0 ? (
-        <View style={styles.liveSection}>
-          <View style={[styles.liveHead, { paddingHorizontal: gutter }]}>
-            {/*
-              * No number beside the title. It said "12 פנויים עכשיו לידך",
-              * where 12 was the count of SERVICES and every reader took it
-              * for a count of people. A number that means one thing and
-              * reads as another is worse than no number, and the cards
-              * below carry the real counts anyway.
-              */}
-            <Text style={styles.liveTitle}>{lex.freeNearYou}</Text>
-            <Pulse color={colors.action} />
           </View>
-          <RtlRow
-            gutter={gutter}
-            contentContainerStyle={{ gap: spacing.md }}
-            style={{ marginTop: spacing.md }}
-          >
-            {free.map((s) => (
-              <LiveServiceCard
-                key={s.id}
-                nameHe={s.nameHe}
-                mark={s.mark}
-                descriptionHe={s.descriptionHe}
-                supply={supply.supplyFor(s.id)}
-                priceHint={s.priceHint}
-                onPress={() => onSelectService?.(s.id)}
-              />
-            ))}
-          </RtlRow>
-        </View>
-      ) : null}
-
-      {/* --- Recent --- */}
-      {recent.length > 0 ? (
-        <View style={{ paddingHorizontal: gutter, marginTop: spacing.xxl }}>
-          <SectionHeader title="הזמנת לאחרונה" colors={colors} />
-          <View style={{ gap: spacing.sm }}>
-            {recent.map((r) => (
-              <ServiceRow
-                key={r.id}
-                nameHe={r.nameHe}
-                mark={r.mark}
-                metaHe={r.metaHe}
-                colors={colors}
-                onPress={() => onSelectService?.(r.id)}
-              />
-            ))}
-          </View>
-        </View>
-      ) : null}
-
-      {/* --- Trust footer: why this is not a directory --- */}
-      <View style={[styles.trust, { marginHorizontal: gutter }]}>
-        <Mark name="handyman" size={20} color={colors.trust} />
-        <Text style={styles.trustText}>
-          {lex.trustNote} תראה מי מגיע אליך לפני שתאשר.
-        </Text>
+        ) : null}
       </View>
     </ScrollView>
   );
@@ -441,123 +563,99 @@ export function CustomerHomeBody({
 const styles = StyleSheet.create({
   screen: { backgroundColor: colors.bg },
 
-  hero: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xxl,
-    paddingBottom: spacing.xl,
-    overflow: "hidden",
-  },
-  addressRow: {
+  address: {
     flexDirection: "row-reverse",
     alignItems: "center",
     alignSelf: "flex-end",
     gap: 6,
-    // The address is the first thing Amit reported he could not tap. 30px
-    // tall is a label that happens to be pressable; 44 is a control.
     minHeight: 44,
-    paddingVertical: 6,
     paddingHorizontal: spacing.md,
+    marginRight: -spacing.md,
     borderRadius: radii.pill,
-    backgroundColor: colors.surface,
   },
-  addressText: { ...type.caption, color: colors.textSecondary, writingDirection: "rtl", maxWidth: 200 },
-  addressChevron: { color: colors.textSecondary, fontSize: 13, marginTop: -4 },
+  addressText: { ...type.meta, color: colors.textSecondary, writingDirection: "rtl", maxWidth: 220 },
+  addressChevron: { ...type.meta, color: colors.textSecondary, marginTop: -3 },
 
   greeting: {
     ...type.body,
     color: colors.textSecondary,
     textAlign: "right",
     writingDirection: "rtl",
-    marginTop: spacing.xl,
+    marginTop: spacing.sm,
   },
+  /*
+   * TITLE, NOT HERO. §1 allows one display-or-hero per viewport, and on
+   * this screen that allowance is spent on nothing — the biggest number a
+   * customer sees here is an ETA in a row. A 32px headline over a lit card
+   * is the hierarchy; a 44px one starts competing with the card for the
+   * eye, which is the opposite of what the composition is for.
+   */
   headline: {
-    ...type.h1,
-    fontSize: 34,
-    lineHeight: 40,
+    ...type.title,
     color: colors.textPrimary,
     textAlign: "right",
     writingDirection: "rtl",
     marginTop: 2,
   },
 
-  searchWrap: { alignSelf: "stretch", marginTop: spacing.lg },
-  search: {
-    minHeight: 52,
-    borderRadius: radii.pill,
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.lg,
-    ...type.body,
-    fontSize: 15,
+  orPick: {
+    ...type.bodyStrong,
     color: colors.textPrimary,
+    textAlign: "right",
     writingDirection: "rtl",
-    ...elevation(1),
+    marginBottom: spacing.md,
   },
 
-  matchWrap: { alignSelf: "stretch", marginTop: spacing.md, alignItems: "flex-end" },
-  matchLead: { ...type.caption, color: colors.textSecondary, writingDirection: "rtl" },
-  matchRow: { flexDirection: "row-reverse", flexWrap: "wrap", gap: spacing.sm, marginTop: 6 },
-  matchChip: {
+  liveCard: {
+    marginTop: spacing.lg,
+    backgroundColor: customerTheme.colors.surface,
+    borderRadius: radii.xl,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.sm,
+    // Raised, not outlined (§5).
+    ...elevation(3),
+  },
+  liveCardTitle: { ...type.bodyStrong, color: customerTheme.colors.textPrimary, writingDirection: "rtl" },
+
+  group: { marginTop: spacing.xl },
+  groupNote: {
+    ...type.meta,
+    color: colors.textSecondary,
+    textAlign: "right",
+    writingDirection: "rtl",
+    marginTop: 2,
+  },
+  groupHead: { flexDirection: "row-reverse", alignItems: "center", gap: spacing.sm },
+  groupTitle: { ...type.bodyStrong, color: colors.textPrimary, writingDirection: "rtl" },
+  groupTitleQuiet: {
+    ...type.metaStrong,
+    color: colors.textSecondary,
+    textAlign: "right",
+    writingDirection: "rtl",
+  },
+  rows: { marginHorizontal: -spacing.sm, marginTop: spacing.sm },
+
+  liveRow: {
     flexDirection: "row-reverse",
     alignItems: "center",
-    gap: 6,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 9,
-    borderRadius: radii.pill,
-    backgroundColor: tint.action(0.14),
+    justifyContent: "space-between",
+    minHeight: 52,
+    paddingHorizontal: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth * 2,
+    borderTopColor: tint.neutralDark(0.1),
   },
-  matchChipText: { ...type.captionStrong, color: colors.actionText, writingDirection: "rtl" },
+  liveName: { ...type.body, color: colors.textPrimary, flex: 1, textAlign: "right", writingDirection: "rtl" },
+  liveEta: { ...type.bodyStrong, ...tabular, color: colors.actionText },
+  liveSoft: { ...type.meta, color: colors.textSecondary, writingDirection: "rtl" },
 
-  supplyUnknown: {
-    ...type.caption,
-    color: colors.textSecondary,
+  back: { minHeight: 44, justifyContent: "center", alignSelf: "flex-end" },
+  backText: { ...type.metaStrong, color: colors.textSecondary, writingDirection: "rtl" },
+  deptTitle: {
+    ...type.title,
+    color: colors.textPrimary,
     textAlign: "right",
     writingDirection: "rtl",
-    marginTop: spacing.lg,
-  },
-
-  catGrid: {
-    flexDirection: "row-reverse",
-    flexWrap: "wrap",
-    gap: spacing.md,
-    marginTop: spacing.sm,
-  },
-  liveSection: { marginTop: spacing.xl },
-  liveHead: { flexDirection: "row-reverse", alignItems: "center", gap: spacing.sm },
-  liveTitle: { ...type.h3, color: colors.textPrimary, writingDirection: "rtl" },
-  liveCount: {
-    ...type.captionStrong,
-    color: colors.actionText,
-    writingDirection: "rtl",
-  },
-  deptChip: {
-    minHeight: 44,
-    justifyContent: "center",
-    paddingHorizontal: spacing.md,
-    borderRadius: radii.pill,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  deptChipOn: { borderColor: colors.action, backgroundColor: tint.action(0.1) },
-  deptChipText: { ...type.caption, fontSize: 14, color: colors.textSecondary, writingDirection: "rtl" },
-  deptChipTextOn: { color: colors.actionText, fontWeight: "700" },
-  grid: { flexDirection: "row-reverse", flexWrap: "wrap", gap: spacing.md },
-
-  trust: {
-    flexDirection: "row-reverse",
-    alignItems: "flex-start",
-    gap: spacing.md,
-    marginTop: spacing.xxl,
-    padding: spacing.lg,
-    borderRadius: radii.lg,
-    backgroundColor: tint.trust(0.09),
-  },
-  trustText: {
-    ...type.caption,
-    color: colors.textSecondary,
-    flex: 1,
-    textAlign: "right",
-    writingDirection: "rtl",
-    lineHeight: 19,
+    marginTop: spacing.xs,
   },
 });

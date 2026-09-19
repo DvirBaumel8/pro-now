@@ -4,7 +4,7 @@ import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-nativ
 import type { ServiceSupply } from "@pro-now/types";
 
 import { prosFreeShort } from "../lexicon";
-import { customerTheme, elevation, radii, spacing, tint, type } from "../theme";
+import { customerTheme, elevation, radii, scale, spacing, tint, type } from "../theme";
 import { Mark, type MarkName } from "./marks";
 
 /**
@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
   },
   name: {
     ...type.bodyStrong,
-    fontSize: 16,
+    fontSize: scale.body,
     lineHeight: 21,
     color: colors.textPrimary,
     textAlign: "right",
@@ -170,7 +170,7 @@ const styles = StyleSheet.create({
   },
   desc: {
     ...type.caption,
-    fontSize: 12,
+    fontSize: scale.micro,
     lineHeight: 16,
     color: colors.textSecondary,
     textAlign: "right",
@@ -182,7 +182,7 @@ const styles = StyleSheet.create({
   liveText: { ...type.captionStrong, writingDirection: "rtl", flexShrink: 1 },
   price: {
     ...type.caption,
-    fontSize: 12,
+    fontSize: scale.micro,
     color: colors.textSecondary,
     textAlign: "right",
     writingDirection: "rtl",

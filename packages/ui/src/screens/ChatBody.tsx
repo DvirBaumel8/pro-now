@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
-import { customerTheme, proTheme, elevation, radii, spacing, tabular, tint, type } from "../theme";
+import { customerTheme, elevation, proTheme, radii, scale, spacing, tabular, tint, type } from "../theme";
 import { ClockMark, ShieldCheckMark } from "../components/marks";
 import { Persona } from "../components/Persona";
 
@@ -244,13 +244,13 @@ function makeStyles() {
       borderBottomWidth: StyleSheet.hairlineWidth * 2,
     },
     back: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
-    backGlyph: { fontSize: 26, lineHeight: 26, fontWeight: "300" },
+    backGlyph: { fontSize: scale.section, lineHeight: 26, fontWeight: "300" },
     headMain: { flex: 1, flexDirection: "row-reverse", alignItems: "center", gap: spacing.md },
     headText: { flex: 1, alignItems: "flex-end" },
     name: { ...type.bodyStrong, writingDirection: "rtl" },
     job: { ...type.caption, writingDirection: "rtl" },
     callBtn: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
-    callGlyph: { fontSize: 19 },
+    callGlyph: { fontSize: scale.body },
 
     maskBar: {
       flexDirection: "row-reverse",
@@ -259,7 +259,7 @@ function makeStyles() {
       paddingHorizontal: spacing.lg,
       paddingVertical: spacing.sm,
     },
-    maskText: { ...type.caption, flex: 1, fontSize: 11, lineHeight: 15, textAlign: "right", writingDirection: "rtl" },
+    maskText: { ...type.caption, flex: 1, fontSize: scale.micro, lineHeight: 15, textAlign: "right", writingDirection: "rtl" },
 
     thread: { flex: 1 },
     threadContent: { padding: spacing.lg, gap: spacing.sm },
@@ -275,12 +275,12 @@ function makeStyles() {
     rowMine: { justifyContent: "flex-end" },
     rowTheirs: { justifyContent: "flex-start" },
     bubble: { maxWidth: "82%", borderRadius: radii.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
-    msg: { ...type.body, fontSize: 15, textAlign: "right", writingDirection: "rtl", lineHeight: 21 },
+    msg: { ...type.body, fontSize: scale.meta, textAlign: "right", writingDirection: "rtl", lineHeight: 21 },
     metaRow: { flexDirection: "row-reverse", alignItems: "center", gap: 4, marginTop: 2 },
-    time: { ...type.caption, ...tabular, fontSize: 10 },
+    time: { ...type.caption, ...tabular, fontSize: scale.micro },
 
     systemWrap: { alignItems: "center", paddingVertical: spacing.sm },
-    systemText: { ...type.caption, fontSize: 11, textAlign: "center", writingDirection: "rtl" },
+    systemText: { ...type.caption, fontSize: scale.micro, textAlign: "center", writingDirection: "rtl" },
 
     composerWrap: { borderTopWidth: StyleSheet.hairlineWidth * 2, paddingBottom: spacing.lg },
     quickRow: { flexDirection: "row-reverse", gap: spacing.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
@@ -301,11 +301,11 @@ function makeStyles() {
       borderWidth: StyleSheet.hairlineWidth * 2,
       paddingHorizontal: spacing.lg,
       ...type.body,
-      fontSize: 15,
+      fontSize: scale.meta,
       writingDirection: "rtl",
     },
     sendBtn: { width: 46, height: 46, borderRadius: 23, alignItems: "center", justifyContent: "center" },
-    sendGlyph: { color: "#FFFFFF", fontSize: 20, fontWeight: "700" },
+    sendGlyph: { color: "#FFFFFF", fontSize: scale.body, fontWeight: "700" },
 
     closedWrap: {
       flexDirection: "row-reverse",

@@ -469,6 +469,31 @@ export const personFitCandidates = [
  * A reason with no supporting fact is simply not produced, so a thin match
  * shows one line rather than three invented ones.
  */
+type Reason = {
+  id: string;
+  textHe: string;
+  detailHe?: string | null;
+  kind: "SKILL" | "LIVE" | "DISTANCE" | "HISTORY";
+};
+
+/**
+ * Why this person, as a claim plus the fact underneath it.
+ *
+ * These were four short phrases joined by dots, and the design review read
+ * them as telemetry rather than as an introduction: "פתאום אנחנו מספרים
+ * סיפור במקום להציג telemetry". A claim on one line and its evidence on
+ * the next is the same information and a different act — the first is a
+ * dashboard, the second is someone telling you why they picked this person.
+ *
+ * Every field is derived from something the server knows. No score, no
+ * percentage, nothing about "the algorithm" — a match confidence number
+ * would be exactly the fabricated capability /CLAUDE.md §3 forbids, and it
+ * is the single most tempting thing to put on this screen.
+ *
+ * Three, at most. The screen renders `slice(0, 3)` and a fourth reason
+ * simply never appears, so the ordering here is the priority: what they
+ * asked for, then whether it can happen now, then how far, then history.
+ */
 export function matchReasons(args: {
   specialtiesHe: string[];
   /** What the customer chose or typed, lower-cased by the caller. */
@@ -476,24 +501,62 @@ export function matchReasons(args: {
   onlineNow: boolean;
   etaMinutes: number | null;
   completedJobs: number;
-}): { id: string; textHe: string; kind: "SKILL" | "LIVE" | "DISTANCE" | "HISTORY" }[] {
-  const out: { id: string; textHe: string; kind: "SKILL" | "LIVE" | "DISTANCE" | "HISTORY" }[] = [];
+  ratingAverage?: number | null;
+  ratingCount?: number;
+  serviceNameHe?: string | null;
+}): Reason[] {
+  const out: Reason[] = [];
 
   // A specialty counts only when the customer actually mentioned it.
   const hit = args.specialtiesHe.find((sp) =>
     args.askedForHe.some((a) => a.includes(sp) || sp.includes(a))
   );
-  if (hit) out.push({ id: "skill", textHe: `מתמחה ב${hit}`, kind: "SKILL" });
-
-  if (args.onlineNow) out.push({ id: "live", textHe: "זמינה עכשיו", kind: "LIVE" });
-
-  if (typeof args.etaMinutes === "number") {
-    out.push({ id: "distance", textHe: `${args.etaMinutes} דקות ממך`, kind: "DISTANCE" });
+  if (hit) {
+    out.push({
+      id: "skill",
+      textHe: "מתמחה בדיוק במה שביקשתם",
+      detailHe: args.serviceNameHe ? `${hit} · ${args.serviceNameHe}` : hit,
+      kind: "SKILL",
+    });
   }
 
-  // History is a reason only when there is enough of it to mean something.
+  if (args.onlineNow) {
+    out.push({
+      id: "live",
+      textHe: "פנויה עכשיו וקרובה אליכם",
+      detailHe:
+        typeof args.etaMinutes === "number"
+          ? `הגעה משוערת בעוד ${args.etaMinutes} דקות`
+          : "במשמרת ברגע זה",
+      kind: "LIVE",
+    });
+  } else if (typeof args.etaMinutes === "number") {
+    out.push({
+      id: "distance",
+      textHe: "קרובה אליכם",
+      detailHe: `הגעה משוערת בעוד ${args.etaMinutes} דקות`,
+      kind: "DISTANCE",
+    });
+  }
+
+  /*
+   * History is a reason only when there is enough of it to mean something.
+   * Twenty-five is where a completion count stops being an anecdote — and
+   * the rating rides along only if it has a count behind it, because "5.0"
+   * from two customers is a weaker claim than "4.9" from a hundred and the
+   * screen must not let it look stronger.
+   */
   if (args.completedJobs >= 25) {
-    out.push({ id: "history", textHe: `${args.completedJobs} עבודות דרך PRO NOW`, kind: "HISTORY" });
+    const rated =
+      typeof args.ratingAverage === "number" && (args.ratingCount ?? 0) >= 10
+        ? `★${args.ratingAverage.toFixed(1)} מ-${args.ratingCount} לקוחות שקיבלו ממנה שירות`
+        : null;
+    out.push({
+      id: "history",
+      textHe: `כבר עשתה ${args.completedJobs} עבודות ב-PRO NOW`,
+      detailHe: rated,
+      kind: "HISTORY",
+    });
   }
 
   return out;

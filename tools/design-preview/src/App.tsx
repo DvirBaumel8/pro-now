@@ -1,46 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 
-import {
-  AddressPickerBody,
-  CallsListBody,
-  ChatBody,
-  ConnectionBanner,
-  CustomerHomeBody,
-  CustomerProfileBody,
-  DescribeFaultBody,
-  JobCompleteBody,
-
-  ActiveJobCapsule,
-  ArrivalVerifyBody,
-  CAPSULE_HEIGHT,
-  NavGlyph,
-  UtilityRow,
-  Persona,
-  ProEarningsBody,
-  MatchConfirmBody,
-  ProJobBody,
-  ProJobSettledBody,
-  ProOfferBody,
-  ProOnlineBody,
-  ProShiftBody,
-  ProVerificationBody,
-  PhoneAuthBody,
-  ProProfileBody,
-  QuoteApprovalBody,
-  SearchingBody,
-  ServiceDetailBody,
-  TrackingBody,
-  WelcomeBody,
-  customerTheme,
-  Sheet,
-  lex,
-  proTheme,
-  radii,
-  spacing,
-  tint,
-  type as t,
-} from "@pro-now/ui";
+import { ActiveJobCapsule, AddressPickerBody, AppHeader, customerDarkTheme, ArrivalVerifyBody, CallsListBody, CAPSULE_HEIGHT, ChatBody, ConnectionBanner, CustomerHomeBody, CustomerProfileBody, customerTheme, DescribeFaultBody, JobCompleteBody, lex, MatchConfirmBody, NavGlyph, Persona, PhoneAuthBody, ProEarningsBody, ProJobBody, ProJobSettledBody, ProOfferBody, ProOnlineBody, ProProfileBody, ProShiftBody, proTheme, ProVerificationBody, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, Sheet, spacing, tint, TrackingBody, type as t, WelcomeBody } from "@pro-now/ui";
 import type { JobMediaItem, LiveLocationState, MarkName, NavGlyphName } from "@pro-now/ui";
 import type { AuthStage, ChatMessage, ConnectionState } from "@pro-now/ui";
 import { buildIntakeBrief, pilotIntakeByService, pilotServiceById, readAvailability } from "@pro-now/types";
@@ -291,7 +252,7 @@ export function App() {
   }, [connection]);
 
   return (
-    <View style={[styles.root, { backgroundColor: side === "pro" ? proTheme.colors.bg : customerTheme.colors.bg }]}>
+    <View style={[styles.root, { backgroundColor: side === "pro" ? proTheme.colors.bg : customerDarkTheme.colors.bg }]}>
       <View style={{ width: w, height: h, overflow: "hidden" }}>
         {/*
           * The banner sits IN the layout rather than over it. An overlay
@@ -891,7 +852,12 @@ function CustomerApp({
               onlineNow: true,
               etaMinutes: etaMin,
               completedJobs: c.completedJobs,
+              ratingAverage: c.ratingAverage,
+              ratingCount: c.ratingCount,
+              serviceNameHe: page.nameHe,
             })}
+            presence="ONLINE"
+            presenceLabelHe="זמינה עכשיו"
             ratingAverage={c.ratingAverage}
             ratingCount={c.ratingCount}
             completedJobs={c.completedJobs}
@@ -996,6 +962,7 @@ function CustomerApp({
           <CustomerHomeBody
             greetingHe="ערב טוב"
             addressLabelHe={addressLabel}
+            onChangeAddress={() => go({ name: "address" })}
             services={catalogHomeServices}
             recent={homeRecent}
             availability={snapshot}
@@ -1022,7 +989,6 @@ function CustomerApp({
             }}
             width={width}
             onSelectService={(id) => go({ name: "service", serviceId: id })}
-            onChangeAddress={() => go({ name: "address" })}
           />
         );
     }
@@ -1030,11 +996,10 @@ function CustomerApp({
 
   return (
     <View style={{ width, height }}>
-      <UtilityRow
+      <AppHeader
         width={width}
-        addressLabelHe={addressLabel}
-        onChangeAddress={() => go({ name: "address" })}
-        onCalls={() => {
+        greetingHe="שלום"
+        onMenu={() => {
           setTab("calls");
           setRoute({ name: "home" });
         }}
@@ -1930,7 +1895,7 @@ const styles = StyleSheet.create({
   howTitle: { ...t.bodyStrong, color: proTheme.colors.textPrimary, textAlign: "right" },
   howBody: {
     ...t.caption,
-    fontSize: 14,
+    fontSize: scale.meta,
     lineHeight: 20,
     color: proTheme.colors.textSecondary,
     textAlign: "right",
@@ -1945,7 +1910,7 @@ const styles = StyleSheet.create({
   },
   sheetBody: {
     ...t.body,
-    fontSize: 15,
+    fontSize: scale.meta,
     color: customerTheme.colors.textSecondary,
     textAlign: "right",
     writingDirection: "rtl",
@@ -1963,7 +1928,7 @@ const styles = StyleSheet.create({
    * White on coral is 3.07:1 — below WCAG for body text, and the same
    * defect the palette split was written to remove. Ink on coral is 5.99:1.
    */
-  sheetPrimaryText: { ...t.bodyStrong, fontSize: 16, color: customerTheme.colors.onAction },
+  sheetPrimaryText: { ...t.bodyStrong, fontSize: scale.body, color: customerTheme.colors.onAction },
   /*
    * The side switch is a prototype affordance, not product navigation —
    * a real customer has no professional side to jump to. It sits quietly
@@ -1977,9 +1942,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: spacing.md,
     borderRadius: radii.pill,
-    backgroundColor: tint.trust(0.14),
+    backgroundColor: tint.trust(0.2),
   },
-  sideSwitchText: { ...t.caption, fontSize: 12, fontWeight: "700", color: customerTheme.colors.trust },
+  /*
+   * The teal that is legible on ivory is 3.76:1 on the dark header — the
+   * audit caught it on eight screens the moment the customer app went dark.
+   * The dark side already has a token for this exact problem.
+   */
+  sideSwitchText: { ...t.caption, fontSize: scale.micro, fontWeight: "700", color: proTheme.colors.trust },
   sheetSecondary: { minHeight: 48, alignItems: "center", justifyContent: "center", marginTop: spacing.sm },
   sheetSecondaryText: { ...t.captionStrong, color: customerTheme.colors.statusDanger },
   sheetNote: {
@@ -1992,7 +1962,7 @@ const styles = StyleSheet.create({
 
   sheetBodyDark: {
     ...t.body,
-    fontSize: 15,
+    fontSize: scale.meta,
     color: proTheme.colors.textSecondary,
     textAlign: "right",
     writingDirection: "rtl",
@@ -2006,8 +1976,8 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
 
-  demoBarText: { ...t.bodyStrong, fontSize: 16, color: "#FFFFFF", writingDirection: "rtl" },
-  demoBarHint: { ...t.caption, fontSize: 11, color: "rgba(255,255,255,0.65)", writingDirection: "rtl" },
+  demoBarText: { ...t.bodyStrong, fontSize: scale.body, color: "#FFFFFF", writingDirection: "rtl" },
+  demoBarHint: { ...t.caption, fontSize: scale.micro, color: "rgba(255,255,255,0.65)", writingDirection: "rtl" },
 
   bar: {
     flexDirection: "row-reverse",
@@ -2016,7 +1986,7 @@ const styles = StyleSheet.create({
     paddingBottom: 6,
   },
   barItem: { flex: 1, alignItems: "center", justifyContent: "center", gap: 3, paddingTop: 6 },
-  barLabel: { ...t.caption, fontSize: 11, fontWeight: "600", writingDirection: "rtl" },
+  barLabel: { ...t.caption, fontSize: scale.micro, fontWeight: "600", writingDirection: "rtl" },
 
   switchPill: {
     minHeight: 44,
@@ -2026,5 +1996,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     borderRadius: radii.pill,
   },
-  switchText: { ...t.caption, fontSize: 11, fontWeight: "700", writingDirection: "rtl" },
+  switchText: { ...t.caption, fontSize: scale.micro, fontWeight: "700", writingDirection: "rtl" },
 });

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, TextInput } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { customerTheme, typography, spacing, radius } from "@pro-now/ui";
+import { customerTheme, radius, scale, spacing, typography } from "@pro-now/ui";
 import type { CustomerStackParamList } from "../navigation/types";
 import { api } from "../api/client";
 
@@ -52,7 +52,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: customerTheme.colors.bg, padding: spacing.lg, justifyContent: "center" },
   title: { ...typography.h1, color: customerTheme.colors.textPrimary, textAlign: "center" },
   starsRow: { flexDirection: "row", justifyContent: "center", gap: spacing.sm, marginTop: spacing.lg },
-  star: { fontSize: 36, color: customerTheme.colors.border },
+  star: { fontSize: scale.title, color: customerTheme.colors.border },
   starFilled: { color: "#F5A524" },
   textArea: { marginTop: spacing.xl, backgroundColor: customerTheme.colors.surface, borderWidth: 1, borderColor: customerTheme.colors.border, borderRadius: radius.md, padding: spacing.md, minHeight: 80, ...typography.body, color: customerTheme.colors.textPrimary },
   submitButton: { backgroundColor: customerTheme.colors.action, borderRadius: radius.md, padding: spacing.md, alignItems: "center", marginTop: spacing.xl },

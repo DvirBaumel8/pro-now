@@ -8,7 +8,7 @@ import {
   type ProfessionalSummaryView,
 } from "@pro-now/types";
 
-import { customerTheme, elevation, radii, spacing, tabular, tint, type } from "../theme";
+import { customerTheme, elevation, radii, scale, spacing, tabular, tint, type } from "../theme";
 import { formatCompletedJobs, formatProNowRating } from "../format";
 import { Mark, type MarkName, ShieldCheckMark, StarMark } from "../components/marks";
 import { Persona } from "../components/Persona";
@@ -419,7 +419,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  backGlyph: { fontSize: 30, lineHeight: 30, color: colors.textPrimary, fontWeight: "300" },
+  backGlyph: { fontSize: scale.title, lineHeight: 30, color: colors.textPrimary, fontWeight: "300" },
 
   heroPortrait: { width: 132, ...elevation(2) },
   portrait: { width: 132 },
@@ -455,7 +455,7 @@ const styles = StyleSheet.create({
 
   factLabel: {
     ...type.caption,
-    fontSize: 11,
+    fontSize: scale.micro,
     lineHeight: 15,
     color: colors.textSecondary,
     textAlign: "center",
@@ -527,7 +527,7 @@ const styles = StyleSheet.create({
   reviewMeta: { ...type.caption, color: colors.textSecondary, textAlign: "right", writingDirection: "rtl", marginTop: 2 },
   reviewText: {
     ...type.body,
-    fontSize: 15,
+    fontSize: scale.meta,
     color: colors.textPrimary,
     textAlign: "right",
     writingDirection: "rtl",

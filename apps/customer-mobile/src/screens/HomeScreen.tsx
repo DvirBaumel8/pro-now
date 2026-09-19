@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, I18nManager } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { customerTheme, typography, spacing, radius } from "@pro-now/ui";
+import { customerTheme, radius, scale, spacing, typography } from "@pro-now/ui";
 import type { CustomerStackParamList } from "../navigation/types";
 import type { CatalogDepartmentView } from "@pro-now/types";
 import { api } from "../api/client";
@@ -79,7 +79,7 @@ const styles = StyleSheet.create({
   content: { padding: spacing.lg, paddingBottom: spacing.xxl },
   greeting: { ...typography.h2, color: customerTheme.colors.textPrimary, textAlign: "right" },
   addressRow: { flexDirection: "row-reverse", alignItems: "center", marginTop: spacing.xs, gap: 4 },
-  addressPin: { fontSize: 14 },
+  addressPin: { fontSize: scale.meta },
   addressText: { ...typography.caption, color: customerTheme.colors.textSecondary },
   hero: { ...typography.display, color: customerTheme.colors.textPrimary, textAlign: "right", marginTop: spacing.lg },
   search: {

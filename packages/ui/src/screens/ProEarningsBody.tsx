@@ -4,7 +4,7 @@ import Svg, { Rect } from "react-native-svg";
 
 import { formatMoney, money } from "@pro-now/types";
 
-import { proTheme, radii, spacing, tabular, tint, type } from "../theme";
+import { proTheme, radii, scale, spacing, tabular, tint, type } from "../theme";
 import { Mark, type MarkName, ShieldCheckMark } from "../components/marks";
 import { SectionHeader, Surface } from "../components/surfaces";
 
@@ -237,9 +237,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  backGlyph: { fontSize: 28, lineHeight: 28, color: colors.textPrimary, fontWeight: "300" },
+  backGlyph: { fontSize: scale.section, lineHeight: 28, color: colors.textPrimary, fontWeight: "300" },
   period: { ...type.overline, color: colors.textSecondary },
-  net: { ...type.displayXL, ...tabular, fontSize: 52, lineHeight: 56, color: colors.textPrimary, marginTop: 2 },
+  net: { ...type.displayXL, ...tabular, fontSize: scale.display, lineHeight: 56, color: colors.textPrimary, marginTop: 2 },
   netLabel: { ...type.caption, color: colors.textSecondary, writingDirection: "rtl" },
   grossRow: { flexDirection: "row-reverse", alignItems: "center", gap: 6, marginTop: spacing.md, flexWrap: "wrap" },
   grossText: { ...type.caption, color: colors.textSecondary, writingDirection: "rtl" },
@@ -249,8 +249,8 @@ const styles = StyleSheet.create({
 
   chart: { flexDirection: "row-reverse", alignItems: "flex-end", justifyContent: "space-between" },
   barCol: { alignItems: "center", gap: 4 },
-  barValue: { ...type.caption, ...tabular, fontSize: 10, color: colors.textSecondary, height: 14 },
-  barLabel: { ...type.caption, fontSize: 11, color: colors.textSecondary },
+  barValue: { ...type.caption, ...tabular, fontSize: scale.micro, color: colors.textSecondary, height: 14 },
+  barLabel: { ...type.caption, fontSize: scale.micro, color: colors.textSecondary },
   chartNote: { ...type.caption, color: colors.textSecondary, textAlign: "right", writingDirection: "rtl", marginTop: spacing.md },
 
   payoutRow: { flexDirection: "row-reverse", alignItems: "baseline", justifyContent: "space-between" },

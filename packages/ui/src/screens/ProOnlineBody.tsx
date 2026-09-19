@@ -3,7 +3,7 @@ import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-nativ
 
 import { formatMoney, money, type ProPresenceState } from "@pro-now/types";
 
-import { proTheme, radii, spacing, tint, type } from "../theme";
+import { proTheme, radii, scale, spacing, tint, type } from "../theme";
 import { MapSurface } from "../components/MapSurface";
 import { BottomSheet, Chip } from "../components/surfaces";
 import { Mark, type MarkName } from "../components/marks";
@@ -347,5 +347,5 @@ const styles = StyleSheet.create({
   },
   ctaOffline: { backgroundColor: colors.action },
   ctaOnline: { backgroundColor: "transparent", borderWidth: 1.5, borderColor: colors.border },
-  ctaLabel: { ...type.bodyStrong, fontSize: 17 },
+  ctaLabel: { ...type.bodyStrong, fontSize: scale.body },
 });

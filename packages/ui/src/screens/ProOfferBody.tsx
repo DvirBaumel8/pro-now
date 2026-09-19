@@ -4,7 +4,7 @@ import Svg, { Circle, Defs, LinearGradient, Rect, Stop } from "react-native-svg"
 
 import { formatMoney, money, type OfferCardView } from "@pro-now/types";
 
-import { proTheme, radii, spacing, tabular, tint, type } from "../theme";
+import { proTheme, radii, scale, spacing, tabular, tint, type } from "../theme";
 import { formatCountdown, formatDistance, formatEta, payoutDisclosure } from "../format";
 import { ClockMark, PinMark } from "../components/marks";
 import { MapSurface } from "../components/MapSurface";
@@ -365,8 +365,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   ringInner: { alignItems: "center", justifyContent: "center" },
-  ringValue: { ...type.h2, ...tabular, fontSize: 24 },
-  ringLabel: { ...type.caption, fontSize: 11, color: colors.textSecondary, writingDirection: "rtl" },
+  ringValue: { ...type.h2, ...tabular, fontSize: scale.section },
+  ringLabel: { ...type.caption, fontSize: scale.micro, color: colors.textSecondary, writingDirection: "rtl" },
 
   content: {
     position: "absolute",
@@ -380,7 +380,7 @@ const styles = StyleSheet.create({
   kicker: { ...type.captionStrong, color: colors.actionText, textAlign: "right" },
   service: {
     ...type.h1,
-    fontSize: 32,
+    fontSize: scale.title,
     lineHeight: 38,
     color: colors.textPrimary,
     textAlign: "right",
@@ -389,7 +389,7 @@ const styles = StyleSheet.create({
   },
 
   payoutRow: { flexDirection: "row-reverse", alignItems: "baseline", gap: spacing.sm, marginTop: spacing.lg },
-  payout: { ...type.displayXL, ...tabular, fontSize: 58, lineHeight: 62, color: colors.textPrimary },
+  payout: { ...type.displayXL, ...tabular, fontSize: scale.display, lineHeight: 62, color: colors.textPrimary },
   payoutQualifier: { ...type.captionStrong, color: colors.statusWarning, writingDirection: "rtl" },
   payoutUnknown: { ...type.h1, color: colors.textSecondary, marginTop: spacing.lg, writingDirection: "rtl" },
   payoutReason: {
@@ -404,7 +404,7 @@ const styles = StyleSheet.create({
   fact: { alignItems: "flex-end" },
   factTop: { flexDirection: "row-reverse", alignItems: "center", gap: 6 },
   factValue: { ...type.h3, ...tabular, color: colors.textPrimary },
-  factLabel: { ...type.caption, fontSize: 11, color: colors.textSecondary, writingDirection: "rtl" },
+  factLabel: { ...type.caption, fontSize: scale.micro, color: colors.textSecondary, writingDirection: "rtl" },
 
   brief: {
     marginTop: spacing.md,
@@ -427,7 +427,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   tagMedia: { borderColor: tint.trust(0.45), backgroundColor: tint.trust(0.1) },
-  tagText: { ...type.caption, fontSize: 12, color: colors.textPrimary, writingDirection: "rtl" },
+  tagText: { ...type.caption, fontSize: scale.micro, color: colors.textPrimary, writingDirection: "rtl" },
   typical: {
     ...type.caption,
     color: colors.textSecondary,
@@ -453,7 +453,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: spacing.xl,
   },
-  acceptLabel: { ...type.bodyStrong, fontSize: 18, color: colors.onAction },
+  acceptLabel: { ...type.bodyStrong, fontSize: scale.body, color: colors.onAction },
   skip: { alignSelf: "center", paddingVertical: spacing.md, minHeight: 44, justifyContent: "center" },
   skipLabel: { ...type.captionStrong, color: colors.textSecondary },
 

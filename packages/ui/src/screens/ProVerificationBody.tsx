@@ -1,7 +1,7 @@
 import React from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { proTheme, radii, spacing, tint, type } from "../theme";
+import { proTheme, radii, scale, spacing, tint, type } from "../theme";
 import { lex } from "../lexicon";
 import { ClockMark, Mark, type MarkName, ShieldCheckMark } from "../components/marks";
 import { SectionHeader, Surface } from "../components/surfaces";
@@ -301,7 +301,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  backGlyph: { fontSize: 28, lineHeight: 28, color: colors.textPrimary, fontWeight: "300" },
+  backGlyph: { fontSize: scale.section, lineHeight: 28, color: colors.textPrimary, fontWeight: "300" },
   title: { ...type.h1, color: colors.textPrimary, writingDirection: "rtl" },
   subtitle: {
     ...type.body,
@@ -336,11 +336,11 @@ const styles = StyleSheet.create({
 
   stepRow: { flexDirection: "row-reverse", alignItems: "center", gap: spacing.md },
   stateMark: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center" },
-  glyph: { fontSize: 19, fontWeight: "700" },
+  glyph: { fontSize: scale.body, fontWeight: "700" },
   stepText: { flex: 1, alignItems: "flex-end" },
   stepTitle: { ...type.bodyStrong, color: colors.textPrimary, writingDirection: "rtl" },
   stepExplain: { ...type.caption, color: colors.textSecondary, textAlign: "right", writingDirection: "rtl" },
-  chevron: { fontSize: 22, color: colors.textSecondary, fontWeight: "300" },
+  chevron: { fontSize: scale.section, color: colors.textSecondary, fontWeight: "300" },
 
   stepFoot: { flexDirection: "row-reverse", alignItems: "center", gap: spacing.sm, marginTop: spacing.md },
   statePill: { paddingHorizontal: spacing.md, paddingVertical: 5, borderRadius: radii.pill },

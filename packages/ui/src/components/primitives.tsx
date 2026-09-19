@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { Animated, Easing, Image, StyleSheet, Text, View, type ViewStyle } from "react-native";
 
-import { radius, spacing, typography } from "../theme";
+import { radius, scale, spacing, typography } from "../theme";
 import { Persona } from "./Persona";
 
 /**
@@ -102,7 +102,7 @@ const pill = StyleSheet.create({
     paddingHorizontal: spacing.md,
     borderRadius: radius.pill,
   },
-  label: { fontSize: 13, fontWeight: "600" },
+  label: { fontSize: scale.micro, fontWeight: "600" },
 });
 
 // ---------------------------------------------------------------------
@@ -217,8 +217,8 @@ const chip = StyleSheet.create({
     borderRadius: radius.pill,
     borderWidth: StyleSheet.hairlineWidth * 2,
   },
-  icon: { fontSize: 13 },
-  label: { fontSize: 13, fontWeight: "600" },
+  icon: { fontSize: scale.micro },
+  label: { fontSize: scale.micro, fontWeight: "600" },
 });
 
 // ---------------------------------------------------------------------

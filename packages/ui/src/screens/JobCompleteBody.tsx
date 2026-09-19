@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-
 
 import { formatMoney, money } from "@pro-now/types";
 
-import { customerTheme, elevation, radii, spacing, tabular, tint, type } from "../theme";
+import { customerTheme, elevation, radii, scale, spacing, tabular, tint, type } from "../theme";
 import { Mark, type MarkName, StarMark } from "../components/marks";
 import { RingedAvatar, SectionHeader, Surface } from "../components/surfaces";
 
@@ -240,7 +240,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
   },
   lineDivided: { borderTopWidth: StyleSheet.hairlineWidth * 2, borderTopColor: colors.border },
-  lineLabel: { ...type.body, flex: 1, fontSize: 15, color: colors.textPrimary, textAlign: "right", writingDirection: "rtl" },
+  lineLabel: { ...type.body, flex: 1, fontSize: scale.meta, color: colors.textPrimary, textAlign: "right", writingDirection: "rtl" },
   lineAmount: { ...type.bodyStrong, ...tabular, color: colors.textPrimary },
 
   totalRow: {
@@ -286,7 +286,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginTop: spacing.md,
     ...type.body,
-    fontSize: 15,
+    fontSize: scale.meta,
     color: colors.textPrimary,
     writingDirection: "rtl",
     textAlignVertical: "top",
@@ -299,7 +299,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: spacing.md,
   },
-  submitLabel: { ...type.bodyStrong, fontSize: 16, color: colors.onAction },
+  submitLabel: { ...type.bodyStrong, fontSize: scale.body, color: colors.onAction },
   reviewNote: {
     ...type.caption,
     color: colors.textSecondary,

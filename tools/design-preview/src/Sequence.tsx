@@ -1,22 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 
-import {
-  CustomerHomeBody,
-  JobCompleteBody,
-  ProOfferBody,
-  ProOnlineBody,
-  ProProfileBody,
-  QuoteApprovalBody,
-  SearchingBody,
-  ServiceDetailBody,
-  TrackingBody,
-  customerTheme,
-  proTheme,
-  radii,
-  spacing,
-  type as t,
-} from "@pro-now/ui";
+import { CustomerHomeBody, customerTheme, JobCompleteBody, ProOfferBody, ProOnlineBody, ProProfileBody, proTheme, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, spacing, TrackingBody, type as t } from "@pro-now/ui";
 import type { ProPresenceState } from "@pro-now/types";
 
 import { matchFixture, offerFixture } from "./fixtures";
@@ -348,7 +333,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   tab: { paddingHorizontal: spacing.md, paddingVertical: 7, borderRadius: radii.pill },
-  tabLabel: { ...t.caption, fontSize: 12, fontWeight: "600", writingDirection: "rtl" },
+  tabLabel: { ...t.caption, fontSize: scale.micro, fontWeight: "600", writingDirection: "rtl" },
 
   navRow: {
     flexDirection: "row-reverse",

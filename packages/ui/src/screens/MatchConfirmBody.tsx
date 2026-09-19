@@ -4,10 +4,12 @@ import Svg, { Path, Rect } from "react-native-svg";
 
 import type { EtaView, PriceQuoteView } from "@pro-now/types";
 
-import { customerTheme, palette, radii, spacing, tabular, type } from "../theme";
+import { customerDarkTheme, palette, radii, scale, spacing, tabular, type } from "../theme";
 import { priceExplainer } from "../pricing-copy";
 import { LiveField } from "../components/LiveField";
+import { PresenceRing, type PresenceState } from "../components/PresenceRing";
 import { ProviderPortrait } from "../components/ProviderPortrait";
+import { VoiceNote } from "../components/VoiceNote";
 import { RtlRow } from "../components/RtlRow";
 import { ImageSlot } from "../components/surfaces";
 import { ShieldCheckMark, StarMark } from "../components/marks";
@@ -52,7 +54,24 @@ import { ShieldCheckMark, StarMark } from "../components/marks";
  * photographs of real, signed-up professionals to put in it.
  */
 
-const colors = customerTheme.colors;
+/**
+ * DARK THROUGHOUT.
+ *
+ * The hero was dark and everything under it ivory, which put a hard light
+ * seam across the middle of the one screen in the product that is supposed
+ * to feel like a single moment. The board Amit chose renders this screen
+ * dark end to end, and now that the customer app is dark by default (see
+ * CustomerHomeBody) there is nothing left arguing for the seam.
+ */
+const colors = customerDarkTheme.colors;
+
+/**
+ * "דניאל כהן" → "דניאל". The heading asks "למה דווקא דניאל?" and a full
+ * legal name there sounds like a form, not like someone being introduced.
+ */
+function firstName(nameHe: string): string {
+  return nameHe.replace(/[()[\]]/g, "").trim().split(/\s+/)[0] ?? nameHe;
+}
 
 export interface PortfolioItem {
   id: string;
@@ -60,10 +79,31 @@ export interface PortfolioItem {
   captionHe: string;
 }
 
-/** One stated reason this person was proposed. Facts only. */
+/**
+ * One stated reason this person was proposed. Facts only.
+ *
+ * TWO LINES, NOT ONE PHRASE. These rendered as four short phrases separated
+ * by dots — "מוסמך לתקלה · זמין עכשיו · 8 דקות ממך · 214 עבודות" — and the
+ * review's verdict was that it reads as telemetry: "נכון מוצרית אבל עדיין
+ * מרגיש קצת כמו feature explanation… פתאום אנחנו מספרים סיפור במקום להציג
+ * telemetry."
+ *
+ * So each reason carries a claim and the evidence under it:
+ *
+ *     מתמחה בדיוק במה שביקשתם
+ *     תספורות גבר ופייד
+ *
+ * `textHe` is the claim, `detailHe` the evidence. Both come from the
+ * caller, which means both are things the server can stand behind — and a
+ * percentage match score, which is the obvious thing to put here, is
+ * exactly the fabricated capability this product cannot afford
+ * (/CLAUDE.md §3).
+ */
 export interface MatchReason {
   id: string;
   textHe: string;
+  /** The fact underneath the claim. Optional; absent renders one line. */
+  detailHe?: string | null;
   kind: "SKILL" | "LIVE" | "DISTANCE" | "HISTORY";
 }
 
@@ -89,6 +129,25 @@ export interface MatchConfirmBodyProps {
   /** "22:48" — arrival clock time, computed by the caller from the ETA. */
   arrivalClockHe: string | null;
   price: PriceQuoteView;
+  /**
+   * Whether this professional is online right now, already assigned, or
+   * neither. Drives the ring around the portrait, and it is passed rather
+   * than assumed: a ring that always says "available" is a fabricated
+   * availability claim (/CLAUDE.md §3).
+   */
+  presence?: PresenceState;
+  /** "זמין עכשיו". Omit to render the ring without a chip. */
+  presenceLabelHe?: string | null;
+  /**
+   * A message this professional recorded for THIS request. There is no
+   * stock-introduction variant — see VoiceNote for why.
+   */
+  voiceNote?: {
+    seconds: number;
+    transcriptHe?: string | null;
+    playing?: boolean;
+    onTogglePlay?: () => void;
+  } | null;
   /** Whether another proposal exists at all. The count is deliberately hidden. */
   hasAlternative: boolean;
   onAccept?: () => void;
@@ -112,6 +171,9 @@ export function MatchConfirmBody({
   eta,
   arrivalClockHe,
   price,
+  presence = "ONLINE",
+  presenceLabelHe = "זמין עכשיו",
+  voiceNote,
   hasAlternative,
   onAccept,
   onAnother,
@@ -121,7 +183,13 @@ export function MatchConfirmBody({
 }: MatchConfirmBodyProps) {
   const explain = priceExplainer(price);
   const etaMinutes = eta ? Math.round(eta.etaSeconds / 60) : null;
-  const heroH = Math.round(height * 0.46);
+  /*
+   * The hero is sized around the portrait rather than the other way round.
+   * "פי 2–3 יותר נוכחות" is a size, not a proportion of the viewport, and
+   * on a short phone the portrait has to shrink before the screen does.
+   */
+  const portraitSize = Math.min(Math.round(width * 0.62), Math.round(height * 0.3));
+  const heroH = portraitSize + 150;
 
   return (
     <View style={[styles.screen, { width, height }]}>
@@ -145,9 +213,8 @@ export function MatchConfirmBody({
           * signed-up professional who has agreed to be photographed.
           */}
         <View style={[styles.hero, { height: heroH }]}>
-          <LiveField state="MATCHED" width={width} height={heroH} tone="dark" />
-          <View style={styles.heroFill} pointerEvents="none">
-            <ProviderPortrait photoUri={photoUri} displayNameHe={displayNameHe} size={132} tone="dark" />
+          <View style={StyleSheet.absoluteFill} pointerEvents="none">
+            <LiveField state="MATCHED" width={width} height={heroH} tone="dark" />
           </View>
 
           <Pressable
@@ -164,47 +231,77 @@ export function MatchConfirmBody({
             <Text style={styles.brandSub}>נמצאה התאמה לבקשה שלך · {serviceNameHe}</Text>
           </View>
 
-          <View style={styles.heroBottom}>
-            <Text style={styles.name} numberOfLines={1}>
-              {displayNameHe}
-            </Text>
-            <Text style={styles.headline} numberOfLines={1}>
-              {headlineHe}
-            </Text>
+          {/*
+            * THE PERSON IS THE HERO — the one change asked for by name.
+            *
+            * The portrait was 132px, floating on the field above a block of
+            * text, and the note was that the screen "מסביר לי את ההתאמה
+            * לפני שאני מרגיש את האדם": everything needed to decide was
+            * present and none of it felt like meeting someone.
+            *
+            * At this size the portrait IS the composition, and the ring
+            * puts the one urgent fact — he is online and can leave now — on
+            * the person instead of in a chip beside them. Everything else
+            * moved below.
+            *
+            * The monogram still stands in for a face (§8): a photographic
+            * portrait on a professional who has not been assigned asserts
+            * that this specific person exists and is free right now. When a
+            * real signed-up professional has an approved photo it fills
+            * exactly this space and nothing else about the screen changes.
+            */}
+          <View style={styles.heroFill} pointerEvents="none">
+            <PresenceRing state={presence} size={portraitSize} labelHe={presenceLabelHe}>
+              <ProviderPortrait
+                photoUri={photoUri}
+                displayNameHe={displayNameHe}
+                size={portraitSize}
+                shape="circle"
+                tone="dark"
+              />
+            </PresenceRing>
+          </View>
+        </View>
 
-            {/*
-              * ONE line of facts, not three chips.
-              *
-              * Three green pills read as decoration and gave equal weight to
-              * a rating, a job count and a verification — which are not
-              * equally interesting. A single line is read in one pass.
-              */}
-            <View style={styles.factLine}>
-              {ratingAverage !== null ? (
-                <>
-                  <StarMark size={13} />
-                  <Text style={styles.factText}>
-                    {ratingAverage.toFixed(1)} ({ratingCount})
-                  </Text>
-                  <Text style={styles.factDot}>•</Text>
-                </>
-              ) : (
-                <>
-                  <Text style={[styles.factText, { color: colors.surface }]}>חדש ב-PRO NOW</Text>
-                  <Text style={styles.factDot}>•</Text>
-                </>
-              )}
-              <Text style={styles.factText}>
-                {completedJobs === 1 ? "עבודה אחת" : `${completedJobs} עבודות`}
-              </Text>
-              {credentialsHe.length > 0 ? (
-                <>
-                  <Text style={styles.factDot}>•</Text>
-                  <ShieldCheckMark size={13} color="#55D3B4" />
-                  <Text style={styles.factText}>{credentialsHe.length} אימותים</Text>
-                </>
-              ) : null}
-            </View>
+        {/* ---------------- Who ---------------- */}
+        <View style={styles.who}>
+          <Text style={styles.name} numberOfLines={1}>
+            {displayNameHe}
+          </Text>
+          <Text style={styles.headline} numberOfLines={1}>
+            {headlineHe}
+          </Text>
+
+          {/*
+            * ONE line of facts, not three chips. Three green pills read as
+            * decoration and gave a rating, a job count and a verification
+            * equal weight, which they do not have.
+            */}
+          <View style={styles.factLine}>
+            {ratingAverage !== null ? (
+              <>
+                <StarMark size={13} />
+                <Text style={styles.factText}>
+                  {ratingAverage.toFixed(1)} ({ratingCount})
+                </Text>
+                <Text style={styles.factDot}>•</Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.factText}>חדש ב-PRO NOW</Text>
+                <Text style={styles.factDot}>•</Text>
+              </>
+            )}
+            <Text style={styles.factText}>
+              {completedJobs === 1 ? "עבודה אחת" : `${completedJobs} עבודות`}
+            </Text>
+            {credentialsHe.length > 0 ? (
+              <>
+                <Text style={styles.factDot}>•</Text>
+                <ShieldCheckMark size={13} color={palette.trust300} />
+                <Text style={styles.factVerified}>PRO VERIFIED</Text>
+              </>
+            ) : null}
           </View>
         </View>
 
@@ -230,22 +327,39 @@ export function MatchConfirmBody({
         {/* ---------------- Why this match ---------------- */}
         {reasons.length > 0 ? (
           <View style={styles.why}>
-            <Text style={styles.whyTitle}>למה ההתאמה הזאת?</Text>
-            <View style={styles.whyRow}>
-              {reasons.map((r, i) => (
-                <React.Fragment key={r.id}>
-                  {i > 0 ? <Text style={styles.whyDot}>·</Text> : null}
-                  <Text
-                    style={[
-                      styles.whyText,
-                      r.kind === "LIVE" && { color: colors.actionText, fontWeight: "700" },
-                    ]}
-                  >
-                    {r.textHe}
-                  </Text>
-                </React.Fragment>
-              ))}
-            </View>
+            {/* "למה דווקא דניאל?" — about the person, not about the feature. */}
+            <Text style={styles.whyTitle}>למה דווקא {firstName(displayNameHe)}?</Text>
+            {reasons.slice(0, 3).map((r) => (
+              <View key={r.id} style={styles.whyItem}>
+                <View
+                  style={[
+                    styles.whyDotMark,
+                    { backgroundColor: r.kind === "LIVE" ? colors.action : palette.trust500 },
+                  ]}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.whyClaim}>{r.textHe}</Text>
+                  {r.detailHe ? <Text style={styles.whyDetail}>{r.detailHe}</Text> : null}
+                </View>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
+        {/* ---------------- What he said ---------------- */}
+        {voiceNote ? (
+          <View style={styles.voice}>
+            <VoiceNote
+              kind="JOB_MESSAGE"
+              speakerNameHe={displayNameHe}
+              speakerPhotoUri={photoUri}
+              transcriptHe={voiceNote.transcriptHe}
+              seconds={voiceNote.seconds}
+              playing={voiceNote.playing}
+              onTogglePlay={voiceNote.onTogglePlay}
+              tone="dark"
+              width={width - spacing.lg * 2}
+            />
           </View>
         ) : null}
 
@@ -262,7 +376,7 @@ export function MatchConfirmBody({
             <RtlRow gutter={spacing.lg} contentContainerStyle={{ gap: spacing.sm }}>
               {portfolio.map((w, i) => (
                 <View key={w.id} style={[styles.work, i === 0 && styles.workFirst]}>
-                  <ImageSlot uri={w.uri} subject={w.captionHe} ratio={i === 0 ? 3 / 4 : 1} colors={colors} radius={radii.lg} />
+                  <ImageSlot uri={w.uri} subject={w.captionHe} ratio={i === 0 ? 3 / 4 : 1} colors={colors} radius={radii.lg} dark />
                 </View>
               ))}
             </RtlRow>
@@ -340,52 +454,76 @@ function RouteLine() {
 const styles = StyleSheet.create({
   screen: { backgroundColor: colors.bg, overflow: "hidden" },
 
-  hero: { backgroundColor: palette.night800, overflow: "hidden", justifyContent: "flex-end" },
-  heroFill: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center" },
+  hero: { backgroundColor: palette.night900, overflow: "hidden", alignItems: "center" },
+  /*
+   * IN THE FLOW, NOT ABSOLUTELY POSITIONED. The overline and the portrait
+   * were both absolute over the same field and duly landed on top of each
+   * other: "PRO NOW MATCH" ran under the portrait and off the right edge.
+   * The hero is a column now, which is also why the portrait can be sized
+   * from the viewport without anything else needing to be told.
+   */
+  heroFill: { alignItems: "center", justifyContent: "center", flex: 1 },
+  /*
+   * A quiet glyph, not a white puck. At 44px of near-opaque ivory it was
+   * the brightest object on a dark screen whose entire job is to make one
+   * person the brightest object on it.
+   */
   back: {
     position: "absolute",
-    top: spacing.lg,
+    top: spacing.sm,
     right: spacing.lg,
     width: 44,
     height: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(251,246,238,0.92)",
     alignItems: "center",
     justifyContent: "center",
+    zIndex: 2,
   },
-  backGlyph: { fontSize: 22, lineHeight: 24, color: colors.textPrimary },
+  backGlyph: { ...type.section, fontWeight: "400", color: "rgba(255,255,255,0.75)" },
 
-  // Clear of the back control, which sits at top-right in RTL.
-  heroTop: { position: "absolute", top: spacing.xl + 52, right: spacing.lg, left: spacing.lg, alignItems: "flex-end" },
-  brandMark: { ...type.overline, color: "#FFFFFF", letterSpacing: 1.6 },
+  heroTop: { alignSelf: "stretch", paddingHorizontal: spacing.lg, paddingTop: spacing.lg, alignItems: "center" },
+  brandMark: { ...type.microStrong, color: palette.signal300, letterSpacing: 1.8 },
   brandSub: {
+    ...type.meta,
+    color: "rgba(255,255,255,0.72)",
+    textAlign: "center",
+    writingDirection: "rtl",
+    marginTop: 4,
+  },
+  brandSubUnused: {
     ...type.caption,
-    fontSize: 12,
+    fontSize: scale.micro,
     color: "rgba(255,255,255,0.86)",
     textAlign: "right",
     writingDirection: "rtl",
     marginTop: 2,
   },
 
-  heroBottom: { paddingHorizontal: spacing.lg, paddingBottom: spacing.lg, alignItems: "flex-end" },
-  name: {
-    ...type.display,
-    fontSize: 38,
-    lineHeight: 42,
-    color: "#FFFFFF",
-    textAlign: "right",
-    writingDirection: "rtl",
-  },
+  /*
+   * The identity moved off the hero and onto the light surface under it.
+   * Over a portrait this size, text laid on the same surface competes with
+   * the face for the first look — and the whole change was to make the
+   * person the first look.
+   */
+  who: { paddingHorizontal: spacing.lg, paddingTop: spacing.xl, alignItems: "center" },
+  name: { ...type.title, color: colors.textPrimary, textAlign: "center", writingDirection: "rtl" },
   headline: {
     ...type.body,
-    color: "rgba(255,255,255,0.9)",
-    textAlign: "right",
+    color: colors.textSecondary,
+    textAlign: "center",
     writingDirection: "rtl",
     marginTop: 2,
   },
-  factLine: { flexDirection: "row-reverse", alignItems: "center", gap: 6, marginTop: spacing.sm },
-  factText: { ...type.caption, ...tabular, fontSize: 13, fontWeight: "600", color: "#FFFFFF" },
-  factDot: { color: "rgba(255,255,255,0.55)", fontSize: 13 },
+  factLine: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: 6,
+    marginTop: spacing.md,
+  },
+  factText: { ...type.metaStrong, ...tabular, color: colors.textPrimary },
+  factVerified: { ...type.microStrong, color: colors.trust },
+  factDot: { color: colors.textSecondary, fontSize: scale.micro },
 
   when: {
     flexDirection: "row-reverse",
@@ -395,20 +533,33 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xl,
   },
   whenText: { alignItems: "flex-end" },
-  whenValue: { ...type.display, ...tabular, fontSize: 44, lineHeight: 46, color: colors.textPrimary },
+  whenValue: { ...type.display, ...tabular, fontSize: scale.hero, lineHeight: 46, color: colors.textPrimary },
   whenSub: { ...type.caption, color: colors.textSecondary, writingDirection: "rtl", marginTop: 2 },
 
-  why: { paddingHorizontal: spacing.lg, marginTop: spacing.xl },
-  whyTitle: { ...type.overline, color: colors.textSecondary, textAlign: "right" },
-  whyRow: {
-    flexDirection: "row-reverse",
-    flexWrap: "wrap",
-    alignItems: "center",
-    gap: 6,
-    marginTop: 6,
+  why: { paddingHorizontal: spacing.lg, marginTop: spacing.xl, gap: spacing.lg },
+  whyTitle: {
+    ...type.section,
+    color: colors.textPrimary,
+    textAlign: "right",
+    writingDirection: "rtl",
   },
-  whyText: { ...type.body, fontSize: 15, color: colors.textPrimary, writingDirection: "rtl" },
-  whyDot: { color: colors.textSecondary, fontSize: 15 },
+  whyItem: { flexDirection: "row-reverse", gap: spacing.md, alignItems: "flex-start" },
+  whyDotMark: { width: 8, height: 8, borderRadius: 4, marginTop: 8 },
+  whyClaim: {
+    ...type.bodyStrong,
+    color: colors.textPrimary,
+    textAlign: "right",
+    writingDirection: "rtl",
+  },
+  whyDetail: {
+    ...type.meta,
+    color: colors.textSecondary,
+    textAlign: "right",
+    writingDirection: "rtl",
+    marginTop: 1,
+  },
+
+  voice: { paddingHorizontal: spacing.lg, marginTop: spacing.xl },
 
   workBlock: { marginTop: spacing.xxl },
   workTitle: {
@@ -422,7 +573,7 @@ const styles = StyleSheet.create({
   workFirst: { width: 208 },
   workNote: {
     ...type.caption,
-    fontSize: 12,
+    fontSize: scale.micro,
     color: colors.textSecondary,
     textAlign: "right",
     writingDirection: "rtl",
@@ -443,7 +594,7 @@ const styles = StyleSheet.create({
 
   creds: { paddingHorizontal: spacing.lg, marginTop: spacing.lg, gap: 2 },
   credRow: { flexDirection: "row-reverse", alignItems: "center", gap: 8, minHeight: 30 },
-  credText: { ...type.caption, fontSize: 13, color: colors.textSecondary, writingDirection: "rtl" },
+  credText: { ...type.caption, fontSize: scale.micro, color: colors.textSecondary, writingDirection: "rtl" },
 
   cta: {
     paddingHorizontal: spacing.lg,
@@ -461,10 +612,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 1,
   },
-  acceptText: { ...type.bodyStrong, fontSize: 17, color: colors.onAction },
-  acceptSub: { ...type.caption, fontSize: 12, color: colors.onAction, opacity: 0.78 },
+  acceptText: { ...type.bodyStrong, fontSize: scale.body, color: colors.onAction },
+  acceptSub: { ...type.caption, fontSize: scale.micro, color: colors.onAction, opacity: 0.78 },
   another: { minHeight: 48, alignItems: "center", justifyContent: "center", marginTop: 6 },
-  anotherText: { ...type.caption, fontSize: 14, color: colors.textSecondary, writingDirection: "rtl" },
+  anotherText: { ...type.caption, fontSize: scale.meta, color: colors.textSecondary, writingDirection: "rtl" },
   exhausted: {
     ...type.caption,
     color: colors.textSecondary,

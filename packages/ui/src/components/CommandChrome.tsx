@@ -1,7 +1,7 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { customerTheme, radii, spacing, tabular, type } from "../theme";
+import { customerDarkTheme, customerTheme, palette, radii, scale, spacing, tabular, type } from "../theme";
 import { NavGlyph } from "./NavGlyph";
 import { Pulse } from "./LiveServiceCard";
 
@@ -105,6 +105,18 @@ export interface ActiveJobCapsuleProps {
   width: number;
 }
 
+/**
+ * The capsule had one more note against it in review: "נכונה, אבל לא
+ * מרגישה חיה. כדאי להראות יותר כמו התראה חיה."
+ *
+ * The fix is not more animation. It is that the capsule was a near-black
+ * pill on a near-black screen — correct, legible, and completely inert,
+ * because nothing distinguished it from the surface it sat on. Now it is a
+ * raised surface with a coral wash at its leading edge and the ETA set in
+ * coral: the only object on the home screen that is lit from inside, which
+ * is what "someone is on their way to you right now" should look like.
+ */
+
 /** The vertical space the capsule needs, for callers sizing the body. */
 export const CAPSULE_HEIGHT = 68;
 
@@ -157,7 +169,7 @@ const styles = StyleSheet.create({
   },
   addressText: {
     ...type.caption,
-    fontSize: 14,
+    fontSize: scale.meta,
     color: colors.textPrimary,
     writingDirection: "rtl",
     flexShrink: 1,
@@ -181,22 +193,31 @@ const styles = StyleSheet.create({
   capsule: {
     flexDirection: "row-reverse",
     alignItems: "center",
-    gap: 8,
-    minHeight: 52,
-    maxWidth: "88%",
+    gap: 10,
+    minHeight: 58,
+    maxWidth: "92%",
     paddingHorizontal: spacing.lg,
     borderRadius: radii.pill,
-    backgroundColor: colors.textPrimary,
+    backgroundColor: palette.night700,
+    /*
+     * A coral hairline, not a coral block. The first attempt washed the
+     * leading third of the pill in tint.action(0.16), which at this radius
+     * renders as a hard-edged rectangle bleeding out of a rounded shape —
+     * a gradient would fix it and the system forbids gradients. One lit
+     * edge says "live" without pretending to be light falling on anything.
+     */
+    borderRightWidth: 3,
+    borderRightColor: palette.signal500,
     // Elevation only, no border: a surface may be raised or outlined, never
     // both (Visual System v1 §5).
-    shadowColor: "#17121F",
-    shadowOpacity: 0.26,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 8,
+    shadowColor: "#000000",
+    shadowOpacity: 0.5,
+    shadowRadius: 22,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 10,
   },
-  capsuleText: { ...type.captionStrong, fontSize: 14, color: "#FFFFFF", writingDirection: "rtl" },
-  capsuleDot: { color: "rgba(255,255,255,0.5)", fontSize: 14 },
-  capsuleEta: { ...type.captionStrong, ...tabular, fontSize: 14, color: colors.action },
-  capsuleGo: { color: "rgba(255,255,255,0.7)", fontSize: 18, lineHeight: 20 },
+  capsuleText: { ...type.bodyStrong, color: customerDarkTheme.colors.textPrimary, writingDirection: "rtl", flexShrink: 1 },
+  capsuleDot: { color: "rgba(255,255,255,0.4)", fontSize: scale.meta, flexShrink: 0 },
+  capsuleEta: { ...type.bodyStrong, ...tabular, color: colors.action, flexShrink: 0 },
+  capsuleGo: { color: "rgba(255,255,255,0.55)", fontSize: scale.section, lineHeight: 26 },
 });

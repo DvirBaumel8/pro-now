@@ -17,43 +17,15 @@ import { Persona } from "./Persona";
  */
 
 // ---------------------------------------------------------------------
-// Surface
+// Surface — moved
 // ---------------------------------------------------------------------
+//
+// The container primitive now lives in ./Surface.tsx, where it also owns
+// the §5 rule (raised OR outlined, never both) rather than merely always
+// raising. Re-exported here so the twelve screens that import it from this
+// module keep working while they migrate.
 
-export function Surface({
-  children,
-  colors,
-  dark = false,
-  level = 1,
-  radius = radii.lg,
-  style,
-  padded = true,
-}: {
-  children?: React.ReactNode;
-  colors: ThemeColors;
-  dark?: boolean;
-  level?: 0 | 1 | 2 | 3;
-  radius?: number;
-  style?: StyleProp<ViewStyle>;
-  padded?: boolean;
-}) {
-  return (
-    <View
-      style={[
-        {
-          backgroundColor: colors.surface,
-          borderRadius: radius,
-          padding: padded ? spacing.lg : 0,
-          overflow: "hidden",
-        },
-        elevation(level, dark),
-        style,
-      ]}
-    >
-      {children}
-    </View>
-  );
-}
+export { Surface, Divider as Rule, type SurfaceProps, type SurfaceKind } from "./Surface";
 
 // ---------------------------------------------------------------------
 // ImageSlot
@@ -140,8 +112,19 @@ export function ImageSlot({
         <Rect width="100%" height="100%" fill={base} />
         <Rect width="100%" height="100%" fill={`url(#${patternId})`} />
       </Svg>
-      <View style={slot.badge}>
-        <Text style={[slot.badgeText, { color: colors.textSecondary }]} numberOfLines={2}>
+      {/*
+        * The caption pill was a fixed 62%-white wash, which on the dark
+        * surface put pale grey text on a pale grey pill — the caption
+        * saying what the missing photograph WOULD show became the least
+        * readable thing on the screen. The wash follows the surface now.
+        */}
+      <View
+        style={[
+          slot.badge,
+          { backgroundColor: dark ? "rgba(16,12,22,0.72)" : "rgba(255,255,255,0.72)" },
+        ]}
+      >
+        <Text style={[slot.badgeText, { color: colors.textPrimary }]} numberOfLines={2}>
           {subject}
         </Text>
       </View>
@@ -154,7 +137,6 @@ const slot = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: 6,
     borderRadius: radii.pill,
-    backgroundColor: "rgba(255,255,255,0.62)",
     maxWidth: "85%",
   },
   badgeText: { ...type.caption, fontWeight: "600", textAlign: "center", writingDirection: "rtl" },

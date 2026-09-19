@@ -14,15 +14,35 @@ moment someone builds the seventeenth.
 
 ## 0. The two decisions everything else follows from
 
-**Customer is LIGHT by default, with dark live moments. Professional is DARK
-by default.**
+**Both sides are DARK. Light is the accent, and it is reserved.**
 
-The customer opens the app occasionally, in a moment of need, and a
-wall-to-wall dark interface reads as a trading app. The professional lives in
-theirs through a shift, often in a van at night, and dark is the working
-surface. Dark on the customer side is reserved for moments that are genuinely
-live — searching, the match, the door — which is what makes those moments
-feel different rather than merely styled.
+> **This reverses the first version of this rule, which said the opposite.**
+> The original §0/§12 made the customer light with dark live moments, and it
+> was implemented: home, capture and categories were rebuilt on warm ivory.
+> Amit rejected the result — "זה ממש לא הכיוון" — and pointed at the visual
+> board, which renders the customer's home screen dark and uses white only
+> for the capture card and the category cards. ChatGPT had left its own
+> written rule behind the moment it drew the thing.
+>
+> When the person who owns the product and the person who wrote the rule
+> both pick the same picture, the rule is what is wrong. The argument
+> behind the old §12 was that wall-to-wall dark "reads as a trading app" —
+> which is an argument about FLAT dark, not about dark. Dark with depth,
+> one lit panel, real photography and a single live colour does not read as
+> a terminal. It reads as evening, which is when boilers actually break.
+
+So the customer's app is `customerDarkTheme` and the professional's is
+`proTheme`. A LIGHT surface is now the strongest signal available in the
+product, and it is spent on exactly two things:
+
+    a surface the customer must TOUCH   →  the capture card
+    a surface the customer must READ    →  the quote, the receipt
+
+Everything else is dark. The category drill-down is the clearest case: the
+services that can actually happen now sit on a raised white card and
+everything that cannot sits in quiet dark rows underneath — the difference
+between "now" and "not now" is visible from across the room rather than
+read.
 
 **The Live Field replaces the map everywhere the map would be a lie.**
 
@@ -47,7 +67,15 @@ Only semantic tokens. A local `fontSize:` is a bug.
     body     17   meta  14   micro  12
 
 At most ONE display-or-hero per viewport. At most three weights per screen.
-*Checkable: computed font sizes outside the scale; count of display/hero.*
+
+**Enforced: `npm run verify:type-scale`, which `npm run lint` runs first.**
+When the rule was written the UI package held 128 literal `fontSize:` values
+across 27 distinct sizes, and every one of them had been written by someone
+making a single screen look right. None was wrong on its own screen;
+together they meant the ETA rendered at 44 on the match screen and 30 on the
+tracking screen, so its size told the reader nothing. The check now fails
+the build on any `fontSize` that does not reference `scale`, and names the
+nearest step in the error.
 
 ### 2. Coral means consequence
 
@@ -123,9 +151,16 @@ genuine location purpose — tracking or navigation. Everywhere else,
 `LiveField`. A stylised street drawing standing in for a map is not a third
 option.
 
-### 12. Customer light, professional dark
+### 12. Both sides dark; light is earned
 
-A dark surface on the customer side requires a live state to justify it.
+A LIGHT surface on the customer side must be a thing the customer touches or
+reads closely — the capture card, the quote, the receipt, the live group in
+a category. Light applied for variety is the violation now, which is the
+mirror image of what this rule used to say. See §0 for why it turned over.
+
+The money screens are the one place the old reasoning survives intact: a
+quote is a document and a document is not a live event, so rows 10 and 12
+stay light on their own merits rather than by inheritance.
 
 ---
 
@@ -133,26 +168,28 @@ A dark surface on the customer side requires a live state to justify it.
 
 | # | Screen | Tone | Background | Dominant type | Max elevated |
 |---|--------|------|-----------|---------------|--------------|
-| 1 | Welcome / sign-in | light | — | display | 0 |
-| 2 | Home / intent capture | light | LiveField IDLE, faint | hero | 1 |
-| 3 | Service / intake | light | — | title | 1 |
+| 1 | Welcome / sign-in | dark | — | display | 0 |
+| 2 | Home / intent capture | **dark** | — | title | 1 (the capture card) |
+| 3 | Service / intake | dark | — | title | 1 |
 | 4 | Searching | dark | LiveField SEARCHING | hero | 0 |
-| 5 | Match | dark → light | LiveField MATCHED in hero | hero | 1 |
-| 6 | Trust profile | light | — | title | 1 |
-| 7 | Full trust sheet | light | — | title | 1 |
+| 5 | Match | **dark throughout** | LiveField MATCHED behind the portrait | title (the person) | 1 |
+| 6 | Trust profile | dark | — | title | 1 |
+| 7 | Full trust sheet | dark | — | title | 1 |
 | 8 | Tracking (after assignment) | dark | **Real map** | ETA / hero | 2 |
 | 9 | Door verification | dark | LiveField ROUTE → ARRIVED | display (the code) | 1 |
 | 10 | Quote — customer | **light** | — | total / hero | 1 |
-| 11 | Active job — customer | light | — | status / title | 1 |
+| 11 | Active job — customer | dark | — | status / title | 1 |
 | 12 | Completion / receipt | light | — | total / title | 1 |
-| 13 | Calls / history | light | — | title | 1 |
+| 13 | Calls / history | dark | — | title | 1 |
 | 14 | Pro offline / shift | dark | LiveField IDLE | earnings / hero | 1 |
 | 15 | Pro online / waiting | dark | LiveField ONLINE | online time / hero | 1 |
 | 16 | Pro offer / active job | dark | LiveField OFFER; real map only en route | payout / hero | 1 |
 
-**Row 10 is a deliberate exception.** The quote is money and consent, and it
-has to read like a clear document rather than another live event. It stays
-light even though it sits between two dark screens.
+**Rows 10 and 12 are the deliberate exceptions**, and they are the only two
+left. The quote is money and consent and the receipt is the record of it;
+both have to read like a clear document rather than another live event. They
+stay light between dark screens, which — now that light is rare — makes them
+land harder than they did when everything around them was ivory too.
 
 ---
 
@@ -166,8 +203,15 @@ a month later, three languages again.
     LiveField        the six states
     RealMapSurface   only with an assignment
     HeroMetric       the one big number, with its provenance
-    Surface          the only elevated container
+    Surface          raised | outlined | quiet — never two of them at once
     PrimaryAction    the single coral action
-    PersonIdentity   photo → portfolio → placeholder, in that order
-    TrustRail        the vertical verification timeline
+    ProviderPortrait photo → monogram. Never an invented face.
+    PresenceRing     the person's live state, drawn on the person
     ActiveJobCapsule live job, never navigation
+    AppHeader        the wordmark, at a size that holds the screen
+    BrandMark        PRO (signal) + NOW (ink/white), set in type, not an image
+    CaptureCard      the lit panel — the one bright thing on the home screen
+    CategoryGrid     six departments as a shape, not a list
+    IntentSuggestions one coral action, alternatives as quiet rows
+    VoiceNote        a real message for a real request. No stock intro.
+    TrustRail        the vertical verification timeline — NOT BUILT YET

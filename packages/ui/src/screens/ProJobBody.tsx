@@ -4,7 +4,7 @@ import Svg, { Rect } from "react-native-svg";
 
 import { formatMoney, money, type JobState } from "@pro-now/types";
 
-import { proTheme, elevation, radii, spacing, tabular, tint, type } from "../theme";
+import { elevation, proTheme, radii, scale, spacing, tabular, tint, type } from "../theme";
 import { lex } from "../lexicon";
 import { ClockMark, Mark, type MarkName, PinMark, ShieldCheckMark } from "../components/marks";
 import { Persona } from "../components/Persona";
@@ -483,7 +483,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   addressRow: { flexDirection: "row-reverse", alignItems: "flex-start", gap: 6, marginTop: spacing.sm, alignSelf: "stretch" },
-  address: { ...type.body, flex: 1, fontSize: 15, color: colors.textPrimary, textAlign: "right", writingDirection: "rtl" },
+  address: { ...type.body, flex: 1, fontSize: scale.meta, color: colors.textPrimary, textAlign: "right", writingDirection: "rtl" },
   access: { ...type.caption, color: colors.textSecondary, textAlign: "right", writingDirection: "rtl", marginTop: 2 },
 
   metaRow: { flexDirection: "row-reverse", gap: spacing.sm, marginTop: spacing.md },
@@ -508,7 +508,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: spacing.lg,
   },
-  navLabel: { ...type.bodyStrong, fontSize: 15, color: colors.textPrimary },
+  navLabel: { ...type.bodyStrong, fontSize: scale.meta, color: colors.textPrimary },
 
   block: { paddingHorizontal: spacing.lg, marginTop: spacing.xl },
 
@@ -526,7 +526,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  contactLabel: { ...type.bodyStrong, fontSize: 15, color: colors.textPrimary },
+  contactLabel: { ...type.bodyStrong, fontSize: scale.meta, color: colors.textPrimary },
 
   maskRow: { flexDirection: "row-reverse", alignItems: "flex-start", gap: spacing.sm, marginTop: spacing.md },
   maskText: {
@@ -549,7 +549,7 @@ const styles = StyleSheet.create({
 
   description: {
     ...type.body,
-    fontSize: 15,
+    fontSize: scale.meta,
     color: colors.textPrimary,
     textAlign: "right",
     writingDirection: "rtl",
@@ -565,7 +565,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  playGlyph: { color: colors.actionText, fontSize: 14 },
+  playGlyph: { color: colors.actionText, fontSize: scale.meta },
   waveWrap: { flex: 1, height: 28, overflow: "hidden" },
   waveMask: { position: "absolute", top: 0, bottom: 0, left: 0, backgroundColor: "rgba(16,12,22,0.62)" },
   voiceTime: { ...type.caption, ...tabular, color: colors.textSecondary },
@@ -583,7 +583,7 @@ const styles = StyleSheet.create({
   emptyLine: { ...type.caption, color: colors.textSecondary, textAlign: "right", writingDirection: "rtl" },
 
   payRow: { flexDirection: "row-reverse", alignItems: "baseline", gap: spacing.sm },
-  payValue: { ...type.display, ...tabular, fontSize: 40, lineHeight: 44, color: colors.textPrimary },
+  payValue: { ...type.display, ...tabular, fontSize: scale.hero, lineHeight: 44, color: colors.textPrimary },
   payQualifier: { ...type.captionStrong, color: colors.statusWarning },
   payUnknown: { ...type.h2, color: colors.textSecondary, textAlign: "right", writingDirection: "rtl" },
   payNote: {
@@ -611,7 +611,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  ctaLabel: { ...type.bodyStrong, fontSize: 17, color: colors.onAction },
+  ctaLabel: { ...type.bodyStrong, fontSize: scale.body, color: colors.onAction },
   waiting: {
     minHeight: 52,
     borderRadius: radii.md,
@@ -637,6 +637,6 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     backgroundColor: colors.surfaceElevated,
   },
-  waitingBtnText: { ...type.captionStrong, fontSize: 14, color: colors.textPrimary },
+  waitingBtnText: { ...type.captionStrong, fontSize: scale.meta, color: colors.textPrimary },
   waitingText: { ...type.caption, color: colors.textSecondary, textAlign: "center", writingDirection: "rtl" },
 });

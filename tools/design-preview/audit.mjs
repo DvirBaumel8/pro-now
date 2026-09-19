@@ -173,8 +173,9 @@ await visit('arrival-verify', CUST, [
 await visit('person-fit', CUST, ['אנשים שמגיעים אליך', 'תספורת עד הבית', 'הצג איך נראית התאמה אישית']);
 await visit('service-scheduled', CUST, ['שיפוץ והתקנות', 'הרכבת רהיטים']);
 await visit('describe', CUST, ['פתיחת סתימה', 'בקשת בעל מקצוע עכשיו']);
-await visit('calls', CUST, [async () => p.getByLabel('הקריאות שלי').first().click()]);
-await visit('card', CUST, [async () => p.getByLabel('החשבון שלי').first().click()]);
+// The utility row became a branded header; history moved behind the menu.
+await visit('calls', CUST, [async () => p.getByLabel('תפריט').first().click()]);
+await visit('card', CUST, [async () => p.getByLabel(/החשבון שלי/).first().click()]);
 await visit('pro-shift-offline', PRO, []);
 await visit('pro-presence', PRO, ['ניהול']);
 await visit('pro-shift-online', PRO, ['התחלת משמרת']);

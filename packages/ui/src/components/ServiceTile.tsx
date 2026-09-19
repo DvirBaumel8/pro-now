@@ -5,7 +5,7 @@ import type { ServiceSupply } from "@pro-now/types";
 
 import { lex, prosFreeShort } from "../lexicon";
 
-import { elevation, imageRatio, radii, spacing, tint, type } from "../theme";
+import { elevation, imageRatio, radii, scale, spacing, tint, type } from "../theme";
 import { Mark, type MarkName } from "./marks";
 import { ImageSlot } from "./surfaces";
 import type { ThemeColors } from "./primitives";
@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
   supplyText: { ...type.caption, fontWeight: "700", color: "#17121F", flexShrink: 1 },
 
   body: { paddingHorizontal: spacing.sm, paddingTop: spacing.md, paddingBottom: spacing.sm, gap: 2 },
-  name: { ...type.bodyStrong, fontSize: 15, lineHeight: 20, textAlign: "right", writingDirection: "rtl" },
+  name: { ...type.bodyStrong, fontSize: scale.meta, lineHeight: 20, textAlign: "right", writingDirection: "rtl" },
   price: { ...type.caption, textAlign: "right", writingDirection: "rtl" },
 });
 
@@ -245,6 +245,6 @@ const row = StyleSheet.create({
   pressed: { opacity: 0.9 },
   markWrap: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
   text: { flex: 1, alignItems: "flex-end", gap: 1 },
-  name: { ...type.bodyStrong, fontSize: 15, lineHeight: 20, textAlign: "right", writingDirection: "rtl" },
+  name: { ...type.bodyStrong, fontSize: scale.meta, lineHeight: 20, textAlign: "right", writingDirection: "rtl" },
   meta: { ...type.caption, textAlign: "right", writingDirection: "rtl" },
 });

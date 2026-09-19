@@ -3,7 +3,7 @@ import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { formatMoney, money, type OfferCardView } from "@pro-now/types";
 
-import { proTheme, radius, spacing, touchTarget, typography } from "../theme";
+import { proTheme, radius, scale, spacing, touchTarget, typography } from "../theme";
 import { formatCountdown, formatDistance, formatEta, payoutDisclosure } from "../format";
 import { Divider, MetaChip, SectionLabel, Skeleton, type ThemeColors } from "./primitives";
 
@@ -206,7 +206,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   countdownValue: {
-    fontSize: 38,
+    fontSize: scale.title,
     lineHeight: 44,
     fontWeight: "700",
     fontVariant: ["tabular-nums" as const],
@@ -265,7 +265,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   payoutValue: {
-    fontSize: 40,
+    fontSize: scale.hero,
     lineHeight: 46,
     fontWeight: "700",
     color: colors.textPrimary,
@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     backgroundColor: "rgba(245,165,36,0.16)",
   },
-  estimateChipLabel: { fontSize: 13, fontWeight: "600", color: colors.statusWarning },
+  estimateChipLabel: { fontSize: scale.micro, fontWeight: "600", color: colors.statusWarning },
   payoutUnknown: {
     ...typography.bodyStrong,
     color: colors.textPrimary,
@@ -308,7 +308,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth * 2,
     borderColor: colors.border,
   },
-  acceptButtonLabel: { ...typography.button, fontSize: 17, color: colors.onAction },
+  acceptButtonLabel: { ...typography.button, fontSize: scale.body, color: colors.onAction },
   acceptButtonLabelExpired: { color: colors.textSecondary },
 
   skipButton: {

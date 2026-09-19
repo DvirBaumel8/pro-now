@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { formatMoney, money } from "@pro-now/types";
 
-import { customerTheme, elevation, radii, spacing, tabular, tint, type } from "../theme";
+import { customerTheme, elevation, radii, scale, spacing, tabular, tint, type } from "../theme";
 import { lex } from "../lexicon";
 import { ClockMark, Mark, type MarkName, StarMark } from "../components/marks";
 import { Persona } from "../components/Persona";
@@ -247,7 +247,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: spacing.lg,
   },
-  emptyCtaText: { ...type.bodyStrong, fontSize: 15, color: colors.onAction },
+  emptyCtaText: { ...type.bodyStrong, fontSize: scale.meta, color: colors.onAction },
 
   liveWrap: { paddingHorizontal: spacing.lg, marginTop: spacing.lg },
   liveCard: { backgroundColor: colors.action, borderRadius: radii.lg, padding: spacing.lg, ...elevation(2) },

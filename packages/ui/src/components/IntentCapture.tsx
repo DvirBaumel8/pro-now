@@ -2,8 +2,9 @@ import React, { useEffect, useRef } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
 
-import { customerTheme, elevation, radii, spacing, tint, type } from "../theme";
+import { customerTheme, radii, scale, spacing, tint, type } from "../theme";
 import { Mark, type MarkName } from "./marks";
+import { PrimaryAction } from "./PrimaryAction";
 import { Pulse } from "./LiveServiceCard";
 
 /**
@@ -116,10 +117,26 @@ export function IntentCapture({
         ? "אפשר גם להקליט במקום לכתוב"
         : `אפשר גם להקליט, או ${photoPromptHe}`;
   const hasText = text.trim().length >= 2;
+  /* Named rather than indexed inline, so `noUncheckedIndexedAccess` gets a
+     real narrowing point instead of four non-null assertions. */
+  const best = matches && matches.length > 0 ? matches[0] : undefined;
+  const alternatives = matches ? matches.slice(1, 3) : [];
 
   return (
     <View style={[styles.wrap, { width }]}>
-      <View style={[styles.field, elevation(1)]}>
+      {/*
+        * NO CONTAINER. The single most-quoted note from the design review
+        * was "הקלט המרכזי כמעט ללא container" — and the reason is worth
+        * more than the pixels. A text box drawn as a raised white card with
+        * a border says "form field". The thing we want it to say is "start
+        * talking", which is what a large line of type over a warm page says
+        * and what a bordered rectangle cannot.
+        *
+        * What is left: the type, and a hairline underneath doing the one
+        * job §5 allows a border to do — separating the place you write from
+        * the things you can do instead.
+        */}
+      <View style={styles.field}>
         <TextInput
           ref={inputRef}
           value={text}
@@ -146,6 +163,8 @@ export function IntentCapture({
           * So: the text field is the step, and this is one quiet line
           * underneath saying what else is possible.
           */}
+        <View style={styles.rule} />
+
         <View style={styles.modes}>
           <Text style={styles.modesLead}>{optionalLeadHe}</Text>
           <View style={styles.modeRow}>
@@ -196,13 +215,38 @@ export function IntentCapture({
       {recording ? <Listening seconds={recordSeconds} /> : null}
 
       {/* ---------------- The answer ---------------- */}
-      {matches && matches.length > 0 ? (
+      {best ? (
         <View style={styles.result}>
           <Text style={styles.resultLead}>
             {/* Not "הבנתי". It is a keyword matcher and the copy says so. */}
             נראה שזה:
           </Text>
-          {matches.slice(0, 3).map((m, i) => (
+
+          {/*
+            * CORAL AT THE POINT OF ACTION — and only there.
+            *
+            * The home screen carries no filled coral until the customer has
+            * said something, which is the whole discipline behind §2: coral
+            * means consequence, so a screen with no consequence available
+            * has no coral on it. The moment the matcher has a best guess,
+            * there IS something to do, and it becomes the one filled action
+            * on the viewport.
+            *
+            * The runners-up below it stay quiet rows. They are alternatives,
+            * and an alternative styled as a button is not an alternative.
+            */}
+          <PrimaryAction
+            labelHe={`המשך · ${best.nameHe}`}
+            subLabelHe={best.supplyHe ?? null}
+            onPress={() => onPick?.(best.id)}
+            accessibilityLabelHe={`המשך עם ${best.nameHe}`}
+          />
+
+          {alternatives.length > 0 ? (
+            <Text style={styles.resultAlt}>או אולי התכוונת ל:</Text>
+          ) : null}
+
+          {alternatives.map((m) => (
             <Pressable
               key={m.id}
               onPress={() => onPick?.(m.id)}
@@ -210,15 +254,15 @@ export function IntentCapture({
               accessibilityLabel={`המשך עם ${m.nameHe}`}
               style={({ pressed }) => [
                 styles.resultRow,
-                i === 0 && styles.resultRowTop,
+
                 pressed && { opacity: 0.9 },
               ]}
             >
-              <View style={[styles.resultMark, i === 0 && { backgroundColor: tint.action(0.14) }]}>
+              <View style={styles.resultMark}>
                 <Mark name={m.mark} size={20} color={colors.textPrimary} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.resultName, i === 0 && styles.resultNameTop]} numberOfLines={1}>
+                <Text style={styles.resultName} numberOfLines={1}>
                   {m.nameHe}
                 </Text>
                 {m.supplyHe ? (
@@ -355,8 +399,8 @@ function ModeButton({
         pressed && { opacity: 0.85 },
       ]}
     >
-      <ModeGlyph name={glyph} color={active ? colors.onAction : colors.textPrimary} />
-      <Text style={[styles.modeText, active && { color: colors.onAction }]} numberOfLines={1}>
+      <ModeGlyph name={glyph} color={active ? colors.actionText : colors.textPrimary} />
+      <Text style={[styles.modeText, active && { color: colors.actionText }]} numberOfLines={1}>
         {labelHe}
       </Text>
     </Pressable>
@@ -408,45 +452,46 @@ function ModeGlyph({ name, color }: { name: "mic" | "camera" | "keyboard"; color
 const styles = StyleSheet.create({
   wrap: { gap: spacing.md },
 
-  field: {
-    backgroundColor: colors.surface,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-    gap: spacing.md,
-  },
+  field: { gap: spacing.md },
   input: {
-    minHeight: 56,
-    ...type.body,
-    fontSize: 17,
-    lineHeight: 24,
+    minHeight: 64,
+    // One step up from body. What the customer writes is the content of
+    // this screen, so it is typed like content rather than like a field.
+    ...type.section,
+    fontWeight: "400",
     color: colors.textPrimary,
     writingDirection: "rtl",
+    paddingVertical: spacing.xs,
   },
+  rule: { height: StyleSheet.hairlineWidth * 2, backgroundColor: colors.border },
   modes: { gap: spacing.sm },
   modesLead: {
     ...type.caption,
-    fontSize: 12,
+    fontSize: scale.micro,
     color: colors.textSecondary,
     textAlign: "right",
     writingDirection: "rtl",
   },
-  modeRow: { flexDirection: "row-reverse", gap: spacing.sm },
+  modeRow: { flexDirection: "row-reverse", gap: spacing.xl },
+  /*
+   * NOT PILLS. Two full-width outlined buttons under the input read as the
+   * two choices on this screen, which is the opposite of what is true:
+   * writing is the path, and these are the alternatives for the people the
+   * path does not suit. A pill is also a container, and this screen had one
+   * container too many to begin with.
+   *
+   * What is left is a glyph and a word at the 44px tap target the audit
+   * requires — sized as an offer, not as a decision.
+   */
   mode: {
-    flex: 1,
     minHeight: 44,
     flexDirection: "row-reverse",
     alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    borderRadius: radii.pill,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    backgroundColor: colors.bg,
+    gap: spacing.sm,
+    paddingHorizontal: spacing.xs,
   },
-  modeActive: { backgroundColor: colors.action, borderColor: colors.action },
-  modeText: { ...type.caption, fontSize: 13, fontWeight: "600", color: colors.textSecondary },
+  modeActive: {},
+  modeText: { ...type.metaStrong, color: colors.textPrimary },
 
   captured: { flexDirection: "row-reverse", flexWrap: "wrap", gap: spacing.sm },
   chip: {
@@ -458,8 +503,8 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     backgroundColor: tint.trust(0.12),
   },
-  chipText: { ...type.caption, fontSize: 13, fontWeight: "700", color: colors.trust },
-  chipX: { color: colors.trust, fontSize: 17, lineHeight: 18 },
+  chipText: { ...type.caption, fontSize: scale.micro, fontWeight: "700", color: colors.trust },
+  chipX: { color: colors.trust, fontSize: scale.body, lineHeight: 18 },
 
   listening: {
     flexDirection: "row-reverse",
@@ -471,15 +516,27 @@ const styles = StyleSheet.create({
   bar: { width: 3, height: 24, borderRadius: 2, backgroundColor: colors.action },
   listeningText: { ...type.caption, color: colors.textSecondary, writingDirection: "rtl", flexShrink: 1 },
 
+  /*
+   * The answer used to be a second outlined card directly under the first
+   * one, which made the screen read as a form above a result panel. It is
+   * one surface now: a quiet wash, no edge, no lift — §5's "a surface is
+   * raised or outlined, never both", taken one step further to "usually
+   * neither".
+   */
   result: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceElevated,
     borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
     padding: spacing.md,
     gap: spacing.sm,
   },
-  resultLead: { ...type.captionStrong, color: colors.textSecondary, textAlign: "right", writingDirection: "rtl" },
+  resultLead: { ...type.metaStrong, color: colors.textSecondary, textAlign: "right", writingDirection: "rtl" },
+  resultAlt: {
+    ...type.meta,
+    color: colors.textSecondary,
+    textAlign: "right",
+    writingDirection: "rtl",
+    marginTop: spacing.xs,
+  },
   resultNote: {
     ...type.caption,
     color: colors.textSecondary,
@@ -495,7 +552,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     borderRadius: radii.md,
   },
-  resultRowTop: { backgroundColor: tint.action(0.07) },
   resultMark: {
     width: 40,
     height: 40,
@@ -504,11 +560,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  resultName: { ...type.bodyStrong, fontSize: 15, color: colors.textPrimary, textAlign: "right", writingDirection: "rtl" },
-  resultNameTop: { fontSize: 17 },
+  resultName: { ...type.bodyStrong, fontSize: scale.meta, color: colors.textPrimary, textAlign: "right", writingDirection: "rtl" },
   resultSupply: { flexDirection: "row-reverse", alignItems: "center", gap: 6, marginTop: 2 },
-  resultSupplyText: { ...type.caption, fontSize: 12, writingDirection: "rtl" },
-  resultGo: { color: colors.textSecondary, fontSize: 22, lineHeight: 24 },
+  resultSupplyText: { ...type.caption, fontSize: scale.micro, writingDirection: "rtl" },
+  resultGo: { color: colors.textSecondary, fontSize: scale.section, lineHeight: 24 },
 
   browse: { minHeight: 44, justifyContent: "center", alignItems: "flex-end", paddingHorizontal: spacing.sm },
   browseText: { ...type.captionStrong, color: colors.actionText },

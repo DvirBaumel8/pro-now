@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
-import { customerTheme, proTheme, elevation, radii, spacing, tabular, type } from "../theme";
+import { customerTheme, elevation, proTheme, radii, scale, spacing, tabular, type } from "../theme";
 import { ShieldCheckMark } from "../components/marks";
 import { isPlausibleILPhone } from "../phone";
 
@@ -211,13 +211,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     zIndex: 2,
   },
-  backGlyph: { fontSize: 28, lineHeight: 28, fontWeight: "300" },
+  backGlyph: { fontSize: scale.section, lineHeight: 28, fontWeight: "300" },
 
   body: { paddingHorizontal: spacing.xl, paddingTop: spacing.xxl * 2, alignItems: "flex-end" },
   title: { ...type.h1, writingDirection: "rtl", textAlign: "right" },
   why: {
     ...type.body,
-    fontSize: 15,
+    fontSize: scale.meta,
     textAlign: "right",
     writingDirection: "rtl",
     marginTop: spacing.sm,
@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
     ...type.h3,
     ...tabular,
   },
-  codeInput: { letterSpacing: 8, fontSize: 26 },
+  codeInput: { letterSpacing: 8, fontSize: scale.section },
 
   error: { ...type.caption, alignSelf: "flex-end", marginTop: spacing.sm, writingDirection: "rtl" },
   resend: { alignSelf: "flex-end", paddingVertical: spacing.md, minHeight: 44, justifyContent: "center" },
@@ -245,10 +245,10 @@ const styles = StyleSheet.create({
 
   footer: { paddingHorizontal: spacing.xl, paddingBottom: spacing.xxl },
   cta: { minHeight: 58, borderRadius: radii.md, alignItems: "center", justifyContent: "center", ...elevation(1) },
-  ctaText: { ...type.bodyStrong, fontSize: 17 },
+  ctaText: { ...type.bodyStrong, fontSize: scale.body },
   terms: {
     ...type.caption,
-    fontSize: 11,
+    fontSize: scale.micro,
     textAlign: "center",
     writingDirection: "rtl",
     marginTop: spacing.md,

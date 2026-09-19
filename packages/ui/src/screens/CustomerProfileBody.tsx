@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { formatMoney, money } from "@pro-now/types";
 
-import { customerTheme, elevation, palette, radii, spacing, tabular, tint, type } from "../theme";
+import { customerTheme, elevation, palette, radii, scale, spacing, tabular, tint, type } from "../theme";
 import { lex } from "../lexicon";
 import { ClockMark, Mark, type MarkName, PinMark, ShieldCheckMark, StarMark } from "../components/marks";
 import { Persona } from "../components/Persona";
@@ -332,7 +332,7 @@ const styles = StyleSheet.create({
   stat: { flex: 1, alignItems: "center" },
   statDivider: { width: 1, backgroundColor: colors.border, marginVertical: 2 },
   statValue: { ...type.h2, ...tabular, color: colors.textPrimary },
-  statLabel: { ...type.caption, fontSize: 11, color: colors.textSecondary, writingDirection: "rtl", marginTop: 1 },
+  statLabel: { ...type.caption, fontSize: scale.micro, color: colors.textSecondary, writingDirection: "rtl", marginTop: 1 },
 
   openWrap: { paddingHorizontal: spacing.lg, marginTop: spacing.md },
   openCard: {
@@ -433,9 +433,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   settingText: { flex: 1, alignItems: "flex-end" },
-  settingLabel: { ...type.bodyStrong, fontSize: 15, color: colors.textPrimary, writingDirection: "rtl" },
+  settingLabel: { ...type.bodyStrong, fontSize: scale.meta, color: colors.textPrimary, writingDirection: "rtl" },
   settingValue: { ...type.caption, color: colors.textSecondary, writingDirection: "rtl" },
-  settingChevron: { fontSize: 22, color: colors.textSecondary, fontWeight: "300", marginTop: -2 },
+  settingChevron: { fontSize: scale.section, color: colors.textSecondary, fontWeight: "300", marginTop: -2 },
 
   footnote: {
     ...type.caption,

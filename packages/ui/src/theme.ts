@@ -174,17 +174,115 @@ export const proTheme = {
   },
 };
 
-export type Theme = typeof customerTheme | typeof proTheme;
+/**
+ * Extended type scale. The display sizes exist for the two numbers this
+ * product lives or dies by — the ETA and the payout — which
+ * /docs/03-DESIGN-SYSTEM.md requires to be visually dominant.
+ */
+/**
+ * THE SEMANTIC SCALE (Visual System v1 §1).
+ *
+ * Seven names, and a local `fontSize:` is a bug. The old scale had eleven
+ * sizes with overlapping jobs — h1 and display both meant "big" — so every
+ * screen picked its own and the app ended up with no hierarchy, just a range
+ * of sizes. A name per job means two screens showing the same KIND of thing
+ * show it at the same size without anyone coordinating.
+ *
+ * `type` below stays as the implementation of these names plus the legacy
+ * aliases the existing screens use; `scale` is what new code reads.
+ */
+export const scale = {
+  display: 56,
+  hero: 44,
+  title: 32,
+  section: 24,
+  body: 17,
+  meta: 14,
+  micro: 12,
+} as const;
 
+export type ScaleName = keyof typeof scale;
+
+/**
+ * THE CUSTOMER'S DARK SURFACE.
+ *
+ * ---------------------------------------------------------------------
+ * A REVERSED DECISION, AND WHY
+ * ---------------------------------------------------------------------
+ * Visual System v1 §12 said "customer light, professional dark, and a dark
+ * customer surface must be justified by a live state". That rule was closed
+ * with ChatGPT and implemented — home, categories and capture were rebuilt
+ * on warm ivory.
+ *
+ * Amit looked at the result and rejected it, and then pointed at the visual
+ * board — which renders the customer's HOME screen dark, and uses white only
+ * for the capture card and the category cards. ChatGPT had departed from its
+ * own written rule the moment it drew the thing.
+ *
+ * Both of them are picking the same picture, so the rule is what was wrong.
+ * The reasoning behind §12 — "a wall-to-wall dark interface reads as a
+ * trading app" — turns out to be an argument about FLAT dark, not about
+ * dark. A dark surface with depth, a lit capture field, real photography and
+ * one live colour does not read as a terminal; it reads as evening, which is
+ * when someone's boiler actually breaks.
+ *
+ * So: the customer is DARK, and light becomes the accent — the surfaces the
+ * customer is meant to touch or read closely. The money screen stays light,
+ * for the reason that was always the strongest part of §10: a quote is a
+ * document, and a document is not a live event.
+ */
+export const customerDarkTheme = {
+  name: "customer-dark" as const,
+  colors: {
+    bg: palette.night900,
+    surface: palette.night800,
+    surfaceElevated: palette.night700,
+    textPrimary: palette.nightText,
+    textSecondary: palette.nightTextSoft,
+    action: palette.signal500,
+    /**
+     * INK, NOT WHITE — even though the board draws white here.
+     *
+     * White on the vivid coral measures 3.07:1, below the 4.5:1 floor for
+     * button text, and an automated audit of this app has already caught
+     * exactly that defect once across every primary button in the product.
+     * Ink on the same coral measures 5.99:1 and is the more distinctive
+     * choice anyway: a bright coral button with a near-black label looks
+     * like nobody else in the category.
+     */
+    onAction: palette.ink900,
+    /** On night, the vivid coral is legible as text: 5.9:1. */
+    actionText: palette.signal500,
+    trust: palette.trust300,
+    statusWarning: palette.sun500,
+    statusWarningText: palette.sun500,
+    statusDanger: palette.berry300,
+    border: palette.night600,
+  },
+};
+
+export type Theme = typeof customerTheme | typeof proTheme | typeof customerDarkTheme;
+
+/**
+ * The ORIGINAL token set, from before `type` and `scale` existed. Two
+ * components still read it, and both carried sizes off the scale through it
+ * — which is how MatchCard ended up rendering an ETA unit at 20px while the
+ * same unit is 44 on the new match screen.
+ *
+ * It is not deleted, because deleting it means rewriting two components in
+ * the same commit that unifies the scale, and a change that large stops
+ * being reviewable. Instead every entry now resolves to `scale`, so the
+ * legacy path produces on-scale type too.
+ */
 export const typography = {
-  display: { fontSize: 34, fontWeight: "700" as const },
-  h1: { fontSize: 26, fontWeight: "700" as const },
-  h2: { fontSize: 20, fontWeight: "600" as const },
-  body: { fontSize: 16, fontWeight: "400" as const },
-  bodyStrong: { fontSize: 16, fontWeight: "600" as const },
-  caption: { fontSize: 13, fontWeight: "400" as const },
-  button: { fontSize: 16, fontWeight: "600" as const },
-  numericMetric: { fontSize: 30, fontWeight: "700" as const, fontVariant: ["tabular-nums" as const] },
+  display: { fontSize: scale.title, fontWeight: "700" as const },
+  h1: { fontSize: scale.section, fontWeight: "700" as const },
+  h2: { fontSize: scale.body, fontWeight: "600" as const },
+  body: { fontSize: scale.body, fontWeight: "400" as const },
+  bodyStrong: { fontSize: scale.body, fontWeight: "600" as const },
+  caption: { fontSize: scale.meta, fontWeight: "400" as const },
+  button: { fontSize: scale.body, fontWeight: "600" as const },
+  numericMetric: { fontSize: scale.title, fontWeight: "700" as const, fontVariant: ["tabular-nums" as const] },
 };
 
 // ---------------------------------------------------------------------
@@ -250,46 +348,50 @@ export const tint = {
   neutralDark: (a = 0.06) => `rgba(247,243,250,${a})`,
 } as const;
 
-/**
- * Extended type scale. The display sizes exist for the two numbers this
- * product lives or dies by — the ETA and the payout — which
- * /docs/03-DESIGN-SYSTEM.md requires to be visually dominant.
- */
-/**
- * THE SEMANTIC SCALE (Visual System v1 §1).
- *
- * Seven names, and a local `fontSize:` is a bug. The old scale had eleven
- * sizes with overlapping jobs — h1 and display both meant "big" — so every
- * screen picked its own and the app ended up with no hierarchy, just a range
- * of sizes. A name per job means two screens showing the same KIND of thing
- * show it at the same size without anyone coordinating.
- *
- * `type` below stays as the implementation of these names plus the legacy
- * aliases the existing screens use; `scale` is what new code reads.
- */
-export const scale = {
-  display: 56,
-  hero: 44,
-  title: 32,
-  section: 24,
-  body: 17,
-  meta: 14,
-  micro: 12,
-} as const;
-
-export type ScaleName = keyof typeof scale;
-
 export const type = {
-  displayXL: { fontSize: 64, lineHeight: 66, fontWeight: "700" as const, letterSpacing: -1.5 },
-  display: { fontSize: 46, lineHeight: 50, fontWeight: "700" as const, letterSpacing: -1 },
-  h1: { fontSize: 30, lineHeight: 36, fontWeight: "700" as const, letterSpacing: -0.4 },
-  h2: { fontSize: 22, lineHeight: 28, fontWeight: "700" as const, letterSpacing: -0.2 },
-  h3: { fontSize: 18, lineHeight: 24, fontWeight: "600" as const },
-  body: { fontSize: 16, lineHeight: 23, fontWeight: "400" as const },
-  bodyStrong: { fontSize: 16, lineHeight: 23, fontWeight: "600" as const },
-  caption: { fontSize: 13, lineHeight: 18, fontWeight: "400" as const },
-  captionStrong: { fontSize: 13, lineHeight: 18, fontWeight: "600" as const },
-  overline: { fontSize: 11, lineHeight: 14, fontWeight: "700" as const, letterSpacing: 0.8 },
+  /**
+   * THE SCALE, AS NAMES. Every token below resolves to one of the seven
+   * values in `scale` — no token invents a size of its own.
+   *
+   * It did not use to. The eleven tokens here carried eleven sizes (64, 46,
+   * 30, 22, 18, 16, 13, 11) that belonged to no scale, and 128 further
+   * `fontSize:` literals across 27 distinct values had been written at call
+   * sites on top of them. The result is the defect ChatGPT named exactly:
+   * "יש בקוד גדלים מקומיים שלא דרך הסקייל" — the same ETA rendered at 44 on
+   * one screen and at 30 on another, so the reader learned nothing from the
+   * size. That is not hierarchy; it is a range.
+   *
+   * The legacy names are kept as aliases rather than renamed in one sweep,
+   * because a rename across 23 screens is where meaning gets lost. Each one
+   * now snaps to its nearest scale step, and `scripts/check-type-scale.mjs`
+   * fails the build on any new literal.
+   */
+  /** 56 — the code at the door. One per app, essentially. */
+  display: { fontSize: scale.display, lineHeight: 58, fontWeight: "700" as const, letterSpacing: -1.6 },
+  /** 44 — the ETA, the payout, the total. At most one per viewport. */
+  hero: { fontSize: scale.hero, lineHeight: 46, fontWeight: "700" as const, letterSpacing: -1.2 },
+  /** 32 — the one thing this screen is about. */
+  title: { fontSize: scale.title, lineHeight: 38, fontWeight: "700" as const, letterSpacing: -0.6 },
+  /** 24 — a section within it. */
+  section: { fontSize: scale.section, lineHeight: 30, fontWeight: "700" as const, letterSpacing: -0.2 },
+  /** 17 — everything a person reads as a sentence. */
+  body: { fontSize: scale.body, lineHeight: 24, fontWeight: "400" as const },
+  bodyStrong: { fontSize: scale.body, lineHeight: 24, fontWeight: "600" as const },
+  /** 14 — a fact attached to something else. */
+  meta: { fontSize: scale.meta, lineHeight: 19, fontWeight: "400" as const },
+  metaStrong: { fontSize: scale.meta, lineHeight: 19, fontWeight: "600" as const },
+  /** 12 — legal, provenance, the smallest thing we allow. */
+  micro: { fontSize: scale.micro, lineHeight: 16, fontWeight: "400" as const },
+  microStrong: { fontSize: scale.micro, lineHeight: 16, fontWeight: "700" as const, letterSpacing: 0.8 },
+
+  // ---- legacy aliases, each snapped to the step above ----
+  displayXL: { fontSize: scale.display, lineHeight: 58, fontWeight: "700" as const, letterSpacing: -1.6 },
+  h1: { fontSize: scale.title, lineHeight: 38, fontWeight: "700" as const, letterSpacing: -0.6 },
+  h2: { fontSize: scale.section, lineHeight: 30, fontWeight: "700" as const, letterSpacing: -0.2 },
+  h3: { fontSize: scale.body, lineHeight: 24, fontWeight: "600" as const },
+  caption: { fontSize: scale.meta, lineHeight: 19, fontWeight: "400" as const },
+  captionStrong: { fontSize: scale.meta, lineHeight: 19, fontWeight: "600" as const },
+  overline: { fontSize: scale.micro, lineHeight: 16, fontWeight: "700" as const, letterSpacing: 0.8 },
 } as const;
 
 /** Tabular figures, so changing digits never shift the layout. */

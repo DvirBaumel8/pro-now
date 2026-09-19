@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 
-import { radii, spacing, type } from "../theme";
+import { radii, scale, spacing, type } from "../theme";
 import type { ThemeColors } from "./primitives";
 
 /**
@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
   },
   text: { flex: 1, alignItems: "flex-end" },
   title: { ...type.captionStrong, color: "#FFFFFF", writingDirection: "rtl" },
-  detail: { ...type.caption, fontSize: 11, color: "rgba(255,255,255,0.85)", textAlign: "right", writingDirection: "rtl" },
+  detail: { ...type.caption, fontSize: scale.micro, color: "rgba(255,255,255,0.85)", textAlign: "right", writingDirection: "rtl" },
   retry: {
     paddingHorizontal: spacing.md,
     paddingVertical: 7,

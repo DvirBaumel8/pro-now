@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { formatMoney, money, type JobMatchView, type PriceQuoteView } from "@pro-now/types";
 
-import { customerTheme, radius, spacing, tint, typography, touchTarget } from "../theme";
+import { customerTheme, radius, scale, spacing, tint, touchTarget, typography } from "../theme";
 import { formatCompletedJobs, formatEta, formatMinimumBillable, formatProNowRating } from "../format";
 import { Avatar, Divider, SectionLabel, Skeleton, StatusPill, type ThemeColors } from "./primitives";
 import { VerificationBadge } from "./VerificationBadge";
@@ -330,7 +330,7 @@ const styles = StyleSheet.create({
   },
   etaValueRow: { flexDirection: "row-reverse", alignItems: "baseline", gap: spacing.sm },
   etaValue: {
-    fontSize: 52,
+    fontSize: scale.display,
     lineHeight: 58,
     fontWeight: "700",
     color: colors.actionText,

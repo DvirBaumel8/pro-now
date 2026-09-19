@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { ServiceSupply } from "@pro-now/types";
 
 import { prosFreeShort } from "../lexicon";
-import { customerTheme, radii, spacing, tint, type } from "../theme";
+import { customerDarkTheme, customerTheme, radii, spacing, tabular, tint, type } from "../theme";
 import { Mark, type MarkName } from "./marks";
 
 /**
@@ -20,9 +20,31 @@ import { Mark, type MarkName } from "./marks";
  * The right-hand status is the whole point of the row: it says, in one
  * glance, whether tapping this leads anywhere. Four states, four different
  * sentences, and none of them is a dash.
+ *
+ * ---------------------------------------------------------------------
+ * WHY `emphasis` EXISTS
+ * ---------------------------------------------------------------------
+ * Every row used to render identically and differ only in the words on the
+ * right, which produced the exact defect the design review named:
+ *
+ *   "הקטגוריה עדיין נראית כמו רשימת cards. 'נבחר עבורך', 'בקרוב אליך',
+ *    'נבדוק ביחד' הן שלוש יחידות מידע, אבל הן לא חייבות להיות שלושה
+ *    מלבנים כמעט זהים. ההבדל הסמנטי ביניהן צריך להיות מורגש דרך layout,
+ *    typography ופעולה — לא רק copy."
+ *
+ * That is right, and it is a bigger point than a list style. "Someone can
+ * be at your door in eleven minutes" and "we have not launched this yet"
+ * are not two values of one field. Rendering them the same size, the same
+ * weight and the same height asks the customer to read every row to find
+ * the one that can actually happen — which is precisely the work this
+ * product exists to do for them.
+ *
+ * So a reachable service is a taller row, its name a step larger, its ETA
+ * set as a number rather than folded into a sentence, and it has a chevron
+ * because it leads somewhere. Everything else is quiet: smaller, dimmer,
+ * no chevron, and grouped under its own reason.
  */
 
-const colors = customerTheme.colors;
 
 export interface ServiceListRowProps {
   nameHe: string;
@@ -44,6 +66,13 @@ export interface ServiceListRowProps {
    */
   comingSoon?: boolean;
   descriptionHe?: string | null;
+  /**
+   * `live` — someone is reachable. `quiet` — this row is information, not
+   * an option right now. Defaults to `live` when supply says so.
+   */
+  emphasis?: "live" | "quiet";
+  /** The surface this row sits on. The customer side is dark by default. */
+  tone?: "light" | "dark";
   onPress?: () => void;
 }
 
@@ -55,8 +84,12 @@ export function ServiceListRow({
   notInMarket,
   comingSoon,
   descriptionHe,
+  emphasis,
+  tone = "dark",
   onPress,
 }: ServiceListRowProps) {
+  const colors = tone === "dark" ? customerDarkTheme.colors : customerTheme.colors;
+  const wash = tone === "dark" ? tint.neutralDark : tint.neutralLight;
   /*
    * "לא עכשיו" and "עוד לא כאן" are different promises and must never be
    * collapsed. One says this kind of work is planned by nature; the other
@@ -79,6 +112,10 @@ export function ServiceListRow({
           ? { textHe: "אין פנויים כרגע", tone: "muted" as const }
           : { textHe: "נבדוק כשתבחר", tone: "muted" as const };
 
+  const reachable = !comingSoon && !scheduledOnly && !notInMarket &&
+    (supply.state === "AVAILABLE" || supply.state === "LIMITED");
+  const loud = (emphasis ?? (reachable ? "live" : "quiet")) === "live";
+
   const statusColor =
     status.tone === "live"
       ? colors.actionText
@@ -91,26 +128,46 @@ export function ServiceListRow({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`${nameHe} · ${status.textHe}`}
-      style={({ pressed }) => [styles.row, pressed && { backgroundColor: tint.neutralLight(0.04) }]}
+      style={({ pressed }) => [
+        styles.row,
+        loud ? styles.rowLoud : styles.rowQuiet,
+        pressed && { backgroundColor: wash(0.06) },
+      ]}
     >
-      <View style={styles.markWrap}>
-        <Mark name={mark} size={20} color={colors.textPrimary} />
+      <View
+        style={[
+          styles.markWrap,
+          loud ? styles.markLoud : styles.markQuiet,
+          { backgroundColor: loud ? tint.action(0.14) : wash(0.06) },
+        ]}
+      >
+        <Mark name={mark} size={loud ? 21 : 17} color={loud ? colors.textPrimary : colors.textSecondary} />
       </View>
 
       <View style={styles.text}>
-        <Text style={styles.name} numberOfLines={1}>
+        <Text
+          style={[
+            loud ? styles.nameLoud : styles.nameQuiet,
+            { color: loud ? colors.textPrimary : colors.textSecondary },
+          ]}
+          numberOfLines={1}
+        >
           {nameHe}
         </Text>
-        {descriptionHe ? (
-          <Text style={styles.desc} numberOfLines={1}>
+        {descriptionHe && loud ? (
+          <Text style={[styles.desc, { color: colors.textSecondary }]} numberOfLines={1}>
             {descriptionHe}
           </Text>
         ) : null}
       </View>
 
-      <Text style={[styles.status, { color: statusColor }]} numberOfLines={1}>
+      <Text style={[loud ? styles.statusLoud : styles.statusQuiet, { color: statusColor }]} numberOfLines={1}>
         {status.textHe}
       </Text>
+
+      {/* A chevron is a promise that this goes somewhere. Only the rows
+          that do, get one. */}
+      {loud ? <Text style={[styles.go, { color: colors.textSecondary }]}>‹</Text> : null}
     </Pressable>
   );
 }
@@ -120,20 +177,19 @@ const styles = StyleSheet.create({
     flexDirection: "row-reverse",
     alignItems: "center",
     gap: spacing.md,
-    minHeight: 60,
     paddingHorizontal: spacing.sm,
     borderRadius: radii.md,
   },
-  markWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    backgroundColor: tint.neutralLight(0.05),
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  rowLoud: { minHeight: 68 },
+  rowQuiet: { minHeight: 52 },
+  markWrap: { borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  markLoud: { width: 42, height: 42 },
+  markQuiet: { width: 34, height: 34 },
   text: { flex: 1 },
-  name: { ...type.bodyStrong, fontSize: 15, color: colors.textPrimary, textAlign: "right", writingDirection: "rtl" },
-  desc: { ...type.caption, fontSize: 12, color: colors.textSecondary, textAlign: "right", writingDirection: "rtl" },
-  status: { ...type.caption, fontSize: 12, writingDirection: "rtl", maxWidth: 110, textAlign: "left" },
+  nameLoud: { ...type.bodyStrong, textAlign: "right", writingDirection: "rtl" },
+  nameQuiet: { ...type.meta, textAlign: "right", writingDirection: "rtl" },
+  desc: { ...type.meta, textAlign: "right", writingDirection: "rtl" },
+  statusLoud: { ...type.metaStrong, ...tabular, writingDirection: "rtl", maxWidth: 124, textAlign: "left" },
+  statusQuiet: { ...type.micro, writingDirection: "rtl", maxWidth: 110, textAlign: "left" },
+  go: { ...type.body, marginRight: -spacing.xs },
 });

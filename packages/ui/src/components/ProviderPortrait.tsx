@@ -33,6 +33,13 @@ export interface ProviderPortraitProps {
   size?: number;
   /** Dark surfaces get the night monogram; light ones the sand monogram. */
   tone?: "light" | "dark";
+  /**
+   * `circle` for the hero portrait, which sits inside a circular presence
+   * ring — a rounded square inside a circle reads as two shapes that missed
+   * each other, which is exactly how the first build of the Match hero
+   * looked. `rounded` everywhere else.
+   */
+  shape?: "rounded" | "circle";
 }
 
 export function ProviderPortrait({
@@ -40,9 +47,10 @@ export function ProviderPortrait({
   displayNameHe,
   size = 132,
   tone = "dark",
+  shape = "rounded",
 }: ProviderPortraitProps) {
   const dark = tone === "dark";
-  const radius = Math.round(size * 0.28);
+  const radius = shape === "circle" ? size / 2 : Math.round(size * 0.28);
 
   if (photoUri) {
     return (

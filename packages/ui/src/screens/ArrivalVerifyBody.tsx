@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { customerTheme, palette, radii, spacing, tabular, tint, type } from "../theme";
+import { customerTheme, palette, radii, scale, spacing, tabular, tint, type } from "../theme";
 import { LiveField } from "../components/LiveField";
 import { ProviderPortrait } from "../components/ProviderPortrait";
 import { ShieldCheckMark } from "../components/marks";
@@ -276,7 +276,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  codeDigit: { ...type.display, ...tabular, fontSize: 40, lineHeight: 44, color: "#FFFFFF" },
+  codeDigit: { ...type.display, ...tabular, fontSize: scale.hero, lineHeight: 44, color: "#FFFFFF" },
   codePending: { ...type.h3, color: colors.textSecondary, marginTop: spacing.md },
   codeNote: {
     ...type.caption,
@@ -308,7 +308,7 @@ const styles = StyleSheet.create({
   },
   warnText: {
     ...type.caption,
-    fontSize: 13,
+    fontSize: scale.micro,
     color: colors.textPrimary,
     textAlign: "right",
     writingDirection: "rtl",
@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     backgroundColor: tint.neutralLight(0.06),
   },
-  actionText: { ...type.captionStrong, fontSize: 14, color: colors.textPrimary },
+  actionText: { ...type.captionStrong, fontSize: scale.meta, color: colors.textPrimary },
 
   report: { minHeight: 44, justifyContent: "center", alignSelf: "center", marginTop: spacing.md },
   // berry500 is 4.33:1 on ivory — under the bar for body text. berry700 is

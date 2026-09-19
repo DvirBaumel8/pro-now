@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 
-import { elevation, radii, spacing, type } from "../theme";
+import { elevation, radii, scale, spacing, type } from "../theme";
 import type { ThemeColors } from "./primitives";
 
 /**
@@ -123,5 +123,5 @@ const styles = StyleSheet.create({
   // 44x44 minimum. It was 23x34 — a glyph with 4px of padding, which on a
   // phone is a control you aim at rather than press.
   close: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
-  closeGlyph: { fontSize: 26, lineHeight: 26 },
+  closeGlyph: { fontSize: scale.section, lineHeight: 26 },
 });
