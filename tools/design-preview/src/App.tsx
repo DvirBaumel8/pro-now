@@ -5,6 +5,7 @@ import {
   AddressPickerBody,
   CustomerHomeBody,
   CustomerProfileBody,
+  DescribeFaultBody,
   JobCompleteBody,
   Mark,
   Persona,
@@ -28,6 +29,7 @@ import type { LiveLocationState } from "@pro-now/ui";
 import type { JobState, ProPresenceState } from "@pro-now/types";
 
 import { matchFixture, offerFixture } from "./fixtures";
+import { useCapture } from "./useCapture";
 import {
   availabilitySnapshot,
   customerHistory,
@@ -81,6 +83,7 @@ type CustomerRoute =
   | { name: "home" }
   | { name: "address" }
   | { name: "service"; serviceId: string }
+  | { name: "describe"; serviceId: string; symptomsHe: string[] }
   | { name: "searching"; serviceId: string }
   | { name: "tracking"; stage: "assigned" | "enroute" | "arrived" }
   | { name: "quote" }
@@ -161,6 +164,8 @@ function CustomerApp({
 }) {
   const snapshot = useLiveSnapshot();
   const [tab, setTab] = useState<CustomerTab>("home");
+  const capture = useCapture();
+  const [faultText, setFaultText] = useState("");
   const [addressId, setAddressId] = useState<string>("addr_home");
   const [live, setLive] = useState<LiveLocationState>({ status: "idle" });
 
@@ -274,8 +279,34 @@ function CustomerApp({
             width={width}
             height={bodyH}
             onBack={() => go({ name: "home" })}
-            onRequestNow={() => go({ name: "searching", serviceId: route.serviceId })}
+            onRequestNow={(symptomsHe) => go({ name: "describe", serviceId: route.serviceId, symptomsHe })}
             onRecheck={() => go({ name: "home" })}
+          />
+        );
+      }
+      case "describe": {
+        const page = SERVICE_PAGES[route.serviceId] ?? serviceDetailLeak;
+        return (
+          <DescribeFaultBody
+            serviceNameHe={page.nameHe}
+            mark={page.mark}
+            symptomsHe={route.symptomsHe}
+            text={faultText}
+            onChangeText={setFaultText}
+            photos={capture.photos}
+            onAddPhoto={capture.addPhoto}
+            onRemovePhoto={capture.removePhoto}
+            voice={capture.voice}
+            recording={capture.recording}
+            recordSeconds={capture.recordSeconds}
+            canRecord={capture.canRecord}
+            onStartRecord={capture.startRecord}
+            onStopRecord={capture.stopRecord}
+            onDeleteVoice={capture.deleteVoice}
+            onBack={() => go({ name: "service", serviceId: route.serviceId })}
+            onSend={() => go({ name: "searching", serviceId: route.serviceId })}
+            width={width}
+            height={bodyH}
           />
         );
       }
@@ -351,7 +382,7 @@ function CustomerApp({
           />
         );
     }
-  }, [tab, route, elapsed, width, bodyH, go, snapshot, addressId, live, askLocation, addressLabel]);
+  }, [tab, route, elapsed, width, bodyH, go, snapshot, addressId, live, askLocation, addressLabel, capture, faultText]);
 
   // A tracked job needs somewhere to go next; the prototype offers the same
   // advances the server would push.

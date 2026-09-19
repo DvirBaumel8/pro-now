@@ -32,3 +32,4 @@ export * from "./screens/ProOfferBody";
 export * from "./screens/CustomerProfileBody";
 export * from "./screens/AddressPickerBody";
 export * from "./screens/ProJobBody";
+export * from "./screens/DescribeFaultBody";
