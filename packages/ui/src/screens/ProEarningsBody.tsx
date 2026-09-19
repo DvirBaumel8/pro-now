@@ -133,7 +133,7 @@ export function ProEarningsBody({
                         fill={d.isToday ? colors.action : tint.trust(0.45)}
                       />
                     </Svg>
-                    <Text style={[styles.barLabel, d.isToday && { color: colors.action }]}>{d.labelHe}</Text>
+                    <Text style={[styles.barLabel, d.isToday && { color: colors.actionText }]}>{d.labelHe}</Text>
                   </View>
                 );
               })}

@@ -54,6 +54,8 @@ export interface ProOnlineBodyProps {
   services: ProServiceToggle[];
   onToggleOnline?: () => void;
   onManageServices?: () => void;
+  /** Present when this screen is pushed from the shift screen. */
+  onBack?: () => void;
   width?: number;
   height?: number;
 }
@@ -77,6 +79,7 @@ export function ProOnlineBody({
   services,
   onToggleOnline,
   onManageServices,
+  onBack,
   width = 390,
   height = 780,
 }: ProOnlineBodyProps) {
@@ -107,7 +110,17 @@ export function ProOnlineBody({
       />
 
       {/* Earnings float above the map, big numbers as the spec asks */}
-      <View style={styles.topBar}>
+      <View style={[styles.topBar, onBack ? styles.topBarRow : null]}>
+        {onBack ? (
+          <Pressable
+            onPress={onBack}
+            accessibilityRole="button"
+            accessibilityLabel="חזרה למשמרת"
+            style={styles.backHit}
+          >
+            <Text style={styles.backText}>חזרה</Text>
+          </Pressable>
+        ) : null}
         <View style={styles.earnCard}>
           <Text style={styles.earnLabel}>היום</Text>
           {todayNetMinorUnits === null ? (
@@ -158,7 +171,12 @@ export function ProOnlineBody({
 
           {/* --- Services --- */}
           <View style={styles.servicesHead}>
-            <Pressable onPress={onManageServices} accessibilityRole="button">
+            <Pressable
+              onPress={onManageServices}
+              accessibilityRole="button"
+              accessibilityLabel="ניהול השירותים שלי"
+              style={styles.manageHit}
+            >
               <Text style={styles.manage}>ניהול</Text>
             </Pressable>
             <Text style={styles.servicesTitle}>
@@ -254,10 +272,28 @@ function LiveBeacon({ color }: { color: string }) {
 }
 
 const styles = StyleSheet.create({
+  manageHit: { minHeight: 44, minWidth: 64, justifyContent: "center", alignItems: "flex-start" },
+  backHit: {
+    minHeight: 44,
+    minWidth: 64,
+    paddingHorizontal: spacing.md,
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: radii.pill,
+    backgroundColor: "rgba(16,12,22,0.72)",
+  },
+  backText: { ...type.captionStrong, color: colors.textPrimary },
   screen: { backgroundColor: colors.bg, overflow: "hidden", borderRadius: radii.xl },
   map: { ...StyleSheet.absoluteFillObject, borderRadius: 0 },
 
   topBar: { position: "absolute", top: spacing.xl, right: spacing.lg, left: spacing.lg, alignItems: "flex-end" },
+  /**
+   * With a back affordance present the bar becomes a row. row-reverse puts
+   * the first child on the right, which is where a Hebrew reader looks for
+   * "back" — and leaves the earnings card on the left rather than stacking
+   * the two on top of each other.
+   */
+  topBarRow: { flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "flex-start" },
   earnCard: {
     backgroundColor: "rgba(11,15,14,0.86)",
     borderRadius: radii.lg,

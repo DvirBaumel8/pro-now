@@ -226,7 +226,7 @@ export function SectionHeader({
   return (
     <View style={header.row}>
       <Text style={[header.title, { color: colors.textPrimary }]}>{title}</Text>
-      {action ? <Text style={[header.action, { color: colors.action }]}>{action}</Text> : null}
+      {action ? <Text style={[header.action, { color: colors.actionText }]}>{action}</Text> : null}
     </View>
   );
 }

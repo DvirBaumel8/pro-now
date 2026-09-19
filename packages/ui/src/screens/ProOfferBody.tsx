@@ -109,12 +109,21 @@ export function ProOfferBody({
           <Text style={[styles.ringValue, { color: urgencyColor }]}>
             {countdown.expired ? "—" : countdown.label}
           </Text>
-          <Text style={styles.ringLabel}>{countdown.expired ? "הסתיימה" : "נותרו"}</Text>
+          <Text style={styles.ringLabel}>
+            {countdown.expired ? "הסתיימה" : "שניות להחליט"}
+          </Text>
         </View>
       </View>
 
       <View style={styles.content}>
-        <Text style={styles.kicker}>עבודה חדשה</Text>
+        {/*
+          * "עבודה חדשה" assumed the professional already knew what this
+          * screen was. Nobody seeing it for the first time does: a full
+          * screen appears, a ring counts down, and two buttons demand a
+          * decision. So the kicker now says what happened and what the
+          * countdown means, in one line, before anything else is read.
+          */}
+        <Text style={styles.kicker}>קריאה חדשה בשבילך · רק אתה רואה אותה עכשיו</Text>
         <Text style={styles.service} numberOfLines={2}>
           {offer.serviceNameHe}
         </Text>
@@ -155,7 +164,9 @@ export function ProOfferBody({
 
         {countdown.expired ? (
           <View style={styles.expired}>
-            <Text style={styles.expiredText}>ההצעה הסתיימה ונשלחה למישהו אחר.</Text>
+            <Text style={styles.expiredText}>
+              הזמן נגמר. הקריאה עברה לבעל מקצוע אחר באזור.
+            </Text>
           </View>
         ) : (
           <>
@@ -165,10 +176,10 @@ export function ProOfferBody({
               accessibilityLabel={`קבלת העבודה ${offer.serviceNameHe}`}
               style={({ pressed }) => [styles.accept, pressed && { opacity: 0.88 }]}
             >
-              <Text style={styles.acceptLabel}>קבלת העבודה</Text>
+              <Text style={styles.acceptLabel}>כן, אני לוקח</Text>
             </Pressable>
             <Pressable onPress={onSkip} accessibilityRole="button" style={styles.skip}>
-              <Text style={styles.skipLabel}>דילוג</Text>
+              <Text style={styles.skipLabel}>לא עכשיו — העבר למקצוען אחר</Text>
             </Pressable>
           </>
         )}
@@ -257,7 +268,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xxl,
     alignItems: "flex-end",
   },
-  kicker: { ...type.overline, color: colors.action },
+  kicker: { ...type.captionStrong, color: colors.actionText, textAlign: "right" },
   service: {
     ...type.h1,
     fontSize: 32,

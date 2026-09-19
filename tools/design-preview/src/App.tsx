@@ -10,12 +10,14 @@ import {
   CustomerProfileBody,
   DescribeFaultBody,
   JobCompleteBody,
-  Mark,
+
+  NavGlyph,
   Persona,
   ProEarningsBody,
   ProJobBody,
   ProOfferBody,
   ProOnlineBody,
+  ProShiftBody,
   ProVerificationBody,
   PhoneAuthBody,
   ProProfileBody,
@@ -33,11 +35,19 @@ import {
   tint,
   type as t,
 } from "@pro-now/ui";
-import type { LiveLocationState } from "@pro-now/ui";
+import type { LiveLocationState, NavGlyphName } from "@pro-now/ui";
 import type { AuthStage, ChatMessage, ConnectionState } from "@pro-now/ui";
+import { readAvailability } from "@pro-now/types";
 import type { JobState, ProPresenceState } from "@pro-now/types";
 
 import { matchFixture, offerFixture } from "./fixtures";
+import {
+  catalogHomeServices,
+  togglesFor,
+  catalogMatchRules,
+  catalogServicePages,
+  eligibilityFor,
+} from "./catalogAdapter";
 import { useCapture } from "./useCapture";
 import {
   availabilitySnapshot,
@@ -49,24 +59,18 @@ import {
   customerQuickReplies,
   earningDays,
   earningJobs,
-  proEligibility,
   proQuickReplies,
   verificationSteps,
   homeRecent,
-  homeServices,
   jobDescription,
   jobMedia,
   jobSymptoms,
-  matchRules,
   savedAddresses,
-  proServices,
   profileReviews,
   profileServices,
   profileWorkPhotos,
   quoteFixture,
   receiptLines,
-  serviceDetailElectric,
-  serviceDetailLeak,
 } from "./screenFixtures";
 
 /**
@@ -116,10 +120,26 @@ type CustomerRoute =
   | { name: "quote" }
   | { name: "complete" };
 
-const SERVICE_PAGES: Record<string, typeof serviceDetailLeak> = {
-  "svc-leak": serviceDetailLeak,
-  "svc-electric": serviceDetailElectric,
-};
+/**
+ * Every service page, derived from the catalogue.
+ *
+ * This used to be a two-entry map with `?? serviceDetailLeak` behind it,
+ * which meant tapping "מזגן" opened a page headed "תיקון נזילה" — the app
+ * confidently answering a question nobody asked. A catalogue that knows
+ * every service can also produce a page for every service, so the fallback
+ * is gone along with the bug.
+ */
+const SERVICE_PAGES = catalogServicePages;
+
+/**
+ * What the professional in this prototype has actually had verified.
+ * Everything on the pro side — which services toggle on, what the
+ * verification screen lists as blocked — is computed from this one array, so
+ * the two screens cannot disagree about the same person.
+ */
+const DEMO_VERIFIED = ["IDENTITY", "BUSINESS", "LIABILITY_INSURANCE"] as const;
+const proEligibility = eligibilityFor([...DEMO_VERIFIED]);
+const proServices = togglesFor([...DEMO_VERIFIED]);
 
 /**
  * The prototype has no server, so it re-stamps its fixture snapshot on a
@@ -353,6 +373,12 @@ function CustomerApp({
   onSwitch: () => void;
 }) {
   const snapshot = useLiveSnapshot();
+  /**
+   * ONE reading, shared by the home grid and by every service page opened
+   * from it. Two independent reads of the same snapshot can land either side
+   * of the freshness boundary and disagree on screen.
+   */
+  const supply = readAvailability(snapshot, Date.now());
   const [tab, setTab] = useState<CustomerTab>("home");
   const capture = useCapture();
   const [faultText, setFaultText] = useState("");
@@ -394,8 +420,20 @@ function CustomerApp({
   const [route, setRoute] = useState<CustomerRoute>({ name: "home" });
   const [elapsed, setElapsed] = useState(0);
 
+  // A tracked job needs somewhere to go next; the prototype offers the same
+  // advances the server would push. Computed BEFORE the body height, because
+  // the demo strip takes its own space rather than covering the app's.
+  const advance =
+    tab === "home" && route.name === "tracking"
+      ? route.stage === "assigned"
+        ? { label: "המקצוען יצא לדרך", next: () => go({ name: "tracking", stage: "enroute" }) }
+        : route.stage === "enroute"
+          ? { label: "המקצוען הגיע ומתחיל לעבוד", next: () => go({ name: "tracking", stage: "arrived" }) }
+          : { label: "המקצוען שלח הצעת מחיר", next: () => go({ name: "quote" }) }
+      : null;
+
   const BAR = 64;
-  const bodyH = height - BAR;
+  const bodyH = height - BAR - (advance ? DEMO_H : 0);
 
   // The search advances on its own, the way it will in production when the
   // server answers — so the wait is experienced rather than described.
@@ -480,10 +518,25 @@ function CustomerApp({
           />
         );
       case "service": {
-        const page = SERVICE_PAGES[route.serviceId] ?? serviceDetailLeak;
+        const page = SERVICE_PAGES[route.serviceId]!;
+        /*
+         * THE COUNT HAS TO COME FROM THE SAME SNAPSHOT THE HOME SCREEN USED.
+         *
+         * It did not, and the consequence was severe rather than cosmetic:
+         * the page's CTA switches on `availableNowCount > 0`, so with the
+         * count hard-null EVERY service page showed "בדיקה מחדש" instead of
+         * "בקשת בעל מקצוע עכשיו" — and the entire describe-the-fault flow,
+         * the voice note, the photos, the matcher, all of it, was
+         * unreachable from the app. The screens existed; no tap led to them.
+         *
+         * Reading the same snapshot here means the service page and the tile
+         * that opened it can never disagree, and they expire together.
+         */
+        const reading = supply.supplyFor(route.serviceId);
         return (
           <ServiceDetailBody
             {...page}
+            availableNowCount={reading.count}
             width={width}
             height={bodyH}
             onBack={() => go({ name: "home" })}
@@ -510,7 +563,7 @@ function CustomerApp({
           />
         );
       case "describe": {
-        const page = SERVICE_PAGES[route.serviceId] ?? serviceDetailLeak;
+        const page = SERVICE_PAGES[route.serviceId]!;
         return (
           <DescribeFaultBody
             serviceNameHe={page.nameHe}
@@ -538,7 +591,7 @@ function CustomerApp({
       case "searching":
         return (
           <SearchingBody
-            serviceNameHe={SERVICE_PAGES[route.serviceId]?.nameHe ?? "תיקון נזילה"}
+            serviceNameHe={SERVICE_PAGES[route.serviceId]?.nameHe ?? ""}
             elapsedSeconds={elapsed}
             candidatesConsidered={12}
             candidatesEligible={3}
@@ -603,29 +656,18 @@ function CustomerApp({
           <CustomerHomeBody
             greetingHe="ערב טוב"
             addressLabelHe={addressLabel}
-            services={homeServices}
+            services={catalogHomeServices}
             recent={homeRecent}
             availability={snapshot}
             nowMs={Date.now()}
-            matchRules={matchRules}
+            matchRules={catalogMatchRules}
             width={width}
             onSelectService={(id) => go({ name: "service", serviceId: id })}
             onChangeAddress={() => go({ name: "address" })}
           />
         );
     }
-  }, [tab, route, elapsed, width, bodyH, go, snapshot, addressId, live, askLocation, addressLabel, capture, faultText]);
-
-  // A tracked job needs somewhere to go next; the prototype offers the same
-  // advances the server would push.
-  const advance =
-    tab === "home" && route.name === "tracking"
-      ? route.stage === "assigned"
-        ? { label: "בדרך אליך", next: () => go({ name: "tracking", stage: "enroute" }) }
-        : route.stage === "enroute"
-          ? { label: "הגיע ומתחיל", next: () => go({ name: "tracking", stage: "arrived" }) }
-          : { label: "נשלחה הצעת מחיר", next: () => go({ name: "quote" }) }
-      : null;
+  }, [tab, route, elapsed, width, bodyH, go, snapshot, supply, addressId, live, askLocation, addressLabel, capture, faultText]);
 
   return (
     <View style={{ width, height }}>
@@ -695,9 +737,9 @@ function CustomerApp({
         width={width}
         height={BAR}
         items={[
-          { key: "home", label: "בית", mark: "handyman" as const },
-          { key: "calls", label: lex.myCalls, mark: "clock" as const },
-          { key: "card", label: lex.myCard, mark: "person" as const },
+          { key: "home", label: "בית", mark: "home" as const },
+          { key: "calls", label: "הקריאות שלי", mark: "list" as const },
+          { key: "card", label: "הכרטיס שלי", mark: "person" as const },
         ]}
         active={tab}
         onPress={(k) => {
@@ -722,11 +764,36 @@ function ProApp({ width, height, onSwitch }: { width: number; height: number; on
   const [now, setNow] = useState(() => Date.now());
   const [job, setJob] = useState<JobState | null>(null);
   const [proChat, setProChat] = useState<ChatMessage[]>(chatSeed);
-  const [proView, setProView] = useState<null | "chat">(null);
-  const [proSheet, setProSheet] = useState<null | "call" | "navigate" | "services">(null);
+  const [proView, setProView] = useState<null | "chat" | "presence">(null);
+  /**
+   * When this shift actually went online. The shift clock counts from a real
+   * timestamp rather than from a fixture, so "מחובר כבר" is true and the
+   * rate stays withheld for the first 45 minutes exactly as production
+   * would withhold it.
+   */
+  const [onlineSince, setOnlineSince] = useState<number | null>(null);
+  const [shiftNow, setShiftNow] = useState(() => Date.now());
+  const [proSheet, setProSheet] = useState<null | "call" | "navigate" | "services" | "howitworks">(
+    /*
+     * OPEN ON ARRIVAL, ONCE.
+     *
+     * The professional side has four tabs, a map, a shift clock, a services
+     * list and a countdown that can take over the screen — and until now it
+     * explained none of it. "לא מבין כלום מזה הפעולות האלה" is the correct
+     * reaction to that, not a failure to read carefully. Four sentences
+     * before the first tap costs nothing and removes the confusion at its
+     * source.
+     */
+    "howitworks"
+  );
 
   const BAR = 64;
-  const bodyH = height - BAR;
+  /**
+   * The demo control only exists while online, with no offer and no job in
+   * hand — and it takes its own row. It used to sit on top of "סיום משמרת".
+   */
+  const showDemo = tab === "shift" && presence === "AVAILABLE" && offerAt === null && job === null;
+  const bodyH = height - BAR - (showDemo ? DEMO_H : 0);
 
   useEffect(() => {
     if (offerAt === null) return;
@@ -734,15 +801,27 @@ function ProApp({ width, height, onSwitch }: { width: number; height: number; on
     return () => clearInterval(id);
   }, [offerAt]);
 
+  // The shift clock ticks once a second while online, and not at all when
+  // offline — there is nothing to count.
+  useEffect(() => {
+    if (onlineSince === null) return;
+    const id = setInterval(() => setShiftNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [onlineSince]);
+
   // Going online is a transition the SERVER confirms, so the prototype makes
   // you wait through it rather than flipping instantly — that delay is the
   // honest part of the interaction.
   const toggle = useCallback(() => {
     if (presence === "OFFLINE") {
       setPresence("STARTING_SHIFT");
-      setTimeout(() => setPresence("AVAILABLE"), 1200);
+      setTimeout(() => {
+        setPresence("AVAILABLE");
+        setOnlineSince(Date.now());
+      }, 1200);
     } else {
       setPresence("OFFLINE");
+      setOnlineSince(null);
       setOfferAt(null);
     }
   }, [presence]);
@@ -852,7 +931,13 @@ function ProApp({ width, height, onSwitch }: { width: number; height: number; on
         width={width}
         height={bodyH}
       />
-    ) : (
+    ) : proView === "presence" ? (
+      /*
+       * The map-forward presence screen, pushed from the shift screen. It
+       * owns "where am I and which services are armed"; the shift screen
+       * owns the numbers. Two questions, two screens — putting both on one
+       * makes GO ONLINE compete with six figures, and the button loses.
+       */
       <ProOnlineBody
         presenceState={presence}
         displayNameHe="דוגמה ד׳ (תצוגה)"
@@ -861,6 +946,39 @@ function ProApp({ width, height, onSwitch }: { width: number; height: number; on
         services={proServices}
         onToggleOnline={toggle}
         onManageServices={() => setProSheet("services")}
+        onBack={() => setProView(null)}
+        width={width}
+        height={bodyH}
+      />
+    ) : (
+      <ProShiftBody
+        displayNameHe="דוגמה ד׳ (תצוגה)"
+        presenceState={presence}
+        shift={{
+          onlineSinceMs: onlineSince,
+          // Nothing has settled in this prototype session, which is the
+          // honest starting state for a shift that just began — and the
+          // case the "לשעת חיבור" metric has to survive.
+          settledNetMinorUnits: onlineSince === null ? null : 0,
+          completedJobs: 0,
+        }}
+        /*
+         * A deliberately PARTIAL briefing. The server here knows how many
+         * peers are online and what this professional earned last week; it
+         * has no area demand reading. The screen must therefore render two
+         * lines, not three, and must not fill the gap.
+         */
+        briefing={{ peersOnline: 2, lastWeekNetMinorUnits: 384000, lastWeekOnlineMinutes: 1215 }}
+        services={proServices.map((s) => ({
+          id: s.id,
+          nameHe: s.nameHe,
+          mark: s.mark,
+          live: s.enabled && !s.blockedReasonHe,
+        }))}
+        nowMs={shiftNow}
+        onToggleOnline={toggle}
+        onOpenEarnings={() => setTab("earnings")}
+        onManageServices={() => setProView("presence")}
         width={width}
         height={bodyH}
       />
@@ -891,9 +1009,60 @@ function ProApp({ width, height, onSwitch }: { width: number; height: number; on
         </RiseIn>
       ) : null}
 
-      {tab === "shift" && presence === "AVAILABLE" && !offer && !job ? (
-        <DemoBar dark label="נכנסת עבודה" onPress={() => setOfferAt(Date.now())} width={width} />
+      {showDemo ? (
+        <DemoBar
+          dark
+          label="שלח אליי עכשיו קריאה לדוגמה"
+          onPress={() => setOfferAt(Date.now())}
+          width={width}
+        />
       ) : null}
+
+      <Sheet
+        visible={proSheet === "howitworks"}
+        onClose={() => setProSheet(null)}
+        colors={proTheme.colors}
+        dark
+        titleHe="איך זה עובד — בקצרה"
+        width={width}
+        height={height}
+      >
+        {[
+          {
+            n: "1",
+            t: "אתה מחליט מתי אתה עובד",
+            d: "כל עוד אתה לא במשמרת — לא מגיעות אליך קריאות. לוחצים ״התחלת משמרת״ ומתחילים.",
+          },
+          {
+            n: "2",
+            t: "קריאה מגיעה אליך לבד",
+            d: "לא מחפשים לקוחות ולא מתמודדים מול אחרים. הקריאה נשלחת לבעל מקצוע אחד בכל פעם — אליך.",
+          },
+          {
+            n: "3",
+            t: "רואה הכל לפני שאתה מחליט",
+            d: "מה התקלה, איפה זה, כמה זמן נסיעה וכמה אתה מקבל. יש לך כמה שניות לענות כן או לא.",
+          },
+          {
+            n: "4",
+            t: "אמרת לא — לא קרה כלום",
+            d: "הקריאה עוברת לבעל מקצוע אחר. אין קנס, אין ציון, אין פגיעה בך.",
+          },
+        ].map((x) => (
+          <View key={x.n} style={styles.howRow}>
+            <View style={styles.howNum}>
+              <Text style={styles.howNumText}>{x.n}</Text>
+            </View>
+            <View style={styles.howText}>
+              <Text style={styles.howTitle}>{x.t}</Text>
+              <Text style={styles.howBody}>{x.d}</Text>
+            </View>
+          </View>
+        ))}
+        <Pressable style={styles.sheetPrimary} onPress={() => setProSheet(null)}>
+          <Text style={styles.sheetPrimaryText}>הבנתי, בוא נתחיל</Text>
+        </Pressable>
+      </Sheet>
 
       <Sheet
         visible={proSheet === "call"}
@@ -956,9 +1125,18 @@ function ProApp({ width, height, onSwitch }: { width: number; height: number; on
         width={width}
         height={BAR}
         items={[
-          { key: "shift", label: lex.shift, mark: "clock" as const },
-          { key: "earnings", label: lex.payout, mark: "handyman" as const },
-          { key: "verify", label: lex.verified, mark: "clock" as const },
+          /*
+           * Plain Hebrew, and a different mark per tab.
+           *
+           * These read "התמורה שלך" and "מאומת" — product vocabulary that
+           * means nothing to someone opening the app for the first time —
+           * and two of the four shared the same clock icon, so even the
+           * shapes gave no help. A tab label's only job is to say where it
+           * goes.
+           */
+          { key: "shift", label: "המשמרת", mark: "clock" as const },
+          { key: "earnings", label: "כמה הרווחתי", mark: "wallet" as const },
+          { key: "verify", label: "המסמכים שלי", mark: "shield" as const },
           { key: "profile", label: "הפרופיל", mark: "person" as const },
         ]}
         active={tab}
@@ -985,6 +1163,22 @@ function ProApp({ width, height, onSwitch }: { width: number; height: number; on
  * 56px target, sitting in its own space above the tab bar rather than
  * hovering over someone else's text.
  */
+/**
+ * THE DEMO STRIP.
+ *
+ * It used to float at `bottom: 64`, directly over whatever the screen had
+ * put there — which on the professional's screen was "סיום משמרת". Two
+ * different actions, stacked on the same pixels: the most important control
+ * on the screen sat underneath a demo affordance, and Amit could neither
+ * read it nor press it.
+ *
+ * It is now a strip in the layout, above the tab bar, in a colour that
+ * belongs to neither app surface, and it says what it is before it says what
+ * it does. A demo control that can be mistaken for the product is worse than
+ * no demo control.
+ */
+const DEMO_H = 60;
+
 function DemoBar({
   label,
   onPress,
@@ -1000,14 +1194,17 @@ function DemoBar({
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
+      accessibilityLabel={`הדגמה: ${label}`}
       style={({ pressed }) => [
         styles.demoBar,
-        { width, backgroundColor: dark ? "rgba(247,243,250,0.10)" : "rgba(23,18,31,0.92)" },
+        { width, backgroundColor: dark ? "#2E2640" : "#E8E2DC" },
         pressed && { opacity: 0.85 },
       ]}
     >
-      <Text style={styles.demoBarText}>{label}</Text>
-      <Text style={styles.demoBarHint}>הדגמה · לחץ כדי להתקדם</Text>
+      <Text style={[styles.demoBarHint, { color: dark ? "#A79FB3" : "#5A5266" }]}>
+        הדגמה — לא חלק מהאפליקציה
+      </Text>
+      <Text style={[styles.demoBarText, { color: dark ? "#F7F3FA" : "#17121F" }]}>▸ {label}</Text>
     </Pressable>
   );
 }
@@ -1059,7 +1256,7 @@ function TabBar({
   height,
   dark = false,
 }: {
-  items: { key: string; label: string; mark: "handyman" | "clock" | "person" }[];
+  items: { key: string; label: string; mark: NavGlyphName }[];
   active: string;
   onPress: (key: string) => void;
   onSwitch: () => void;
@@ -1085,8 +1282,8 @@ function TabBar({
         const on = it.key === active;
         return (
           <Pressable key={it.key} onPress={() => onPress(it.key)} style={styles.barItem} accessibilityRole="tab">
-            <TabGlyph name={it.mark} color={on ? colors.action : colors.textSecondary} />
-            <Text style={[styles.barLabel, { color: on ? colors.action : colors.textSecondary }]} numberOfLines={1}>
+            <TabGlyph name={it.mark} color={on ? colors.actionText : colors.textSecondary} />
+            <Text style={[styles.barLabel, { color: on ? colors.actionText : colors.textSecondary }]} numberOfLines={1}>
               {it.label}
             </Text>
           </Pressable>
@@ -1104,9 +1301,13 @@ function TabBar({
   );
 }
 
-function TabGlyph({ name, color }: { name: "handyman" | "clock" | "person"; color: string }) {
+/**
+ * The profile tab shows the person's own illustrated face rather than a
+ * generic outline — it is the one tab that is about them.
+ */
+function TabGlyph({ name, color }: { name: NavGlyphName; color: string }) {
   if (name === "person") return <Persona seed="tabbar-person" size={22} />;
-  return <Mark name={name === "clock" ? "cleaning" : "handyman"} size={21} color={color} />;
+  return <NavGlyph name={name} size={22} color={color} />;
 }
 
 const styles = StyleSheet.create({
@@ -1123,14 +1324,32 @@ const styles = StyleSheet.create({
   },
   noticeText: { ...t.caption, color: "#FFFFFF", textAlign: "center", writingDirection: "rtl" },
 
-  demoBar: {
-    position: "absolute",
-    bottom: 64,
-    left: 0,
-    minHeight: 56,
+  howRow: { flexDirection: "row-reverse", gap: 12, marginBottom: 18, alignItems: "flex-start" },
+  howNum: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "rgba(255,92,56,0.16)",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 8,
+  },
+  howNumText: { ...t.captionStrong, color: proTheme.colors.actionText },
+  howText: { flex: 1 },
+  howTitle: { ...t.bodyStrong, color: proTheme.colors.textPrimary, textAlign: "right" },
+  howBody: {
+    ...t.caption,
+    fontSize: 14,
+    lineHeight: 20,
+    color: proTheme.colors.textSecondary,
+    textAlign: "right",
+    marginTop: 2,
+  },
+  demoBar: {
+    height: DEMO_H,
+    alignItems: "center",
+    justifyContent: "center",
+    borderTopWidth: 1,
+    borderTopColor: "rgba(128,120,140,0.35)",
   },
   sheetBody: {
     ...t.body,
@@ -1148,7 +1367,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: spacing.lg,
   },
-  sheetPrimaryText: { ...t.bodyStrong, fontSize: 16, color: "#FFFFFF" },
+  /*
+   * White on coral is 3.07:1 — below WCAG for body text, and the same
+   * defect the palette split was written to remove. Ink on coral is 5.99:1.
+   */
+  sheetPrimaryText: { ...t.bodyStrong, fontSize: 16, color: customerTheme.colors.onAction },
   sheetSecondary: { minHeight: 48, alignItems: "center", justifyContent: "center", marginTop: spacing.sm },
   sheetSecondaryText: { ...t.captionStrong, color: customerTheme.colors.statusDanger },
   sheetNote: {
@@ -1187,6 +1410,13 @@ const styles = StyleSheet.create({
   barItem: { flex: 1, alignItems: "center", justifyContent: "center", gap: 3, paddingTop: 6 },
   barLabel: { ...t.caption, fontSize: 11, fontWeight: "600", writingDirection: "rtl" },
 
-  switchPill: { paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: radii.pill },
+  switchPill: {
+    minHeight: 44,
+    minWidth: 78,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.pill,
+  },
   switchText: { ...t.caption, fontSize: 11, fontWeight: "700", writingDirection: "rtl" },
 });

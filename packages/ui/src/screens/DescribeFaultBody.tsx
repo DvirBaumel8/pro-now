@@ -283,7 +283,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
     lineHeight: 19,
   },
-  service: { ...type.captionStrong, color: colors.action, marginTop: spacing.md, writingDirection: "rtl" },
+  service: { ...type.captionStrong, color: colors.actionText, marginTop: spacing.md, writingDirection: "rtl" },
 
   block: { paddingHorizontal: spacing.lg, marginTop: spacing.xl },
 

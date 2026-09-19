@@ -176,8 +176,8 @@ const styles = StyleSheet.create({
   headline: { ...type.h1, color: colors.textPrimary, textAlign: "right", writingDirection: "rtl" },
   service: { ...type.caption, color: colors.textSecondary, textAlign: "right", writingDirection: "rtl" },
   etaBlock: { flexDirection: "row-reverse", alignItems: "baseline", gap: 5 },
-  etaValue: { ...type.display, color: colors.action, fontVariant: ["tabular-nums"] },
-  etaUnit: { ...type.h3, color: colors.action },
+  etaValue: { ...type.display, color: colors.actionText, fontVariant: ["tabular-nums"] },
+  etaUnit: { ...type.h3, color: colors.actionText },
   etaNote: {
     ...type.caption,
     color: colors.textSecondary,

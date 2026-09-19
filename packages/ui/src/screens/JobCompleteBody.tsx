@@ -94,7 +94,7 @@ export function JobCompleteBody({
           <Surface colors={colors} level={1} padded={false} style={styles.card}>
             {receiptLines.map((l, i) => (
               <View key={l.id} style={[styles.line, i > 0 && styles.lineDivided]}>
-                <Text style={[styles.lineAmount, l.negative && { color: colors.action }]}>
+                <Text style={[styles.lineAmount, l.negative && { color: colors.actionText }]}>
                   {l.negative ? "−" : ""}
                   {formatMoney(money(Math.abs(l.amountMinorUnits), "ILS"))}
                 </Text>

@@ -142,7 +142,7 @@ export function ServiceDetailBody({
             ) : (
               <View style={[styles.supplyPill, { backgroundColor: tint.action(0.12) }]}>
                 <View style={styles.dot} />
-                <Text style={[styles.supplyText, { color: colors.action }]}>
+                <Text style={[styles.supplyText, { color: colors.actionText }]}>
                   {availableNowCount === 1
                     ? "בעל מקצוע אחד זמין עכשיו באזור שלך"
                     : `${availableNowCount} בעלי מקצוע זמינים עכשיו באזור שלך`}
@@ -313,9 +313,9 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: spacing.lg,
     right: spacing.lg,
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: "rgba(255,255,255,0.9)",
     alignItems: "center",
     justifyContent: "center",
@@ -372,6 +372,10 @@ const styles = StyleSheet.create({
 
   symptoms: { flexDirection: "row-reverse", flexWrap: "wrap", gap: spacing.sm },
   symptom: {
+    // 44px minimum: these are the first thing a customer taps on this page,
+    // and at 40px they were the "הכפתורים צפופים" complaint made literal.
+    minHeight: 44,
+    justifyContent: "center",
     paddingHorizontal: spacing.md,
     paddingVertical: 10,
     borderRadius: radii.pill,

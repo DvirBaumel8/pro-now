@@ -50,7 +50,20 @@ export function Sheet({
   if (!visible) return null;
 
   return (
-    <View style={[StyleSheet.absoluteFill, { width, height }]} pointerEvents="box-none">
+    /*
+     * zIndex, not JSX order.
+     *
+     * The sheet is a sibling of the tab bar, and siblings paint in order —
+     * so the tab bar sat ON TOP of the sheet's primary button. The button
+     * was visible, looked pressable, and every tap went to whichever tab
+     * happened to be underneath it. A modal that the chrome can intercept is
+     * not a modal, and relying on "render it last" makes every future screen
+     * one reordering away from the same bug.
+     */
+    <View
+      style={[StyleSheet.absoluteFill, { width, height, zIndex: 60 }]}
+      pointerEvents="box-none"
+    >
       <Animated.View style={[StyleSheet.absoluteFill, styles.scrim, { opacity: v }]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="סגירה" />
       </Animated.View>
@@ -68,7 +81,12 @@ export function Sheet({
       >
         <View style={[styles.grabber, { backgroundColor: colors.border }]} />
         <View style={styles.headRow}>
-          <Pressable onPress={onClose} accessibilityRole="button" style={styles.close}>
+          <Pressable
+            onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel="סגירה"
+            style={styles.close}
+          >
             <Text style={[styles.closeGlyph, { color: colors.textSecondary }]}>×</Text>
           </Pressable>
           <Text style={[styles.title, { color: colors.textPrimary }]} numberOfLines={1}>
@@ -102,6 +120,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   title: { ...type.h3, writingDirection: "rtl" },
-  close: { padding: 4 },
+  // 44x44 minimum. It was 23x34 — a glyph with 4px of padding, which on a
+  // phone is a control you aim at rather than press.
+  close: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
   closeGlyph: { fontSize: 26, lineHeight: 26 },
 });

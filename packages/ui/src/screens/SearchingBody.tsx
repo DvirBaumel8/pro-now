@@ -127,7 +127,7 @@ export function SearchingBody({
 function Fact({ label, value, highlight = false }: { label: string; value: string; highlight?: boolean }) {
   return (
     <View style={[styles.fact, highlight && { backgroundColor: tint.action(0.1) }]}>
-      <Text style={[styles.factValue, highlight && { color: colors.action }]}>{value}</Text>
+      <Text style={[styles.factValue, highlight && { color: colors.actionText }]}>{value}</Text>
       <Text style={styles.factLabel}>{label}</Text>
     </View>
   );
@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
     backgroundColor: tint.action(),
   },
   liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.action },
-  liveText: { ...type.captionStrong, color: colors.action },
+  liveText: { ...type.captionStrong, color: colors.actionText },
   elapsed: { ...type.captionStrong, color: colors.textSecondary, fontVariant: ["tabular-nums"] },
 
   title: {

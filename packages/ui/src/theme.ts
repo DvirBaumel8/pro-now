@@ -70,6 +70,14 @@ export const palette = {
 
   // Berry — danger, disputes
   berry500: "#E01E5A",
+  /**
+   * Berry is 3.94:1 as text on the professional's near-black surface —
+   * below WCAG, and it is the colour that carries "פג תוקף" and a negative
+   * amount, i.e. exactly the words a professional must not misread. This
+   * lighter berry measures 5.21:1 on night800 while still reading as the
+   * same warning colour.
+   */
+  berry300: "#FF7EA6",
   berry100: "#FFE0EA",
 
   // Warm neutrals
@@ -146,7 +154,7 @@ export const proTheme = {
     /** On the dark side this also carries the ONLINE state. Measured 9.9:1. */
     trust: palette.trust300,
     statusWarning: palette.sun500,
-    statusDanger: palette.berry500,
+    statusDanger: palette.berry300,
     border: palette.night600,
   },
 };

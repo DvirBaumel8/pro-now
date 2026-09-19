@@ -103,22 +103,72 @@ const check = async (label) => {
 };
 
 const results = [];
-const visit = async (label, steps) => {
+const failures = [];
+
+/**
+ * A step that does not land is a FAILED AUDIT, not a skipped line.
+ *
+ * This swallowed its own errors for weeks. Once the app grew a sign-in gate,
+ * every "customer-home" click silently missed and the audit dutifully
+ * measured the sign-in screen instead — and reported it clean. Seven green
+ * ticks, none of them about the screens they named. A verification tool that
+ * cannot fail is not a verification tool, so a missed step now records a
+ * failure and the run exits non-zero.
+ */
+const step = async (label, action) => {
+  try {
+    if (typeof action === 'string') {
+      await p.locator(`text=${action}`).first().click({ timeout: 4000 });
+    } else {
+      await action();
+    }
+    await p.waitForTimeout(800);
+  } catch {
+    failures.push(`${label}: step "${typeof action === 'string' ? action : 'fn'}" did not land`);
+    throw new Error('step-missed');
+  }
+};
+
+/** Through the gate: pick a side, then sign in. Both sides, same shape. */
+const signIn = async (label, sideHe) => {
+  await step(label, sideHe);
+  await p.getByLabel('מספר טלפון').fill('0501234567');
+  await step(label, 'שליחת קוד');
+  await p.getByLabel('קוד האימות').fill('123456');
+  await step(label, 'כניסה');
+};
+
+const visit = async (label, sideHe, steps) => {
   await p.goto('http://localhost:4421/', { waitUntil: 'networkidle' });
   await p.waitForTimeout(1600);
-  for (const s of steps) {
-    try { await p.locator(`text=${s}`).first().click({ timeout: 4000 }); await p.waitForTimeout(800); } catch {}
+  try {
+    if (sideHe) await signIn(label, sideHe);
+    // The professional side opens with a "how it works" sheet on arrival.
+    try { await p.locator('text=הבנתי, בוא נתחיל').first().click({ timeout: 1500 }); await p.waitForTimeout(500); } catch {}
+    for (const s of steps) await step(label, s);
+  } catch (e) {
+    if (e.message !== 'step-missed') throw e;
+    return; // already recorded
   }
   results.push(await check(label));
 };
 
-await visit('welcome', []);
-await visit('customer-home', ['אני צריך מקצוען']);
-await visit('service', ['אני צריך מקצוען', 'תיקון נזילה']);
-await visit('describe', ['אני צריך מקצוען', 'תיקון נזילה', 'בקשת בעל מקצוע עכשיו']);
-await visit('calls', ['אני צריך מקצוען', 'הקריאות שלי']);
-await visit('card', ['אני צריך מקצוען', 'הכרטיס שלי']);
-await visit('pro-shift', ['אני בעל מקצוע']);
+const CUST = 'אני צריך מקצוען';
+const PRO = 'אני בעל מקצוע';
+
+await visit('welcome', null, []);
+await visit('auth-phone', null, [CUST]);
+await visit('customer-home', CUST, []);
+await visit('service', CUST, ['פתיחת סתימה']);
+await visit('service-scheduled', CUST, ['הרכבת רהיטים']);
+await visit('describe', CUST, ['פתיחת סתימה', 'בקשת בעל מקצוע עכשיו']);
+await visit('calls', CUST, ['הקריאות שלי']);
+await visit('card', CUST, ['הכרטיס שלי']);
+await visit('pro-shift-offline', PRO, []);
+await visit('pro-presence', PRO, ['ניהול']);
+await visit('pro-shift-online', PRO, ['התחלת משמרת']);
+await visit('pro-earnings', PRO, ['כמה הרווחתי']);
+await visit('pro-verify', PRO, ['המסמכים שלי']);
 
 for (const r of results) {
   console.log(`\n### ${r.label}`);
@@ -127,4 +177,12 @@ for (const r of results) {
   if (r.unlabelled.length) console.log('  UNLABELLED:', r.unlabelled.length);
   if (!r.small.length && !r.lowContrast.length && !r.unlabelled.length) console.log('  clean');
 }
+
+if (failures.length) {
+  console.log('\n!! NAVIGATION FAILURES — these screens were never audited:');
+  for (const f of failures) console.log('  ', f);
+}
+const defects = results.filter((r) => r.small.length || r.lowContrast.length || r.unlabelled.length);
+console.log(`\naudited ${results.length} screens · ${defects.length} with defects · ${failures.length} unreachable`);
 await b.close();
+if (failures.length || defects.length) process.exit(1);

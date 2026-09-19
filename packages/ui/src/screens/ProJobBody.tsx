@@ -499,7 +499,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: radii.pill,
   },
-  symptomText: { ...type.captionStrong, color: colors.action, writingDirection: "rtl" },
+  symptomText: { ...type.captionStrong, color: colors.actionText, writingDirection: "rtl" },
 
   description: {
     ...type.body,
@@ -519,7 +519,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  playGlyph: { color: colors.action, fontSize: 14 },
+  playGlyph: { color: colors.actionText, fontSize: 14 },
   waveWrap: { flex: 1, height: 28, overflow: "hidden" },
   waveMask: { position: "absolute", top: 0, bottom: 0, left: 0, backgroundColor: "rgba(16,12,22,0.62)" },
   voiceTime: { ...type.caption, ...tabular, color: colors.textSecondary },

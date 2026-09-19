@@ -333,10 +333,10 @@ const styles = StyleSheet.create({
     fontSize: 52,
     lineHeight: 58,
     fontWeight: "700",
-    color: colors.action,
+    color: colors.actionText,
     fontVariant: ["tabular-nums" as const],
   },
-  etaUnit: { ...typography.h2, color: colors.action },
+  etaUnit: { ...typography.h2, color: colors.actionText },
   etaLabel: { ...typography.caption, color: colors.textSecondary, marginTop: 2 },
   etaPending: { ...typography.h2, color: colors.textSecondary },
 

@@ -259,14 +259,22 @@ export const availabilitySnapshot: AreaAvailabilityView = {
   staleAfterSeconds: 60,
   services: [
     { serviceId: "svc-leak", state: "AVAILABLE", availableProviderCount: 4, nearestRouteEtaMinutes: 8 },
+    { serviceId: "svc-blockage", state: "AVAILABLE", availableProviderCount: 3, nearestRouteEtaMinutes: 11 },
+    { serviceId: "svc-tap", state: "AVAILABLE", availableProviderCount: 2, nearestRouteEtaMinutes: 19 },
     { serviceId: "svc-electric", state: "AVAILABLE", availableProviderCount: 2, nearestRouteEtaMinutes: 15 },
+    { serviceId: "svc-socket", state: "AVAILABLE", availableProviderCount: 2, nearestRouteEtaMinutes: 24 },
+    { serviceId: "svc-courier", state: "AVAILABLE", availableProviderCount: 6, nearestRouteEtaMinutes: 6 },
+    { serviceId: "svc-cylinder", state: "AVAILABLE", availableProviderCount: 2, nearestRouteEtaMinutes: 26 },
+    { serviceId: "svc-fridge", state: "AVAILABLE", availableProviderCount: 2, nearestRouteEtaMinutes: 31 },
+    { serviceId: "svc-clean", state: "AVAILABLE", availableProviderCount: 3, nearestRouteEtaMinutes: 40 },
+    { serviceId: "svc-moving", state: "AVAILABLE", availableProviderCount: 2, nearestRouteEtaMinutes: 45 },
     // Thin supply, said plainly rather than dressed up as plenty.
     { serviceId: "svc-lock", state: "LIMITED", availableProviderCount: 1, nearestRouteEtaMinutes: 22 },
+    { serviceId: "svc-washer", state: "LIMITED", availableProviderCount: 1, nearestRouteEtaMinutes: 35 },
     // Checked, and there is genuinely nobody — different from unknown.
     { serviceId: "svc-ac", state: "UNAVAILABLE", availableProviderCount: 0, reasonCode: "NO_ELIGIBLE_SUPPLY" },
-    { serviceId: "svc-moving", state: "UNKNOWN", reasonCode: "NOT_COMPUTED" },
-    // svc-paint is absent from the snapshot entirely, which must also read
-    // as unknown rather than as zero.
+    // Deliberately left out of the snapshot entirely: svc-pest. The server
+    // did not report it, which must read as "לא ידוע" and never as zero.
   ],
 };
 

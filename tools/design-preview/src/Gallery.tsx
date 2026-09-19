@@ -13,6 +13,7 @@ import {
   OfferCardSkeleton,
   ProOfferBody,
   ProOnlineBody,
+  ProShiftBody,
   ProProfileBody,
   QuoteApprovalBody,
   SearchingBody,
@@ -134,9 +135,25 @@ function Section({
   );
 }
 
+/**
+ * A FIXED "now" for the shift frames.
+ *
+ * The gallery is a review surface, and a screen whose numbers drift while
+ * someone is reading it cannot be reviewed — nor screenshotted and compared
+ * to the same frame tomorrow. The app passes a real clock; the gallery
+ * passes this.
+ */
+const SHIFT_NOW = Date.parse("2026-09-19T18:00:00.000Z");
+
 export function Gallery() {
   const noop = () => undefined;
   const PHONE_W = usePhoneWidth();
+  const shiftServices = proServices.map((s) => ({
+    id: s.id,
+    nameHe: s.nameHe,
+    mark: s.mark,
+    live: s.enabled && !s.blockedReasonHe,
+  }));
 
   return (
     <ScrollView style={styles.page} contentContainerStyle={styles.pageContent}>
@@ -484,6 +501,90 @@ export function Gallery() {
           <View style={styles.cardPad}>
             <MatchCardSkeleton />
           </View>
+        </Frame>
+      </Section>
+
+      {/* =============== PRO SHIFT INTELLIGENCE =============== */}
+      <Section
+        dark
+        title="המשמרת שלי"
+        subtitle="P01 · לפני המשמרת: האם שווה להתחבר עכשיו. בתוך המשמרת: האם המשמרת עובדת. שני מסכים במסגרת אחת — ומה שאין לנו, לא נמציא."
+      >
+        <Frame dark caption="מחוץ למשמרת · תדריך חלקי — אין נתוני ביקוש, והמסך לא ממציא">
+          <ProShiftBody
+            displayNameHe="דוגמה ד׳ (תצוגה)"
+            presenceState="OFFLINE"
+            shift={{ onlineSinceMs: null, settledNetMinorUnits: null, completedJobs: 0 }}
+            briefing={{ peersOnline: 2, lastWeekNetMinorUnits: 384000, lastWeekOnlineMinutes: 1215 }}
+            services={shiftServices}
+            nowMs={SHIFT_NOW}
+            width={PHONE_W}
+            height={PHONE_H}
+          />
+        </Frame>
+
+        <Frame dark caption="מחוץ למשמרת · השרת לא דיווח כלום. אפס שורות — וזה מצב מתוכנן">
+          <ProShiftBody
+            displayNameHe="דוגמה ד׳ (תצוגה)"
+            presenceState="OFFLINE"
+            shift={{ onlineSinceMs: null, settledNetMinorUnits: null, completedJobs: 0 }}
+            briefing={{}}
+            services={shiftServices}
+            nowMs={SHIFT_NOW}
+            width={PHONE_W}
+            height={PHONE_H}
+          />
+        </Frame>
+
+        <Frame dark caption="9 דקות במשמרת · ₪120 — אריתמטית ₪800 לשעה. המסך מסרב, ומסביר למה">
+          <ProShiftBody
+            displayNameHe="דוגמה ד׳ (תצוגה)"
+            presenceState="AVAILABLE"
+            shift={{
+              onlineSinceMs: SHIFT_NOW - 9 * 60_000,
+              settledNetMinorUnits: 12000,
+              completedJobs: 1,
+            }}
+            services={shiftServices}
+            nowMs={SHIFT_NOW}
+            width={PHONE_W}
+            height={PHONE_H}
+          />
+        </Frame>
+
+        <Frame dark caption="3 שעות במשמרת · עכשיו הרווח לשעה אומר משהו, ומוצג">
+          <ProShiftBody
+            displayNameHe="דוגמה ד׳ (תצוגה)"
+            presenceState="AVAILABLE"
+            shift={{
+              onlineSinceMs: SHIFT_NOW - 185 * 60_000,
+              settledNetMinorUnits: 61500,
+              completedJobs: 4,
+              inProgressJobs: 1,
+              busyMinutes: 128,
+            }}
+            services={shiftServices}
+            nowMs={SHIFT_NOW}
+            width={PHONE_W}
+            height={PHONE_H}
+          />
+        </Frame>
+
+        <Frame dark caption="משמרת ארוכה ושקטה · ₪0 לשעה. מספר אמיתי, גם כשהוא לא נעים">
+          <ProShiftBody
+            displayNameHe="דוגמה ד׳ (תצוגה)"
+            presenceState="AVAILABLE"
+            shift={{
+              onlineSinceMs: SHIFT_NOW - 150 * 60_000,
+              settledNetMinorUnits: 0,
+              completedJobs: 0,
+              busyMinutes: 0,
+            }}
+            services={shiftServices}
+            nowMs={SHIFT_NOW}
+            width={PHONE_W}
+            height={PHONE_H}
+          />
         </Frame>
       </Section>
 

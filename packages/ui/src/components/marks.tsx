@@ -25,7 +25,19 @@ export type MarkName =
   | "appliance"
   | "cleaning"
   | "handyman"
-  | "garden";
+  | "garden"
+  | "furniture"
+  | "pest"
+  | "glass"
+  | "sealing"
+  | "carpentry"
+  | "tv"
+  | "gas"
+  | "solar"
+  | "tiling"
+  | "drywall"
+  | "curtains"
+  | "alarm";
 
 export interface MarkProps {
   name: MarkName;
@@ -121,6 +133,112 @@ export function Mark({ name, size = 24, color = "#14151A", strokeWidth = 1.8 }: 
           <Path d="M12 21v-7" {...common} />
           <Path d="M12 14c-4 0-6-2.5-6-6 4 0 6 2.5 6 6z" {...common} />
           <Path d="M12 14c4 0 6-2.5 6-6-4 0-6 2.5-6 6z" {...common} />
+        </>
+      )}
+
+      {/* Flat-pack assembly: an allen key over a panel. */}
+      {name === "furniture" && (
+        <>
+          <Rect x={3} y={6} width={12} height={12} rx={1.6} {...common} />
+          <Line x1={3} y1={11} x2={15} y2={11} {...common} />
+          <Path d="M17 6h4v4M21 6l-4.5 4.5" {...common} />
+          <Path d="M16.5 10.5 15 18" {...common} />
+        </>
+      )}
+
+      {/* Pest control: a spray canister, not an insect. Nobody wants a bug
+          drawn on their home screen. */}
+      {name === "pest" && (
+        <>
+          <Rect x={7} y={8} width={8} height={13} rx={2.4} {...common} />
+          <Path d="M9.5 8V5.5h3V8" {...common} />
+          <Path d="M15 6h3M15 9h4M15 12h2.5" {...common} />
+          <Line x1={9.5} y1={13} x2={12.5} y2={13} {...common} />
+        </>
+      )}
+
+      {name === "glass" && (
+        <>
+          <Rect x={3.5} y={3.5} width={17} height={17} rx={2} {...common} />
+          <Line x1={12} y1={3.5} x2={12} y2={20.5} {...common} />
+          <Line x1={3.5} y1={12} x2={20.5} y2={12} {...common} />
+          <Path d="M15.5 6.5 19 10" {...common} />
+        </>
+      )}
+
+      {/* Sealing / waterproofing: a drop stopped by a surface. */}
+      {name === "sealing" && (
+        <>
+          <Path d="M12 3s5 5.6 5 9a5 5 0 0 1-10 0c0-3.4 5-9 5-9z" {...common} />
+          <Line x1={3} y1={21} x2={21} y2={21} {...common} />
+        </>
+      )}
+
+      {name === "carpentry" && (
+        <>
+          <Path d="M3 17.5 13 7.5l3.5 3.5L6.5 21z" {...common} />
+          <Path d="M13 7.5 16.5 4l3.5 3.5L16.5 11" {...common} />
+          <Line x1={5} y1={19.5} x2={8} y2={16.5} {...common} />
+        </>
+      )}
+
+      {/* Screen / antenna work. */}
+      {name === "tv" && (
+        <>
+          <Rect x={3} y={4} width={18} height={12} rx={2.2} {...common} />
+          <Line x1={9} y1={20} x2={15} y2={20} {...common} />
+          <Line x1={12} y1={16} x2={12} y2={20} {...common} />
+        </>
+      )}
+
+      {name === "gas" && (
+        <>
+          <Path d="M12 3c0 3-3 4-3 7a3 3 0 0 0 6 0c0-1.4-.8-2.3-1.5-3.2" {...common} />
+          <Path d="M7 13a5.5 5.5 0 0 0 10 0" {...common} />
+          <Rect x={8} y={17} width={8} height={4} rx={1.4} {...common} />
+        </>
+      )}
+
+      {name === "solar" && (
+        <>
+          <Path d="M4 16h16l-2-9H6z" {...common} />
+          <Line x1={9} y1={7} x2={8} y2={16} {...common} />
+          <Line x1={15} y1={7} x2={16} y2={16} {...common} />
+          <Line x1={5} y1={11.5} x2={19} y2={11.5} {...common} />
+          <Line x1={12} y1={16} x2={12} y2={21} {...common} />
+        </>
+      )}
+
+      {name === "tiling" && (
+        <>
+          <Rect x={3} y={3} width={7.5} height={7.5} rx={1.2} {...common} />
+          <Rect x={13.5} y={3} width={7.5} height={7.5} rx={1.2} {...common} />
+          <Rect x={3} y={13.5} width={7.5} height={7.5} rx={1.2} {...common} />
+          <Rect x={13.5} y={13.5} width={7.5} height={7.5} rx={1.2} {...common} />
+        </>
+      )}
+
+      {/* Plaster / drywall: a trowel. */}
+      {name === "drywall" && (
+        <>
+          <Path d="M3 14 14 3l7 7-11 11z" {...common} />
+          <Line x1={10} y1={7} x2={17} y2={14} {...common} />
+        </>
+      )}
+
+      {name === "curtains" && (
+        <>
+          <Line x1={3} y1={4} x2={21} y2={4} {...common} />
+          <Path d="M7 4v13c0 2-1 3-2 3M17 4v13c0 2 1 3 2 3" {...common} />
+          <Path d="M7 4c2 4 2 10 0 16M17 4c-2 4-2 10 0 16" {...common} />
+        </>
+      )}
+
+      {name === "alarm" && (
+        <>
+          <Path d="M12 3l7 3v5.5c0 4.5-3 8-7 9.5-4-1.5-7-5-7-9.5V6z" {...common} />
+          <Circle cx={12} cy={11} r={2.4} {...common} />
+          <Line x1={12} y1={13.4} x2={12} y2={16} {...common} />
         </>
       )}
     </Svg>

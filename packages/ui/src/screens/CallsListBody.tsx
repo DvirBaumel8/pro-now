@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { formatMoney, money } from "@pro-now/types";
 
-import { customerTheme, elevation, palette, radii, spacing, tabular, tint, type } from "../theme";
+import { customerTheme, elevation, radii, spacing, tabular, tint, type } from "../theme";
 import { lex } from "../lexicon";
 import { ClockMark, Mark, type MarkName, StarMark } from "../components/marks";
 import { Persona } from "../components/Persona";
@@ -102,7 +102,7 @@ export function CallsListBody({
                 </View>
                 {c.etaMinutes !== null ? (
                   <View style={styles.liveEta}>
-                    <ClockMark size={14} color={palette.white} />
+                    <ClockMark size={14} color={colors.onAction} />
                     <Text style={styles.liveEtaText}>{c.etaMinutes} דק׳</Text>
                   </View>
                 ) : null}
@@ -261,11 +261,11 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: radii.pill,
   },
-  liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: palette.white },
-  liveState: { ...type.captionStrong, color: palette.white, writingDirection: "rtl" },
+  liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.onAction },
+  liveState: { ...type.captionStrong, color: colors.onAction, writingDirection: "rtl" },
   liveEta: { flexDirection: "row-reverse", alignItems: "center", gap: 5 },
-  liveEtaText: { ...type.bodyStrong, ...tabular, color: palette.white },
-  liveService: { ...type.h2, color: palette.white, textAlign: "right", writingDirection: "rtl", marginTop: spacing.md },
+  liveEtaText: { ...type.bodyStrong, ...tabular, color: colors.onAction },
+  liveService: { ...type.h2, color: colors.onAction, textAlign: "right", writingDirection: "rtl", marginTop: spacing.md },
   livePro: { flexDirection: "row-reverse", alignItems: "center", gap: spacing.sm, marginTop: spacing.md },
   liveProName: { ...type.caption, color: "rgba(255,255,255,0.92)", writingDirection: "rtl" },
 

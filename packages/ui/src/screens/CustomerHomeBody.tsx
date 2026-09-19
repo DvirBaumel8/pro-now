@@ -306,6 +306,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     alignSelf: "flex-end",
     gap: 6,
+    // The address is the first thing Amit reported he could not tap. 30px
+    // tall is a label that happens to be pressable; 44 is a control.
+    minHeight: 44,
     paddingVertical: 6,
     paddingHorizontal: spacing.md,
     borderRadius: radii.pill,
