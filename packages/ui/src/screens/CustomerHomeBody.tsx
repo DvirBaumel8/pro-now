@@ -1,11 +1,12 @@
-import React from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useMemo, useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import type { AreaAvailabilityView } from "@pro-now/types";
 
-import { lex, prosFreeNearYou } from "../lexicon";
+import { lex } from "../lexicon";
+import { matchServicesByText, type ServiceMatchRule } from "../service-match";
 import { resolveHomeSupply } from "../home-supply";
-import { customerTheme, radii, spacing, tint, type } from "../theme";
+import { customerTheme, elevation, radii, spacing, tint, type } from "../theme";
 import { Mark, PinMark, type MarkName } from "../components/marks";
 import { HeroFlourish, SectionHeader } from "../components/surfaces";
 import { ServiceTile, ServiceRow } from "../components/ServiceTile";
@@ -18,11 +19,26 @@ import { ServiceTile, ServiceRow } from "../components/ServiceTile";
  * design gallery. That is what keeps the reviewed design and the shipped
  * design the same thing.
  *
- * The honesty rule that shapes this screen: `availableNowCount` is passed
- * through from the server per service and is frequently `null`. A tile with
- * an unknown count shows no count — never "0", never a plausible number
+ * The honesty rule that shapes this screen: supply is passed through from
+ * the server PER SERVICE and is frequently unknown. A tile with an unknown
+ * count shows no count — never "0", never a plausible number
  * (/CLAUDE.md §3). A quiet marketplace is allowed to look quiet; that is
  * the price of the promise that "online" means online.
+ *
+ * WHY THERE IS NO TOTAL. An earlier version led with "7 מקצוענים פנויים
+ * עכשיו לידך", and the first person to use it asked the right question:
+ * seven of what? The app does not yet know whether they need a plumber or a
+ * locksmith, and seven professionals across eight trades says nothing about
+ * whether the one they need is reachable. Worse, it reads as readiness — so
+ * a customer with a burst pipe sees "7 available" and taps into a dispatch
+ * that finds nobody, because all seven paint walls.
+ *
+ * An aggregate is not a small inaccuracy here; it is the promise this
+ * product is built on, stated about a group that cannot keep it. So supply
+ * appears only where it is actionable: attached to a specific service. The
+ * catalogue is split instead — what is genuinely reachable right now first,
+ * everything else below — which answers "what can I actually get now?"
+ * without ever claiming a number the customer cannot use.
  */
 
 const colors = customerTheme.colors;
@@ -67,6 +83,11 @@ export interface CustomerHomeBodyProps {
   availability?: AreaAvailabilityView | null;
   /** Injected by tests and the gallery so the freshness rule is observable. */
   nowMs?: number;
+  /**
+   * Keyword rules for the "describe what happened" box. Omit to hide the box
+   * entirely — a search that matches nothing is worse than no search.
+   */
+  matchRules?: ServiceMatchRule[];
   /** Total professionals online, for callers with no snapshot yet. */
   totalAvailableNow?: number | null;
   onSelectService?: (id: string) => void;
@@ -81,6 +102,7 @@ export function CustomerHomeBody({
   recent = [],
   availability,
   nowMs,
+  matchRules,
   totalAvailableNow,
   onSelectService,
   onChangeAddress,
@@ -97,8 +119,31 @@ export function CustomerHomeBody({
     legacyTotal: totalAvailableNow,
     legacyCounts: Object.fromEntries(services.map((s) => [s.id, s.availableNowCount])),
   });
-  const total = supply.total;
-  const showSupply = typeof total === "number" && total > 0;
+  /*
+   * Ordering IS the message. Services the server can actually deliver right
+   * now come first under "פנויים עכשיו לידך"; everything else follows. When
+   * nothing is known, there is no split at all and the catalogue is just a
+   * catalogue — which is the honest picture of not knowing.
+   */
+  const free = services.filter((s) => {
+    const st = supply.supplyFor(s.id).state;
+    return st === "AVAILABLE" || st === "LIMITED";
+  });
+  const rest = services.filter((s) => !free.includes(s));
+  const anyFresh = free.length > 0;
+
+  /*
+   * Describing the problem is how people actually think — "there's water
+   * under the sink", not "plumbing". The box routes that to a SERVICE; which
+   * professional comes is still dispatch's decision, which is why the
+   * matcher cannot reach a person (see service-match.ts).
+   */
+  const [query, setQuery] = useState("");
+  const matched = useMemo(() => {
+    if (!matchRules || query.trim().length < 2) return null;
+    const ids = matchServicesByText(query, matchRules).map((m) => m.serviceId);
+    return ids.map((id) => services.find((s) => s.id === id)).filter(Boolean) as HomeServiceItem[];
+  }, [query, matchRules, services]);
 
   return (
     <ScrollView style={[styles.screen, { width }]} contentContainerStyle={{ paddingBottom: spacing.xxl }}>
@@ -117,39 +162,104 @@ export function CustomerHomeBody({
         <Text style={styles.greeting}>{greetingHe}</Text>
         <Text style={styles.headline}>{lex.homeQuestion}</Text>
 
-        {showSupply ? (
-          <View style={styles.supplyPill}>
-            <View style={styles.supplyDot} />
-            <Text style={styles.supplyText}>{prosFreeNearYou(total as number)}</Text>
+        {/*
+          * No aggregate count. See the note at the top of this file: the
+          * number the customer can act on lives on the service tile, where
+          * it means something.
+          */}
+        {matchRules ? (
+          <View style={styles.searchWrap}>
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder="תאר במילים שלך מה קרה"
+              placeholderTextColor={colors.textSecondary}
+              style={styles.search}
+              textAlign="right"
+              accessibilityLabel="תיאור התקלה"
+            />
+          </View>
+        ) : null}
+
+        {matched === null ? (
+          <Text style={styles.supplyUnknown}>
+            {anyFresh
+              ? "מה שאפשר לקבל עכשיו מופיע ראשון"
+              : `בוחרים שירות ואנחנו ${lex.unknownSupply} באזור שלך`}
+          </Text>
+        ) : matched.length > 0 ? (
+          <View style={styles.matchWrap}>
+            {/* "נראה שזה", not "הבנתי" — it is a keyword matcher and the
+                copy does not promise more than it is. */}
+            <Text style={styles.matchLead}>נראה שזה:</Text>
+            <View style={styles.matchRow}>
+              {matched.map((m) => (
+                <Pressable
+                  key={m.id}
+                  onPress={() => onSelectService?.(m.id)}
+                  accessibilityRole="button"
+                  style={styles.matchChip}
+                >
+                  <Mark name={m.mark} size={15} color={colors.action} />
+                  <Text style={styles.matchChipText} numberOfLines={1}>
+                    {m.nameHe}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
           </View>
         ) : (
-          // Honest absence. Not "0 available" — the server simply has not
-          // told us, and guessing here would be inventing supply. The copy is
-          // the same whether the snapshot is missing or expired, because to
-          // the customer those are the same fact: we do not know right now.
-          <Text style={styles.supplyUnknown}>בוחרים שירות ואנחנו {lex.unknownSupply} באזור שלך</Text>
+          <Text style={styles.supplyUnknown}>
+            לא זיהינו לפי התיאור. בחר מהרשימה למטה — או נסה לכתוב אחרת.
+          </Text>
         )}
       </View>
 
-      {/* --- Services --- */}
+      {/* --- Services, split by what is actually reachable right now --- */}
       <View style={{ paddingHorizontal: gutter }}>
-        <SectionHeader title={lex.freeNearYou} colors={colors} />
-        <View style={styles.grid}>
-          {services.map((s) => (
-            <ServiceTile
-              key={s.id}
-              nameHe={s.nameHe}
-              mark={s.mark}
-              photoSubject={s.photoSubject}
-              photoUri={s.photoUri}
-              supply={supply.supplyFor(s.id)}
-              priceHint={s.priceHint}
-              colors={colors}
-              width={tileWidth}
-              onPress={() => onSelectService?.(s.id)}
-            />
-          ))}
-        </View>
+        {free.length > 0 ? (
+          <>
+            <SectionHeader title={lex.freeNearYou} colors={colors} />
+            <View style={styles.grid}>
+              {free.map((s) => (
+                <ServiceTile
+                  key={s.id}
+                  nameHe={s.nameHe}
+                  mark={s.mark}
+                  photoSubject={s.photoSubject}
+                  photoUri={s.photoUri}
+                  supply={supply.supplyFor(s.id)}
+                  priceHint={s.priceHint}
+                  colors={colors}
+                  width={tileWidth}
+                  onPress={() => onSelectService?.(s.id)}
+                />
+              ))}
+            </View>
+          </>
+        ) : null}
+
+        {rest.length > 0 ? (
+          <View style={free.length > 0 ? { marginTop: spacing.xxl } : undefined}>
+            <SectionHeader title={free.length > 0 ? "שירותים נוספים" : "שירותים"} colors={colors} />
+            <View style={styles.grid}>
+              {rest.map((s) => (
+                <ServiceTile
+                  key={s.id}
+                  nameHe={s.nameHe}
+                  mark={s.mark}
+                  photoSubject={s.photoSubject}
+                  photoUri={s.photoUri}
+                  supply={supply.supplyFor(s.id)}
+                  priceHint={s.priceHint}
+                  colors={colors}
+                  width={tileWidth}
+                  onPress={() => onSelectService?.(s.id)}
+                />
+              ))}
+            </View>
+          </View>
+        ) : null}
       </View>
 
       {/* --- Recent --- */}
@@ -221,19 +331,33 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  supplyPill: {
+  searchWrap: { alignSelf: "stretch", marginTop: spacing.lg },
+  search: {
+    minHeight: 52,
+    borderRadius: radii.pill,
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.lg,
+    ...type.body,
+    fontSize: 15,
+    color: colors.textPrimary,
+    writingDirection: "rtl",
+    ...elevation(1),
+  },
+
+  matchWrap: { alignSelf: "stretch", marginTop: spacing.md, alignItems: "flex-end" },
+  matchLead: { ...type.caption, color: colors.textSecondary, writingDirection: "rtl" },
+  matchRow: { flexDirection: "row-reverse", flexWrap: "wrap", gap: spacing.sm, marginTop: 6 },
+  matchChip: {
     flexDirection: "row-reverse",
     alignItems: "center",
-    alignSelf: "flex-end",
-    gap: 7,
-    marginTop: spacing.lg,
-    paddingVertical: 7,
+    gap: 6,
     paddingHorizontal: spacing.md,
+    paddingVertical: 9,
     borderRadius: radii.pill,
-    backgroundColor: tint.action(),
+    backgroundColor: tint.action(0.14),
   },
-  supplyDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.action },
-  supplyText: { ...type.captionStrong, color: colors.action, writingDirection: "rtl" },
+  matchChipText: { ...type.captionStrong, color: colors.action, writingDirection: "rtl" },
+
   supplyUnknown: {
     ...type.caption,
     color: colors.textSecondary,

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 
 import {
+  AddressPickerBody,
   CustomerHomeBody,
   CustomerProfileBody,
   JobCompleteBody,
@@ -22,6 +23,7 @@ import {
   tint,
   type as t,
 } from "@pro-now/ui";
+import type { LiveLocationState } from "@pro-now/ui";
 import type { ProPresenceState } from "@pro-now/types";
 
 import { matchFixture, offerFixture } from "./fixtures";
@@ -31,6 +33,8 @@ import {
   customerOpenCall,
   homeRecent,
   homeServices,
+  matchRules,
+  savedAddresses,
   proServices,
   profileReviews,
   profileServices,
@@ -71,6 +75,7 @@ type Side = "customer" | "pro";
 
 type CustomerRoute =
   | { name: "home" }
+  | { name: "address" }
   | { name: "service"; serviceId: string }
   | { name: "searching"; serviceId: string }
   | { name: "tracking"; stage: "assigned" | "enroute" | "arrived" }
@@ -152,6 +157,39 @@ function CustomerApp({
 }) {
   const snapshot = useLiveSnapshot();
   const [tab, setTab] = useState<CustomerTab>("home");
+  const [addressId, setAddressId] = useState<string>("addr_home");
+  const [live, setLive] = useState<LiveLocationState>({ status: "idle" });
+
+  const chosen = savedAddresses.find((a) => a.id === addressId) ?? savedAddresses[0]!;
+  // The label on the home screen says whose door this is. Forgetting that a
+  // call is for someone else is how a professional ends up at the wrong flat.
+  const addressLabel = chosen.forSomeoneElseNameHe
+    ? `${chosen.labelHe} · עבור ${chosen.forSomeoneElseNameHe}`
+    : chosen.formattedHe.split(" · ")[0] ?? chosen.labelHe;
+
+  /*
+   * A real permission request, not a decoration. If the device refuses or
+   * cannot answer, the screen says so — it never invents a position.
+   */
+  const askLocation = useCallback(() => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setLive({ status: "unavailable" });
+      return;
+    }
+    setLive({ status: "asking" });
+    navigator.geolocation.getCurrentPosition(
+      (pos) =>
+        setLive({
+          status: "ready",
+          // A coordinate is not a street. Turning one into an address needs a
+          // geocoding vendor, which is still an open decision (CLAUDE.md §4),
+          // so the honest thing to show is the position itself.
+          coarseLabelHe: `מיקום נוכחי · ${pos.coords.latitude.toFixed(3)}, ${pos.coords.longitude.toFixed(3)}`,
+        }),
+      (err) => setLive({ status: err.code === err.PERMISSION_DENIED ? "denied" : "unavailable" }),
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 60_000 }
+    );
+  }, []);
   const [route, setRoute] = useState<CustomerRoute>({ name: "home" });
   const [elapsed, setElapsed] = useState(0);
 
@@ -210,6 +248,20 @@ function CustomerApp({
     }
 
     switch (route.name) {
+      case "address":
+        return (
+          <AddressPickerBody
+            saved={savedAddresses}
+            selectedId={addressId}
+            liveLocation={live}
+            onUseLiveLocation={askLocation}
+            onSelect={setAddressId}
+            onConfirm={() => go({ name: "home" })}
+            onBack={() => go({ name: "home" })}
+            width={width}
+            height={bodyH}
+          />
+        );
       case "service": {
         const page = SERVICE_PAGES[route.serviceId] ?? serviceDetailLeak;
         return (
@@ -283,17 +335,19 @@ function CustomerApp({
         return (
           <CustomerHomeBody
             greetingHe="ערב טוב"
-            addressLabelHe={availabilitySnapshot.areaLabel}
+            addressLabelHe={addressLabel}
             services={homeServices}
             recent={homeRecent}
             availability={snapshot}
             nowMs={Date.now()}
+            matchRules={matchRules}
             width={width}
             onSelectService={(id) => go({ name: "service", serviceId: id })}
+            onChangeAddress={() => go({ name: "address" })}
           />
         );
     }
-  }, [tab, route, elapsed, width, bodyH, go]);
+  }, [tab, route, elapsed, width, bodyH, go, snapshot, addressId, live, askLocation, addressLabel]);
 
   // A tracked job needs somewhere to go next; the prototype offers the same
   // advances the server would push.

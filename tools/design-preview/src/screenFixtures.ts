@@ -8,6 +8,8 @@ import type {
   CustomerOpenCall,
   ProServiceToggle,
   ReceiptLine,
+  SavedAddress,
+  ServiceMatchRule,
   ServiceDetailBodyProps,
 } from "@pro-now/ui";
 
@@ -104,6 +106,14 @@ export const serviceDetailLeak: Omit<ServiceDetailBodyProps, "width" | "height">
   mark: "plumbing",
   photoSubject: "מטבח · ברז נוטף וארון מתחת לכיור",
   descriptionHe: "נזילה מברז, מסיפון או מצנרת גלויה — אבחון ותיקון באותו ביקור כשניתן.",
+  symptomsHe: [
+    "ברז מטפטף",
+    "מים מתחת לכיור",
+    "כתם רטוב בקיר",
+    "סתימה שלא נפתחת",
+    "לחץ מים נמוך",
+    "לא יודע מאיפה",
+  ],
   includedHe: [
     "הגעה עד הבית ואבחון מקור הנזילה",
     "תיקון מיידי כשהוא אפשרי בכלים ובחלקים שבידי בעל המקצוע",
@@ -124,6 +134,14 @@ export const serviceDetailElectric: Omit<ServiceDetailBodyProps, "width" | "heig
   mark: "electrical",
   photoSubject: "לוח חשמל ביתי פתוח",
   descriptionHe: "הפסקת חשמל מקומית, ממסר פחת שקופץ, שקע או מעגל שאינו עובד.",
+  symptomsHe: [
+    "הפחת קופץ שוב ושוב",
+    "חדר שלם בלי חשמל",
+    "שקע מסוים לא עובד",
+    "ריח שרוף",
+    "אור מהבהב",
+    "לא יודע מאיפה",
+  ],
   includedHe: ["איתור התקלה בלוח ובמעגלים", "תיקון תקלות נפוצות במקום"],
   notIncludedHe: ["החלפת לוח חשמל שלם", "עבודות תשתית בקירות"],
   price: {
@@ -315,5 +333,39 @@ export const customerOpenCall: CustomerOpenCall[] = [
     etaMinutes: 14,
     proSeed: "pro_2",
     proNameHe: cast[1]!.nameHe,
+  },
+];
+
+// ---------------------------------------------------------------------
+// Routing a sentence to a service
+// ---------------------------------------------------------------------
+
+/**
+ * The words people actually type, not category names. A customer writes
+ * "מטפטף לי הברז", never "אינסטלציה".
+ */
+export const matchRules: ServiceMatchRule[] = [
+  {
+    serviceId: "svc-leak",
+    keywords: ["נזילה", "נוזל", "דולף", "מטפטף", "ברז", "מים", "סיפון", "צינור", "כיור", "סתימה", "ביוב"],
+  },
+  {
+    serviceId: "svc-electric",
+    keywords: ["חשמל", "פחת", "שקע", "נורה", "אור", "קצר", "לוח חשמל", "הפסקת חשמל", "מפסק"],
+  },
+  { serviceId: "svc-ac", keywords: ["מזגן", "מיזוג", "לא מקרר", "לא מחמם", "מטפטף מהמזגן"] },
+  { serviceId: "svc-lock", keywords: ["מנעול", "מפתח", "ננעלתי", "נעול", "דלת", "צילינדר"] },
+  { serviceId: "svc-moving", keywords: ["הובלה", "מעבר דירה", "ארגזים", "להעביר", "משאית"] },
+  { serviceId: "svc-paint", keywords: ["צביעה", "לצבוע", "צבע", "קיר", "טיח"] },
+];
+
+export const savedAddresses: SavedAddress[] = [
+  { id: "addr_home", labelHe: "בית", formattedHe: "רמת אביב, תל אביב · קומה 3, דירה 9" },
+  { id: "addr_work", labelHe: "עבודה", formattedHe: "הרצליה פיתוח · בניין B, קומה 2" },
+  {
+    id: "addr_grandpa",
+    labelHe: "אצל סבא",
+    formattedHe: "רמת גן · קומה 1, דירה 4",
+    forSomeoneElseNameHe: "סבא יוסף (תצוגה)",
   },
 ];

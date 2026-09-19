@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import type { PriceQuoteView } from "@pro-now/types";
@@ -16,6 +16,19 @@ import { ImageSlot, SectionHeader, Surface } from "../components/surfaces";
  * because once a professional accepts, someone has left to drive to this
  * address. So it answers three questions in order: what am I paying, what
  * is included, and what happens the moment I press the button.
+ *
+ * SYMPTOMS ARE SELECTABLE, NOT PROSE. The description used to end with a
+ * comma-separated list — "הפסקת חשמל מקומית, ממסר פחת שקופץ, שקע שאינו
+ * עובד" — and the first person to read it asked what those options meant.
+ * They were right to: a list of concrete cases reads as a set of choices,
+ * and if tapping one does nothing the screen has lied about its own
+ * affordance.
+ *
+ * Making them real chips is also the better product. The job row already has
+ * a `structuredAnswers` column (/docs/05-DATABASE.md); filling it at the
+ * only moment the customer actually knows the answer means the professional
+ * arrives knowing whether it is one dead socket or the whole flat, and can
+ * bring the right part instead of a second visit.
  *
  * Honesty rules:
  * - Pricing copy is derived from the server's `PriceQuoteView` by
@@ -39,6 +52,11 @@ export interface ServiceDetailBodyProps {
   photoSubject: string;
   photoUri?: string | null;
   descriptionHe: string;
+  /**
+   * Concrete cases the customer can tap. Optional: a service with no useful
+   * distinctions should not invent them just to fill the screen.
+   */
+  symptomsHe?: string[];
   /** What the visit covers. Facts from the catalogue, not marketing. */
   includedHe: string[];
   /** What it explicitly does not cover — prevents the dispute, later. */
@@ -48,7 +66,8 @@ export interface ServiceDetailBodyProps {
   availableNowCount: number | null;
   /** Credentials required for this service, per /CLAUDE.md §3. */
   requiredCredentialsHe: string[];
-  onRequestNow?: () => void;
+  /** Receives the tapped symptoms, for the job's structuredAnswers. */
+  onRequestNow?: (symptomsHe: string[]) => void;
   /** Re-runs the supply query. The honest action when nobody is online. */
   onRecheck?: () => void;
   onBack?: () => void;
@@ -62,6 +81,7 @@ export function ServiceDetailBody({
   photoSubject,
   photoUri = null,
   descriptionHe,
+  symptomsHe = [],
   includedHe,
   notIncludedHe,
   price,
@@ -75,6 +95,9 @@ export function ServiceDetailBody({
 }: ServiceDetailBodyProps) {
   const explainer = priceExplainer(price);
   const canDispatch = availableNowCount !== null && availableNowCount > 0;
+  const [picked, setPicked] = useState<string[]>([]);
+  const toggle = (sx: string) =>
+    setPicked((cur) => (cur.includes(sx) ? cur.filter((x) => x !== sx) : [...cur, sx]));
 
   return (
     <View style={[styles.screen, { width, height }]}>
@@ -128,6 +151,40 @@ export function ServiceDetailBody({
             )}
           </View>
         </View>
+
+        {/* ---------------- What's actually happening ---------------- */}
+        {symptomsHe.length > 0 ? (
+          <View style={styles.block}>
+            <SectionHeader title="מה קורה אצלך?" colors={colors} />
+            <View style={styles.symptoms}>
+              {symptomsHe.map((sx) => {
+                const on = picked.includes(sx);
+                return (
+                  <Pressable
+                    key={sx}
+                    onPress={() => toggle(sx)}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: on }}
+                    style={[
+                      styles.symptom,
+                      on && { backgroundColor: tint.action(0.14), borderColor: colors.action },
+                    ]}
+                  >
+                    <Text
+                      style={[styles.symptomText, on && { color: colors.action, fontWeight: "700" }]}
+                      numberOfLines={2}
+                    >
+                      {sx}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <Text style={styles.symptomNote}>
+              לא חובה — אבל זה מה שקובע אם המקצוען מגיע עם החלק הנכון או חוזר פעם שנייה.
+            </Text>
+          </View>
+        ) : null}
 
         {/* ---------------- Price ---------------- */}
         <View style={styles.block}>
@@ -206,7 +263,7 @@ export function ServiceDetailBody({
        */}
       <View style={styles.cta}>
         <Pressable
-          onPress={canDispatch ? onRequestNow : onRecheck}
+          onPress={canDispatch ? () => onRequestNow?.(picked) : onRecheck}
           accessibilityRole="button"
           accessibilityLabel={canDispatch ? `בקשת ${nameHe} עכשיו` : "בדיקה מחדש של הזמינות"}
           style={({ pressed }) => [
@@ -311,6 +368,26 @@ const styles = StyleSheet.create({
     writingDirection: "rtl",
     marginTop: spacing.xs,
     lineHeight: 19,
+  },
+
+  symptoms: { flexDirection: "row-reverse", flexWrap: "wrap", gap: spacing.sm },
+  symptom: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    borderRadius: radii.pill,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    maxWidth: "100%",
+  },
+  symptomText: { ...type.caption, fontSize: 14, color: colors.textPrimary, writingDirection: "rtl" },
+  symptomNote: {
+    ...type.caption,
+    color: colors.textSecondary,
+    textAlign: "right",
+    writingDirection: "rtl",
+    marginTop: spacing.md,
+    lineHeight: 18,
   },
 
   bullets: { gap: spacing.sm },
