@@ -8,6 +8,7 @@ import {
   MatchCardSkeleton,
   OfferCard,
   OfferCardSkeleton,
+  ProOfferBody,
   ProOnlineBody,
   ProProfileBody,
   QuoteApprovalBody,
@@ -401,6 +402,29 @@ export function Gallery() {
             width={PHONE_W}
             height={PHONE_H}
           />
+        </Frame>
+      </Section>
+
+      {/* =============== OFFER AS AN EVENT =============== */}
+      <Section
+        dark
+        title="הצעת עבודה — כאירוע"
+        subtitle="P16 · לא כרטיס עם עוד ריפוד. המפה היא הבמה, התשלום הוא הדבר הגדול במסך, הטבעת נקראת ממרחק זרוע, ויש פעולה חיובית אחת."
+      >
+        <Frame dark caption="P16 · תשלום ידוע · 30 שניות · טבעת רגועה">
+          <ProOfferBody offer={offerFixture} nowMs={FROZEN_NOW_MS} onAccept={noop} onSkip={noop} width={PHONE_W} height={PHONE_H} />
+        </Frame>
+
+        <Frame dark caption="P16 · תשלום משוער · נותרו 10 שניות">
+          <ProOfferBody offer={offerEstimateFixture} nowMs={FROZEN_NOW_MS + 20000} onAccept={noop} onSkip={noop} width={PHONE_W} height={PHONE_H} />
+        </Frame>
+
+        <Frame dark caption="P16 · הסכום לא ידוע מראש — נאמר, לא הומצא">
+          <ProOfferBody offer={offerUnknownPayoutFixture} nowMs={FROZEN_NOW_MS + 26000} onAccept={noop} onSkip={noop} width={PHONE_W} height={PHONE_H} />
+        </Frame>
+
+        <Frame dark caption="P16 · הסתיימה · הפעולות נעלמות, לא נכשלות">
+          <ProOfferBody offer={offerFixture} nowMs={FROZEN_NOW_MS + 40000} onAccept={noop} onSkip={noop} width={PHONE_W} height={PHONE_H} />
         </Frame>
       </Section>
 

@@ -1001,3 +1001,53 @@ entity and invoice model · insurance policy · pilot geography and service
 mix · **a licensed photography set**. Every one has an interface and a
 sandbox adapter already, so none of them blocks building; they block
 *launching*, and they are decisions with money and liability attached.
+
+---
+
+## 13. Round 4 — the offer stops being a card
+
+The review in §11.6 asked for the *experience* rather than more screens:
+the map as the stage, and a job offer that arrives as an event. This is the
+first piece of that.
+
+### 13.1 `ProOfferBody` (P16)
+
+A card says "here is some information". This screen has to say "something is
+happening to you, right now, and it stops in thirty seconds". Those are
+different jobs, so it is not the offer card with more padding:
+
+- **No container.** The type sits directly on the scene. A legibility scrim
+  carries it — a real vertical gradient, not a flat slab, because a slab
+  makes the map a strip at the top and then the map is not the stage. This
+  is the distinction /docs/03-DESIGN-SYSTEM.md is drawing when it rules out
+  "heavy gradients": ornament is out, the standard map-overlay technique is
+  not ornament.
+- **The payout is the largest thing on the screen** at 58px, because it is
+  the number the decision is actually made on.
+- **The countdown is a ring** readable at arm's length, drawn with
+  `strokeDasharray` so the arc length *is* the remaining fraction and the
+  picture cannot drift from the number inside it.
+- **One affirmative action.** Accept is full-width; skip is quiet text.
+
+### 13.2 What keeps the urgency from becoming pressure
+
+The urgency is real — a customer is waiting — and that is the only reason
+the screen is allowed to look like this. Three rules hold it:
+
+1. The ring counts down to the server's `expiresAt` and never decides when
+   the offer ends. On expiry the screen says so and both actions disappear
+   rather than failing on tap.
+2. The payout is shown before accepting, or admitted as unknown. A
+   plausible-looking number in place of one nobody has calculated is the
+   most damaging lie available here, because the professional commits to
+   driving on the strength of it.
+3. The address is not on this screen. Before acceptance the customer's
+   location is a coarse area label (/docs/12-PRIVACY.md).
+
+### 13.3 Still to do in this round
+
+The live supply language — "12 זמינים עכשיו", "הקרוב ביותר כ-8 דקות" —
+needs a real availability endpoint before any of it can appear. It is a
+server feature wearing a UI costume, and inventing the numbers in the client
+is precisely the failure the rest of this work exists to prevent. It waits
+for `prisma generate` and a booted API (§12.5).
