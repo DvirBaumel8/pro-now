@@ -1,9 +1,9 @@
 import React, { useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import type { AreaAvailabilityView } from "@pro-now/types";
 
-import { lex } from "../lexicon";
+import { lex, prosFreeShort } from "../lexicon";
 import { matchServicesByText, type ServiceMatchRule } from "../service-match";
 import { resolveHomeSupply } from "../home-supply";
 import { customerTheme, elevation, radii, spacing, tint, type } from "../theme";
@@ -11,6 +11,8 @@ import { Mark, PinMark, type MarkName } from "../components/marks";
 import { HeroFlourish, SectionHeader } from "../components/surfaces";
 import { ServiceRow } from "../components/ServiceTile";
 import { LiveServiceCard, Pulse } from "../components/LiveServiceCard";
+import { IntentCapture } from "../components/IntentCapture";
+import { CategoryCard } from "../components/CategoryCard";
 import { RtlRow } from "../components/RtlRow";
 import { ServiceListRow } from "../components/ServiceListRow";
 
@@ -67,6 +69,17 @@ export interface HomeServiceItem {
    * home repairs — "אנשים שמגיעים אליך" is a heading they can tap.
    */
   departmentHe?: string | null;
+  /**
+   * The mark for this service's DEPARTMENT, not for the service.
+   *
+   * A category card was borrowing the first service's mark, which put a
+   * wrench on "אנשים שמגיעים אליך" — a spanner standing for a personal
+   * trainer, because that department happens to list the handyman first.
+   * A category needs a mark chosen for the category.
+   */
+  departmentMark?: MarkName | null;
+  /** Modelled and visible, not launched. */
+  comingSoon?: boolean;
   /** Catalogued, never dispatched now. */
   scheduledOnly?: boolean;
   /** Dispatchable in principle, not open in this market yet. */
@@ -107,6 +120,31 @@ export interface CustomerHomeBodyProps {
   totalAvailableNow?: number | null;
   onSelectService?: (id: string) => void;
   onChangeAddress?: () => void;
+
+  /**
+   * ------------------------------------------------------------------
+   * CAPTURE — say it, record it, or show it.
+   * ------------------------------------------------------------------
+   * Handed in rather than owned here, for the same reason as on the
+   * describe screen: recording and the camera are platform capabilities
+   * (expo-av / MediaRecorder), and a presentational screen that reached for
+   * a browser API would stop being shippable on a phone.
+   *
+   * Omit all of it and the hero degrades to a plain text box, which is the
+   * correct fallback — not a microphone button that does nothing.
+   */
+  capture?: {
+    photos: number;
+    voiceSeconds: number | null;
+    recording: boolean;
+    recordSeconds: number;
+    canRecord: boolean;
+    onStartRecord?: () => void;
+    onStopRecord?: () => void;
+    onDeleteVoice?: () => void;
+    onAddPhoto?: () => void;
+    onClearPhotos?: () => void;
+  };
   width?: number;
 }
 
@@ -123,6 +161,7 @@ export function CustomerHomeBody({
   totalAvailableNow,
   onSelectService,
   onChangeAddress,
+  capture,
   width = 390,
 }: CustomerHomeBodyProps) {
   const gutter = spacing.lg;
@@ -145,7 +184,6 @@ export function CustomerHomeBody({
     const st = supply.supplyFor(s.id).state;
     return st === "AVAILABLE" || st === "LIMITED";
   });
-  const anyFresh = free.length > 0;
 
   /*
    * Describing the problem is how people actually think — "there's water
@@ -179,9 +217,67 @@ export function CustomerHomeBody({
     return ids.map((id) => services.find((s) => s.id === id)).filter(Boolean) as HomeServiceItem[];
   }, [query, matchRules, services]);
 
+  /**
+   * The match, dressed with live supply.
+   *
+   * The recommendation is only worth acting on if it also says whether
+   * anyone is there — "נראה שזה פתיחת סתימה" is a guess; "פתיחת סתימה · 3
+   * פנויים · 11 דק׳" is a decision the customer can make.
+   */
+  const intentMatches = useMemo(() => {
+    if (matched === null) return null;
+    return matched.map((m) => {
+      const sup = supply.supplyFor(m.id);
+      const live = sup.state === "AVAILABLE" || sup.state === "LIMITED";
+      return {
+        id: m.id,
+        nameHe: m.nameHe,
+        mark: m.mark,
+        supplyHe: m.comingSoon
+          ? "בקרוב"
+          : m.scheduledOnly
+          ? "בתיאום מראש"
+          : m.notInMarket
+            ? "עוד לא באזור שלך"
+            : live
+              ? prosFreeShort(sup.count ?? 0, sup.nearestRouteEtaMinutes)
+              : sup.state === "UNAVAILABLE"
+                ? "אין פנויים כרגע"
+                : "נבדוק כשתבחר",
+        supplyTone: live
+          ? sup.state === "LIMITED"
+            ? ("warning" as const)
+            : ("live" as const)
+          : ("muted" as const),
+      };
+    });
+  }, [matched, supply]);
+
+  const catWidth = (width - gutter * 2 - spacing.md) / 2;
+  const isFree = (s: HomeServiceItem) => {
+    const st = supply.supplyFor(s.id).state;
+    return st === "AVAILABLE" || st === "LIMITED";
+  };
+
   return (
     <ScrollView style={[styles.screen, { width }]} contentContainerStyle={{ paddingBottom: spacing.xxl }}>
-      {/* --- Hero --- */}
+      {/* ---------------------------------------------------------------
+          HERO — capture first. Not a menu.
+
+          The screen used to open with named services, and Amit's objection
+          went straight to the premise: "למה זה ישר מכוון אותי לדברים האלה?"
+          A grid of service names decides, before the customer has said
+          anything, that the answer is one of twelve things we thought of
+          first. That is a directory. The whole reason to build this instead
+          of a directory is that a person knows their PROBLEM — water under
+          the sink, a back that has hurt since Tuesday — and turning that
+          into the right professional is our job, not theirs.
+
+          So the first thing on the screen is a place to say it, record it
+          or show it. Categories come second, and specific services third,
+          after the customer has narrowed things the way people actually
+          narrow things: broad, then less broad.
+          --------------------------------------------------------------- */}
       <View style={styles.hero}>
         <HeroFlourish color={colors.action} opacity={0.1} />
 
@@ -196,67 +292,79 @@ export function CustomerHomeBody({
         <Text style={styles.greeting}>{greetingHe}</Text>
         <Text style={styles.headline}>{lex.homeQuestion}</Text>
 
-        {/*
-          * No aggregate count. See the note at the top of this file: the
-          * number the customer can act on lives on the service tile, where
-          * it means something.
-          */}
         {matchRules ? (
-          <View style={styles.searchWrap}>
-            <TextInput
-              value={query}
+          <View style={{ marginTop: spacing.lg }}>
+            <IntentCapture
+              width={width - gutter * 2}
+              text={query}
               onChangeText={setQuery}
-              /*
-               * "מה קרה" and "תיאור התקלה" both assume something broke.
-               * Nobody's body is broken because they want a massage, and a
-               * search box that opens with the word "תקלה" has already told
-               * that customer the app was not built for them. The shared
-               * flows have to work for a burst pipe AND for an hour with a
-               * trainer, so the neutral phrasing is not politeness — it is
-               * what lets one marketplace carry both.
-               */
-              placeholder="ספר במילים שלך מה צריך"
-              placeholderTextColor={colors.textSecondary}
-              style={styles.search}
-              textAlign="right"
-              accessibilityLabel="מה צריך עכשיו"
+              matches={intentMatches}
+              media={{
+                photos: capture?.photos ?? 0,
+                voiceSeconds: capture?.voiceSeconds ?? null,
+              }}
+              recording={capture?.recording ?? false}
+              recordSeconds={capture?.recordSeconds ?? 0}
+              canRecord={capture?.canRecord ?? false}
+              onStartRecord={capture?.onStartRecord}
+              onStopRecord={capture?.onStopRecord}
+              onDeleteVoice={capture?.onDeleteVoice}
+              onAddPhoto={capture?.onAddPhoto}
+              onClearPhotos={capture?.onClearPhotos}
+              onPick={(id) => onSelectService?.(id)}
+              onBrowse={() => setDept(ALL)}
             />
           </View>
         ) : null}
+      </View>
 
-        {matched === null ? (
-          <Text style={styles.supplyUnknown}>
-            {anyFresh
-              ? "מה שאפשר לקבל עכשיו מופיע ראשון"
-              : `בוחרים שירות ואנחנו ${lex.unknownSupply} באזור שלך`}
-          </Text>
-        ) : matched.length > 0 ? (
-          <View style={styles.matchWrap}>
-            {/* "נראה שזה", not "הבנתי" — it is a keyword matcher and the
-                copy does not promise more than it is. */}
-            <Text style={styles.matchLead}>נראה שזה:</Text>
-            <View style={styles.matchRow}>
-              {matched.map((m) => (
-                <Pressable
-                  key={m.id}
-                  onPress={() => onSelectService?.(m.id)}
-                  accessibilityRole="button"
-                  style={styles.matchChip}
-                >
-                  <Mark name={m.mark} size={15} color={colors.actionText} />
-                  <Text style={styles.matchChipText} numberOfLines={1}>
-                    {m.nameHe}
-                  </Text>
-                </Pressable>
+      {/* ---------------------------------------------------------------
+          CATEGORIES — broad, and only as specific as a live count.
+          --------------------------------------------------------------- */}
+      {departments.length > 1 ? (
+        <View style={{ paddingHorizontal: gutter, marginTop: spacing.xl }}>
+          <SectionHeader
+            title={dept === ALL ? "במה נעזור?" : dept}
+            colors={colors}
+            action={dept === ALL ? undefined : "כל הקטגוריות"}
+            onAction={dept === ALL ? undefined : () => setDept(ALL)}
+          />
+          {dept === ALL ? (
+            <View style={styles.catGrid}>
+              {departments.map((d) => {
+                const inDept = services.filter((s) => s.departmentHe === d);
+                return (
+                  <CategoryCard
+                    key={d}
+                    nameHe={d}
+                    mark={inDept[0]?.departmentMark ?? inDept[0]?.mark ?? "handyman"}
+                    serviceCount={inDept.length}
+                    liveCount={inDept.filter((s) => isFree(s)).length}
+                    width={catWidth}
+                    onPress={() => setDept(d)}
+                  />
+                );
+              })}
+            </View>
+          ) : (
+            <View style={{ marginHorizontal: -spacing.sm, marginTop: spacing.sm }}>
+              {listed.map((s) => (
+                <ServiceListRow
+                  key={s.id}
+                  nameHe={s.nameHe}
+                  mark={s.mark}
+                  descriptionHe={s.descriptionHe}
+                  supply={supply.supplyFor(s.id)}
+                  scheduledOnly={s.scheduledOnly}
+                  notInMarket={s.notInMarket}
+                  comingSoon={s.comingSoon}
+                  onPress={() => onSelectService?.(s.id)}
+                />
               ))}
             </View>
-          </View>
-        ) : (
-          <Text style={styles.supplyUnknown}>
-            לא זיהינו לפי התיאור. בחר מהרשימה למטה — או נסה לכתוב אחרת.
-          </Text>
-        )}
-      </View>
+          )}
+        </View>
+      ) : null}
 
       {/* ---------------------------------------------------------------
           זמין עכשיו — a short, horizontal, live row.
@@ -298,63 +406,6 @@ export function CustomerHomeBody({
           </RtlRow>
         </View>
       ) : null}
-
-      {/* ---------------------------------------------------------------
-          The catalogue, as a filtered list.
-
-          The department chips are the most load-bearing element on this
-          screen after the search box. They are how a customer discovers, in
-          one glance and without scrolling, that this is not an app for
-          leaking taps — that there is a heading called "אנשים שמגיעים אליך"
-          with trainers and tutors under it. A long scroll would never
-          communicate that; four chips do.
-          --------------------------------------------------------------- */}
-      <View style={{ marginTop: free.length > 0 ? spacing.xxl : spacing.lg }}>
-        <View style={{ paddingHorizontal: gutter }}>
-          <SectionHeader title="כל השירותים" colors={colors} />
-        </View>
-
-        {departments.length > 1 ? (
-          <RtlRow gutter={gutter} contentContainerStyle={{ gap: spacing.sm }}>
-            {[ALL, ...departments].map((d) => {
-              const on = d === dept;
-              return (
-                <Pressable
-                  key={d}
-                  onPress={() => setDept(d)}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: on }}
-                  style={[styles.deptChip, on && styles.deptChipOn]}
-                >
-                  <Text style={[styles.deptChipText, on && styles.deptChipTextOn]} numberOfLines={1}>
-                    {d}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </RtlRow>
-        ) : null}
-
-        <View style={{ paddingHorizontal: gutter - spacing.sm, marginTop: spacing.md }}>
-          {listed.map((s) => (
-            <ServiceListRow
-              key={s.id}
-              nameHe={s.nameHe}
-              mark={s.mark}
-              descriptionHe={s.descriptionHe}
-              supply={supply.supplyFor(s.id)}
-              scheduledOnly={s.scheduledOnly}
-              notInMarket={s.notInMarket}
-              onPress={() => onSelectService?.(s.id)}
-            />
-          ))}
-          {listed.length === 0 ? (
-            <Text style={[styles.supplyUnknown, { paddingHorizontal: spacing.sm }]}>
-              אין שירותים בקטגוריה הזו.
-            </Text>
-          ) : null}
-        </View>
-      </View>
 
       {/* --- Recent --- */}
       {recent.length > 0 ? (
@@ -463,6 +514,12 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
 
+  catGrid: {
+    flexDirection: "row-reverse",
+    flexWrap: "wrap",
+    gap: spacing.md,
+    marginTop: spacing.sm,
+  },
   liveSection: { marginTop: spacing.xl },
   liveHead: { flexDirection: "row-reverse", alignItems: "center", gap: spacing.sm },
   liveTitle: { ...type.h3, color: colors.textPrimary, writingDirection: "rtl" },

@@ -173,6 +173,29 @@ const departmentOf: Record<string, string> = Object.fromEntries(
 
 const notInMarketIds = new Set(marketSet.notInThisMarket.map((s) => s.id));
 
+/**
+ * A mark per department, chosen for the department.
+ *
+ * Deriving it from the first service in the tree put a spanner on
+ * "אנשים שמגיעים אליך", because that department lists the handyman first —
+ * a wrench standing in for a personal trainer and a massage therapist.
+ */
+const departmentMarks: Record<string, MarkName> = {
+  HOME_URGENT: "plumbing",
+  PEOPLE: "fitness",
+  HOME_CARE: "cleaning",
+  LOGISTICS: "moving",
+  IMPROVEMENT: "painting",
+};
+
+const departmentMarkOf: Record<string, MarkName> = Object.fromEntries(
+  pilotCatalog.flatMap((d) =>
+    d.categories.flatMap((c) =>
+      c.services.map((s) => [s.id, departmentMarks[d.code] ?? (s.mark as MarkName)])
+    )
+  )
+);
+
 export const catalogHomeServices: HomeServiceItem[] = [...live, ...browse].map((s) => ({
   id: s.id,
   nameHe: s.nameHe,
@@ -180,12 +203,14 @@ export const catalogHomeServices: HomeServiceItem[] = [...live, ...browse].map((
   photoSubject: s.photoSubjectHe,
   descriptionHe: s.descriptionHe,
   departmentHe: departmentOf[s.id] ?? null,
+  departmentMark: departmentMarkOf[s.id] ?? null,
   /*
    * The two "not now" reasons, kept apart all the way to the row that
    * renders them. Collapsing them here would be invisible and would make
    * the app tell a customer that a locksmith is "planned work" when the
    * truth is that we have not signed one up in their city.
    */
+  comingSoon: s.activationStatus === "PILOT" && s.fulfillmentProfile !== "SCHEDULED_ONLY",
   scheduledOnly: s.fulfillmentProfile === "SCHEDULED_ONLY",
   notInMarket: notInMarketIds.has(s.id),
   availableNowCount: null,

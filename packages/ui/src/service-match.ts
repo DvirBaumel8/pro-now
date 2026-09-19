@@ -92,5 +92,31 @@ export function matchServicesByText(text: string, rules: ServiceMatchRule[]): Se
     if (score > 0) scored.push({ serviceId: rule.serviceId, score });
   }
 
-  return scored.sort((a, b) => b.score - a.score || a.serviceId.localeCompare(b.serviceId));
+  const ranked = scored.sort((a, b) => b.score - a.score || a.serviceId.localeCompare(b.serviceId));
+
+  /**
+   * DROP THE LONG TAIL. A weak match beside a strong one is worse than no
+   * second match at all.
+   *
+   * The case that forced this: "יש מים מתחת לכיור במטבח" scored 3 for
+   * פתיחת סתימה — and 1 for נגרות, because a carpenter's keyword list
+   * contains "מטבח". The screen then offered "נגרות" as the second
+   * suggestion for a plumbing emergency, which does not read as a ranked
+   * list; it reads as the app not understanding Hebrew. One shared noun is
+   * coincidence, and coincidence should not get a row on the screen.
+   *
+   * The rule, in two parts:
+   *
+   *   - A single keyword hit never survives beside anything stronger. One
+   *     shared noun IS the coincidence case, and no amount of arithmetic
+   *     makes it evidence.
+   *   - Beyond that, a match must reach half the top score.
+   *
+   * The top match always survives, and a genuine tie always survives — this
+   * removes noise, never the answer. When the best anyone managed is a
+   * single keyword, that single keyword is the answer and is kept.
+   */
+  const top = ranked[0]?.score ?? 0;
+  const floor = top >= 2 ? Math.max(2, Math.ceil(top / 2)) : 1;
+  return ranked.filter((m) => m.score >= floor);
 }

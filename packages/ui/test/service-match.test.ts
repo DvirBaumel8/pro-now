@@ -56,3 +56,35 @@ describe("matchServicesByText", () => {
     }
   });
 });
+
+describe("the long tail is dropped", () => {
+  const RULES = [
+    { serviceId: "svc-blockage", keywords: ["סתימה", "כיור", "מים", "ביוב", "אסלה"] },
+    // A carpenter legitimately lists "מטבח" — kitchens are carpentry work.
+    { serviceId: "svc-carpentry", keywords: ["נגר", "עץ", "מטבח", "דלת", "מדף"] },
+    { serviceId: "svc-leak", keywords: ["נזילה", "מים", "דולף", "כיור"] },
+  ];
+
+  it("does not offer a one-word coincidence beside a strong match", () => {
+    // The real sentence that exposed this: three hits for the blockage, one
+    // for carpentry, and the screen showed נגרות as suggestion number two.
+    const ids = matchServicesByText("יש מים מתחת לכיור במטבח", RULES).map((m) => m.serviceId);
+    expect(ids).toContain("svc-blockage");
+    expect(ids).not.toContain("svc-carpentry");
+  });
+
+  it("keeps a genuine tie", () => {
+    const out = matchServicesByText("כיור מים", RULES);
+    const ids = out.map((m) => m.serviceId);
+    expect(ids).toContain("svc-blockage");
+    expect(ids).toContain("svc-leak");
+  });
+
+  it("still returns the single best match when only one thing matched", () => {
+    expect(matchServicesByText("נגר", RULES).map((m) => m.serviceId)).toEqual(["svc-carpentry"]);
+  });
+
+  it("still returns nothing when nothing matched", () => {
+    expect(matchServicesByText("כרטיס טיסה לרומא", RULES)).toEqual([]);
+  });
+});

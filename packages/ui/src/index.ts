@@ -48,4 +48,6 @@ export * from "./screens/PhoneAuthBody";
 export * from "./components/NavGlyph";
 export * from "./components/RtlRow";
 export * from "./components/LiveServiceCard";
+export * from "./components/IntentCapture";
+export * from "./components/CategoryCard";
 export * from "./components/ServiceListRow";

@@ -32,6 +32,17 @@ export interface ServiceListRowProps {
   scheduledOnly?: boolean;
   /** True for a dispatchable service that is not open in this market yet. */
   notInMarket?: boolean;
+  /**
+   * True for a service the product is not offering yet at all — modelled,
+   * visible, not launchable.
+   *
+   * Without this the pilot people-services rendered "נבדוק כשתבחר", which
+   * promises a check that will never happen: they are not dispatchable, so
+   * no supply query would ever run. Three different silences — planned by
+   * nature, not in this city, not launched — and one of them was borrowing
+   * another's words.
+   */
+  comingSoon?: boolean;
   descriptionHe?: string | null;
   onPress?: () => void;
 }
@@ -42,6 +53,7 @@ export function ServiceListRow({
   supply,
   scheduledOnly,
   notInMarket,
+  comingSoon,
   descriptionHe,
   onPress,
 }: ServiceListRowProps) {
@@ -52,7 +64,9 @@ export function ServiceListRow({
    * locksmith is "not urgent" because we have no locksmith in their city is
    * the kind of small lie that makes the whole screen untrustworthy.
    */
-  const status = scheduledOnly
+  const status = comingSoon
+    ? { textHe: "בקרוב", tone: "muted" as const }
+    : scheduledOnly
     ? { textHe: "בתיאום מראש", tone: "muted" as const }
     : notInMarket
       ? { textHe: "עוד לא באזור שלך", tone: "muted" as const }

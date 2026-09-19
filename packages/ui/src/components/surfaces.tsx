@@ -1,5 +1,5 @@
 import React, { useId } from "react";
-import { Image, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 import Svg, { Circle, Defs, Line, Path, Pattern, Rect } from "react-native-svg";
 
 import { elevation, imageRatio, radii, spacing, tint, type } from "../theme";
@@ -217,16 +217,40 @@ export function BottomSheet({
 export function SectionHeader({
   title,
   action,
+  onAction,
   colors,
 }: {
   title: string;
   action?: string;
+  /**
+   * Makes the action label actually do something.
+   *
+   * It has been a bare `<Text>` since this component was written — styled
+   * like a link, coloured like a link, and inert. A control that looks
+   * pressable and is not teaches people that parts of the app are broken,
+   * which is a worse lesson than having no control at all. Without a
+   * handler it stays a label, which is at least honest.
+   */
+  onAction?: () => void;
   colors: ThemeColors;
 }) {
   return (
     <View style={header.row}>
       <Text style={[header.title, { color: colors.textPrimary }]}>{title}</Text>
-      {action ? <Text style={[header.action, { color: colors.actionText }]}>{action}</Text> : null}
+      {action ? (
+        onAction ? (
+          <Pressable
+            onPress={onAction}
+            accessibilityRole="button"
+            accessibilityLabel={action}
+            style={header.actionHit}
+          >
+            <Text style={[header.action, { color: colors.actionText }]}>{action}</Text>
+          </Pressable>
+        ) : (
+          <Text style={[header.action, { color: colors.actionText }]}>{action}</Text>
+        )
+      ) : null}
     </View>
   );
 }
@@ -240,6 +264,7 @@ const header = StyleSheet.create({
   },
   title: { ...type.h2, textAlign: "right", writingDirection: "rtl" },
   action: { ...type.captionStrong },
+  actionHit: { minHeight: 44, minWidth: 64, justifyContent: "center", alignItems: "flex-start" },
 });
 
 // ---------------------------------------------------------------------

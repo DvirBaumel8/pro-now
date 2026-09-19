@@ -686,6 +686,25 @@ function CustomerApp({
             availability={snapshot}
             nowMs={Date.now()}
             matchRules={catalogMatchRules}
+            /*
+             * The microphone and the camera are REAL here — the same
+             * `useCapture` the describe screen uses, so what the customer
+             * records on the home screen is what travels with the request.
+             * Wiring a second, fake set of buttons on this screen would have
+             * been easier and would have been a lie.
+             */
+            capture={{
+              photos: capture.photos.length,
+              voiceSeconds: capture.voice?.seconds ?? null,
+              recording: capture.recording,
+              recordSeconds: capture.recordSeconds,
+              canRecord: capture.canRecord,
+              onStartRecord: capture.startRecord,
+              onStopRecord: capture.stopRecord,
+              onDeleteVoice: capture.deleteVoice,
+              onAddPhoto: capture.addPhoto,
+              onClearPhotos: () => capture.photos.forEach((p) => capture.removePhoto(p.id)),
+            }}
             width={width}
             onSelectService={(id) => go({ name: "service", serviceId: id })}
             onChangeAddress={() => go({ name: "address" })}
