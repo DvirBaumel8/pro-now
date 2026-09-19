@@ -105,6 +105,55 @@ export type MobilityProfile =
 export type PricingModel = "FIXED" | "VISIT_QUOTE" | "HOURLY" | "DISTANCE_TIME";
 
 /**
+ * HOW THE RIGHT PROFESSIONAL IS FOUND — and it is not one question.
+ *
+ * For a blocked drain the customer wants one thing: anyone competent, soon.
+ * Which competent person is a detail they are happy to delegate, and being
+ * asked to choose would be a burden at the exact moment they have no
+ * patience for one.
+ *
+ * For a barber coming to their home, "anyone competent" is the wrong
+ * answer to a question they did not ask. The person IS the service. Who is
+ * coming through the door, what their work looks like, whether they cut the
+ * kind of hair I have — those are the decision, not trivia attached to it.
+ *
+ * Running both through one dispatch and changing only the copy is how a
+ * marketplace ends up feeling like a plumbing app with a beauty section.
+ */
+export type MatchingMode =
+  /** Anyone eligible, nearest first. The customer delegates the choice. */
+  | "FASTEST_ELIGIBLE"
+  /** The person is the service. The customer confirms the match. */
+  | "PERSON_FIT";
+
+/** Whether the server assigns outright, or proposes and waits. */
+export type ProviderChoiceMode = "AUTO_ASSIGN" | "CONFIRM_MATCH";
+
+/**
+ * WHAT THE CUSTOMER'S MEDIA IS FOR — the generalisation of Amit's point
+ * about the barber.
+ *
+ * The first version of this was a photo prompt per service, which fixed the
+ * wording. But the wording was a symptom: the real question is never "does
+ * this service allow a photo", it is "what is the PURPOSE of the input
+ * here". A leak photograph is EVIDENCE — it documents a state of the world
+ * that someone will come and change. A haircut photograph is INSPIRATION —
+ * it describes a state of the world that does not exist yet and is being
+ * requested. They travel to the professional differently, they mean
+ * different things on the offer card, and one of them is a reference the
+ * professional works FROM rather than a fault they work ON.
+ */
+export type MediaIntent =
+  /** Documents the problem. Plumbing, appliances, electrical. */
+  | "PROBLEM_EVIDENCE"
+  /** Describes the wanted result. Hair, nails, decorating. */
+  | "INSPIRATION"
+  /** Identifies the thing. A parcel, a piece of furniture, a model number. */
+  | "ITEM_REFERENCE"
+  /** Nothing to show. A training session, a massage, a lesson. */
+  | "NONE";
+
+/**
  * A credential verified for THIS service before dispatch. Eligibility is per
  * service, never per account (/CLAUDE.md §3) — this list is what makes that
  * sentence true rather than aspirational.
@@ -153,6 +202,10 @@ export interface CatalogServiceDef {
   trustProfile: TrustProfile;
   /** What the professional has to bring. See `MobilityProfile`. */
   mobilityProfile: MobilityProfile;
+  /** How the right professional is found. See `MatchingMode`. */
+  matchingMode: MatchingMode;
+  /** What the customer's photographs and recordings are FOR. */
+  mediaIntent: MediaIntent;
   requiredCredentials: CredentialKind[];
   /** What a licensed photograph of this service would show. */
   photoSubjectHe: string;
@@ -220,6 +273,18 @@ export function dispatchableNow(departments: CatalogDepartmentDef[]): CatalogSer
  * new city cheaply": the ones nobody needs a van for. A city with no movers
  * can still have tutors and masseurs on its first day.
  */
+/**
+ * Whether the customer confirms the match, derived rather than stored.
+ *
+ * Kept as a function so the rule lives in one place: PERSON_FIT always
+ * confirms. A separate stored field would let a service declare PERSON_FIT
+ * and AUTO_ASSIGN at once, which is the one combination that makes no
+ * sense — "the person matters, and you do not get to see who".
+ */
+export function providerChoiceFor(s: CatalogServiceDef): ProviderChoiceMode {
+  return s.matchingMode === "PERSON_FIT" ? "CONFIRM_MATCH" : "AUTO_ASSIGN";
+}
+
 export function lightweightServices(departments: CatalogDepartmentDef[]): CatalogServiceDef[] {
   return allServices(departments).filter((s) => s.mobilityProfile !== "NEEDS_VEHICLE");
 }

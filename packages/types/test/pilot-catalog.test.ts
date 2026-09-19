@@ -3,6 +3,7 @@ import {
   allServices,
   browseOnly,
   lightweightServices,
+  providerChoiceFor,
   credentialsFor,
   dispatchableNow,
   eligibleServices,
@@ -284,5 +285,67 @@ describe("customer photographs are per service, not assumed", () => {
     for (const id of ["svc-leak", "svc-fridge", "svc-electric", "svc-ac"]) {
       expect(pilotServiceById[id]!.customerPhotoPromptHe, id).toBeTruthy();
     }
+  });
+});
+
+describe("how a professional is found is a property of the service", () => {
+  it("declares a matching mode and a media intent for every service", () => {
+    for (const s of services) {
+      expect(["FASTEST_ELIGIBLE", "PERSON_FIT"], s.id).toContain(s.matchingMode);
+      expect(
+        ["PROBLEM_EVIDENCE", "INSPIRATION", "ITEM_REFERENCE", "NONE"],
+        s.id
+      ).toContain(s.mediaIntent);
+    }
+  });
+
+  it("never auto-assigns a service where the person IS the service", () => {
+    // The one combination that makes no sense: "who comes matters, and you
+    // do not get to see who". providerChoiceFor derives rather than stores
+    // it so the contradiction cannot be written down.
+    for (const s of services) {
+      if (s.matchingMode !== "PERSON_FIT") continue;
+      expect(providerChoiceFor(s), s.id).toBe("CONFIRM_MATCH");
+    }
+  });
+
+  it("does not stop to ask on an emergency", () => {
+    // Being handed a directory while your kitchen fills with water is a
+    // burden, not a courtesy.
+    for (const id of ["svc-leak", "svc-blockage", "svc-electric", "svc-lock", "svc-courier"]) {
+      const s = pilotServiceById[id]!;
+      expect(s.matchingMode, id).toBe("FASTEST_ELIGIBLE");
+      expect(providerChoiceFor(s), id).toBe("AUTO_ASSIGN");
+    }
+  });
+
+  it("confirms the person for every service performed ON a person", () => {
+    for (const s of services) {
+      if (s.trustProfile !== "PERSONAL_CONTACT") continue;
+      expect(s.matchingMode, s.id).toBe("PERSON_FIT");
+    }
+  });
+
+  it("keeps NONE for the services with nothing to show, and only those", () => {
+    const none = services.filter((s) => s.mediaIntent === "NONE").map((s) => s.id);
+    expect(none.sort()).toEqual(["svc-massage", "svc-trainer"]);
+    for (const id of none) expect(pilotServiceById[id]!.customerPhotoPromptHe).toBeNull();
+  });
+
+  it("agrees with the photo prompt in both directions", () => {
+    // mediaIntent NONE and a photo prompt would be two fields disagreeing
+    // about the same fact — the kind of drift that survives review because
+    // each field is individually plausible.
+    for (const s of services) {
+      if (s.mediaIntent === "NONE") expect(s.customerPhotoPromptHe, s.id).toBeNull();
+      else expect(s.customerPhotoPromptHe, s.id).toBeTruthy();
+    }
+  });
+
+  it("treats a photo of a wanted result as INSPIRATION, not evidence", () => {
+    for (const id of ["svc-haircut", "svc-nails"]) {
+      expect(pilotServiceById[id]!.mediaIntent, id).toBe("INSPIRATION");
+    }
+    expect(pilotServiceById["svc-leak"]!.mediaIntent).toBe("PROBLEM_EVIDENCE");
   });
 });

@@ -56,6 +56,8 @@ function plumbing(s: Omit<CatalogServiceDef, "mark">): CatalogServiceDef {
 
 const blockage: CatalogServiceDef = plumbing({
   id: "svc-blockage",
+  matchingMode: "FASTEST_ELIGIBLE",
+  mediaIntent: "PROBLEM_EVIDENCE",
   customerPhotoPromptHe: "צילום של הכיור או האסלה הסתומים",
   mobilityProfile: "NEEDS_VEHICLE",
   code: "PLUMB_BLOCKAGE",
@@ -74,6 +76,8 @@ const blockage: CatalogServiceDef = plumbing({
 
 const leak: CatalogServiceDef = plumbing({
   id: "svc-leak",
+  matchingMode: "FASTEST_ELIGIBLE",
+  mediaIntent: "PROBLEM_EVIDENCE",
   customerPhotoPromptHe: "צילום של המקום שבו מופיעים המים",
   mobilityProfile: "NEEDS_VEHICLE",
   code: "PLUMB_LEAK",
@@ -92,6 +96,8 @@ const leak: CatalogServiceDef = plumbing({
 
 const tap: CatalogServiceDef = plumbing({
   id: "svc-tap",
+  matchingMode: "FASTEST_ELIGIBLE",
+  mediaIntent: "ITEM_REFERENCE",
   customerPhotoPromptHe: "צילום של הברז או המיכל הקיים",
   mobilityProfile: "NEEDS_VEHICLE",
   code: "PLUMB_FIXTURE",
@@ -115,6 +121,8 @@ const tap: CatalogServiceDef = plumbing({
 
 const powerOut: CatalogServiceDef = {
   id: "svc-electric",
+  matchingMode: "FASTEST_ELIGIBLE",
+  mediaIntent: "PROBLEM_EVIDENCE",
   customerPhotoPromptHe: "צילום של לוח החשמל",
   mobilityProfile: "CARRIES_ON_PERSON",
   code: "ELEC_OUTAGE",
@@ -134,6 +142,8 @@ const powerOut: CatalogServiceDef = {
 
 const socket: CatalogServiceDef = {
   id: "svc-socket",
+  matchingMode: "FASTEST_ELIGIBLE",
+  mediaIntent: "PROBLEM_EVIDENCE",
   customerPhotoPromptHe: "צילום של השקע או נקודת האור",
   mobilityProfile: "CARRIES_ON_PERSON",
   code: "ELEC_POINT",
@@ -157,6 +167,8 @@ const socket: CatalogServiceDef = {
 
 const lockout: CatalogServiceDef = {
   id: "svc-lock",
+  matchingMode: "FASTEST_ELIGIBLE",
+  mediaIntent: "PROBLEM_EVIDENCE",
   customerPhotoPromptHe: "צילום של הדלת והמנעול",
   mobilityProfile: "CARRIES_ON_PERSON",
   code: "LOCK_LOCKOUT",
@@ -181,6 +193,8 @@ const lockout: CatalogServiceDef = {
 
 const cylinder: CatalogServiceDef = {
   id: "svc-cylinder",
+  matchingMode: "FASTEST_ELIGIBLE",
+  mediaIntent: "ITEM_REFERENCE",
   customerPhotoPromptHe: "צילום של הצילינדר או המנעול",
   mobilityProfile: "CARRIES_ON_PERSON",
   code: "LOCK_CYLINDER",
@@ -204,6 +218,8 @@ const cylinder: CatalogServiceDef = {
 
 const acFix: CatalogServiceDef = {
   id: "svc-ac",
+  matchingMode: "FASTEST_ELIGIBLE",
+  mediaIntent: "PROBLEM_EVIDENCE",
   customerPhotoPromptHe: "צילום של המזגן והיחידה החיצונית",
   mobilityProfile: "NEEDS_VEHICLE",
   code: "HVAC_REPAIR",
@@ -223,6 +239,8 @@ const acFix: CatalogServiceDef = {
 
 const fridge: CatalogServiceDef = {
   id: "svc-fridge",
+  matchingMode: "FASTEST_ELIGIBLE",
+  mediaIntent: "ITEM_REFERENCE",
   customerPhotoPromptHe: "צילום של המקרר ושל מדבקת הדגם",
   mobilityProfile: "NEEDS_VEHICLE",
   code: "APPL_FRIDGE",
@@ -242,6 +260,8 @@ const fridge: CatalogServiceDef = {
 
 const washer: CatalogServiceDef = {
   id: "svc-washer",
+  matchingMode: "FASTEST_ELIGIBLE",
+  mediaIntent: "ITEM_REFERENCE",
   customerPhotoPromptHe: "צילום של המכונה ושל מדבקת הדגם",
   mobilityProfile: "NEEDS_VEHICLE",
   code: "APPL_WASHER",
@@ -265,6 +285,8 @@ const washer: CatalogServiceDef = {
 
 const cleanNow: CatalogServiceDef = {
   id: "svc-clean",
+  matchingMode: "FASTEST_ELIGIBLE",
+  mediaIntent: "PROBLEM_EVIDENCE",
   customerPhotoPromptHe: "צילום של השטח, אם נוח לך",
   mobilityProfile: "CARRIES_ON_PERSON",
   code: "CLEAN_URGENT",
@@ -284,6 +306,8 @@ const cleanNow: CatalogServiceDef = {
 
 const pest: CatalogServiceDef = {
   id: "svc-pest",
+  matchingMode: "FASTEST_ELIGIBLE",
+  mediaIntent: "PROBLEM_EVIDENCE",
   customerPhotoPromptHe: "צילום של המקום שבו ראית אותם",
   mobilityProfile: "NEEDS_VEHICLE",
   code: "PEST_CONTROL",
@@ -307,6 +331,8 @@ const pest: CatalogServiceDef = {
 
 const courier: CatalogServiceDef = {
   id: "svc-courier",
+  matchingMode: "FASTEST_ELIGIBLE",
+  mediaIntent: "ITEM_REFERENCE",
   customerPhotoPromptHe: "צילום של מה שצריך להעביר",
   mobilityProfile: "CARRIES_ON_PERSON",
   code: "LOG_COURIER",
@@ -326,6 +352,8 @@ const courier: CatalogServiceDef = {
 
 const smallMove: CatalogServiceDef = {
   id: "svc-moving",
+  matchingMode: "FASTEST_ELIGIBLE",
+  mediaIntent: "ITEM_REFERENCE",
   customerPhotoPromptHe: "צילום של הפריטים ושל הכניסה לבניין",
   mobilityProfile: "NEEDS_VEHICLE",
   code: "LOG_SMALL_MOVE",
@@ -370,6 +398,8 @@ function scheduled(
 
 const painting = scheduled({
   id: "svc-paint",
+  matchingMode: "FASTEST_ELIGIBLE",
+  mediaIntent: "PROBLEM_EVIDENCE",
   customerPhotoPromptHe: "צילום של הקיר או החדר",
   mobilityProfile: "NEEDS_VEHICLE",
   code: "FINISH_PAINT",
@@ -384,6 +414,8 @@ const painting = scheduled({
 
 const furniture = scheduled({
   id: "svc-furniture",
+  matchingMode: "FASTEST_ELIGIBLE",
+  mediaIntent: "ITEM_REFERENCE",
   customerPhotoPromptHe: "צילום של הרהיט או של הקופסה",
   mobilityProfile: "CARRIES_ON_PERSON",
   code: "ASSEMBLE_FURNITURE",
@@ -398,6 +430,8 @@ const furniture = scheduled({
 
 const tvMount = scheduled({
   id: "svc-tv",
+  matchingMode: "FASTEST_ELIGIBLE",
+  mediaIntent: "ITEM_REFERENCE",
   customerPhotoPromptHe: "צילום של הקיר ושל המסך",
   mobilityProfile: "CARRIES_ON_PERSON",
   code: "INSTALL_TV",
@@ -412,6 +446,8 @@ const tvMount = scheduled({
 
 const garden = scheduled({
   id: "svc-garden",
+  matchingMode: "FASTEST_ELIGIBLE",
+  mediaIntent: "PROBLEM_EVIDENCE",
   customerPhotoPromptHe: "צילום של הגינה",
   mobilityProfile: "NEEDS_VEHICLE",
   code: "GARDEN_CARE",
@@ -426,6 +462,8 @@ const garden = scheduled({
 
 const glass = scheduled({
   id: "svc-glass",
+  matchingMode: "FASTEST_ELIGIBLE",
+  mediaIntent: "PROBLEM_EVIDENCE",
   customerPhotoPromptHe: "צילום של החלון או המסגרת",
   mobilityProfile: "NEEDS_VEHICLE",
   code: "GLASS_WORK",
@@ -440,6 +478,8 @@ const glass = scheduled({
 
 const sealing = scheduled({
   id: "svc-sealing",
+  matchingMode: "FASTEST_ELIGIBLE",
+  mediaIntent: "PROBLEM_EVIDENCE",
   customerPhotoPromptHe: "צילום של הרטיבות",
   mobilityProfile: "NEEDS_VEHICLE",
   code: "SEALING_WORK",
@@ -454,6 +494,8 @@ const sealing = scheduled({
 
 const carpentry = scheduled({
   id: "svc-carpentry",
+  matchingMode: "FASTEST_ELIGIBLE",
+  mediaIntent: "PROBLEM_EVIDENCE",
   customerPhotoPromptHe: "צילום של הרהיט או הדלת",
   mobilityProfile: "CARRIES_ON_PERSON",
   code: "CARPENTRY",
@@ -468,6 +510,8 @@ const carpentry = scheduled({
 
 const tiling = scheduled({
   id: "svc-tiling",
+  matchingMode: "FASTEST_ELIGIBLE",
+  mediaIntent: "PROBLEM_EVIDENCE",
   customerPhotoPromptHe: "צילום של האריחים",
   mobilityProfile: "NEEDS_VEHICLE",
   code: "TILING",
@@ -482,6 +526,8 @@ const tiling = scheduled({
 
 const drywall = scheduled({
   id: "svc-drywall",
+  matchingMode: "FASTEST_ELIGIBLE",
+  mediaIntent: "PROBLEM_EVIDENCE",
   customerPhotoPromptHe: "צילום של הקיר או התקרה",
   mobilityProfile: "NEEDS_VEHICLE",
   code: "DRYWALL",
@@ -496,6 +542,8 @@ const drywall = scheduled({
 
 const curtains = scheduled({
   id: "svc-curtains",
+  matchingMode: "FASTEST_ELIGIBLE",
+  mediaIntent: "ITEM_REFERENCE",
   customerPhotoPromptHe: "צילום של החלון",
   mobilityProfile: "CARRIES_ON_PERSON",
   code: "INSTALL_CURTAINS",
@@ -510,6 +558,8 @@ const curtains = scheduled({
 
 const alarm = scheduled({
   id: "svc-alarm",
+  matchingMode: "FASTEST_ELIGIBLE",
+  mediaIntent: "ITEM_REFERENCE",
   customerPhotoPromptHe: "צילום של המערכת הקיימת",
   mobilityProfile: "CARRIES_ON_PERSON",
   code: "SECURITY_ALARM",
@@ -526,6 +576,8 @@ const alarm = scheduled({
 
 const solar = scheduled({
   id: "svc-solar",
+  matchingMode: "FASTEST_ELIGIBLE",
+  mediaIntent: "PROBLEM_EVIDENCE",
   customerPhotoPromptHe: "צילום של הדוד והקולטים",
   mobilityProfile: "NEEDS_VEHICLE",
   code: "SOLAR_WATER",
@@ -551,6 +603,8 @@ const solar = scheduled({
  */
 const gas: CatalogServiceDef = {
   id: "svc-gas",
+  matchingMode: "FASTEST_ELIGIBLE",
+  mediaIntent: "PROBLEM_EVIDENCE",
   customerPhotoPromptHe: "צילום של הכיריים או של חיבור הגז",
   mobilityProfile: "NEEDS_VEHICLE",
   code: "GAS_WORK",
@@ -621,6 +675,8 @@ function personal(
 
 const trainer = personal({
   id: "svc-trainer",
+  matchingMode: "PERSON_FIT",
+  mediaIntent: "NONE",
   customerPhotoPromptHe: null,
   mobilityProfile: "CARRIES_ON_PERSON",
   code: "FIT_TRAINER",
@@ -637,6 +693,8 @@ const trainer = personal({
 
 const massage = personal({
   id: "svc-massage",
+  matchingMode: "PERSON_FIT",
+  mediaIntent: "NONE",
   customerPhotoPromptHe: null,
   mobilityProfile: "CARRIES_ON_PERSON",
   code: "WELL_MASSAGE",
@@ -653,6 +711,8 @@ const massage = personal({
 
 const haircut = personal({
   id: "svc-haircut",
+  matchingMode: "PERSON_FIT",
+  mediaIntent: "INSPIRATION",
   customerPhotoPromptHe: "אפשר לצרף תמונה של תסרוקת שאהבת",
   mobilityProfile: "CARRIES_ON_PERSON",
   code: "GROOM_HAIR",
@@ -669,6 +729,8 @@ const haircut = personal({
 
 const nails = personal({
   id: "svc-nails",
+  matchingMode: "PERSON_FIT",
+  mediaIntent: "INSPIRATION",
   customerPhotoPromptHe: "אפשר לצרף תמונה של לק או עיצוב שאהבת",
   mobilityProfile: "CARRIES_ON_PERSON",
   code: "GROOM_NAILS",
@@ -685,6 +747,8 @@ const nails = personal({
 
 const tutor = personal({
   id: "svc-tutor",
+  matchingMode: "PERSON_FIT",
+  mediaIntent: "ITEM_REFERENCE",
   customerPhotoPromptHe: "צילום של החומר או של המבחן",
   mobilityProfile: "CARRIES_NOTHING",
   code: "LEARN_TUTOR",
@@ -715,6 +779,8 @@ const tutor = personal({
  */
 const handymanHour: CatalogServiceDef = {
   id: "svc-handyman",
+  matchingMode: "FASTEST_ELIGIBLE",
+  mediaIntent: "PROBLEM_EVIDENCE",
   customerPhotoPromptHe: "צילום של מה שצריך לתקן",
   mobilityProfile: "CARRIES_ON_PERSON",
   code: "ASSIST_HANDYMAN",
@@ -735,6 +801,8 @@ const handymanHour: CatalogServiceDef = {
 /** עזרה בהרמה וסידור — a pair of hands, no trade required. */
 const helpingHands: CatalogServiceDef = {
   id: "svc-hands",
+  matchingMode: "FASTEST_ELIGIBLE",
+  mediaIntent: "ITEM_REFERENCE",
   customerPhotoPromptHe: "צילום של מה שצריך להזיז",
   mobilityProfile: "CARRIES_NOTHING",
   code: "ASSIST_HANDS",
@@ -755,6 +823,8 @@ const helpingHands: CatalogServiceDef = {
 /** ניקיון אחרי שיפוץ — named by Amit, and genuinely its own job. */
 const renoClean: CatalogServiceDef = {
   id: "svc-clean-reno",
+  matchingMode: "FASTEST_ELIGIBLE",
+  mediaIntent: "PROBLEM_EVIDENCE",
   customerPhotoPromptHe: "צילום של השטח אחרי השיפוץ",
   mobilityProfile: "NEEDS_VEHICLE",
   code: "CLEAN_RENOVATION",

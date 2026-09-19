@@ -161,6 +161,7 @@ await visit('auth-phone', null, [CUST]);
 await visit('customer-home', CUST, []);
 await visit('service', CUST, ['פתיחת סתימה']);
 await visit('category-drill', CUST, ['שיפוץ והתקנות']);
+await visit('person-fit', CUST, ['אנשים שמגיעים אליך', 'תספורת עד הבית', 'הצג איך נראית התאמה אישית']);
 await visit('service-scheduled', CUST, ['שיפוץ והתקנות', 'הרכבת רהיטים']);
 await visit('describe', CUST, ['פתיחת סתימה', 'בקשת בעל מקצוע עכשיו']);
 await visit('calls', CUST, ['הקריאות שלי']);

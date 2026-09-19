@@ -70,6 +70,31 @@ const previewPrices: Record<string, PriceQuoteView> = {
     minimumBillableMinutes: 120,
   },
   "svc-pest": { priceModel: "FIXED", currency: "ILS", fixedTotalMinorUnits: 45000 },
+  // The person-services. Fixed prices, because "how much is a haircut" is a
+  // question with an answer — and a VISIT_QUOTE on a haircut would be the
+  // clearest possible sign we pasted the plumbing model onto a person.
+  "svc-haircut": { priceModel: "FIXED", currency: "ILS", fixedTotalMinorUnits: 12000 },
+  "svc-nails": { priceModel: "FIXED", currency: "ILS", fixedTotalMinorUnits: 18000 },
+  "svc-massage": { priceModel: "FIXED", currency: "ILS", fixedTotalMinorUnits: 32000 },
+  "svc-trainer": { priceModel: "FIXED", currency: "ILS", fixedTotalMinorUnits: 22000 },
+  "svc-tutor": {
+    priceModel: "HOURLY",
+    currency: "ILS",
+    hourlyRateMinorUnits: 15000,
+    minimumBillableMinutes: 60,
+  },
+  "svc-handyman": {
+    priceModel: "HOURLY",
+    currency: "ILS",
+    hourlyRateMinorUnits: 16000,
+    minimumBillableMinutes: 60,
+  },
+  "svc-hands": {
+    priceModel: "HOURLY",
+    currency: "ILS",
+    hourlyRateMinorUnits: 11000,
+    minimumBillableMinutes: 60,
+  },
   "svc-courier": {
     priceModel: "DISTANCE_TIME",
     currency: "ILS",
@@ -374,5 +399,58 @@ export function eligibilityFor(
  */
 export const photoPromptFor = (serviceId: string): string | null | undefined =>
   pilotServiceById[serviceId]?.customerPhotoPromptHe;
+
+/** True when the customer confirms the person rather than being assigned one. */
+export const isPersonFit = (serviceId: string): boolean =>
+  pilotServiceById[serviceId]?.matchingMode === "PERSON_FIT";
+
+/**
+ * Preview data for the personal-match screen.
+ *
+ * DELIBERATELY OBVIOUS PLACEHOLDERS. The portraits are illustrated, the
+ * names say "תצוגה", the portfolio images have no files and render as
+ * captioned placeholders — so a screenshot of this screen can never be
+ * mistaken for a real professional offering real work (/CLAUDE.md §3). The
+ * SHAPE is the point: what a customer needs to see before letting someone
+ * into their home, and in what order.
+ */
+export const personFitCandidates = [
+  {
+    seed: "pro_barber_1",
+    displayNameHe: "דוגמה ט׳ (תצוגה)",
+    specialtiesHe: ["תספורת גבר", "עיצוב זקן", "פייד"],
+    ratingAverage: 4.8,
+    ratingCount: 63,
+    completedJobs: 91,
+    portfolio: [
+      { id: "w1", uri: null, captionHe: "פייד קצר · אחרי" },
+      { id: "w2", uri: null, captionHe: "תספורת ועיצוב זקן" },
+      { id: "w3", uri: null, captionHe: "תספורת ילד" },
+    ],
+  },
+  {
+    seed: "pro_barber_2",
+    displayNameHe: "דוגמה י׳ (תצוגה)",
+    specialtiesHe: ["תספורת אישה", "פן", "תספורת ילדים"],
+    // No average yet, and the screen says "חדש ב-PRO NOW" rather than
+    // inventing one. A single review is not a reputation.
+    ratingAverage: null,
+    ratingCount: 0,
+    completedJobs: 4,
+    portfolio: [
+      { id: "w1", uri: null, captionHe: "תספורת שכבות" },
+      { id: "w2", uri: null, captionHe: "פן לאירוע" },
+    ],
+  },
+  {
+    seed: "pro_barber_3",
+    displayNameHe: "דוגמה י״א (תצוגה)",
+    specialtiesHe: ["תספורת גבר", "מכונה", "עד הבית בערב"],
+    ratingAverage: 4.6,
+    ratingCount: 21,
+    completedJobs: 27,
+    portfolio: [{ id: "w1", uri: null, captionHe: "תספורת מכונה" }],
+  },
+];
 
 export { pilotServiceById };

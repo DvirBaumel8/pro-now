@@ -14,6 +14,7 @@ import {
   NavGlyph,
   Persona,
   ProEarningsBody,
+  MatchConfirmBody,
   ProJobBody,
   ProJobSettledBody,
   ProOfferBody,
@@ -49,6 +50,8 @@ import {
   catalogMatchRules,
   catalogServicePages,
   eligibilityFor,
+  isPersonFit,
+  personFitCandidates,
   photoPromptFor,
 } from "./catalogAdapter";
 import { useCapture } from "./useCapture";
@@ -151,6 +154,8 @@ type CustomerRoute =
   | { name: "describe"; serviceId: string; symptomsHe: string[] }
   | { name: "chat" }
   | { name: "searching"; serviceId: string }
+  /** PERSON_FIT only: the system proposes, the customer confirms. */
+  | { name: "matchconfirm"; serviceId: string; index: number }
   | { name: "tracking"; stage: "assigned" | "enroute" | "arrived" }
   | { name: "quote" }
   | { name: "complete" };
@@ -510,6 +515,24 @@ function CustomerApp({
   // A tracked job needs somewhere to go next; the prototype offers the same
   // advances the server would push. Computed BEFORE the body height, because
   // the demo strip takes its own space rather than covering the app's.
+  /**
+   * A way to SEE the personal-match flow before those services launch.
+   *
+   * The barber, the masseuse and the trainer are PILOT: the verification
+   * policy for being alone with a person has not been decided, so they are
+   * not orderable. But the flow they need is built and has to be reviewable
+   * — so it is reachable through the demo strip, which announces itself as
+   * not part of the app, rather than by quietly making a service orderable
+   * that is not.
+   */
+  const previewMatch =
+    tab === "home" && route.name === "service" && isPersonFit(route.serviceId)
+      ? {
+          label: "הצג איך נראית התאמה אישית",
+          next: () => go({ name: "matchconfirm", serviceId: route.serviceId, index: 0 }),
+        }
+      : null;
+
   const advance =
     tab === "home" && route.name === "tracking"
       ? route.stage === "assigned"
@@ -519,8 +542,10 @@ function CustomerApp({
           : { label: "המקצוען שלח הצעת מחיר", next: () => go({ name: "quote" }) }
       : null;
 
+  const demo = advance ?? previewMatch;
+
   const BAR = 64;
-  const bodyH = height - BAR - (advance ? DEMO_H : 0);
+  const bodyH = height - BAR - (demo ? DEMO_H : 0);
 
   // The search advances on its own, the way it will in production when the
   // server answers — so the wait is experienced rather than described.
@@ -530,13 +555,26 @@ function CustomerApp({
       return;
     }
     const started = Date.now();
+    const serviceId = route.serviceId;
     const id = setInterval(() => {
       const secs = Math.floor((Date.now() - started) / 1000);
       setElapsed(secs);
-      if (secs >= 6) setRoute({ name: "tracking", stage: "assigned" });
+      if (secs < 6) return;
+      /*
+       * WHERE THE SEARCH ENDS DEPENDS ON THE SERVICE, not on the screen.
+       * FASTEST_ELIGIBLE goes straight to tracking — the customer delegated
+       * the choice and being asked to approve it now would be a burden.
+       * PERSON_FIT stops and asks, because for those services the person IS
+       * the thing being bought.
+       */
+      setRoute(
+        isPersonFit(serviceId)
+          ? { name: "matchconfirm", serviceId, index: 0 }
+          : { name: "tracking", stage: "assigned" }
+      );
     }, 1000);
     return () => clearInterval(id);
-  }, [route.name]);
+  }, [route.name, route]);
 
   /*
    * Routes live under the "home" tab, so navigating to one from another tab
@@ -721,6 +759,39 @@ function CustomerApp({
             height={bodyH}
           />
         );
+      case "matchconfirm": {
+        const page = SERVICE_PAGES[route.serviceId]!;
+        const c = personFitCandidates[route.index % personFitCandidates.length]!;
+        return (
+          <MatchConfirmBody
+            serviceNameHe={page.nameHe}
+            displayNameHe={c.displayNameHe}
+            seed={c.seed}
+            specialtiesHe={c.specialtiesHe}
+            portfolio={c.portfolio}
+            ratingAverage={c.ratingAverage}
+            ratingCount={c.ratingCount}
+            completedJobs={c.completedJobs}
+            credentialsHe={page.requiredCredentialsHe}
+            eta={matchFixture.eta}
+            price={page.price}
+            /*
+             * Bounded on purpose. Three proposals, then the screen says
+             * that is what there is. Unlimited alternatives would turn a
+             * two-tap booking into a browsing session and teach customers
+             * to keep looking instead of to trust the match.
+             */
+            alternativesLeft={personFitCandidates.length - 1 - route.index}
+            onAccept={() => go({ name: "tracking", stage: "assigned" })}
+            onAnother={() =>
+              go({ name: "matchconfirm", serviceId: route.serviceId, index: route.index + 1 })
+            }
+            onBack={() => go({ name: "service", serviceId: route.serviceId })}
+            width={width}
+            height={bodyH}
+          />
+        );
+      }
       case "tracking":
         return (
           <TrackingBody
@@ -812,7 +883,7 @@ function CustomerApp({
     <View style={{ width, height }}>
       <View style={{ height: bodyH }}>{body}</View>
 
-      {advance ? <DemoBar label={advance.label} onPress={advance.next} width={width} /> : null}
+      {demo ? <DemoBar label={demo.label} onPress={demo.next} width={width} /> : null}
 
       <Sheet
         visible={sheet === "call"}

@@ -28,6 +28,7 @@ export * from "./screens/CustomerHomeBody";
 export * from "./screens/SearchingBody";
 export * from "./screens/TrackingBody";
 export * from "./screens/ProOnlineBody";
+export * from "./screens/MatchConfirmBody";
 export * from "./screens/ProShiftBody";
 export * from "./screens/ProJobSettledBody";
 export * from "./screens/ServiceDetailBody";
