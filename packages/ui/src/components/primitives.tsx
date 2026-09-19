@@ -19,6 +19,10 @@ export interface ThemeColors {
   textSecondary: string;
   /** Signal — anything the user DOES. Buttons, live search, urgency. */
   action: string;
+  /** The colour that is legible ON `action`. Never hardcode white. */
+  onAction: string;
+  /** Signal used as TEXT on this theme's background. Not the same value. */
+  actionText: string;
   /** Trust — anything that has been VERIFIED. Badges, online state. */
   trust: string;
   statusWarning: string;

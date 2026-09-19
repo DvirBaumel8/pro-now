@@ -247,7 +247,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: spacing.lg,
   },
-  emptyCtaText: { ...type.bodyStrong, fontSize: 15, color: "#FFFFFF" },
+  emptyCtaText: { ...type.bodyStrong, fontSize: 15, color: colors.onAction },
 
   liveWrap: { paddingHorizontal: spacing.lg, marginTop: spacing.lg },
   liveCard: { backgroundColor: colors.action, borderRadius: radii.lg, padding: spacing.lg, ...elevation(2) },
@@ -303,5 +303,5 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: spacing.md,
   },
-  rowCtaText: { ...type.captionStrong, color: colors.action },
+  rowCtaText: { ...type.captionStrong, color: colors.actionText },
 });

@@ -200,7 +200,7 @@ export function CustomerHomeBody({
                   accessibilityRole="button"
                   style={styles.matchChip}
                 >
-                  <Mark name={m.mark} size={15} color={colors.action} />
+                  <Mark name={m.mark} size={15} color={colors.actionText} />
                   <Text style={styles.matchChipText} numberOfLines={1}>
                     {m.nameHe}
                   </Text>
@@ -356,7 +356,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     backgroundColor: tint.action(0.14),
   },
-  matchChipText: { ...type.captionStrong, color: colors.action, writingDirection: "rtl" },
+  matchChipText: { ...type.captionStrong, color: colors.actionText, writingDirection: "rtl" },
 
   supplyUnknown: {
     ...type.caption,

@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  primaryLabel: { ...type.bodyStrong, fontSize: 17, color: "#06210F" },
+  primaryLabel: { ...type.bodyStrong, fontSize: 17, color: colors.onAction },
   secondaryRow: { flexDirection: "row-reverse", justifyContent: "space-between", marginTop: spacing.sm },
   secondary: { paddingVertical: spacing.md, paddingHorizontal: spacing.sm, minHeight: 44, justifyContent: "center" },
   secondaryLabel: { ...type.captionStrong, color: colors.textSecondary },

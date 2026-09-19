@@ -197,6 +197,7 @@ export function AddressPickerBody({
             value={typed}
             onChangeText={setTyped}
             placeholder="רחוב, מספר, עיר · קומה ודירה"
+            accessibilityLabel="כתובת חדשה"
             placeholderTextColor={colors.textSecondary}
             style={styles.input}
             textAlign="right"
@@ -227,6 +228,7 @@ export function AddressPickerBody({
                   value={recipientName}
                   onChangeText={setRecipientName}
                   placeholder="שם מי שנמצא בבית"
+                  accessibilityLabel="שם מי שנמצא בבית"
                   placeholderTextColor={colors.textSecondary}
                   style={styles.input}
                   textAlign="right"
@@ -235,6 +237,7 @@ export function AddressPickerBody({
                   value={recipientPhone}
                   onChangeText={setRecipientPhone}
                   placeholder="טלפון שלו"
+                  accessibilityLabel="טלפון של מי שנמצא בבית"
                   placeholderTextColor={colors.textSecondary}
                   keyboardType="phone-pad"
                   style={styles.input}
@@ -286,7 +289,17 @@ const styles = StyleSheet.create({
   scroll: { paddingBottom: 116 },
 
   head: { paddingHorizontal: spacing.lg, paddingTop: spacing.xxl, alignItems: "flex-end" },
-  back: { position: "absolute", top: spacing.lg, right: spacing.lg, padding: spacing.sm },
+  // 44x44 minimum. A 25px chevron is a control most thumbs miss, which
+  // is the same defect that made the demo bar unhittable.
+  back: {
+    position: "absolute",
+    top: spacing.lg,
+    right: spacing.lg,
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   backGlyph: { fontSize: 28, lineHeight: 28, color: colors.textPrimary, fontWeight: "300" },
   title: { ...type.h1, color: colors.textPrimary, writingDirection: "rtl", textAlign: "right" },
   subtitle: {
@@ -355,7 +368,7 @@ const styles = StyleSheet.create({
   },
   savedText: { flex: 1, alignItems: "flex-end" },
   savedLabel: { ...type.bodyStrong, color: colors.textPrimary, writingDirection: "rtl" },
-  savedFor: { ...type.caption, color: colors.action },
+  savedFor: { ...type.caption, color: colors.actionText },
   savedAddr: { ...type.caption, color: colors.textSecondary, writingDirection: "rtl" },
   radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: colors.border },
   radioOn: { borderColor: colors.action, borderWidth: 6 },
@@ -411,5 +424,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  ctaLabel: { ...type.bodyStrong, fontSize: 17, color: "#FFFFFF" },
+  ctaLabel: { ...type.bodyStrong, fontSize: 17, color: colors.onAction },
 });

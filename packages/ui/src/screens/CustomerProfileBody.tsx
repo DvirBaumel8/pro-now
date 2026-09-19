@@ -413,7 +413,7 @@ const styles = StyleSheet.create({
   },
   historyProName: { ...type.caption, flex: 1, color: colors.textSecondary, writingDirection: "rtl" },
   myRating: { flexDirection: "row-reverse", gap: 1.5 },
-  rateLink: { ...type.captionStrong, color: colors.action },
+  rateLink: { ...type.captionStrong, color: colors.actionText },
 
   settingRow: {
     flexDirection: "row-reverse",

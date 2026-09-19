@@ -47,6 +47,9 @@ export const touchTarget = { minimum: 44 } as const;
 export const palette = {
   // Signal — coral
   signal900: "#8F2A14",
+  // The darkest coral that still reads as coral AND clears 4.5:1 as TEXT on
+  // the ivory background (4.71). The vivid signal500 only reaches 2.85 there,
+  // so it is a fill and an accent, never small text on light.
   signal700: "#C93C1C",
   signal500: "#FF5C38",
   signal300: "#FF9478",
@@ -54,6 +57,8 @@ export const palette = {
 
   // Trust — teal
   trust900: "#085A49",
+  // Same story: trust500 is 2.94 on ivory and fails as text. This one is
+  // 4.78 and is what light surfaces use for teal type and icons.
   trust700: "#0B7C64",
   trust500: "#0FA47F",
   trust300: "#55D3B4",
@@ -86,6 +91,24 @@ export const palette = {
   nightTextSoft: "#A79FB3",
 } as const;
 
+/**
+ * CONTRAST IS PART OF THE PALETTE, NOT A LATER PASS.
+ *
+ * An automated audit of the running app found white text on the vivid coral
+ * at 3.07:1 — below the 4.5:1 body-text floor — which meant every primary
+ * button in the product was failing. Two ways out: darken the coral, or stop
+ * putting white on it.
+ *
+ * Darkening loses the colour that makes this product recognisable. So the
+ * coral stays vivid and carries INK text instead, which measures 5.99:1 and
+ * is also the more distinctive choice: a bright coral button with a near-
+ * black label looks like nobody else in the category.
+ *
+ * That is why `onAction` exists as a token rather than "#FFFFFF" written at
+ * forty call sites. And why `actionText` is a different, darker coral: the
+ * fill colour and the text colour of the same brand hue have different jobs
+ * and different floors.
+ */
 export const customerTheme = {
   name: "customer" as const,
   colors: {
@@ -94,10 +117,14 @@ export const customerTheme = {
     surfaceElevated: palette.sandDeep,
     textPrimary: palette.ink900,
     textSecondary: palette.ink500,
-    /** Signal. The button that summons a person. */
+    /** Signal, as a FILL. The button that summons a person. */
     action: palette.signal500,
-    /** Trust. Verified facts only — never an action. */
-    trust: palette.trust500,
+    /** What sits on top of `action`. Measured: 5.99:1. */
+    onAction: palette.ink900,
+    /** Signal, as TEXT on a light surface. Measured: 4.71:1. */
+    actionText: palette.signal700,
+    /** Trust. Verified facts only — never an action. Measured: 4.78:1. */
+    trust: palette.trust700,
     statusWarning: palette.sun500,
     statusDanger: palette.berry500,
     border: palette.ink100,
@@ -113,7 +140,10 @@ export const proTheme = {
     textPrimary: palette.nightText,
     textSecondary: palette.nightTextSoft,
     action: palette.signal500,
-    /** On the dark side this also carries the ONLINE state. */
+    onAction: palette.ink900,
+    /** On a dark surface the vivid coral is legible as text: 5.9:1. */
+    actionText: palette.signal500,
+    /** On the dark side this also carries the ONLINE state. Measured 9.9:1. */
     trust: palette.trust300,
     statusWarning: palette.sun500,
     statusDanger: palette.berry500,

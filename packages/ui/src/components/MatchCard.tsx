@@ -371,7 +371,7 @@ const styles = StyleSheet.create({
   },
   primaryButtonPressed: { opacity: 0.85 },
   primaryButtonDisabled: { opacity: 0.6 },
-  primaryButtonLabel: { ...typography.button, color: "#FFFFFF" },
+  primaryButtonLabel: { ...typography.button, color: colors.onAction },
 
   secondaryAction: {
     minHeight: touchTarget.minimum,

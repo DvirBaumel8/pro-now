@@ -202,6 +202,7 @@ export function ChatBody({
               onChangeText={setDraft}
               onSubmitEditing={() => send(draft)}
               placeholder="הודעה"
+              accessibilityLabel="כתיבת הודעה"
               placeholderTextColor={colors.textSecondary}
               style={[
                 s.input,
@@ -242,7 +243,7 @@ function makeStyles() {
       paddingBottom: spacing.md,
       borderBottomWidth: StyleSheet.hairlineWidth * 2,
     },
-    back: { padding: 4 },
+    back: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
     backGlyph: { fontSize: 26, lineHeight: 26, fontWeight: "300" },
     headMain: { flex: 1, flexDirection: "row-reverse", alignItems: "center", gap: spacing.md },
     headText: { flex: 1, alignItems: "flex-end" },

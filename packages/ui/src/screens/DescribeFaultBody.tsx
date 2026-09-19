@@ -211,6 +211,7 @@ export function DescribeFaultBody({
             value={text}
             onChangeText={onChangeText}
             placeholder="מתי זה התחיל, מה כבר ניסית, כל דבר שיעזור"
+            accessibilityLabel="תיאור התקלה במילים שלך"
             placeholderTextColor={colors.textSecondary}
             multiline
             style={styles.textArea}
@@ -252,7 +253,17 @@ const styles = StyleSheet.create({
   scroll: { paddingBottom: 132 },
 
   head: { paddingHorizontal: spacing.lg, paddingTop: spacing.xxl, alignItems: "flex-end" },
-  back: { position: "absolute", top: spacing.lg, right: spacing.lg, padding: spacing.sm },
+  // 44x44 minimum. A 25px chevron is a control most thumbs miss, which
+  // is the same defect that made the demo bar unhittable.
+  back: {
+    position: "absolute",
+    top: spacing.lg,
+    right: spacing.lg,
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   backGlyph: { fontSize: 28, lineHeight: 28, color: colors.textPrimary, fontWeight: "300" },
   markBubble: {
     width: 48,
@@ -283,7 +294,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: radii.pill,
   },
-  chipText: { ...type.captionStrong, color: colors.action, writingDirection: "rtl" },
+  chipText: { ...type.captionStrong, color: colors.actionText, writingDirection: "rtl" },
 
   recordBtn: {
     flexDirection: "row-reverse",
@@ -297,7 +308,7 @@ const styles = StyleSheet.create({
   recordBtnActive: { backgroundColor: tint.danger(0.12) },
   recordDot: { width: 14, height: 14, borderRadius: 7, backgroundColor: colors.action },
   recordDotActive: { backgroundColor: colors.statusDanger, borderRadius: 3 },
-  recordLabel: { ...type.bodyStrong, fontSize: 15, color: colors.action, writingDirection: "rtl" },
+  recordLabel: { ...type.bodyStrong, fontSize: 15, color: colors.actionText, writingDirection: "rtl" },
 
   voiceDone: { flexDirection: "row-reverse", alignItems: "center", gap: spacing.md },
   voiceBadge: {
@@ -345,7 +356,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: colors.surface,
   },
-  photoAddPlus: { fontSize: 26, color: colors.action, lineHeight: 30 },
+  photoAddPlus: { fontSize: 26, color: colors.actionText, lineHeight: 30 },
   photoAddText: { ...type.caption, fontSize: 11, color: colors.textSecondary },
 
   textArea: {
@@ -388,7 +399,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  ctaLabel: { ...type.bodyStrong, fontSize: 17, color: "#FFFFFF" },
+  ctaLabel: { ...type.bodyStrong, fontSize: 17, color: colors.onAction },
   ctaNote: {
     ...type.caption,
     color: colors.textSecondary,

@@ -109,6 +109,7 @@ export function PhoneAuthBody({
             value={phone}
             onChangeText={onChangePhone}
             placeholder="050-0000000"
+            accessibilityLabel="מספר טלפון"
             placeholderTextColor={colors.textSecondary}
             keyboardType="phone-pad"
             textContentType="telephoneNumber"
@@ -132,6 +133,7 @@ export function PhoneAuthBody({
               value={code}
               onChangeText={onChangeCode}
               placeholder="000000"
+              accessibilityLabel="קוד האימות"
               placeholderTextColor={colors.textSecondary}
               keyboardType="number-pad"
               textContentType="oneTimeCode"
@@ -199,7 +201,16 @@ export function PhoneAuthBody({
 
 const styles = StyleSheet.create({
   screen: { overflow: "hidden", borderRadius: radii.xl, justifyContent: "space-between" },
-  back: { position: "absolute", top: spacing.lg, right: spacing.lg, padding: spacing.sm, zIndex: 2 },
+  back: {
+    position: "absolute",
+    top: spacing.lg,
+    right: spacing.lg,
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 2,
+  },
   backGlyph: { fontSize: 28, lineHeight: 28, fontWeight: "300" },
 
   body: { paddingHorizontal: spacing.xl, paddingTop: spacing.xxl * 2, alignItems: "flex-end" },

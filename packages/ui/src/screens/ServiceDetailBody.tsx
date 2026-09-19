@@ -171,7 +171,7 @@ export function ServiceDetailBody({
                     ]}
                   >
                     <Text
-                      style={[styles.symptomText, on && { color: colors.action, fontWeight: "700" }]}
+                      style={[styles.symptomText, on && { color: colors.actionText, fontWeight: "700" }]}
                       numberOfLines={2}
                     >
                       {sx}
@@ -463,7 +463,7 @@ const styles = StyleSheet.create({
   // Outlined rather than greyed-out: "check again" is a real, enabled action,
   // and a disabled-looking button would say the screen is a dead end.
   ctaBtnQuiet: { backgroundColor: "transparent", borderWidth: 1.5, borderColor: colors.border },
-  ctaLabel: { ...type.bodyStrong, fontSize: 17, color: "#06210F" },
+  ctaLabel: { ...type.bodyStrong, fontSize: 17, color: colors.onAction },
   ctaNote: {
     ...type.caption,
     color: colors.textSecondary,

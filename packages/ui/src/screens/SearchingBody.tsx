@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: spacing.xl,
   },
-  primaryLabel: { ...type.bodyStrong, color: "#FFFFFF" },
+  primaryLabel: { ...type.bodyStrong, color: colors.onAction },
   secondary: { minHeight: 48, alignItems: "center", justifyContent: "center", marginTop: spacing.sm },
   secondaryLabel: { ...type.body, color: colors.textSecondary },
 });

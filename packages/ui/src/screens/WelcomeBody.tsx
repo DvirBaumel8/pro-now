@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
   flourish: { position: "absolute", top: -80, left: 0, opacity: 0.55 },
 
   top: { paddingHorizontal: spacing.xl, paddingTop: spacing.xxl * 2, alignItems: "flex-end" },
-  brand: { ...type.overline, color: colors.action, letterSpacing: 2 },
+  brand: { ...type.overline, color: colors.actionText, letterSpacing: 2 },
   headline: {
     ...type.displayXL,
     fontSize: 42,
@@ -144,8 +144,8 @@ const styles = StyleSheet.create({
   doors: { paddingHorizontal: spacing.xl, paddingBottom: spacing.xxl, gap: spacing.md },
   door: { borderRadius: radii.lg, padding: spacing.lg, minHeight: 74, justifyContent: "center" },
   doorPrimary: { backgroundColor: colors.action, alignItems: "center", ...elevation(2) },
-  doorPrimaryTitle: { ...type.h3, color: "#FFFFFF", writingDirection: "rtl" },
-  doorPrimarySub: { ...type.caption, color: "rgba(255,255,255,0.88)", writingDirection: "rtl" },
+  doorPrimaryTitle: { ...type.h3, color: colors.onAction, writingDirection: "rtl" },
+  doorPrimarySub: { ...type.caption, color: "rgba(23,18,31,0.72)", writingDirection: "rtl" },
   doorSecondary: { backgroundColor: colors.surface, borderWidth: 1.5, borderColor: tint.trust(0.35) },
   doorProRow: { flexDirection: "row-reverse", alignItems: "center", gap: spacing.md },
   doorProText: { flex: 1, alignItems: "flex-end" },

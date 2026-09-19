@@ -308,7 +308,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth * 2,
     borderColor: colors.border,
   },
-  acceptButtonLabel: { ...typography.button, fontSize: 17, color: "#06210F" },
+  acceptButtonLabel: { ...typography.button, fontSize: 17, color: colors.onAction },
   acceptButtonLabelExpired: { color: colors.textSecondary },
 
   skipButton: {

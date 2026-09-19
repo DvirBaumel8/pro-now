@@ -165,6 +165,7 @@ export function JobCompleteBody({
                   value={text}
                   onChangeText={setText}
                   placeholder="מה היה טוב, ומה אפשר לשפר? (אופציונלי)"
+                  accessibilityLabel="טקסט הביקורת"
                   placeholderTextColor={colors.textSecondary}
                   multiline
                   style={styles.input}
@@ -262,7 +263,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   payMethod: { ...type.caption, color: colors.textSecondary, writingDirection: "rtl" },
-  link: { ...type.captionStrong, color: colors.action },
+  link: { ...type.captionStrong, color: colors.actionText },
 
   reviewPro: { flexDirection: "row-reverse", alignItems: "center", gap: spacing.md },
   reviewProText: { flex: 1, alignItems: "flex-end" },
@@ -298,7 +299,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: spacing.md,
   },
-  submitLabel: { ...type.bodyStrong, fontSize: 16, color: "#06210F" },
+  submitLabel: { ...type.bodyStrong, fontSize: 16, color: colors.onAction },
   reviewNote: {
     ...type.caption,
     color: colors.textSecondary,

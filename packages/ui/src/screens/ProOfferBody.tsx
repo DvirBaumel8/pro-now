@@ -304,7 +304,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: spacing.xl,
   },
-  acceptLabel: { ...type.bodyStrong, fontSize: 18, color: "#06210F" },
+  acceptLabel: { ...type.bodyStrong, fontSize: 18, color: colors.onAction },
   skip: { alignSelf: "center", paddingVertical: spacing.md, minHeight: 44, justifyContent: "center" },
   skipLabel: { ...type.captionStrong, color: colors.textSecondary },
 

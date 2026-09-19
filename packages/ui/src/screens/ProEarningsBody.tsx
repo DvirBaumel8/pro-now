@@ -226,7 +226,17 @@ const styles = StyleSheet.create({
   scroll: { paddingBottom: spacing.xxl },
 
   head: { paddingHorizontal: spacing.lg, paddingTop: spacing.xxl, alignItems: "flex-end" },
-  back: { position: "absolute", top: spacing.lg, right: spacing.lg, padding: spacing.sm },
+  // 44x44 minimum. A 25px chevron is a control most thumbs miss, which
+  // is the same defect that made the demo bar unhittable.
+  back: {
+    position: "absolute",
+    top: spacing.lg,
+    right: spacing.lg,
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   backGlyph: { fontSize: 28, lineHeight: 28, color: colors.textPrimary, fontWeight: "300" },
   period: { ...type.overline, color: colors.textSecondary },
   net: { ...type.displayXL, ...tabular, fontSize: 52, lineHeight: 56, color: colors.textPrimary, marginTop: 2 },

@@ -565,7 +565,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  ctaLabel: { ...type.bodyStrong, fontSize: 17, color: "#FFFFFF" },
+  ctaLabel: { ...type.bodyStrong, fontSize: 17, color: colors.onAction },
   waiting: {
     minHeight: 52,
     borderRadius: radii.md,

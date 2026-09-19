@@ -408,7 +408,17 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     ...elevation(1),
   },
-  back: { position: "absolute", top: spacing.lg, right: spacing.lg, padding: spacing.sm },
+  // 44x44 minimum. A 25px chevron is a control most thumbs miss, which
+  // is the same defect that made the demo bar unhittable.
+  back: {
+    position: "absolute",
+    top: spacing.lg,
+    right: spacing.lg,
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   backGlyph: { fontSize: 30, lineHeight: 30, color: colors.textPrimary, fontWeight: "300" },
 
   heroPortrait: { width: 132, ...elevation(2) },

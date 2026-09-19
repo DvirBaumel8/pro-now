@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
   },
   supplyDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#FFFFFF" },
-  supplyText: { ...type.caption, fontWeight: "700", color: "#FFFFFF" },
+  supplyText: { ...type.caption, fontWeight: "700", color: "#17121F" },
 
   body: { paddingHorizontal: spacing.sm, paddingTop: spacing.md, paddingBottom: spacing.sm, gap: 2 },
   name: { ...type.bodyStrong, textAlign: "right", writingDirection: "rtl" },
