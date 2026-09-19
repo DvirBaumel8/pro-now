@@ -3,12 +3,15 @@ import { Animated, Easing, Pressable, StyleSheet, Text, View, useWindowDimension
 
 import {
   AddressPickerBody,
+  CallsListBody,
+  ChatBody,
   CustomerHomeBody,
   CustomerProfileBody,
   DescribeFaultBody,
   JobCompleteBody,
   Mark,
   Persona,
+  ProEarningsBody,
   ProJobBody,
   ProOfferBody,
   ProOnlineBody,
@@ -18,6 +21,7 @@ import {
   ServiceDetailBody,
   TrackingBody,
   customerTheme,
+  Sheet,
   lex,
   proTheme,
   radii,
@@ -26,14 +30,21 @@ import {
   type as t,
 } from "@pro-now/ui";
 import type { LiveLocationState } from "@pro-now/ui";
+import type { ChatMessage } from "@pro-now/ui";
 import type { JobState, ProPresenceState } from "@pro-now/types";
 
 import { matchFixture, offerFixture } from "./fixtures";
 import { useCapture } from "./useCapture";
 import {
   availabilitySnapshot,
+  callsList,
+  chatSeed,
   customerHistory,
   customerOpenCall,
+  customerQuickReplies,
+  earningDays,
+  earningJobs,
+  proQuickReplies,
   homeRecent,
   homeServices,
   jobDescription,
@@ -75,8 +86,14 @@ import {
  * prototype.
  */
 
+/** "14:22" in the device's own locale-free form. */
+function nowHHMM(): string {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
 type CustomerTab = "home" | "calls" | "card";
-type ProTab = "shift" | "profile";
+type ProTab = "shift" | "earnings" | "profile";
 type Side = "customer" | "pro";
 
 type CustomerRoute =
@@ -84,6 +101,7 @@ type CustomerRoute =
   | { name: "address" }
   | { name: "service"; serviceId: string }
   | { name: "describe"; serviceId: string; symptomsHe: string[] }
+  | { name: "chat" }
   | { name: "searching"; serviceId: string }
   | { name: "tracking"; stage: "assigned" | "enroute" | "arrived" }
   | { name: "quote" }
@@ -166,6 +184,8 @@ function CustomerApp({
   const [tab, setTab] = useState<CustomerTab>("home");
   const capture = useCapture();
   const [faultText, setFaultText] = useState("");
+  const [chat, setChat] = useState<ChatMessage[]>(chatSeed);
+  const [sheet, setSheet] = useState<null | "call" | "safety" | "payment">(null);
   const [addressId, setAddressId] = useState<string>("addr_home");
   const [live, setLive] = useState<LiveLocationState>({ status: "idle" });
 
@@ -221,7 +241,17 @@ function CustomerApp({
     return () => clearInterval(id);
   }, [route.name]);
 
-  const go = useCallback((r: CustomerRoute) => setRoute(r), []);
+  /*
+   * Routes live under the "home" tab, so navigating to one from another tab
+   * has to move the tab as well. The first version did not, and tapping a
+   * live call in the calls list silently did nothing — the route changed
+   * underneath a tab that was still rendering its own screen. Keeping the
+   * tab switch inside `go` makes that impossible to forget at a call site.
+   */
+  const go = useCallback((r: CustomerRoute) => {
+    setRoute(r);
+    if (r.name !== "home") setTab("home");
+  }, []);
 
   const body = useMemo(() => {
     if (tab === "card") {
@@ -234,6 +264,9 @@ function CustomerApp({
           openCalls={route.name === "tracking" ? customerOpenCall : []}
           history={customerHistory}
           lifetimeSpendMinorUnits={164400}
+          onOpenCall={() => setTab("calls")}
+          onEditAddresses={() => go({ name: "address" })}
+          onEditPayment={() => setSheet("payment")}
           width={width}
           height={bodyH}
         />
@@ -242,14 +275,17 @@ function CustomerApp({
 
     if (tab === "calls") {
       return (
-        <CustomerProfileBody
-          displayNameHe="אמית (תצוגה)"
-          seed="cust_demo_1"
-          homeAreaLabelHe={availabilitySnapshot.areaLabel}
-          paymentLabelHe="ויזה · 4417"
-          openCalls={customerOpenCall}
-          history={customerHistory}
-          lifetimeSpendMinorUnits={164400}
+        <CallsListBody
+          calls={callsList}
+          onOpen={(id) =>
+            id === "call_live" ? go({ name: "tracking", stage: "enroute" }) : setSheet("payment")
+          }
+          onRate={() => go({ name: "complete" })}
+          onApproveQuote={() => go({ name: "quote" })}
+          onNewCall={() => {
+            setRoute({ name: "home" });
+            setTab("home");
+          }}
           width={width}
           height={bodyH}
         />
@@ -284,6 +320,23 @@ function CustomerApp({
           />
         );
       }
+      case "chat":
+        return (
+          <ChatBody
+            side="customer"
+            counterpartNameHe={matchFixture.professional.displayName}
+            counterpartSeed={matchFixture.professional.id}
+            jobTitleHe="תיקון נזילה בברז"
+            jobOpen
+            messages={chat}
+            quickRepliesHe={customerQuickReplies}
+            onSend={(t) => setChat((c) => [...c, { id: `m${c.length}`, from: "customer", textHe: t, atHe: nowHHMM() }])}
+            onCall={() => setSheet("call")}
+            onBack={() => go({ name: "tracking", stage: "enroute" })}
+            width={width}
+            height={bodyH}
+          />
+        );
       case "describe": {
         const page = SERVICE_PAGES[route.serviceId] ?? serviceDetailLeak;
         return (
@@ -317,6 +370,8 @@ function CustomerApp({
             elapsedSeconds={elapsed}
             candidatesConsidered={12}
             candidatesEligible={3}
+            onCancel={() => go({ name: "home" })}
+            onBroaden={() => go({ name: "home" })}
             width={width}
             height={bodyH}
           />
@@ -335,6 +390,9 @@ function CustomerApp({
             professional={matchFixture.professional}
             eta={matchFixture.eta}
             priceLineHe={`${lex.visitFee} ₪179 · ${lex.quotePending}`}
+            onCall={() => setSheet("call")}
+            onMessage={() => go({ name: "chat" })}
+            onSafety={() => setSheet("safety")}
             width={width}
             height={bodyH}
           />
@@ -347,6 +405,7 @@ function CustomerApp({
             professionalDisplayName={matchFixture.professional.displayName}
             onApprove={() => go({ name: "complete" })}
             onDecline={() => go({ name: "tracking", stage: "arrived" })}
+            onAskQuestion={() => go({ name: "chat" })}
             width={width}
             height={bodyH}
           />
@@ -362,6 +421,7 @@ function CustomerApp({
             totalChargedMinorUnits={44500}
             paymentMethodLabelHe="ויזה · 4417"
             onSubmitReview={() => go({ name: "home" })}
+            onDownloadInvoice={() => setSheet("payment")}
             width={width}
             height={bodyH}
           />
@@ -401,6 +461,64 @@ function CustomerApp({
 
       {advance ? <DemoBar label={advance.label} onPress={advance.next} width={width} /> : null}
 
+      <Sheet
+        visible={sheet === "call"}
+        onClose={() => setSheet(null)}
+        colors={customerTheme.colors}
+        titleHe="שיחה דרך PRO NOW"
+        width={width}
+        height={height}
+      >
+        <Text style={styles.sheetBody}>
+          החיוג עובר דרך מספר מסווה. המספר הפרטי שלך לא נחשף למקצוען, ושלו לא נחשף לך — גם אחרי
+          שהעבודה נסגרת.
+        </Text>
+        <Pressable style={styles.sheetPrimary} onPress={() => setSheet(null)}>
+          <Text style={styles.sheetPrimaryText}>חיוג למקצוען</Text>
+        </Pressable>
+        <Text style={styles.sheetNote}>באב־טיפוס אין חיוג אמיתי.</Text>
+      </Sheet>
+
+      <Sheet
+        visible={sheet === "safety"}
+        onClose={() => setSheet(null)}
+        colors={customerTheme.colors}
+        titleHe="בטיחות"
+        width={width}
+        height={height}
+      >
+        <Text style={styles.sheetBody}>
+          אפשר לשתף את מצב הקריאה עם מישהו שסומכים עליו — הוא יראה מי הגיע, מתי, ומתי העבודה
+          נסגרה. בלי הכתובת המלאה שלך.
+        </Text>
+        <Pressable style={styles.sheetPrimary} onPress={() => setSheet(null)}>
+          <Text style={styles.sheetPrimaryText}>שיתוף מצב הקריאה</Text>
+        </Pressable>
+        <Pressable style={styles.sheetSecondary} onPress={() => setSheet(null)}>
+          <Text style={styles.sheetSecondaryText}>דיווח על בעיה במהלך הביקור</Text>
+        </Pressable>
+      </Sheet>
+
+      <Sheet
+        visible={sheet === "payment"}
+        onClose={() => setSheet(null)}
+        colors={customerTheme.colors}
+        titleHe="חיוב וחשבונית"
+        width={width}
+        height={height}
+      >
+        <Text style={styles.sheetBody}>
+          החשבונית נשלחת למייל עם סגירת העבודה, ונשמרת בקריאה עצמה. אמצעי התשלום מחויב רק אחרי
+          שאישרת את הסכום.
+        </Text>
+        <Pressable style={styles.sheetPrimary} onPress={() => setSheet(null)}>
+          <Text style={styles.sheetPrimaryText}>שליחת החשבונית למייל</Text>
+        </Pressable>
+        <Text style={styles.sheetNote}>
+          ספק הסליקה עדיין לא נבחר — זו החלטה עסקית פתוחה, אז כאן אין חיוב אמיתי.
+        </Text>
+      </Sheet>
+
       <TabBar
         width={width}
         height={BAR}
@@ -431,6 +549,9 @@ function ProApp({ width, height, onSwitch }: { width: number; height: number; on
   const [offerAt, setOfferAt] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [job, setJob] = useState<JobState | null>(null);
+  const [proChat, setProChat] = useState<ChatMessage[]>(chatSeed);
+  const [proView, setProView] = useState<null | "chat">(null);
+  const [proSheet, setProSheet] = useState<null | "call" | "navigate" | "services">(null);
 
   const BAR = 64;
   const bodyH = height - BAR;
@@ -482,7 +603,37 @@ function ProApp({ width, height, onSwitch }: { width: number; height: number; on
     setJob(next);
   };
 
-  const body =
+  const body = proView === "chat" ? (
+    <ChatBody
+      side="pro"
+      counterpartNameHe="אמית (תצוגה)"
+      counterpartSeed="cust_demo_1"
+      jobTitleHe="תיקון נזילה בברז"
+      jobOpen
+      messages={proChat}
+      quickRepliesHe={proQuickReplies}
+      onSend={(t) => setProChat((c) => [...c, { id: `p${c.length}`, from: "pro", textHe: t, atHe: nowHHMM() }])}
+      onCall={() => setProSheet("call")}
+      onBack={() => setProView(null)}
+      width={width}
+      height={bodyH}
+    />
+  ) : tab === "earnings" ? (
+    <ProEarningsBody
+      periodNetMinorUnits={183000}
+      periodGrossMinorUnits={215300}
+      periodJobCount={14}
+      periodLabelHe="השבוע"
+      days={earningDays}
+      jobs={earningJobs}
+      nextPayoutHe="יום שני, 22.9"
+      nextPayoutMinorUnits={183000}
+      onOpenJob={() => setProSheet("navigate")}
+      onBack={() => setTab("shift")}
+      width={width}
+      height={bodyH}
+    />
+  ) :
     tab === "profile" ? (
       <ProProfileBody
         professional={matchFixture.professional}
@@ -513,6 +664,9 @@ function ProApp({ width, height, onSwitch }: { width: number; height: number; on
         payoutIsEstimate={false}
         onAdvance={advanceJob}
         onSendQuote={advanceJob}
+        onNavigate={() => setProSheet("navigate")}
+        onCall={() => setProSheet("call")}
+        onMessage={() => setProView("chat")}
         width={width}
         height={bodyH}
       />
@@ -524,6 +678,7 @@ function ProApp({ width, height, onSwitch }: { width: number; height: number; on
         todayJobCount={presence === "AVAILABLE" ? 3 : 0}
         services={proServices}
         onToggleOnline={toggle}
+        onManageServices={() => setProSheet("services")}
         width={width}
         height={bodyH}
       />
@@ -558,16 +713,76 @@ function ProApp({ width, height, onSwitch }: { width: number; height: number; on
         <DemoBar dark label="נכנסת עבודה" onPress={() => setOfferAt(Date.now())} width={width} />
       ) : null}
 
+      <Sheet
+        visible={proSheet === "call"}
+        onClose={() => setProSheet(null)}
+        colors={proTheme.colors}
+        dark
+        titleHe="שיחה עם הלקוח"
+        width={width}
+        height={height}
+      >
+        <Text style={styles.sheetBodyDark}>
+          החיוג עובר דרך מספר מסווה. המספר הפרטי שלך לא נחשף ללקוח — גם לא אחרי שהעבודה נסגרת.
+        </Text>
+        <Pressable style={styles.sheetPrimary} onPress={() => setProSheet(null)}>
+          <Text style={styles.sheetPrimaryText}>חיוג ללקוח</Text>
+        </Pressable>
+        <Text style={styles.sheetNoteDark}>באב־טיפוס אין חיוג אמיתי.</Text>
+      </Sheet>
+
+      <Sheet
+        visible={proSheet === "navigate"}
+        onClose={() => setProSheet(null)}
+        colors={proTheme.colors}
+        dark
+        titleHe="ניווט"
+        width={width}
+        height={height}
+      >
+        <Text style={styles.sheetBodyDark}>
+          רחוב הברזל 12, רמת אביב · קומה 3, דירה 9 · קוד כניסה 1408
+        </Text>
+        <Pressable style={styles.sheetPrimary} onPress={() => setProSheet(null)}>
+          <Text style={styles.sheetPrimaryText}>פתיחה באפליקציית הניווט</Text>
+        </Pressable>
+        <Text style={styles.sheetNoteDark}>
+          ספק המפות עדיין לא נבחר — החלטה עסקית פתוחה — אז כאן אין ניווט אמיתי.
+        </Text>
+      </Sheet>
+
+      <Sheet
+        visible={proSheet === "services"}
+        onClose={() => setProSheet(null)}
+        colors={proTheme.colors}
+        dark
+        titleHe="שירותים פעילים"
+        width={width}
+        height={height}
+      >
+        <Text style={styles.sheetBodyDark}>
+          אפשר לכבות ולהדליק שירותים בכל רגע. שירות חסום לא נפתח מכאן — הוא נפתח כשהמסמך שפג
+          מתחדש, כי ההסמכה נבדקת מול כל שירות בנפרד ולא מול החשבון.
+        </Text>
+        <Pressable style={styles.sheetPrimary} onPress={() => setProSheet(null)}>
+          <Text style={styles.sheetPrimaryText}>חידוש רישיון חשמלאי</Text>
+        </Pressable>
+      </Sheet>
+
       <TabBar
         dark
         width={width}
         height={BAR}
         items={[
           { key: "shift", label: lex.shift, mark: "clock" as const },
+          { key: "earnings", label: lex.payout, mark: "handyman" as const },
           { key: "profile", label: "הפרופיל", mark: "person" as const },
         ]}
         active={tab}
-        onPress={(k) => setTab(k as ProTab)}
+        onPress={(k) => {
+          setProView(null);
+          setTab(k as ProTab);
+        }}
         onSwitch={onSwitch}
         switchLabel="לקוח"
       />
@@ -735,6 +950,49 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 8,
   },
+  sheetBody: {
+    ...t.body,
+    fontSize: 15,
+    color: customerTheme.colors.textSecondary,
+    textAlign: "right",
+    writingDirection: "rtl",
+    lineHeight: 22,
+  },
+  sheetPrimary: {
+    minHeight: 54,
+    borderRadius: radii.md,
+    backgroundColor: customerTheme.colors.action,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: spacing.lg,
+  },
+  sheetPrimaryText: { ...t.bodyStrong, fontSize: 16, color: "#FFFFFF" },
+  sheetSecondary: { minHeight: 48, alignItems: "center", justifyContent: "center", marginTop: spacing.sm },
+  sheetSecondaryText: { ...t.captionStrong, color: customerTheme.colors.statusDanger },
+  sheetNote: {
+    ...t.caption,
+    color: customerTheme.colors.textSecondary,
+    textAlign: "center",
+    writingDirection: "rtl",
+    marginTop: spacing.md,
+  },
+
+  sheetBodyDark: {
+    ...t.body,
+    fontSize: 15,
+    color: proTheme.colors.textSecondary,
+    textAlign: "right",
+    writingDirection: "rtl",
+    lineHeight: 22,
+  },
+  sheetNoteDark: {
+    ...t.caption,
+    color: proTheme.colors.textSecondary,
+    textAlign: "center",
+    writingDirection: "rtl",
+    marginTop: spacing.md,
+  },
+
   demoBarText: { ...t.bodyStrong, fontSize: 16, color: "#FFFFFF", writingDirection: "rtl" },
   demoBarHint: { ...t.caption, fontSize: 11, color: "rgba(255,255,255,0.65)", writingDirection: "rtl" },
 

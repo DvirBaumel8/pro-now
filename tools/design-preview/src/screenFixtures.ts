@@ -1,5 +1,9 @@
 import type { AreaAvailabilityView, QuoteView } from "@pro-now/types";
 import type {
+  CallListItem,
+  ChatMessage,
+  EarningDay,
+  EarningJob,
   HomeRecentItem,
   HomeServiceItem,
   JobMediaItem,
@@ -392,3 +396,115 @@ export const jobSymptoms = ["מים מתחת לכיור", "ברז מטפטף", "
 
 export const jobDescription =
   "מאתמול בערב יש מים בארון מתחת לכיור במטבח. ניגבתי וזה חזר. הברז גם מטפטף קצת. יש שם ארון עץ אז אני מעדיף שמישהו יגיע היום.";
+
+// ---------------------------------------------------------------------
+// Conversation, calls list, earnings
+// ---------------------------------------------------------------------
+
+export const chatSeed: ChatMessage[] = [
+  { id: "c0", from: "system", textHe: "השיחה נפתחה כשהעבודה שויכה. המספרים מוסתרים משני הצדדים.", atHe: "" },
+  { id: "c1", from: "pro", textHe: "שלום, יצאתי אליך. אני בערך 10 דקות משם.", atHe: "14:06" },
+  { id: "c2", from: "customer", textHe: "מעולה. השער הכחול, קומה 3.", atHe: "14:07", seen: true },
+  { id: "c3", from: "pro", textHe: "קיבלתי. יש חניה בסביבה?", atHe: "14:08" },
+];
+
+export const customerQuickReplies = ["אני בבית", "אני יורד/ת", "אפשר לדחות בחצי שעה?", "תודה!"];
+export const proQuickReplies = ["יצאתי אליך", "מתעכב ב-10 דקות", "הגעתי, אני בכניסה", "סיימתי"];
+
+export const callsList: CallListItem[] = [
+  {
+    id: "call_live",
+    serviceNameHe: "תקלת חשמל בסלון",
+    mark: "electrical",
+    stateHe: "בדרך אליך",
+    whenHe: "עכשיו",
+    live: true,
+    proNameHe: cast[1]!.nameHe,
+    proSeed: "pro_2",
+    etaMinutes: 14,
+    totalMinorUnits: null,
+    myRating: null,
+  },
+  {
+    id: "call_2",
+    serviceNameHe: "התקנת מזגן",
+    mark: "climate",
+    stateHe: "הושלם",
+    whenHe: "מאי",
+    live: false,
+    proNameHe: cast[2]!.nameHe,
+    proSeed: "pro_3",
+    etaMinutes: null,
+    totalMinorUnits: 92000,
+    myRating: null,
+  },
+  {
+    id: "call_1",
+    serviceNameHe: "תיקון נזילה בברז",
+    mark: "plumbing",
+    stateHe: "הושלם",
+    whenHe: "לפני שבועיים",
+    live: false,
+    proNameHe: cast[0]!.nameHe,
+    proSeed: "pro_1",
+    etaMinutes: null,
+    totalMinorUnits: 44500,
+    myRating: 5,
+  },
+  {
+    id: "call_3",
+    serviceNameHe: "פתיחת סתימה במטבח",
+    mark: "plumbing",
+    stateHe: "הושלם",
+    whenHe: "מרץ",
+    live: false,
+    proNameHe: cast[6]!.nameHe,
+    proSeed: "pro_7",
+    etaMinutes: null,
+    totalMinorUnits: 27900,
+    myRating: 4,
+  },
+];
+
+export const earningDays: EarningDay[] = [
+  { labelHe: "א׳", netMinorUnits: 21400, jobs: 2 },
+  { labelHe: "ב׳", netMinorUnits: 0, jobs: 0 },
+  { labelHe: "ג׳", netMinorUnits: 38900, jobs: 3 },
+  { labelHe: "ד׳", netMinorUnits: 17600, jobs: 1 },
+  { labelHe: "ה׳", netMinorUnits: 44100, jobs: 4 },
+  { labelHe: "ו׳", netMinorUnits: 12800, jobs: 1 },
+  { labelHe: "ש׳", netMinorUnits: 48200, jobs: 3, isToday: true },
+];
+
+/**
+ * The deductions are named individually and deliberately NOT summed into a
+ * single "fees" line. The commission percentage is a business decision that
+ * has not been made, so these are illustrative amounts, not a rate the code
+ * assumes.
+ */
+export const earningJobs: EarningJob[] = [
+  {
+    id: "e1",
+    serviceNameHe: "תיקון נזילה בברז",
+    mark: "plumbing",
+    whenHe: "היום, 14:20",
+    grossMinorUnits: 44500,
+    deductions: [
+      { labelHe: "עמלת פלטפורמה", minorUnits: 6675 },
+      { labelHe: "עמלת סליקה", minorUnits: 890 },
+    ],
+    netMinorUnits: 36935,
+  },
+  {
+    id: "e2",
+    serviceNameHe: "פתיחת סתימה",
+    mark: "plumbing",
+    whenHe: "היום, 11:05",
+    grossMinorUnits: 27900,
+    deductions: [
+      { labelHe: "עמלת פלטפורמה", minorUnits: 4185 },
+      { labelHe: "עמלת סליקה", minorUnits: 558 },
+    ],
+    netMinorUnits: 23157,
+  },
+];
