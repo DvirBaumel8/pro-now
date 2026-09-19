@@ -1,3 +1,4 @@
+import { buildIntakeBrief, pilotIntakeByService } from "@pro-now/types";
 import type { JobMatchView, OfferCardView } from "@pro-now/types";
 
 /**
@@ -118,6 +119,22 @@ export const offerFixture: OfferCardView = {
   payoutIsEstimate: false,
   customerAreaLabel: "רמת אביב, תל אביב",
   jobDescription: "נזילה מתחת לכיור במטבח, מים מצטברים בארון. דחוף.",
+  /*
+   * The intake answers, verbatim. Note that one of them is "לא יודע" — a
+   * real answer, kept on the card, because a customer who admitted they
+   * cannot find the source has told the plumber something useful.
+   */
+  intakeBrief: buildIntakeBrief(pilotIntakeByService["svc-leak"], [
+    { questionId: "where", optionIds: ["under_sink"] },
+    { questionId: "rate", optionIds: ["stream"] },
+    { questionId: "shutoff", optionIds: ["no"] },
+    { questionId: "since", optionIds: ["today"] },
+  ]),
+  mediaSummary: { photos: 2, voiceSeconds: 18 },
+  // The customer said the floor and the lift, and said nothing about
+  // parking — so parking does not appear at all.
+  arrival: { floor: 4, hasLift: true },
+  typicalServiceMinutes: [45, 120],
 };
 
 /** Payout genuinely unknowable before diagnosis. */
@@ -128,6 +145,16 @@ export const offerUnknownPayoutFixture: OfferCardView = {
   expectedPayoutMinorUnits: null,
   payoutIsEstimate: false,
   jobDescription: null,
+  // A thin offer, on purpose: the customer answered two questions, sent
+  // nothing, and said nothing about the building. The card has to look
+  // correct like this, not broken.
+  intakeBrief: buildIntakeBrief(pilotIntakeByService["svc-electric"], [
+    { questionId: "scope", optionIds: ["part"] },
+    { questionId: "danger", optionIds: ["unknown"] },
+  ]),
+  mediaSummary: undefined,
+  arrival: undefined,
+  typicalServiceMinutes: null,
   eta: {
     etaSeconds: 1320,
     distanceMeters: 8600,

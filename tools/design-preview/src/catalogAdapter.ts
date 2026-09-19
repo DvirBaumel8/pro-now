@@ -1,9 +1,10 @@
 import {
   allServices,
   browseOnly,
-  dispatchableNow,
   pilotCatalog,
+  pilotMarket,
   pilotServiceById,
+  resolveMarket,
   type CatalogServiceDef,
   type CredentialKind,
   type PriceQuoteView,
@@ -127,6 +128,8 @@ const credentialHe: Record<CredentialKind, string> = {
   DRIVING_LICENSE: "רישיון נהיגה בתוקף",
   VEHICLE_INSURANCE: "ביטוח רכב בתוקף",
   PROPERTY_LINK_POLICY: "נוהל אימות זיקה לנכס",
+  PROFESSIONAL_CERTIFICATE: "תעודה מקצועית בתחום",
+  BACKGROUND_CHECK: "בדיקת רקע",
 };
 
 export function credentialsHe(s: CatalogServiceDef): string[] {
@@ -137,8 +140,24 @@ export function credentialsHe(s: CatalogServiceDef): string[] {
 // What each screen needs
 // ---------------------------------------------------------------------
 
-const live = dispatchableNow(pilotCatalog);
-const browse = browseOnly(pilotCatalog);
+/**
+ * THE HOME GRID SHOWS THE MARKET, NOT THE CATALOGUE.
+ *
+ * `dispatchableNow(pilotCatalog)` is "everything the product can do"; this
+ * is "everything we can actually answer here, today". They are different
+ * numbers and the customer must only ever see the second one. Fourteen
+ * tiles where six find somebody does not read as a big catalogue — it reads
+ * as a broken app.
+ */
+const marketSet = resolveMarket(pilotCatalog, pilotMarket);
+const live = marketSet.live;
+/**
+ * Below the fold: the scheduled trades, and the dispatchable services that
+ * simply are not open in this market yet. Both are browse-only here, but for
+ * different reasons, and the UI keeps the two apart so it never tells
+ * someone that a locksmith is "not urgent" when the truth is "not here yet".
+ */
+const browse = [...marketSet.notInThisMarket, ...browseOnly(pilotCatalog)];
 
 /**
  * The home grid: everything dispatchable now, then the scheduled trades.
@@ -148,11 +167,27 @@ const browse = browseOnly(pilotCatalog);
  * baked into a fixture is exactly how the stale-number bug came back the
  * first time (see `home-supply.ts`).
  */
+const departmentOf: Record<string, string> = Object.fromEntries(
+  pilotCatalog.flatMap((d) => d.categories.flatMap((c) => c.services.map((s) => [s.id, d.nameHe])))
+);
+
+const notInMarketIds = new Set(marketSet.notInThisMarket.map((s) => s.id));
+
 export const catalogHomeServices: HomeServiceItem[] = [...live, ...browse].map((s) => ({
   id: s.id,
   nameHe: s.nameHe,
   mark: s.mark as MarkName,
   photoSubject: s.photoSubjectHe,
+  descriptionHe: s.descriptionHe,
+  departmentHe: departmentOf[s.id] ?? null,
+  /*
+   * The two "not now" reasons, kept apart all the way to the row that
+   * renders them. Collapsing them here would be invisible and would make
+   * the app tell a customer that a locksmith is "planned work" when the
+   * truth is that we have not signed one up in their city.
+   */
+  scheduledOnly: s.fulfillmentProfile === "SCHEDULED_ONLY",
+  notInMarket: notInMarketIds.has(s.id),
   availableNowCount: null,
   priceHint: priceHint(s),
 }));

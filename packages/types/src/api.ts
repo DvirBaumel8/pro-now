@@ -12,6 +12,7 @@
  */
 
 import type { JobActor, JobEvent, JobState, PriceModel, ProPresenceState } from "./job";
+import type { IntakeBriefLine } from "./intake";
 
 // ---------------------------------------------------------------------
 // Catalog — GET /v1/catalog
@@ -303,6 +304,50 @@ export interface OfferCardView {
    */
   customerAreaLabel: string;
   jobDescription: string | null;
+
+  /**
+   * ------------------------------------------------------------------
+   * WHAT THE PROFESSIONAL IS WALKING INTO
+   * ------------------------------------------------------------------
+   *
+   * A card that says only "₪180 · קבל" asks someone to gamble. These
+   * fields exist so the decision is informed: what the customer answered,
+   * what they sent, and what the building will be like on arrival.
+   *
+   * Every one is optional and every one renders as absent when missing.
+   * That is deliberate — an offer must be answerable in seconds with only
+   * the essentials, and padding the card with "לא ידוע" rows would make a
+   * thin offer look like a broken one.
+   */
+
+  /** The service's own questions and the customer's own answers. */
+  intakeBrief?: IntakeBriefLine[];
+  /** Counts only. The media itself is released on acceptance. */
+  mediaSummary?: {
+    photos: number;
+    voiceSeconds: number | null;
+  };
+  /**
+   * Arrival conditions, as the CUSTOMER stated them. Never inferred from a
+   * map: a wrong guess about a lift is a professional carrying a machine up
+   * four floors. Each field is absent when the customer did not say.
+   */
+  arrival?: {
+    floor?: number | null;
+    hasLift?: boolean | null;
+    parkingHe?: string | null;
+  };
+  /**
+   * A typical duration for THIS SERVICE from the catalogue — never a
+   * prediction about this job.
+   *
+   * ChatGPT's correction, and it was right: "משך משוער 30–60 דקות" reads as
+   * an estimate of the work waiting at that address, and we have no basis
+   * for one. Presented as a catalogue fact ("עבודות כאלה נמשכות בדרך כלל"),
+   * it informs without pretending. The UI must carry that framing; if it
+   * cannot, this field should not be sent.
+   */
+  typicalServiceMinutes?: [number, number] | null;
 }
 
 // ---------------------------------------------------------------------

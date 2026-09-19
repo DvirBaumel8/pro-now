@@ -9,7 +9,10 @@ import { resolveHomeSupply } from "../home-supply";
 import { customerTheme, elevation, radii, spacing, tint, type } from "../theme";
 import { Mark, PinMark, type MarkName } from "../components/marks";
 import { HeroFlourish, SectionHeader } from "../components/surfaces";
-import { ServiceTile, ServiceRow } from "../components/ServiceTile";
+import { ServiceRow } from "../components/ServiceTile";
+import { LiveServiceCard, Pulse } from "../components/LiveServiceCard";
+import { RtlRow } from "../components/RtlRow";
+import { ServiceListRow } from "../components/ServiceListRow";
 
 /**
  * C01 — Home. "מה צריך עכשיו?"
@@ -56,6 +59,18 @@ export interface HomeServiceItem {
    */
   availableNowCount?: number | null;
   priceHint?: string | null;
+  /** One short line under the name. */
+  descriptionHe?: string | null;
+  /**
+   * Which part of the catalogue this belongs to. Drives the filter row, and
+   * exists so the customer can see at a glance that this is not an app for
+   * home repairs — "אנשים שמגיעים אליך" is a heading they can tap.
+   */
+  departmentHe?: string | null;
+  /** Catalogued, never dispatched now. */
+  scheduledOnly?: boolean;
+  /** Dispatchable in principle, not open in this market yet. */
+  notInMarket?: boolean;
 }
 
 export interface HomeRecentItem {
@@ -95,6 +110,8 @@ export interface CustomerHomeBodyProps {
   width?: number;
 }
 
+const ALL = "הכול";
+
 export function CustomerHomeBody({
   greetingHe,
   addressLabelHe,
@@ -109,7 +126,6 @@ export function CustomerHomeBody({
   width = 390,
 }: CustomerHomeBodyProps) {
   const gutter = spacing.lg;
-  const tileWidth = (width - gutter * 2 - spacing.md) / 2;
 
   // The source-of-truth rule lives in resolveHomeSupply, where it is tested.
   // See that file for why it must not be re-implemented inline.
@@ -129,7 +145,6 @@ export function CustomerHomeBody({
     const st = supply.supplyFor(s.id).state;
     return st === "AVAILABLE" || st === "LIMITED";
   });
-  const rest = services.filter((s) => !free.includes(s));
   const anyFresh = free.length > 0;
 
   /*
@@ -139,6 +154,25 @@ export function CustomerHomeBody({
    * matcher cannot reach a person (see service-match.ts).
    */
   const [query, setQuery] = useState("");
+
+  /**
+   * The department filter. `ALL` is a value, not a null — a nullable filter
+   * ends up with two code paths that drift, and the chip row needs a real
+   * selected item anyway.
+   */
+  const departments = useMemo(() => {
+    const seen: string[] = [];
+    for (const s of services) {
+      const d = s.departmentHe;
+      if (d && !seen.includes(d)) seen.push(d);
+    }
+    return seen;
+  }, [services]);
+  const [dept, setDept] = useState<string>(ALL);
+  const listed = useMemo(
+    () => (dept === ALL ? services : services.filter((s) => s.departmentHe === dept)),
+    [services, dept]
+  );
   const matched = useMemo(() => {
     if (!matchRules || query.trim().length < 2) return null;
     const ids = matchServicesByText(query, matchRules).map((m) => m.serviceId);
@@ -172,11 +206,20 @@ export function CustomerHomeBody({
             <TextInput
               value={query}
               onChangeText={setQuery}
-              placeholder="תאר במילים שלך מה קרה"
+              /*
+               * "מה קרה" and "תיאור התקלה" both assume something broke.
+               * Nobody's body is broken because they want a massage, and a
+               * search box that opens with the word "תקלה" has already told
+               * that customer the app was not built for them. The shared
+               * flows have to work for a burst pipe AND for an hour with a
+               * trainer, so the neutral phrasing is not politeness — it is
+               * what lets one marketplace carry both.
+               */
+              placeholder="ספר במילים שלך מה צריך"
               placeholderTextColor={colors.textSecondary}
               style={styles.search}
               textAlign="right"
-              accessibilityLabel="תיאור התקלה"
+              accessibilityLabel="מה צריך עכשיו"
             />
           </View>
         ) : null}
@@ -215,51 +258,102 @@ export function CustomerHomeBody({
         )}
       </View>
 
-      {/* --- Services, split by what is actually reachable right now --- */}
-      <View style={{ paddingHorizontal: gutter }}>
-        {free.length > 0 ? (
-          <>
-            <SectionHeader title={lex.freeNearYou} colors={colors} />
-            <View style={styles.grid}>
-              {free.map((s) => (
-                <ServiceTile
-                  key={s.id}
-                  nameHe={s.nameHe}
-                  mark={s.mark}
-                  photoSubject={s.photoSubject}
-                  photoUri={s.photoUri}
-                  supply={supply.supplyFor(s.id)}
-                  priceHint={s.priceHint}
-                  colors={colors}
-                  width={tileWidth}
-                  onPress={() => onSelectService?.(s.id)}
-                />
-              ))}
-            </View>
-          </>
+      {/* ---------------------------------------------------------------
+          זמין עכשיו — a short, horizontal, live row.
+
+          Horizontal because "what can I have in the next hour" is a small
+          set that should never make the customer scroll: if six things are
+          reachable, six is the whole answer and it fits in a swipe. The
+          vertical space below belongs to the catalogue, which is long.
+          --------------------------------------------------------------- */}
+      {free.length > 0 ? (
+        <View style={styles.liveSection}>
+          <View style={[styles.liveHead, { paddingHorizontal: gutter }]}>
+            {/*
+              * No number beside the title. It said "12 פנויים עכשיו לידך",
+              * where 12 was the count of SERVICES and every reader took it
+              * for a count of people. A number that means one thing and
+              * reads as another is worse than no number, and the cards
+              * below carry the real counts anyway.
+              */}
+            <Text style={styles.liveTitle}>{lex.freeNearYou}</Text>
+            <Pulse color={colors.action} />
+          </View>
+          <RtlRow
+            gutter={gutter}
+            contentContainerStyle={{ gap: spacing.md }}
+            style={{ marginTop: spacing.md }}
+          >
+            {free.map((s) => (
+              <LiveServiceCard
+                key={s.id}
+                nameHe={s.nameHe}
+                mark={s.mark}
+                descriptionHe={s.descriptionHe}
+                supply={supply.supplyFor(s.id)}
+                priceHint={s.priceHint}
+                onPress={() => onSelectService?.(s.id)}
+              />
+            ))}
+          </RtlRow>
+        </View>
+      ) : null}
+
+      {/* ---------------------------------------------------------------
+          The catalogue, as a filtered list.
+
+          The department chips are the most load-bearing element on this
+          screen after the search box. They are how a customer discovers, in
+          one glance and without scrolling, that this is not an app for
+          leaking taps — that there is a heading called "אנשים שמגיעים אליך"
+          with trainers and tutors under it. A long scroll would never
+          communicate that; four chips do.
+          --------------------------------------------------------------- */}
+      <View style={{ marginTop: free.length > 0 ? spacing.xxl : spacing.lg }}>
+        <View style={{ paddingHorizontal: gutter }}>
+          <SectionHeader title="כל השירותים" colors={colors} />
+        </View>
+
+        {departments.length > 1 ? (
+          <RtlRow gutter={gutter} contentContainerStyle={{ gap: spacing.sm }}>
+            {[ALL, ...departments].map((d) => {
+              const on = d === dept;
+              return (
+                <Pressable
+                  key={d}
+                  onPress={() => setDept(d)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: on }}
+                  style={[styles.deptChip, on && styles.deptChipOn]}
+                >
+                  <Text style={[styles.deptChipText, on && styles.deptChipTextOn]} numberOfLines={1}>
+                    {d}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </RtlRow>
         ) : null}
 
-        {rest.length > 0 ? (
-          <View style={free.length > 0 ? { marginTop: spacing.xxl } : undefined}>
-            <SectionHeader title={free.length > 0 ? "שירותים נוספים" : "שירותים"} colors={colors} />
-            <View style={styles.grid}>
-              {rest.map((s) => (
-                <ServiceTile
-                  key={s.id}
-                  nameHe={s.nameHe}
-                  mark={s.mark}
-                  photoSubject={s.photoSubject}
-                  photoUri={s.photoUri}
-                  supply={supply.supplyFor(s.id)}
-                  priceHint={s.priceHint}
-                  colors={colors}
-                  width={tileWidth}
-                  onPress={() => onSelectService?.(s.id)}
-                />
-              ))}
-            </View>
-          </View>
-        ) : null}
+        <View style={{ paddingHorizontal: gutter - spacing.sm, marginTop: spacing.md }}>
+          {listed.map((s) => (
+            <ServiceListRow
+              key={s.id}
+              nameHe={s.nameHe}
+              mark={s.mark}
+              descriptionHe={s.descriptionHe}
+              supply={supply.supplyFor(s.id)}
+              scheduledOnly={s.scheduledOnly}
+              notInMarket={s.notInMarket}
+              onPress={() => onSelectService?.(s.id)}
+            />
+          ))}
+          {listed.length === 0 ? (
+            <Text style={[styles.supplyUnknown, { paddingHorizontal: spacing.sm }]}>
+              אין שירותים בקטגוריה הזו.
+            </Text>
+          ) : null}
+        </View>
       </View>
 
       {/* --- Recent --- */}
@@ -369,6 +463,26 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
 
+  liveSection: { marginTop: spacing.xl },
+  liveHead: { flexDirection: "row-reverse", alignItems: "center", gap: spacing.sm },
+  liveTitle: { ...type.h3, color: colors.textPrimary, writingDirection: "rtl" },
+  liveCount: {
+    ...type.captionStrong,
+    color: colors.actionText,
+    writingDirection: "rtl",
+  },
+  deptChip: {
+    minHeight: 44,
+    justifyContent: "center",
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.pill,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  deptChipOn: { borderColor: colors.action, backgroundColor: tint.action(0.1) },
+  deptChipText: { ...type.caption, fontSize: 14, color: colors.textSecondary, writingDirection: "rtl" },
+  deptChipTextOn: { color: colors.actionText, fontWeight: "700" },
   grid: { flexDirection: "row-reverse", flexWrap: "wrap", gap: spacing.md },
 
   trust: {

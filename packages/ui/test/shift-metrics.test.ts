@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  PILOT_RATE_STABILITY,
   RATE_MIN_ONLINE_MINUTES,
   briefingLines,
   formatOnlineDuration,
@@ -51,6 +52,31 @@ describe("readShift", () => {
     expect(rateWithheldCopy(r)).toContain(String(RATE_MIN_ONLINE_MINUTES));
   });
 
+  it("WITHHOLDS the rate after one job, however long the shift", () => {
+    // Three hours and a single job is one data point with a long
+    // denominator. ChatGPT's correction to the first version of this rule:
+    // time alone does not make a rate stable.
+    const r = readShift(shift({ completedJobs: 1 }), NOW);
+    expect(r.perOnlineHourMinorUnits).toBeNull();
+    expect(r.rateWithheldReason).toBe("TOO_FEW_JOBS");
+    expect(r.phase).toBe("WARMING");
+  });
+
+  it("takes the rule from config rather than from a constant in the code", () => {
+    const loose = { minOnlineMinutes: 5, minCompletedJobs: 1 };
+    const r = readShift(shift({ onlineSinceMs: NOW - 10 * MIN, completedJobs: 1 }), NOW, loose);
+    expect(r.perOnlineHourMinorUnits).not.toBeNull();
+    expect(r.rule).toEqual(loose);
+    // Same shift, pilot rule: withheld.
+    expect(readShift(shift({ onlineSinceMs: NOW - 10 * MIN, completedJobs: 1 }), NOW)
+      .perOnlineHourMinorUnits).toBeNull();
+  });
+
+  it("states the pilot rule as pilot config, not as a law", () => {
+    expect(PILOT_RATE_STABILITY).toEqual({ minOnlineMinutes: 45, minCompletedJobs: 2 });
+    expect(RATE_MIN_ONLINE_MINUTES).toBe(PILOT_RATE_STABILITY.minOnlineMinutes);
+  });
+
   it("shows the rate at exactly the threshold and not one minute before", () => {
     const at = readShift(shift({ onlineSinceMs: NOW - RATE_MIN_ONLINE_MINUTES * MIN }), NOW);
     const before = readShift(shift({ onlineSinceMs: NOW - (RATE_MIN_ONLINE_MINUTES - 1) * MIN }), NOW);
@@ -59,6 +85,10 @@ describe("readShift", () => {
   });
 
   it("shows a rate of zero on a long quiet shift instead of hiding it", () => {
+    // Zero jobs is the one case where "too few jobs" must NOT apply: a shift
+    // that earned nothing per hour is a fact the professional needs, and
+    // hiding it behind a sample-size rule would hide exactly the bad news
+    // they came to the screen for.
     const r = readShift(shift({ settledNetMinorUnits: 0, completedJobs: 0 }), NOW);
     expect(r.perOnlineHourMinorUnits).toBe(0);
     expect(r.rateWithheldReason).toBeNull();
@@ -72,7 +102,10 @@ describe("readShift", () => {
   });
 
   it("never counts a job in progress as money", () => {
-    const r = readShift(shift({ settledNetMinorUnits: 12000, completedJobs: 1, inProgressJobs: 1 }), NOW);
+    const r = readShift(
+      shift({ settledNetMinorUnits: 12000, completedJobs: 2, inProgressJobs: 1 }),
+      NOW
+    );
     expect(r.settledNetMinorUnits).toBe(12000);
     expect(r.inProgressJobs).toBe(1);
     // ₪120 over two hours — the in-progress job contributes nothing.

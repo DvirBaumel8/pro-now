@@ -62,6 +62,10 @@ export function ProOfferBody({
   const eta = formatEta(offer.eta);
   const distance = formatDistance(offer.eta?.distanceMeters ?? null);
   const payout = payoutDisclosure(offer.expectedPayoutMinorUnits, offer.payoutIsEstimate);
+  const brief = offer.intakeBrief ?? [];
+  const attachments = attachmentLabels(offer);
+  const arrivalChips = arrivalLabels(offer);
+  const typical = offer.typicalServiceMinutes ?? null;
 
   const urgencyColor =
     countdown.urgency === "critical"
@@ -156,9 +160,60 @@ export function ProOfferBody({
           />
         </View>
 
+        {/*
+          * WHAT IS WAITING THERE.
+          *
+          * Everything below is optional and renders as absent when the
+          * server did not send it. The order is the order a professional
+          * asks in their head: what exactly, what did they send me, what
+          * will the building be like, how long does this kind of job
+          * usually run.
+          */}
+        {brief.length > 0 ? (
+          <View style={styles.brief}>
+            {brief.slice(0, 4).map((l) => (
+              <View key={l.questionId} style={styles.briefRow}>
+                <Text style={styles.briefA} numberOfLines={1}>
+                  {l.answerHe}
+                </Text>
+                <Text style={styles.briefQ} numberOfLines={1}>
+                  {l.promptHe}
+                </Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
         {offer.jobDescription ? (
           <Text style={styles.description} numberOfLines={3}>
             {offer.jobDescription}
+          </Text>
+        ) : null}
+
+        {attachments.length > 0 || arrivalChips.length > 0 ? (
+          <View style={styles.tags}>
+            {attachments.map((a) => (
+              <View key={a} style={[styles.tag, styles.tagMedia]}>
+                <Text style={styles.tagText}>{a}</Text>
+              </View>
+            ))}
+            {arrivalChips.map((a) => (
+              <View key={a} style={styles.tag}>
+                <Text style={styles.tagText}>{a}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
+        {typical ? (
+          /*
+           * Framed as a fact about the SERVICE, never as a prediction about
+           * this job. "עבודות כאלה נמשכות בדרך כלל" is something we know;
+           * "משך משוער" is something we do not, and a professional who plans
+           * their evening around our guess is owed the difference.
+           */
+          <Text style={styles.typical}>
+            עבודות כאלה נמשכות בדרך כלל {typical[0]}–{typical[1]} דקות
           </Text>
         ) : null}
 
@@ -186,6 +241,48 @@ export function ProOfferBody({
       </View>
     </View>
   );
+}
+
+/**
+ * Media is announced, not shown.
+ *
+ * The photos and the voice note belong to a customer who has not yet been
+ * matched with anyone. Releasing them to every professional the offer passes
+ * through would scatter someone's kitchen around the city — so before
+ * acceptance the card says what exists, and after acceptance the job screen
+ * shows it.
+ */
+function attachmentLabels(offer: OfferCardView): string[] {
+  const m = offer.mediaSummary;
+  if (!m) return [];
+  const out: string[] = [];
+  if (m.photos === 1) out.push("תמונה אחת");
+  else if (m.photos > 1) out.push(`${m.photos} תמונות`);
+  if (typeof m.voiceSeconds === "number" && m.voiceSeconds > 0) {
+    const mm = Math.floor(m.voiceSeconds / 60);
+    const ss = String(Math.round(m.voiceSeconds % 60)).padStart(2, "0");
+    out.push(`הקלטה ${mm}:${ss}`);
+  }
+  return out;
+}
+
+/**
+ * Arrival conditions, ONLY where the customer said something.
+ *
+ * A missing lift renders as nothing at all rather than as "מעלית: לא ידוע".
+ * Four unknowns on a card make a normal offer look broken, and the
+ * professional learns to ignore the whole row — which costs us the times it
+ * does carry something.
+ */
+function arrivalLabels(offer: OfferCardView): string[] {
+  const a = offer.arrival;
+  if (!a) return [];
+  const out: string[] = [];
+  if (typeof a.floor === "number") out.push(a.floor === 0 ? "קומת קרקע" : `קומה ${a.floor}`);
+  if (a.hasLift === true) out.push("יש מעלית");
+  else if (a.hasLift === false) out.push("אין מעלית");
+  if (a.parkingHe) out.push(`חניה: ${a.parkingHe}`);
+  return out;
 }
 
 function Fact({ icon, value, label }: { icon: React.ReactNode; value: string; label: string }) {
@@ -297,6 +394,35 @@ const styles = StyleSheet.create({
   factValue: { ...type.h3, ...tabular, color: colors.textPrimary },
   factLabel: { ...type.caption, fontSize: 11, color: colors.textSecondary, writingDirection: "rtl" },
 
+  brief: {
+    marginTop: spacing.md,
+    borderRadius: radii.md,
+    backgroundColor: "rgba(247,243,250,0.05)",
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    gap: 4,
+  },
+  briefRow: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", gap: spacing.md },
+  briefQ: { ...type.caption, color: colors.textSecondary, writingDirection: "rtl", flexShrink: 1 },
+  briefA: { ...type.captionStrong, color: colors.textPrimary, writingDirection: "rtl", flexShrink: 1 },
+  tags: { flexDirection: "row-reverse", flexWrap: "wrap", gap: 6, marginTop: spacing.md },
+  tag: {
+    minHeight: 28,
+    justifyContent: "center",
+    paddingHorizontal: 10,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  tagMedia: { borderColor: tint.trust(0.45), backgroundColor: tint.trust(0.1) },
+  tagText: { ...type.caption, fontSize: 12, color: colors.textPrimary, writingDirection: "rtl" },
+  typical: {
+    ...type.caption,
+    color: colors.textSecondary,
+    writingDirection: "rtl",
+    textAlign: "right",
+    marginTop: spacing.sm,
+  },
   description: {
     ...type.caption,
     color: colors.textSecondary,

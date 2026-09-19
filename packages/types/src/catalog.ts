@@ -57,7 +57,50 @@ export type TrustProfile =
   | "STANDARD"
   /** Entering a home under unusual circumstances — a locksmith on a lockout. */
   | "ENHANCED"
+  /**
+   * Alone with a person, for an hour, often touching them.
+   *
+   * This is NOT "ENHANCED but more". It is a different kind of risk, and
+   * conflating the two would hide it. A locksmith's risk is about property
+   * and about a door that might not be the customer's; a massage therapist's
+   * or a personal trainer's is about a person who will be alone, sometimes
+   * undressed, with a stranger the platform sent. The failure modes, the
+   * checks that address them, and the recourse afterwards are all different.
+   *
+   * What the platform must actually require here — background checks,
+   * professional certification, chaperone or public-space options, a
+   * different cancellation and reporting path — is a policy and legal
+   * decision (/CLAUDE.md §4). The codebase carries the distinction so the
+   * decision has somewhere to land, and so nobody can quietly ship these
+   * services under STANDARD because the shape of the record allowed it.
+   */
+  | "PERSONAL_CONTACT"
   | "LICENSE_REQUIRED";
+
+/**
+ * WHAT THE PROFESSIONAL BRINGS — and the sentence that actually defines this
+ * marketplace.
+ *
+ * PRO NOW is not "an app for home repairs". It is a network of independent
+ * professionals who can be somewhere within the hour — and what makes that
+ * possible is not the trade, it is the LOGISTICS. A massage therapist with a
+ * folding table, an electrician with a tool bag and a courier on a scooter
+ * are the same kind of supply: self-contained, already mobile, able to say
+ * yes to a stranger's address without a day of preparation. A kitchen
+ * renovation is not, and no amount of product design makes it one.
+ *
+ * So this field, not the department, is what predicts whether NOW works.
+ * It also sets the honest dispatch radius: someone carrying nothing can
+ * cross a city on a bus; someone with a van is bounded by traffic and
+ * parking.
+ */
+export type MobilityProfile =
+  /** Arrives as themselves. A tutor, a trainer, a carer, a helper. */
+  | "CARRIES_NOTHING"
+  /** Everything needed fits on a person or a scooter — a bag, a case, a table. */
+  | "CARRIES_ON_PERSON"
+  /** Needs the van: parts, machines, ladders, or the load itself. */
+  | "NEEDS_VEHICLE";
 
 export type PricingModel = "FIXED" | "VISIT_QUOTE" | "HOURLY" | "DISTANCE_TIME";
 
@@ -76,7 +119,23 @@ export type CredentialKind =
   | "PEST_CONTROL_LICENSE"
   | "DRIVING_LICENSE"
   | "VEHICLE_INSURANCE"
-  | "PROPERTY_LINK_POLICY";
+  | "PROPERTY_LINK_POLICY"
+  /**
+   * A recognised qualification for a trade that has no statutory licence —
+   * a massage diploma, a fitness certification, a teaching credential.
+   *
+   * Deliberately NOT modelled as a licence. Calling a diploma a licence
+   * would let the product imply state authorisation that does not exist,
+   * and which qualifications the platform accepts per service is a business
+   * and legal decision (/CLAUDE.md §4).
+   */
+  | "PROFESSIONAL_CERTIFICATE"
+  /**
+   * A background check, for services where someone is alone with a person
+   * rather than with a pipe. Whether it is required, what it covers and who
+   * performs it are §4 decisions; the field exists so they have a home.
+   */
+  | "BACKGROUND_CHECK";
 
 export interface CatalogServiceDef {
   id: string;
@@ -92,6 +151,8 @@ export interface CatalogServiceDef {
   fulfillmentProfile: FulfillmentProfile;
   activationStatus: ActivationStatus;
   trustProfile: TrustProfile;
+  /** What the professional has to bring. See `MobilityProfile`. */
+  mobilityProfile: MobilityProfile;
   requiredCredentials: CredentialKind[];
   /** What a licensed photograph of this service would show. */
   photoSubjectHe: string;
@@ -131,6 +192,17 @@ export function dispatchableNow(departments: CatalogDepartmentDef[]): CatalogSer
       s.activationStatus === "ACTIVE" &&
       (s.fulfillmentProfile === "URGENT_NOW" || s.fulfillmentProfile === "SAME_DAY_NOW")
   );
+}
+
+/**
+ * Services whose supply can plausibly be everywhere at once.
+ *
+ * Useful because it is the honest answer to "which services can we open in a
+ * new city cheaply": the ones nobody needs a van for. A city with no movers
+ * can still have tutors and masseurs on its first day.
+ */
+export function lightweightServices(departments: CatalogDepartmentDef[]): CatalogServiceDef[] {
+  return allServices(departments).filter((s) => s.mobilityProfile !== "NEEDS_VEHICLE");
 }
 
 /** Services that exist in the catalogue but are not dispatched now. */

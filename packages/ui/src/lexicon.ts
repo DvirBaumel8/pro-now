@@ -95,6 +95,22 @@ export function prosFreeNearYou(count: number): string {
   return `${count} מקצוענים פנויים עכשיו לידך`;
 }
 
+/**
+ * The tile form: the same fact, in the width a tile actually has.
+ *
+ * `prosFree` ellipsised on a two-column grid, and an ellipsis on a supply
+ * count is the worst possible truncation — the number survives and the noun
+ * that gives it meaning disappears. The word "מקצוענים" is carried by the
+ * section heading above the grid, so it is the part that can go.
+ *
+ * Singular is still a separate string, because "1 פנויים" is exactly the
+ * error this file exists to prevent.
+ */
+export function prosFreeShort(count: number, etaMinutes?: number | null): string {
+  const head = count === 1 ? "פנוי אחד" : `${count} פנויים`;
+  return typeof etaMinutes === "number" ? `${head} · ${etaMinutes} דק׳` : head;
+}
+
 /** "הקרוב ביותר כ-8 דקות" — only ever from a real route computation. */
 export function nearestLine(minutes: number): string {
   return minutes === 1 ? "הקרוב ביותר כדקה" : `הקרוב ביותר כ-${minutes} דקות`;

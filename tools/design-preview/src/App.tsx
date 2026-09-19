@@ -15,6 +15,7 @@ import {
   Persona,
   ProEarningsBody,
   ProJobBody,
+  ProJobSettledBody,
   ProOfferBody,
   ProOnlineBody,
   ProShiftBody,
@@ -37,7 +38,8 @@ import {
 } from "@pro-now/ui";
 import type { LiveLocationState, NavGlyphName } from "@pro-now/ui";
 import type { AuthStage, ChatMessage, ConnectionState } from "@pro-now/ui";
-import { readAvailability } from "@pro-now/types";
+import { pilotIntakeByService, readAvailability } from "@pro-now/types";
+import type { IntakeAnswer } from "@pro-now/types";
 import type { JobState, ProPresenceState } from "@pro-now/types";
 
 import { matchFixture, offerFixture } from "./fixtures";
@@ -209,7 +211,18 @@ export function App() {
 
   const [gate, setGate] = useState<Gate | null>({ name: "welcome" });
   const [side, setSide] = useState<Side>("customer");
+  /**
+   * The prototype notice. It covers the address row while it is up, so it
+   * takes itself away — a permanent overlay on the first thing a reviewer
+   * wants to tap is a worse lie about the product than the one the notice is
+   * there to prevent.
+   */
   const [notice, setNotice] = useState(true);
+  useEffect(() => {
+    if (!notice) return;
+    const id = setTimeout(() => setNotice(false), 6000);
+    return () => clearTimeout(id);
+  }, [notice]);
   const [connection, retryConnection] = useConnection();
   // Measured rather than assumed: the banner's height depends on how much
   // text the current state needs, and guessing it leaves a gap or a clip.
@@ -418,6 +431,15 @@ function CustomerApp({
     );
   }, []);
   const [route, setRoute] = useState<CustomerRoute>({ name: "home" });
+  /**
+   * The intake answers live in the app, not in the screen, because they
+   * travel: they are what the professional's offer card is built from two
+   * screens later. Keyed by question id, last answer wins.
+   */
+  const [intakeAnswers, setIntakeAnswers] = useState<IntakeAnswer[]>([]);
+  const answerIntake = useCallback((a: IntakeAnswer) => {
+    setIntakeAnswers((prev) => [...prev.filter((p) => p.questionId !== a.questionId), a]);
+  }, []);
   const [elapsed, setElapsed] = useState(0);
 
   // A tracked job needs somewhere to go next; the prototype offers the same
@@ -569,6 +591,9 @@ function CustomerApp({
             serviceNameHe={page.nameHe}
             mark={page.mark}
             symptomsHe={route.symptomsHe}
+            intake={pilotIntakeByService[route.serviceId]}
+            answers={intakeAnswers}
+            onAnswer={answerIntake}
             text={faultText}
             onChangeText={setFaultText}
             photos={capture.photos}
@@ -667,7 +692,7 @@ function CustomerApp({
           />
         );
     }
-  }, [tab, route, elapsed, width, bodyH, go, snapshot, supply, addressId, live, askLocation, addressLabel, capture, faultText]);
+  }, [tab, route, elapsed, width, bodyH, go, snapshot, supply, addressId, live, askLocation, addressLabel, capture, faultText, intakeAnswers, answerIntake]);
 
   return (
     <View style={{ width, height }}>
@@ -773,6 +798,16 @@ function ProApp({ width, height, onSwitch }: { width: number; height: number; on
    */
   const [onlineSince, setOnlineSince] = useState<number | null>(null);
   const [shiftNow, setShiftNow] = useState(() => Date.now());
+  /**
+   * The shift's running totals. They start at zero and only move when a job
+   * actually settles — which is what makes the completion screen mean
+   * something and what makes "לשעת חיבור" a real number rather than a
+   * fixture. End the shift and they reset, because they describe THIS shift.
+   */
+  const [shiftNet, setShiftNet] = useState(0);
+  const [shiftJobs, setShiftJobs] = useState(0);
+  /** The payout just settled, while the completion screen is showing. */
+  const [settled, setSettled] = useState<number | null>(null);
   const [proSheet, setProSheet] = useState<null | "call" | "navigate" | "services" | "howitworks">(
     /*
      * OPEN ON ARRIVAL, ONCE.
@@ -792,7 +827,12 @@ function ProApp({ width, height, onSwitch }: { width: number; height: number; on
    * The demo control only exists while online, with no offer and no job in
    * hand — and it takes its own row. It used to sit on top of "סיום משמרת".
    */
-  const showDemo = tab === "shift" && presence === "AVAILABLE" && offerAt === null && job === null;
+  const showDemo =
+    tab === "shift" &&
+    presence === "AVAILABLE" &&
+    offerAt === null &&
+    job === null &&
+    settled === null;
   const bodyH = height - BAR - (showDemo ? DEMO_H : 0);
 
   useEffect(() => {
@@ -822,6 +862,8 @@ function ProApp({ width, height, onSwitch }: { width: number; height: number; on
     } else {
       setPresence("OFFLINE");
       setOnlineSince(null);
+      setShiftNet(0);
+      setShiftJobs(0);
       setOfferAt(null);
     }
   }, [presence]);
@@ -848,13 +890,38 @@ function ProApp({ width, height, onSwitch }: { width: number; height: number; on
     const i = JOB_FLOW.indexOf(job);
     const next = JOB_FLOW[i + 1];
     if (!next || next === "COMPLETED") {
+      /*
+       * CLOSING THE LOOP.
+       *
+       * This used to be `setJob(null)` — the work finished and the app said
+       * nothing, dropping the professional back onto a map as though the
+       * last fifty minutes had not happened. The payout now lands on the
+       * shift, the completion screen states what was added and to what, and
+       * it says out loud that they are available again so nobody has to
+       * wonder whether to press something.
+       */
+      const payout = 13400;
+      setShiftNet((n) => n + payout);
+      setShiftJobs((n) => n + 1);
+      setSettled(payout);
       setJob(null);
       return;
     }
     setJob(next);
   };
 
-  const body = proView === "chat" ? (
+  const body = settled !== null ? (
+    <ProJobSettledBody
+      addedNetMinorUnits={settled}
+      shiftNetMinorUnits={shiftNet}
+      shiftJobCount={shiftJobs}
+      onlineMinutes={onlineSince === null ? 0 : Math.floor((shiftNow - onlineSince) / 60000)}
+      returningToAvailable={presence === "AVAILABLE"}
+      onDone={() => setSettled(null)}
+      width={width}
+      height={bodyH}
+    />
+  ) : proView === "chat" ? (
     <ChatBody
       side="pro"
       counterpartNameHe="אמית (תצוגה)"
@@ -956,11 +1023,12 @@ function ProApp({ width, height, onSwitch }: { width: number; height: number; on
         presenceState={presence}
         shift={{
           onlineSinceMs: onlineSince,
-          // Nothing has settled in this prototype session, which is the
-          // honest starting state for a shift that just began — and the
-          // case the "לשעת חיבור" metric has to survive.
-          settledNetMinorUnits: onlineSince === null ? null : 0,
-          completedJobs: 0,
+          // Real running totals, moved only by a job that actually settled.
+          // A shift that has just started therefore reads ₪0 / 0 jobs, which
+          // is the honest starting state and the case "לשעת חיבור" has to
+          // survive.
+          settledNetMinorUnits: onlineSince === null ? null : shiftNet,
+          completedJobs: shiftJobs,
         }}
         /*
          * A deliberately PARTIAL briefing. The server here knows how many
@@ -1041,7 +1109,7 @@ function ProApp({ width, height, onSwitch }: { width: number; height: number; on
           {
             n: "3",
             t: "רואה הכל לפני שאתה מחליט",
-            d: "מה התקלה, איפה זה, כמה זמן נסיעה וכמה אתה מקבל. יש לך כמה שניות לענות כן או לא.",
+            d: "מה צריך שם, איפה זה, כמה זמן נסיעה וכמה אתה מקבל. יש לך כמה שניות לענות כן או לא.",
           },
           {
             n: "4",

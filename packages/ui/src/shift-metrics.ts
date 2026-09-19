@@ -21,8 +21,33 @@
  * every other number on the screen.
  */
 
-/** Minimum online time before an hourly rate is meaningful enough to show. */
-export const RATE_MIN_ONLINE_MINUTES = 45;
+/**
+ * When a per-hour rate is stable enough to show.
+ *
+ * The first version of this was a bare 45 minutes, and that was wrong in a
+ * way worth recording: TIME ALONE DOES NOT MAKE A RATE STABLE. Three hours
+ * online with a single job is one data point stretched over a long
+ * denominator — it looks authoritative and is not. And the number 45 was
+ * invented at a keyboard; presenting it as though it carried statistical
+ * meaning is its own small dishonesty.
+ *
+ * So the gate is two conditions, both required — enough time AND enough
+ * completed work — and it lives in config rather than in the code, because
+ * the right values come from watching real shifts, not from a guess. These
+ * are the pilot's values, labelled as such.
+ */
+export interface RateStabilityRule {
+  minOnlineMinutes: number;
+  minCompletedJobs: number;
+}
+
+export const PILOT_RATE_STABILITY: RateStabilityRule = {
+  minOnlineMinutes: 45,
+  minCompletedJobs: 2,
+};
+
+/** @deprecated Read `PILOT_RATE_STABILITY.minOnlineMinutes`. */
+export const RATE_MIN_ONLINE_MINUTES = PILOT_RATE_STABILITY.minOnlineMinutes;
 
 export interface ShiftSnapshot {
   /** When the current shift went ONLINE. Null when offline. */
@@ -52,7 +77,9 @@ export interface ShiftReading {
    */
   perOnlineHourMinorUnits: number | null;
   /** Why the rate is absent. Null when it is present. */
-  rateWithheldReason: "OFFLINE" | "TOO_SHORT" | "NO_SETTLED_EARNINGS" | null;
+  rateWithheldReason: "OFFLINE" | "TOO_SHORT" | "TOO_FEW_JOBS" | "NO_SETTLED_EARNINGS" | null;
+  /** The rule that was applied, so the copy can state it without guessing. */
+  rule: RateStabilityRule;
   /**
    * Share of online time spent on jobs, 0–1. Null when unknown or when the
    * shift is too short for the ratio to be stable.
@@ -60,7 +87,7 @@ export interface ShiftReading {
   utilisation: number | null;
 }
 
-const OFFLINE: ShiftReading = {
+const offlineReading = (rule: RateStabilityRule): ShiftReading => ({
   phase: "OFFLINE",
   onlineMinutes: 0,
   completedJobs: 0,
@@ -68,18 +95,23 @@ const OFFLINE: ShiftReading = {
   settledNetMinorUnits: null,
   perOnlineHourMinorUnits: null,
   rateWithheldReason: "OFFLINE",
+  rule,
   utilisation: null,
-};
+});
 
 /**
  * Reads a shift. Always returns a reading — there is no null case, because
  * "we don't know" is a state this screen must render, not an absence the
  * caller has to invent copy for.
  */
-export function readShift(snapshot: ShiftSnapshot, nowMs: number): ShiftReading {
+export function readShift(
+  snapshot: ShiftSnapshot,
+  nowMs: number,
+  rule: RateStabilityRule = PILOT_RATE_STABILITY
+): ShiftReading {
   const { onlineSinceMs } = snapshot;
 
-  if (onlineSinceMs === null || !Number.isFinite(onlineSinceMs)) return OFFLINE;
+  if (onlineSinceMs === null || !Number.isFinite(onlineSinceMs)) return offlineReading(rule);
 
   // A shift that started in the future is a clock disagreement between the
   // device and the server, not a shift. Treat it as just-started rather than
@@ -95,13 +127,28 @@ export function readShift(snapshot: ShiftSnapshot, nowMs: number): ShiftReading 
       ? null
       : Math.max(0, Math.round(snapshot.settledNetMinorUnits));
 
-  const tooShort = onlineMinutes < RATE_MIN_ONLINE_MINUTES;
+  const tooShort = onlineMinutes < rule.minOnlineMinutes;
+  /**
+   * ZERO JOBS IS NOT A SMALL SAMPLE — IT IS THE ANSWER.
+   *
+   * A long shift with no completed work earned exactly ₪0 per hour, and that
+   * is not an estimate that needs more data; it is the fact. One job IS a
+   * small sample. So the sample-size rule applies only above zero. Without
+   * this carve-out the screen would hide precisely the bad news a
+   * professional opened it to find, behind a rule written to protect them
+   * from misleading good news.
+   */
+  const tooFewJobs = completedJobs > 0 && completedJobs < rule.minCompletedJobs;
 
   let perOnlineHourMinorUnits: number | null = null;
   let rateWithheldReason: ShiftReading["rateWithheldReason"] = null;
 
   if (tooShort) {
     rateWithheldReason = "TOO_SHORT";
+  } else if (tooFewJobs) {
+    // Three hours and one job is one data point with a long denominator. It
+    // reads as authority and carries none.
+    rateWithheldReason = "TOO_FEW_JOBS";
   } else if (settled === null) {
     rateWithheldReason = "NO_SETTLED_EARNINGS";
   } else {
@@ -119,13 +166,14 @@ export function readShift(snapshot: ShiftSnapshot, nowMs: number): ShiftReading 
   }
 
   return {
-    phase: tooShort ? "WARMING" : "RUNNING",
+    phase: tooShort || tooFewJobs ? "WARMING" : "RUNNING",
     onlineMinutes,
     completedJobs,
     inProgressJobs,
     settledNetMinorUnits: settled,
     perOnlineHourMinorUnits,
     rateWithheldReason,
+    rule,
     utilisation,
   };
 }
@@ -149,7 +197,11 @@ export function rateWithheldCopy(reading: ShiftReading): string | null {
     case "OFFLINE":
       return "התחל משמרת כדי לראות רווח לשעת חיבור";
     case "TOO_SHORT":
-      return `נציג אחרי ${RATE_MIN_ONLINE_MINUTES} דק׳ חיבור — קודם לכן המספר מטעה`;
+      return `נציג אחרי ${reading.rule.minOnlineMinutes} דק׳ חיבור — קודם לכן המספר מטעה`;
+    case "TOO_FEW_JOBS":
+      return reading.rule.minCompletedJobs === 2
+        ? "נציג אחרי שתי עבודות — עבודה אחת זה עוד לא קצב"
+        : `נציג אחרי ${reading.rule.minCompletedJobs} עבודות — פחות מזה זה עוד לא קצב`;
     case "NO_SETTLED_EARNINGS":
       return "טרם נסגרה עבודה במשמרת הזו";
     default:

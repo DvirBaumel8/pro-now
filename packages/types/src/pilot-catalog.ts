@@ -56,6 +56,7 @@ function plumbing(s: Omit<CatalogServiceDef, "mark">): CatalogServiceDef {
 
 const blockage: CatalogServiceDef = plumbing({
   id: "svc-blockage",
+  mobilityProfile: "NEEDS_VEHICLE",
   code: "PLUMB_BLOCKAGE",
   nameHe: "פתיחת סתימה",
   descriptionHe: "כיור, אסלה, מקלחת או ביוב שחוזר.",
@@ -72,6 +73,7 @@ const blockage: CatalogServiceDef = plumbing({
 
 const leak: CatalogServiceDef = plumbing({
   id: "svc-leak",
+  mobilityProfile: "NEEDS_VEHICLE",
   code: "PLUMB_LEAK",
   nameHe: "נזילה או דליפת מים",
   descriptionHe: "מים שמופיעים איפה שהם לא אמורים.",
@@ -88,6 +90,7 @@ const leak: CatalogServiceDef = plumbing({
 
 const tap: CatalogServiceDef = plumbing({
   id: "svc-tap",
+  mobilityProfile: "NEEDS_VEHICLE",
   code: "PLUMB_FIXTURE",
   nameHe: "החלפת ברז או מיכל הדחה",
   descriptionHe: "ברז, ניאגרה, מקלחון או צנרת גלויה.",
@@ -109,6 +112,7 @@ const tap: CatalogServiceDef = plumbing({
 
 const powerOut: CatalogServiceDef = {
   id: "svc-electric",
+  mobilityProfile: "CARRIES_ON_PERSON",
   code: "ELEC_OUTAGE",
   nameHe: "הפסקת חשמל בדירה",
   descriptionHe: "פחת שקופץ, חושך בחלק מהבית, ריח שרוף.",
@@ -126,6 +130,7 @@ const powerOut: CatalogServiceDef = {
 
 const socket: CatalogServiceDef = {
   id: "svc-socket",
+  mobilityProfile: "CARRIES_ON_PERSON",
   code: "ELEC_POINT",
   nameHe: "שקע, נקודת אור או גוף תאורה",
   descriptionHe: "התקנה או תיקון של נקודה בודדת.",
@@ -147,6 +152,7 @@ const socket: CatalogServiceDef = {
 
 const lockout: CatalogServiceDef = {
   id: "svc-lock",
+  mobilityProfile: "CARRIES_ON_PERSON",
   code: "LOCK_LOCKOUT",
   nameHe: "ננעלתי בחוץ",
   descriptionHe: "פתיחת דלת כשאין מפתח.",
@@ -169,6 +175,7 @@ const lockout: CatalogServiceDef = {
 
 const cylinder: CatalogServiceDef = {
   id: "svc-cylinder",
+  mobilityProfile: "CARRIES_ON_PERSON",
   code: "LOCK_CYLINDER",
   nameHe: "החלפת צילינדר או מנעול",
   descriptionHe: "החלפה אחרי אובדן מפתח, מעבר דירה או פריצה.",
@@ -190,6 +197,7 @@ const cylinder: CatalogServiceDef = {
 
 const acFix: CatalogServiceDef = {
   id: "svc-ac",
+  mobilityProfile: "NEEDS_VEHICLE",
   code: "HVAC_REPAIR",
   nameHe: "מזגן לא מקרר או מטפטף",
   descriptionHe: "תיקון, ניקוי או בדיקת גז למזגן קיים.",
@@ -207,6 +215,7 @@ const acFix: CatalogServiceDef = {
 
 const fridge: CatalogServiceDef = {
   id: "svc-fridge",
+  mobilityProfile: "NEEDS_VEHICLE",
   code: "APPL_FRIDGE",
   nameHe: "מקרר או מקפיא",
   descriptionHe: "מקרר שלא מקרר, מקפיא שמפשיר, מים מתחת.",
@@ -224,6 +233,7 @@ const fridge: CatalogServiceDef = {
 
 const washer: CatalogServiceDef = {
   id: "svc-washer",
+  mobilityProfile: "NEEDS_VEHICLE",
   code: "APPL_WASHER",
   nameHe: "מכונת כביסה או מייבש",
   descriptionHe: "לא מנקזת, לא מסתובבת, מציפה או לא נדלקת.",
@@ -245,6 +255,7 @@ const washer: CatalogServiceDef = {
 
 const cleanNow: CatalogServiceDef = {
   id: "svc-clean",
+  mobilityProfile: "CARRIES_ON_PERSON",
   code: "CLEAN_URGENT",
   nameHe: "ניקיון דחוף",
   descriptionHe: "אחרי אירוע, אחרי שיפוץ, או לפני שמגיעים אורחים.",
@@ -262,6 +273,7 @@ const cleanNow: CatalogServiceDef = {
 
 const pest: CatalogServiceDef = {
   id: "svc-pest",
+  mobilityProfile: "NEEDS_VEHICLE",
   code: "PEST_CONTROL",
   nameHe: "הדברה",
   descriptionHe: "טיפול בג׳וקים, נמלים, יתושים או מכרסמים.",
@@ -283,6 +295,7 @@ const pest: CatalogServiceDef = {
 
 const courier: CatalogServiceDef = {
   id: "svc-courier",
+  mobilityProfile: "CARRIES_ON_PERSON",
   code: "LOG_COURIER",
   nameHe: "שליחות עכשיו",
   descriptionHe: "איסוף ומסירה של חבילה, מסמך או מפתח.",
@@ -300,6 +313,7 @@ const courier: CatalogServiceDef = {
 
 const smallMove: CatalogServiceDef = {
   id: "svc-moving",
+  mobilityProfile: "NEEDS_VEHICLE",
   code: "LOG_SMALL_MOVE",
   nameHe: "הובלה קטנה",
   descriptionHe: "פריט בודד, כמה ארגזים, או דירת סטודיו.",
@@ -325,7 +339,10 @@ const smallMove: CatalogServiceDef = {
 // ---------------------------------------------------------------------
 
 function scheduled(
-  s: Omit<CatalogServiceDef, "fulfillmentProfile" | "activationStatus" | "trustProfile" | "requiredCredentials"> &
+  s: Omit<
+    CatalogServiceDef,
+    "fulfillmentProfile" | "activationStatus" | "trustProfile" | "requiredCredentials"
+  > &
     Partial<Pick<CatalogServiceDef, "trustProfile" | "requiredCredentials">>
 ): CatalogServiceDef {
   return {
@@ -339,6 +356,7 @@ function scheduled(
 
 const painting = scheduled({
   id: "svc-paint",
+  mobilityProfile: "NEEDS_VEHICLE",
   code: "FINISH_PAINT",
   nameHe: "צביעה",
   descriptionHe: "חדר, קיר או תיקוני צבע אחרי נזילה.",
@@ -351,6 +369,7 @@ const painting = scheduled({
 
 const furniture = scheduled({
   id: "svc-furniture",
+  mobilityProfile: "CARRIES_ON_PERSON",
   code: "ASSEMBLE_FURNITURE",
   nameHe: "הרכבת רהיטים",
   descriptionHe: "ארון, מיטה, שולחן או ריהוט מהקופסה.",
@@ -363,6 +382,7 @@ const furniture = scheduled({
 
 const tvMount = scheduled({
   id: "svc-tv",
+  mobilityProfile: "CARRIES_ON_PERSON",
   code: "INSTALL_TV",
   nameHe: "תליית טלוויזיה ומסכים",
   descriptionHe: "התקנה על הקיר והסתרת כבלים.",
@@ -375,6 +395,7 @@ const tvMount = scheduled({
 
 const garden = scheduled({
   id: "svc-garden",
+  mobilityProfile: "NEEDS_VEHICLE",
   code: "GARDEN_CARE",
   nameHe: "גינון",
   descriptionHe: "גיזום, כיסוח, השקיה ותחזוקת גינה.",
@@ -387,6 +408,7 @@ const garden = scheduled({
 
 const glass = scheduled({
   id: "svc-glass",
+  mobilityProfile: "NEEDS_VEHICLE",
   code: "GLASS_WORK",
   nameHe: "זכוכית ואלומיניום",
   descriptionHe: "חלון שבור, מקלחון, רשת או תריס.",
@@ -399,6 +421,7 @@ const glass = scheduled({
 
 const sealing = scheduled({
   id: "svc-sealing",
+  mobilityProfile: "NEEDS_VEHICLE",
   code: "SEALING_WORK",
   nameHe: "איטום",
   descriptionHe: "גג, מרפסת, חדר רחצה או קיר חיצוני.",
@@ -411,6 +434,7 @@ const sealing = scheduled({
 
 const carpentry = scheduled({
   id: "svc-carpentry",
+  mobilityProfile: "CARRIES_ON_PERSON",
   code: "CARPENTRY",
   nameHe: "נגרות",
   descriptionHe: "דלתות, מטבח, מדפים ותיקוני עץ.",
@@ -423,6 +447,7 @@ const carpentry = scheduled({
 
 const tiling = scheduled({
   id: "svc-tiling",
+  mobilityProfile: "NEEDS_VEHICLE",
   code: "TILING",
   nameHe: "ריצוף וחיפוי",
   descriptionHe: "אריחים שבורים, רובה, וחיפוי מטבח.",
@@ -435,6 +460,7 @@ const tiling = scheduled({
 
 const drywall = scheduled({
   id: "svc-drywall",
+  mobilityProfile: "NEEDS_VEHICLE",
   code: "DRYWALL",
   nameHe: "גבס וטיח",
   descriptionHe: "מחיצות, תקרות, ותיקון חורים בקיר.",
@@ -447,6 +473,7 @@ const drywall = scheduled({
 
 const curtains = scheduled({
   id: "svc-curtains",
+  mobilityProfile: "CARRIES_ON_PERSON",
   code: "INSTALL_CURTAINS",
   nameHe: "וילונות ומסילות",
   descriptionHe: "התקנה, החלפה וכיוון של מסילות.",
@@ -459,6 +486,7 @@ const curtains = scheduled({
 
 const alarm = scheduled({
   id: "svc-alarm",
+  mobilityProfile: "CARRIES_ON_PERSON",
   code: "SECURITY_ALARM",
   nameHe: "אזעקה ומצלמות",
   descriptionHe: "התקנה ותיקון של מערכות אבטחה ביתיות.",
@@ -473,6 +501,7 @@ const alarm = scheduled({
 
 const solar = scheduled({
   id: "svc-solar",
+  mobilityProfile: "NEEDS_VEHICLE",
   code: "SOLAR_WATER",
   nameHe: "דוד שמש וקולטים",
   descriptionHe: "תיקון, החלפה וניקוי של מערכת חימום מים.",
@@ -496,6 +525,7 @@ const solar = scheduled({
  */
 const gas: CatalogServiceDef = {
   id: "svc-gas",
+  mobilityProfile: "NEEDS_VEHICLE",
   code: "GAS_WORK",
   nameHe: "גז",
   descriptionHe: "חיבור, תיקון ובדיקת מערכת גז ביתית.",
@@ -509,6 +539,202 @@ const gas: CatalogServiceDef = {
   requiredCredentials: [IDENTITY, "BUSINESS", "LIABILITY_INSURANCE", "GAS_LICENSE"],
   photoSubjectHe: "מד לחץ על צנרת גז, ידיים בכפפות",
   typicalMinutes: [30, 90],
+};
+
+
+// ---------------------------------------------------------------------
+// אנשים שמגיעים אליך
+//
+// THE DEPARTMENT THAT DECIDES WHAT THIS COMPANY IS.
+//
+// Without it, PRO NOW is an app for home repairs with a marketplace
+// underneath. With it, it is what Amit described: a network of independent
+// professionals who can be at your door within the hour, whether they carry
+// a tool bag, a folding table, or nothing at all.
+//
+// And this is not a branding preference — it is a supply argument. The
+// hardest thing to buy in a NOW marketplace is a professional sitting online
+// with an hour free. A personal trainer between clients, a masseur with a
+// cancellation, a tutor with a gap before evening: these people ALREADY have
+// the shape the product needs, and unlike a plumber they need no van, no
+// parts and no parking. They are the cheapest liquidity a new city can have.
+//
+// TWO THINGS THAT CHANGE HERE, AND THEY ARE NOT COSMETIC:
+//
+// 1. There is no fault. Nobody's body is broken because they booked a
+//    massage, and a product that asks "מה התקלה?" before a training session
+//    has told the customer it was not built for them. Copy that assumes a
+//    fault has to stay out of these flows.
+//
+// 2. The person IS the risk surface. A plumber is alone with a pipe; a
+//    massage therapist is alone with a person, often for an hour, often
+//    touching them. That is `PERSONAL_CONTACT`, and it is a different
+//    question from `ENHANCED`, not a louder version of it. Which checks the
+//    platform actually requires is a §4 decision — these services stay PILOT
+//    until it is made, and the record carries the requirement so the
+//    decision cannot be skipped by accident.
+// ---------------------------------------------------------------------
+
+/** Someone comes to you, as themselves, for an hour. */
+function personal(
+  s: Omit<CatalogServiceDef, "trustProfile" | "requiredCredentials" | "activationStatus"> &
+    Partial<Pick<CatalogServiceDef, "trustProfile" | "requiredCredentials" | "activationStatus">>
+): CatalogServiceDef {
+  return {
+    // PILOT, not ACTIVE, and the reason is in the comment above: the
+    // verification policy for being alone with a person has not been decided
+    // (/CLAUDE.md §4). Flipping this field without that decision is exactly
+    // the mistake the field exists to prevent.
+    activationStatus: "PILOT",
+    trustProfile: "PERSONAL_CONTACT",
+    requiredCredentials: ["IDENTITY_ENHANCED", "BACKGROUND_CHECK", "PROFESSIONAL_CERTIFICATE"],
+    ...s,
+  };
+}
+
+const trainer = personal({
+  id: "svc-trainer",
+  mobilityProfile: "CARRIES_ON_PERSON",
+  code: "FIT_TRAINER",
+  nameHe: "אימון אישי",
+  descriptionHe: "מאמן מגיע אליך — לבית, לפארק או לחדר הכושר.",
+  mark: "fitness",
+  keywordsHe: ["מאמן", "אימון", "כושר", "מאמן אישי", "להתאמן", "ספורט", "פילאטיס"],
+  symptomsHe: ["אימון ראשון להתנסות", "אימון בבית", "אימון בפארק", "חזרה אחרי הפסקה"],
+  pricingModel: "FIXED",
+  fulfillmentProfile: "SAME_DAY_NOW",
+  photoSubjectHe: "מאמן עם מזרן וגומיות בסלון או בפארק",
+  typicalMinutes: [45, 60],
+});
+
+const massage = personal({
+  id: "svc-massage",
+  mobilityProfile: "CARRIES_ON_PERSON",
+  code: "WELL_MASSAGE",
+  nameHe: "עיסוי עד הבית",
+  descriptionHe: "מטפל מגיע עם מיטת טיפולים.",
+  mark: "wellness",
+  keywordsHe: ["עיסוי", "מסאז", "מסאג׳", "מטפל", "כאבי גב", "שחרור שרירים", "רפלקסולוגיה"],
+  symptomsHe: ["כאבי גב או צוואר", "אחרי אימון", "עיסוי רקמות עמוק", "עיסוי מרגיע"],
+  pricingModel: "FIXED",
+  fulfillmentProfile: "SAME_DAY_NOW",
+  photoSubjectHe: "מיטת טיפולים מקופלת לצד תיק מטפל",
+  typicalMinutes: [50, 90],
+});
+
+const haircut = personal({
+  id: "svc-haircut",
+  mobilityProfile: "CARRIES_ON_PERSON",
+  code: "GROOM_HAIR",
+  nameHe: "תספורת עד הבית",
+  descriptionHe: "ספר או ספרית מגיעים עם הציוד.",
+  mark: "grooming",
+  keywordsHe: ["תספורת", "ספר", "ספרית", "להסתפר", "זקן", "צבע שיער", "פן"],
+  symptomsHe: ["תספורת גבר", "תספורת אישה", "תספורת לילד", "עיצוב זקן"],
+  pricingModel: "FIXED",
+  fulfillmentProfile: "SAME_DAY_NOW",
+  photoSubjectHe: "מספריים ומכונת תספורת על מגבת",
+  typicalMinutes: [30, 60],
+});
+
+const nails = personal({
+  id: "svc-nails",
+  mobilityProfile: "CARRIES_ON_PERSON",
+  code: "GROOM_NAILS",
+  nameHe: "מניקור ופדיקור",
+  descriptionHe: "טיפול ציפורניים אצלך בבית.",
+  mark: "grooming",
+  keywordsHe: ["מניקור", "פדיקור", "ציפורניים", "לק", "ג׳ל", "בניית ציפורניים"],
+  symptomsHe: ["מניקור", "פדיקור", "לק ג׳ל", "הסרה ובנייה"],
+  pricingModel: "FIXED",
+  fulfillmentProfile: "SAME_DAY_NOW",
+  photoSubjectHe: "ערכת טיפוח ציפורניים פתוחה על שולחן",
+  typicalMinutes: [45, 90],
+});
+
+const tutor = personal({
+  id: "svc-tutor",
+  mobilityProfile: "CARRIES_NOTHING",
+  code: "LEARN_TUTOR",
+  nameHe: "שיעור פרטי",
+  descriptionHe: "מורה מגיע אליך — או מתחבר עכשיו.",
+  mark: "learning",
+  keywordsHe: ["שיעור", "מורה", "שיעור פרטי", "מתמטיקה", "אנגלית", "בגרות", "מבחן"],
+  symptomsHe: ["מבחן מחר", "עזרה בשיעורי בית", "הכנה לבגרות", "שיעור קבוע"],
+  pricingModel: "HOURLY",
+  fulfillmentProfile: "SAME_DAY_NOW",
+  // The one service here with no physical contact at all, which is why it
+  // does not carry a background check by default — the trust question is
+  // real but different, and it is a §4 decision like the rest.
+  trustProfile: "ENHANCED",
+  requiredCredentials: ["IDENTITY_ENHANCED", "PROFESSIONAL_CERTIFICATE"],
+  photoSubjectHe: "מחברת ומחשבון על שולחן מטבח",
+  typicalMinutes: [45, 90],
+});
+
+/**
+ * הנדימן לשעה — the service that proves the model.
+ *
+ * It is not a trade. It is an hour of a capable person with a bag of tools,
+ * and it absorbs every small job the catalogue will never have a name for: a
+ * shelf, a curtain rod, a door that sticks, a box that needs carrying down.
+ * A taxonomy can grow forever and still miss what someone actually needs at
+ * eight in the evening; this is how the product answers anyway.
+ */
+const handymanHour: CatalogServiceDef = {
+  id: "svc-handyman",
+  mobilityProfile: "CARRIES_ON_PERSON",
+  code: "ASSIST_HANDYMAN",
+  nameHe: "הנדימן לשעה",
+  descriptionHe: "עבודות קטנות בבית — לפי שעה, בלי להגדיר מראש בדיוק מה.",
+  mark: "handyman",
+  keywordsHe: ["הנדימן", "תיקונים קטנים", "לתלות", "לקדוח", "מדף", "להרכיב", "עזרה בבית", "בעל מקצוע כללי"],
+  symptomsHe: ["לתלות מדף או תמונה", "דלת שנתקעת", "כמה תיקונים קטנים", "לא בטוח מה צריך"],
+  pricingModel: "HOURLY",
+  fulfillmentProfile: "SAME_DAY_NOW",
+  activationStatus: "ACTIVE",
+  trustProfile: "STANDARD",
+  requiredCredentials: [IDENTITY, "BUSINESS", "LIABILITY_INSURANCE"],
+  photoSubjectHe: "תיק כלים פתוח עם מברגה ופלס",
+  typicalMinutes: [60, 180],
+};
+
+/** עזרה בהרמה וסידור — a pair of hands, no trade required. */
+const helpingHands: CatalogServiceDef = {
+  id: "svc-hands",
+  mobilityProfile: "CARRIES_NOTHING",
+  code: "ASSIST_HANDS",
+  nameHe: "זוג ידיים לעזרה",
+  descriptionHe: "להרים, לסדר, לפנות, לארוז — שעה או שתיים של עזרה.",
+  mark: "moving",
+  keywordsHe: ["עזרה", "להרים", "לסדר", "לארוז", "לפנות", "כוח אדם", "מישהו שיעזור"],
+  symptomsHe: ["להרים משהו כבד", "לסדר מחסן", "לארוז לפני מעבר", "לפנות גרוטאות"],
+  pricingModel: "HOURLY",
+  fulfillmentProfile: "SAME_DAY_NOW",
+  activationStatus: "ACTIVE",
+  trustProfile: "STANDARD",
+  requiredCredentials: [IDENTITY],
+  photoSubjectHe: "שני אנשים מרימים ארגז במסדרון",
+  typicalMinutes: [60, 180],
+};
+
+/** ניקיון אחרי שיפוץ — named by Amit, and genuinely its own job. */
+const renoClean: CatalogServiceDef = {
+  id: "svc-clean-reno",
+  mobilityProfile: "NEEDS_VEHICLE",
+  code: "CLEAN_RENOVATION",
+  nameHe: "ניקיון אחרי שיפוץ",
+  descriptionHe: "אבק בנייה, שאריות צבע, חלונות ומסגרות.",
+  mark: "cleaning",
+  keywordsHe: ["ניקיון אחרי שיפוץ", "אבק בנייה", "שאריות צבע", "ניקיון עומק", "אחרי בנייה"],
+  symptomsHe: ["אבק בכל הבית", "שאריות צבע וטיח", "חלונות ומסגרות", "לפני כניסה לדירה"],
+  pricingModel: "VISIT_QUOTE",
+  fulfillmentProfile: "SAME_DAY_NOW",
+  activationStatus: "ACTIVE",
+  trustProfile: "STANDARD",
+  requiredCredentials: [IDENTITY, "BUSINESS"],
+  photoSubjectHe: "שואב תעשייתי ודלי לצד חלון נקי",
+  typicalMinutes: [180, 420],
 };
 
 // ---------------------------------------------------------------------
@@ -529,10 +755,25 @@ export const pilotCatalog: CatalogDepartmentDef[] = [
     ],
   },
   {
+    code: "PEOPLE",
+    nameHe: "אנשים שמגיעים אליך",
+    categories: [
+      { code: "FITNESS", nameHe: "כושר ובריאות", mark: "fitness", services: [trainer, massage] },
+      { code: "GROOMING", nameHe: "טיפוח", mark: "grooming", services: [haircut, nails] },
+      { code: "LEARNING", nameHe: "לימודים", mark: "learning", services: [tutor] },
+      {
+        code: "ASSIST",
+        nameHe: "עזרה כללית",
+        mark: "handyman",
+        services: [handymanHour, helpingHands],
+      },
+    ],
+  },
+  {
     code: "HOME_CARE",
     nameHe: "תחזוקת הבית",
     categories: [
-      { code: "CLEANING", nameHe: "ניקיון", mark: "cleaning", services: [cleanNow] },
+      { code: "CLEANING", nameHe: "ניקיון", mark: "cleaning", services: [cleanNow, renoClean] },
       { code: "PEST", nameHe: "הדברה", mark: "pest", services: [pest] },
       { code: "GARDEN", nameHe: "גינון", mark: "garden", services: [garden] },
     ],

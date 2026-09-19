@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   allServices,
   browseOnly,
+  lightweightServices,
   credentialsFor,
   dispatchableNow,
   eligibleServices,
@@ -70,14 +71,58 @@ describe("what may be offered as available right now", () => {
     }
   });
 
-  it("keeps the pilot small enough to feel alive", () => {
-    // Not an arbitrary bound: past roughly this many live services, one city's
-    // supply spreads thin enough that most taps find nobody. If this fails
-    // because the pilot genuinely grew, the number moves — deliberately, with
-    // supply to back it.
-    const now = dispatchableNow(pilotCatalog);
-    expect(now.length).toBeGreaterThanOrEqual(10);
-    expect(now.length).toBeLessThanOrEqual(16);
+  it("lets the CATALOGUE grow, because the market is what stays small", () => {
+    // This assertion used to cap the catalogue at sixteen, and that was the
+    // wrong place to hold the line. The thing that must stay small is what
+    // one city offers on one day — and `resolveMarket` now enforces that
+    // (see market-activation.test.ts). Capping the catalogue instead meant
+    // every new trade had to displace an old one, which is how a product
+    // ends up permanently shaped like the first ten things it shipped.
+    expect(dispatchableNow(pilotCatalog).length).toBeGreaterThanOrEqual(10);
+  });
+
+  it("can open a city with nothing but people who carry their own kit", () => {
+    // The supply argument for the PEOPLE department: a new city has no
+    // movers and no vans on day one, but a trainer, a tutor and a pair of
+    // hands need neither.
+    const light = lightweightServices(pilotCatalog).filter((s) => s.activationStatus !== "INACTIVE");
+    expect(light.length).toBeGreaterThanOrEqual(10);
+    for (const s of light) expect(s.mobilityProfile, s.id).not.toBe("NEEDS_VEHICLE");
+  });
+
+  it("declares what every professional has to bring", () => {
+    for (const s of services) {
+      expect(
+        ["CARRIES_NOTHING", "CARRIES_ON_PERSON", "NEEDS_VEHICLE"],
+        s.id
+      ).toContain(s.mobilityProfile);
+    }
+  });
+
+  it("never sends a van-dependent service as CARRIES_NOTHING", () => {
+    // A cheap sanity check on the axis that sets dispatch radius: anything
+    // needing parts, machines or a load is NEEDS_VEHICLE.
+    for (const id of ["svc-moving", "svc-ac", "svc-fridge", "svc-pest", "svc-paint"]) {
+      expect(pilotServiceById[id]!.mobilityProfile, id).toBe("NEEDS_VEHICLE");
+    }
+  });
+
+  it("holds every PERSONAL_CONTACT service to the checks that profile exists for", () => {
+    const personal = services.filter((s) => s.trustProfile === "PERSONAL_CONTACT");
+    expect(personal.length).toBeGreaterThan(0);
+    for (const s of personal) {
+      expect(s.requiredCredentials, s.id).toContain("IDENTITY_ENHANCED");
+      expect(s.requiredCredentials, s.id).toContain("BACKGROUND_CHECK");
+      // And it must not be live: the verification policy for being alone
+      // with a person is a §4 decision that has not been made.
+      expect(s.activationStatus, s.id).not.toBe("ACTIVE");
+    }
+  });
+
+  it("does not let a PERSONAL_CONTACT service reach the dispatchable set", () => {
+    for (const s of dispatchableNow(pilotCatalog)) {
+      expect(s.trustProfile, s.id).not.toBe("PERSONAL_CONTACT");
+    }
   });
 
   it("offers at least one URGENT_NOW service per live urgent trade", () => {

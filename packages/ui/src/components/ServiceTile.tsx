@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import type { ServiceSupply } from "@pro-now/types";
 
-import { lex, nearestLine } from "../lexicon";
+import { lex, prosFreeShort } from "../lexicon";
 
 import { elevation, imageRatio, radii, spacing, tint, type } from "../theme";
 import { Mark, type MarkName } from "./marks";
@@ -117,9 +117,8 @@ export function ServiceTile({
               * kind of error that ships and quietly tells every reader the
               * product was not written by anyone who speaks the language.
               */}
-            <Text style={styles.supplyText}>
-              {count === 1 ? "מקצוען אחד פנוי" : `${count} מקצוענים פנויים`}
-              {etaMinutes !== null ? ` · ${nearestLine(etaMinutes).replace("הקרוב ביותר ", "הקרוב ")}` : ""}
+            <Text style={styles.supplyText} numberOfLines={1}>
+              {prosFreeShort(count as number, etaMinutes)}
             </Text>
           </View>
         ) : knownEmpty ? (
@@ -130,7 +129,7 @@ export function ServiceTile({
       </View>
 
       <View style={styles.body}>
-        <Text style={[styles.name, { color: colors.textPrimary }]} numberOfLines={1}>
+        <Text style={[styles.name, { color: colors.textPrimary }]} numberOfLines={2}>
           {nameHe}
         </Text>
         {priceHint ? (
@@ -162,22 +161,34 @@ const styles = StyleSheet.create({
   // same fact reported differently — not as two unrelated badges.
   supplyEmpty: { backgroundColor: "rgba(20,21,26,0.62)" },
 
+  /**
+   * A BAND ACROSS THE FOOT OF THE IMAGE, NOT A FLOATING PILL.
+   *
+   * As a pill it sat on top of whatever the image had there — and with no
+   * licensed photography yet, what it sat on was the placeholder's own
+   * caption, so two unrelated Hebrew strings overlapped into noise. A pill
+   * is only safe over an image you control. A band is safe over anything,
+   * because it covers rather than competes, and it still works once real
+   * photographs land.
+   */
   supply: {
     position: "absolute",
-    bottom: spacing.sm,
-    right: spacing.sm,
+    bottom: 0,
+    left: 0,
+    right: 0,
     flexDirection: "row-reverse",
     alignItems: "center",
     gap: 5,
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-    borderRadius: radii.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderBottomLeftRadius: radii.md,
+    borderBottomRightRadius: radii.md,
   },
   supplyDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#FFFFFF" },
-  supplyText: { ...type.caption, fontWeight: "700", color: "#17121F" },
+  supplyText: { ...type.caption, fontWeight: "700", color: "#17121F", flexShrink: 1 },
 
   body: { paddingHorizontal: spacing.sm, paddingTop: spacing.md, paddingBottom: spacing.sm, gap: 2 },
-  name: { ...type.bodyStrong, textAlign: "right", writingDirection: "rtl" },
+  name: { ...type.bodyStrong, fontSize: 15, lineHeight: 20, textAlign: "right", writingDirection: "rtl" },
   price: { ...type.caption, textAlign: "right", writingDirection: "rtl" },
 });
 
@@ -234,6 +245,6 @@ const row = StyleSheet.create({
   pressed: { opacity: 0.9 },
   markWrap: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
   text: { flex: 1, alignItems: "flex-end", gap: 1 },
-  name: { ...type.bodyStrong, textAlign: "right", writingDirection: "rtl" },
+  name: { ...type.bodyStrong, fontSize: 15, lineHeight: 20, textAlign: "right", writingDirection: "rtl" },
   meta: { ...type.caption, textAlign: "right", writingDirection: "rtl" },
 });

@@ -37,7 +37,11 @@ export type MarkName =
   | "tiling"
   | "drywall"
   | "curtains"
-  | "alarm";
+  | "alarm"
+  | "fitness"
+  | "wellness"
+  | "grooming"
+  | "learning";
 
 export interface MarkProps {
   name: MarkName;
@@ -231,6 +235,44 @@ export function Mark({ name, size = 24, color = "#14151A", strokeWidth = 1.8 }: 
           <Line x1={3} y1={4} x2={21} y2={4} {...common} />
           <Path d="M7 4v13c0 2-1 3-2 3M17 4v13c0 2 1 3 2 3" {...common} />
           <Path d="M7 4c2 4 2 10 0 16M17 4c-2 4-2 10 0 16" {...common} />
+        </>
+      )}
+
+      {/* A dumbbell. Not a running figure: most of what happens here is
+          strength work in a living room, not a jog. */}
+      {name === "fitness" && (
+        <>
+          <Line x1={9} y1={12} x2={15} y2={12} {...common} />
+          <Rect x={5.5} y={8.5} width={3.5} height={7} rx={1.2} {...common} />
+          <Rect x={15} y={8.5} width={3.5} height={7} rx={1.2} {...common} />
+          <Line x1={3} y1={10.5} x2={3} y2={13.5} {...common} />
+          <Line x1={21} y1={10.5} x2={21} y2={13.5} {...common} />
+        </>
+      )}
+
+      {/* A folded treatment table. A body outline would put a person on the
+          home screen; the equipment says the same thing without one. */}
+      {name === "wellness" && (
+        <>
+          <Rect x={3} y={8} width={18} height={5} rx={2} {...common} />
+          <Path d="M6 13v6M18 13v6" {...common} />
+          <Path d="M9 5.5c0 1.2-1 1.6-1 2.5M15 5.5c0 1.2-1 1.6-1 2.5" {...common} />
+        </>
+      )}
+
+      {name === "grooming" && (
+        <>
+          <Circle cx={6} cy={17.5} r={2.6} {...common} />
+          <Circle cx={6} cy={6.5} r={2.6} {...common} />
+          <Path d="M8.3 8.3 19 19M8.3 15.7 19 5" {...common} />
+        </>
+      )}
+
+      {name === "learning" && (
+        <>
+          <Path d="M12 6.5 3.5 9.8 12 13l8.5-3.2z" {...common} />
+          <Path d="M6.5 11.3V16c0 1.6 2.5 2.8 5.5 2.8s5.5-1.2 5.5-2.8v-4.7" {...common} />
+          <Line x1={20.5} y1={9.8} x2={20.5} y2={14} {...common} />
         </>
       )}
 

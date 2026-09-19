@@ -66,6 +66,15 @@ export const palette = {
 
   // Sun — limited supply, caution
   sun500: "#FFB020",
+  /**
+   * Amber, dark enough to be TEXT on the ivory surface.
+   *
+   * sun500 is a fill — a 1.83:1 ratio as text on ivory, which is close to
+   * invisible. It carries "thin supply", and a warning nobody can read is
+   * worse than no warning at all, because the layout promises information
+   * that is not delivered. 5.94:1 here.
+   */
+  sun700: "#8A5200",
   sun100: "#FFF1D6",
 
   // Berry — danger, disputes
@@ -134,6 +143,8 @@ export const customerTheme = {
     /** Trust. Verified facts only — never an action. Measured: 4.78:1. */
     trust: palette.trust700,
     statusWarning: palette.sun500,
+    /** Same fact as `statusWarning`, legible as text on this surface. */
+    statusWarningText: palette.sun700,
     statusDanger: palette.berry500,
     border: palette.ink100,
   },
@@ -154,6 +165,8 @@ export const proTheme = {
     /** On the dark side this also carries the ONLINE state. Measured 9.9:1. */
     trust: palette.trust300,
     statusWarning: palette.sun500,
+    /** On the dark surface the fill colour is already legible as text. */
+    statusWarningText: palette.sun500,
     statusDanger: palette.berry300,
     border: palette.night600,
   },

@@ -1,6 +1,8 @@
 import React from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
+import type { IntakeAnswer, IntakeQuestion, ServiceIntake } from "@pro-now/types";
+
 import { customerTheme, elevation, radii, spacing, tabular, tint, type } from "../theme";
 import { Mark, type MarkName, ShieldCheckMark } from "../components/marks";
 import { ImageSlot, SectionHeader, Surface } from "../components/surfaces";
@@ -56,6 +58,14 @@ export interface DescribeFaultBodyProps {
   mark: MarkName;
   /** Symptoms already chosen on the service page, shown back for confirmation. */
   symptomsHe: string[];
+  /**
+   * The questions THIS service asks. Absent for a service with no intake,
+   * and the screen is then exactly what it was before — which is the point:
+   * a service without a good set of questions must not be given a bad one.
+   */
+  intake?: ServiceIntake;
+  answers?: IntakeAnswer[];
+  onAnswer?: (answer: IntakeAnswer) => void;
   text: string;
   onChangeText: (v: string) => void;
   photos: FaultPhoto[];
@@ -80,6 +90,9 @@ export function DescribeFaultBody({
   serviceNameHe,
   mark,
   symptomsHe,
+  intake,
+  answers = [],
+  onAnswer,
   text,
   onChangeText,
   photos,
@@ -109,7 +122,13 @@ export function DescribeFaultBody({
           <View style={styles.markBubble}>
             <Mark name={mark} size={20} color={colors.action} />
           </View>
-          <Text style={styles.title}>ספר לנו מה קרה</Text>
+          {/*
+            * Neutral, because this screen is shared. "מה קרה" is correct for
+            * a burst pipe and wrong for an hour with a trainer — and a
+            * heading that assumes a disaster is how a marketplace quietly
+            * narrows itself back down to home repairs.
+            */}
+          <Text style={styles.title}>{intake ? "כמה פרטים לפני ששולחים" : "ספר לנו מה צריך"}</Text>
           <Text style={styles.subtitle}>
             כל מה שתוסיף מגיע למקצוען לפני שהוא יוצא — וזה ההבדל בין ביקור אחד לשניים. הכול אופציונלי.
           </Text>
@@ -128,6 +147,24 @@ export function DescribeFaultBody({
                 </View>
               ))}
             </View>
+          </View>
+        ) : null}
+
+        {/* ---------------- What this service actually needs to know ---- */}
+        {intake ? (
+          <View style={styles.block}>
+            <SectionHeader title="כמה שאלות קצרות" colors={colors} />
+            <Text style={styles.intakeNote}>
+              אפשר לדלג על הכל — זה רק כדי שהמקצוען יגיע מוכן.
+            </Text>
+            {intake.questions.map((q) => (
+              <IntakeRow
+                key={q.id}
+                question={q}
+                answer={answers.find((a) => a.questionId === q.id)}
+                onAnswer={onAnswer}
+              />
+            ))}
           </View>
         ) : null}
 
@@ -206,12 +243,16 @@ export function DescribeFaultBody({
 
         {/* ---------------- Words ---------------- */}
         <View style={styles.block}>
-          <SectionHeader title="במילים שלך" colors={colors} />
+          <SectionHeader title={intake ? "עוד משהו במילים שלך" : "במילים שלך"} colors={colors} />
           <TextInput
             value={text}
             onChangeText={onChangeText}
-            placeholder="מתי זה התחיל, מה כבר ניסית, כל דבר שיעזור"
-            accessibilityLabel="תיאור התקלה במילים שלך"
+            placeholder={
+              intake
+                ? "כל דבר שהשאלות לא כיסו"
+                : "מתי זה התחיל, מה כבר ניסית, כל דבר שיעזור"
+            }
+            accessibilityLabel="מה צריך, במילים שלך"
             placeholderTextColor={colors.textSecondary}
             multiline
             style={styles.textArea}
@@ -246,6 +287,125 @@ export function DescribeFaultBody({
       </View>
     </View>
   );
+}
+
+/**
+ * One question.
+ *
+ * ALL OPTIONS ARE VISIBLE AT ONCE — no dropdown, no "show more". A dropdown
+ * hides the shape of the question, and someone holding a phone over a
+ * leaking pipe should be able to see every answer and hit one. It costs
+ * vertical space, which is the cheapest thing on this screen.
+ *
+ * Tapping a chosen option UNSETS it, because the alternative is a customer
+ * who mis-tapped being stuck with an answer the professional will act on.
+ */
+function IntakeRow({
+  question,
+  answer,
+  onAnswer,
+}: {
+  question: IntakeQuestion;
+  answer?: IntakeAnswer;
+  onAnswer?: (a: IntakeAnswer) => void;
+}) {
+  const chosen = answer?.optionIds ?? [];
+  const opts =
+    question.kind === "YESNO"
+      ? [
+          { id: "yes", labelHe: "כן" },
+          { id: "no", labelHe: "לא" },
+          // "לא יודע" is a first-class answer, offered as plainly as the
+          // other two. Leaving it out pushes people into guessing, and a
+          // guess is worse than a gap because it gets acted on.
+          { id: "unknown", labelHe: "לא יודע" },
+        ]
+      : (question.options ?? []);
+
+  const pick = (id: string) => {
+    if (!onAnswer) return;
+    if (question.kind === "MULTI") {
+      const next = chosen.includes(id) ? chosen.filter((c) => c !== id) : [...chosen, id];
+      onAnswer({ questionId: question.id, optionIds: next });
+    } else {
+      onAnswer({ questionId: question.id, optionIds: chosen.includes(id) ? [] : [id] });
+    }
+  };
+
+  return (
+    <View style={styles.q}>
+      <Text style={styles.qPrompt}>{question.promptHe}</Text>
+
+      {question.kind === "TEXT" ? (
+        <TextInput
+          value={answer?.textValue ?? ""}
+          onChangeText={(v) => onAnswer?.({ questionId: question.id, textValue: v })}
+          placeholder={question.placeholderHe}
+          accessibilityLabel={question.promptHe}
+          placeholderTextColor={colors.textSecondary}
+          style={styles.qInput}
+          textAlign="right"
+        />
+      ) : question.kind === "NUMBER" ? (
+        <View style={styles.qOpts}>
+          {numberChoices(question).map((n) => {
+            const on = answer?.numberValue === n;
+            return (
+              <Pressable
+                key={n}
+                onPress={() =>
+                  onAnswer?.({
+                    questionId: question.id,
+                    numberValue: on ? undefined : n,
+                  })
+                }
+                accessibilityRole="button"
+                accessibilityState={{ selected: on }}
+                accessibilityLabel={`${question.promptHe} ${n}`}
+                style={[styles.qOpt, on && styles.qOptOn]}
+              >
+                <Text style={[styles.qOptText, on && styles.qOptTextOn]}>{n}</Text>
+              </Pressable>
+            );
+          })}
+          {question.unitHe ? <Text style={styles.qUnit}>{question.unitHe}</Text> : null}
+        </View>
+      ) : (
+        <View style={styles.qOpts}>
+          {opts.map((o) => {
+            const on = chosen.includes(o.id);
+            return (
+              <Pressable
+                key={o.id}
+                onPress={() => pick(o.id)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on }}
+                accessibilityLabel={`${question.promptHe} ${o.labelHe}`}
+                style={[styles.qOpt, on && styles.qOptOn]}
+              >
+                <Text style={[styles.qOptText, on && styles.qOptTextOn]}>{o.labelHe}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
+    </View>
+  );
+}
+
+/**
+ * A NUMBER question becomes a row of taps, not a keyboard.
+ *
+ * "כמה חדרים?" with a numeric keyboard is four interactions — focus, type,
+ * dismiss, verify — for an answer between 1 and 6. Capped at eight choices
+ * so the row never wraps into a wall of digits.
+ */
+function numberChoices(q: IntakeQuestion): number[] {
+  const min = Math.max(1, q.min ?? 1);
+  const max = Math.max(min, q.max ?? min + 5);
+  const out: number[] = [];
+  for (let n = min; n <= max && out.length < 8; n += 1) out.push(n);
+  return out;
 }
 
 const styles = StyleSheet.create({
@@ -287,6 +447,51 @@ const styles = StyleSheet.create({
 
   block: { paddingHorizontal: spacing.lg, marginTop: spacing.xl },
 
+  intakeNote: {
+    ...type.caption,
+    color: colors.textSecondary,
+    textAlign: "right",
+    writingDirection: "rtl",
+    marginBottom: spacing.md,
+  },
+  q: { marginBottom: spacing.lg },
+  qPrompt: {
+    ...type.bodyStrong,
+    fontSize: 15,
+    color: colors.textPrimary,
+    textAlign: "right",
+    writingDirection: "rtl",
+    marginBottom: spacing.sm,
+  },
+  qOpts: { flexDirection: "row-reverse", flexWrap: "wrap", alignItems: "center", gap: spacing.sm },
+  qOpt: {
+    minHeight: 44,
+    // 44 in BOTH directions. "כן" is two narrow letters, so padding alone
+    // left a 37px-wide target — tall enough to pass a height check and still
+    // too small to hit with a thumb.
+    minWidth: 56,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.pill,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  qOptOn: { borderColor: colors.action, backgroundColor: tint.action(0.1) },
+  qOptText: { ...type.caption, fontSize: 14, color: colors.textPrimary, writingDirection: "rtl" },
+  qOptTextOn: { color: colors.actionText, fontWeight: "700" },
+  qUnit: { ...type.caption, color: colors.textSecondary, writingDirection: "rtl" },
+  qInput: {
+    minHeight: 48,
+    borderRadius: radii.md,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.md,
+    ...type.body,
+    color: colors.textPrimary,
+  },
   chips: { flexDirection: "row-reverse", flexWrap: "wrap", gap: spacing.sm },
   chip: {
     backgroundColor: tint.action(0.12),
