@@ -15,33 +15,109 @@ export const motion = {
 
 export const touchTarget = { minimum: 44 } as const;
 
+/**
+ * PRO NOW's palette.
+ *
+ * The brief was a look that is unmistakably ours, warm and inviting rather
+ * than another marketplace in safe blue or municipal green. The colours were
+ * chosen against the competition on purpose: Wolt owns cyan-blue, Gett owns
+ * black-and-yellow, Uber owns black. Landing anywhere near those makes a new
+ * product read as a copy before a single word is read.
+ *
+ * So the system is built on two colours doing two different jobs, and the
+ * split is the idea:
+ *
+ *   SIGNAL (coral)  — "now". Every act of summoning someone: the primary
+ *                     button, the live pulse, the countdown, the payout.
+ *                     Warm, urgent, human — an urgency that feels like a
+ *                     hand going up, not like an alarm.
+ *   TRUST (teal)    — "verified". Every fact that has been checked: badges,
+ *                     licences, the online state, confirmations.
+ *
+ * Keeping them apart is a product rule, not a preference. If urgency and
+ * verification share a colour, "hurry" and "safe" become the same visual
+ * word — and this product's whole claim is that speed did not cost safety.
+ *
+ * Backgrounds are warm ivory rather than white, and the darkest ink is a
+ * warm plum rather than #000. Pure neutrals are what make an interface feel
+ * clinical; the warmth is where "inviting" actually comes from.
+ */
+
+/** Raw ramp. Feature code uses the semantic tokens below, never these. */
+export const palette = {
+  // Signal — coral
+  signal900: "#8F2A14",
+  signal700: "#C93C1C",
+  signal500: "#FF5C38",
+  signal300: "#FF9478",
+  signal100: "#FFE3DA",
+
+  // Trust — teal
+  trust900: "#085A49",
+  trust700: "#0B7C64",
+  trust500: "#0FA47F",
+  trust300: "#55D3B4",
+  trust100: "#D6F5EC",
+
+  // Sun — limited supply, caution
+  sun500: "#FFB020",
+  sun100: "#FFF1D6",
+
+  // Berry — danger, disputes
+  berry500: "#E01E5A",
+  berry100: "#FFE0EA",
+
+  // Warm neutrals
+  ink900: "#17121F",
+  ink700: "#3A3244",
+  ink500: "#5A5266",
+  ink300: "#9B93A6",
+  ink100: "#E8E2DC",
+  sand: "#FBF6EE",
+  sandDeep: "#F3ECE1",
+  white: "#FFFFFF",
+
+  // Dark surfaces (professional side)
+  night900: "#100C16",
+  night800: "#171220",
+  night700: "#221B2E",
+  night600: "#2E2640",
+  nightText: "#F7F3FA",
+  nightTextSoft: "#A79FB3",
+} as const;
+
 export const customerTheme = {
   name: "customer" as const,
   colors: {
-    bg: "#FAF9F6",
-    surface: "#FFFFFF",
-    surfaceElevated: "#FFFFFF",
-    textPrimary: "#14151A",
-    textSecondary: "#5B5F57",
-    action: "#17C964",
-    statusWarning: "#F5A524",
-    statusDanger: "#F31260",
-    border: "#E7E5E1",
+    bg: palette.sand,
+    surface: palette.white,
+    surfaceElevated: palette.sandDeep,
+    textPrimary: palette.ink900,
+    textSecondary: palette.ink500,
+    /** Signal. The button that summons a person. */
+    action: palette.signal500,
+    /** Trust. Verified facts only — never an action. */
+    trust: palette.trust500,
+    statusWarning: palette.sun500,
+    statusDanger: palette.berry500,
+    border: palette.ink100,
   },
 };
 
 export const proTheme = {
   name: "pro" as const,
   colors: {
-    bg: "#0B0F0E",
-    surface: "#151A18",
-    surfaceElevated: "#1C2220",
-    textPrimary: "#F3F5F3",
-    textSecondary: "#9AA39C",
-    action: "#17C964",
-    statusWarning: "#F5A524",
-    statusDanger: "#F31260",
-    border: "#262B28",
+    bg: palette.night900,
+    surface: palette.night800,
+    surfaceElevated: palette.night700,
+    textPrimary: palette.nightText,
+    textSecondary: palette.nightTextSoft,
+    action: palette.signal500,
+    /** On the dark side this also carries the ONLINE state. */
+    trust: palette.trust300,
+    statusWarning: palette.sun500,
+    statusDanger: palette.berry500,
+    border: palette.night600,
   },
 };
 
@@ -93,9 +169,9 @@ export function elevation(level: ElevationLevel, dark = false) {
   if (level === 0) return {};
   const light = [
     {},
-    { shadowColor: "#2A2620", shadowOpacity: 0.05, shadowRadius: 12, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
-    { shadowColor: "#2A2620", shadowOpacity: 0.08, shadowRadius: 26, shadowOffset: { width: 0, height: 10 }, elevation: 5 },
-    { shadowColor: "#2A2620", shadowOpacity: 0.12, shadowRadius: 44, shadowOffset: { width: 0, height: 18 }, elevation: 10 },
+    { shadowColor: "#3A2A24", shadowOpacity: 0.05, shadowRadius: 12, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
+    { shadowColor: "#3A2A24", shadowOpacity: 0.08, shadowRadius: 26, shadowOffset: { width: 0, height: 10 }, elevation: 5 },
+    { shadowColor: "#3A2A24", shadowOpacity: 0.12, shadowRadius: 44, shadowOffset: { width: 0, height: 18 }, elevation: 10 },
   ];
   const darkLevels = [
     {},
@@ -111,11 +187,14 @@ export function elevation(level: ElevationLevel, dark = false) {
  * selected states so a tint never has to be hand-mixed at the call site.
  */
 export const tint = {
-  action: (a = 0.12) => `rgba(23,201,100,${a})`,
-  warning: (a = 0.14) => `rgba(245,165,36,${a})`,
-  danger: (a = 0.12) => `rgba(243,18,96,${a})`,
-  neutralLight: (a = 0.05) => `rgba(20,21,26,${a})`,
-  neutralDark: (a = 0.06) => `rgba(243,245,243,${a})`,
+  /** Signal wash — under a primary action or a live state. */
+  action: (a = 0.12) => `rgba(255,92,56,${a})`,
+  /** Trust wash — under a verified fact. Never under a button. */
+  trust: (a = 0.12) => `rgba(15,164,127,${a})`,
+  warning: (a = 0.16) => `rgba(255,176,32,${a})`,
+  danger: (a = 0.12) => `rgba(224,30,90,${a})`,
+  neutralLight: (a = 0.05) => `rgba(23,18,31,${a})`,
+  neutralDark: (a = 0.06) => `rgba(247,243,250,${a})`,
 } as const;
 
 /**

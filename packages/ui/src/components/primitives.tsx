@@ -16,7 +16,10 @@ export interface ThemeColors {
   surfaceElevated: string;
   textPrimary: string;
   textSecondary: string;
+  /** Signal — anything the user DOES. Buttons, live search, urgency. */
   action: string;
+  /** Trust — anything that has been VERIFIED. Badges, online state. */
+  trust: string;
   statusWarning: string;
   statusDanger: string;
   border: string;

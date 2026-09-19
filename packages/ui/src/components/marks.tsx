@@ -155,7 +155,7 @@ export function PinMark({ size = 16, color = "#5B5F57", strokeWidth = 1.8 }) {
   );
 }
 
-export function ShieldCheckMark({ size = 16, color = "#17C964", strokeWidth = 1.8 }) {
+export function ShieldCheckMark({ size = 16, color = "#0FA47F", strokeWidth = 1.8 }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">
       <Path

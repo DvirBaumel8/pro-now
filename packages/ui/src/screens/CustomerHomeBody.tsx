@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import type { AreaAvailabilityView } from "@pro-now/types";
 
+import { lex, prosFreeNearYou } from "../lexicon";
 import { resolveHomeSupply } from "../home-supply";
 import { customerTheme, radii, spacing, tint, type } from "../theme";
 import { Mark, PinMark, type MarkName } from "../components/marks";
@@ -114,29 +115,25 @@ export function CustomerHomeBody({
         </Pressable>
 
         <Text style={styles.greeting}>{greetingHe}</Text>
-        <Text style={styles.headline}>מה צריך עכשיו?</Text>
+        <Text style={styles.headline}>{lex.homeQuestion}</Text>
 
         {showSupply ? (
           <View style={styles.supplyPill}>
             <View style={styles.supplyDot} />
-            <Text style={styles.supplyText}>
-              {total === 1
-                ? "בעל מקצוע אחד זמין עכשיו באזור שלך"
-                : `${total} בעלי מקצוע זמינים עכשיו באזור שלך`}
-            </Text>
+            <Text style={styles.supplyText}>{prosFreeNearYou(total as number)}</Text>
           </View>
         ) : (
           // Honest absence. Not "0 available" — the server simply has not
           // told us, and guessing here would be inventing supply. The copy is
           // the same whether the snapshot is missing or expired, because to
           // the customer those are the same fact: we do not know right now.
-          <Text style={styles.supplyUnknown}>בוחרים שירות ואנחנו בודקים מי זמין עכשיו</Text>
+          <Text style={styles.supplyUnknown}>בוחרים שירות ואנחנו {lex.unknownSupply} באזור שלך</Text>
         )}
       </View>
 
       {/* --- Services --- */}
       <View style={{ paddingHorizontal: gutter }}>
-        <SectionHeader title="שירותים" colors={colors} />
+        <SectionHeader title={lex.freeNearYou} colors={colors} />
         <View style={styles.grid}>
           {services.map((s) => (
             <ServiceTile
@@ -145,7 +142,7 @@ export function CustomerHomeBody({
               mark={s.mark}
               photoSubject={s.photoSubject}
               photoUri={s.photoUri}
-              availableNowCount={supply.countFor(s.id)}
+              supply={supply.supplyFor(s.id)}
               priceHint={s.priceHint}
               colors={colors}
               width={tileWidth}
@@ -176,9 +173,9 @@ export function CustomerHomeBody({
 
       {/* --- Trust footer: why this is not a directory --- */}
       <View style={[styles.trust, { marginHorizontal: gutter }]}>
-        <Mark name="handyman" size={20} color={colors.action} />
+        <Mark name="handyman" size={20} color={colors.trust} />
         <Text style={styles.trustText}>
-          כל בעל מקצוע עובר אימות זהות ובדיקת תעודות לפי סוג העבודה. תראה מי מגיע אליך לפני שתאשר.
+          {lex.trustNote} תראה מי מגיע אליך לפני שתאשר.
         </Text>
       </View>
     </ScrollView>
@@ -254,7 +251,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xxl,
     padding: spacing.lg,
     borderRadius: radii.lg,
-    backgroundColor: tint.action(0.07),
+    backgroundColor: tint.trust(0.09),
   },
   trustText: {
     ...type.caption,

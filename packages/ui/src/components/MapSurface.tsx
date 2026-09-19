@@ -63,7 +63,7 @@ export function MapSurface({
   const roadMajor = dark ? "rgba(243,245,243,0.3)" : "rgba(20,21,26,0.16)";
   const block = dark ? "rgba(243,245,243,0.1)" : "rgba(20,21,26,0.05)";
   const blockAlt = dark ? "rgba(243,245,243,0.06)" : "rgba(20,21,26,0.032)";
-  const water = dark ? "rgba(23,201,100,0.16)" : "rgba(23,201,100,0.12)";
+  const water = dark ? "rgba(15,164,127,0.18)" : "rgba(15,164,127,0.13)";
 
   return (
     <View

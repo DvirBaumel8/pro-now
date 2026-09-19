@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { formatMoney, money, type JobMatchView, type PriceQuoteView } from "@pro-now/types";
 
-import { customerTheme, radius, spacing, typography, touchTarget } from "../theme";
+import { customerTheme, radius, spacing, tint, typography, touchTarget } from "../theme";
 import { formatCompletedJobs, formatEta, formatMinimumBillable, formatProNowRating } from "../format";
 import { Avatar, Divider, SectionLabel, Skeleton, StatusPill, type ThemeColors } from "./primitives";
 import { VerificationBadge } from "./VerificationBadge";
@@ -89,7 +89,7 @@ export function MatchCard({ match, onConfirm, onRequestAnother, confirming = fal
   return (
     <View style={styles.card} accessibilityLabel={`התאמה נמצאה עבור ${serviceNameHe}`}>
       <View style={styles.headerRow}>
-        <StatusPill label="נמצא בעל מקצוע" color={colors.action} tint="rgba(23,201,100,0.12)" live />
+        <StatusPill label="נמצא בעל מקצוע" color={colors.action} tint={tint.action()} live />
         <Text style={styles.serviceName} numberOfLines={1}>
           {serviceNameHe}
         </Text>

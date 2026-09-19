@@ -5,76 +5,153 @@
  * lying. The number is true for a few seconds and then it is just a number
  * that used to be true, which is worse than no number at all: the customer
  * acts on it, dispatch finds nobody, and the promise the product is built on
- * ("online means online") is broken by a stale variable.
+ * — online means online — is broken by a stale variable rather than by a lie
+ * anyone chose to tell.
  *
- * So no component is allowed to read `AreaAvailabilityView.services` itself.
- * They call `readAvailability()`, which applies the server's own freshness
- * window and returns `null` the moment the snapshot is too old. Keeping that
- * rule in one pure function makes it a unit test rather than a habit that
- * each new screen has to remember.
+ * The design rule that follows, and that this whole file exists to enforce:
+ *
+ *   **UNKNOWN is not UNAVAILABLE.** "We don't know" and "there is nobody"
+ *   are different facts, they lead the customer to different actions, and a
+ *   UI that renders them identically is wrong in one of the two cases every
+ *   single time. Collapsing them is the easiest mistake here and the most
+ *   expensive, because it is invisible: both render as a quiet screen.
+ *
+ * So `readAvailability()` never returns a bare number and never returns
+ * null. It returns a state per service, and the only way to get a count out
+ * of it is to have a state that justifies one.
  */
 
-import type { AreaAvailabilityView, ServiceAvailabilityView } from "./api";
+import type { AreaAvailabilityView, SupplyReasonCode, SupplyState } from "./api";
+
+export interface ServiceSupply {
+  state: SupplyState;
+  /**
+   * The count, and only when the state supports one. `null` whenever the
+   * state is UNKNOWN — there is no code path that produces a number for a
+   * service the server has not vouched for.
+   */
+  count: number | null;
+  /**
+   * Nearest professional's travel time, in minutes, from a real route
+   * computation. Never a straight-line estimate dressed as an ETA.
+   */
+  nearestRouteEtaMinutes: number | null;
+  /** Why, when the state is not AVAILABLE. May be shown or merely logged. */
+  reasonCode: SupplyReasonCode | null;
+}
 
 export interface AvailabilityReading {
-  areaLabel: string;
-  /** Total eligible professionals online across every service in the area. */
-  totalAvailableNow: number;
-  byServiceId: Record<string, ServiceAvailabilityView>;
-  ageSeconds: number;
+  /** Coarse area, or null when there is no trustworthy snapshot. */
+  areaLabel: string | null;
+  /** True only while the snapshot is inside the server's freshness window. */
+  fresh: boolean;
+  /** Total across services with a known count, or null when nothing is known. */
+  total: number | null;
+  /** Age in seconds, or null when there is no parseable snapshot. */
+  ageSeconds: number | null;
+  /** Supply for one service. Always defined; UNKNOWN when anything is off. */
+  supplyFor(serviceId: string): ServiceSupply;
+}
+
+const UNKNOWN = (reasonCode: SupplyReasonCode | null = null): ServiceSupply => ({
+  state: "UNKNOWN",
+  count: null,
+  nearestRouteEtaMinutes: null,
+  reasonCode,
+});
+
+function unknownReading(reason: SupplyReasonCode | null, ageSeconds: number | null): AvailabilityReading {
+  return {
+    areaLabel: null,
+    fresh: false,
+    total: null,
+    ageSeconds,
+    supplyFor: () => UNKNOWN(reason),
+  };
 }
 
 /**
- * Returns the reading, or `null` when there is nothing trustworthy to show.
+ * Turn a snapshot into something safe to render.
  *
- * `null` is returned for every one of: no snapshot at all, an unparseable or
- * future-dated `computedAt`, a non-positive freshness window, and a snapshot
- * older than that window. They collapse to one outcome on purpose — the UI
- * has exactly one absence state to implement, so there is no path where a
- * half-valid snapshot leaks a number onto the screen.
+ * Unlike a nullable getter, this ALWAYS returns a reading. That is the
+ * point: there is no "if (reading)" for a caller to forget, and no shape in
+ * which a stale or malformed snapshot can hand back a number. Every failure
+ * — no snapshot, unparseable timestamp, future timestamp, non-positive
+ * window, expired — produces a reading whose every service is UNKNOWN.
+ *
+ * A future-dated snapshot is refused rather than accepted, because when the
+ * clocks disagree a client clock is not evidence about supply.
  */
 export function readAvailability(
   snapshot: AreaAvailabilityView | null | undefined,
   nowMs: number = Date.now()
-): AvailabilityReading | null {
-  if (!snapshot) return null;
+): AvailabilityReading {
+  if (!snapshot) return unknownReading(null, null);
 
   const computedAtMs = Date.parse(snapshot.computedAt);
-  if (Number.isNaN(computedAtMs)) return null;
+  if (Number.isNaN(computedAtMs)) return unknownReading("DATA_STALE", null);
 
   const window = snapshot.staleAfterSeconds;
-  if (!Number.isFinite(window) || window <= 0) return null;
+  if (!Number.isFinite(window) || window <= 0) return unknownReading("DATA_STALE", null);
 
   const ageSeconds = (nowMs - computedAtMs) / 1000;
-  // A snapshot from the future means the clocks disagree, and a client clock
-  // is not evidence about supply. Refuse rather than guess which is right.
-  if (ageSeconds < 0) return null;
-  if (ageSeconds > window) return null;
+  if (ageSeconds < 0) return unknownReading("DATA_STALE", ageSeconds);
+  if (ageSeconds > window) return unknownReading("DATA_STALE", ageSeconds);
 
-  const byServiceId: Record<string, ServiceAvailabilityView> = {};
-  let total = 0;
+  const byId = new Map<string, ServiceSupply>();
+  let total: number | null = null;
+
   for (const s of snapshot.services) {
-    // A negative or non-integer count is a server bug. Dropping the entry is
-    // the safe reading: an absent count renders as absence, whereas a
-    // corrupted one would render as confident supply.
-    if (!Number.isInteger(s.availableNow) || s.availableNow < 0) continue;
-    byServiceId[s.serviceId] = s;
-    total += s.availableNow;
+    const supply = normaliseService(s);
+    byId.set(s.serviceId, supply);
+    if (supply.count !== null) total = (total ?? 0) + supply.count;
   }
 
-  return { areaLabel: snapshot.areaLabel, totalAvailableNow: total, byServiceId, ageSeconds };
+  return {
+    areaLabel: snapshot.areaLabel,
+    fresh: true,
+    total,
+    ageSeconds,
+    // A service the snapshot does not mention is UNKNOWN, not zero. The
+    // server answering about six services says nothing about a seventh.
+    supplyFor: (id) => byId.get(id) ?? UNKNOWN("NOT_COMPUTED"),
+  };
 }
 
 /**
- * The count for one service, or `null` when it is unknown or untrustworthy.
- * This is what a service tile binds to, so "no data" and "zero online" stay
- * distinguishable: zero is a fact the UI states, null is a silence it admits.
+ * One service entry, defended against a server that contradicts itself.
+ *
+ * A count that disagrees with its state is a server bug, and the safe
+ * reading of a bug is UNKNOWN: an absent count renders as absence, whereas a
+ * corrupted one renders as confident supply.
  */
-export function availableNowFor(
-  reading: AvailabilityReading | null,
-  serviceId: string
-): number | null {
-  if (!reading) return null;
-  const entry = reading.byServiceId[serviceId];
-  return entry ? entry.availableNow : null;
+function normaliseService(s: AreaAvailabilityView["services"][number]): ServiceSupply {
+  const count = s.availableProviderCount;
+  const hasCount = typeof count === "number" && Number.isInteger(count) && count >= 0;
+
+  const eta = s.nearestRouteEtaMinutes;
+  const nearestRouteEtaMinutes =
+    typeof eta === "number" && Number.isFinite(eta) && eta > 0 ? Math.round(eta) : null;
+
+  switch (s.state) {
+    case "AVAILABLE":
+    case "LIMITED":
+      // Claiming supply without saying how much is not a claim we can render.
+      if (!hasCount || count === 0) return UNKNOWN("NOT_COMPUTED");
+      return { state: s.state, count, nearestRouteEtaMinutes, reasonCode: s.reasonCode ?? null };
+
+    case "UNAVAILABLE":
+      // Zero is a real answer and must survive as one. A non-zero count
+      // alongside UNAVAILABLE is a contradiction, so it is not believed.
+      return {
+        state: "UNAVAILABLE",
+        count: hasCount && count === 0 ? 0 : null,
+        nearestRouteEtaMinutes: null,
+        reasonCode: s.reasonCode ?? "NO_ELIGIBLE_SUPPLY",
+      };
+
+    case "UNKNOWN":
+    default:
+      return UNKNOWN(s.reasonCode ?? null);
+  }
 }

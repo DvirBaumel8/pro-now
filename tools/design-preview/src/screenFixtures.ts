@@ -4,6 +4,8 @@ import type {
   HomeServiceItem,
   ProProfileReviewItem,
   ProProfileServiceItem,
+  CustomerCallHistoryItem,
+  CustomerOpenCall,
   ProServiceToggle,
   ReceiptLine,
   ServiceDetailBodyProps,
@@ -231,12 +233,87 @@ export const availabilitySnapshot: AreaAvailabilityView = {
   computedAt: AVAILABILITY_AT,
   staleAfterSeconds: 60,
   services: [
-    { serviceId: "svc-leak", availableNow: 4, nearestEtaSeconds: 480 },
-    { serviceId: "svc-electric", availableNow: 2, nearestEtaSeconds: 900 },
-    { serviceId: "svc-lock", availableNow: 1, nearestEtaSeconds: 1200 },
-    // Reported by the server as genuinely zero — different from absent.
-    { serviceId: "svc-ac", availableNow: 0, nearestEtaSeconds: null },
-    // svc-moving and svc-paint are absent from the snapshot entirely: the
-    // server has no reading for them, and the tiles must show nothing.
+    { serviceId: "svc-leak", state: "AVAILABLE", availableProviderCount: 4, nearestRouteEtaMinutes: 8 },
+    { serviceId: "svc-electric", state: "AVAILABLE", availableProviderCount: 2, nearestRouteEtaMinutes: 15 },
+    // Thin supply, said plainly rather than dressed up as plenty.
+    { serviceId: "svc-lock", state: "LIMITED", availableProviderCount: 1, nearestRouteEtaMinutes: 22 },
+    // Checked, and there is genuinely nobody — different from unknown.
+    { serviceId: "svc-ac", state: "UNAVAILABLE", availableProviderCount: 0, reasonCode: "NO_ELIGIBLE_SUPPLY" },
+    { serviceId: "svc-moving", state: "UNKNOWN", reasonCode: "NOT_COMPUTED" },
+    // svc-paint is absent from the snapshot entirely, which must also read
+    // as unknown rather than as zero.
   ],
 };
+
+// ---------------------------------------------------------------------
+// The cast
+// ---------------------------------------------------------------------
+
+/**
+ * A wider set of people than the two placeholders the gallery started with.
+ *
+ * The names are obvious display placeholders, and the faces are illustrated
+ * rather than photographic — so a screenshot of this gallery still cannot be
+ * mistaken for real marketplace supply (/CLAUDE.md §3), while the screens
+ * stop looking deserted.
+ *
+ * The seeds are ids, not names, because the illustration must stay stable
+ * for a person even if their display name changes.
+ */
+export const cast = [
+  { id: "pro_1", nameHe: "דוגמה א׳ (תצוגה)", trade: "אינסטלציה" },
+  { id: "pro_2", nameHe: "דוגמה ב׳ (תצוגה)", trade: "חשמל" },
+  { id: "pro_3", nameHe: "דוגמה ג׳ (תצוגה)", trade: "מיזוג" },
+  { id: "pro_4", nameHe: "דוגמה ד׳ (תצוגה)", trade: "מנעולנות" },
+  { id: "pro_5", nameHe: "דוגמה ה׳ (תצוגה)", trade: "הובלות" },
+  { id: "pro_6", nameHe: "דוגמה ו׳ (תצוגה)", trade: "צביעה" },
+  { id: "pro_7", nameHe: "דוגמה ז׳ (תצוגה)", trade: "אינסטלציה" },
+  { id: "pro_8", nameHe: "דוגמה ח׳ (תצוגה)", trade: "חשמל" },
+];
+
+export const castSeeds = cast.map((c) => c.id);
+
+export const customerHistory: CustomerCallHistoryItem[] = [
+  {
+    id: "call_1",
+    serviceNameHe: "תיקון נזילה בברז",
+    mark: "plumbing",
+    metaHe: "לפני שבועיים · הושלם",
+    proSeed: "pro_1",
+    proNameHe: cast[0]!.nameHe,
+    totalMinorUnits: 44500,
+    myRating: 5,
+  },
+  {
+    id: "call_2",
+    serviceNameHe: "התקנת מזגן",
+    mark: "climate",
+    metaHe: "מאי · הושלם",
+    proSeed: "pro_3",
+    proNameHe: cast[2]!.nameHe,
+    totalMinorUnits: 92000,
+    myRating: null,
+  },
+  {
+    id: "call_3",
+    serviceNameHe: "פתיחת סתימה במטבח",
+    mark: "plumbing",
+    metaHe: "מרץ · הושלם",
+    proSeed: "pro_7",
+    proNameHe: cast[6]!.nameHe,
+    totalMinorUnits: 27900,
+    myRating: 4,
+  },
+];
+
+export const customerOpenCall: CustomerOpenCall[] = [
+  {
+    id: "call_live",
+    serviceNameHe: "תקלת חשמל בסלון",
+    mark: "electrical",
+    stateHe: "בדרך אליך",
+    etaMinutes: 14,
+    proSeed: "pro_2",
+    proNameHe: cast[1]!.nameHe,
+  },
+];

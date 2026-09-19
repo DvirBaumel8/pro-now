@@ -1,6 +1,10 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import type { ServiceSupply } from "@pro-now/types";
+
+import { lex, nearestLine } from "../lexicon";
+
 import { elevation, imageRatio, radii, spacing, tint, type } from "../theme";
 import { Mark, type MarkName } from "./marks";
 import { ImageSlot } from "./surfaces";
@@ -37,6 +41,8 @@ export interface ServiceTileProps {
   photoUri?: string | null;
   /** Server-reported count of professionals online for this service. */
   availableNowCount?: number | null;
+  /** Full supply state. Preferred over availableNowCount when supplied. */
+  supply?: ServiceSupply;
   /** Short price hint, already formatted, e.g. "מ-₪179". */
   priceHint?: string | null;
   colors: ThemeColors;
@@ -51,15 +57,25 @@ export function ServiceTile({
   photoSubject,
   photoUri,
   availableNowCount,
+  supply,
   priceHint,
   colors,
   dark = false,
   width,
   onPress,
 }: ServiceTileProps) {
-  const known = typeof availableNowCount === "number";
-  const hasSupply = known && (availableNowCount as number) > 0;
-  const knownEmpty = known && (availableNowCount as number) === 0;
+  const state = supply
+    ? supply.state
+    : typeof availableNowCount === "number"
+      ? availableNowCount > 0
+        ? "AVAILABLE"
+        : "UNAVAILABLE"
+      : "UNKNOWN";
+  const count = supply ? supply.count : (availableNowCount ?? null);
+  const etaMinutes = supply?.nearestRouteEtaMinutes ?? null;
+
+  const hasSupply = (state === "AVAILABLE" || state === "LIMITED") && typeof count === "number" && count > 0;
+  const knownEmpty = state === "UNAVAILABLE";
 
   return (
     <Pressable
@@ -88,15 +104,27 @@ export function ServiceTile({
         </View>
 
         {hasSupply ? (
-          <View style={[styles.supply, { backgroundColor: tint.action(0.92) }]}>
+          <View
+            style={[
+              styles.supply,
+              { backgroundColor: state === "LIMITED" ? "rgba(245,165,36,0.94)" : tint.action(0.92) },
+            ]}
+          >
             <View style={styles.supplyDot} />
+            {/*
+              * Hebrew has a distinct singular, so the count is never
+              * interpolated straight into a plural noun — "1 זמינים" is the
+              * kind of error that ships and quietly tells every reader the
+              * product was not written by anyone who speaks the language.
+              */}
             <Text style={styles.supplyText}>
-              {availableNowCount === 1 ? "אחד זמין עכשיו" : `${availableNowCount} זמינים עכשיו`}
+              {count === 1 ? "מקצוען אחד פנוי" : `${count} מקצוענים פנויים`}
+              {etaMinutes !== null ? ` · ${nearestLine(etaMinutes).replace("הקרוב ביותר ", "הקרוב ")}` : ""}
             </Text>
           </View>
         ) : knownEmpty ? (
           <View style={[styles.supply, styles.supplyEmpty]}>
-            <Text style={[styles.supplyText, { color: "#F3F5F3" }]}>אין זמינות כרגע</Text>
+            <Text style={[styles.supplyText, { color: "#FFFFFF" }]}>{lex.noneFree}</Text>
           </View>
         ) : null}
       </View>

@@ -9,6 +9,13 @@ import { BottomSheet, Chip } from "../components/surfaces";
 import { Mark, type MarkName } from "../components/marks";
 
 /**
+ * COLOUR NOTE — this screen is where the palette's split earns its keep.
+ * "You are ONLINE" is a VERIFIED STATE the server is asserting, so it is
+ * drawn in trust-teal alongside the live beacon and the eligible services.
+ * The button that starts a shift is an ACTION, so it is signal-coral. If the
+ * two shared a colour, "go" and "confirmed" would read as the same word, and
+ * a professional glancing at the screen could not tell intent from fact.
+ *
  * P02 — The professional's home. Dark, map-forward, one decision on it:
  * ONLINE or not. /docs/03-DESIGN-SYSTEM.md asks the professional surfaces
  * for "dark charcoal, vivid live-green, large numbers, strong map presence".
@@ -89,7 +96,7 @@ export function ProOnlineBody({
   return (
     <View style={[styles.screen, { width, height }]}>
       <MapSurface
-        colors={colors}
+        colors={{ ...colors, action: colors.trust }}
         dark
         height={height}
         pulsing={isOnline}
@@ -122,7 +129,7 @@ export function ProOnlineBody({
         <BottomSheet colors={colors} dark>
           <View style={styles.statusRow}>
             <View style={styles.statusLeft}>
-              {isOnline && !isTransitioning ? <LiveBeacon color={colors.action} /> : null}
+              {isOnline && !isTransitioning ? <LiveBeacon color={colors.trust} /> : null}
               <Text
                 style={[
                   styles.status,
@@ -130,7 +137,7 @@ export function ProOnlineBody({
                     color: isTransitioning
                       ? colors.statusWarning
                       : isOnline
-                        ? colors.action
+                        ? colors.trust
                         : colors.textSecondary,
                   },
                 ]}
@@ -167,13 +174,13 @@ export function ProOnlineBody({
                   <View
                     style={[
                       styles.serviceMark,
-                      { backgroundColor: blocked ? tint.danger(0.1) : s.enabled ? tint.action(0.12) : colors.surfaceElevated },
+                      { backgroundColor: blocked ? tint.danger(0.12) : s.enabled ? tint.trust(0.14) : colors.surfaceElevated },
                     ]}
                   >
                     <Mark
                       name={s.mark}
                       size={18}
-                      color={blocked ? colors.statusDanger : s.enabled ? colors.action : colors.textSecondary}
+                      color={blocked ? colors.statusDanger : s.enabled ? colors.trust : colors.textSecondary}
                     />
                   </View>
                   <View style={styles.serviceText}>
@@ -189,7 +196,7 @@ export function ProOnlineBody({
                   {blocked ? (
                     <Chip label="חסום" colors={colors} tone="danger" />
                   ) : s.enabled ? (
-                    <Chip label="פעיל" colors={colors} tone="action" />
+                    <Chip label="פעיל" colors={colors} tone="trust" />
                   ) : (
                     <Chip label="כבוי" colors={colors} tone="neutral" />
                   )}
@@ -286,7 +293,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
   },
   servicesTitle: { ...type.captionStrong, color: colors.textSecondary, writingDirection: "rtl" },
-  manage: { ...type.captionStrong, color: colors.action },
+  manage: { ...type.captionStrong, color: colors.trust },
 
   serviceList: { gap: spacing.sm, marginTop: spacing.md },
   serviceRow: { flexDirection: "row-reverse", alignItems: "center", gap: spacing.md },

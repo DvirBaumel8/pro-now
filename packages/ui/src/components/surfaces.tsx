@@ -256,27 +256,31 @@ export function Chip({
   colors: ThemeColors;
   icon?: React.ReactNode;
   selected?: boolean;
-  tone?: "neutral" | "action" | "warning" | "danger";
+  tone?: "neutral" | "action" | "trust" | "warning" | "danger";
 }) {
   const toneColor =
     tone === "action"
       ? colors.action
-      : tone === "warning"
+      : tone === "trust"
+        ? colors.trust
+        : tone === "warning"
         ? colors.statusWarning
         : tone === "danger"
-          ? colors.statusDanger
-          : colors.textPrimary;
+            ? colors.statusDanger
+            : colors.textPrimary;
 
   const bg =
     tone === "action"
       ? tint.action()
-      : tone === "warning"
+      : tone === "trust"
+        ? tint.trust()
+        : tone === "warning"
         ? tint.warning()
         : tone === "danger"
-          ? tint.danger()
-          : selected
-            ? tint.action()
-            : colors.surfaceElevated;
+            ? tint.danger()
+            : selected
+              ? tint.action()
+              : colors.surfaceElevated;
 
   return (
     <View style={[chip.container, { backgroundColor: bg }]}>

@@ -1,4 +1,4 @@
-import { availableNowFor, readAvailability, type AreaAvailabilityView } from "@pro-now/types";
+import { readAvailability, type AreaAvailabilityView, type ServiceSupply } from "@pro-now/types";
 
 /**
  * Which source of truth the home screen's supply numbers come from.
@@ -22,8 +22,8 @@ import { availableNowFor, readAvailability, type AreaAvailabilityView } from "@p
 export interface HomeSupply {
   /** Total across the area, or null when unknown. */
   total: number | null;
-  /** Count for one service: a number (0 included) or null when unknown. */
-  countFor(serviceId: string): number | null;
+  /** Full supply state for one service. Always defined; UNKNOWN by default. */
+  supplyFor(serviceId: string): ServiceSupply;
   /** True when a snapshot was supplied — i.e. the legacy props are ignored. */
   live: boolean;
   /** True when a snapshot was supplied but is not currently trustworthy. */
@@ -48,9 +48,17 @@ export function resolveHomeSupply(args: {
       live: false,
       expired: false,
       total: legacyTotal ?? null,
-      countFor: (id) => {
+      supplyFor: (id) => {
         const v = legacyCounts?.[id];
-        return typeof v === "number" ? v : null;
+        if (typeof v !== "number" || !Number.isInteger(v) || v < 0) {
+          return { state: "UNKNOWN", count: null, nearestRouteEtaMinutes: null, reasonCode: null };
+        }
+        return {
+          state: v === 0 ? "UNAVAILABLE" : "AVAILABLE",
+          count: v,
+          nearestRouteEtaMinutes: null,
+          reasonCode: v === 0 ? "NO_ELIGIBLE_SUPPLY" : null,
+        };
       },
     };
   }
@@ -58,8 +66,8 @@ export function resolveHomeSupply(args: {
   const reading = readAvailability(availability, nowMs);
   return {
     live: true,
-    expired: availability !== null && reading === null,
-    total: reading ? reading.totalAvailableNow : null,
-    countFor: (id) => availableNowFor(reading, id),
+    expired: availability !== null && !reading.fresh,
+    total: reading.total,
+    supplyFor: (id) => reading.supplyFor(id),
   };
 }

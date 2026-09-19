@@ -3,6 +3,9 @@ import { View, Text, StyleSheet, ScrollView, useWindowDimensions } from "react-n
 
 import {
   CustomerHomeBody,
+  CustomerProfileBody,
+  Persona,
+  PersonaStack,
   JobCompleteBody,
   MatchCard,
   MatchCardSkeleton,
@@ -34,6 +37,10 @@ import {
 import {
   AVAILABILITY_AT_MS,
   availabilitySnapshot,
+  cast,
+  castSeeds,
+  customerHistory,
+  customerOpenCall,
   homeRecent,
   homeServices,
   profileReviews,
@@ -95,7 +102,7 @@ function Frame({
             width: w,
             height,
             backgroundColor: dark ? proTheme.colors.bg : customerTheme.colors.bg,
-            borderColor: dark ? "rgba(255,255,255,0.08)" : "rgba(20,21,26,0.07)",
+            borderColor: dark ? "rgba(255,255,255,0.08)" : "rgba(23,18,31,0.08)",
           },
         ]}
       >
@@ -232,6 +239,81 @@ export function Gallery() {
             priceLineHe="מחיר קבוע ₪450"
             width={PHONE_W}
             height={PHONE_H}
+          />
+        </Frame>
+      </Section>
+
+      {/* =============== THE CAST =============== */}
+      <Section
+        title="אנשים"
+        subtitle="איורים, לא תצלומים. הם מחממים את המסך בלי לטעון שאדם מסוים קיים וזמין — ותצלום אמיתי של מקצוען תמיד גובר עליהם."
+      >
+        <View style={styles.castRow}>
+          {cast.map((c) => (
+            <View key={c.id} style={styles.castItem}>
+              <Persona seed={c.id} size={84} ring={customerTheme.colors.trust} />
+              <Text style={styles.castName} numberOfLines={1}>
+                {c.nameHe}
+              </Text>
+              <Text style={styles.castTrade} numberOfLines={1}>
+                {c.trade}
+              </Text>
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.stackRow}>
+          <PersonaStack seeds={castSeeds} size={44} max={5} />
+          <Text style={styles.stackNote}>
+            ערימת פנים — רק כשהשרת דיווח מספר אמיתי. לעולם לא כקישוט על מספר מומצא.
+          </Text>
+        </View>
+      </Section>
+
+      {/* =============== CUSTOMER CARD =============== */}
+      <Section
+        title="הכרטיס שלי"
+        subtitle="C14 · לא מסך הגדרות. מה שהמוצר עשה בשבילך, מה פתוח עכשיו, ואז השורות המנהליות — במקום שלהן."
+      >
+        <Frame caption="C14 · קריאה פתוחה עכשיו + היסטוריה" height={900}>
+          <CustomerProfileBody
+            displayNameHe="אמית (תצוגה)"
+            seed="cust_demo_1"
+            homeAreaLabelHe="רמת אביב, תל אביב"
+            paymentLabelHe="ויזה · 4417"
+            openCalls={customerOpenCall}
+            history={customerHistory}
+            lifetimeSpendMinorUnits={164400}
+            width={PHONE_W}
+            height={900}
+          />
+        </Frame>
+
+        <Frame caption="C14 · לקוח חדש — אומר מה יקרה, לא מתנצל" height={900}>
+          <CustomerProfileBody
+            displayNameHe="לקוח חדש (תצוגה)"
+            seed="cust_demo_2"
+            homeAreaLabelHe={null}
+            paymentLabelHe={null}
+            openCalls={[]}
+            history={[]}
+            lifetimeSpendMinorUnits={null}
+            width={PHONE_W}
+            height={900}
+          />
+        </Frame>
+
+        <Frame caption="C14 · בלי קריאה פתוחה · היסטוריה בלבד" height={900}>
+          <CustomerProfileBody
+            displayNameHe="אמית (תצוגה)"
+            seed="cust_demo_1"
+            homeAreaLabelHe="רמת אביב, תל אביב"
+            paymentLabelHe="ויזה · 4417"
+            openCalls={[]}
+            history={customerHistory}
+            lifetimeSpendMinorUnits={164400}
+            width={PHONE_W}
+            height={900}
           />
         </Frame>
       </Section>
@@ -493,14 +575,14 @@ export function Gallery() {
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: "#F2F1EC" },
+  page: { flex: 1, backgroundColor: "#F3ECE1" },
   pageContent: { paddingBottom: spacing.xxl * 2 },
 
   header: { paddingHorizontal: spacing.md, paddingVertical: spacing.xxl, alignItems: "flex-end" },
-  h1: { ...t.h1, fontSize: 34, color: "#14151A", textAlign: "right", writingDirection: "rtl" },
+  h1: { ...t.h1, fontSize: 34, color: "#17121F", textAlign: "right", writingDirection: "rtl" },
   headerNote: {
     ...t.body,
-    color: "#5B5F57",
+    color: "#5A5266",
     textAlign: "right",
     writingDirection: "rtl",
     marginTop: spacing.sm,
@@ -508,10 +590,10 @@ const styles = StyleSheet.create({
   },
 
   section: { paddingVertical: spacing.xxl, paddingHorizontal: spacing.md },
-  sectionTitle: { ...t.h1, color: "#14151A", textAlign: "right", writingDirection: "rtl" },
+  sectionTitle: { ...t.h1, color: "#17121F", textAlign: "right", writingDirection: "rtl" },
   sectionSubtitle: {
     ...t.caption,
-    color: "#5B5F57",
+    color: "#5A5266",
     textAlign: "right",
     writingDirection: "rtl",
     marginTop: spacing.xs,
@@ -533,9 +615,29 @@ const styles = StyleSheet.create({
   },
   cardPad: { padding: spacing.lg, paddingTop: spacing.xl },
 
+  castRow: { flexDirection: "row-reverse", flexWrap: "wrap", gap: spacing.xl, alignItems: "flex-start" },
+  castItem: { alignItems: "center", width: 104 },
+  castName: {
+    ...t.caption,
+    color: "#17121F",
+    marginTop: spacing.sm,
+    textAlign: "center",
+    writingDirection: "rtl",
+  },
+  castTrade: { ...t.caption, fontSize: 11, color: "#5A5266", writingDirection: "rtl" },
+
+  stackRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: spacing.lg,
+    marginTop: spacing.xxl,
+    flexWrap: "wrap",
+  },
+  stackNote: { ...t.caption, color: "#5A5266", writingDirection: "rtl", flexShrink: 1, maxWidth: 520 },
+
   caption: {
     ...t.caption,
-    color: "#5B5F57",
+    color: "#5A5266",
     textAlign: "center",
     marginTop: spacing.md,
     writingDirection: "rtl",

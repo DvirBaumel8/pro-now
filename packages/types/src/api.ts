@@ -310,40 +310,75 @@ export interface OfferCardView {
 // ---------------------------------------------------------------------
 
 /**
- * Supply for ONE service in one coarse area, at one instant.
+ * What the server is able to say about supply for one service, right now.
  *
- * `availableNow` counts professionals who are ONLINE **and** dispatch-eligible
- * for that specific service (/CLAUDE.md §3 — eligibility is per service, not
- * per account). A professional who is online but whose licence for this
- * service has lapsed is not counted, because counting them would mean the
- * number promises something dispatch would then refuse to deliver.
+ * This is a **read model for the UI**, not a projection of a database table.
+ * The client must know what is correct to show; it must not have to
+ * reconstruct that from raw rows or infer it from a count, because every
+ * such inference is a place where "we don't know" quietly becomes
+ * "there is nobody".
  *
- * There is deliberately no "approximately" or "busy" field. A count is a
- * count; anything softer is a mood, and a mood cannot be verified.
+ * - `AVAILABLE`   supply exists and dispatch will find it
+ * - `LIMITED`     supply exists but is thin; the server decides the threshold
+ * - `UNAVAILABLE` the server checked and there is genuinely none
+ * - `UNKNOWN`     the server cannot currently say — NOT the same as none
  */
+export type SupplyState = "AVAILABLE" | "LIMITED" | "UNAVAILABLE" | "UNKNOWN";
+
+/**
+ * Why supply is not AVAILABLE.
+ *
+ * It exists so that distinct failures cannot all decay into the same
+ * "אין בעלי מקצוע". A service switched off, a region we do not cover, and a
+ * genuinely empty market need different words and different next actions;
+ * without a code they are indistinguishable by the time they reach the UI.
+ * The code is UX-safe but need not be shown verbatim.
+ */
+export type SupplyReasonCode =
+  | "NO_ELIGIBLE_SUPPLY"
+  | "SERVICE_INACTIVE"
+  | "LOCATION_UNAVAILABLE"
+  | "DATA_STALE"
+  | "NOT_COMPUTED";
+
 export interface ServiceAvailabilityView {
   serviceId: string;
-  availableNow: number;
+  state: SupplyState;
   /**
-   * Travel time of the nearest eligible professional, or null when no
-   * routing result exists yet. Null is common and must render as absence.
+   * Professionals who are ONLINE **and** dispatch-eligible for this specific
+   * service (/CLAUDE.md §3 — eligibility is per service, not per account).
+   * An online professional whose licence for this service has lapsed is not
+   * counted, because the count would promise what dispatch then refuses.
+   *
+   * Omitted when the state is UNKNOWN. `0` is a real answer, not an absence.
    */
-  nearestEtaSeconds: number | null;
+  availableProviderCount?: number;
+  /**
+   * Travel time of the nearest eligible professional, in minutes, **from a
+   * real route computation**.
+   *
+   * The field is named for its provenance on purpose. A haversine radius
+   * presented as an ETA is the most plausible-looking lie this endpoint
+   * could tell, and a field called `nearestEtaMinutes` would accept one
+   * without anybody noticing. To put a straight-line estimate here, a server
+   * author has to write the word "Route" while doing it.
+   */
+  nearestRouteEtaMinutes?: number;
+  reasonCode?: SupplyReasonCode;
 }
 
 /**
  * A snapshot of live supply for a coarse area.
  *
- * The two fields that matter most are `computedAt` and `staleAfterSeconds`,
- * and they exist because of the failure mode this whole feature invites: a
- * count fetched once, cached in a screen, and still cheerfully displayed
- * three minutes later when every one of those professionals has gone offline.
- * That is not a stale cache, it is a false promise — the same one
- * /CLAUDE.md §3 forbids inventing outright.
+ * `computedAt` and `staleAfterSeconds` exist because of the failure this
+ * feature invites: a count fetched once, cached in a screen, and still
+ * displayed three minutes later when every one of those professionals has
+ * gone offline. The server states how long its own answer may be trusted;
+ * the client does not get to decide the number is probably still fine.
  *
- * So the server states how long its own answer may be trusted, and
- * `readAvailability()` below enforces it. The client is not allowed to
- * decide that a number is "probably still fine".
+ * No professional locations or distances appear here. Pre-assignment
+ * location precision is a privacy rule (/docs/12-PRIVACY.md), so the nearest
+ * ETA is the only spatial fact exposed, and only as a duration.
  */
 export interface AreaAvailabilityView {
   /** Coarse area these counts describe. Never a precise address. */

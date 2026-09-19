@@ -34,12 +34,12 @@ const styles = StyleSheet.create({
   badge: {
     flexDirection: "row-reverse",
     alignItems: "center",
-    backgroundColor: "rgba(23,201,100,0.12)",
+    backgroundColor: "rgba(15,164,127,0.12)",
     borderRadius: 999,
     paddingVertical: 4,
     paddingHorizontal: 10,
     gap: 4,
   },
-  checkmark: { color: "#17C964", fontWeight: "700" },
-  label: { color: "#17C964", fontSize: 13, fontWeight: "600" },
+  checkmark: { color: "#0FA47F", fontWeight: "700" },
+  label: { color: "#0FA47F", fontSize: 13, fontWeight: "600" },
 });

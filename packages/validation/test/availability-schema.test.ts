@@ -12,31 +12,66 @@ const valid = {
   areaLabel: "רמת אביב, תל אביב",
   computedAt: "2026-09-19T12:00:00.000Z",
   staleAfterSeconds: 60,
-  services: [{ serviceId: "svc-leak", availableNow: 4, nearestEtaSeconds: 480 }],
+  services: [
+    { serviceId: "leak", state: "AVAILABLE", availableProviderCount: 4, nearestRouteEtaMinutes: 8 },
+  ],
 };
+
+function withService(patch: Record<string, unknown>) {
+  return { ...valid, services: [{ ...valid.services[0], ...patch }] };
+}
 
 describe("parseAreaAvailability", () => {
   it("accepts a well-formed payload", () => {
     expect(parseAreaAvailability(valid)).not.toBeNull();
   });
 
-  it("accepts a null ETA, which is the normal 'no route computed yet' case", () => {
+  it("accepts UNKNOWN with no count — the normal 'server did not say' case", () => {
     const out = parseAreaAvailability({
       ...valid,
-      services: [{ serviceId: "s", availableNow: 0, nearestEtaSeconds: null }],
+      services: [{ serviceId: "s", state: "UNKNOWN", reasonCode: "NOT_COMPUTED" }],
     });
-    expect(out?.services[0].nearestEtaSeconds).toBeNull();
+    expect(out?.services[0]?.availableProviderCount).toBeUndefined();
+  });
+
+  it("accepts UNAVAILABLE with an explicit zero, which is a real answer", () => {
+    expect(
+      parseAreaAvailability({
+        ...valid,
+        services: [{ serviceId: "s", state: "UNAVAILABLE", availableProviderCount: 0 }],
+      })
+    ).not.toBeNull();
   });
 
   it.each([
-    ["a fractional count", { availableNow: 1.5 }],
-    ["a negative count", { availableNow: -1 }],
-    ["a stringified count", { availableNow: "4" }],
-    ["a negative ETA", { nearestEtaSeconds: -60 }],
+    ["a fractional count", { availableProviderCount: 1.5 }],
+    ["a negative count", { availableProviderCount: -1 }],
+    ["a stringified count", { availableProviderCount: "4" }],
+    ["a negative ETA", { nearestRouteEtaMinutes: -60 }],
+    ["a zero ETA, which is a bug not a fast professional", { nearestRouteEtaMinutes: 0 }],
     ["an empty service id", { serviceId: "" }],
+    ["an unrecognised state", { state: "MAYBE" }],
+    ["an unrecognised reason code", { reasonCode: "BECAUSE" }],
   ])("rejects %s", (_label, patch) => {
-    const payload = { ...valid, services: [{ ...valid.services[0], ...patch }] };
-    expect(parseAreaAvailability(payload)).toBeNull();
+    expect(parseAreaAvailability(withService(patch))).toBeNull();
+  });
+
+  it("rejects UNKNOWN carrying a count — unknown is not zero", () => {
+    expect(
+      parseAreaAvailability(withService({ state: "UNKNOWN", availableProviderCount: 0, nearestRouteEtaMinutes: undefined }))
+    ).toBeNull();
+  });
+
+  it("rejects UNAVAILABLE that also reports available providers", () => {
+    expect(
+      parseAreaAvailability(withService({ state: "UNAVAILABLE", availableProviderCount: 3, nearestRouteEtaMinutes: undefined }))
+    ).toBeNull();
+  });
+
+  it("rejects an ETA where there is no supply — an ETA to nobody", () => {
+    expect(
+      parseAreaAvailability(withService({ state: "UNAVAILABLE", availableProviderCount: 0, nearestRouteEtaMinutes: 9 }))
+    ).toBeNull();
   });
 
   it("rejects a freshness window of zero, which would mean 'trust forever'", () => {
@@ -49,8 +84,8 @@ describe("parseAreaAvailability", () => {
   });
 
   it("rejects an unknown extra field rather than guessing what changed", () => {
-    // A rename on the server is exactly how a wrong number gets rendered
-    // confidently; strict() turns that into a visible absence instead.
+    // A rename on the server is how a wrong number gets rendered confidently;
+    // strict() turns that into a visible absence instead.
     expect(parseAreaAvailability({ ...valid, availableNowTotal: 9 })).toBeNull();
   });
 

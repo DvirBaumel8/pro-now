@@ -11,6 +11,7 @@ import {
 import { customerTheme, elevation, radii, spacing, tabular, tint, type } from "../theme";
 import { formatCompletedJobs, formatProNowRating } from "../format";
 import { Mark, type MarkName, ShieldCheckMark, StarMark } from "../components/marks";
+import { Persona } from "../components/Persona";
 import { HeroFlourish, ImageSlot, SectionHeader, Surface } from "../components/surfaces";
 import { VerificationBadge, type VerificationKind } from "../components/VerificationBadge";
 
@@ -97,21 +98,36 @@ export function ProProfileBody({
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         {/* ---------------- Hero ---------------- */}
         <View style={styles.hero}>
-          <HeroFlourish color={colors.action} opacity={0.1} />
+          <HeroFlourish color={colors.trust} opacity={0.12} />
 
           <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel="חזרה" style={styles.back}>
             <Text style={styles.backGlyph}>›</Text>
           </Pressable>
 
+          {/*
+            * A real photo when the professional has uploaded one; otherwise
+            * an illustration, not an empty grey square. The illustration is
+            * visibly a drawing, so it warms the page without implying a
+            * likeness we do not have.
+            */}
           <View style={styles.heroPortrait}>
-            <ImageSlot
-              subject={`תצלום פרופיל · ${professional.displayName}`}
-              ratio={1}
-              radius={radii.lg}
-              colors={colors}
-              style={styles.portrait}
-              uri={professional.profilePhotoUrl}
-            />
+            {professional.profilePhotoUrl ? (
+              <ImageSlot
+                subject={`תצלום פרופיל · ${professional.displayName}`}
+                ratio={1}
+                radius={radii.lg}
+                colors={colors}
+                style={styles.portrait}
+                uri={professional.profilePhotoUrl}
+              />
+            ) : (
+              <Persona
+                seed={professional.id}
+                size={132}
+                ring={colors.trust}
+                label={`איור · ${professional.displayName}`}
+              />
+            )}
           </View>
 
           <Text style={styles.name} numberOfLines={1}>
@@ -155,7 +171,7 @@ export function ProProfileBody({
               <Fact
                 value="חדש"
                 label={jobs ?? "טרם הושלמו עבודות ב-PRO NOW"}
-                icon={<ShieldCheckMark size={15} color={colors.action} />}
+                icon={<ShieldCheckMark size={15} color={colors.trust} />}
               />
             )}
             <View style={styles.factDivider} />
@@ -194,7 +210,7 @@ export function ProProfileBody({
             </View>
           )}
           <View style={styles.assuranceRow}>
-            <ShieldCheckMark size={16} color={colors.action} />
+            <ShieldCheckMark size={16} color={colors.trust} />
             <Text style={styles.assurance}>
               האימות נבדק מול כל שירות בנפרד — בעל מקצוע מאושר לשירות אחד אינו מאושר אוטומטית לאחר.
             </Text>
@@ -208,7 +224,7 @@ export function ProProfileBody({
             {services.map((s) => (
               <View key={s.id} style={styles.serviceRow}>
                 <View style={styles.serviceMark}>
-                  <Mark name={s.mark} size={19} color={colors.action} />
+                  <Mark name={s.mark} size={19} color={colors.trust} />
                 </View>
                 <View style={styles.serviceText}>
                   <Text style={styles.serviceName} numberOfLines={1}>
@@ -276,9 +292,12 @@ export function ProProfileBody({
                 <Surface key={r.id} colors={colors} level={1} style={styles.reviewCard}>
                   <View style={styles.reviewHead}>
                     <Stars rating={r.rating} />
-                    <Text style={styles.reviewWho} numberOfLines={1}>
-                      {r.reviewerLabelHe}
-                    </Text>
+                    <View style={styles.reviewWhoRow}>
+                      <Persona seed={r.id} size={26} />
+                      <Text style={styles.reviewWho} numberOfLines={1}>
+                        {r.reviewerLabelHe}
+                      </Text>
+                    </View>
                   </View>
                   <Text style={styles.reviewMeta} numberOfLines={1}>
                     {r.serviceNameHe} · {r.whenHe}
@@ -464,7 +483,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: tint.action(0.1),
+    backgroundColor: tint.trust(0.12),
     alignItems: "center",
     justifyContent: "center",
   },
@@ -493,6 +512,7 @@ const styles = StyleSheet.create({
   reviewCard: {},
   reviewHead: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" },
   stars: { flexDirection: "row-reverse", gap: 2 },
+  reviewWhoRow: { flexDirection: "row-reverse", alignItems: "center", gap: spacing.sm },
   reviewWho: { ...type.captionStrong, color: colors.textPrimary, writingDirection: "rtl" },
   reviewMeta: { ...type.caption, color: colors.textSecondary, textAlign: "right", writingDirection: "rtl", marginTop: 2 },
   reviewText: {

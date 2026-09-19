@@ -126,3 +126,82 @@ gallery (`tools/design-preview`) that renders the real components, including
 their loading and honest-absence states. Note its `index.html` is
 deliberately `dir="ltr"` — see /docs/EPIC-0-REPORT.md §10.7 for why, and for
 the outstanding RTL decision.
+
+---
+
+## The palette (revised)
+
+The original palette was a green-and-charcoal system that could have belonged
+to any marketplace. It was replaced because "looks like every other app in
+the category" is a product problem, not a taste one: Wolt owns cyan-blue,
+Gett owns black-and-yellow, Uber owns black, and landing near any of them
+makes a new product read as a copy before a word is read.
+
+The system now rests on **two colours doing two different jobs**, and the
+split is the whole idea:
+
+| Role | Colour | Used for |
+|---|---|---|
+| **Signal** | coral `#FF5C38` | "now" — every act of summoning someone: the primary button, the live search pulse, the countdown, the payout |
+| **Trust** | teal `#0FA47F` | "verified" — every fact that has been checked: badges, licences, the professional's ONLINE state, confirmations |
+
+Keeping them apart is a **product rule, not a preference**. If urgency and
+verification share a colour, "hurry" and "safe" become the same visual word —
+and this product's entire claim is that speed did not cost safety. On the
+professional's screen the rule is at its sharpest: "אתה ONLINE" is a state
+the *server* is asserting, so it is teal; the button that starts a shift is
+an action, so it is coral. A professional glancing at the phone can tell
+intent from fact without reading.
+
+Supporting: sun `#FFB020` (thin supply, caution), berry `#E01E5A` (danger).
+Backgrounds are warm ivory `#FBF6EE`, and the darkest ink is a warm plum
+`#17121F` rather than `#000`. Pure neutrals are what make an interface feel
+clinical; the warmth is where "inviting" actually comes from.
+
+`ThemeColors` now carries `trust` alongside `action`, so the distinction is
+enforced by the type system rather than by memory.
+
+## Illustrated people (`Persona`)
+
+The screens were grey wherever a person belonged, and a marketplace that
+looks unpopulated is one nobody joins. The fix is narrow and rests on the
+difference between a **portrait** and a **character**.
+
+A photorealistic face invites the viewer to believe a specific person exists
+and is available — that is fabricated supply wearing a friendly expression,
+and §Content rules forbids it. A flat vector character invites nobody to
+believe anything: it is visibly a drawing. It warms the layout without
+making a claim.
+
+So `Persona` draws deliberately illustrative figures — no rendering, no
+texture, no attempt at likeness — from a stable seed, so the same person is
+drawn the same way on every screen. The feature set is broad on purpose
+(six skin tones, five hair styles including a head covering): this product
+serves a city, and a wall of identical avatars quietly says otherwise.
+
+**A real professional's own photograph always wins.** `Persona` is what
+stands in when there is none, and it never appears beside a claim that it
+is a photograph.
+
+## The lexicon (`packages/ui/src/lexicon.ts`)
+
+Products that feel like one thing use the same word for the same idea
+everywhere. Products that feel assembled say "בקשה" on one screen, "הזמנה"
+on the next and "קריאה" in the push notification, and the user stops
+believing there is one system behind it.
+
+The words now live in one file. Three rules chose them:
+
+1. **Say what is true.** A professional is "פנוי" only when the server says
+   they are dispatchable. "זמין" was rejected as a synonym precisely because
+   it is vaguer and therefore easier to over-claim.
+2. **Ours, not the category's.** "הזמנה" belongs to food delivery and implies
+   a basket and a checkout. What happens here is a **קריאה** — you call, a
+   person comes. That is the product in one word, and it is the word people
+   already use when a pipe bursts.
+3. **Warm, not corporate.** Second person, present tense, no "לקוח יקר".
+
+`prosFree()`, `prosFreeNearYou()` and `nearestLine()` are unit-tested,
+because Hebrew has a distinct singular and "1 מקצוענים" is the kind of error
+that ships, survives, and tells every reader the product was not written by
+anyone who speaks the language.

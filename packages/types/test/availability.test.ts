@@ -1,16 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { availableNowFor, readAvailability, type AreaAvailabilityView } from "../src";
+import { readAvailability, type AreaAvailabilityView } from "../src";
 
 /**
- * These tests are all one assertion wearing different clothes: a number the
- * server cannot currently vouch for must not reach the screen.
+ * Every test here is the same assertion in different clothes: a fact the
+ * server cannot currently vouch for must not reach the screen as a number.
  *
- * The reason it deserves this much coverage is that every failure here is
- * silent and plausible. A stale count does not throw, does not look wrong,
- * and does not show up in review — it just quietly promises a professional
- * who went offline two minutes ago, which is the exact promise /CLAUDE.md §3
- * exists to protect.
+ * It deserves this much coverage because each failure is silent and
+ * plausible. A stale count does not throw, does not look wrong, and does not
+ * show up in review. It just quietly promises a professional who went
+ * offline two minutes ago.
  */
 
 const AT = "2026-09-19T12:00:00.000Z";
@@ -22,77 +21,123 @@ function snapshot(over: Partial<AreaAvailabilityView> = {}): AreaAvailabilityVie
     computedAt: AT,
     staleAfterSeconds: 60,
     services: [
-      { serviceId: "svc-leak", availableNow: 4, nearestEtaSeconds: 480 },
-      { serviceId: "svc-electric", availableNow: 0, nearestEtaSeconds: null },
+      { serviceId: "leak", state: "AVAILABLE", availableProviderCount: 4, nearestRouteEtaMinutes: 8 },
+      { serviceId: "lock", state: "LIMITED", availableProviderCount: 1, nearestRouteEtaMinutes: 21 },
+      { serviceId: "ac", state: "UNAVAILABLE", availableProviderCount: 0, reasonCode: "NO_ELIGIBLE_SUPPLY" },
+      { serviceId: "paint", state: "UNKNOWN" },
     ],
     ...over,
   };
 }
 
-describe("readAvailability", () => {
-  it("reads a fresh snapshot and totals only its valid entries", () => {
+describe("readAvailability — the four states", () => {
+  it("reads a fresh snapshot and totals only the services with a known count", () => {
     const r = readAvailability(snapshot(), AT_MS + 10_000);
-    expect(r).not.toBeNull();
-    expect(r!.totalAvailableNow).toBe(4);
-    expect(r!.areaLabel).toBe("רמת אביב, תל אביב");
-    expect(Math.round(r!.ageSeconds)).toBe(10);
+    expect(r.fresh).toBe(true);
+    expect(r.areaLabel).toBe("רמת אביב, תל אביב");
+    // 4 + 1 + 0; the UNKNOWN service contributes nothing at all.
+    expect(r.total).toBe(5);
   });
 
-  it("still reads a snapshot at the exact edge of its freshness window", () => {
-    expect(readAvailability(snapshot(), AT_MS + 60_000)).not.toBeNull();
+  it("keeps UNAVAILABLE distinct from UNKNOWN — the whole point of the contract", () => {
+    const r = readAvailability(snapshot(), AT_MS);
+
+    const none = r.supplyFor("ac");
+    expect(none.state).toBe("UNAVAILABLE");
+    expect(none.count).toBe(0); // a real answer: we checked, there is nobody
+    expect(none.reasonCode).toBe("NO_ELIGIBLE_SUPPLY");
+
+    const silent = r.supplyFor("paint");
+    expect(silent.state).toBe("UNKNOWN");
+    expect(silent.count).toBeNull(); // a silence: we did not check
   });
 
-  it("refuses a snapshot one second past the window the SERVER set", () => {
-    // The client does not get to decide that 61 seconds is "probably fine".
-    expect(readAvailability(snapshot(), AT_MS + 61_000)).toBeNull();
+  it("treats a service missing from the snapshot as UNKNOWN, never as zero", () => {
+    const s = readAvailability(snapshot(), AT_MS).supplyFor("never-heard-of-it");
+    expect(s.state).toBe("UNKNOWN");
+    expect(s.count).toBeNull();
+    expect(s.reasonCode).toBe("NOT_COMPUTED");
   });
 
-  it("refuses a snapshot dated in the future rather than guessing whose clock is wrong", () => {
-    expect(readAvailability(snapshot(), AT_MS - 5_000)).toBeNull();
+  it("carries a route ETA only where supply actually exists", () => {
+    const r = readAvailability(snapshot(), AT_MS);
+    expect(r.supplyFor("leak").nearestRouteEtaMinutes).toBe(8);
+    expect(r.supplyFor("ac").nearestRouteEtaMinutes).toBeNull();
+    expect(r.supplyFor("paint").nearestRouteEtaMinutes).toBeNull();
+  });
+});
+
+describe("readAvailability — freshness", () => {
+  it("still reads at the exact edge of the server's window", () => {
+    expect(readAvailability(snapshot(), AT_MS + 60_000).fresh).toBe(true);
   });
 
-  it("refuses an unparseable or missing timestamp", () => {
-    expect(readAvailability(snapshot({ computedAt: "not a date" }), AT_MS)).toBeNull();
+  it("turns EVERY service unknown one second past the window", () => {
+    // The client does not get to decide that 61 seconds is probably fine,
+    // and no service may survive the expiry on its own.
+    const r = readAvailability(snapshot(), AT_MS + 61_000);
+    expect(r.fresh).toBe(false);
+    expect(r.total).toBeNull();
+    for (const id of ["leak", "lock", "ac", "paint"]) {
+      expect(r.supplyFor(id).state).toBe("UNKNOWN");
+      expect(r.supplyFor(id).count).toBeNull();
+      expect(r.supplyFor(id).reasonCode).toBe("DATA_STALE");
+    }
   });
 
-  it("refuses a non-positive freshness window instead of treating it as forever", () => {
-    expect(readAvailability(snapshot({ staleAfterSeconds: 0 }), AT_MS)).toBeNull();
-    expect(readAvailability(snapshot({ staleAfterSeconds: -30 }), AT_MS)).toBeNull();
+  it("refuses a future-dated snapshot rather than guessing whose clock is wrong", () => {
+    expect(readAvailability(snapshot(), AT_MS - 5_000).fresh).toBe(false);
   });
 
-  it("returns null for no snapshot at all", () => {
-    expect(readAvailability(null, AT_MS)).toBeNull();
-    expect(readAvailability(undefined, AT_MS)).toBeNull();
+  it("refuses an unparseable timestamp and a non-positive window", () => {
+    expect(readAvailability(snapshot({ computedAt: "nope" }), AT_MS).fresh).toBe(false);
+    expect(readAvailability(snapshot({ staleAfterSeconds: 0 }), AT_MS).fresh).toBe(false);
+    expect(readAvailability(snapshot({ staleAfterSeconds: -30 }), AT_MS).fresh).toBe(false);
   });
 
-  it("drops a corrupted count rather than letting it render as confident supply", () => {
+  it("returns a usable reading, never null, when there is no snapshot at all", () => {
+    // No `if (reading)` for a caller to forget.
+    for (const empty of [null, undefined]) {
+      const r = readAvailability(empty, AT_MS);
+      expect(r.total).toBeNull();
+      expect(r.supplyFor("leak").state).toBe("UNKNOWN");
+    }
+  });
+});
+
+describe("readAvailability — a server that contradicts itself", () => {
+  it("does not believe AVAILABLE without a usable count", () => {
+    for (const bad of [undefined, 0, -3, 1.5]) {
+      const r = readAvailability(
+        snapshot({ services: [{ serviceId: "x", state: "AVAILABLE", availableProviderCount: bad as number }] }),
+        AT_MS
+      );
+      expect(r.supplyFor("x").state).toBe("UNKNOWN");
+      expect(r.supplyFor("x").count).toBeNull();
+    }
+  });
+
+  it("does not believe a non-zero count alongside UNAVAILABLE", () => {
+    const r = readAvailability(
+      snapshot({ services: [{ serviceId: "x", state: "UNAVAILABLE", availableProviderCount: 5 }] }),
+      AT_MS
+    );
+    expect(r.supplyFor("x").state).toBe("UNAVAILABLE");
+    // The contradiction costs us the count, not the state.
+    expect(r.supplyFor("x").count).toBeNull();
+  });
+
+  it("drops a zero or negative ETA rather than rendering 'arrives in 0 minutes'", () => {
     const r = readAvailability(
       snapshot({
         services: [
-          { serviceId: "good", availableNow: 3, nearestEtaSeconds: null },
-          { serviceId: "negative", availableNow: -2, nearestEtaSeconds: null },
-          { serviceId: "fractional", availableNow: 1.5, nearestEtaSeconds: null },
+          { serviceId: "x", state: "AVAILABLE", availableProviderCount: 2, nearestRouteEtaMinutes: 0 },
+          { serviceId: "y", state: "AVAILABLE", availableProviderCount: 2, nearestRouteEtaMinutes: -4 },
         ],
       }),
       AT_MS
     );
-    expect(r!.totalAvailableNow).toBe(3);
-    expect(availableNowFor(r, "negative")).toBeNull();
-    expect(availableNowFor(r, "fractional")).toBeNull();
-  });
-});
-
-describe("availableNowFor", () => {
-  it("keeps 'zero online' and 'no data' distinguishable", () => {
-    const r = readAvailability(snapshot(), AT_MS);
-    // Zero is a fact the UI may state.
-    expect(availableNowFor(r, "svc-electric")).toBe(0);
-    // Absence is a silence the UI must admit, and must not print as 0.
-    expect(availableNowFor(r, "svc-unheard-of")).toBeNull();
-  });
-
-  it("is null for every service once the reading itself is untrustworthy", () => {
-    const stale = readAvailability(snapshot(), AT_MS + 600_000);
-    expect(availableNowFor(stale, "svc-leak")).toBeNull();
+    expect(r.supplyFor("x").nearestRouteEtaMinutes).toBeNull();
+    expect(r.supplyFor("y").nearestRouteEtaMinutes).toBeNull();
   });
 });
