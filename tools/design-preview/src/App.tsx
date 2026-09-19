@@ -17,11 +17,13 @@ import {
   ProOfferBody,
   ProOnlineBody,
   ProVerificationBody,
+  PhoneAuthBody,
   ProProfileBody,
   QuoteApprovalBody,
   SearchingBody,
   ServiceDetailBody,
   TrackingBody,
+  WelcomeBody,
   customerTheme,
   Sheet,
   lex,
@@ -32,7 +34,7 @@ import {
   type as t,
 } from "@pro-now/ui";
 import type { LiveLocationState } from "@pro-now/ui";
-import type { ChatMessage, ConnectionState } from "@pro-now/ui";
+import type { AuthStage, ChatMessage, ConnectionState } from "@pro-now/ui";
 import type { JobState, ProPresenceState } from "@pro-now/types";
 
 import { matchFixture, offerFixture } from "./fixtures";
@@ -40,6 +42,7 @@ import { useCapture } from "./useCapture";
 import {
   availabilitySnapshot,
   callsList,
+  castSeeds,
   chatSeed,
   customerHistory,
   customerOpenCall,
@@ -99,6 +102,8 @@ function nowHHMM(): string {
 type CustomerTab = "home" | "calls" | "card";
 type ProTab = "shift" | "earnings" | "verify" | "profile";
 type Side = "customer" | "pro";
+/** Before either side's app: the landing page and the sign-in. */
+type Gate = { name: "welcome" } | { name: "auth"; side: Side };
 
 type CustomerRoute =
   | { name: "home" }
@@ -182,6 +187,7 @@ export function App() {
   const w = Math.min(430, width);
   const h = height;
 
+  const [gate, setGate] = useState<Gate | null>({ name: "welcome" });
   const [side, setSide] = useState<Side>("customer");
   const [notice, setNotice] = useState(true);
   const [connection, retryConnection] = useConnection();
@@ -214,13 +220,32 @@ export function App() {
           />
         </View>
 
-        {side === "customer" ? (
+        {gate?.name === "welcome" ? (
+          <WelcomeBody
+            castSeeds={castSeeds}
+            onCustomer={() => setGate({ name: "auth", side: "customer" })}
+            onProfessional={() => setGate({ name: "auth", side: "pro" })}
+            width={w}
+            height={h - bannerH}
+          />
+        ) : gate?.name === "auth" ? (
+          <AuthGate
+            side={gate.side}
+            onDone={() => {
+              setSide(gate.side);
+              setGate(null);
+            }}
+            onBack={() => setGate({ name: "welcome" })}
+            width={w}
+            height={h - bannerH}
+          />
+        ) : side === "customer" ? (
           <CustomerApp width={w} height={h - bannerH} onSwitch={() => setSide("pro")} />
         ) : (
           <ProApp width={w} height={h - bannerH} onSwitch={() => setSide("customer")} />
         )}
 
-        {notice ? (
+        {notice && !gate ? (
           // Offset by the banner, which is in the layout above this overlay.
           // Without it the prototype notice lands on top of the message
           // saying the data may be wrong — the less important of the two.
@@ -232,6 +257,85 @@ export function App() {
         ) : null}
       </View>
     </View>
+  );
+}
+
+/**
+ * Sign-in, with the timers and the failure it will have in production.
+ *
+ * The resend countdown and the rejected-code path are here rather than
+ * skipped, because they are most of what sign-in actually feels like: a
+ * screen that only ever shows the happy path teaches nobody whether the
+ * unhappy one is survivable.
+ */
+function AuthGate({
+  side,
+  onDone,
+  onBack,
+  width,
+  height,
+}: {
+  side: Side;
+  onDone: () => void;
+  onBack: () => void;
+  width: number;
+  height: number;
+}) {
+  const [stage, setStage] = useState<AuthStage>("phone");
+  const [phone, setPhone] = useState("");
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [resendIn, setResendIn] = useState(0);
+
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const id = setTimeout(() => setResendIn((n) => n - 1), 1000);
+    return () => clearTimeout(id);
+  }, [resendIn]);
+
+  const sendCode = () => {
+    setBusy(true);
+    setTimeout(() => {
+      setBusy(false);
+      setStage("code");
+      setResendIn(30);
+    }, 700);
+  };
+
+  return (
+    <PhoneAuthBody
+      side={side}
+      stage={stage}
+      phone={phone}
+      onChangePhone={setPhone}
+      code={code}
+      onChangeCode={(v) => {
+        setCode(v.replace(/\D/g, "").slice(0, 6));
+        setError(null);
+      }}
+      resendInSeconds={resendIn}
+      errorHe={error}
+      busy={busy}
+      onSubmitPhone={sendCode}
+      onSubmitCode={() => {
+        // A rejected code is a normal event and the screen has to survive it,
+        // so one value is deliberately refused.
+        if (code === "000000") {
+          setError("הקוד לא נכון. אפשר לנסות שוב או לבקש קוד חדש.");
+          return;
+        }
+        setBusy(true);
+        setTimeout(() => {
+          setBusy(false);
+          onDone();
+        }, 600);
+      }}
+      onResend={() => setResendIn(30)}
+      onBack={() => (stage === "code" ? setStage("phone") : onBack())}
+      width={width}
+      height={height}
+    />
   );
 }
 
