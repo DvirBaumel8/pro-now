@@ -36,10 +36,10 @@ import {
   tint,
   type as t,
 } from "@pro-now/ui";
-import type { LiveLocationState, NavGlyphName } from "@pro-now/ui";
+import type { JobMediaItem, LiveLocationState, MarkName, NavGlyphName } from "@pro-now/ui";
 import type { AuthStage, ChatMessage, ConnectionState } from "@pro-now/ui";
-import { pilotIntakeByService, readAvailability } from "@pro-now/types";
-import type { IntakeAnswer } from "@pro-now/types";
+import { buildIntakeBrief, pilotIntakeByService, pilotServiceById, readAvailability } from "@pro-now/types";
+import type { IntakeAnswer, IntakeBriefLine, OfferCardView, PriceModel } from "@pro-now/types";
 import type { JobState, ProPresenceState } from "@pro-now/types";
 
 import { matchFixture, offerFixture } from "./fixtures";
@@ -104,6 +104,38 @@ import {
 function nowHHMM(): string {
   const d = new Date();
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+/**
+ * THE REQUEST THE CUSTOMER ACTUALLY MADE — carried across to the other side.
+ *
+ * Until now the two halves of the prototype were sealed off from each other:
+ * the customer described a leak, and the professional then received a
+ * hard-coded fixture about a different leak. Every individual screen was
+ * right and the product it described did not exist, because the one thing a
+ * marketplace IS — a thing someone said arriving at someone who can answer
+ * it — was the part being faked.
+ *
+ * Now what the customer types, taps, records and photographs becomes the
+ * offer card on the professional's phone. Switch sides and you are reading
+ * your own words back. That is also the only honest way to review the
+ * intake: three taps on the customer's screen either turn into something a
+ * professional can act on, or they do not, and no amount of fixture writing
+ * will tell you which.
+ */
+export interface LiveRequest {
+  serviceId: string;
+  serviceNameHe: string;
+  serviceCode: string;
+  markName: string;
+  priceModel: PriceModel;
+  intakeBrief: IntakeBriefLine[];
+  textHe: string;
+  photos: number;
+  voiceSeconds: number | null;
+  areaLabelHe: string;
+  typicalMinutes?: [number, number] | null;
+  createdAtMs: number;
 }
 
 type CustomerTab = "home" | "calls" | "card";
@@ -212,6 +244,8 @@ export function App() {
 
   const [gate, setGate] = useState<Gate | null>({ name: "welcome" });
   const [side, setSide] = useState<Side>("customer");
+  /** The request in flight, shared by both sides. See `LiveRequest`. */
+  const [liveRequest, setLiveRequest] = useState<LiveRequest | null>(null);
   /**
    * The prototype notice. It covers the address row while it is up, so it
    * takes itself away — a permanent overlay on the first thing a reviewer
@@ -231,11 +265,6 @@ export function App() {
   useEffect(() => {
     if (connection === "online") setBannerH(0);
   }, [connection]);
-
-  useEffect(() => {
-    const id = setTimeout(() => setNotice(false), 6000);
-    return () => clearTimeout(id);
-  }, []);
 
   return (
     <View style={[styles.root, { backgroundColor: side === "pro" ? proTheme.colors.bg : customerTheme.colors.bg }]}>
@@ -274,9 +303,20 @@ export function App() {
             height={h - bannerH}
           />
         ) : side === "customer" ? (
-          <CustomerApp width={w} height={h - bannerH} onSwitch={() => setSide("pro")} />
+          <CustomerApp
+            width={w}
+            height={h - bannerH}
+            onSwitch={() => setSide("pro")}
+            onSendRequest={setLiveRequest}
+          />
         ) : (
-          <ProApp width={w} height={h - bannerH} onSwitch={() => setSide("customer")} />
+          <ProApp
+            width={w}
+            height={h - bannerH}
+            onSwitch={() => setSide("customer")}
+            request={liveRequest}
+            onTakeRequest={() => setLiveRequest(null)}
+          />
         )}
 
         {notice && !gate ? (
@@ -381,10 +421,12 @@ function CustomerApp({
   width,
   height,
   onSwitch,
+  onSendRequest,
 }: {
   width: number;
   height: number;
   onSwitch: () => void;
+  onSendRequest: (r: LiveRequest) => void;
 }) {
   const snapshot = useLiveSnapshot();
   /**
@@ -438,6 +480,28 @@ function CustomerApp({
    * screens later. Keyed by question id, last answer wins.
    */
   const [intakeAnswers, setIntakeAnswers] = useState<IntakeAnswer[]>([]);
+  /** The service this journey is about, kept after the route moves on. */
+  const [lastRequestedId, setLastRequestedId] = useState<string | null>(null);
+  /**
+   * The name of whatever the customer is actually tracking.
+   *
+   * Four screens after the request — searching, tracking, quote, complete —
+   * were hard-coded to "תיקון נזילה בברז". Ask for a fridge and the app
+   * spent the next four screens telling you a plumber was on the way about a
+   * tap. Every screen was individually correct; the journey was fiction.
+   */
+  const trackedService = useMemo(() => {
+    const id =
+      route.name === "service" || route.name === "describe" || route.name === "searching"
+        ? route.serviceId
+        : lastRequestedId;
+    const page = id ? SERVICE_PAGES[id] : undefined;
+    return {
+      nameHe: page?.nameHe ?? "תיקון נזילה בברז",
+      mark: (page?.mark ?? "plumbing") as MarkName,
+    };
+  }, [route, lastRequestedId]);
+
   const answerIntake = useCallback((a: IntakeAnswer) => {
     setIntakeAnswers((prev) => [...prev.filter((p) => p.questionId !== a.questionId), a]);
   }, []);
@@ -609,7 +673,36 @@ function CustomerApp({
             onStopRecord={capture.stopRecord}
             onDeleteVoice={capture.deleteVoice}
             onBack={() => go({ name: "service", serviceId: route.serviceId })}
-            onSend={() => go({ name: "searching", serviceId: route.serviceId })}
+            onSend={() => {
+              /*
+               * Everything the customer gave, packed once and handed over.
+               * `buildIntakeBrief` is the same pure function the offer card
+               * renders from, so what the professional sees cannot drift
+               * from what was actually answered — and an unanswered
+               * question is dropped here rather than travelling as an empty
+               * row.
+               */
+              const def = pilotServiceById[route.serviceId];
+              onSendRequest({
+                serviceId: route.serviceId,
+                serviceNameHe: page.nameHe,
+                serviceCode: def?.code ?? route.serviceId,
+                markName: page.mark,
+                priceModel: page.price.priceModel,
+                intakeBrief: buildIntakeBrief(
+                  pilotIntakeByService[route.serviceId],
+                  intakeAnswers
+                ),
+                textHe: faultText,
+                photos: capture.photos.length,
+                voiceSeconds: capture.voice?.seconds ?? null,
+                areaLabelHe: addressLabel,
+                typicalMinutes: def?.typicalMinutes ?? null,
+                createdAtMs: Date.now(),
+              });
+              setLastRequestedId(route.serviceId);
+              go({ name: "searching", serviceId: route.serviceId });
+            }}
             width={width}
             height={bodyH}
           />
@@ -638,7 +731,7 @@ function CustomerApp({
                   ? "PRO_EN_ROUTE"
                   : "IN_PROGRESS"
             }
-            serviceNameHe="תיקון נזילה בברז"
+            serviceNameHe={trackedService.nameHe}
             professional={matchFixture.professional}
             eta={matchFixture.eta}
             priceLineHe={`${lex.visitFee} ₪179 · ${lex.quotePending}`}
@@ -653,7 +746,7 @@ function CustomerApp({
         return (
           <QuoteApprovalBody
             quote={quoteFixture}
-            serviceNameHe="תיקון נזילה בברז"
+            serviceNameHe={trackedService.nameHe}
             professionalDisplayName={matchFixture.professional.displayName}
             onApprove={() => go({ name: "complete" })}
             onDecline={() => go({ name: "tracking", stage: "arrived" })}
@@ -665,8 +758,8 @@ function CustomerApp({
       case "complete":
         return (
           <JobCompleteBody
-            serviceNameHe="תיקון נזילה בברז"
-            mark="plumbing"
+            serviceNameHe={trackedService.nameHe}
+            mark={trackedService.mark}
             professionalDisplayName={matchFixture.professional.displayName}
             whenHe="היום, 14:20 · 55 דקות"
             receiptLines={receiptLines}
@@ -713,7 +806,7 @@ function CustomerApp({
           />
         );
     }
-  }, [tab, route, elapsed, width, bodyH, go, snapshot, supply, addressId, live, askLocation, addressLabel, capture, faultText, intakeAnswers, answerIntake]);
+  }, [tab, route, elapsed, width, bodyH, go, snapshot, supply, addressId, live, askLocation, addressLabel, capture, faultText, intakeAnswers, answerIntake, trackedService, onSendRequest]);
 
   return (
     <View style={{ width, height }}>
@@ -803,7 +896,21 @@ function CustomerApp({
 // Professional
 // ---------------------------------------------------------------------
 
-function ProApp({ width, height, onSwitch }: { width: number; height: number; onSwitch: () => void }) {
+function ProApp({
+  width,
+  height,
+  onSwitch,
+  request,
+  onTakeRequest,
+}: {
+  width: number;
+  height: number;
+  onSwitch: () => void;
+  /** A request the customer side actually made, waiting to be offered. */
+  request: LiveRequest | null;
+  /** Called once the offer has been taken off the queue. */
+  onTakeRequest: () => void;
+}) {
   const [tab, setTab] = useState<ProTab>("shift");
   const [presence, setPresence] = useState<ProPresenceState>("OFFLINE");
   const [offerAt, setOfferAt] = useState<number | null>(null);
@@ -829,6 +936,12 @@ function ProApp({ width, height, onSwitch }: { width: number; height: number; on
   const [shiftJobs, setShiftJobs] = useState(0);
   /** The payout just settled, while the completion screen is showing. */
   const [settled, setSettled] = useState<number | null>(null);
+  /**
+   * The customer request this offer was built from, captured at the moment
+   * the offer was raised. Held here rather than read live, so the card does
+   * not change under the professional's hands while the ring counts down.
+   */
+  const [takenRequest, setTakenRequest] = useState<LiveRequest | null>(null);
   const [proSheet, setProSheet] = useState<null | "call" | "navigate" | "services" | "howitworks">(
     /*
      * OPEN ON ARRIVAL, ONCE.
@@ -889,12 +1002,50 @@ function ProApp({ width, height, onSwitch }: { width: number; height: number; on
     }
   }, [presence]);
 
-  const offer = offerAt
-    ? {
-        ...offerFixture,
-        offeredAt: new Date(offerAt).toISOString(),
-        expiresAt: new Date(offerAt + 30_000).toISOString(),
-      }
+  /**
+   * The offer, built from the customer's actual request when there is one.
+   *
+   * `offerFixture` stays as the fallback so the professional side can be
+   * reviewed on its own — but the moment a request exists, this card is that
+   * request: the same service, the same answers, the same media counts.
+   * Nothing is re-described in fixture prose, because a fixture that
+   * paraphrases a real payload is a fixture that will eventually disagree
+   * with it.
+   */
+  const offer: OfferCardView | null = offerAt
+    ? takenRequest
+      ? {
+          ...offerFixture,
+          offerId: `offer_${offerAt}`,
+          jobId: `job_${offerAt}`,
+          serviceNameHe: takenRequest.serviceNameHe,
+          serviceCode: takenRequest.serviceCode,
+          priceModel: takenRequest.priceModel,
+          offeredAt: new Date(offerAt).toISOString(),
+          expiresAt: new Date(offerAt + 30_000).toISOString(),
+          customerAreaLabel: takenRequest.areaLabelHe,
+          jobDescription: takenRequest.textHe.trim() || null,
+          intakeBrief: takenRequest.intakeBrief,
+          mediaSummary:
+            takenRequest.photos > 0 || (takenRequest.voiceSeconds ?? 0) > 0
+              ? { photos: takenRequest.photos, voiceSeconds: takenRequest.voiceSeconds }
+              : undefined,
+          // The customer was never asked about the floor or the lift, so the
+          // card says nothing about them rather than inventing a building.
+          arrival: undefined,
+          typicalServiceMinutes: takenRequest.typicalMinutes ?? null,
+          // VISIT_QUOTE means the payout genuinely is not knowable yet, and
+          // the card must say so rather than carry the fixture's number
+          // across to a different service.
+          expectedPayoutMinorUnits:
+            takenRequest.priceModel === "VISIT_QUOTE" ? null : offerFixture.expectedPayoutMinorUnits,
+          payoutIsEstimate: takenRequest.priceModel !== "FIXED",
+        }
+      : {
+          ...offerFixture,
+          offeredAt: new Date(offerAt).toISOString(),
+          expiresAt: new Date(offerAt + 30_000).toISOString(),
+        }
     : null;
 
   const JOB_FLOW: JobState[] = [
@@ -998,17 +1149,27 @@ function ProApp({ width, height, onSwitch }: { width: number; height: number; on
     ) : job ? (
       <ProJobBody
         status={job}
-        serviceNameHe="תיקון נזילה בברז"
-        mark="plumbing"
+        /*
+         * The job screen inherits the same request the offer was built
+         * from. It used to be hard-coded to "תיקון נזילה בברז" — so a
+         * professional could accept a call about a fridge and land on a
+         * screen about a tap. The offer and the job are the same job.
+         */
+        serviceNameHe={takenRequest?.serviceNameHe ?? "תיקון נזילה בברז"}
+        mark={(takenRequest?.markName as MarkName) ?? "plumbing"}
         addressHe="רחוב הברזל 12, רמת אביב, תל אביב"
         accessNoteHe="קומה 3, דירה 9 · קוד כניסה 1408"
         routeEtaMinutes={9}
         distanceHe="2.4 ק״מ"
         customerNameHe="אמית (תצוגה)"
         customerSeed="cust_demo_1"
-        symptomsHe={jobSymptoms}
-        descriptionHe={jobDescription}
-        media={jobMedia}
+        symptomsHe={
+          takenRequest ? takenRequest.intakeBrief.map((l) => l.answerHe) : jobSymptoms
+        }
+        descriptionHe={
+          takenRequest ? takenRequest.textHe.trim() || "הלקוח לא הוסיף תיאור." : jobDescription
+        }
+        media={takenRequest ? requestMedia(takenRequest) : jobMedia}
         payoutMinorUnits={job === "DIAGNOSIS" || job === "WAITING_QUOTE_APPROVAL" ? null : 13400}
         payoutIsEstimate={false}
         onAdvance={advanceJob}
@@ -1101,8 +1262,17 @@ function ProApp({ width, height, onSwitch }: { width: number; height: number; on
       {showDemo ? (
         <DemoBar
           dark
-          label="שלח אליי עכשיו קריאה לדוגמה"
-          onPress={() => setOfferAt(Date.now())}
+          /*
+           * The label tells the truth about which of the two things is
+           * about to happen: replay the sample offer, or deliver the
+           * request the customer side actually just made.
+           */
+          label={request ? "הקריאה ששלחת בצד הלקוח ממתינה" : "שלח אליי עכשיו קריאה לדוגמה"}
+          onPress={() => {
+            setTakenRequest(request);
+            if (request) onTakeRequest();
+            setOfferAt(Date.now());
+          }}
           width={width}
         />
       ) : null}
@@ -1296,6 +1466,37 @@ function DemoBar({
       <Text style={[styles.demoBarText, { color: dark ? "#F7F3FA" : "#17121F" }]}>▸ {label}</Text>
     </Pressable>
   );
+}
+
+/**
+ * The media the customer actually attached, as placeholder rows.
+ *
+ * `uri: null` throughout, and the job screen already says so rather than
+ * miming playback — the prototype holds the real blobs only on the customer
+ * side of this browser tab, and copying them across would be inventing a
+ * transfer that has no server behind it. The COUNTS are real, which is the
+ * part the professional decides on.
+ */
+function requestMedia(r: LiveRequest): JobMediaItem[] {
+  const out: JobMediaItem[] = [];
+  if ((r.voiceSeconds ?? 0) > 0) {
+    out.push({
+      id: "req-voice",
+      kind: "VOICE",
+      subjectHe: "הקלטה מהלקוח",
+      seconds: Math.round(r.voiceSeconds ?? 0),
+      uri: null,
+    });
+  }
+  for (let i = 0; i < r.photos; i += 1) {
+    out.push({
+      id: `req-photo-${i}`,
+      kind: "PHOTO",
+      subjectHe: `תמונה ${i + 1} מהלקוח`,
+      uri: null,
+    });
+  }
+  return out;
 }
 
 /** Slides and fades a full-screen layer in from below. */

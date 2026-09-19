@@ -296,7 +296,18 @@ export function DescribeFaultBody({
           <Text style={styles.ctaLabel}>שליחת הקריאה</Text>
         </Pressable>
         <Text style={styles.ctaNote}>
-          {added === 0 ? "אפשר לשלוח גם בלי פרטים" : `${added} פרטים יישלחו · לא מחויב עד שתאשר`}
+          {/*
+            * "1 פרטים יישלחו" — the exact Hebrew plural error the lexicon
+            * file exists to prevent, shipped on the send button of all
+            * things. Hebrew has a singular; a bare number interpolated into
+            * a plural noun is wrong every time the count is one, and one is
+            * the most common count on this screen.
+            */}
+          {added === 0
+            ? "אפשר לשלוח גם בלי פרטים"
+            : added === 1
+              ? "פרט אחד יישלח · לא מחויב עד שתאשר"
+              : `${added} פרטים יישלחו · לא מחויב עד שתאשר`}
         </Text>
       </View>
     </View>

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import Svg, { Circle, Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 
@@ -66,6 +66,7 @@ export function ProOfferBody({
   const attachments = attachmentLabels(offer);
   const arrivalChips = arrivalLabels(offer);
   const typical = offer.typicalServiceMinutes ?? null;
+  const [contentH, setContentH] = useState(0);
 
   const urgencyColor =
     countdown.urgency === "critical"
@@ -94,12 +95,23 @@ export function ProOfferBody({
        * slab would be easier and would also kill the map, and then the map
        * is not the stage, it is a strip at the top.
        */}
-      <View style={styles.scrim} pointerEvents="none">
+      {/*
+        * The scrim is MEASURED, not guessed.
+        *
+        * It was a fixed 78% of the screen, which worked when the card held a
+        * price and an ETA. Then the card grew a brief — the customer's own
+        * answers, the media, the typical duration — and the top of that text
+        * rose above the dark part of the gradient and landed on bare map.
+        * Roads through Hebrew. Any fixed fraction has the same fate the next
+        * time the card gains a line, so it now follows the content it exists
+        * to protect, with enough headroom above it for the fade to happen.
+        */}
+      <View style={[styles.scrim, { height: contentH + 140 }]} pointerEvents="none">
         <Svg width="100%" height="100%">
           <Defs>
             <LinearGradient id="offerScrim" x1="0" y1="0" x2="0" y2="1">
               <Stop offset="0" stopColor="#060908" stopOpacity="0" />
-              <Stop offset="0.45" stopColor="#060908" stopOpacity="0.72" />
+              <Stop offset="0.35" stopColor="#060908" stopOpacity="0.82" />
               <Stop offset="1" stopColor="#060908" stopOpacity="0.96" />
             </LinearGradient>
           </Defs>
@@ -119,7 +131,7 @@ export function ProOfferBody({
         </View>
       </View>
 
-      <View style={styles.content}>
+      <View style={styles.content} onLayout={(e) => setContentH(e.nativeEvent.layout.height)}>
         {/*
           * "עבודה חדשה" assumed the professional already knew what this
           * screen was. Nobody seeing it for the first time does: a full
@@ -341,7 +353,7 @@ const styles = StyleSheet.create({
   map: { ...StyleSheet.absoluteFillObject, borderRadius: 0 },
 
   // No card: a vertical wash carries the type instead of a container.
-  scrim: { position: "absolute", left: 0, right: 0, bottom: 0, height: "78%" },
+  scrim: { position: "absolute", left: 0, right: 0, bottom: 0 },
 
   ring: {
     position: "absolute",
