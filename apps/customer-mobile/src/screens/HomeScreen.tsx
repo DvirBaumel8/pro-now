@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, I18nMa
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { customerTheme, typography, spacing, radius } from "@pro-now/ui";
 import type { CustomerStackParamList } from "../navigation/types";
+import type { CatalogDepartmentView } from "@pro-now/types";
 import { api } from "../api/client";
 
 // Force RTL layout — Hebrew-first per /docs/03-DESIGN-SYSTEM.md §RTL.
@@ -16,7 +17,7 @@ type Props = NativeStackScreenProps<CustomerStackParamList, "Home">;
  * count — never fabricated.
  */
 export function HomeScreen({ navigation }: Props) {
-  const [departments, setDepartments] = useState<any[]>([]);
+  const [departments, setDepartments] = useState<CatalogDepartmentView[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 

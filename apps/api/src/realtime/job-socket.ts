@@ -19,7 +19,7 @@ export function registerJobSocket(app: FastifyInstance) {
 
     app.log.info({ jobId, userId: req.user.userId }, "Job socket connected");
 
-    connection.socket.on("message", (raw) => {
+    connection.socket.on("message", (raw: unknown) => {
       // Placeholder echo/ack — real event fan-out (offer/state/quote/
       // location) lands in Epic 7 per /docs/18-ROADMAP.md.
       connection.socket.send(JSON.stringify({ type: "ACK", jobId, receivedAt: new Date().toISOString() }));

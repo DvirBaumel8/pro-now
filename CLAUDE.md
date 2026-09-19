@@ -123,3 +123,12 @@ blocks the epic's stated acceptance criteria.
 
 See `/docs/EPIC-0-REPORT.md` for the as-built state, contradictions found
 between source documents, and the recommended next epic.
+
+**Read `§9 Verification pass` in that report first** — it is the current
+truth about what has actually been installed, compiled, linted, bundled and
+executed, and it supersedes the older `§7`/`§8`. Short version: lint, the
+unit tests, the admin build and both mobile bundles are green; `apps/api`
+cannot typecheck, boot, migrate or seed because Prisma's engine host
+(`binaries.prisma.sh`) is blocked by egress policy. Do not describe any
+database-, server- or screen-dependent behaviour as verified until that is
+resolved.

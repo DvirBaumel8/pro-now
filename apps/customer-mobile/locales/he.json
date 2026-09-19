@@ -1,0 +1,6 @@
+{
+  "CFBundleDisplayName": "PRO NOW",
+  "NSLocationWhenInUseUsageDescription": "כדי להראות לך אנשי מקצוע זמינים לידך ולחשב זמן הגעה, PRO NOW משתמשת במיקום שלך.",
+  "NSCameraUsageDescription": "כדי לצלם תמונה של התקלה עבור בעל המקצוע.",
+  "NSPhotoLibraryUsageDescription": "כדי לצרף תמונה קיימת של התקלה."
+}

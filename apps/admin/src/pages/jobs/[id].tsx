@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { fetchJob } from "../../lib/api";
+import type { JobEvent, JobView } from "@pro-now/types";
 
 /**
  * Job inspector detail — see /docs/13-ADMIN-OPS.md §Job inspector. Fetches
@@ -11,7 +12,7 @@ import { fetchJob } from "../../lib/api";
 export default function JobDetailPage() {
   const router = useRouter();
   const { id } = router.query as { id?: string };
-  const [job, setJob] = useState<any | null>(null);
+  const [job, setJob] = useState<JobView | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -36,7 +37,7 @@ export default function JobDetailPage() {
           </div>
           <h2 style={{ fontSize: 15, marginBottom: 8 }}>Event timeline</h2>
           <div style={{ borderInlineStart: "2px solid var(--border)", paddingInlineStart: 16 }}>
-            {(job.events ?? []).map((event: any) => (
+            {(job.events ?? []).map((event: JobEvent) => (
               <div key={event.id} style={{ marginBottom: 12 }}>
                 <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
                   {new Date(event.createdAt).toLocaleTimeString()} · {event.actor}

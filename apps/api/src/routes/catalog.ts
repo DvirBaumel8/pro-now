@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
-import { PILOT_MARKET_CODE } from "../../prisma/seed-data/services";
+import type { CatalogCategoryView, CatalogDepartmentView } from "@pro-now/types";
+import { PILOT_MARKET_CODE } from "../config/market";
 
 /**
  * GET /v1/catalog — see /docs/06-API-SPEC.md. Always filtered through
@@ -17,10 +18,10 @@ export default async function catalogRoutes(app: FastifyInstance) {
       },
     });
 
-    const departments = new Map<
-      string,
-      { code: string; nameHe: string; nameEn: string; categories: Map<string, any> }
-    >();
+    type DepartmentAccumulator = Omit<CatalogDepartmentView, "categories"> & {
+      categories: Map<string, CatalogCategoryView>;
+    };
+    const departments = new Map<string, DepartmentAccumulator>();
 
     for (const activation of activations) {
       const svc = activation.service;

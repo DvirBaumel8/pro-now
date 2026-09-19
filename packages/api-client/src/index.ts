@@ -23,9 +23,16 @@ export function createApiClient(config: ProNowApiClientConfig) {
     if (token) headers.Authorization = `Bearer ${token}`;
 
     const res = await fetch(`${config.baseUrl}${path}`, { ...init, headers });
-    const body = await res.json().catch(() => null);
+    const body: unknown = await res.json().catch(() => null);
     if (!res.ok) {
-      throw new Error(body?.message ?? `Request to ${path} failed with ${res.status}`);
+      const serverMessage =
+        typeof body === "object" &&
+        body !== null &&
+        "message" in body &&
+        typeof (body as { message: unknown }).message === "string"
+          ? (body as { message: string }).message
+          : undefined;
+      throw new Error(serverMessage ?? `Request to ${path} failed with ${res.status}`);
     }
     return body as T;
   }

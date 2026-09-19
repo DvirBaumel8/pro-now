@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { customerTheme, typography, spacing, radius, VerificationBadge } from "@pro-now/ui";
+import type { JobView } from "@pro-now/types";
 import type { CustomerStackParamList } from "../navigation/types";
 import { api } from "../api/client";
 
@@ -15,11 +16,41 @@ type Props = NativeStackScreenProps<CustomerStackParamList, "Match">;
  */
 export function MatchScreen({ route, navigation }: Props) {
   const { jobId } = route.params;
-  const [job, setJob] = useState<any | null>(null);
+  const [job, setJob] = useState<JobView | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api.getJob(jobId).then((res) => setJob(res.job));
+    let cancelled = false;
+    api
+      .getJob(jobId)
+      .then((res) => {
+        if (!cancelled) setJob(res.job);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : "שגיאה לא צפויה");
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [jobId]);
+
+  if (error) {
+    return (
+      <View style={styles.stateContainer}>
+        <Text style={styles.stateText}>לא הצלחנו לטעון את פרטי הקריאה</Text>
+        <Text style={styles.stateDetail}>{error}</Text>
+      </View>
+    );
+  }
+
+  if (!job) {
+    return (
+      <View style={styles.stateContainer}>
+        <ActivityIndicator color={customerTheme.colors.action} />
+        <Text style={styles.stateText}>טוען את פרטי ההתאמה…</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -27,6 +58,18 @@ export function MatchScreen({ route, navigation }: Props) {
         <Text style={styles.foundBadge}>מצאנו!</Text>
       </View>
 
+      {/*
+        INVARIANT VIOLATION — /CLAUDE.md §3 "Real supply only. Real ETA only.
+        Never fabricate availability, demand, or a trust score."
+
+        The professional name, rating, job count, ETA range and visit fee
+        below are hard-coded placeholders. The real values require the
+        assigned professional + offer payload (name, photo, verified badges,
+        the ETA snapshot on DispatchOffer, and the service's visit fee),
+        which GET /v1/jobs/:id does not expand today. This card must not
+        ship to any user until that payload exists and is rendered from
+        `job`. Tracked as a blocker on Epic 8 — see /docs/EPIC-0-REPORT.md.
+      */}
       <View style={styles.card}>
         <View style={styles.proRow}>
           <View style={styles.avatarPlaceholder} />
@@ -68,6 +111,9 @@ export function MatchScreen({ route, navigation }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: customerTheme.colors.bg },
+  stateContainer: { flex: 1, alignItems: "center", justifyContent: "center", gap: spacing.sm, padding: spacing.lg, backgroundColor: customerTheme.colors.bg },
+  stateText: { ...typography.body, color: customerTheme.colors.textPrimary, textAlign: "center" },
+  stateDetail: { ...typography.caption, color: customerTheme.colors.textSecondary, textAlign: "center" },
   mapArea: { flex: 1, backgroundColor: "#EFEDE7", alignItems: "center", justifyContent: "center" },
   foundBadge: { ...typography.h1, color: customerTheme.colors.action },
   card: { backgroundColor: customerTheme.colors.surface, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, padding: spacing.lg },

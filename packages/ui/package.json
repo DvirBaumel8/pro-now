@@ -5,14 +5,15 @@
   "main": "src/index.ts",
   "types": "src/index.ts",
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src"
   },
   "dependencies": {
     "@pro-now/types": "*"
   },
   "peerDependencies": {
-    "react": "*",
-    "react-native": "*"
+    "react": "18.2.0",
+    "react-native": ">=0.74.0 <0.75.0"
   },
   "devDependencies": {
     "typescript": "^5.5.4"

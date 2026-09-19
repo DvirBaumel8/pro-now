@@ -25,8 +25,9 @@ export function RequestDetailsScreen({ route, navigation }: Props) {
         idempotencyKey
       );
       navigation.navigate("Searching", { jobId: job.id });
-    } catch (err: any) {
-      Alert.alert("לא הצלחנו לשלוח את הבקשה", err.message ?? "שגיאה לא צפויה");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "שגיאה לא צפויה";
+      Alert.alert("לא הצלחנו לשלוח את הבקשה", message);
     } finally {
       setSubmitting(false);
     }

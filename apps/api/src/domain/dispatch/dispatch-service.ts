@@ -125,7 +125,21 @@ export async function triggerDispatch(
     scoringWeights
   );
 
+  // `rankCandidates` preserves the shortlist, and the shortlist is non-empty
+  // here (the `eligible.length === 0` guard above returned already), but the
+  // type system cannot know that — and a silent `undefined` here would mean
+  // offering a job to nobody, so it is treated as a real failure, not ignored.
   const top = ranked[0];
+  if (!top) {
+    await prisma.jobEvent.create({
+      data: { jobId, type: "MATCH_FAILED", actor: "SYSTEM", metadata: { reason: "NO_RANKED_CANDIDATES" } },
+    });
+    return {
+      status: "NO_ELIGIBLE_CANDIDATES",
+      candidatesConsidered: nearbyProfessionals.length,
+      candidatesEligible: eligible.length,
+    };
+  }
   const topEta = etaByProId.get(top.professionalId);
 
   await prisma.job.update({ where: { id: jobId }, data: { status: "OFFERING" } });

@@ -55,5 +55,5 @@ export const typography = {
   bodyStrong: { fontSize: 16, fontWeight: "600" as const },
   caption: { fontSize: 13, fontWeight: "400" as const },
   button: { fontSize: 16, fontWeight: "600" as const },
-  numericMetric: { fontSize: 30, fontWeight: "700" as const, fontVariant: ["tabular-nums"] as const },
+  numericMetric: { fontSize: 30, fontWeight: "700" as const, fontVariant: ["tabular-nums" as const] },
 };

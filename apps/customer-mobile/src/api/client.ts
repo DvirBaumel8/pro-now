@@ -1,4 +1,10 @@
 import Constants from "expo-constants";
+import type {
+  CatalogResponse,
+  DispatchResultView,
+  JobView,
+  ReviewView,
+} from "@pro-now/types";
 
 /**
  * Thin typed fetch wrapper — see /docs/06-API-SPEC.md. A fuller generated
@@ -13,6 +19,20 @@ export function setSessionToken(token: string | null) {
   sessionToken = token;
 }
 
+
+/**
+ * The API's error envelope is `{ code, message }` (/docs/06-API-SPEC.md),
+ * but a failed request can also return a proxy's HTML or nothing at all —
+ * so the body is narrowed rather than trusted.
+ */
+function serverMessage(body: unknown): string | undefined {
+  if (typeof body === "object" && body !== null && "message" in body) {
+    const { message } = body as { message: unknown };
+    if (typeof message === "string") return message;
+  }
+  return undefined;
+}
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -21,9 +41,9 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (sessionToken) headers.Authorization = `Bearer ${sessionToken}`;
 
   const res = await fetch(`${BASE_URL}${path}`, { ...init, headers });
-  const body = await res.json().catch(() => null);
+  const body: unknown = await res.json().catch(() => null);
   if (!res.ok) {
-    throw new Error(body?.message ?? `Request to ${path} failed with ${res.status}`);
+    throw new Error(serverMessage(body) ?? `Request to ${path} failed with ${res.status}`);
   }
   return body as T;
 }
@@ -31,12 +51,12 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 export const api = {
   requestOtp: (phone: string) => request<{ ok: boolean; sandboxHint?: string }>("/v1/auth/otp/request", { method: "POST", body: JSON.stringify({ phone }) }),
   verifyOtp: (phone: string, code: string) => request<{ token: string; userId: string }>("/v1/auth/otp/verify", { method: "POST", body: JSON.stringify({ phone, code }) }),
-  getCatalog: () => request<{ departments: any[] }>("/v1/catalog"),
+  getCatalog: () => request<CatalogResponse>("/v1/catalog"),
   createJob: (input: { serviceId: string; addressId: string; description?: string }, idempotencyKey: string) =>
-    request<{ job: any; dispatch: any }>("/v1/jobs", { method: "POST", headers: { "Idempotency-Key": idempotencyKey }, body: JSON.stringify(input) }),
-  getJob: (id: string) => request<{ job: any }>(`/v1/jobs/${id}`),
+    request<{ job: JobView; dispatch: DispatchResultView }>("/v1/jobs", { method: "POST", headers: { "Idempotency-Key": idempotencyKey }, body: JSON.stringify(input) }),
+  getJob: (id: string) => request<{ job: JobView }>(`/v1/jobs/${id}`),
   approveQuote: (quoteId: string, quoteVersionHash: string, idempotencyKey: string) =>
     request<{ ok: boolean }>(`/v1/quotes/${quoteId}/approve`, { method: "POST", headers: { "Idempotency-Key": idempotencyKey }, body: JSON.stringify({ quoteVersionHash }) }),
   submitReview: (jobId: string, input: { overallRating: number; text?: string }) =>
-    request<{ review: any }>(`/v1/jobs/${jobId}/reviews`, { method: "POST", body: JSON.stringify(input) }),
+    request<{ review: ReviewView }>(`/v1/jobs/${jobId}/reviews`, { method: "POST", body: JSON.stringify(input) }),
 };

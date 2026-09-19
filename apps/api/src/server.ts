@@ -47,9 +47,13 @@ export async function buildServer() {
 
   app.setErrorHandler((err, req, reply) => {
     req.log.error({ err }, "Unhandled error");
-    const status = (err as any).statusCode ?? 500;
+    // Fastify errors carry `statusCode`/`code`, and so do the domain errors
+    // thrown by the state machines — but a plain `Error` carries neither, so
+    // both are read defensively rather than asserted.
+    const { statusCode, code } = err as { statusCode?: number; code?: string };
+    const status = statusCode ?? 500;
     reply.status(status).send({
-      code: (err as any).code ?? "INTERNAL_ERROR",
+      code: code ?? "INTERNAL_ERROR",
       message: status >= 500 ? "Internal server error" : err.message,
       requestId: req.id,
     });

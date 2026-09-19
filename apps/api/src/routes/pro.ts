@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { startShiftSchema, locationPingSchema } from "@pro-now/validation";
 import { assertPresenceTransition, canEndShift } from "../domain/job/pro-presence-transitions";
+import type { ProPresenceState } from "@pro-now/types";
 
 /**
  * See /docs/06-API-SPEC.md, /docs/07-JOB-STATE-MACHINE.md §Professional
@@ -19,7 +20,7 @@ export default async function proRoutes(app: FastifyInstance) {
       });
     }
 
-    assertPresenceTransition(professional.presenceState as any, "STARTING_SHIFT");
+    assertPresenceTransition(professional.presenceState as ProPresenceState, "STARTING_SHIFT");
 
     const session = await app.prisma.availabilitySession.create({
       data: { professionalId: professional.id, enabledServiceIds: body.enabledServiceIds },
@@ -42,7 +43,7 @@ export default async function proRoutes(app: FastifyInstance) {
     const professional = await app.prisma.professionalProfile.findUnique({ where: { userId: req.user!.userId } });
     if (!professional) return reply.status(404).send({ code: "PROFESSIONAL_NOT_FOUND", message: "No professional profile" });
 
-    if (!canEndShift(professional.presenceState as any)) {
+    if (!canEndShift(professional.presenceState as ProPresenceState)) {
       return reply.status(409).send({
         code: "SHIFT_END_BLOCKED",
         message: "Cannot end shift while committed to an active job — see /docs/07-JOB-STATE-MACHINE.md",

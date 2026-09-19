@@ -4,17 +4,16 @@
 // cuid. Geospatial columns use PostGIS via the postgis extension.
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  // PostGIS is declared as a managed extension, which Prisma gates behind
+  // this preview feature. Without it the schema does not parse at all.
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
   provider   = "postgresql"
   url        = env("DATABASE_URL")
   extensions = [postgis]
-}
-
-generator json {
-  provider = "prisma-client-js"
 }
 
 // ---------------------------------------------------------------------

@@ -99,4 +99,4 @@ export const services: SeedService[] = [
 ];
 
 /** Pilot market this seed activates for local/dev/staging demos only. */
-export const PILOT_MARKET_CODE = "IL-PILOT-DEV";
+export { PILOT_MARKET_CODE } from "../../src/config/market";
