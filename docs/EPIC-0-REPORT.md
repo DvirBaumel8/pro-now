@@ -750,3 +750,304 @@ one.
    including the two new endpoints, which are still UNVERIFIED.
 5. Decide the RTL question in §10.7 with a device in hand.
 6. Then Epic 7 (realtime resync), and the rest of Epic 8.
+
+---
+
+## 11. Third pass — the visual layer (2026-09-19)
+
+Amit's brief was blunt: the product looked "banal, boxy", and should feel
+closer to Wolt/Gett — "fewer squares, more information, more visual, more
+photographs, more UX/UI, more thought, more pages." This pass is that work.
+It is UI only; nothing here touches the API, the schema, or the §10.8
+blocker.
+
+### 11.1 What changed
+
+**Tokens** (`packages/ui/src/theme.ts`) gained `radii`, `elevation(level,
+dark)`, `tint.*`, an extended `type` scale up to `displayXL`, `tabular` and
+`imageRatio`. Depth is now soft wide shadows plus generous radii — never a
+gradient and never a border competing with a shadow, both of which
+/docs/03-DESIGN-SYSTEM.md §Personality rules out. That single change is what
+removes the "boxy" reading: a card is a raised surface, not a drawn
+rectangle.
+
+**A real icon system** (`marks.tsx`) — one geometric family, 24×24, 1.8
+stroke, no fills, colour inherited. The design system explicitly forbids
+"cartoon trade icons"; before this there were none at all, which is how the
+squares ended up carrying the whole composition.
+
+**Photography as a first-class slot** (`ImageSlot`). The brief asked for
+more images and the honest answer is that PRO NOW has no licensed
+photography yet. So `ImageSlot` renders the real layout, ratio and treatment
+with a labelled placeholder naming the intended subject. No stock imagery
+was substituted anywhere. A design review that was flattered by invented
+photos would be a review of a product that does not exist.
+
+**Four new screen bodies** — `ServiceDetailBody` (C04), `ProProfileBody`
+(C12), `QuoteApprovalBody` (C11), `JobCompleteBody` (C13) — joining the four
+from the previous pass. All eight are presentational: the apps and the
+gallery import the same components, so the reviewed design and the shipped
+design cannot drift.
+
+### 11.2 Where the design had to stay honest
+
+Three places where the prettier option would have been the dishonest one:
+
+- **The service page CTA at zero supply.** "בקשת בעל מקצוע עכשיו" is
+  disabled and relabelled, rather than starting a dispatch that will fail.
+  A button that promises what the marketplace cannot deliver is the exact
+  failure /CLAUDE.md §3 exists to prevent.
+- **The professional profile.** PRO NOW's rating, the completed-job count
+  and any imported external reputation are three separately-labelled facts.
+  There is no combined score, and `ProfessionalSummaryView` has no field
+  that could carry one. A brand-new professional's profile shows three
+  dashes and says so.
+- **Quote approval.** The screen renders the server's `totalMinorUnits`; it
+  does not re-derive a total from the lines it just displayed. If the two
+  ever disagreed, the client's arithmetic is the wrong one to trust.
+  Approval carries `versionHash`, so a stale screen cannot approve a quote
+  the customer never saw.
+
+### 11.3 New pure logic, tested
+
+`priceExplainer()` moved into `packages/ui/src/pricing-copy.ts` with six
+tests. The assertion that matters: a VISIT_QUOTE fee must never be worded
+like a FIXED price, and a missing amount renders as `—`, never as `0`.
+
+### 11.4 Verification
+
+| Check | Result |
+|---|---|
+| Lint (10 workspaces) | **CLEAN** |
+| Typecheck `packages/ui`, `tools/design-preview` | **CLEAN** |
+| Unit tests | **PASS — 152** (118 api + 34 ui) |
+| Gallery build | **PASS — 356 modules, 469 KB** |
+| Rendered + screenshotted, all 8 sections | **PASS** |
+
+Four defects were found by looking at the screenshots rather than the code:
+a pinned CTA permanently covering the last lines of two scrollable screens
+(fixed with footer-clearing bottom padding), and a horizontal photo strip
+that opens on the wrong end inside an RTL `row-reverse` layout (replaced
+with a wrapped grid, which is correct on both device and browser).
+
+### 11.5 Unchanged
+
+The §10.8 Prisma blocker, the §10.7 RTL decision, and the four product
+decisions in §10.6 awaiting Amit's confirmation. None of this pass depends
+on them, and none of it resolves them.
+
+### 11.6 ChatGPT review of this pass, and what it changed
+
+The pass was sent to Amit's ChatGPT thread for a second opinion. It approved
+the direction and returned two corrections worth acting on immediately, plus
+a direction for the next round.
+
+**Correction 1 — a fabricated capability in my own copy.** The zero-supply
+state on C04 read "נעדכן אותך כשתהיה זמינות באזור שלך". There is no
+availability watch in PRO NOW. A button that promises a notification nobody
+will send is a fabricated *capability*, which /CLAUDE.md §3 rules out as
+firmly as fabricated supply — and it was in a screen I had just written to
+enforce that same rule. The screen now offers the action that actually
+exists: an enabled, outlined "בדיקה מחדש" with the true reason underneath
+("הזמינות משתנה לאורך היום"). An outline rather than a greyed-out button,
+because re-checking is a real action and a dead-looking control would say
+the screen is a dead end. When a real watch is built, that is where it goes.
+
+**Correction 2 — trust needs a hierarchy, not just separation.** Keeping
+PRO NOW's rating apart from an imported Google rating was right, but giving
+them equal visual weight made the customer decode three trust systems. PRO
+NOW's rating and job count now own the hero row; the external rating sits
+quietly below it, still labelled by source, as corroboration. And a
+professional with no PRO NOW rating now reads "חדש" rather than three
+dashes — dashes say *missing data*, "new" is the same fact stated truthfully
+and usefully.
+
+**Direction for the next pass**, recorded here rather than acted on: stop
+polishing screens and design the *live* experience — real availability
+counts surfaced from the backend on home and service pages, the map as the
+stage rather than a backdrop, and a job offer that arrives as an event
+(haptic, server countdown, large payout, one decisive Accept) rather than as
+another card. It also pushed back on reading "fewer squares" as "squares
+with a larger radius": some screens should have no container at all —
+edge-to-edge imagery, type directly on the background, large numbers without
+a card. A card should mean "this is a self-contained unit", not "text needs
+somewhere to sit".
+
+It also noted, correctly, that the premium feel cannot be judged at all
+until a real licensed photography set exists. `ImageSlot` is the slot; the
+photography is a business decision (/CLAUDE.md §4) and is Amit's to make.
+
+---
+
+## 12. The migration exists, and the row lock now runs against it
+
+Amit's instruction was to stop escalating and decide. Two of the things I
+had been treating as "blocked on Amit" were not his to decide at all, and
+one of them turned out not to be blocked.
+
+### 12.1 What was actually blocked, and what only looked blocked
+
+Re-tested from scratch. `binaries.prisma.sh` still answers **403 at CONNECT**
+under organization egress policy. I verified this is not a version problem:
+a clean install of **Prisma 7.10.0** (current stable) fails identically, and
+so does the documented offline switch `PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1`
+— it skips the checksum fetch and then fails on the engine download itself.
+The CLI probes for the schema engine on *every* command, including
+`generate`, so no Prisma command of any kind can run in this container.
+
+That is a network policy, not a defect, and not something to route around.
+So the conclusion is structural: **`prisma migrate` is unavailable here
+permanently, and waiting for it was the mistake.**
+
+What was *not* blocked: **PostgreSQL 16 with PostGIS 3.4 is installed in
+this container.** That is the thing that mattered, and I had not checked.
+
+### 12.2 The migration, derived rather than typed
+
+`prisma migrate dev` is a convenience that writes a SQL file; hand-authored
+migration SQL is fully supported by Prisma. But hand-*typing* 47 models is
+how a constraint goes quietly missing, so the file is derived instead:
+
+- **`tools/prisma-ddl/generate.py`** parses `schema.prisma` and emits the
+  DDL — enums, tables under their `@@map` names, Prisma's own scalar→
+  PostgreSQL type mapping, nullability, defaults, primary keys, `@unique` /
+  `@@unique` / `@@index`, and foreign keys with Prisma's default referential
+  actions (`RESTRICT` for a required relation, `SET NULL` for an optional
+  one). It is not a general Prisma compiler and does not pretend to be: it
+  implements exactly the subset this schema uses and **raises on anything it
+  does not fully understand** rather than guessing. A migration that
+  silently drops a constraint is worse than no migration.
+- Output: `apps/api/prisma/migrations/0_init/migration.sql` — 627 lines,
+  47 tables, 9 enum types, 52 indexes, 45 foreign keys. Regenerate with
+  `npm run db:ddl`.
+
+Only DB-owned defaults are emitted. `cuid()` and `@updatedAt` are generated
+by Prisma Client, so giving them database defaults would create a second
+source of truth that disagrees with the application silently.
+
+### 12.3 Verification, in both directions, with a negative control
+
+Applying SQL only proves it parses. `tools/prisma-ddl/verify.py`
+(`npm run db:verify`) re-reads `schema.prisma` independently and
+interrogates the live catalog, asserting **both**:
+
+- schema → database: every model, column, type, nullability, enum member
+  and order, primary key, index and foreign key exists;
+- database → schema: **nothing exists that the schema does not declare** —
+  the direction that catches a leftover column or a dropped index, which a
+  one-way check reports as green.
+
+PostGIS's own objects are excluded by asking `pg_depend` which relations the
+extension owns, not by hardcoding names that would stop matching on a
+version bump.
+
+**Result: 1411/1411 checks pass**, and the migration re-applies cleanly onto
+an empty schema.
+
+A green number nobody has seen fail means nothing, so the verifier was run
+against deliberately broken databases first. Dropping `users.email` →
+reported missing column *and* its missing index. Adding an undeclared
+`jobs.sneaky` → reported. Renaming an index → reported. The check fails when
+it should.
+
+### 12.4 The row lock now races the real tables
+
+`scripts/verify-row-lock.ts` previously ran against a hand-made two-table
+mirror in its own schema — which proved the SQL, not the schema. With the
+migration applied it now runs against the **real `public.jobs` and
+`public.dispatch_offers`**, with their real enum columns and real foreign
+keys, seeding the whole anchor chain (user → customer → address, user →
+professional, department → category → service) because the job row cannot
+legally exist without it. It refuses to run at all if the migration has not
+been applied, rather than quietly falling back to a convenient mirror.
+
+**7/7 pass, including the control**: without `FOR UPDATE` both accepts
+succeed and the job is double-assigned; with it, exactly one professional
+wins, the loser's offer is REVOKED rather than left live, and a late accept
+on a settled job is refused.
+
+### 12.5 What Amit still has to run, and it is now small
+
+The migration exists and is proven. On a machine that can reach
+`binaries.prisma.sh`, what remains is:
+
+```
+npm install
+npx prisma generate --schema apps/api/prisma/schema.prisma
+npx prisma migrate resolve --applied 0_init   # baseline: the SQL is already written
+npx prisma migrate deploy
+npm run db:seed
+```
+
+`migrate resolve` rather than `migrate dev`, because the migration is
+authored, not pending generation. `prisma generate` is still required for
+`apps/api` to typecheck — that one genuinely cannot be reproduced here,
+since the generated client is the engine's output.
+
+### 12.6 Decisions I took, and the ones that remain genuinely Amit's
+
+The four questions in §10.6 were **already implemented and already correct**.
+They were engineering calls dressed up as product questions, and holding
+them open was my error, not Amit's indecision. They are closed: explicit
+`BusinessVerificationStatus` (a typed-in row is not a verified business),
+the added HOURLY/DISTANCE_TIME pricing fields, sandbox KYC producing no
+badge, and the rating shown from the first verified review always beside its
+count.
+
+What remains is genuinely not mine to invent, per /CLAUDE.md §4 — each is a
+commercial, legal or contractual commitment, not a design preference:
+payment marketplace provider · KYC vendor · commission percentage · legal
+entity and invoice model · insurance policy · pilot geography and service
+mix · **a licensed photography set**. Every one has an interface and a
+sandbox adapter already, so none of them blocks building; they block
+*launching*, and they are decisions with money and liability attached.
+
+---
+
+## 13. Round 4 — the offer stops being a card
+
+The review in §11.6 asked for the *experience* rather than more screens:
+the map as the stage, and a job offer that arrives as an event. This is the
+first piece of that.
+
+### 13.1 `ProOfferBody` (P16)
+
+A card says "here is some information". This screen has to say "something is
+happening to you, right now, and it stops in thirty seconds". Those are
+different jobs, so it is not the offer card with more padding:
+
+- **No container.** The type sits directly on the scene. A legibility scrim
+  carries it — a real vertical gradient, not a flat slab, because a slab
+  makes the map a strip at the top and then the map is not the stage. This
+  is the distinction /docs/03-DESIGN-SYSTEM.md is drawing when it rules out
+  "heavy gradients": ornament is out, the standard map-overlay technique is
+  not ornament.
+- **The payout is the largest thing on the screen** at 58px, because it is
+  the number the decision is actually made on.
+- **The countdown is a ring** readable at arm's length, drawn with
+  `strokeDasharray` so the arc length *is* the remaining fraction and the
+  picture cannot drift from the number inside it.
+- **One affirmative action.** Accept is full-width; skip is quiet text.
+
+### 13.2 What keeps the urgency from becoming pressure
+
+The urgency is real — a customer is waiting — and that is the only reason
+the screen is allowed to look like this. Three rules hold it:
+
+1. The ring counts down to the server's `expiresAt` and never decides when
+   the offer ends. On expiry the screen says so and both actions disappear
+   rather than failing on tap.
+2. The payout is shown before accepting, or admitted as unknown. A
+   plausible-looking number in place of one nobody has calculated is the
+   most damaging lie available here, because the professional commits to
+   driving on the strength of it.
+3. The address is not on this screen. Before acceptance the customer's
+   location is a coarse area label (/docs/12-PRIVACY.md).
+
+### 13.3 Still to do in this round
+
+The live supply language — "12 זמינים עכשיו", "הקרוב ביותר כ-8 דקות" —
+needs a real availability endpoint before any of it can appear. It is a
+server feature wearing a UI costume, and inventing the numbers in the client
+is precisely the failure the rest of this work exists to prevent. It waits
+for `prisma generate` and a booted API (§12.5).
