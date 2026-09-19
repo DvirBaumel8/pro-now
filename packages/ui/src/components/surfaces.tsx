@@ -4,6 +4,7 @@ import Svg, { Circle, Defs, Line, Path, Pattern, Rect } from "react-native-svg";
 
 import { elevation, imageRatio, radii, spacing, tint, type } from "../theme";
 import type { ThemeColors } from "./primitives";
+import { Persona } from "./Persona";
 
 /**
  * Surfaces, sheets and imagery.
@@ -315,6 +316,7 @@ export function RingedAvatar({
   colors,
   dark = false,
   ringColor,
+  seed,
 }: {
   size?: number;
   uri?: string | null;
@@ -322,6 +324,8 @@ export function RingedAvatar({
   colors: ThemeColors;
   dark?: boolean;
   ringColor?: string;
+  /** Stable id for the illustration used when there is no real photo. */
+  seed?: string;
 }) {
   const stroke = 2.5;
   const r = size / 2 - stroke / 2;
@@ -350,6 +354,8 @@ export function RingedAvatar({
       >
         {uri ? (
           <Image source={{ uri }} style={{ width: "100%", height: "100%" }} accessibilityLabel={name} />
+        ) : seed ? (
+          <Persona seed={seed} size={size - 10} label={`איור · ${name}`} />
         ) : (
           <Text style={{ ...type.h3, color: colors.textSecondary }}>{initials}</Text>
         )}

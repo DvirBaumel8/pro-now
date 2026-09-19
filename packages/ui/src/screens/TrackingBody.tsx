@@ -104,6 +104,7 @@ export function TrackingBody({
           {/* --- Professional --- */}
           <View style={styles.proRow}>
             <RingedAvatar
+              seed={professional.id}
               size={58}
               uri={professional.profilePhotoUrl}
               name={professional.displayName}

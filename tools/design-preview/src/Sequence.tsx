@@ -23,7 +23,6 @@ import { matchFixture, offerFixture } from "./fixtures";
 import {
   AVAILABILITY_AT_MS,
   availabilitySnapshot,
-  customerHistory,
   homeRecent,
   homeServices,
   proServices,

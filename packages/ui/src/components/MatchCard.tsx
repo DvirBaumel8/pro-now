@@ -100,8 +100,9 @@ export function MatchCard({ match, onConfirm, onRequestAnother, confirming = fal
         <Avatar
           name={professional.displayName}
           photoUrl={professional.profilePhotoUrl}
+          seed={professional.id}
           size={68}
-          ringColor={colors.action}
+          ringColor={colors.trust}
           colors={colors}
         />
         <View style={styles.proInfo}>

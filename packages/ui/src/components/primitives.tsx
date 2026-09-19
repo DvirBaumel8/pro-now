@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from "react";
 import { Animated, Easing, Image, StyleSheet, Text, View, type ViewStyle } from "react-native";
 
 import { radius, spacing, typography } from "../theme";
+import { Persona } from "./Persona";
 
 /**
  * Shared presentational primitives for the match / offer cards.
@@ -116,12 +117,15 @@ export function Avatar({
   size = 64,
   ringColor,
   colors,
+  seed,
 }: {
   name: string;
   photoUrl: string | null;
   size?: number;
   ringColor?: string;
   colors: ThemeColors;
+  /** Stable id for the illustration shown when there is no real photo. */
+  seed?: string;
 }) {
   const ring = ringColor ? 3 : 0;
   const inner = size - ring * 2;
@@ -145,6 +149,11 @@ export function Avatar({
           style={{ width: inner, height: inner, borderRadius: inner / 2 }}
           accessibilityLabel={name}
         />
+      ) : seed ? (
+        // An illustration rather than initials. Two grey letters read as a
+        // missing record; a drawn figure reads as a person, without
+        // pretending to be a photograph of this one.
+        <Persona seed={seed} size={inner} label={`איור · ${name}`} />
       ) : (
         <View
           style={{
