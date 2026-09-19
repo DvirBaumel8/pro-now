@@ -125,11 +125,12 @@ blocks the epic's stated acceptance criteria.
 See `/docs/EPIC-0-REPORT.md` for the as-built state, contradictions found
 between source documents, and the recommended next epic.
 
-**Read `§10` in that report first**, then `§9` — together they are the
-current truth about what has actually been installed, compiled, linted,
-bundled, rendered and executed. They supersede the older `§7`/`§8`.
+**Read `§11` in that report first**, then `§10`, then `§9` — together they
+are the current truth about what has actually been installed, compiled,
+linted, bundled, rendered and executed. They supersede the older
+`§7`/`§8`.
 
-Short version: lint is clean across 10 workspaces, 146 unit tests pass, the
+Short version: lint is clean across 10 workspaces, 152 unit tests pass, the
 admin build and both mobile bundles are green, and the `SELECT ... FOR
 UPDATE` row lock is proven against real PostgreSQL (`npm run
 verify:rowlock`). `apps/api` still cannot typecheck, boot, migrate or seed,

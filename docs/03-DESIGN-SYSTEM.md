@@ -89,11 +89,37 @@ in marketing-style images inside functional UI.
 | `OfferCard` / `OfferCardSkeleton` | Professional | P16 incoming offer — server-deadline countdown, payout before acceptance, coarse area |
 | `VerificationBadge` | Both | One enumerated, factual trust fact |
 | `Avatar`, `StatusPill`, `MetaChip`, `LiveDot`, `Skeleton`, `Divider`, `SectionLabel` | Both | Shared primitives |
+| `Mark` (+ `ClockMark`, `PinMark`, `ShieldCheckMark`, `StarMark`, `ArrowMark`) | Both | The single icon system: 24×24, 1.8 stroke, no fills, inherits `color`. Replaces the "cartoon trade icons" this document rules out. |
+| `Surface`, `BottomSheet`, `SectionHeader`, `Chip`, `RingedAvatar`, `HeroFlourish` | Both | Depth and shape: radius + soft wide shadow only, never a gradient or a competing border |
+| `ImageSlot` | Both | Where licensed photography goes. With no real `uri` it renders a labelled placeholder naming the intended subject — never a stock photo (see §Content rules) |
+| `MapSurface` | Both | Stylised abstract grid + pulse for the signature screen. **Not a map** and never shippable as one; the production surface belongs to the `MapsRoutingProvider` |
+| `ServiceTile` / `ServiceRow` | Customer | Catalogue entry: photo, mark, real `availableNowCount` or nothing at all |
+| `JobProgress` | Customer | Maps authoritative `JobState` to four presentation steps; CANCELLED/DISPUTED render no progress |
+
+### Screen bodies (`packages/ui/src/screens`)
+
+Full-screen compositions, presentational only — no fetching, no navigation —
+so the apps and the gallery render the *same* code and a design review is a
+review of what ships.
+
+| Body | Screen | The decision it protects |
+|---|---|---|
+| `CustomerHomeBody` | C01 | Supply is shown per service or not at all |
+| `ServiceDetailBody` | C04 | What is included, what it costs, what happens on press — before anyone is dispatched. CTA disables at zero supply instead of promising |
+| `SearchingBody` | C08 | The signature screen. Failure to match is designed as carefully as success |
+| `TrackingBody` | C10 | Progress and ETA, contact masked until assignment |
+| `ProProfileBody` | C12 | PRO NOW rating, completed jobs and external reputation as three separate facts — never merged into one score |
+| `QuoteApprovalBody` | C11 | Every line from the server; approval pinned to `versionHash`; a superseded quote cannot be approved |
+| `JobCompleteBody` | C13 | Receipt is a ledger record, not a summary. The review is earned, optional, and has no pre-selected star |
+| `ProOnlineBody` | P02 | Presence belongs to the server; transitional states render as themselves |
 
 Presentation logic that could otherwise fabricate something — ETA rounding,
 rating display, countdown, payout disclosure, the hourly minimum — lives in
 `packages/ui/src/format.ts` as pure functions, and is unit-tested. A card
-must not compute those inline.
+must not compute those inline. The same rule put the pricing-model copy in
+`packages/ui/src/pricing-copy.ts` (`priceExplainer`): a VISIT_QUOTE fee must
+never be worded like a FIXED price, so that wording is an assertion in
+`test/price-explainer.test.ts` rather than a code-review opinion.
 
 **Reviewing the components:** `npm run preview:design` starts a browser
 gallery (`tools/design-preview`) that renders the real components, including

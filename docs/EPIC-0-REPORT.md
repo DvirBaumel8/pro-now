@@ -750,3 +750,88 @@ one.
    including the two new endpoints, which are still UNVERIFIED.
 5. Decide the RTL question in §10.7 with a device in hand.
 6. Then Epic 7 (realtime resync), and the rest of Epic 8.
+
+---
+
+## 11. Third pass — the visual layer (2026-09-19)
+
+Amit's brief was blunt: the product looked "banal, boxy", and should feel
+closer to Wolt/Gett — "fewer squares, more information, more visual, more
+photographs, more UX/UI, more thought, more pages." This pass is that work.
+It is UI only; nothing here touches the API, the schema, or the §10.8
+blocker.
+
+### 11.1 What changed
+
+**Tokens** (`packages/ui/src/theme.ts`) gained `radii`, `elevation(level,
+dark)`, `tint.*`, an extended `type` scale up to `displayXL`, `tabular` and
+`imageRatio`. Depth is now soft wide shadows plus generous radii — never a
+gradient and never a border competing with a shadow, both of which
+/docs/03-DESIGN-SYSTEM.md §Personality rules out. That single change is what
+removes the "boxy" reading: a card is a raised surface, not a drawn
+rectangle.
+
+**A real icon system** (`marks.tsx`) — one geometric family, 24×24, 1.8
+stroke, no fills, colour inherited. The design system explicitly forbids
+"cartoon trade icons"; before this there were none at all, which is how the
+squares ended up carrying the whole composition.
+
+**Photography as a first-class slot** (`ImageSlot`). The brief asked for
+more images and the honest answer is that PRO NOW has no licensed
+photography yet. So `ImageSlot` renders the real layout, ratio and treatment
+with a labelled placeholder naming the intended subject. No stock imagery
+was substituted anywhere. A design review that was flattered by invented
+photos would be a review of a product that does not exist.
+
+**Four new screen bodies** — `ServiceDetailBody` (C04), `ProProfileBody`
+(C12), `QuoteApprovalBody` (C11), `JobCompleteBody` (C13) — joining the four
+from the previous pass. All eight are presentational: the apps and the
+gallery import the same components, so the reviewed design and the shipped
+design cannot drift.
+
+### 11.2 Where the design had to stay honest
+
+Three places where the prettier option would have been the dishonest one:
+
+- **The service page CTA at zero supply.** "בקשת בעל מקצוע עכשיו" is
+  disabled and relabelled, rather than starting a dispatch that will fail.
+  A button that promises what the marketplace cannot deliver is the exact
+  failure /CLAUDE.md §3 exists to prevent.
+- **The professional profile.** PRO NOW's rating, the completed-job count
+  and any imported external reputation are three separately-labelled facts.
+  There is no combined score, and `ProfessionalSummaryView` has no field
+  that could carry one. A brand-new professional's profile shows three
+  dashes and says so.
+- **Quote approval.** The screen renders the server's `totalMinorUnits`; it
+  does not re-derive a total from the lines it just displayed. If the two
+  ever disagreed, the client's arithmetic is the wrong one to trust.
+  Approval carries `versionHash`, so a stale screen cannot approve a quote
+  the customer never saw.
+
+### 11.3 New pure logic, tested
+
+`priceExplainer()` moved into `packages/ui/src/pricing-copy.ts` with six
+tests. The assertion that matters: a VISIT_QUOTE fee must never be worded
+like a FIXED price, and a missing amount renders as `—`, never as `0`.
+
+### 11.4 Verification
+
+| Check | Result |
+|---|---|
+| Lint (10 workspaces) | **CLEAN** |
+| Typecheck `packages/ui`, `tools/design-preview` | **CLEAN** |
+| Unit tests | **PASS — 152** (118 api + 34 ui) |
+| Gallery build | **PASS — 356 modules, 469 KB** |
+| Rendered + screenshotted, all 8 sections | **PASS** |
+
+Four defects were found by looking at the screenshots rather than the code:
+a pinned CTA permanently covering the last lines of two scrollable screens
+(fixed with footer-clearing bottom padding), and a horizontal photo strip
+that opens on the wrong end inside an RTL `row-reverse` layout (replaced
+with a wrapped grid, which is correct on both device and browser).
+
+### 11.5 Unchanged
+
+The §10.8 Prisma blocker, the §10.7 RTL decision, and the four product
+decisions in §10.6 awaiting Amit's confirmation. None of this pass depends
+on them, and none of it resolves them.
