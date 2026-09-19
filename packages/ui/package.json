@@ -14,7 +14,8 @@
   },
   "peerDependencies": {
     "react": "18.2.0",
-    "react-native": ">=0.74.0 <0.75.0"
+    "react-native": ">=0.74.0 <0.75.0",
+    "react-native-svg": ">=15.0.0 <16.0.0"
   },
   "devDependencies": {
     "typescript": "^5.5.4",
