@@ -259,6 +259,18 @@ export function App() {
   /** The request in flight, shared by both sides. See `LiveRequest`. */
   const [liveRequest, setLiveRequest] = useState<LiveRequest | null>(null);
   /**
+   * THE QUOTE, CROSSING BACK THE OTHER WAY.
+   *
+   * The professional's screen correctly refuses to offer a button at
+   * WAITING_QUOTE_APPROVAL — it is the customer's move — but in the
+   * prototype the two sides were sealed, so the move could never arrive and
+   * the professional simply stopped. The same bug as the request, in the
+   * opposite direction, and it is the one place in the whole flow where the
+   * product deliberately blocks one person on another.
+   */
+  const [pendingQuote, setPendingQuote] = useState<{ sentAtMs: number } | null>(null);
+  const [quoteDecision, setQuoteDecision] = useState<"APPROVED" | "DECLINED" | null>(null);
+  /**
    * The prototype notice. It covers the address row while it is up, so it
    * takes itself away — a permanent overlay on the first thing a reviewer
    * wants to tap is a worse lie about the product than the one the notice is
@@ -320,6 +332,11 @@ export function App() {
             height={h - bannerH}
             onSwitch={() => setSide("pro")}
             onSendRequest={setLiveRequest}
+            pendingQuote={pendingQuote}
+            onQuoteDecision={(d) => {
+              setQuoteDecision(d);
+              setPendingQuote(null);
+            }}
           />
         ) : (
           <ProApp
@@ -328,6 +345,13 @@ export function App() {
             onSwitch={() => setSide("customer")}
             request={liveRequest}
             onTakeRequest={() => setLiveRequest(null)}
+            pendingQuote={pendingQuote}
+            quoteDecision={quoteDecision}
+            onSendQuote={() => {
+              setQuoteDecision(null);
+              setPendingQuote({ sentAtMs: Date.now() });
+            }}
+            onQuoteSeen={() => setQuoteDecision(null)}
           />
         )}
 
@@ -434,11 +458,16 @@ function CustomerApp({
   height,
   onSwitch,
   onSendRequest,
+  pendingQuote,
+  onQuoteDecision,
 }: {
   width: number;
   height: number;
   onSwitch: () => void;
   onSendRequest: (r: LiveRequest) => void;
+  /** A quote the professional sent and the customer has not answered. */
+  pendingQuote: { sentAtMs: number } | null;
+  onQuoteDecision: (d: "APPROVED" | "DECLINED") => void;
 }) {
   const snapshot = useLiveSnapshot();
   /**
@@ -581,7 +610,13 @@ function CustomerApp({
     "matchconfirm",
   ];
   const capsule =
-    customerOpenCall.length > 0 && !jobScreens.includes(route.name)
+    pendingQuote && route.name !== "quote"
+      ? {
+          textHe: "הצעת מחיר ממתינה לאישורך",
+          etaMinutes: null,
+          onPress: () => go({ name: "quote" }),
+        }
+      : customerOpenCall.length > 0 && !jobScreens.includes(route.name)
       ? {
           textHe: `${customerOpenCall[0]!.proNameHe} · ${customerOpenCall[0]!.stateHe}`,
           etaMinutes: customerOpenCall[0]!.etaMinutes,
@@ -927,8 +962,14 @@ function CustomerApp({
             quote={quoteFixture}
             serviceNameHe={trackedService.nameHe}
             professionalDisplayName={matchFixture.professional.displayName}
-            onApprove={() => go({ name: "complete" })}
-            onDecline={() => go({ name: "tracking", stage: "arrived" })}
+            onApprove={() => {
+              onQuoteDecision("APPROVED");
+              go({ name: "tracking", stage: "arrived" });
+            }}
+            onDecline={() => {
+              onQuoteDecision("DECLINED");
+              go({ name: "tracking", stage: "arrived" });
+            }}
             onAskQuestion={() => go({ name: "chat" })}
             width={width}
             height={bodyH}
@@ -1106,6 +1147,10 @@ function ProApp({
   onSwitch,
   request,
   onTakeRequest,
+  pendingQuote,
+  quoteDecision,
+  onSendQuote,
+  onQuoteSeen,
 }: {
   width: number;
   height: number;
@@ -1114,6 +1159,12 @@ function ProApp({
   request: LiveRequest | null;
   /** Called once the offer has been taken off the queue. */
   onTakeRequest: () => void;
+  /** A quote this professional sent that the customer has not answered. */
+  pendingQuote: { sentAtMs: number } | null;
+  /** The customer's answer, once it arrives. */
+  quoteDecision: "APPROVED" | "DECLINED" | null;
+  onSendQuote: () => void;
+  onQuoteSeen: () => void;
 }) {
   const [tab, setTab] = useState<ProTab>("shift");
   const [presence, setPresence] = useState<ProPresenceState>("OFFLINE");
@@ -1146,7 +1197,9 @@ function ProApp({
    * not change under the professional's hands while the ring counts down.
    */
   const [takenRequest, setTakenRequest] = useState<LiveRequest | null>(null);
-  const [proSheet, setProSheet] = useState<null | "call" | "navigate" | "services" | "howitworks">(
+  const [proSheet, setProSheet] = useState<
+    null | "call" | "navigate" | "services" | "howitworks" | "quote"
+  >(
     /*
      * OPEN ON ARRIVAL, ONCE.
      *
@@ -1179,13 +1232,30 @@ function ProApp({
     return () => clearInterval(id);
   }, [offerAt]);
 
+  /**
+   * THE CUSTOMER ANSWERED.
+   *
+   * Approval moves the job forward; a decline sends it back to diagnosis,
+   * because the professional is still standing there and the next thing
+   * that has to happen is a revised quote — not a cancelled job. That
+   * distinction is the difference between a marketplace and a vending
+   * machine.
+   */
+  useEffect(() => {
+    if (!quoteDecision || job !== "WAITING_QUOTE_APPROVAL") return;
+    setJob(quoteDecision === "APPROVED" ? "IN_PROGRESS" : "DIAGNOSIS");
+    onQuoteSeen();
+  }, [quoteDecision, job, onQuoteSeen]);
+
   // The shift clock ticks once a second while online, and not at all when
   // offline — there is nothing to count.
   useEffect(() => {
-    if (onlineSince === null) return;
+    // Also while a quote is out: the waiting counter is the only thing on
+    // that screen that changes, and a frozen counter reads as a frozen app.
+    if (onlineSince === null && !pendingQuote) return;
     const id = setInterval(() => setShiftNow(Date.now()), 1000);
     return () => clearInterval(id);
-  }, [onlineSince]);
+  }, [onlineSince, pendingQuote]);
 
   // Going online is a transition the SERVER confirms, so the prototype makes
   // you wait through it rather than flipping instantly — that delay is the
@@ -1377,7 +1447,14 @@ function ProApp({
         payoutMinorUnits={job === "DIAGNOSIS" || job === "WAITING_QUOTE_APPROVAL" ? null : 13400}
         payoutIsEstimate={false}
         onAdvance={advanceJob}
-        onSendQuote={advanceJob}
+        onSendQuote={() => {
+          onSendQuote();
+          advanceJob();
+        }}
+        waitingMinutes={
+          pendingQuote ? Math.floor((shiftNow - pendingQuote.sentAtMs) / 60_000) : null
+        }
+        onWithdrawQuote={() => setProSheet("quote")}
         onNavigate={() => setProSheet("navigate")}
         onCall={() => setProSheet("call")}
         onMessage={() => setProView("chat")}
@@ -1525,6 +1602,27 @@ function ProApp({
         <Pressable style={styles.sheetPrimary} onPress={() => setProSheet(null)}>
           <Text style={styles.sheetPrimaryText}>הבנתי, בוא נתחיל</Text>
         </Pressable>
+      </Sheet>
+
+      <Sheet
+        visible={proSheet === "quote"}
+        onClose={() => setProSheet(null)}
+        colors={proTheme.colors}
+        dark
+        titleHe="עדכון ההצעה"
+        width={width}
+        height={height}
+      >
+        <Text style={styles.sheetBodyDark}>
+          כל עוד הלקוח לא אישר, אפשר לשלוח הצעה מעודכנת — למשל אחרי שגילית משהו נוסף באבחון.
+          ההצעה הקודמת מתבטלת והלקוח מקבל את החדשה לאישור.
+        </Text>
+        <Pressable style={styles.sheetPrimary} onPress={() => setProSheet(null)}>
+          <Text style={styles.sheetPrimaryText}>חזרה לאבחון</Text>
+        </Pressable>
+        <Text style={styles.sheetNoteDark}>
+          באב־טיפוס אין עריכת סכומים — המסלול קיים, המספרים לא.
+        </Text>
       </Sheet>
 
       <Sheet

@@ -74,6 +74,10 @@ export interface ProJobBodyProps {
   media: JobMediaItem[];
   /** Expected payout, or null when it genuinely depends on the outcome. */
   payoutMinorUnits: number | null;
+  /** Minutes since the quote was sent. Null when not waiting. */
+  waitingMinutes?: number | null;
+  /** Lets the professional revise a quote the customer has not answered. */
+  onWithdrawQuote?: () => void;
   payoutIsEstimate: boolean;
   onNavigate?: () => void;
   onCall?: () => void;
@@ -130,6 +134,8 @@ export function ProJobBody({
   media,
   payoutMinorUnits,
   payoutIsEstimate,
+  waitingMinutes,
+  onWithdrawQuote,
   onNavigate,
   onCall,
   onMessage,
@@ -307,11 +313,51 @@ export function ProJobBody({
           </Pressable>
         </View>
       ) : status === "WAITING_QUOTE_APPROVAL" ? (
+        /*
+         * WAITING IS A STATE, NOT A DEAD END.
+         *
+         * This used to be one sentence — "הכדור אצל הלקוח" — and nothing
+         * else, which is accurate and useless. The professional is standing
+         * in a stranger's kitchen with a tool bag, and the screen tells them
+         * the ball is elsewhere and offers no way to affect anything. Two
+         * things are missing and both are real: how long they have been
+         * waiting, and what they can do about it.
+         *
+         * The elapsed minutes matter because there is no answer to "is this
+         * normal?" without them. The actions matter because at some point
+         * every professional has to be able to leave, and a product that
+         * makes that decision awkward is a product they stop opening.
+         */
         <View style={styles.cta}>
           <View style={styles.waiting}>
             <Text style={styles.waitingText}>
-              ההצעה נשלחה. הכדור אצל הלקוח — נעדכן אותך ברגע שיאשר.
+              ההצעה נשלחה ללקוח. אי אפשר להתחיל לעבוד עד שהוא מאשר.
             </Text>
+            {typeof waitingMinutes === "number" ? (
+              <Text style={styles.waitingSince}>
+                {waitingMinutes < 1
+                  ? "נשלחה עכשיו"
+                  : waitingMinutes === 1
+                    ? "ממתין דקה"
+                    : `ממתין ${waitingMinutes} דקות`}
+              </Text>
+            ) : null}
+          </View>
+          <View style={styles.waitingActions}>
+            <Pressable
+              onPress={onCall}
+              accessibilityRole="button"
+              style={({ pressed }) => [styles.waitingBtn, pressed && { opacity: 0.88 }]}
+            >
+              <Text style={styles.waitingBtnText}>תזכורת ללקוח</Text>
+            </Pressable>
+            <Pressable
+              onPress={onWithdrawQuote}
+              accessibilityRole="button"
+              style={({ pressed }) => [styles.waitingBtn, pressed && { opacity: 0.88 }]}
+            >
+              <Text style={styles.waitingBtnText}>עדכון ההצעה</Text>
+            </Pressable>
           </View>
         </View>
       ) : null}
@@ -574,5 +620,23 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: spacing.lg,
   },
+  waitingSince: {
+    ...type.caption,
+    ...tabular,
+    color: colors.textSecondary,
+    textAlign: "center",
+    writingDirection: "rtl",
+    marginTop: 4,
+  },
+  waitingActions: { flexDirection: "row-reverse", gap: spacing.sm, marginTop: spacing.md },
+  waitingBtn: {
+    flex: 1,
+    minHeight: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radii.md,
+    backgroundColor: colors.surfaceElevated,
+  },
+  waitingBtnText: { ...type.captionStrong, fontSize: 14, color: colors.textPrimary },
   waitingText: { ...type.caption, color: colors.textSecondary, textAlign: "center", writingDirection: "rtl" },
 });
