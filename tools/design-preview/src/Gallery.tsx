@@ -34,6 +34,7 @@ import {
   offerFixture,
   offerUnknownPayoutFixture,
 } from "./fixtures";
+import { CustomerSequence, ProSequence } from "./Sequence";
 import {
   AVAILABILITY_AT_MS,
   availabilitySnapshot,
@@ -146,6 +147,24 @@ export function Gallery() {
           לא אספקה אמיתית ולא תצלומים אמיתיים.
         </Text>
       </View>
+
+      {/* =============== THE SEQUENCE — interactive =============== */}
+      <Section
+        title="הרצף — לגעת, לא רק להסתכל"
+        subtitle="גריד של מסכים מספר אם כל מסך עשוי טוב. הוא לא מספר אם המוצר מרגיש דבר אחד — וזו השאלה. אז שני המסעים כאן הם רצף שאפשר ללכת בו. החיפוש והספירה לאחור רצים בזמן אמת."
+      >
+        <View style={{ width: PHONE_W }}>
+          <Text style={styles.seqLabel}>הלקוח · מהבית ועד החיוב</Text>
+          <CustomerSequence width={PHONE_W} height={PHONE_H} />
+        </View>
+
+        <View style={[styles.seqDark, { width: PHONE_W + spacing.lg * 2 }]}>
+          <Text style={[styles.seqLabel, { color: proTheme.colors.textSecondary }]}>
+            המקצוען · ממחוץ למשמרת ועד הצעה נכנסת
+          </Text>
+          <ProSequence width={PHONE_W} height={PHONE_H} />
+        </View>
+      </Section>
 
       {/* =============== CUSTOMER FLOW =============== */}
       <Section
@@ -614,6 +633,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   cardPad: { padding: spacing.lg, paddingTop: spacing.xl },
+
+  seqLabel: {
+    ...t.captionStrong,
+    color: "#17121F",
+    textAlign: "right",
+    writingDirection: "rtl",
+    marginBottom: spacing.md,
+  },
+  seqDark: {
+    backgroundColor: proTheme.colors.bg,
+    borderRadius: radii.xl,
+    padding: spacing.lg,
+  },
 
   castRow: { flexDirection: "row-reverse", flexWrap: "wrap", gap: spacing.xl, alignItems: "flex-start" },
   castItem: { alignItems: "center", width: 104 },
