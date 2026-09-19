@@ -70,6 +70,12 @@ export interface IntentCaptureProps {
   onDeleteVoice?: () => void;
   onAddPhoto?: () => void;
   onClearPhotos?: () => void;
+  /**
+   * What a photograph would be OF, once a service is known — or null when a
+   * photograph does not apply to it. Undefined before anything is chosen,
+   * which is when the generic wording is the honest one.
+   */
+  photoPromptHe?: string | null;
   onPick?: (serviceId: string) => void;
   /** Offered when there is something to send but nothing matched. */
   onBrowse?: () => void;
@@ -89,12 +95,26 @@ export function IntentCapture({
   onDeleteVoice,
   onAddPhoto,
   onClearPhotos,
+  photoPromptHe,
   onPick,
   onBrowse,
   width,
 }: IntentCaptureProps) {
   const inputRef = useRef<TextInput>(null);
   const hasMedia = media.photos > 0 || (media.voiceSeconds ?? 0) > 0;
+  /*
+   * Before a service is chosen we do not know what a photo would be of, so
+   * the line stays about the reason rather than the subject: some things
+   * are simply easier said than typed. Once a service IS chosen, the
+   * catalogue supplies its own wording — "צילום של המקום שבו מופיעים המים"
+   * for a leak, "תמונה של תסרוקת שאהבת" for a haircut.
+   */
+  const optionalLeadHe =
+    photoPromptHe === undefined
+      ? "לא חייבים לכתוב — אפשר גם פשוט להקליט"
+      : photoPromptHe === null
+        ? "אפשר גם להקליט במקום לכתוב"
+        : `אפשר גם להקליט, או ${photoPromptHe}`;
   const hasText = text.trim().length >= 2;
 
   return (
@@ -112,20 +132,34 @@ export function IntentCapture({
           accessibilityLabel="ספר מה צריך"
         />
 
+        {/*
+          * MEDIA IS AN OPTION, NOT A STEP.
+          *
+          * These were three equal pills — record, photograph, write — which
+          * reads as an instruction to do all three, and silently assumes
+          * that whatever you need has a picture of a problem attached to it.
+          * Amit: "אם מישהו צריך ספר אני לא מצפה שהוא ישלח תמונה של השיער
+          * שלו". He is right, and the fix is not to hide the buttons — a
+          * photo of a haircut you liked is genuinely useful — it is to stop
+          * presenting them as part of the path.
+          *
+          * So: the text field is the step, and this is one quiet line
+          * underneath saying what else is possible.
+          */}
         <View style={styles.modes}>
-          <ModeButton
-            labelHe={recording ? `עוצר · ${recordSeconds}s` : "הקלטה"}
-            glyph="mic"
-            active={recording}
-            disabled={!canRecord}
-            onPress={recording ? onStopRecord : onStartRecord}
-          />
-          <ModeButton labelHe="צילום" glyph="camera" onPress={onAddPhoto} />
-          <ModeButton
-            labelHe="כתיבה"
-            glyph="keyboard"
-            onPress={() => inputRef.current?.focus()}
-          />
+          <Text style={styles.modesLead}>{optionalLeadHe}</Text>
+          <View style={styles.modeRow}>
+            <ModeButton
+              labelHe={recording ? `עצור · ${formatSeconds(recordSeconds)}` : "הקלטה"}
+              glyph="mic"
+              active={recording}
+              disabled={!canRecord}
+              onPress={recording ? onStopRecord : onStartRecord}
+            />
+            {photoPromptHe !== null ? (
+              <ModeButton labelHe="תמונה" glyph="camera" onPress={onAddPhoto} />
+            ) : null}
+          </View>
         </View>
       </View>
 
@@ -390,10 +424,18 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     writingDirection: "rtl",
   },
-  modes: { flexDirection: "row-reverse", gap: spacing.sm },
+  modes: { gap: spacing.sm },
+  modesLead: {
+    ...type.caption,
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: "right",
+    writingDirection: "rtl",
+  },
+  modeRow: { flexDirection: "row-reverse", gap: spacing.sm },
   mode: {
     flex: 1,
-    minHeight: 48,
+    minHeight: 44,
     flexDirection: "row-reverse",
     alignItems: "center",
     justifyContent: "center",
@@ -404,7 +446,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   modeActive: { backgroundColor: colors.action, borderColor: colors.action },
-  modeText: { ...type.caption, fontSize: 13, fontWeight: "700", color: colors.textPrimary },
+  modeText: { ...type.caption, fontSize: 13, fontWeight: "600", color: colors.textSecondary },
 
   captured: { flexDirection: "row-reverse", flexWrap: "wrap", gap: spacing.sm },
   chip: {

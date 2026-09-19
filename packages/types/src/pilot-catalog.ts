@@ -56,6 +56,7 @@ function plumbing(s: Omit<CatalogServiceDef, "mark">): CatalogServiceDef {
 
 const blockage: CatalogServiceDef = plumbing({
   id: "svc-blockage",
+  customerPhotoPromptHe: "צילום של הכיור או האסלה הסתומים",
   mobilityProfile: "NEEDS_VEHICLE",
   code: "PLUMB_BLOCKAGE",
   nameHe: "פתיחת סתימה",
@@ -73,6 +74,7 @@ const blockage: CatalogServiceDef = plumbing({
 
 const leak: CatalogServiceDef = plumbing({
   id: "svc-leak",
+  customerPhotoPromptHe: "צילום של המקום שבו מופיעים המים",
   mobilityProfile: "NEEDS_VEHICLE",
   code: "PLUMB_LEAK",
   nameHe: "נזילה או דליפת מים",
@@ -90,6 +92,7 @@ const leak: CatalogServiceDef = plumbing({
 
 const tap: CatalogServiceDef = plumbing({
   id: "svc-tap",
+  customerPhotoPromptHe: "צילום של הברז או המיכל הקיים",
   mobilityProfile: "NEEDS_VEHICLE",
   code: "PLUMB_FIXTURE",
   nameHe: "החלפת ברז או מיכל הדחה",
@@ -112,6 +115,7 @@ const tap: CatalogServiceDef = plumbing({
 
 const powerOut: CatalogServiceDef = {
   id: "svc-electric",
+  customerPhotoPromptHe: "צילום של לוח החשמל",
   mobilityProfile: "CARRIES_ON_PERSON",
   code: "ELEC_OUTAGE",
   nameHe: "הפסקת חשמל בדירה",
@@ -130,6 +134,7 @@ const powerOut: CatalogServiceDef = {
 
 const socket: CatalogServiceDef = {
   id: "svc-socket",
+  customerPhotoPromptHe: "צילום של השקע או נקודת האור",
   mobilityProfile: "CARRIES_ON_PERSON",
   code: "ELEC_POINT",
   nameHe: "שקע, נקודת אור או גוף תאורה",
@@ -152,6 +157,7 @@ const socket: CatalogServiceDef = {
 
 const lockout: CatalogServiceDef = {
   id: "svc-lock",
+  customerPhotoPromptHe: "צילום של הדלת והמנעול",
   mobilityProfile: "CARRIES_ON_PERSON",
   code: "LOCK_LOCKOUT",
   nameHe: "ננעלתי בחוץ",
@@ -175,6 +181,7 @@ const lockout: CatalogServiceDef = {
 
 const cylinder: CatalogServiceDef = {
   id: "svc-cylinder",
+  customerPhotoPromptHe: "צילום של הצילינדר או המנעול",
   mobilityProfile: "CARRIES_ON_PERSON",
   code: "LOCK_CYLINDER",
   nameHe: "החלפת צילינדר או מנעול",
@@ -197,6 +204,7 @@ const cylinder: CatalogServiceDef = {
 
 const acFix: CatalogServiceDef = {
   id: "svc-ac",
+  customerPhotoPromptHe: "צילום של המזגן והיחידה החיצונית",
   mobilityProfile: "NEEDS_VEHICLE",
   code: "HVAC_REPAIR",
   nameHe: "מזגן לא מקרר או מטפטף",
@@ -215,6 +223,7 @@ const acFix: CatalogServiceDef = {
 
 const fridge: CatalogServiceDef = {
   id: "svc-fridge",
+  customerPhotoPromptHe: "צילום של המקרר ושל מדבקת הדגם",
   mobilityProfile: "NEEDS_VEHICLE",
   code: "APPL_FRIDGE",
   nameHe: "מקרר או מקפיא",
@@ -233,6 +242,7 @@ const fridge: CatalogServiceDef = {
 
 const washer: CatalogServiceDef = {
   id: "svc-washer",
+  customerPhotoPromptHe: "צילום של המכונה ושל מדבקת הדגם",
   mobilityProfile: "NEEDS_VEHICLE",
   code: "APPL_WASHER",
   nameHe: "מכונת כביסה או מייבש",
@@ -255,6 +265,7 @@ const washer: CatalogServiceDef = {
 
 const cleanNow: CatalogServiceDef = {
   id: "svc-clean",
+  customerPhotoPromptHe: "צילום של השטח, אם נוח לך",
   mobilityProfile: "CARRIES_ON_PERSON",
   code: "CLEAN_URGENT",
   nameHe: "ניקיון דחוף",
@@ -273,6 +284,7 @@ const cleanNow: CatalogServiceDef = {
 
 const pest: CatalogServiceDef = {
   id: "svc-pest",
+  customerPhotoPromptHe: "צילום של המקום שבו ראית אותם",
   mobilityProfile: "NEEDS_VEHICLE",
   code: "PEST_CONTROL",
   nameHe: "הדברה",
@@ -295,6 +307,7 @@ const pest: CatalogServiceDef = {
 
 const courier: CatalogServiceDef = {
   id: "svc-courier",
+  customerPhotoPromptHe: "צילום של מה שצריך להעביר",
   mobilityProfile: "CARRIES_ON_PERSON",
   code: "LOG_COURIER",
   nameHe: "שליחות עכשיו",
@@ -313,6 +326,7 @@ const courier: CatalogServiceDef = {
 
 const smallMove: CatalogServiceDef = {
   id: "svc-moving",
+  customerPhotoPromptHe: "צילום של הפריטים ושל הכניסה לבניין",
   mobilityProfile: "NEEDS_VEHICLE",
   code: "LOG_SMALL_MOVE",
   nameHe: "הובלה קטנה",
@@ -356,6 +370,7 @@ function scheduled(
 
 const painting = scheduled({
   id: "svc-paint",
+  customerPhotoPromptHe: "צילום של הקיר או החדר",
   mobilityProfile: "NEEDS_VEHICLE",
   code: "FINISH_PAINT",
   nameHe: "צביעה",
@@ -369,6 +384,7 @@ const painting = scheduled({
 
 const furniture = scheduled({
   id: "svc-furniture",
+  customerPhotoPromptHe: "צילום של הרהיט או של הקופסה",
   mobilityProfile: "CARRIES_ON_PERSON",
   code: "ASSEMBLE_FURNITURE",
   nameHe: "הרכבת רהיטים",
@@ -382,6 +398,7 @@ const furniture = scheduled({
 
 const tvMount = scheduled({
   id: "svc-tv",
+  customerPhotoPromptHe: "צילום של הקיר ושל המסך",
   mobilityProfile: "CARRIES_ON_PERSON",
   code: "INSTALL_TV",
   nameHe: "תליית טלוויזיה ומסכים",
@@ -395,6 +412,7 @@ const tvMount = scheduled({
 
 const garden = scheduled({
   id: "svc-garden",
+  customerPhotoPromptHe: "צילום של הגינה",
   mobilityProfile: "NEEDS_VEHICLE",
   code: "GARDEN_CARE",
   nameHe: "גינון",
@@ -408,6 +426,7 @@ const garden = scheduled({
 
 const glass = scheduled({
   id: "svc-glass",
+  customerPhotoPromptHe: "צילום של החלון או המסגרת",
   mobilityProfile: "NEEDS_VEHICLE",
   code: "GLASS_WORK",
   nameHe: "זכוכית ואלומיניום",
@@ -421,6 +440,7 @@ const glass = scheduled({
 
 const sealing = scheduled({
   id: "svc-sealing",
+  customerPhotoPromptHe: "צילום של הרטיבות",
   mobilityProfile: "NEEDS_VEHICLE",
   code: "SEALING_WORK",
   nameHe: "איטום",
@@ -434,6 +454,7 @@ const sealing = scheduled({
 
 const carpentry = scheduled({
   id: "svc-carpentry",
+  customerPhotoPromptHe: "צילום של הרהיט או הדלת",
   mobilityProfile: "CARRIES_ON_PERSON",
   code: "CARPENTRY",
   nameHe: "נגרות",
@@ -447,6 +468,7 @@ const carpentry = scheduled({
 
 const tiling = scheduled({
   id: "svc-tiling",
+  customerPhotoPromptHe: "צילום של האריחים",
   mobilityProfile: "NEEDS_VEHICLE",
   code: "TILING",
   nameHe: "ריצוף וחיפוי",
@@ -460,6 +482,7 @@ const tiling = scheduled({
 
 const drywall = scheduled({
   id: "svc-drywall",
+  customerPhotoPromptHe: "צילום של הקיר או התקרה",
   mobilityProfile: "NEEDS_VEHICLE",
   code: "DRYWALL",
   nameHe: "גבס וטיח",
@@ -473,6 +496,7 @@ const drywall = scheduled({
 
 const curtains = scheduled({
   id: "svc-curtains",
+  customerPhotoPromptHe: "צילום של החלון",
   mobilityProfile: "CARRIES_ON_PERSON",
   code: "INSTALL_CURTAINS",
   nameHe: "וילונות ומסילות",
@@ -486,6 +510,7 @@ const curtains = scheduled({
 
 const alarm = scheduled({
   id: "svc-alarm",
+  customerPhotoPromptHe: "צילום של המערכת הקיימת",
   mobilityProfile: "CARRIES_ON_PERSON",
   code: "SECURITY_ALARM",
   nameHe: "אזעקה ומצלמות",
@@ -501,6 +526,7 @@ const alarm = scheduled({
 
 const solar = scheduled({
   id: "svc-solar",
+  customerPhotoPromptHe: "צילום של הדוד והקולטים",
   mobilityProfile: "NEEDS_VEHICLE",
   code: "SOLAR_WATER",
   nameHe: "דוד שמש וקולטים",
@@ -525,6 +551,7 @@ const solar = scheduled({
  */
 const gas: CatalogServiceDef = {
   id: "svc-gas",
+  customerPhotoPromptHe: "צילום של הכיריים או של חיבור הגז",
   mobilityProfile: "NEEDS_VEHICLE",
   code: "GAS_WORK",
   nameHe: "גז",
@@ -594,6 +621,7 @@ function personal(
 
 const trainer = personal({
   id: "svc-trainer",
+  customerPhotoPromptHe: null,
   mobilityProfile: "CARRIES_ON_PERSON",
   code: "FIT_TRAINER",
   nameHe: "אימון אישי",
@@ -609,6 +637,7 @@ const trainer = personal({
 
 const massage = personal({
   id: "svc-massage",
+  customerPhotoPromptHe: null,
   mobilityProfile: "CARRIES_ON_PERSON",
   code: "WELL_MASSAGE",
   nameHe: "עיסוי עד הבית",
@@ -624,6 +653,7 @@ const massage = personal({
 
 const haircut = personal({
   id: "svc-haircut",
+  customerPhotoPromptHe: "אפשר לצרף תמונה של תסרוקת שאהבת",
   mobilityProfile: "CARRIES_ON_PERSON",
   code: "GROOM_HAIR",
   nameHe: "תספורת עד הבית",
@@ -639,6 +669,7 @@ const haircut = personal({
 
 const nails = personal({
   id: "svc-nails",
+  customerPhotoPromptHe: "אפשר לצרף תמונה של לק או עיצוב שאהבת",
   mobilityProfile: "CARRIES_ON_PERSON",
   code: "GROOM_NAILS",
   nameHe: "מניקור ופדיקור",
@@ -654,6 +685,7 @@ const nails = personal({
 
 const tutor = personal({
   id: "svc-tutor",
+  customerPhotoPromptHe: "צילום של החומר או של המבחן",
   mobilityProfile: "CARRIES_NOTHING",
   code: "LEARN_TUTOR",
   nameHe: "שיעור פרטי",
@@ -683,6 +715,7 @@ const tutor = personal({
  */
 const handymanHour: CatalogServiceDef = {
   id: "svc-handyman",
+  customerPhotoPromptHe: "צילום של מה שצריך לתקן",
   mobilityProfile: "CARRIES_ON_PERSON",
   code: "ASSIST_HANDYMAN",
   nameHe: "הנדימן לשעה",
@@ -702,6 +735,7 @@ const handymanHour: CatalogServiceDef = {
 /** עזרה בהרמה וסידור — a pair of hands, no trade required. */
 const helpingHands: CatalogServiceDef = {
   id: "svc-hands",
+  customerPhotoPromptHe: "צילום של מה שצריך להזיז",
   mobilityProfile: "CARRIES_NOTHING",
   code: "ASSIST_HANDS",
   nameHe: "זוג ידיים לעזרה",
@@ -721,6 +755,7 @@ const helpingHands: CatalogServiceDef = {
 /** ניקיון אחרי שיפוץ — named by Amit, and genuinely its own job. */
 const renoClean: CatalogServiceDef = {
   id: "svc-clean-reno",
+  customerPhotoPromptHe: "צילום של השטח אחרי השיפוץ",
   mobilityProfile: "NEEDS_VEHICLE",
   code: "CLEAN_RENOVATION",
   nameHe: "ניקיון אחרי שיפוץ",

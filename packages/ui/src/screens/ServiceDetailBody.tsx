@@ -66,6 +66,15 @@ export interface ServiceDetailBodyProps {
   availableNowCount: number | null;
   /** Credentials required for this service, per /CLAUDE.md §3. */
   requiredCredentialsHe: string[];
+  /**
+   * The service is modelled and visible but not launched.
+   *
+   * Without this the page fell through to the unknown-supply path and
+   * offered "בדיקה מחדש" — a button promising to re-run a supply query that
+   * will never run, because nothing dispatches this service yet. Offering a
+   * retry for a state that cannot change is a small, repeatable lie.
+   */
+  comingSoon?: boolean;
   /** Receives the tapped symptoms, for the job's structuredAnswers. */
   onRequestNow?: (symptomsHe: string[]) => void;
   /** Re-runs the supply query. The honest action when nobody is online. */
@@ -87,6 +96,7 @@ export function ServiceDetailBody({
   price,
   availableNowCount,
   requiredCredentialsHe,
+  comingSoon,
   onRequestNow,
   onRecheck,
   onBack,
@@ -94,7 +104,7 @@ export function ServiceDetailBody({
   height = 780,
 }: ServiceDetailBodyProps) {
   const explainer = priceExplainer(price);
-  const canDispatch = availableNowCount !== null && availableNowCount > 0;
+  const canDispatch = !comingSoon && availableNowCount !== null && availableNowCount > 0;
   const [picked, setPicked] = useState<string[]>([]);
   const toggle = (sx: string) =>
     setPicked((cur) => (cur.includes(sx) ? cur.filter((x) => x !== sx) : [...cur, sx]));
@@ -130,7 +140,7 @@ export function ServiceDetailBody({
             {availableNowCount === null ? (
               <View style={[styles.supplyPill, { backgroundColor: tint.neutralLight(0.05) }]}>
                 <Text style={[styles.supplyText, { color: colors.textSecondary }]}>
-                  נתוני זמינות אינם זמינים כרגע
+                  {comingSoon ? "השירות ייפתח בקרוב" : "נתוני זמינות אינם זמינים כרגע"}
                 </Text>
               </View>
             ) : availableNowCount === 0 ? (
@@ -155,7 +165,16 @@ export function ServiceDetailBody({
         {/* ---------------- What's actually happening ---------------- */}
         {symptomsHe.length > 0 ? (
           <View style={styles.block}>
-            <SectionHeader title="מה קורה אצלך?" colors={colors} />
+            {/*
+              * Neutral, because this page is shared by every service.
+              * "מה קורה אצלך?" is right for a leak and strange for a
+              * haircut — and the version below it, "מה שקובע אם המקצוען
+              * מגיע עם החלק הנכון או חוזר פעם שנייה", assumed a part and a
+              * repair. One page, thirty services: the shared copy has to be
+              * true for all of them or it quietly narrows the marketplace
+              * back to the trades it was written for.
+              */}
+            <SectionHeader title="מה הכי מתאים?" colors={colors} />
             <View style={styles.symptoms}>
               {symptomsHe.map((sx) => {
                 const on = picked.includes(sx);
@@ -181,7 +200,7 @@ export function ServiceDetailBody({
               })}
             </View>
             <Text style={styles.symptomNote}>
-              לא חובה — אבל זה מה שקובע אם המקצוען מגיע עם החלק הנכון או חוזר פעם שנייה.
+              לא חובה. זה מה שעוזר למקצוען להגיע מוכן.
             </Text>
           </View>
         ) : null}
@@ -263,9 +282,15 @@ export function ServiceDetailBody({
        */}
       <View style={styles.cta}>
         <Pressable
-          onPress={canDispatch ? () => onRequestNow?.(picked) : onRecheck}
+          onPress={canDispatch ? () => onRequestNow?.(picked) : comingSoon ? onBack : onRecheck}
           accessibilityRole="button"
-          accessibilityLabel={canDispatch ? `בקשת ${nameHe} עכשיו` : "בדיקה מחדש של הזמינות"}
+          accessibilityLabel={
+            canDispatch
+              ? `בקשת ${nameHe} עכשיו`
+              : comingSoon
+                ? "חזרה"
+                : "בדיקה מחדש של הזמינות"
+          }
           style={({ pressed }) => [
             styles.ctaBtn,
             !canDispatch && styles.ctaBtnQuiet,
@@ -273,11 +298,15 @@ export function ServiceDetailBody({
           ]}
         >
           <Text style={[styles.ctaLabel, !canDispatch && { color: colors.textPrimary }]}>
-            {canDispatch ? "בקשת בעל מקצוע עכשיו" : "בדיקה מחדש"}
+            {canDispatch ? "בקשת בעל מקצוע עכשיו" : comingSoon ? "חזרה" : "בדיקה מחדש"}
           </Text>
         </Pressable>
         <Text style={styles.ctaNote}>
-          {canDispatch ? "לא מחויב עד שתאשר את ההתאמה" : "הזמינות משתנה לאורך היום"}
+          {canDispatch
+            ? "לא מחויב עד שתאשר את ההתאמה"
+            : comingSoon
+              ? "השירות קיים בקטלוג ועדיין לא נפתח להזמנה"
+              : "הזמינות משתנה לאורך היום"}
         </Text>
       </View>
     </View>

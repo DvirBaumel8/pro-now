@@ -63,6 +63,17 @@ export interface DescribeFaultBodyProps {
    * and the screen is then exactly what it was before — which is the point:
    * a service without a good set of questions must not be given a bad one.
    */
+  /**
+   * What a photograph would be of, for THIS service — or null when a
+   * photograph does not apply and the section should not exist.
+   *
+   * The screen used to show "תמונות · תמונה אחת של המקום מספיקה. המקצוען
+   * יראה איזה חלק צריך" to everyone, which is right for a leak and absurd
+   * for a personal trainer. Hiding the section is better than softening the
+   * wording: an empty photo grid on a massage booking is a question the
+   * customer has to decide to ignore.
+   */
+  photoPromptHe?: string | null;
   intake?: ServiceIntake;
   answers?: IntakeAnswer[];
   onAnswer?: (answer: IntakeAnswer) => void;
@@ -90,6 +101,7 @@ export function DescribeFaultBody({
   serviceNameHe,
   mark,
   symptomsHe,
+  photoPromptHe,
   intake,
   answers = [],
   onAnswer,
@@ -208,12 +220,13 @@ export function DescribeFaultBody({
               </Text>
             )}
             <Text style={styles.hint}>
-              הכי קל פשוט לדבר: "יש רעש מהמזגן כשהוא נדלק". מה שקשה לכתוב — קל להגיד.
+              הכי קל פשוט לדבר: "יש רעש מהמזגן כשהוא נדלק", או "אני רוצה קצר בצדדים". מה שקשה לכתוב — קל להגיד.
             </Text>
           </Surface>
         </View>
 
-        {/* ---------------- Photos ---------------- */}
+        {/* ---------------- Photos, when a photo means something ------- */}
+        {photoPromptHe !== null ? (
         <View style={styles.block}>
           <SectionHeader title="תמונות" colors={colors} />
           <View style={styles.photoGrid}>
@@ -237,9 +250,10 @@ export function DescribeFaultBody({
             </Pressable>
           </View>
           <Text style={styles.hint}>
-            תמונה אחת של המקום מספיקה. המקצוען יראה איזה חלק צריך עוד לפני שהוא יוצא.
+            {photoPromptHe ?? "תמונה אחת מספיקה."} המקצוען רואה אותה לפני שהוא יוצא.
           </Text>
         </View>
+        ) : null}
 
         {/* ---------------- Words ---------------- */}
         <View style={styles.block}>

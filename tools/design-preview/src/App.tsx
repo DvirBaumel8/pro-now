@@ -49,6 +49,7 @@ import {
   catalogMatchRules,
   catalogServicePages,
   eligibilityFor,
+  photoPromptFor,
 } from "./catalogAdapter";
 import { useCapture } from "./useCapture";
 import {
@@ -591,6 +592,7 @@ function CustomerApp({
             serviceNameHe={page.nameHe}
             mark={page.mark}
             symptomsHe={route.symptomsHe}
+            photoPromptHe={photoPromptFor(route.serviceId)}
             intake={pilotIntakeByService[route.serviceId]}
             answers={intakeAnswers}
             onAnswer={answerIntake}

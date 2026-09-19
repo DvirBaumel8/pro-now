@@ -254,3 +254,35 @@ describe("credentialsFor", () => {
     expect(credentialsFor([])).toEqual([]);
   });
 });
+
+describe("customer photographs are per service, not assumed", () => {
+  it("declares a photo prompt or an explicit null for every service", () => {
+    for (const s of services) {
+      expect(s.customerPhotoPromptHe, s.id).not.toBeUndefined();
+    }
+  });
+
+  it("asks nobody to photograph their own body", () => {
+    // Amit's example, as a test: "אם מישהו צריך ספר אני לא מצפה שהוא ישלח
+    // תמונה של השיער שלו". A trainer and a massage have nothing to show;
+    // a haircut does — but a picture of a style you LIKED, not of a fault.
+    expect(pilotServiceById["svc-trainer"]!.customerPhotoPromptHe).toBeNull();
+    expect(pilotServiceById["svc-massage"]!.customerPhotoPromptHe).toBeNull();
+    expect(pilotServiceById["svc-haircut"]!.customerPhotoPromptHe).toContain("תסרוקת שאהבת");
+  });
+
+  it("names what to photograph rather than saying 'the problem'", () => {
+    for (const s of services) {
+      const p = s.customerPhotoPromptHe;
+      if (p === null) continue;
+      expect(p, s.id).not.toContain("התקלה");
+      expect((p ?? "").length, s.id).toBeGreaterThan(8);
+    }
+  });
+
+  it("keeps a photo prompt for the services where a photo saves a visit", () => {
+    for (const id of ["svc-leak", "svc-fridge", "svc-electric", "svc-ac"]) {
+      expect(pilotServiceById[id]!.customerPhotoPromptHe, id).toBeTruthy();
+    }
+  });
+});

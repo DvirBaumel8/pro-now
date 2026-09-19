@@ -275,6 +275,7 @@ export const catalogServicePages: Record<string, ServicePage> = Object.fromEntri
       price: priceFor(s),
       availableNowCount: null,
       requiredCredentialsHe: credentialsHe(s),
+      comingSoon: s.activationStatus === "PILOT" && s.fulfillmentProfile !== "SCHEDULED_ONLY",
     } satisfies ServicePage,
   ])
 );
@@ -365,5 +366,13 @@ export function eligibilityFor(
     };
   });
 }
+
+/**
+ * What a customer photograph would be of, per service — null where a
+ * photograph does not apply. Undefined for an unknown id, which the capture
+ * surface reads as "we do not know yet" rather than as "no".
+ */
+export const photoPromptFor = (serviceId: string): string | null | undefined =>
+  pilotServiceById[serviceId]?.customerPhotoPromptHe;
 
 export { pilotServiceById };

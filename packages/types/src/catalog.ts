@@ -156,6 +156,25 @@ export interface CatalogServiceDef {
   requiredCredentials: CredentialKind[];
   /** What a licensed photograph of this service would show. */
   photoSubjectHe: string;
+  /**
+   * What a photograph FROM THE CUSTOMER would be of, in this service's own
+   * terms — or null when a photograph makes no sense here.
+   *
+   * THE ASSUMPTION THIS FIELD REMOVES. Every capture surface in this app was
+   * built around a fault: photograph the problem, record the noise. Amit put
+   * it exactly right — "אם מישהו צריך ספר אני לא מצפה שהוא ישלח תמונה של
+   * השיער שלו". Asking a person booking a haircut to photograph the problem
+   * is not a small awkwardness; it tells them the app was built for burst
+   * pipes and they are visiting.
+   *
+   * Note the field is not a boolean. A photograph is often useful for a
+   * non-fault service too — but of a DIFFERENT THING. For a plumber it is
+   * the leak; for a barber it is a haircut they liked; for a tutor it is the
+   * worksheet. The prompt carries that difference, which a boolean could
+   * not, and null carries the real "not applicable" case for services where
+   * there is nothing to show at all.
+   */
+  customerPhotoPromptHe?: string | null;
   /** Typical on-site duration, for the professional's offer card. */
   typicalMinutes?: [number, number];
 }
