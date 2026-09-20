@@ -3,7 +3,7 @@ import { Animated, Easing, Pressable, StyleSheet, Text, View, useWindowDimension
 
 import { CARD_REST, customerCategoryById, liveAreaLineHe, DEMO_WORLD, type CandidatePresence, type LivingMapPhase, type LivingMapState, themeForDepartment } from "@pro-now/types";
 import { discover, emptyDiscoveries, type DiscoveryState } from "@pro-now/types";
-import { screenKey, travelAssetFor, type AvatarChoice } from "@pro-now/types";
+import { AVATARS, screenKey, travelAssetFor, type AvatarChoice } from "@pro-now/types";
 import { matchServicesByText } from "@pro-now/ui";
 import { canSaveSession, clearSession, loadSession, saveSession, savedAgoHe } from "./session";
 import { HAIR_DISCOVERY_IDS } from "@pro-now/ui";
@@ -318,6 +318,13 @@ export function App() {
    */
   const [avatar, setAvatar] = useState<AvatarChoice>(restored?.avatar ?? null);
   const avatarAnswered = useRef(restored?.avatarAnswered ?? false);
+  /**
+   * Whether any avatar art has actually arrived.
+   *
+   * The whole screen is gated on this. See the comment at the call site
+   * for why an empty picker is worse than no picker at all.
+   */
+  const avatarArtReady = AVATARS.some((a) => worldSources[a.portraitAssetId]);
 
   /** Sides this device has already signed in on. See `session.ts`. */
   const authedSides = useRef<Set<Side>>(new Set(restored?.authedSides ?? []));
@@ -430,9 +437,28 @@ export function App() {
               authedSides.current.add(gate.side);
               saveSession({ authedSides: [...authedSides.current] });
               setSide(gate.side);
-              // A customer who has never been asked meets the avatar once.
-              // A professional does not: they are not the one walking.
-              setGate(gate.side === "customer" && !avatarAnswered.current ? { name: "avatar" } : null);
+              /*
+               * A customer who has never been asked meets the avatar once
+               * — BUT ONLY IF THERE ARE FACES TO CHOOSE BETWEEN.
+               *
+               * I shipped this screen with twelve empty tiles reading
+               * "דמות 1", "דמות 2", and Amit's answer was the right one:
+               * *"זה רחוק מחווית משתמש שמחה. איפה הדמויות? נוראי."* A
+               * screen whose entire content is choosing between faces,
+               * with no faces, is a form.
+               *
+               * It is also me breaking our own rule. Everywhere else in
+               * this product missing art renders NOTHING rather than a
+               * placeholder, precisely so an unfinished thing never looks
+               * like a finished one. A whole screen deserves the same
+               * treatment: not asking is better than asking badly, and
+               * the question appears by itself the day the faces land.
+               *
+               * A professional never sees it either: they are not the one
+               * walking down the street.
+               */
+              const canAsk = gate.side === "customer" && !avatarAnswered.current && avatarArtReady;
+              setGate(canAsk ? { name: "avatar" } : null);
             }}
             onBack={() => setGate({ name: "welcome" })}
             width={w}
