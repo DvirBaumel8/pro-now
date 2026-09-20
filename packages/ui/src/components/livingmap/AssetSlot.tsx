@@ -2,7 +2,7 @@ import React from "react";
 import { Image, StyleSheet, Text, View, type ImageSourcePropType } from "react-native";
 
 import { scale, type } from "../../theme";
-import type { ResolvedPlacement } from "@pro-now/types";
+import { kindOfAssetId, mayAppearOn, type ResolvedPlacement } from "@pro-now/types";
 
 /**
  * ASSET SLOT — one piece of world art, or an honest hole where it will go.
@@ -77,6 +77,25 @@ export interface AssetSlotProps {
 
 export function AssetSlot({ placement, sources, quiet, pending = "box" }: AssetSlotProps) {
   const { left, top, width, height, assetId } = placement;
+
+  /*
+   * THE REGISTER, CHECKED WHERE EVERY PIECE OF WORLD ART PASSES THROUGH.
+   *
+   * Amit settled it: the world is drawn and only the professional's card
+   * is photographic. That is an honesty rule rather than a style
+   * preference — `visual-register.ts` explains why — and a rule that lives
+   * only in a document is a rule that survives until the next asset drop.
+   *
+   * Every object in the world is rendered by this component, so this is
+   * the one place that can notice a photograph being placed in the street.
+   */
+  const kind = kindOfAssetId(assetId);
+  if (kind && !mayAppearOn(kind, "WORLD") && typeof console !== "undefined") {
+    console.warn(
+      `[AssetSlot] "${assetId}" is photographic and must not stand in the world — ` +
+        "a real person at an invented address is the one claim this product cannot make"
+    );
+  }
   const source = sources[assetId];
 
   const frame = { position: "absolute" as const, left, top, width, height };
