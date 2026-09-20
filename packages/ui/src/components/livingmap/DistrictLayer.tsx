@@ -65,6 +65,26 @@ export interface DistrictLayerProps {
   /** Which trade the customer is looking at, if any. The others go quiet. */
   activeDepartment?: DepartmentCode | null;
   onSelect?: (department: DepartmentCode) => void;
+  /**
+   * Draw only the districts standing within this band of depth.
+   *
+   * ---------------------------------------------------------------------
+   * WHY A LAYER NEEDS TO BE SPLIT IN TWO
+   * ---------------------------------------------------------------------
+   * The customer's own figure walks this street, and until now it was
+   * drawn last — over everything, including the shops it was standing
+   * BEHIND. A figure that passes in front of a building further down the
+   * road than itself is the clearest possible statement that the street
+   * is a picture and the person is a sticker on it.
+   *
+   * Depth here is `v` and nothing else, exactly as it is for scale, so
+   * the fix is to draw the districts further away than the walker, then
+   * the walker, then the ones nearer than the walker. The caller mounts
+   * this component twice with the two halves. Nothing about the
+   * positions, the sizes or the sort order changes: the same list is
+   * simply cut in one place.
+   */
+  vRange?: { min: number; max: number };
 }
 
 
@@ -105,6 +125,7 @@ export function DistrictLayer({
   sources = EMPTY_ASSET_SOURCES,
   activeDepartment = null,
   onSelect,
+  vRange,
 }: DistrictLayerProps) {
   // `width` is the WORLD's width in points; a district's size is a share of
   // it. `sizeBasis` survives only for the callers that have not moved yet.
@@ -117,6 +138,7 @@ export function DistrictLayer({
           growing a hole in its roof. */}
       {[...DISTRICT_SITES]
         .map((site) => ({ site, at: districtCentre(site.department) }))
+        .filter(({ at }) => !vRange || (at.v >= vRange.min && at.v < vRange.max))
         .sort((a, b) => depthOrder(a.at.v) - depthOrder(b.at.v))
         .map(({ site, at }) => {
           const district = WORLD_DISTRICTS[site.department];

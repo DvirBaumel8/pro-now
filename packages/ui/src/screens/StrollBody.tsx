@@ -107,9 +107,26 @@ export function StrollBody({
    */
   const [nearest, setNearest] = useState<DepartmentCode | null>(null);
 
+  /*
+   * HOW FAR DOWN THE STREET THE WALKER IS, AS STATE.
+   *
+   * The position itself is an Animated value precisely so that walking
+   * re-renders nothing — but the DRAW ORDER cannot be interpolated: a
+   * building is either in front of the figure or behind it. So the depth
+   * is kept here as well, coarsely and rarely, and it is the one thing on
+   * this screen that a step is allowed to re-render.
+   *
+   * Rounded to a fifth of the world, which is far coarser than the walk
+   * and exactly as fine as the question needs: what changes at a given
+   * depth is which side of the figure a shop is drawn on, and there are
+   * eleven shops.
+   */
+  const [depth, setDepth] = useState<number>(WALK_START.v);
+
   const remember = useCallback((at: NormalizedPoint) => {
     walkedTo.current = at;
     setNearest(nearestDistrict(at));
+    setDepth((was) => (Math.abs(was - at.v) > 0.02 ? at.v : was));
   }, []);
 
   const label = nearest ? WORLD_DISTRICTS[nearest].labelHe : null;
@@ -155,11 +172,17 @@ export function StrollBody({
               />
             ) : null}
 
+            {/*
+              * FURTHER DOWN THE STREET THAN THE WALKER — drawn first, so
+              * the figure passes in FRONT of them. See
+              * `DistrictLayer.vRange` for why the layer is split in two.
+              */}
             <DistrictLayer
               width={world.width}
               height={world.height}
               sizeBasis={width}
               sources={sources}
+              vRange={canWalk ? { min: 0, max: depth } : undefined}
               /*
                * The trade underfoot is lit and the rest go quiet — which
                * is a fact about where the customer is standing and not a
@@ -181,6 +204,23 @@ export function StrollBody({
                 heading={heading}
                 animate={animate}
                 onSettled={remember}
+              />
+            ) : null}
+
+            {/*
+              * NEARER THAN THE WALKER — drawn after, so they cover the
+              * figure as it walks behind them. This is the whole of the
+              * depth illusion and it costs one filtered list.
+              */}
+            {canWalk ? (
+              <DistrictLayer
+                width={world.width}
+                height={world.height}
+                sizeBasis={width}
+                sources={sources}
+                vRange={{ min: depth, max: 1.01 }}
+                activeDepartment={nearest}
+                onSelect={onOpenDepartment}
               />
             ) : null}
           </>
