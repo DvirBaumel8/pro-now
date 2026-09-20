@@ -1,11 +1,14 @@
-import React, { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { AVATARS, type AvatarChoice, type AvatarOption } from "@pro-now/types";
 
 import { AssetSlot, EMPTY_ASSET_SOURCES, type WorldAssetSources } from "../components/livingmap/AssetSlot";
 import { BackButton } from "../components/BackButton";
 import { customerDarkTheme, depth, radii, spacing, type } from "../theme";
+import { CELL_RISE_MS, cellDelayMs, poseFor } from "./avatarPicker";
+
+export { poseFor, cellDelayMs, gridSettledMs } from "./avatarPicker";
 
 /**
  * C02b — WHO WALKS DOWN THE STREET.
@@ -63,8 +66,117 @@ export interface AvatarPickerBodyProps {
   /** Taking this is a real answer, not a postponement. */
   onSkip?: () => void;
   onBack?: () => void;
+  /** False holds the grid still, for a capture or reduced motion. */
+  animate?: boolean;
   width?: number;
   height?: number;
+}
+
+/**
+ * ONE TILE, ARRIVING AND THEN ANSWERING.
+ *
+ * Two movements, and they are different in kind. The arrival is a one-off
+ * with a delay taken from the tile's place in the grid, so twelve of them
+ * read as one sweep. The pose is a response — it changes whenever the
+ * choice does, and it moves the OTHERS as much as the chosen one, because
+ * a lift means nothing without something to be lifted above.
+ *
+ * Both are transform and opacity only, so both stay off the JS thread.
+ */
+function AvatarCell({
+  index,
+  picked,
+  anyPicked,
+  animate,
+  onPress,
+  labelHe,
+  width,
+  height,
+  children,
+}: {
+  index: number;
+  picked: boolean;
+  anyPicked: boolean;
+  animate: boolean;
+  onPress: () => void;
+  labelHe: string;
+  width: number;
+  height: number;
+  children: React.ReactNode;
+}) {
+  const rise = useRef(new Animated.Value(animate ? 0 : 1)).current;
+  const pose = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!animate) {
+      rise.setValue(1);
+      return;
+    }
+    const anim = Animated.timing(rise, {
+      toValue: 1,
+      duration: CELL_RISE_MS,
+      delay: cellDelayMs(index),
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    });
+    anim.start();
+    return () => anim.stop();
+  }, [animate, index, rise]);
+
+  const target = poseFor(picked, anyPicked);
+  useEffect(() => {
+    const anim = Animated.spring(pose, {
+      toValue: 1,
+      // Enough give to feel like a thing moving, not enough to wobble:
+      // twelve wobbling tiles is a screen nobody can read.
+      damping: 18,
+      stiffness: 220,
+      mass: 0.9,
+      useNativeDriver: true,
+    });
+    pose.setValue(0);
+    if (!animate) {
+      pose.setValue(1);
+      return;
+    }
+    anim.start();
+    return () => anim.stop();
+  }, [animate, pose, picked, anyPicked]);
+
+  const scale = pose.interpolate({ inputRange: [0, 1], outputRange: [1, target.scale] });
+
+  return (
+    <Animated.View
+      style={{
+        opacity: Animated.multiply(
+          rise,
+          pose.interpolate({ inputRange: [0, 1], outputRange: [1, target.opacity] })
+        ),
+        transform: [
+          // Arriving from slightly below, which reads as being set down
+          // rather than as fading in.
+          { translateY: rise.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) },
+          { scale },
+        ],
+      }}
+    >
+      <Pressable
+        onPress={onPress}
+        accessibilityRole="button"
+        // The drawing, never the person. See the header.
+        accessibilityLabel={labelHe}
+        accessibilityState={{ selected: picked }}
+        style={({ pressed }) => [
+          styles.cell,
+          { width, height },
+          picked ? styles.cellOn : null,
+          pressed ? styles.pressed : null,
+        ]}
+      >
+        {children}
+      </Pressable>
+    </Animated.View>
+  );
 }
 
 export function AvatarPickerBody({
@@ -74,6 +186,7 @@ export function AvatarPickerBody({
   onChoose,
   onSkip,
   onBack,
+  animate = true,
   width = 390,
   height = 780,
 }: AvatarPickerBodyProps) {
@@ -115,22 +228,19 @@ export function AvatarPickerBody({
         </Text>
 
         <View style={[styles.grid, { gap }]}>
-          {options.map((o) => {
+          {options.map((o, i) => {
             const on = picked === o.id;
             return (
-              <Pressable
+              <AvatarCell
                 key={o.id}
+                index={i}
+                picked={on}
+                anyPicked={picked !== null}
+                animate={animate}
                 onPress={() => setPicked(on ? null : o.id)}
-                accessibilityRole="button"
-                // The drawing, never the person. See the header.
-                accessibilityLabel={o.labelHe}
-                accessibilityState={{ selected: on }}
-                style={({ pressed }) => [
-                  styles.cell,
-                  { width: cell, height: cell * 1.18 },
-                  on ? styles.cellOn : null,
-                  pressed ? styles.pressed : null,
-                ]}
+                labelHe={o.labelHe}
+                width={cell}
+                height={cell * 1.18}
               >
                 {hasArt ? (
                   <AssetSlot
@@ -170,7 +280,7 @@ export function AvatarPickerBody({
                    */
                   <Text style={styles.waiting}>{o.labelHe}</Text>
                 )}
-              </Pressable>
+              </AvatarCell>
             );
           })}
         </View>
