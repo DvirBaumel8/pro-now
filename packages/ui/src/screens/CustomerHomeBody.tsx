@@ -203,6 +203,18 @@ export interface CustomerHomeBodyProps {
    * when the snapshot is simply stale.
    */
   liveLineHe?: string | null;
+  /**
+   * THE WAY INTO THE STREET.
+   *
+   * Amit, after I built the walking and hid it inside the dispatch wait:
+   * *"עכשיו לראות איך הוא במפה זז — אני לא רואה ולא מבין."* He was right
+   * and the fault was where it lived, not what it did. Walking is how you
+   * arrive somewhere, not something to do while a server thinks, so it
+   * gets a door on the screen everybody lands on.
+   *
+   * Absent until there is an avatar to walk as — see `StrollBody`.
+   */
+  onStroll?: () => void;
   width?: number;
   /**
    * THE SCREEN'S HEIGHT, AND WHY IT IS NOT OPTIONAL IN PRACTICE.
@@ -238,6 +250,7 @@ export function CustomerHomeBody({
   capture,
   onSelectCategory,
   worldSources,
+  onStroll,
   liveLineHe = null,
   width = 390,
   height = 780,
@@ -673,6 +686,30 @@ export function CustomerHomeBody({
             person who does that work. None of them carries a name, a rating
             or an availability dot: they navigate, they do not report.
             --------------------------------------------------------------- */}
+        {/* ---------------------------------------------------------------
+            THE STREET, AS A DOOR AND NOT AS A DECORATION.
+
+            It sits above the categories rather than below them because it
+            is the same act — choosing what you need — done by walking
+            instead of by reading a grid. Below the grid it would be a
+            curiosity somebody finds once.
+
+            It promises nothing about supply: a street of trades, with the
+            question of who is actually free left where it belongs, in the
+            request. See `StrollBody`.
+            --------------------------------------------------------------- */}
+        {onStroll ? (
+          <Pressable
+            onPress={onStroll}
+            accessibilityRole="button"
+            accessibilityLabel="טיול ברחוב של פרו נאו"
+            style={({ pressed }) => [styles.stroll, pressed && { opacity: 0.9 }]}
+          >
+            <Text style={styles.strollText}>טיילו ברחוב של PRO NOW</Text>
+            <Text style={styles.strollSub}>לכו בין העסקים עם הדמות שלכם</Text>
+          </Pressable>
+        ) : null}
+
         <View style={{ marginTop: spacing.xl }}>
           <Text style={styles.orPick}>או בחרו לפי סוג</Text>
           <CategoryFaces
@@ -753,6 +790,17 @@ export function CustomerHomeBody({
 const HOME_WORLD_HEIGHT = 300;
 
 const styles = StyleSheet.create({
+  stroll: {
+    marginTop: spacing.xl,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radii.lg,
+    backgroundColor: "rgba(46,38,64,0.92)",
+    alignItems: "center",
+    gap: 2,
+  },
+  strollText: { ...type.bodyStrong, color: "#F7F3FA", writingDirection: "rtl" },
+  strollSub: { ...type.caption, color: "rgba(247,243,250,0.7)", writingDirection: "rtl" },
   backdrop: { position: "absolute", top: 0, left: 0, height: HOME_WORLD_HEIGHT },
 
   liveNow: {

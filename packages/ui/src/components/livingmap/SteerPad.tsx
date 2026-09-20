@@ -112,10 +112,18 @@ export function SteerPad({ onHeading, visible = true, size = 116 }: SteerPadProp
 }
 
 const styles = StyleSheet.create({
+  /*
+   * DARK ENOUGH TO EXIST ON A SUNLIT PAVEMENT.
+   *
+   * The first values were tuned against the dark dispatch screen and
+   * vanished the moment the pad was put on the street in daylight — a
+   * control you cannot find is not a control, and this one is the whole
+   * interaction.
+   */
   pad: {
-    backgroundColor: "rgba(16,12,22,0.62)",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(247,243,250,0.22)",
+    backgroundColor: "rgba(12,9,18,0.82)",
+    borderWidth: 1.5,
+    borderColor: "rgba(247,243,250,0.4)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -123,9 +131,9 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: "rgba(247,243,250,0.16)",
+    backgroundColor: "rgba(247,243,250,0.3)",
   },
-  arrow: { position: "absolute", ...type.caption, color: "rgba(247,243,250,0.72)" },
+  arrow: { position: "absolute", ...type.caption, color: "rgba(247,243,250,0.95)" },
   up: { top: 8 },
   down: { bottom: 8 },
   left: { left: 10 },

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 
-import { CARD_REST, customerCategoryById, liveAreaLineHe, DEMO_WORLD, type CandidatePresence, type LivingMapPhase, type LivingMapState, themeForDepartment } from "@pro-now/types";
+import { CARD_REST, customerCategoryById, categoryForDepartment, liveAreaLineHe, DEMO_WORLD, type CandidatePresence, type LivingMapPhase, type LivingMapState, themeForDepartment } from "@pro-now/types";
 import { discover, emptyDiscoveries, type DiscoveryState } from "@pro-now/types";
 import { AVATARS, screenKey, travelAssetFor, type AvatarChoice } from "@pro-now/types";
 import { matchServicesByText } from "@pro-now/ui";
@@ -12,7 +12,7 @@ import type { WorldAssetSources } from "@pro-now/ui";
 import { worldSources } from "./worldSources";
 import { standInWorldSources } from "./standInAvatars";
 
-import { ActiveJobCapsule, AddressPickerBody, AppHeader, AvatarPickerBody, customerDarkTheme, FocusSheet, ScreenTransition, ArrivalVerifyBody, CallsListBody, CAPSULE_HEIGHT, ChatBody, ConnectionBanner, CategoryBody, CustomerHomeBody, CustomerProfileBody, customerTheme, DescribeFaultBody, JobCompleteBody, lex, MatchConfirmBody, NavGlyph, Persona, PhoneAuthBody, ProEarningsBody, ProJobBody, ProJobSettledBody, ProOfferBody, ProOnlineBody, ProPricingBody, ProProfileBody, ProShiftBody, proTheme, ProVerificationBody, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, Sheet, spacing, tint, TrackingBody, type as t, WelcomeBody } from "@pro-now/ui";
+import { ActiveJobCapsule, AddressPickerBody, AppHeader, AvatarPickerBody, customerDarkTheme, FocusSheet, ScreenTransition, ArrivalVerifyBody, CallsListBody, CAPSULE_HEIGHT, ChatBody, ConnectionBanner, CategoryBody, CustomerHomeBody, CustomerProfileBody, customerTheme, DescribeFaultBody, JobCompleteBody, lex, MatchConfirmBody, NavGlyph, Persona, PhoneAuthBody, ProEarningsBody, ProJobBody, ProJobSettledBody, ProOfferBody, ProOnlineBody, ProPricingBody, ProProfileBody, ProShiftBody, proTheme, ProVerificationBody, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, StrollBody, Sheet, spacing, tint, TrackingBody, type as t, WelcomeBody } from "@pro-now/ui";
 import type { JobMediaItem, LiveLocationState, MarkName, NavGlyphName, ProPricingRow } from "@pro-now/ui";
 import type { AuthStage, ChatMessage, ConnectionState } from "@pro-now/ui";
 import { buildIntakeBrief, pilotIntakeByService, pilotServiceById, readAvailability } from "@pro-now/types";
@@ -152,6 +152,15 @@ type CustomerRoute =
    * anything. Amit: *"למה אני לוחץ על בית ומכניס אותי ישר לאינסטלטור?"*
    * Now it goes somewhere: that trade's street, and the short question.
    */
+  /**
+   * THE STREET, AS ITS OWN PLACE.
+   *
+   * Amit: *"עכשיו לראות איך הוא במפה זז — אני לא רואה ולא מבין."* Walking
+   * was built and then hidden inside the dispatch wait, reachable only by
+   * somebody who had already sent a real request for help. It has a door
+   * on the home screen now. See `StrollBody`.
+   */
+  | { name: "stroll" }
   | { name: "category"; categoryId: string }
   | { name: "service"; serviceId: string }
   | { name: "describe"; serviceId: string; symptomsHe: string[] }
@@ -1231,6 +1240,29 @@ const go = useCallback((r: CustomerRoute) => {
             height={bodyH}
           />
         );
+      /*
+       * THE STREET. A place of its own, reached from the home screen —
+       * see the route above for why it is not inside the dispatch wait
+       * any more.
+       *
+       * Walking up to a shop opens the TRADE, never a person: this
+       * screen draws districts and no venues, so it never suggests
+       * anybody is behind a door before the server has been asked.
+       */
+      case "stroll":
+        return (
+          <StrollBody
+            avatar={avatar}
+            sources={art}
+            onOpenDepartment={(department) => {
+              const category = categoryForDepartment(department);
+              if (category) go({ name: "category", categoryId: category.id });
+            }}
+            onBack={() => go({ name: "home" })}
+            width={width}
+            height={bodyH}
+          />
+        );
       case "category": {
         const category = customerCategoryById(route.categoryId);
         if (!category) return null;
@@ -1751,6 +1783,12 @@ const go = useCallback((r: CustomerRoute) => {
       default:
         return (
           <CustomerHomeBody
+            /*
+             * Only offered once there is somebody to walk as. A street
+             * with no figure in it is a map, and the whole point of this
+             * door is that it is not one.
+             */
+            onStroll={avatar ? () => go({ name: "stroll" }) : undefined}
             greetingHe="ערב טוב"
             addressLabelHe={addressLabel}
             onChangeAddress={() => go({ name: "address" })}

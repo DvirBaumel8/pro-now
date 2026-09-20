@@ -83,3 +83,4 @@ export { Surface, type SurfaceProps, type SurfaceKind } from "./components/Surfa
 export { Divider as Hairline } from "./components/Surface";
 export * from "./components/ServiceListRow";
 export * from "./components/Scrim";
+export * from "./screens/StrollBody";

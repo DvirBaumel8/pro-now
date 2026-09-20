@@ -88,6 +88,8 @@ export const CUSTOMER_DEPTH: Readonly<Record<string, number>> = {
   auth: 1,
   /** The three tabs are siblings of each other, never progress. */
   home: 2,
+  /* The street is a sibling of home, not a step into a request. */
+  stroll: 3,
   calls: 2,
   card: 2,
   /** A step off the home shelf: you have pointed at something. */
