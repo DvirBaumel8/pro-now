@@ -7,10 +7,10 @@ await p.goto('http://127.0.0.1:4421/', {waitUntil:'networkidle'}); await p.waitF
 await click('אני צריך מקצוען');
 await p.getByLabel('מספר טלפון').fill('0501234567'); await click('שליחת קוד');
 await p.getByLabel('קוד האימות').fill('123456'); await click('כניסה');
-await p.waitForTimeout(1400);
-await shot('01-home');
-await click('פתיחת סתימה');            await shot('02-service');
-await click('בקשת בעל מקצוע עכשיו');   await shot('03-describe');
+await p.waitForTimeout(1300);
+await click('פתיחת סתימה');
+await click('בקשת בעל מקצוע עכשיו'); await shot('D-service');
 await click('שליחת הקריאה');
-await p.waitForTimeout(2600); await shot('04-searching');
+await p.waitForTimeout(8000);
+await shot('E-tracking');
 await b.close(); console.log('done');

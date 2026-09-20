@@ -889,6 +889,23 @@ function CustomerApp({
             serviceNameHe={trackedService.nameHe}
             professional={matchFixture.professional}
             eta={matchFixture.eta}
+            /*
+             * The arrival clock is DERIVED from the ETA the server gave,
+             * not stored beside it. Two fields carrying the same fact drift,
+             * and the one that drifts is always the one the customer
+             * remembers.
+             */
+            arrivalClockHe={(() => {
+              // No ETA means NO arrival time. ArrivalPromise renders a
+              // sentence about why rather than a guessed clock (§3).
+              if (!matchFixture.eta) return null;
+              const mins = Math.round(matchFixture.eta.etaSeconds / 60);
+              const at = new Date(Date.now() + mins * 60_000);
+              return `${String(at.getHours()).padStart(2, "0")}:${String(at.getMinutes()).padStart(2, "0")}`;
+            })()}
+            arrivalState="COMMITTED"
+            onGetHelp={() => setSheet("safety")}
+            onCancelJob={() => go({ name: "home" })}
             priceLineHe={`${lex.visitFee} ₪179 · ${lex.quotePending}`}
             onCall={() => setSheet("call")}
             onMessage={() => go({ name: "chat" })}

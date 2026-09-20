@@ -153,6 +153,9 @@ const credentialHe: Record<CredentialKind, string> = {
   DRIVING_LICENSE: "רישיון נהיגה בתוקף",
   VEHICLE_INSURANCE: "ביטוח רכב בתוקף",
   PROPERTY_LINK_POLICY: "נוהל אימות זיקה לנכס",
+  VEHICLE_LINK_POLICY: "נוהל אימות בעלות על הרכב",
+  MEDICAL_LICENSE: "רישיון לעסוק ברפואה בתוקף",
+  VETERINARY_LICENSE: "רישיון וטרינר בתוקף",
   PROFESSIONAL_CERTIFICATE: "תעודה מקצועית בתחום",
   BACKGROUND_CHECK: "בדיקת רקע",
 };

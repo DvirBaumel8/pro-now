@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-
 
 import type { IntakeAnswer, IntakeQuestion, ServiceIntake } from "@pro-now/types";
 
-import { customerTheme, elevation, radii, scale, spacing, tabular, tint, type } from "../theme";
+import { customerDarkTheme, depth, elevation, radii, scale, spacing, tabular, tint, type } from "../theme";
 import { Mark, type MarkName, ShieldCheckMark } from "../components/marks";
 import { ImageSlot, SectionHeader, Surface } from "../components/surfaces";
 
@@ -39,7 +39,21 @@ import { ImageSlot, SectionHeader, Surface } from "../components/surfaces";
  * browser API would stop being shippable on a phone.
  */
 
-const colors = customerTheme.colors;
+/**
+ * DARK, AND FOUR BLOCKS OF PROSE SHORTER.
+ *
+ * Amit, looking at this screen: "לא צריך מלא מלא מלל, צריך ממוקד ונגיש."
+ * Before the first question it showed a heading, a three-line paragraph
+ * about why details help, the service name, a second heading, and a second
+ * note saying the questions are optional. Five things, all of them true,
+ * none of them what the person opened the screen to do.
+ *
+ * What survived: one heading, the service name, and the questions. The
+ * "everything is optional" promise is now carried by the secondary action
+ * under the button — "אפשר לשלוח גם בלי פרטים" — which is where a person
+ * actually looks for permission to skip, and where it costs no reading.
+ */
+const colors = customerDarkTheme.colors;
 
 export interface FaultPhoto {
   id: string;
@@ -128,25 +142,34 @@ export function DescribeFaultBody({
     <View style={[styles.screen, { width, height }]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         <View style={styles.head}>
+          {/*
+            * ONE CONTROL IN THIS CORNER. The back chevron and the service
+            * mark were two overlapping discs in the same place, which is
+            * the kind of defect a screenshot catches and a code review
+            * never does.
+            */}
           <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel="חזרה" style={styles.back}>
             <Text style={styles.backGlyph}>›</Text>
           </Pressable>
-          <View style={styles.markBubble}>
-            <Mark name={mark} size={20} color={colors.action} />
+
+          <View style={styles.titleRow}>
+            <View style={styles.markBubble}>
+              <Mark name={mark} size={20} color={colors.textPrimary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              {/*
+                * Neutral, because this screen is shared by every service.
+                * "מה קרה" is right for a burst pipe and wrong for an hour
+                * with a trainer — and a heading that assumes a disaster is
+                * how a marketplace quietly narrows itself back down to home
+                * repairs.
+                */}
+              <Text style={styles.title}>{intake ? "כמה פרטים" : "מה צריך?"}</Text>
+              <Text style={styles.service} numberOfLines={1}>
+                {serviceNameHe}
+              </Text>
+            </View>
           </View>
-          {/*
-            * Neutral, because this screen is shared. "מה קרה" is correct for
-            * a burst pipe and wrong for an hour with a trainer — and a
-            * heading that assumes a disaster is how a marketplace quietly
-            * narrows itself back down to home repairs.
-            */}
-          <Text style={styles.title}>{intake ? "כמה פרטים לפני ששולחים" : "ספר לנו מה צריך"}</Text>
-          <Text style={styles.subtitle}>
-            כל מה שתוסיף מגיע למקצוען לפני שהוא יוצא — וזה ההבדל בין ביקור אחד לשניים. הכול אופציונלי.
-          </Text>
-          <Text style={styles.service} numberOfLines={1}>
-            {serviceNameHe}
-          </Text>
         </View>
 
         {symptomsHe.length > 0 ? (
@@ -165,10 +188,6 @@ export function DescribeFaultBody({
         {/* ---------------- What this service actually needs to know ---- */}
         {intake ? (
           <View style={styles.block}>
-            <SectionHeader title="כמה שאלות קצרות" colors={colors} />
-            <Text style={styles.intakeNote}>
-              אפשר לדלג על הכל — זה רק כדי שהמקצוען יגיע מוכן.
-            </Text>
             {intake.questions.map((q) => (
               <IntakeRow
                 key={q.id}
@@ -437,38 +456,31 @@ const styles = StyleSheet.create({
   screen: { backgroundColor: colors.bg, overflow: "hidden", borderRadius: radii.xl },
   scroll: { paddingBottom: 132 },
 
-  head: { paddingHorizontal: spacing.lg, paddingTop: spacing.xxl, alignItems: "flex-end" },
+  head: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, alignItems: "flex-end" },
+  titleRow: { flexDirection: "row-reverse", alignItems: "center", gap: spacing.md, alignSelf: "stretch" },
   // 44x44 minimum. A 25px chevron is a control most thumbs miss, which
   // is the same defect that made the demo bar unhittable.
+  /* A glyph, not a puck. Same fix as the service and match screens. */
   back: {
-    position: "absolute",
-    top: spacing.lg,
-    right: spacing.lg,
+    alignSelf: "flex-start",
     width: 44,
     height: 44,
     alignItems: "center",
     justifyContent: "center",
+    marginLeft: -spacing.md,
   },
-  backGlyph: { fontSize: scale.section, lineHeight: 28, color: colors.textPrimary, fontWeight: "300" },
+  backGlyph: { ...type.section, fontWeight: "300", color: colors.textSecondary },
   markBubble: {
     width: 48,
     height: 48,
-    borderRadius: 24,
-    backgroundColor: tint.action(0.12),
+    borderRadius: 17,
+    backgroundColor: depth.panel.mid,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: spacing.md,
+    ...depth.litEdge(0.07),
   },
-  title: { ...type.h1, color: colors.textPrimary, writingDirection: "rtl", textAlign: "right" },
-  subtitle: {
-    ...type.caption,
-    color: colors.textSecondary,
-    textAlign: "right",
-    writingDirection: "rtl",
-    marginTop: spacing.xs,
-    lineHeight: 19,
-  },
-  service: { ...type.captionStrong, color: colors.actionText, marginTop: spacing.md, writingDirection: "rtl" },
+  title: { ...type.title, color: colors.textPrimary, writingDirection: "rtl", textAlign: "right" },
+  service: { ...type.meta, color: colors.textSecondary, writingDirection: "rtl", textAlign: "right" },
 
   block: { paddingHorizontal: spacing.lg, marginTop: spacing.xl },
 

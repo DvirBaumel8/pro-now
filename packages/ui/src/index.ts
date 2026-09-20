@@ -65,6 +65,7 @@ export * from "./components/ProviderPortrait";
 export * from "./components/LiveServiceCard";
 export * from "./components/IntentCapture";
 export * from "./components/AppHeader";
+export * from "./components/ArrivalPromise";
 export * from "./components/BrandMark";
 export * from "./components/CaptureCard";
 export * from "./components/Card";

@@ -4,8 +4,8 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { formatMoney, money, type QuoteView } from "@pro-now/types";
 
 import { customerTheme, elevation, radii, scale, spacing, tabular, tint, type } from "../theme";
-import { ShieldCheckMark } from "../components/marks";
-import { RingedAvatar, SectionHeader, Surface } from "../components/surfaces";
+import { RingedAvatar, Surface } from "../components/surfaces";
+import { VoiceNote } from "../components/VoiceNote";
 
 /**
  * C11 — the quote the professional sent, for the customer to approve.
@@ -26,6 +26,30 @@ import { RingedAvatar, SectionHeader, Surface } from "../components/surfaces";
  *    actions disappear rather than failing on submit.
  * 4. **Nothing is pre-approved.** No default-selected confirm, no
  *    auto-advance.
+ *
+ * ---------------------------------------------------------------------
+ * WHY THIS SCREEN STAYS LIGHT WHILE THE REST OF THE APP WENT DARK
+ * ---------------------------------------------------------------------
+ * It is now one of two light screens in the customer app, and it is the
+ * exception that survived the reversal of §12 intact, on ChatGPT's original
+ * reasoning: "הכסף וההסכמה צריכים להרגיש כמו מסמך ברור, לא כמו עוד live
+ * event." Now that light is scarce, the exception lands harder than it did
+ * when everything around it was ivory too — arriving here feels like being
+ * handed a piece of paper, which is exactly the register consent should have.
+ *
+ * ---------------------------------------------------------------------
+ * AND WHY IT SAYS LESS
+ * ---------------------------------------------------------------------
+ * Amit: "לא צריך מלא מלא מלל, צריך ממוקד ונגיש." Before the total, this
+ * screen used to show an overline, a title, a professional row, a section
+ * header, and then a card per line item. The number a person is being asked
+ * to agree to was the sixth thing they met.
+ *
+ * It is now the first. Who inspected the fault, then the total at hero size,
+ * then the breakdown directly on the surface — no card per line, because a
+ * line item is not a unit that can be selected, moved or opened (§4). The
+ * version hash stays, because support needs to match a screenshot to a row,
+ * but it is micro type at the foot rather than a paragraph with a shield.
  */
 
 const colors = customerTheme.colors;
@@ -40,6 +64,13 @@ export interface QuoteApprovalBodyProps {
   onApprove?: (versionHash: string) => void;
   onDecline?: () => void;
   onAskQuestion?: () => void;
+  /** A message this professional recorded about THIS quote. */
+  voiceNote?: {
+    seconds: number;
+    transcriptHe?: string | null;
+    playing?: boolean;
+    onTogglePlay?: () => void;
+  } | null;
   width?: number;
   height?: number;
 }
@@ -59,6 +90,7 @@ export function QuoteApprovalBody({
   onApprove,
   onDecline,
   onAskQuestion,
+  voiceNote = null,
   width = 390,
   height = 780,
 }: QuoteApprovalBodyProps) {
@@ -69,26 +101,27 @@ export function QuoteApprovalBody({
   return (
     <View style={[styles.screen, { width, height }]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+        {/* ------------------------------------------------------------
+            WHO, THEN HOW MUCH. In that order, and nothing between them.
+            ------------------------------------------------------------ */}
         <View style={styles.head}>
-          <Text style={styles.overline}>הצעת מחיר · גרסה {quote.version}</Text>
-          <Text style={styles.title}>{serviceNameHe}</Text>
           <View style={styles.proRow}>
             <RingedAvatar
-              size={44}
+              size={40}
               uri={professionalPhotoUrl}
               name={professionalDisplayName}
               colors={colors}
-              ringColor={colors.action}
+              ringColor={colors.trust}
             />
-            <View style={styles.proText}>
-              <Text style={styles.proName} numberOfLines={1}>
-                {professionalDisplayName}
-              </Text>
-              <Text style={styles.proMeta} numberOfLines={1}>
-                נשלחה לאחר אבחון באתר
-              </Text>
-            </View>
+            <Text style={styles.who} numberOfLines={2}>
+              {professionalDisplayName} בדק את {serviceNameHe}
+            </Text>
           </View>
+
+          <Text style={styles.total} numberOfLines={1}>
+            {formatMoney(money(quote.totalMinorUnits, "ILS"))}
+          </Text>
+          <Text style={styles.totalNote}>כולל מע״מ · הסכום הסופי לעבודה הזו</Text>
         </View>
 
         {stale ? (
@@ -121,58 +154,71 @@ export function QuoteApprovalBody({
           </Surface>
         ) : null}
 
-        {/* ---------------- Line items ---------------- */}
+        {/* ---------------- What it is made of ---------------- */}
+        {/*
+          * ON THE SURFACE, NOT IN CARDS. A line item has no independent
+          * state and cannot be selected, opened or moved, so by §4 it is
+          * not a card — it is a row with a hairline above it. Four cards
+          * stacked here also made the total look like a fifth card rather
+          * than like the answer.
+          */}
         <View style={styles.block}>
-          <SectionHeader title="פירוט" colors={colors} />
-          <Surface colors={colors} level={1} padded={false} style={styles.linesCard}>
-            {quote.lineItems.map((li, i) => {
-              const lineTotal = li.quantity * li.unitPriceMinorUnits;
-              return (
-                <View key={li.id} style={[styles.line, i > 0 && styles.lineDivided]}>
-                  <Text style={styles.lineTotal}>{formatMoney(money(lineTotal, "ILS"))}</Text>
-                  <View style={styles.lineText}>
-                    <Text style={styles.lineDesc} numberOfLines={2}>
-                      {li.description}
-                    </Text>
-                    <Text style={styles.lineMeta} numberOfLines={1}>
-                      {KIND_LABEL_HE[li.kind] ?? li.kind}
-                      {li.quantity !== 1
-                        ? ` · ${li.quantity} × ${formatMoney(money(li.unitPriceMinorUnits, "ILS"))}`
-                        : ""}
-                    </Text>
-                  </View>
+          {quote.lineItems.map((li, i) => {
+            const lineTotal = li.quantity * li.unitPriceMinorUnits;
+            return (
+              <View key={li.id} style={[styles.line, i > 0 && styles.lineDivided]}>
+                <Text style={styles.lineTotal}>{formatMoney(money(lineTotal, "ILS"))}</Text>
+                <View style={styles.lineText}>
+                  <Text style={styles.lineDesc} numberOfLines={2}>
+                    {li.description}
+                  </Text>
+                  <Text style={styles.lineMeta} numberOfLines={1}>
+                    {KIND_LABEL_HE[li.kind] ?? li.kind}
+                    {li.quantity !== 1
+                      ? ` · ${li.quantity} × ${formatMoney(money(li.unitPriceMinorUnits, "ILS"))}`
+                      : ""}
+                  </Text>
                 </View>
-              );
-            })}
-
-            <View style={styles.totalRow}>
-              <Text style={styles.totalValue}>{formatMoney(money(quote.totalMinorUnits, "ILS"))}</Text>
-              <Text style={styles.totalLabel}>סה״כ לתשלום</Text>
-            </View>
-          </Surface>
-
-          <Text style={styles.vatNote}>הסכום כולל מע״מ. לא ייגבה תשלום נוסף ללא אישור שלך לגרסה חדשה.</Text>
+              </View>
+            );
+          })}
         </View>
 
         {quote.notes ? (
           <View style={styles.block}>
-            <SectionHeader title="הערות בעל המקצוע" colors={colors} />
-            <Surface colors={colors} level={0} style={{ backgroundColor: tint.neutralLight(0.035) }}>
-              <Text style={styles.notes}>{quote.notes}</Text>
-            </Surface>
+            <Text style={styles.notesLabel}>מה שהוא כתב</Text>
+            <Text style={styles.notes}>{quote.notes}</Text>
           </View>
         ) : null}
 
-        {/* ---------------- Integrity ---------------- */}
-        <View style={styles.block}>
-          <View style={styles.hashRow}>
-            <ShieldCheckMark size={15} color={colors.action} />
-            <Text style={styles.hashText} numberOfLines={2}>
-              מזהה גרסה {quote.versionHash.slice(0, 10)} — האישור שלך נצמד בדיוק לגרסה הזו. אם הפירוט ישתנה, תתבקש
-              לאשר מחדש.
-            </Text>
+        {/*
+          * A MESSAGE IN HIS OWN VOICE, when there is one. A quote is a
+          * number a stranger arrived at in your kitchen; thirty seconds of
+          * him explaining it does more for trust than any line item can.
+          * Only a real recording for THIS job — VoiceNote has no stock
+          * variant, on purpose.
+          */}
+        {voiceNote ? (
+          <View style={styles.block}>
+            <VoiceNote
+              kind="JOB_MESSAGE"
+              speakerNameHe={professionalDisplayName}
+              speakerPhotoUri={professionalPhotoUrl}
+              transcriptHe={voiceNote.transcriptHe}
+              seconds={voiceNote.seconds}
+              playing={voiceNote.playing}
+              onTogglePlay={voiceNote.onTogglePlay}
+              tone="light"
+              width={width - spacing.lg * 2}
+            />
           </View>
-        </View>
+        ) : null}
+
+        {/* Provenance, in the smallest type the system has. */}
+        <Text style={styles.hashText} numberOfLines={2}>
+          גרסה {quote.version} · {quote.versionHash.slice(0, 10)} — האישור נצמד לגרסה הזו בלבד.
+        </Text>
+
       </ScrollView>
 
       {/* ---------------- Actions ---------------- */}
@@ -218,44 +264,45 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     ...elevation(1),
   },
-  overline: { ...type.overline, color: colors.textSecondary },
-  title: { ...type.h1, color: colors.textPrimary, marginTop: 2, writingDirection: "rtl" },
-  proRow: { flexDirection: "row-reverse", alignItems: "center", gap: spacing.md, marginTop: spacing.lg, alignSelf: "stretch" },
-  proText: { flex: 1, alignItems: "flex-end" },
-  proName: { ...type.bodyStrong, color: colors.textPrimary, writingDirection: "rtl" },
-  proMeta: { ...type.caption, color: colors.textSecondary, writingDirection: "rtl" },
+  proRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: spacing.md,
+    alignSelf: "stretch",
+  },
+  who: { ...type.body, color: colors.textSecondary, flex: 1, textAlign: "right", writingDirection: "rtl" },
+  /*
+   * THE HERO IS THE NUMBER. §1 allows one hero per viewport and this is the
+   * screen with the least doubt about which value deserves it: it is the
+   * only figure on it the customer is being asked to agree to.
+   */
+  total: { ...type.hero, ...tabular, color: colors.textPrimary, marginTop: spacing.lg },
+  totalNote: { ...type.meta, color: colors.textSecondary, writingDirection: "rtl", marginTop: 2 },
 
   notice: { marginHorizontal: spacing.lg, marginTop: spacing.lg },
   noticeText: { ...type.captionStrong, textAlign: "right", writingDirection: "rtl", lineHeight: 19 },
 
   block: { paddingHorizontal: spacing.lg, marginTop: spacing.xl },
 
-  linesCard: { paddingVertical: spacing.xs },
   line: {
     flexDirection: "row-reverse",
     alignItems: "flex-start",
     gap: spacing.md,
-    paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
   },
   lineDivided: { borderTopWidth: StyleSheet.hairlineWidth * 2, borderTopColor: colors.border },
   lineText: { flex: 1, alignItems: "flex-end" },
-  lineDesc: { ...type.body, fontSize: scale.meta, color: colors.textPrimary, textAlign: "right", writingDirection: "rtl" },
-  lineMeta: { ...type.caption, color: colors.textSecondary, textAlign: "right", writingDirection: "rtl", marginTop: 1 },
+  lineDesc: { ...type.body, color: colors.textPrimary, textAlign: "right", writingDirection: "rtl" },
+  lineMeta: { ...type.meta, color: colors.textSecondary, textAlign: "right", writingDirection: "rtl", marginTop: 1 },
   lineTotal: { ...type.bodyStrong, ...tabular, color: colors.textPrimary, minWidth: 74, textAlign: "left" },
 
-  totalRow: {
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    backgroundColor: tint.action(0.05),
+  notesLabel: {
+    ...type.metaStrong,
+    color: colors.textSecondary,
+    textAlign: "right",
+    writingDirection: "rtl",
+    marginBottom: spacing.xs,
   },
-  totalLabel: { ...type.bodyStrong, color: colors.textPrimary, writingDirection: "rtl" },
-  totalValue: { ...type.h2, ...tabular, color: colors.textPrimary },
 
   vatNote: {
     ...type.caption,

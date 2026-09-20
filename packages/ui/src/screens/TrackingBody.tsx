@@ -4,8 +4,8 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { EtaView, JobState, ProfessionalSummaryView } from "@pro-now/types";
 
 import { formatCompletedJobs, formatEta, formatProNowRating } from "../format";
-import { customerTheme, palette, radii, scale, spacing, tabular, type } from "../theme";
-import { HeroMetric } from "../components/HeroMetric";
+import { customerDarkTheme, depth, palette, radii, scale, spacing, tabular, type } from "../theme";
+import { ArrivalPromise, type ArrivalState } from "../components/ArrivalPromise";
 import { ProviderPortrait } from "../components/ProviderPortrait";
 import { RealMapSurface } from "../components/RealMapSurface";
 import { ScreenShell } from "../components/ScreenShell";
@@ -41,7 +41,13 @@ import { ShieldCheckMark, StarMark } from "../components/marks";
  * and the ETA is the fact.
  */
 
-const colors = customerTheme.colors;
+/**
+ * DARK SHEET ON A DARK MAP. The sheet was ivory, which put a hard white
+ * slab across the bottom half of the one screen that is supposed to feel
+ * like a single live moment — and it was the seam Amit photographed when he
+ * asked for "קו אחיד".
+ */
+const colors = customerDarkTheme.colors;
 
 export interface TrackingBodyProps {
   status: JobState;
@@ -50,6 +56,17 @@ export interface TrackingBodyProps {
   eta: EtaView | null;
   /** Already-formatted headline price, e.g. "₪179 דמי ביקור". */
   priceLineHe?: string | null;
+  /** "22:49" — the promise, computed by the server from a real route. */
+  arrivalClockHe?: string | null;
+  /**
+   * What is actually happening to the promise. Defaults to COMMITTED, and
+   * the other three are the reason this screen exists — see ArrivalPromise.
+   */
+  arrivalState?: ArrivalState;
+  /** For RUNNING_LATE: the clock time we gave before it moved. */
+  previousClockHe?: string | null;
+  onGetHelp?: () => void;
+  onCancelJob?: () => void;
   onCall?: () => void;
   onMessage?: () => void;
   onSafety?: () => void;
@@ -63,6 +80,11 @@ export function TrackingBody({
   professional,
   eta,
   priceLineHe,
+  arrivalClockHe = null,
+  arrivalState = "COMMITTED",
+  previousClockHe = null,
+  onGetHelp,
+  onCancelJob,
   onCall,
   onMessage,
   onSafety,
@@ -86,17 +108,6 @@ export function TrackingBody({
             ? "יוצא אליך"
             : "מעדכנים…";
 
-  /*
-   * Why the ETA is missing, in the honest version of each case. A dash
-   * would be shorter and would tell the customer nothing except that
-   * something is wrong.
-   */
-  const etaUnknownHe =
-    status === "PRO_ARRIVED"
-      ? "הגיע אליך"
-      : status === "IN_PROGRESS"
-        ? "נמצא אצלך ועובד"
-        : "זמן ההגעה יחושב כשייצא לדרך";
 
   // The map gets the top 54%; the sheet sizes itself and overlaps the rest.
   const mapH = Math.round(height * 0.54);
@@ -119,30 +130,26 @@ export function TrackingBody({
       <View style={styles.sheet}>
         <View style={styles.grabber} />
 
-        <View style={styles.heroRow}>
-          <View style={styles.heroText}>
-            <Text style={styles.service} numberOfLines={2}>
-              {serviceNameHe}
-            </Text>
-            {/*
-              * The four-step rail is gone, and the doc comment above says
-              * why. It also could not fit: at this width its labels
-              * truncated to "מחפ…" and "בדרך…", which is a progress
-              * indicator that has stopped indicating progress.
-              */}
-            <Text style={styles.state} numberOfLines={1}>
-              {headline}
-            </Text>
-          </View>
-          <HeroMetric
-            value={etaDisplay ? String(etaDisplay.value) : null}
-            unitHe={etaDisplay ? etaDisplay.unit : null}
-            labelHe={etaDisplay?.isApproximate ? "זמן הגעה · משוער" : "זמן הגעה"}
-            unknownReasonHe={etaUnknownHe}
-            size="hero"
-            tone="light"
-          />
-        </View>
+        {/*
+          * THE PROMISE IS THE SHEET'S FIRST LINE, not a number in a corner.
+          * ספץ's equivalent screen has no ETA at all — their answer to "he
+          * did not arrive" is that you telephone him. Ours states a clock
+          * time, says out loud when it moves, and carries its own way out.
+          */}
+        <ArrivalPromise
+          state={arrivalState}
+          arrivalClockHe={arrivalClockHe}
+          minutesAway={etaDisplay && etaDisplay.unit.includes("דק") ? Number(etaDisplay.value) : null}
+          previousClockHe={previousClockHe}
+          displayNameHe={professional.displayName}
+          onGetHelp={onGetHelp}
+          onCancel={onCancelJob}
+          width={width - spacing.lg * 2}
+        />
+
+        <Text style={styles.service} numberOfLines={1}>
+          {serviceNameHe} · {headline}
+        </Text>
 
         <View style={styles.divider} />
 
@@ -151,7 +158,7 @@ export function TrackingBody({
             photoUri={professional.profilePhotoUrl}
             displayNameHe={professional.displayName}
             size={54}
-            tone="light"
+            tone="dark"
           />
           <View style={styles.proText}>
             <Text style={styles.proName} numberOfLines={1}>
@@ -232,7 +239,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     paddingBottom: spacing.xl,
-    backgroundColor: colors.surface,
+    backgroundColor: depth.panel.low,
     borderTopLeftRadius: radii.sheet,
     borderTopRightRadius: radii.sheet,
     paddingHorizontal: spacing.lg,
@@ -253,10 +260,13 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
 
-  heroRow: { flexDirection: "row-reverse", alignItems: "flex-start", justifyContent: "space-between", gap: spacing.md },
-  heroText: { flex: 1, alignItems: "flex-end", gap: spacing.sm },
-  service: { ...type.h3, color: colors.textPrimary, textAlign: "right", writingDirection: "rtl" },
-  state: { ...type.caption, color: colors.textSecondary, textAlign: "right", writingDirection: "rtl" },
+  service: {
+    ...type.meta,
+    color: colors.textSecondary,
+    textAlign: "right",
+    writingDirection: "rtl",
+    marginTop: spacing.md,
+  },
 
   divider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.lg },
 
@@ -282,7 +292,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: radii.md,
-    backgroundColor: colors.surfaceElevated,
+    backgroundColor: depth.panel.high,
   },
   actText: { ...type.captionStrong, fontSize: scale.meta, color: colors.textPrimary },
 
