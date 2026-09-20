@@ -77,6 +77,25 @@ export interface WalkerProps {
   startAt: NormalizedPoint;
   /** The live heading from the pad. Null means standing still. */
   heading: Heading;
+  /**
+   * SOMEWHERE TO WALK TO, WITHOUT ANYBODY STEERING.
+   *
+   * Amit, on what the search should feel like: *"הרדאר שלנו עובר בלי
+   * כפתור לחיצות, עם הדמות בין הרחובות ומחפש איש מקצוע."* While dispatch
+   * is checking, nobody should be handed a control — the screen's job is
+   * to show that something is happening, not to give somebody something
+   * to do. But the figure should not be standing still either, because
+   * the thing being shown is a search.
+   *
+   * So the scene hands the walker a destination and it walks there on its
+   * own, using the same gait, the same bob and the same contact shadow as
+   * a steered walk. Nothing about the motion is a special case; only who
+   * chose the direction is different.
+   *
+   * `heading` wins when both are set: a thumb on the pad always beats the
+   * camera.
+   */
+  autoTo?: NormalizedPoint | null;
   animate?: boolean;
   /** Told where the customer got to, rarely — for the scene to remember. */
   onSettled?: (at: NormalizedPoint) => void;
@@ -95,6 +114,7 @@ export function Walker({
   v,
   startAt,
   heading,
+  autoTo = null,
   animate = true,
   onSettled,
 }: WalkerProps) {
@@ -105,12 +125,6 @@ export function Walker({
   const bob = useRef(new Animated.Value(0)).current;
   const lean = useRef(new Animated.Value(0)).current;
 
-  /*
-   * Facing is STATE and not another Animated value, deliberately. It
-   * changes when somebody turns — a few times a walk — and a mirror is
-   * not something to interpolate through: halfway between a figure and
-   * its mirror image is a figure of zero width.
-   */
   const [facing, setFacing] = useState<1 | -1>(1);
 
   /*
@@ -121,10 +135,19 @@ export function Walker({
    * not — it takes larger steps, which is right. A per-frame constant
    * would make the whole world's pace a property of the hardware.
    */
-  useEffect(() => {
-    if (!heading || !animate || !source) return;
+  /*
+   * ONE LOOP FOR BOTH KINDS OF WALKING.
+   *
+   * A steered walk holds a heading until the thumb moves; an automatic
+   * one recomputes the heading every frame from where it is going. They
+   * are the same walk otherwise, and keeping them in one loop is what
+   * stops the two from drifting into different gaits, different bobs and
+   * two different bugs.
+   */
+  const target = heading ? null : autoTo;
 
-    setFacing(facingFor(heading));
+  useEffect(() => {
+    if ((!heading && !target) || !animate || !source) return;
 
     let frame = 0;
     let last = Date.now();
@@ -135,7 +158,19 @@ export function Walker({
       const dt = Math.min(64, now - last); // a backgrounded tab must not teleport
       last = now;
 
-      const next = clampWalkable(stepFrom(at.current, heading, dt));
+      /*
+       * Which way to face. Steered, it is the thumb. Automatic, it is
+       * recomputed from the remaining distance — and `dv` is weighted by
+       * the same 0.6 the rest of the world uses, so a destination up the
+       * street is not mistaken for one beside you.
+       */
+      const h: Heading = heading ?? headingToward(at.current, target!);
+      if (!h) {
+        onSettled?.(at.current);
+        return;
+      }
+
+      const next = clampWalkable(stepFrom(at.current, h, dt));
       /*
        * Distance is measured from what actually moved, not from the time
        * elapsed. Walking into the edge of the world stops the figure; if
@@ -151,7 +186,7 @@ export function Walker({
       u.setValue(next.u);
       v.setValue(next.v);
       bob.setValue(bobAt(STEER_GAIT, distance.current));
-      lean.setValue(leanAt(STEER_GAIT, distance.current, facingFor(heading)));
+      lean.setValue(leanAt(STEER_GAIT, distance.current, facingFor(h)));
 
       if (now - lastReport > REPORT_MS) {
         lastReport = now;
@@ -166,7 +201,17 @@ export function Walker({
       cancelAnimationFrame(frame);
       onSettled?.(at.current);
     };
-  }, [animate, bob, heading, lean, onSettled, source, u, v]);
+  }, [animate, bob, heading, lean, onSettled, source, target, u, v]);
+
+  /*
+   * Facing is STATE and not another Animated value, deliberately. It
+   * changes when somebody turns — a few times a walk — and a mirror is
+   * not something to interpolate through: halfway between a figure and
+   * its mirror image is a figure of zero width.
+   */
+  useEffect(() => {
+    if (heading) setFacing(facingFor(heading));
+  }, [heading]);
 
   /*
    * STANDING STILL IS NOT MID-STRIDE.
@@ -177,14 +222,14 @@ export function Walker({
    * the animation being paused.
    */
   useEffect(() => {
-    if (heading) return;
+    if (heading || target) return;
     const settle = Animated.parallel([
       Animated.timing(bob, { toValue: 0, duration: 180, useNativeDriver: true }),
       Animated.timing(lean, { toValue: 0, duration: 180, useNativeDriver: true }),
     ]);
     settle.start();
     return () => settle.stop();
-  }, [bob, heading, lean]);
+  }, [bob, heading, lean, target]);
 
   if (!source) return null;
 
@@ -293,6 +338,28 @@ export function Walker({
     </View>
   );
 }
+
+/**
+ * Which of the eight headings points at a destination.
+ *
+ * Null once the figure is close enough to have arrived — without that, a
+ * walker oscillates across its target forever, one step past and one step
+ * back, which reads as a figure having a seizure on the pavement.
+ */
+function headingToward(from: NormalizedPoint, to: NormalizedPoint): Heading {
+  const du = to.u - from.u;
+  // The 3/4 weighting, so a destination up the street is not mistaken
+  // for one beside you. The whole world measures depth this way.
+  const dv = (to.v - from.v) * 0.6;
+  if (Math.hypot(du, dv) < ARRIVED) return null;
+  const deg = (Math.atan2(du, -dv) * 180) / Math.PI;
+  return COMPASS[Math.round(((deg + 360) % 360) / 45) % 8]!;
+}
+
+const COMPASS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"] as const;
+
+/** Close enough. See `headingToward`. */
+const ARRIVED = 0.02;
 
 /**
  * The avatar's height as a fraction of the world.

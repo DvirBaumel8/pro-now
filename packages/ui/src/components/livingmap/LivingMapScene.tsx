@@ -497,31 +497,55 @@ export function LivingMapScene({
   const [heading, setHeading] = useState<Heading>(null);
 
   /*
-   * WALKING IS FOR THE STREET, NOT FOR THE REVEAL AND NOT FOR THE TRIP.
+   * ---------------------------------------------------------------------
+   * TWO PHASES, TWO COMPLETELY DIFFERENT THINGS TO DO
+   * ---------------------------------------------------------------------
+   * Amit drew the line, and it is a product decision rather than a tuning
+   * one: *"בשלב החיפוש… בלי כפתור לחיצות, עם הדמות בין הרחובות ומחפש
+   * איש מקצוע, ביפה כזה. השלב של המשחק מגיע בשלב ההמתנה לאיש מקצוע.
+   * לדוגמה יש 20 דקות עד שהוא מגיע, ב-20 דקות האלה אני רוצה שיהיה
+   * משחק."*
    *
-   * I first allowed it only in CANDIDATES_FOUND, on the argument that
-   * walking off during SEARCHING is walking away from a question being
-   * asked on the customer's behalf. Watching it run showed how wrong that
-   * was: the window lasted about two seconds, which is not a street you
-   * can walk down, it is a door that closes.
+   * WHILE SEARCHING nobody is on their way yet and the question being
+   * asked is on the customer's behalf. That screen is not a place to be
+   * given something to do — it is a place to be shown that something is
+   * happening. So: no pad, no taps, no game. The camera travels the
+   * street and the customer watches.
    *
-   * And the argument does not survive contact with what the wait actually
-   * is. The customer is standing still while a server checks people. That
-   * is precisely the moment there is nothing else to do — it is the same
-   * reason `PlayDrawer` exists — and walking claims nothing about supply,
-   * cancels nothing and delays nothing. The sweep camera gives way to
-   * following them, which is the right trade: a camera touring shops on
-   * your behalf is worth less than you walking to one.
+   * ONCE SOMEBODY IS ON THE WAY the wait has a known length — the ETA is
+   * real and the server's — and there is genuinely nothing to do with it.
+   * That is where the controls belong.
    *
-   * It stops at MATCH_REVEAL. From there the screen has a subject — one
-   * person, in a sheet, with a decision attached — and a camera that can
-   * be walked off it would lose the only thing on screen that matters.
+   * I had this exactly inverted: walking during the search, nothing
+   * during the wait. It is worth writing down WHY I got it backwards,
+   * because the reasoning sounded good. I thought of walking as something
+   * to fill a wait, so I put it in the first waiting screen I saw. Amit
+   * thinks of it as what the customer DOES, which means it belongs in the
+   * wait that is long, known and safe to spend — not in the one where the
+   * answer could arrive in two seconds and the screen would yank the
+   * street away mid-step.
+   *
+   * MATCH_REVEAL stays still in both readings. From there the screen has
+   * a subject: one person, in a sheet, with a decision attached.
    */
-  const mayWalk =
-    canWalk &&
-    (phase === "SEARCHING" || phase === "CANDIDATES_FOUND") &&
-    !profileOpen &&
-    journeyMs === null;
+  const mayWalk = canWalk && phase === "ASSIGNED_ROUTE" && !profileOpen && journeyMs === null;
+
+  /*
+   * THE SEARCH WALKS THE CUSTOMER, RATHER THAN HANDING THEM A CONTROL.
+   *
+   * *"הרדאר שלנו עובר בלי כפתור לחיצות, עם הדמות בין הרחובות ומחפש איש
+   * מקצוע."* The camera already tours the shops while dispatch checks
+   * candidates — that is `sweepFrame` — and until now the avatar stood
+   * still at the start point while it did, usually off screen.
+   *
+   * Handing the walker the sweep's own focus makes the figure walk the
+   * tour instead: the same gait, the same bob, the same contact shadow,
+   * with the camera following it as always. Nobody is given anything to
+   * press, and nothing is claimed — the tour is the search being shown,
+   * and it was already on screen.
+   */
+  const autoTo =
+    canWalk && phase === "SEARCHING" && animate && venues.length > 0 ? sweep.camera.focus : null;
 
   // Taking the thumb off, and being taken off the street, are the same
   // thing to the figure: it stops. Without this a phase change mid-step
@@ -612,7 +636,7 @@ export function LivingMapScene({
          * Following replaces the drag while there is somebody to follow.
          * They are contradictory gestures — see `WorldViewport.follow`.
          */
-        follow={mayWalk ? { u: walkU, v: walkV } : null}
+        follow={mayWalk || autoTo ? { u: walkU, v: walkV } : null}
         animate={animate}
       >
         {(world) => (
@@ -757,6 +781,7 @@ export function LivingMapScene({
                 v={walkV}
                 startAt={walkedTo.current}
                 heading={mayWalk ? heading : null}
+                autoTo={autoTo}
                 animate={animate}
                 onSettled={rememberWalk}
               />
@@ -961,7 +986,15 @@ export function LivingMapScene({
         * to walk it. See `mayWalk`.
         */}
       {mayWalk ? (
-        <View style={styles.steerWrap} pointerEvents="box-none">
+        <View
+          /*
+           * Above the drawer, which owns the bottom of this screen during
+           * the wait. A control the drawer covers is not a control — the
+           * same reason the safety button sits where it does.
+           */
+          style={[styles.steerWrap, { bottom: Math.round(height * SHEET_SHARE) + spacing.xl }]}
+          pointerEvents="box-none"
+        >
           <SteerPad onHeading={setHeading} />
         </View>
       ) : null}
@@ -1009,12 +1042,7 @@ const HUD_SHARE = 0.17;
 const SHEET_SHARE = 0.26;
 
 const styles = StyleSheet.create({
-  steerWrap: {
-    position: "absolute",
-    left: spacing.lg,
-    // Clear of the honesty line at the very bottom, which nothing covers.
-    bottom: spacing.xl * 2,
-  },
+  steerWrap: { position: "absolute", left: spacing.lg },
   scene: { overflow: "hidden", backgroundColor: P.nightTop },
   themeWash: { ...StyleSheet.absoluteFillObject },
   pulse: { position: "absolute", width: 180, height: 180, borderRadius: 90, borderWidth: 2 },
