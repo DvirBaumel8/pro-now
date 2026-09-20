@@ -84,3 +84,4 @@ export { Divider as Hairline } from "./components/Surface";
 export * from "./components/ServiceListRow";
 export * from "./components/Scrim";
 export * from "./screens/StrollBody";
+export * from "./catalog/catalogAdapter";

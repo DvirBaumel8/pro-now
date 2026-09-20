@@ -33,7 +33,7 @@ import {
   photoPromptFor,
   pricingRowsFor,
   togglesFor,
-} from "./catalogAdapter";
+} from "@pro-now/ui";
 import { useCapture } from "./useCapture";
 import {
   availabilitySnapshot,

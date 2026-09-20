@@ -1,5 +1,5 @@
 import type { DepartmentCode } from "@pro-now/types";
-import type { ProPricingRow } from "@pro-now/ui";
+import type { ProPricingRow } from "../screens/ProPricingBody";
 import {
   allServices,
   browseOnly,
@@ -11,17 +11,28 @@ import {
   type CredentialKind,
   type PriceQuoteView,
 } from "@pro-now/types";
-import type {
-  HomeServiceItem,
-  MarkName,
-  ProServiceEligibility,
-  ProServiceToggle,
-  ServiceDetailBodyProps,
-  ServiceMatchRule,
-} from "@pro-now/ui";
+import type { MarkName } from "../components/marks";
+import type { HomeServiceItem } from "../screens/CustomerHomeBody";
+import type { ServiceDetailBodyProps } from "../screens/ServiceDetailBody";
+import type { ProServiceEligibility } from "../screens/ProVerificationBody";
+import type { ProServiceToggle } from "../screens/ProOnlineBody";
+import type { ServiceMatchRule } from "../service-match";
 
 /**
- * One catalogue, read by every screen.
+ * One catalogue, read by every screen — including the real app.
+ *
+ * ---------------------------------------------------------------------
+ * WHY THIS MOVED OUT OF THE GALLERY
+ * ---------------------------------------------------------------------
+ * It lived in `tools/design-preview`, which `/CLAUDE.md §8` calls a
+ * developer-only browser gallery and not a shipping target. So the one
+ * place that knew how to turn a catalogue row into something a screen can
+ * render was the one place a shipping app could not import from, and
+ * `apps/customer-mobile` had grown its own hand-written home grid instead
+ * — which is how the app people install ended up showing different
+ * services, in a different order, from the app we review.
+ *
+ * Presentation mapping is exactly what `packages/ui` is for.
  *
  * Before this file existed the home grid, the service page, the sentence
  * matcher and the professional's eligibility list each carried their own

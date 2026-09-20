@@ -1,0 +1,82 @@
+import type { WorldAssetSources } from "@pro-now/ui";
+
+/**
+ * THE WORLD'S ART, AS THE APP CAN ACTUALLY LOAD IT.
+ *
+ * ---------------------------------------------------------------------
+ * WHY THIS FILE IS A LIST OF `require` CALLS AND NOT A LOOP
+ * ---------------------------------------------------------------------
+ * The design gallery loads these by URL, because it is a web page. A
+ * React Native app cannot: Metro resolves `require` at BUILD time, so a
+ * path it cannot see as a literal is a path that does not get bundled.
+ * `require(`../../assets/world/${id}.webp`)` compiles and then throws at
+ * runtime on a device, which is the worst shape a mistake can take —
+ * fine in every check, broken only in someone's hand.
+ *
+ * So every asset is named once, literally. A file that is not listed here
+ * is a file the app does not have, and `AssetSlot` draws nothing for it,
+ * which is the behaviour the whole world layer is built around.
+ *
+ * Generated from the folder; regenerate rather than edit by hand.
+ */
+/*
+ * Metro resolves `require` at build time, so a bundled asset has to be a
+ * literal `require("...")`. A template string compiles and then throws on
+ * a device, which is the worst shape a mistake can take. The rule that
+ * forbids `require` is right everywhere else in this app.
+ */
+/* eslint-disable @typescript-eslint/no-require-imports */
+export const worldSources: WorldAssetSources = {
+  avatar_01_portrait: require("../../assets/world/avatar_01_portrait.webp"),
+  avatar_02_portrait: require("../../assets/world/avatar_02_portrait.webp"),
+  avatar_03_portrait: require("../../assets/world/avatar_03_portrait.webp"),
+  avatar_04_portrait: require("../../assets/world/avatar_04_portrait.webp"),
+  avatar_05_portrait: require("../../assets/world/avatar_05_portrait.webp"),
+  avatar_06_portrait: require("../../assets/world/avatar_06_portrait.webp"),
+  avatar_07_portrait: require("../../assets/world/avatar_07_portrait.webp"),
+  avatar_08_portrait: require("../../assets/world/avatar_08_portrait.webp"),
+  avatar_09_portrait: require("../../assets/world/avatar_09_portrait.webp"),
+  avatar_10_portrait: require("../../assets/world/avatar_10_portrait.webp"),
+  avatar_11_portrait: require("../../assets/world/avatar_11_portrait.webp"),
+  avatar_12_portrait: require("../../assets/world/avatar_12_portrait.webp"),
+  character_appliance_icon: require("../../assets/world/character_appliance_icon.webp"),
+  character_appliance_world: require("../../assets/world/character_appliance_world.webp"),
+  character_auto_icon: require("../../assets/world/character_auto_icon.webp"),
+  character_auto_world: require("../../assets/world/character_auto_world.webp"),
+  character_build_icon: require("../../assets/world/character_build_icon.webp"),
+  character_build_world: require("../../assets/world/character_build_world.webp"),
+  character_care_icon: require("../../assets/world/character_care_icon.webp"),
+  character_care_world: require("../../assets/world/character_care_world.webp"),
+  character_hair_icon: require("../../assets/world/character_hair_icon.webp"),
+  character_hair_world: require("../../assets/world/character_hair_world.webp"),
+  character_help_icon: require("../../assets/world/character_help_icon.webp"),
+  character_help_world: require("../../assets/world/character_help_world.webp"),
+  character_home_icon: require("../../assets/world/character_home_icon.webp"),
+  character_home_world: require("../../assets/world/character_home_world.webp"),
+  character_move_icon: require("../../assets/world/character_move_icon.webp"),
+  character_move_world: require("../../assets/world/character_move_world.webp"),
+  character_pets_icon: require("../../assets/world/character_pets_icon.webp"),
+  character_pets_world: require("../../assets/world/character_pets_world.webp"),
+  character_tech_icon: require("../../assets/world/character_tech_icon.webp"),
+  character_tech_world: require("../../assets/world/character_tech_world.webp"),
+  character_well_icon: require("../../assets/world/character_well_icon.webp"),
+  character_well_world: require("../../assets/world/character_well_world.webp"),
+  courier_scooter: require("../../assets/world/courier_scooter.webp"),
+  district_appliance: require("../../assets/world/district_appliance.webp"),
+  district_auto: require("../../assets/world/district_auto.webp"),
+  district_care: require("../../assets/world/district_care.webp"),
+  district_hair: require("../../assets/world/district_hair.webp"),
+  district_home: require("../../assets/world/district_home.webp"),
+  district_move: require("../../assets/world/district_move.webp"),
+  district_nails: require("../../assets/world/district_nails.webp"),
+  district_pets: require("../../assets/world/district_pets.webp"),
+  district_tech: require("../../assets/world/district_tech.webp"),
+  district_well: require("../../assets/world/district_well.webp"),
+  dog_walker: require("../../assets/world/dog_walker.webp"),
+  hair_barbershop_hero: require("../../assets/world/hair_barbershop_hero.webp"),
+  moving_van: require("../../assets/world/moving_van.webp"),
+  shared_ground_street: require("../../assets/world/shared_ground_street.webp"),
+  tow_truck: require("../../assets/world/tow_truck.webp"),
+  welcome_hero: require("../../assets/world/welcome_hero.webp"),
+  world_neighbourhood: require("../../assets/world/world_neighbourhood.webp"),
+};
