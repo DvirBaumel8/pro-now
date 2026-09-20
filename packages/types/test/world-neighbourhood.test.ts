@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  minCoverZoom,
   MIN_VENUE_SEPARATION,
   SPOT_SEPARATION,
   PLATE_ASPECT,
@@ -316,5 +317,60 @@ describe("people are the same size as people", () => {
     const avatar = person * WORLD_SIZE.avatarOfPerson;
     expect(avatar / person).toBeLessThan(1.4);
     expect(avatar).toBeLessThan(WORLD_SIZE.district);
+  });
+});
+
+describe("the camera always covers the screen", () => {
+  /*
+   * The zoom table is written as a fraction of the world's WIDTH and the
+   * plate is portrait, so a wide shot could produce a world shorter than
+   * the phone. The clamp then pinned it to a corner and the rest of the
+   * screen was background colour — black bands down two sides of the
+   * city, on the widest shots, which are the ones meant to show the most
+   * of it.
+   */
+  const PHONES: [number, number][] = [
+    [390, 844], // iPhone 14
+    [430, 932], // iPhone Pro Max
+    [360, 800], // common Android
+    [412, 915],
+    [320, 568], // the smallest phone still worth supporting
+    [768, 1024], // a tablet, where the plate is wider than the screen
+  ];
+
+  it("never draws the world smaller than the viewport, on any shot or phone", () => {
+    for (const [w, h] of PHONES) {
+      for (const shot of ["WIDE", "EXPLORE", "ROUTE", "DISTRICT", "VENUE"] as const) {
+        const box = worldBox(w, h, worldZoomFor(shot), true);
+        expect(box.width, `${shot} on ${w}x${h}`).toBeGreaterThanOrEqual(w - 0.01);
+        expect(box.height, `${shot} on ${w}x${h}`).toBeGreaterThanOrEqual(h - 0.01);
+      }
+    }
+  });
+
+  it("raises a zoom that would not cover, and leaves the rest alone", () => {
+    const [w, h] = [390, 844];
+    const min = minCoverZoom(w, h);
+    // Below the floor: raised to exactly cover.
+    const tiny = worldBox(w, h, min / 3, true);
+    expect(tiny.width).toBeCloseTo(worldBox(w, h, min, true).width, 5);
+    // Above it: untouched.
+    const close = worldBox(w, h, min * 2, true);
+    expect(close.width).toBeGreaterThan(tiny.width * 1.9);
+  });
+
+  /*
+   * A world that fits on the screen is a picture, not somewhere to walk.
+   * This is the shot the customer strolls in, so it has to have somewhere
+   * to stroll to.
+   */
+  it("gives the walking shot real ground to cover", () => {
+    const box = worldBox(390, 844, worldZoomFor("EXPLORE"), true);
+    expect(box.width / 390).toBeGreaterThan(1.5);
+    expect(box.height / 844).toBeGreaterThan(1.3);
+  });
+
+  it("keeps the walking shot wider than the one used to read a shopfront", () => {
+    expect(worldZoomFor("EXPLORE")).toBeLessThan(worldZoomFor("VENUE"));
   });
 });

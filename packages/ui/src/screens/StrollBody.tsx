@@ -182,7 +182,7 @@ export function StrollBody({
       <WorldViewport
         width={width}
         height={height}
-        zoom={worldZoomFor("DISTRICT")}
+        zoom={worldZoomFor("EXPLORE")}
         worldSized={Boolean(sources["world_neighbourhood"])}
         /*
          * Dragging is allowed only when there is nobody to follow. They

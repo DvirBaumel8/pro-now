@@ -114,8 +114,48 @@ export function worldBox(
   if (!plateShaped) {
     return { width: viewportWidth * zoom, height: viewportHeight * zoom };
   }
-  const width = viewportWidth * WORLD_EXTENT.width * zoom;
+  /*
+   * NEVER SMALLER THAN THE SCREEN IT IS SEEN THROUGH.
+   *
+   * The zoom table was written as a fraction of the world's WIDTH, and
+   * the plate is portrait — so a wide shot could produce a world narrower
+   * or shorter than the viewport. The camera clamp then pinned it to a
+   * corner and the rest of the screen was the background colour: black
+   * bands down two sides of the city, on the widest shots, which are the
+   * ones meant to show the most of it.
+   *
+   * `WIDE` at a 390x844 phone produced a world 0.81 screens tall. It has
+   * presumably looked like that on every phone taller than 16:9 since the
+   * plate became portrait, and it reads as the artwork failing to load
+   * rather than as a camera choice.
+   *
+   * So the box covers, always, and a zoom that asks for less is raised to
+   * the point where it just covers. Nothing else in the file has to know:
+   * every coordinate is a fraction of this box.
+   */
+  const asked = viewportWidth * WORLD_EXTENT.width * zoom;
+  const width = Math.max(asked, minCoverWidth(viewportWidth, viewportHeight));
   return { width, height: width / PLATE_ASPECT };
+}
+
+/**
+ * The narrowest the plate may be drawn and still cover the screen.
+ *
+ * Wide enough for the viewport, and tall enough too — which for a plate
+ * taller than the phone means the width implied by the height.
+ */
+export function minCoverWidth(viewportWidth: number, viewportHeight: number): number {
+  return Math.max(viewportWidth, viewportHeight * PLATE_ASPECT);
+}
+
+/**
+ * The smallest zoom that still covers this screen.
+ *
+ * Useful to callers that want to know whether a shot they asked for was
+ * raised — the camera cannot go wider than this, whatever the table says.
+ */
+export function minCoverZoom(viewportWidth: number, viewportHeight: number): number {
+  return minCoverWidth(viewportWidth, viewportHeight) / (viewportWidth * WORLD_EXTENT.width);
 }
 
 /** How much of the world one screen shows, per axis. */
@@ -594,7 +634,7 @@ export function welcomeViewViolations(): string[] {
  * different things, and only the second one would flatten the world into a
  * map.
  */
-export function worldZoomFor(shot: "WIDE" | "DISTRICT" | "VENUE" | "ROUTE"): number {
+export function worldZoomFor(shot: "WIDE" | "DISTRICT" | "VENUE" | "ROUTE" | "EXPLORE"): number {
   /** The zoom at which one screen of viewport covers the world's width. */
   const fit = 1 / WORLD_EXTENT.width;
   switch (shot) {
@@ -610,6 +650,40 @@ export function worldZoomFor(shot: "WIDE" | "DISTRICT" | "VENUE" | "ROUTE"): num
     // Following somebody: wide enough to see where they are going.
     case "ROUTE":
       return fit * 1.25;
+    /*
+     * WALKING THE STREET YOURSELF.
+     *
+     * Amit: *"שהכל יהיה רחב בתנועתיות ויהיה אפשר באמת לטייל בין
+     * המקצועות."*
+     *
+     * Wider than DISTRICT and for a reason that is about walking rather
+     * than about taste. A close camera on a moving figure turns every
+     * step into a large movement of the whole picture, so the world feels
+     * like it is being shoved past you and you cannot see where you are
+     * going — you arrive at shops rather than approaching them.
+     *
+     * Pulled back, the same step moves a smaller fraction of the frame,
+     * several shops are in view at once, and choosing which way to go
+     * becomes possible instead of a guess. That is the difference between
+     * a street you stroll and a corridor you are pushed down.
+     *
+     * ---------------------------------------------------------------------
+     * AND IT IS CLOSER THAN THE WIDE SHOTS, NOT WIDER
+     * ---------------------------------------------------------------------
+     * My first instinct was to pull back, and the geometry says the
+     * opposite. The plate is only 2.4 viewports across, so a wide zoom
+     * makes the whole world little more than one screen — and a world
+     * that fits on the screen is a picture, not somewhere to walk. There
+     * is nothing to cross and nothing beyond the edge to go and find.
+     *
+     * At this zoom the neighbourhood is about 1.85 screens across and 1.5
+     * down, so there is genuinely somewhere to go, several shops are in
+     * view at once, and a shopfront is still large enough to read. That
+     * is what makes a street strollable: distance you can cover and
+     * destinations you can see from where you stand.
+     */
+    case "EXPLORE":
+      return fit * 1.85;
   }
 }
 
