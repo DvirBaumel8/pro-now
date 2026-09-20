@@ -24,7 +24,7 @@ import {
   type PlayDrawerActionId,
   type Heading,
   type NormalizedPoint,
-  CUSTOMER_POINT,
+  WALK_START,
   walkingAssetFor,
   avatarById,
   type AvatarChoice,
@@ -41,6 +41,7 @@ import { DistrictLayer } from "./DistrictLayer";
 import { VenueLayer } from "./VenueLayer";
 import { WorldLife } from "./WorldLife";
 import { PlayDrawer } from "./PlayDrawer";
+import { ScrimBand } from "./ScrimBand";
 import { livingPalette as P } from "./palette";
 import { SteerPad } from "./SteerPad";
 import { Walker } from "./Walker";
@@ -490,22 +491,37 @@ export function LivingMapScene({
   const walkHeight = avatarById(avatar)?.heightRatio ?? 1;
   const canWalk = Boolean(walkAssetId && worldSources?.[walkAssetId]);
 
-  const walkU = useRef(new Animated.Value(CUSTOMER_POINT.u)).current;
-  const walkV = useRef(new Animated.Value(CUSTOMER_POINT.v)).current;
-  const walkedTo = useRef<NormalizedPoint>(CUSTOMER_POINT);
+  const walkU = useRef(new Animated.Value(WALK_START.u)).current;
+  const walkV = useRef(new Animated.Value(WALK_START.v)).current;
+  const walkedTo = useRef<NormalizedPoint>(WALK_START);
   const [heading, setHeading] = useState<Heading>(null);
 
   /*
-   * WALKING IS FOR THE STREET, NOT FOR THE WAIT AND NOT FOR THE TRIP.
+   * WALKING IS FOR THE STREET, NOT FOR THE REVEAL AND NOT FOR THE TRIP.
    *
-   * While dispatch is still searching, walking away would be walking away
-   * from a question that is being asked on the customer's behalf. Once a
-   * professional is on the way, the screen's subject is that trip, and a
-   * camera that can be walked off it would lose the one thing the customer
-   * is there to watch. Between those two — the street full of candidates —
-   * is exactly where wandering is the point.
+   * I first allowed it only in CANDIDATES_FOUND, on the argument that
+   * walking off during SEARCHING is walking away from a question being
+   * asked on the customer's behalf. Watching it run showed how wrong that
+   * was: the window lasted about two seconds, which is not a street you
+   * can walk down, it is a door that closes.
+   *
+   * And the argument does not survive contact with what the wait actually
+   * is. The customer is standing still while a server checks people. That
+   * is precisely the moment there is nothing else to do — it is the same
+   * reason `PlayDrawer` exists — and walking claims nothing about supply,
+   * cancels nothing and delays nothing. The sweep camera gives way to
+   * following them, which is the right trade: a camera touring shops on
+   * your behalf is worth less than you walking to one.
+   *
+   * It stops at MATCH_REVEAL. From there the screen has a subject — one
+   * person, in a sheet, with a decision attached — and a camera that can
+   * be walked off it would lose the only thing on screen that matters.
    */
-  const mayWalk = canWalk && phase === "CANDIDATES_FOUND" && !profileOpen && journeyMs === null;
+  const mayWalk =
+    canWalk &&
+    (phase === "SEARCHING" || phase === "CANDIDATES_FOUND") &&
+    !profileOpen &&
+    journeyMs === null;
 
   // Taking the thumb off, and being taken off the street, are the same
   // thing to the figure: it stops. Without this a phase change mid-step
@@ -820,14 +836,17 @@ export function LivingMapScene({
         * so does anyone holding the phone. Two soft bands, top and bottom,
         * so the HUD always has something to sit on without the world
         * having to be dimmed everywhere.
+        *
+        * They are gradients. They were flat panels, and a flat panel over
+        * a photograph draws a hard line across it — see `ScrimBand`.
         */}
-      <View style={[styles.scrimTop, { height: height * HUD_SHARE }]} pointerEvents="none" />
+      <ScrimBand width={width} height={height * HUD_SHARE} edge="top" />
       {/*
         * No bottom band during the reveal — the match sheet is a real
         * surface and a scrim under it would just be a second, softer sheet.
         */}
       {phase === "MATCH_REVEAL" ? null : (
-        <View style={[styles.scrimBottom, { height: height * 0.18 }]} pointerEvents="none" />
+        <ScrimBand width={width} height={height * 0.18} edge="bottom" strength={0.6} />
       )}
 
       {/* ---------------- LAYER 6 — the HUD ---------------- */}

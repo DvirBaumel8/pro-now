@@ -123,6 +123,22 @@ export function distanceWalked(elapsedMs: number, speed = STEER_SPEED): number {
  */
 export const WALKABLE = { minU: 0.06, maxU: 0.94, minV: 0.08, maxV: 0.96 } as const;
 
+/**
+ * Where a walk begins.
+ *
+ * NOT `CUSTOMER_POINT`. That is where the customer's own door is on the
+ * assignment route, at the very bottom of the world — and starting there
+ * put the figure on the last few pixels of the plate, half cut off by the
+ * edge of the phone, because the camera clamps rather than show past the
+ * end of the world. The first thing anybody saw of their own avatar was
+ * its head.
+ *
+ * Far enough up that there is street both in front of and behind them,
+ * which is the difference between standing somewhere and standing at the
+ * end of something.
+ */
+export const WALK_START = { u: 0.5, v: 0.74 } as const;
+
 export function insideWalkable(at: NormalizedPoint): boolean {
   return (
     at.u >= WALKABLE.minU && at.u <= WALKABLE.maxU && at.v >= WALKABLE.minV && at.v <= WALKABLE.maxV

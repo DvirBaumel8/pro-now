@@ -217,7 +217,25 @@ export function WorldStage({
 
         const interaction = onFound ? interactionByKey.get(placement.key) : undefined;
         if (!interaction) {
-          return <AssetSlot key={placement.key} placement={moved} sources={sources} quiet={quiet} />;
+          /*
+           * NOTHING, NOT A GREY BOX.
+           *
+           * The stage is the world Amit shows people. The ugly
+           * placeholder earns its place in the gallery, where a missing
+           * asset should shout — here it is a rectangle labelled
+           * `shared_scooter_01` parked in the middle of the street, which
+           * is what the walk test caught. An absent object is better
+           * represented by the pavement it will stand on.
+           */
+          return (
+            <AssetSlot
+              key={placement.key}
+              placement={moved}
+              sources={sources}
+              quiet={quiet}
+              pending="none"
+            />
+          );
         }
         return (
           <PlayableObject

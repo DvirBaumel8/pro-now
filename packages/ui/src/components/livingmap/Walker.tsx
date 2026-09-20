@@ -293,7 +293,7 @@ export function Walker({
  * one figure is in the foreground by definition: it is where the customer
  * is standing.
  */
-const AVATAR_HEIGHT = WORLD_SIZE.travellerHeight * 1.7;
+const AVATAR_HEIGHT = WORLD_SIZE.travellerHeight * 2.1;
 
 /** A standing person is roughly this much wider than tall. */
 const FIGURE_ASPECT = 0.42;

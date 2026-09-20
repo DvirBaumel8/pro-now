@@ -8,7 +8,9 @@ import { matchServicesByText } from "@pro-now/ui";
 import { canSaveSession, clearSession, loadSession, saveSession, savedAgoHe } from "./session";
 import { HAIR_DISCOVERY_IDS } from "@pro-now/ui";
 
+import type { WorldAssetSources } from "@pro-now/ui";
 import { worldSources } from "./worldSources";
+import { standInWorldSources } from "./standInAvatars";
 
 import { ActiveJobCapsule, AddressPickerBody, AppHeader, AvatarPickerBody, customerDarkTheme, FocusSheet, ScreenTransition, ArrivalVerifyBody, CallsListBody, CAPSULE_HEIGHT, ChatBody, ConnectionBanner, CategoryBody, CustomerHomeBody, CustomerProfileBody, customerTheme, DescribeFaultBody, JobCompleteBody, lex, MatchConfirmBody, NavGlyph, Persona, PhoneAuthBody, ProEarningsBody, ProJobBody, ProJobSettledBody, ProOfferBody, ProOnlineBody, ProPricingBody, ProProfileBody, ProShiftBody, proTheme, ProVerificationBody, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, Sheet, spacing, tint, TrackingBody, type as t, WelcomeBody } from "@pro-now/ui";
 import type { JobMediaItem, LiveLocationState, MarkName, NavGlyphName, ProPricingRow } from "@pro-now/ui";
@@ -324,7 +326,21 @@ export function App() {
    * The whole screen is gated on this. See the comment at the call site
    * for why an empty picker is worse than no picker at all.
    */
-  const avatarArtReady = AVATARS.some((a) => worldSources[a.portraitAssetId]);
+  /*
+   * WALKING WITH BORROWED FACES — a review control, off by default.
+   *
+   * The picker and the walk are both finished and both invisible until
+   * the twenty-four avatar files land. That is right in the app and
+   * useless to Amit, who cannot feel the control he asked for. This lets
+   * the GALLERY borrow the professional figures that have already
+   * arrived, and it is deliberately wrong in the way that matters — they
+   * face the camera and a real avatar is seen from behind — so nobody can
+   * mistake it for the finished thing. See `standInAvatars.ts`.
+   */
+  const [standIn, setStandIn] = useState(false);
+  const art = standIn ? standInWorldSources : worldSources;
+
+  const avatarArtReady = AVATARS.some((a) => art[a.portraitAssetId]);
 
   /** Sides this device has already signed in on. See `session.ts`. */
   const authedSides = useRef<Set<Side>>(new Set(restored?.authedSides ?? []));
@@ -415,7 +431,7 @@ export function App() {
         >
         {gate?.name === "welcome" ? (
           <WelcomeBody
-            worldSources={worldSources}
+            worldSources={art}
             /*
              * Straight in if this device has signed in on that side before.
              * The welcome screen itself is kept — it is the screen Amit
@@ -467,7 +483,7 @@ export function App() {
         ) : gate?.name === "avatar" ? (
           <AvatarPickerBody
             value={avatar}
-            sources={worldSources}
+            sources={art}
             onChoose={(id) => {
               setAvatar(id);
               avatarAnswered.current = true;
@@ -500,6 +516,7 @@ export function App() {
               setPendingQuote(null);
             }}
             avatar={avatar}
+            art={art}
           />
         ) : (
           <ProApp
@@ -519,6 +536,68 @@ export function App() {
         )}
         </ScreenTransition>
         </View>
+
+        {/*
+          * THE REVIEW CONTROL FOR THE WALK.
+          *
+          * Only while the real avatar art is missing, because the moment
+          * it lands this is not a choice anybody should be offered — it is
+          * just a worse version of the thing.
+          *
+          * It says what it is before it says what it does, like every
+          * demo control here. A demo control that can be mistaken for the
+          * product is worse than no demo control.
+          */}
+        {!AVATARS.some((a) => worldSources[a.worldAssetId]) && !gate ? (
+          <Pressable
+            onPress={() => {
+              const next = !standIn;
+              setStandIn(next);
+              /*
+               * Turning it on has to re-ask the question, or somebody who
+               * already skipped never sees the picker and never gets a
+               * figure to walk with.
+               *
+               * But it must not jump the queue. This control is reachable
+               * from the landing page, and sending somebody straight to
+               * the avatar picker from there skips the sign-in — which is
+               * how the walk test first failed: no welcome, no auth, no
+               * app. The picker opens now only if we are already inside;
+               * otherwise the flag is set and the question arrives in its
+               * own place, after sign-in.
+               */
+              /*
+               * Re-ask only if there is nothing to walk as.
+               *
+               * When the portraits were missing this control had to open
+               * the picker, because the picker was hidden and nobody had
+               * ever been asked. The faces are real now and the question
+               * arrives by itself after sign-in — so re-opening it here
+               * would take a choice somebody already made and put it back
+               * in front of them for no reason.
+               */
+              if (!avatar && !gate) {
+                avatarAnswered.current = false;
+                setGate(next ? { name: "avatar" } : null);
+              }
+            }}
+            accessibilityRole="button"
+            /*
+             * Below the connection banner and out of every screen's way.
+             *
+             * It started at the bottom of the screen and landed straight
+             * on top of the landing page's own call to action, which the
+             * walk test caught by being unable to click through it. A demo
+             * control that blocks the product is worse than one nobody
+             * finds.
+             */
+            style={[styles.standIn, { top: bannerH + spacing.xl * 2 }]}
+          >
+            <Text style={styles.standInText}>
+              {standIn ? "▪ הליכה (הדגמה)" : "▸ הליכה (הדגמה)"}
+            </Text>
+          </Pressable>
+        ) : null}
 
         {notice && !gate ? (
           // Offset by the banner, which is in the layout above this overlay.
@@ -642,6 +721,7 @@ function CustomerApp({
   pendingQuote,
   onQuoteDecision,
   avatar,
+  art,
 }: {
   width: number;
   height: number;
@@ -656,6 +736,8 @@ function CustomerApp({
    * everybody who skipped it, which the whole app has to handle.
    */
   avatar: AvatarChoice;
+  /** The art that has arrived — or, in review, the borrowed stand-ins. */
+  art: WorldAssetSources;
 }) {
   const snapshot = useLiveSnapshot();
   /**
@@ -1167,7 +1249,7 @@ const go = useCallback((r: CustomerRoute) => {
                */
               availableNowCount: supply.supplyFor(s2.id).count,
             }))}
-            worldSources={worldSources}
+            worldSources={art}
             onSelectService={(id) => go({ name: "service", serviceId: id })}
             /*
              * TYPED, NOT TAPPED.
@@ -1367,7 +1449,7 @@ const go = useCallback((r: CustomerRoute) => {
 
         return (
           <SearchingBody
-            worldSources={worldSources}
+            worldSources={art}
             departmentCode={departmentCodeByServiceId[route.serviceId]}
             serviceNameHe={page?.nameHe ?? ""}
             living={living}
@@ -1537,7 +1619,7 @@ const go = useCallback((r: CustomerRoute) => {
              * started with, so progress is a fraction of a real number
              * rather than a timer this screen invented.
              */
-            worldSources={worldSources}
+            worldSources={art}
             departmentCode={trackedService.id ? departmentCodeByServiceId[trackedService.id] : null}
             etaSecondsAtAssignment={matchFixture.eta?.etaSeconds ?? null}
             /*
@@ -1704,7 +1786,7 @@ const go = useCallback((r: CustomerRoute) => {
               onClearPhotos: () => capture.photos.forEach((p) => capture.removePhoto(p.id)),
             }}
             width={width}
-            worldSources={worldSources}
+            worldSources={art}
             onSelectService={(id) => go({ name: "service", serviceId: id })}
             /*
              * A category does not open a category page. It takes the
@@ -2754,6 +2836,26 @@ function TabGlyph({ name, color }: { name: NavGlyphName; color: string }) {
 }
 
 const styles = StyleSheet.create({
+  /*
+   * SMALL, AND ON THE LEFT.
+   *
+   * It began as a full-width strip and covered the greeting and the
+   * headline of whatever screen it was on — the app's own words, hidden
+   * by a control that is not part of the app. In a right-to-left layout
+   * the text runs to the right, so the left edge is the one corner that
+   * is reliably free.
+   */
+  standIn: {
+    position: "absolute",
+    left: spacing.md,
+    paddingVertical: 6,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.pill,
+    backgroundColor: "rgba(46,38,64,0.92)",
+    alignItems: "center",
+  },
+  standInText: { ...t.bodyStrong, color: "#F7F3FA" },
+  standInHint: { ...t.caption, color: "#A79FB3" },
   root: { flex: 1, alignItems: "center", justifyContent: "flex-start" },
 
   notice: {

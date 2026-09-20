@@ -133,6 +133,8 @@ export function PlayableObject({
           placement={{ ...placement, left: 0, top: 0 }}
           sources={sources}
           quiet={quiet}
+          /* Nothing rather than a labelled rectangle. See WorldStage. */
+          pending="none"
         />
       </Pressable>
     </Animated.View>

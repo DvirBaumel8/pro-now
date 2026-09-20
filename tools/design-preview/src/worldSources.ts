@@ -96,4 +96,37 @@ export const worldSources: WorldAssetSources = {
   moving_van: { uri: "world/moving_van.webp" },
   tow_truck: { uri: "world/tow_truck.webp" },
   dog_walker: { uri: "world/dog_walker.webp" },
+
+  /*
+   * THE TWELVE FACES — ten people, a dog and a cat.
+   *
+   * Amit's reaction to the sheet was the shortest review in this project
+   * so far: *"את זה ממש אהבתי!!!!!!!!!!!!"*
+   *
+   * Cut from one 4x3 sheet with real alpha and mapped onto the roster by
+   * WHO each one is rather than by where they sat on the sheet — the
+   * roster is five women, five men and two animals, and the sheet is in
+   * neither order. The coloured rim the generator left at the soft edges
+   * was replaced with the nearest opaque colour before the cut; on a dark
+   * screen it read as an outline around every face.
+   *
+   * They are a deliberately different register from the world: brighter,
+   * rounder, more of a game. That was settled rather than tolerated — the
+   * avatar is the one thing on screen that is NOT part of the world, it
+   * is the person looking at it. The figure that walks the street has no
+   * such freedom and obeys the same horizon, ground plane and light as
+   * everything else.
+   */
+  avatar_01_portrait: { uri: "world/avatar_01_portrait.webp" },
+  avatar_02_portrait: { uri: "world/avatar_02_portrait.webp" },
+  avatar_03_portrait: { uri: "world/avatar_03_portrait.webp" },
+  avatar_04_portrait: { uri: "world/avatar_04_portrait.webp" },
+  avatar_05_portrait: { uri: "world/avatar_05_portrait.webp" },
+  avatar_06_portrait: { uri: "world/avatar_06_portrait.webp" },
+  avatar_07_portrait: { uri: "world/avatar_07_portrait.webp" },
+  avatar_08_portrait: { uri: "world/avatar_08_portrait.webp" },
+  avatar_09_portrait: { uri: "world/avatar_09_portrait.webp" },
+  avatar_10_portrait: { uri: "world/avatar_10_portrait.webp" },
+  avatar_11_portrait: { uri: "world/avatar_11_portrait.webp" },
+  avatar_12_portrait: { uri: "world/avatar_12_portrait.webp" },
 };
