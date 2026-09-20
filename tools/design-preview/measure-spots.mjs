@@ -74,14 +74,45 @@ print(json.dumps({"points": pts[::37].round(4).tolist(), "share": round(float(so
 const raw = execFileSync("python3", ["-c", py], { encoding: "utf8", maxBuffer: 1 << 26 });
 const { points, share, size } = JSON.parse(raw);
 
-// The walk's own clamp. A shop outside it is a trade nobody can reach.
-const WALKABLE = { minU: 0.06, maxU: 0.94, minV: 0.08, maxV: 0.96 };
-// Far enough apart that two shopfronts never touch. See WORLD_SIZE.
-const SEP = { u: 0.2, v: 0.13 };
+/*
+ * Where a shop may STAND, which is tighter than where a person may walk.
+ *
+ * A figure can stand on the last few percent of the plate and look fine;
+ * a building cannot, because it is drawn from its footing upwards and
+ * outwards and would be clipped by the edge of the world. The first run
+ * of this put a shop at u=0.94 and the plate's own test caught it.
+ */
+const BUILDABLE = { minU: 0.12, maxU: 0.88, minV: 0.1, maxV: 0.95 };
+/*
+ * Far enough apart that two shopfronts never touch. See WORLD_SIZE.
+ *
+ * Measured with a margin rather than to the exact limit: the first run
+ * produced a pair separated by 0.13000000000000006 on one axis, which is
+ * "apart" by the rule and a coin toss in floating point. A separation
+ * that depends on rounding is not a separation.
+ */
+const MARGIN = 1.06;
+const SEP = { u: 0.2 * MARGIN, v: 0.13 * MARGIN };
+
+/*
+ * The customer's own doorstep, which is not a place to put a shop.
+ *
+ * `CUSTOMER_POINT` is where the assignment route ends — where the person
+ * waiting actually is. A shop measured onto that spot means a
+ * professional's route starts and finishes in the same place, so the
+ * journey neither travels nor grows, and the screen shows somebody
+ * arriving at a building they were already standing in.
+ */
+const CUSTOMER = { u: 0.5, v: 0.9 };
+const CLEAR_OF_CUSTOMER = 0.14;
 
 const usable = points
   .map(([u, v]) => ({ u, v }))
-  .filter((p) => p.u >= WALKABLE.minU && p.u <= WALKABLE.maxU && p.v >= WALKABLE.minV && p.v <= WALKABLE.maxV)
+  .filter(
+    (p) =>
+      p.u >= BUILDABLE.minU && p.u <= BUILDABLE.maxU && p.v >= BUILDABLE.minV && p.v <= BUILDABLE.maxV
+  )
+  .filter((p) => Math.hypot(p.u - CUSTOMER.u, (p.v - CUSTOMER.v) * 0.6) > CLEAR_OF_CUSTOMER)
   // Nearest the viewer first: the front of the street is the part
   // somebody sees without walking anywhere.
   .sort((a, b) => b.v - a.v);

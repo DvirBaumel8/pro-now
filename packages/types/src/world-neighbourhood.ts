@@ -252,38 +252,28 @@ export const DISTRICT_SITES: readonly DistrictSite[] = [
  */
 export const PLATE_SPOTS: readonly NormalizedPoint[] = [
   /*
-   * RE-MEASURED, WITH THE RULE THE FIRST MEASUREMENT DID NOT HAVE.
+   * MEASURED OFF THE PLATE, NOT DESIGNED.
    *
-   * Amit: *"כל המכוניות והבניינים והנסיעה מבולגנת ממש."* Seven of the
-   * fifty-five pairs of spots were closer together than a shopfront is
-   * wide, so seven pairs of buildings were drawn through each other. The
-   * first pass scored each point on its own merits — is this pavement, is
-   * there a road nearby — and never asked the only question that matters
-   * for a set of them: can two shops stand here at once?
+   * These came out of `measure-spots.mjs` run against the promenade
+   * plate: every pixel bright enough to be lit stone rather than tarmac
+   * or shadow, and not green, eroded so no shop stands on the last pixel
+   * before a kerb, then sampled for separation and spread.
    *
-   * So the picking is greedy now. Points are scored as before (pavement
-   * under the footing, almost no road under it, a road within reach,
-   * because a shopfront faces a street) and then taken best-first, each one
-   * only if it clears every spot already taken on at least one axis — a
-   * building's width apart across the street, or a building's depth apart
-   * up it. Clearing on one axis is enough because the world is drawn in
-   * perspective: two shops at the same height must stand apart, and two at
-   * different heights read as near and far.
-   *
-   * Bounded to u 0.12–0.88 as before, since a building is drawn outward
-   * from its footing and half of one at the edge hangs off the world.
+   * The previous set was measured off a DIFFERENT plate and carried over
+   * unchanged, which put two shops in a road. The drawing knows where the
+   * pavement is; this file only records what it said.
    */
-  { u: 0.605, v: 0.170 },
-  { u: 0.310, v: 0.200 },
-  { u: 0.130, v: 0.340 },
-  { u: 0.615, v: 0.355 },
-  { u: 0.350, v: 0.405 },
-  { u: 0.770, v: 0.515 },
-  { u: 0.345, v: 0.545 },
-  { u: 0.340, v: 0.675 },
-  { u: 0.125, v: 0.750 },
-  { u: 0.790, v: 0.835 },
-  { u: 0.360, v: 0.875 },
+  { u: 0.738, v: 0.875 },
+  { u: 0.237, v: 0.87 },
+  { u: 0.576, v: 0.678 },
+  { u: 0.359, v: 0.59 },
+  { u: 0.326, v: 0.452 },
+  { u: 0.539, v: 0.438 },
+  { u: 0.855, v: 0.366 },
+  { u: 0.479, v: 0.3 },
+  { u: 0.242, v: 0.266 },
+  { u: 0.838, v: 0.129 },
+  { u: 0.453, v: 0.126 },
 ];
 
 /** The measured spot a trade stands on, by its position in the table. */

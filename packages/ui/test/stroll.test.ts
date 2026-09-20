@@ -6,6 +6,21 @@ import { DEPTH_STEP, DEPTH_WEIGHT, depthChanged, NEAR, nearestDistrict } from ".
 
 const codes = Object.keys(WORLD_DISTRICTS) as DepartmentCode[];
 
+/** A point on this plate that is far enough from every shop to be nowhere. */
+function findOpenPoint(): { u: number; v: number } | null {
+  for (let u = 0.1; u < 0.95; u += 0.03) {
+    for (let v = 0.1; v < 0.95; v += 0.03) {
+      const at = { u, v };
+      const clear = codes.every((c) => {
+        const s = districtCentre(c);
+        return Math.hypot(s.u - at.u, (s.v - at.v) * DEPTH_WEIGHT) >= NEAR;
+      });
+      if (clear) return at;
+    }
+  }
+  return null;
+}
+
 describe("the trade the walker is standing by", () => {
   it("names the shop you are standing on", () => {
     for (const code of codes) {
@@ -18,14 +33,32 @@ describe("the trade the walker is standing by", () => {
    * always showing something is a label that is sometimes lying about
    * which shop you are at.
    */
+  /*
+   * Saying nothing is a real answer and the common one — but WHERE the
+   * open ground is belongs to the plate, not to this file. Both of these
+   * used to name a hardcoded point, and both broke the day a new plate
+   * moved the pavement under them, which is the test being wrong rather
+   * than the code. So the open point is searched for.
+   */
   it("says nothing out in the open", () => {
-    expect(nearestDistrict({ u: 0.5, v: 0.74 })).toBeNull();
+    const open = findOpenPoint();
+    expect(open, "this plate has no open ground at all").not.toBeNull();
+    expect(nearestDistrict(open!)).toBeNull();
   });
 
-  it("says nothing rather than pointing across the whole world", () => {
-    // The far corner is close to nothing, and the nearest shop to it is
-    // still most of a neighbourhood away.
-    expect(nearestDistrict({ u: 0.97, v: 0.02 })).toBeNull();
+  it("stays silent everywhere that is genuinely far from a shop", () => {
+    // Not one lucky point: every point more than the threshold from all
+    // eleven must be silent, or the label is reaching.
+    for (let u = 0.05; u < 1; u += 0.07) {
+      for (let v = 0.05; v < 1; v += 0.07) {
+        const at = { u, v };
+        const far = codes.every((c) => {
+          const s = districtCentre(c);
+          return Math.hypot(s.u - at.u, (s.v - at.v) * DEPTH_WEIGHT) >= NEAR;
+        });
+        if (far) expect(nearestDistrict(at), `${u.toFixed(2)},${v.toFixed(2)}`).toBeNull();
+      }
+    }
   });
 
   /*

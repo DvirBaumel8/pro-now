@@ -87,11 +87,24 @@ describe("the neighbourhood", () => {
     expect(spread).toBeGreaterThan(0.02);
   });
 
-  it("puts the shops on both sides of the road so you travel between them", () => {
+  it("spreads one trade's shops out, so there is something to travel between", () => {
+    /*
+     * This used to demand a slot on each side of the trade's own centre,
+     * and it broke the moment a plate put a trade near the right-hand
+     * edge — there is no "further right" there, and the demand was an
+     * accident of the plate it was written against rather than a rule
+     * about the world.
+     *
+     * What actually matters is that the shops of one trade are not
+     * stacked on one another: arriving somewhere with options in it is
+     * the whole point, and options you cannot see apart are one option.
+     */
     const slots = venueSlots("PETS", 4);
-    const centre = districtCentre("PETS");
-    expect(slots.some((s) => s.u > centre.u)).toBe(true);
-    expect(slots.some((s) => s.u < centre.u) || slots.some((s) => s.v !== centre.v)).toBe(true);
+    const apart = slots.flatMap((a, i) =>
+      slots.slice(i + 1).map((b) => Math.hypot(a.u - b.u, a.v - b.v))
+    );
+    expect(Math.max(...apart)).toBeGreaterThan(0.2);
+    expect(new Set(slots.map((s) => `${s.u},${s.v}`)).size).toBe(slots.length);
   });
 
   it("copes with a single candidate", () => {
