@@ -13,6 +13,7 @@ import {
 
 import { palette, radii, scale, spacing, type } from "../../theme";
 import { AssetSlot, EMPTY_ASSET_SOURCES, type WorldAssetSources } from "./AssetSlot";
+import { ShopSign, signAccent } from "./ShopSign";
 import { HAIR_PACK_V0 } from "./hairPack";
 
 /**
@@ -329,6 +330,39 @@ export function VenueLayer({
             </Pressable>
 
             {/*
+              * THE NAME OVER THE DOOR, ALWAYS.
+              *
+              * The art carries the TRADE — "PRO NOW תיקונים" is painted on
+              * the file — so three plumbers online drew the same sign three
+              * times and the street said nothing about whose business any
+              * of them was. Amit: *"חשוב חשוב שלכל בעל מקצוע יהיה את בית
+              * העסק שלו, כמה שיותר ברור."*
+              *
+              * Not only when selected. A name that appears on tap is a
+              * tooltip; a name that is there is signage, and signage is
+              * what makes a row of shopfronts a row of businesses.
+              */}
+            {/*
+              * NOT ON THE ONE THAT IS OPEN.
+              *
+              * The card that rises over a selected shop already carries the
+              * name, in larger type, with the trade under it. Drawing the
+              * sign as well stacked two boxes saying the same thing on top
+              * of each other. The sign's job is to identify the shops you
+              * have NOT opened — which is every other shop on the street.
+              */}
+            {selected ? null : (
+              <View style={styles.signSlot} pointerEvents="none">
+                <ShopSign
+                  nameHe={candidate.displayNameHe}
+                  shopWidth={w}
+                  accent={signAccent(venue.candidateId)}
+                  quiet={dimmed || muted}
+                />
+              </View>
+            )}
+
+            {/*
               * THE PERSON, WAITING OUTSIDE. Drawn beside the venue rather
               * than on it, and only when the server says they are free.
               */}
@@ -437,6 +471,15 @@ export function VenueLayer({
 
 const styles = StyleSheet.create({
   venue: { position: "absolute", alignItems: "center" },
+  /*
+   * The nameplate stands at the kerb, just under the building.
+   *
+   * On the fascia it fought the painted "PRO NOW תיקונים" already in the
+   * artwork — two signs on one shopfront, one of them ours. Below the
+   * building it reads as the plate beside a door, it never covers the shop
+   * it names, and it lands on pavement rather than on a window.
+   */
+  signSlot: { position: "absolute", top: "100%", marginTop: 2, alignItems: "center" },
   card: {
     position: "absolute",
     minWidth: 150,
