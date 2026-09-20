@@ -1,0 +1,16 @@
+import { chromium } from 'playwright';
+const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
+const p = await b.newPage({ viewport:{width:390,height:844}, deviceScaleFactor:2, isMobile:true, hasTouch:true });
+const click = async (t) => { await p.locator(`text=${t}`).first().click({timeout:7000}); await p.waitForTimeout(950); };
+const shot = (n) => p.screenshot({path:`/tmp/claude-0/shots/${n}.png`});
+await p.goto('http://127.0.0.1:4421/', {waitUntil:'networkidle'}); await p.waitForTimeout(2000);
+await click('אני צריך מקצוען');
+await p.getByLabel('מספר טלפון').fill('0501234567'); await click('שליחת קוד');
+await p.getByLabel('קוד האימות').fill('123456'); await click('כניסה');
+await p.waitForTimeout(1400);
+await shot('01-home');
+await click('פתיחת סתימה');            await shot('02-service');
+await click('בקשת בעל מקצוע עכשיו');   await shot('03-describe');
+await click('שליחת הקריאה');
+await p.waitForTimeout(2600); await shot('04-searching');
+await b.close(); console.log('done');

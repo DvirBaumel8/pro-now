@@ -166,9 +166,40 @@ export type CredentialKind =
   | "ELECTRICIAN_LICENSE"
   | "GAS_LICENSE"
   | "PEST_CONTROL_LICENSE"
+  /**
+   * A licence to practise medicine, from the Ministry of Health.
+   *
+   * Named here so the house-call doctor can be MODELLED without being
+   * offered. Dispatching medical care is not a UX decision: it touches
+   * licensing, malpractice cover, medical-record retention, triage
+   * liability and the question of what happens when the right answer is an
+   * ambulance rather than a doctor. Every one of those is a §4 decision.
+   * The service therefore ships INACTIVE, exactly like gas.
+   */
+  | "MEDICAL_LICENSE"
+  /** A veterinary licence. Same reasoning as MEDICAL_LICENSE. */
+  | "VETERINARY_LICENSE"
   | "DRIVING_LICENSE"
   | "VEHICLE_INSURANCE"
   | "PROPERTY_LINK_POLICY"
+  /**
+   * The car-lockout equivalent of `PROPERTY_LINK_POLICY`: the procedure that
+   * establishes the vehicle belongs to the person asking for it to be
+   * opened.
+   *
+   * It is a SEPARATE kind rather than a reuse, and the test suite enforces
+   * that separation, because the two checks are not the same evidence. A
+   * home is proven with a lease, a bill or a neighbour; a car is proven with
+   * a licence plate against a registration document, at the roadside, often
+   * at night. Collapsing them would let a policy written for one be applied
+   * to the other — and the whole reason this credential exists is that
+   * opening something for a person who cannot prove it is theirs is the
+   * single most abusable job in the catalogue.
+   *
+   * What the procedure actually requires is a business and legal decision
+   * (/CLAUDE.md §4). This field is where it will live.
+   */
+  | "VEHICLE_LINK_POLICY"
   /**
    * A recognised qualification for a trade that has no statutory licence —
    * a massage diploma, a fitness certification, a teaching credential.

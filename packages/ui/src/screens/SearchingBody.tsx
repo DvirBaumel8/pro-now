@@ -1,27 +1,33 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { customerTheme, radii, spacing, tint, type } from "../theme";
-import { MapSurface } from "../components/MapSurface";
-import { BottomSheet } from "../components/surfaces";
-import { Skeleton } from "../components/primitives";
+import { customerDarkTheme, depth, radii, spacing, tabular, tint, type } from "../theme";
+import { Card } from "../components/Card";
+import { ScanField } from "../components/ScanField";
 
 /**
- * C08 — "the Wolt moment", specified in /docs/03-DESIGN-SYSTEM.md
- * §Signature screen: full-screen map, a pulse from the customer's location,
- * "מחפשים מקצוען לידך", and then the sheet rising with the match.
+ * C08 — the search.
  *
- * What this screen must resist is the temptation to look busy. The honest
- * material it has is small: how many candidates the dispatcher considered
- * and how many were eligible — both straight from `DispatchResultView`. So
- * that is what it shows. There are no professional markers moving around
- * the map, no "12 people looking at your request", no invented activity.
+ * THE SCAN IS THE SCREEN. Amit: "חייב שאתה מחפש מקצוען יהיה מפה שסורקת
+ * ומונפשת שיתן חווית חיפוש." He is pointing at the most anxious moment in
+ * the product — you have just asked a stranger to come to your house and
+ * you do not yet know whether anyone will answer — and it was rendered as
+ * a static decorative map under a sheet of text. A sweep says "we are
+ * looking, near you, right now"; a still map says the app is thinking.
  *
- * The map is decorative; `statusText` on it and the sheet copy carry the
- * real state for screen readers (§Accessibility).
+ * WHAT THIS SCREEN MUST STILL RESIST is looking busy. The honest material
+ * is small: how many candidates the dispatcher considered and how many
+ * passed eligibility, both straight from `DispatchResultView`. There are no
+ * professional markers moving around, no "12 people are viewing your
+ * request", no invented activity. The blips under the sweep are abstract
+ * and uncounted on purpose — see ScanField.
+ *
+ * AND THE COPY IS SHORTER. "לא צריך מלא מלא מלל, צריך ממוקד ונגיש": the
+ * paragraph explaining the dispatch algorithm was three lines of prose on
+ * a screen nobody reads, at the moment they are least able to read.
  */
 
-const colors = customerTheme.colors;
+const colors = customerDarkTheme.colors;
 
 export interface SearchingBodyProps {
   serviceNameHe: string;
@@ -56,69 +62,56 @@ export function SearchingBody({
 
   return (
     <View style={[styles.screen, { width, height }]}>
-      <MapSurface
-        colors={colors}
-        height={height}
-        pulsing={!exhausted}
-        statusText={exhausted ? "לא נמצא בעל מקצוע זמין" : "מחפשים מקצוען לידך"}
-        style={styles.map}
-      />
+      {/* The scan fills the screen. It is the state, not a backdrop. */}
+      <ScanField width={width} height={height} active={!exhausted} />
+
+      {/* The one line, over the scan, where the eye already is. */}
+      {!exhausted ? (
+        <View style={styles.overlay} pointerEvents="none">
+          <Text style={styles.scanTitle}>מחפשים מקצוען לידך</Text>
+          <Text style={styles.scanService}>{serviceNameHe}</Text>
+          <Text style={styles.scanElapsed}>{elapsed}</Text>
+        </View>
+      ) : null}
 
       <View style={styles.sheetWrap}>
-        <BottomSheet colors={colors}>
-          {exhausted ? (
-            <>
-              <Text style={styles.title}>אין כרגע בעל מקצוע זמין</Text>
-              <Text style={styles.body}>
-                בדקנו את כל מי שזמין עכשיו לשירות {serviceNameHe} באזור שלך ולא נמצאה התאמה. זה לא אומר שאין
-                מענה — אפשר להרחיב את טווח החיפוש או לנסות שוב בעוד כמה דקות.
-              </Text>
+        {exhausted ? (
+          <Card variant="raised">
+            <Text style={styles.title}>אין כרגע מי שפנוי</Text>
+            <Text style={styles.body}>
+              בדקנו את כל מי שפנוי עכשיו ל{serviceNameHe} באזור שלכם. אפשר להרחיב את הטווח או לנסות בעוד כמה דקות.
+            </Text>
 
-              <Pressable onPress={onBroaden} accessibilityRole="button" style={styles.primary}>
-                <Text style={styles.primaryLabel}>הרחב את טווח החיפוש</Text>
-              </Pressable>
-              <Pressable onPress={onCancel} accessibilityRole="button" style={styles.secondary}>
-                <Text style={styles.secondaryLabel}>ביטול הקריאה</Text>
-              </Pressable>
-            </>
-          ) : (
-            <>
-              <View style={styles.headRow}>
-                <View style={styles.livePill}>
-                  <View style={styles.liveDot} />
-                  <Text style={styles.liveText}>מחפשים</Text>
-                </View>
-                <Text style={styles.elapsed}>{elapsed}</Text>
+            <Pressable onPress={onBroaden} accessibilityRole="button" style={styles.primary}>
+              <Text style={styles.primaryLabel}>הרחבת טווח החיפוש</Text>
+            </Pressable>
+            <Pressable onPress={onCancel} accessibilityRole="button" style={styles.secondary}>
+              <Text style={styles.secondaryLabel}>ביטול הקריאה</Text>
+            </Pressable>
+          </Card>
+        ) : (
+          <Card variant="raised">
+            {/*
+              * The two numbers we genuinely have, and nothing else. Absent
+              * until the server has them — a skeleton here was a shape
+              * promising data that may never arrive.
+              */}
+            {typeof candidatesConsidered === "number" ? (
+              <View style={styles.factRow}>
+                <Fact label="נבדקו" value={String(candidatesConsidered)} />
+                {typeof candidatesEligible === "number" ? (
+                  <Fact label="מתאימים" value={String(candidatesEligible)} highlight />
+                ) : null}
               </View>
+            ) : (
+              <Text style={styles.note}>פונים לאחד בכל פעם ומחכים לתשובה.</Text>
+            )}
 
-              <Text style={styles.title}>מחפשים מקצוען לידך</Text>
-              <Text style={styles.subtitle}>{serviceNameHe}</Text>
-
-              {/* The only two numbers we actually have. */}
-              {typeof candidatesConsidered === "number" ? (
-                <View style={styles.factRow}>
-                  <Fact label="נבדקו" value={String(candidatesConsidered)} />
-                  {typeof candidatesEligible === "number" ? (
-                    <Fact label="מתאימים" value={String(candidatesEligible)} highlight />
-                  ) : null}
-                </View>
-              ) : (
-                <View style={styles.skeletonRow}>
-                  <Skeleton width={96} height={46} radius={radii.md} colors={colors} />
-                  <Skeleton width={96} height={46} radius={radii.md} colors={colors} />
-                </View>
-              )}
-
-              <Text style={styles.note}>
-                אנחנו פונים לבעל מקצוע אחד בכל פעם ומחכים לתשובה. אם הוא לא זמין — עוברים לבא בתור.
-              </Text>
-
-              <Pressable onPress={onCancel} accessibilityRole="button" style={styles.secondary}>
-                <Text style={styles.secondaryLabel}>ביטול הקריאה</Text>
-              </Pressable>
-            </>
-          )}
-        </BottomSheet>
+            <Pressable onPress={onCancel} accessibilityRole="button" style={styles.secondary}>
+              <Text style={styles.secondaryLabel}>ביטול הקריאה</Text>
+            </Pressable>
+          </Card>
+        )}
       </View>
     </View>
   );
@@ -135,67 +128,52 @@ function Fact({ label, value, highlight = false }: { label: string; value: strin
 
 const styles = StyleSheet.create({
   screen: { backgroundColor: colors.bg, overflow: "hidden", borderRadius: radii.xl },
-  map: { ...StyleSheet.absoluteFillObject, borderRadius: 0 },
+  sheetWrap: { position: "absolute", left: spacing.lg, right: spacing.lg, bottom: spacing.lg },
 
-  sheetWrap: { position: "absolute", left: 0, right: 0, bottom: 0 },
-
-  headRow: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" },
-  livePill: {
-    flexDirection: "row-reverse",
+  /*
+   * The headline sits ON the scan, centred, where the eye already is. It
+   * was inside the sheet at the bottom, which meant the most important
+   * words on the screen were as far as possible from the thing that had
+   * everyone's attention.
+   */
+  overlay: {
+    position: "absolute",
+    top: "16%",
+    left: spacing.lg,
+    right: spacing.lg,
     alignItems: "center",
-    gap: 6,
-    paddingVertical: 5,
-    paddingHorizontal: spacing.md,
-    borderRadius: radii.pill,
-    backgroundColor: tint.action(),
   },
-  liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.action },
-  liveText: { ...type.captionStrong, color: colors.actionText },
-  elapsed: { ...type.captionStrong, color: colors.textSecondary, fontVariant: ["tabular-nums"] },
-
-  title: {
-    ...type.h1,
-    color: colors.textPrimary,
-    textAlign: "right",
-    writingDirection: "rtl",
-    marginTop: spacing.lg,
-  },
-  subtitle: {
+  scanTitle: { ...type.title, color: colors.textPrimary, textAlign: "center", writingDirection: "rtl" },
+  scanService: {
     ...type.body,
     color: colors.textSecondary,
-    textAlign: "right",
+    textAlign: "center",
     writingDirection: "rtl",
     marginTop: 2,
   },
+  scanElapsed: { ...type.metaStrong, ...tabular, color: colors.actionText, marginTop: spacing.sm },
 
-  factRow: { flexDirection: "row-reverse", gap: spacing.md, marginTop: spacing.lg },
-  skeletonRow: { flexDirection: "row-reverse", gap: spacing.md, marginTop: spacing.lg },
+  title: { ...type.section, color: colors.textPrimary, textAlign: "right", writingDirection: "rtl" },
+
+  factRow: { flexDirection: "row-reverse", gap: spacing.md },
   fact: {
     flex: 1,
     alignItems: "center",
     paddingVertical: spacing.md,
     borderRadius: radii.md,
-    backgroundColor: colors.bg,
+    backgroundColor: depth.panel.low,
   },
-  factValue: { ...type.h2, color: colors.textPrimary, fontVariant: ["tabular-nums"] },
-  factLabel: { ...type.caption, color: colors.textSecondary, writingDirection: "rtl" },
+  factValue: { ...type.section, ...tabular, color: colors.textPrimary },
+  factLabel: { ...type.meta, color: colors.textSecondary, writingDirection: "rtl" },
 
   body: {
-    ...type.body,
+    ...type.meta,
     color: colors.textSecondary,
     textAlign: "right",
     writingDirection: "rtl",
-    marginTop: spacing.md,
-    lineHeight: 23,
+    marginTop: spacing.sm,
   },
-  note: {
-    ...type.caption,
-    color: colors.textSecondary,
-    textAlign: "right",
-    writingDirection: "rtl",
-    marginTop: spacing.lg,
-    lineHeight: 19,
-  },
+  note: { ...type.meta, color: colors.textSecondary, textAlign: "right", writingDirection: "rtl" },
 
   primary: {
     minHeight: 54,

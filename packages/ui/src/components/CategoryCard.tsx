@@ -1,7 +1,7 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { customerTheme, radii, spacing, tint, type } from "../theme";
+import { customerDarkTheme, radii, spacing, tint, type } from "../theme";
 import { Mark, type MarkName } from "./marks";
 import { Pulse } from "./LiveServiceCard";
 
@@ -43,7 +43,7 @@ import { Pulse } from "./LiveServiceCard";
  * makes a whole category look dead when it is merely quiet.
  */
 
-const colors = customerTheme.colors;
+const colors = customerDarkTheme.colors;
 
 export interface CategoryCardProps {
   nameHe: string;
@@ -74,7 +74,7 @@ export function CategoryCard({
       }
       style={({ pressed }) => [
         styles.row,
-        pressed && { backgroundColor: tint.neutralLight(0.04) },
+        pressed && { backgroundColor: tint.neutralDark(0.06) },
       ]}
     >
       <View style={styles.markWrap}>
@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 15,
-    backgroundColor: tint.neutralLight(0.05),
+    backgroundColor: tint.neutralDark(0.07),
     alignItems: "center",
     justifyContent: "center",
   },

@@ -842,41 +842,418 @@ const renoClean: CatalogServiceDef = {
   typicalMinutes: [180, 420],
 };
 
+
+// ---------------------------------------------------------------------
+// בעלי חיים — Amit: "דוג ווקר כן! ולא חשבתי על זה. או בעלי חיים בכללי."
+//
+// This department came out of reading ספץ's taxonomy and is the clearest
+// case in the catalogue of a vertical that is NATIVELY on-demand and that a
+// home-repairs frame would never have found. A dog needs walking in the next
+// hour, not next Thursday — the whole category is "now" by nature, which is
+// the same test that admits a blocked drain and rejects a kitchen
+// renovation. It also carries no equipment, so mobility is trivial.
+//
+// The trust profile is the interesting part: a dog walker is usually given a
+// key or a door code, and is alone in the home with nobody watching. That is
+// a HIGHER trust bar than an electrician who works while you stand there,
+// not a lower one — which is why these are PERSONAL_CONTACT despite
+// involving no contact with a person at all.
+// ---------------------------------------------------------------------
+
+const dogWalk = personal({
+  id: "svc-dog-walk",
+  matchingMode: "PERSON_FIT",
+  mediaIntent: "ITEM_REFERENCE",
+  customerPhotoPromptHe: "תמונה של הכלב, כדי שנדע מי מחכה",
+  mobilityProfile: "CARRIES_NOTHING",
+  code: "PET_WALK",
+  nameHe: "הוצאת כלב לטיול",
+  descriptionHe: "דוג ווקר מגיע ומוציא את הכלב עכשיו.",
+  mark: "garden",
+  keywordsHe: ["דוג ווקר", "דוג", "ווקר", "טיול", "כלב", "להוציא את הכלב", "הליכה עם כלב", "דוגווקר"],
+  symptomsHe: ["טיול קצר", "טיול ארוך", "כלב גדול", "כלב שמושך ברצועה"],
+  pricingModel: "FIXED",
+  fulfillmentProfile: "SAME_DAY_NOW",
+  photoSubjectHe: "רצועה ושקיות תלויות ליד דלת כניסה",
+  typicalMinutes: [30, 60],
+});
+
+const petSit = personal({
+  id: "svc-pet-sit",
+  matchingMode: "PERSON_FIT",
+  mediaIntent: "ITEM_REFERENCE",
+  customerPhotoPromptHe: "תמונה של החיה",
+  mobilityProfile: "CARRIES_NOTHING",
+  code: "PET_SIT",
+  nameHe: "השגחה על חיית מחמד",
+  descriptionHe: "מישהו נשאר עם החיה בזמן שאתם לא בבית.",
+  mark: "garden",
+  keywordsHe: ["דוגי סיטר", "פט סיטר", "השגחה", "לשמור על הכלב", "לשמור על החתול", "מי ישמור"],
+  symptomsHe: ["כמה שעות", "ערב שלם", "האכלה בלבד", "חיה שצריכה תרופות"],
+  pricingModel: "HOURLY",
+  fulfillmentProfile: "SAME_DAY_NOW",
+  photoSubjectHe: "קערת מים וצעצוע על רצפת סלון",
+  typicalMinutes: [60, 300],
+});
+
+const petGroom = personal({
+  id: "svc-pet-groom",
+  matchingMode: "PERSON_FIT",
+  mediaIntent: "ITEM_REFERENCE",
+  customerPhotoPromptHe: "תמונה של הפרווה עכשיו",
+  mobilityProfile: "NEEDS_VEHICLE",
+  code: "PET_GROOM",
+  nameHe: "מספרה ניידת לכלבים",
+  descriptionHe: "רחצה, גזירה וטיפוח — בלי לצאת מהבית.",
+  mark: "grooming",
+  keywordsHe: ["מספרה לכלבים", "טיפוח כלב", "גזירה", "רחצה לכלב", "ציפורניים לכלב", "מספרה ניידת"],
+  symptomsHe: ["רחצה", "גזירה מלאה", "קיצור ציפורניים", "פרווה מסובכת"],
+  pricingModel: "FIXED",
+  fulfillmentProfile: "SAME_DAY_NOW",
+  photoSubjectHe: "מספריים ומברשת טיפוח על מגבת",
+  typicalMinutes: [60, 120],
+});
+
+// ---------------------------------------------------------------------
+// שירותים לרכב — Amit: "שירותים לרכב כן".
+//
+// The purest NOW department in the whole catalogue, and the one where the
+// competition is worst. A dead battery or a flat tyre on a Friday night is
+// the archetypal case: it cannot wait, it is location-bound, and the person
+// is usually standing outside in the dark. Note that ספץ's single most
+// delighted review in three years of the store is exactly this — a flat tyre
+// on a Friday night, fixed in fifteen minutes — delivered by luck rather
+// than by design.
+//
+// TOWING IS NOT HERE. It needs a truck, a licence class and an insurance
+// relationship, and whether we dispatch it is a business decision, not an
+// engineering one (/CLAUDE.md §4). Modelled, and left INACTIVE.
+// ---------------------------------------------------------------------
+
+function vehicle(s: Omit<CatalogServiceDef, "mark">): CatalogServiceDef {
+  return { ...s, mark: "moving" };
+}
+
+const jumpStart = vehicle({
+  id: "svc-jump-start",
+  matchingMode: "FASTEST_ELIGIBLE",
+  mediaIntent: "NONE",
+  customerPhotoPromptHe: null,
+  mobilityProfile: "NEEDS_VEHICLE",
+  code: "CAR_JUMP",
+  nameHe: "הרכב לא מתניע",
+  descriptionHe: "מישהו מגיע עם כבלים ומתניע.",
+  keywordsHe: ["לא מתניע", "מצבר", "בוסטר", "כבלים", "הרכב מת", "התנעה", "סוללה"],
+  symptomsHe: ["אין בכלל חשמל", "מנסה ולא תופס", "השארתי אורות דולקים", "לא יודע"],
+  pricingModel: "FIXED",
+  fulfillmentProfile: "URGENT_NOW",
+  activationStatus: "PILOT",
+  trustProfile: "STANDARD",
+  requiredCredentials: [IDENTITY, "BUSINESS", "DRIVING_LICENSE", "VEHICLE_INSURANCE"],
+  photoSubjectHe: "כבלי התנעה מחוברים למצבר",
+  typicalMinutes: [15, 30],
+});
+
+const flatTyre = vehicle({
+  id: "svc-flat-tyre",
+  matchingMode: "FASTEST_ELIGIBLE",
+  mediaIntent: "PROBLEM_EVIDENCE",
+  customerPhotoPromptHe: "צילום של הגלגל",
+  mobilityProfile: "NEEDS_VEHICLE",
+  code: "CAR_TYRE",
+  nameHe: "תקר בגלגל",
+  descriptionHe: "החלפה לחלופי, או תיקון במקום.",
+  keywordsHe: ["תקר", "פנצ׳ר", "גלגל", "צמיג", "פנצ'ר", "החלפת גלגל"],
+  symptomsHe: ["יש גלגל חלופי", "אין גלגל חלופי", "הגלגל פגוע בצד", "לא מצליח לפתוח את הברגים"],
+  pricingModel: "FIXED",
+  fulfillmentProfile: "URGENT_NOW",
+  activationStatus: "PILOT",
+  trustProfile: "STANDARD",
+  requiredCredentials: [IDENTITY, "BUSINESS", "DRIVING_LICENSE", "VEHICLE_INSURANCE"],
+  photoSubjectHe: "מגבה וגלגל חלופי ליד רכב",
+  typicalMinutes: [20, 45],
+});
+
+const carLockout = vehicle({
+  id: "svc-car-lockout",
+  matchingMode: "FASTEST_ELIGIBLE",
+  mediaIntent: "NONE",
+  customerPhotoPromptHe: null,
+  mobilityProfile: "NEEDS_VEHICLE",
+  code: "CAR_LOCKOUT",
+  nameHe: "מפתחות ננעלו ברכב",
+  descriptionHe: "מנעולן רכב פותח בלי לשבור.",
+  keywordsHe: ["ננעל ברכב", "מפתחות ברכב", "מנעולן רכב", "נשארו המפתחות בפנים", "פריצה לרכב"],
+  symptomsHe: ["המפתח בתוך הרכב", "איבדתי את המפתח", "יש ילד או חיה ברכב", "המפתח נשבר במנעול"],
+  pricingModel: "FIXED",
+  fulfillmentProfile: "URGENT_NOW",
+  activationStatus: "PILOT",
+  /*
+   * Same reasoning as the home lockout: the one job whose whole purpose is
+   * opening something for a person who cannot, at that moment, prove it is
+   * theirs. A child or an animal locked inside also makes this the single
+   * most time-critical row in the catalogue.
+   */
+  trustProfile: "LICENSE_REQUIRED",
+  requiredCredentials: [
+    IDENTITY,
+    "BUSINESS",
+    "VEHICLE_LINK_POLICY",
+    "DRIVING_LICENSE",
+    "LIABILITY_INSURANCE",
+  ],
+  photoSubjectHe: "ערכת פתיחת רכב על מכסה מנוע",
+  typicalMinutes: [15, 40],
+});
+
+const towing = vehicle({
+  id: "svc-towing",
+  matchingMode: "FASTEST_ELIGIBLE",
+  mediaIntent: "PROBLEM_EVIDENCE",
+  customerPhotoPromptHe: "צילום של הרכב ושל המקום",
+  mobilityProfile: "NEEDS_VEHICLE",
+  code: "CAR_TOW",
+  nameHe: "גרירת רכב",
+  descriptionHe: "גרר לרכב שלא זז.",
+  keywordsHe: ["גרר", "גרירה", "לגרור", "הרכב לא זז", "תאונה"],
+  symptomsHe: ["הרכב לא מתניע", "אחרי תאונה", "תקוע בחניון", "צריך למוסך מסוים"],
+  pricingModel: "VISIT_QUOTE",
+  fulfillmentProfile: "URGENT_NOW",
+  // Licence class, insurance and the relationship with the receiving garage
+  // are business and legal decisions this codebase must not invent (§4).
+  activationStatus: "INACTIVE",
+  trustProfile: "LICENSE_REQUIRED",
+  requiredCredentials: [IDENTITY, "BUSINESS", "DRIVING_LICENSE", "VEHICLE_INSURANCE", "LIABILITY_INSURANCE"],
+  photoSubjectHe: "משאית גרר עם רכב עליה",
+  typicalMinutes: [30, 90],
+});
+
+// ---------------------------------------------------------------------
+// מחשבים ואלקטרוניקה — NOW-shaped for a different reason.
+//
+// Nothing is being damaged by a dead laptop, but something is being LOST:
+// the file, the deadline, the evening. Urgency here is about the person's
+// day rather than about the property, and that is still urgency.
+// ---------------------------------------------------------------------
+
+const computerFix: CatalogServiceDef = {
+  id: "svc-computer",
+  matchingMode: "FASTEST_ELIGIBLE",
+  mediaIntent: "PROBLEM_EVIDENCE",
+  customerPhotoPromptHe: "צילום של המסך או של ההודעה",
+  mobilityProfile: "CARRIES_ON_PERSON",
+  code: "TECH_COMPUTER",
+  nameHe: "טכנאי מחשבים",
+  descriptionHe: "מחשב שלא עולה, איטי או בלי רשת.",
+  mark: "tv",
+  keywordsHe: ["מחשב", "לפטופ", "לא נדלק", "איטי", "וירוס", "אינטרנט לא עובד", "ראוטר", "טכנאי מחשבים"],
+  symptomsHe: ["לא נדלק בכלל", "איטי מאוד", "אין אינטרנט", "מסך כחול או שגיאה"],
+  pricingModel: "VISIT_QUOTE",
+  fulfillmentProfile: "SAME_DAY_NOW",
+  activationStatus: "PILOT",
+  trustProfile: "STANDARD",
+  requiredCredentials: [IDENTITY, "BUSINESS"],
+  photoSubjectHe: "מחשב נייד פתוח עם מברג לצידו",
+  typicalMinutes: [45, 120],
+};
+
+const phoneFix: CatalogServiceDef = {
+  id: "svc-phone-fix",
+  matchingMode: "FASTEST_ELIGIBLE",
+  mediaIntent: "PROBLEM_EVIDENCE",
+  customerPhotoPromptHe: "צילום של המכשיר",
+  mobilityProfile: "CARRIES_ON_PERSON",
+  code: "TECH_PHONE",
+  nameHe: "תיקון סלולרי",
+  descriptionHe: "מסך שבור או סוללה — מגיעים אליך.",
+  mark: "tv",
+  keywordsHe: ["מסך שבור", "טלפון", "אייפון", "סוללה", "לא נטען", "תיקון סלולרי", "סמארטפון"],
+  symptomsHe: ["מסך שבור", "לא נטען", "נפל למים", "לא נדלק"],
+  pricingModel: "FIXED",
+  fulfillmentProfile: "SAME_DAY_NOW",
+  activationStatus: "PILOT",
+  trustProfile: "STANDARD",
+  requiredCredentials: [IDENTITY, "BUSINESS"],
+  photoSubjectHe: "מסך טלפון מפורק על מזרן עבודה",
+  typicalMinutes: [30, 75],
+};
+
+const makeup = personal({
+  id: "svc-makeup",
+  matchingMode: "PERSON_FIT",
+  mediaIntent: "INSPIRATION",
+  customerPhotoPromptHe: "אפשר לצרף תמונה של לוק שאהבת",
+  mobilityProfile: "CARRIES_ON_PERSON",
+  code: "GROOM_MAKEUP",
+  nameHe: "איפור",
+  descriptionHe: "מאפרת מגיעה עם הערכה.",
+  mark: "grooming",
+  keywordsHe: ["איפור", "מאפרת", "ערב", "אירוע", "לוק", "איפור ערב"],
+  symptomsHe: ["איפור ערב", "איפור יום", "יש לי אירוע בעוד שעתיים", "לא יודעת מה מתאים"],
+  pricingModel: "FIXED",
+  fulfillmentProfile: "SAME_DAY_NOW",
+  photoSubjectHe: "ערכת איפור פתוחה עם מברשות",
+  typicalMinutes: [45, 90],
+});
+
 // ---------------------------------------------------------------------
 // The tree
 // ---------------------------------------------------------------------
 
+
+/**
+ * ---------------------------------------------------------------------
+ * רפואה עד הבית — modelled, and switched off
+ * ---------------------------------------------------------------------
+ * Amit: "תוסיף לי גם רופאים פרטיים/וטרינרים."
+ *
+ * He is right that they belong in the taxonomy. A child with a fever at
+ * eleven at night, or a dog that has stopped eating on a Friday, are among
+ * the purest "I need someone NOW" moments a family has — arguably more
+ * urgent than any pipe in this catalogue. And a house-call doctor is a real,
+ * established Israeli service.
+ *
+ * They are nonetheless INACTIVE, for the same reason gas is. Dispatching
+ * medical care is not a design decision: it touches licensing, malpractice
+ * cover, medical-record retention, triage liability, and the question of
+ * what happens when the correct answer is an ambulance rather than a
+ * doctor — a question this product would be answering implicitly, at speed,
+ * for someone frightened. Every one of those is a business and legal
+ * decision this codebase must not invent (/CLAUDE.md §4).
+ *
+ * So the taxonomy is ready and the switch is off. That is what
+ * `activationStatus` is for, and it is the difference between planning for
+ * a vertical and quietly shipping one.
+ */
+
+const houseDoctor: CatalogServiceDef = {
+  id: "svc-doctor",
+  matchingMode: "PERSON_FIT",
+  mediaIntent: "PROBLEM_EVIDENCE",
+  customerPhotoPromptHe: "אפשר לצלם פריחה או מדחום",
+  mobilityProfile: "NEEDS_VEHICLE",
+  code: "MED_HOUSE_CALL",
+  nameHe: "רופא עד הבית",
+  descriptionHe: "ביקור רופא פרטי בבית, גם בלילה.",
+  mark: "wellness",
+  keywordsHe: ["רופא", "רופא פרטי", "ביקור בית", "חום", "ילד חולה", "רופא ילדים", "רופא עד הבית"],
+  symptomsHe: ["חום גבוה", "ילד חולה", "כאבים", "צריך מרשם"],
+  pricingModel: "FIXED",
+  fulfillmentProfile: "URGENT_NOW",
+  activationStatus: "INACTIVE",
+  trustProfile: "LICENSE_REQUIRED",
+  requiredCredentials: [
+    "IDENTITY_ENHANCED",
+    "BUSINESS",
+    "MEDICAL_LICENSE",
+    "LIABILITY_INSURANCE",
+    "BACKGROUND_CHECK",
+  ],
+  photoSubjectHe: "תיק רופא פתוח עם סטטוסקופ",
+  typicalMinutes: [20, 45],
+};
+
+const vet: CatalogServiceDef = {
+  id: "svc-vet",
+  matchingMode: "PERSON_FIT",
+  mediaIntent: "PROBLEM_EVIDENCE",
+  customerPhotoPromptHe: "צילום של החיה ושל מה שמדאיג אתכם",
+  mobilityProfile: "NEEDS_VEHICLE",
+  code: "MED_VET",
+  nameHe: "וטרינר עד הבית",
+  descriptionHe: "בדיקה וטיפול בלי לסחוב את החיה למרפאה.",
+  mark: "wellness",
+  keywordsHe: ["וטרינר", "וטרינרית", "כלב חולה", "חתול חולה", "חיסון", "החיה לא אוכלת", "וטרינר עד הבית"],
+  symptomsHe: ["לא אוכל", "פציעה", "חיסון שגרתי", "חיה מבוגרת"],
+  pricingModel: "VISIT_QUOTE",
+  fulfillmentProfile: "URGENT_NOW",
+  activationStatus: "INACTIVE",
+  trustProfile: "LICENSE_REQUIRED",
+  requiredCredentials: [
+    "IDENTITY_ENHANCED",
+    "BUSINESS",
+    "VETERINARY_LICENSE",
+    "LIABILITY_INSURANCE",
+  ],
+  photoSubjectHe: "תיק וטרינרי וסטטוסקופ על שולחן",
+  typicalMinutes: [25, 60],
+};
+
+/**
+ * ---------------------------------------------------------------------
+ * THE TREE — and why it was reorganised
+ * ---------------------------------------------------------------------
+ * Amit: "אני חייב שזה יהיה יותר מסודר בקטגוריות… תסתכלו במדרג, איזי, כל
+ * האתרים של אנשי מקצוע, תשתמשו בזה וקחו את זה לטכנולוגיה שלנו."
+ *
+ * So we read them: מדרג (15 topics), איזי, המקצוענים, זאפ נינג'ה and ספץ
+ * (18 groups). Three findings decided this tree.
+ *
+ * 1. THE TOP LEVEL IS THE ARBITRARY PART. The same thirty leaf services get
+ *    sliced five different ways: מדרג cuts by LIFE EVENT (עוברים דירה,
+ *    קונים דירה, לידה והורות), איזי by INTENT QUESTION (את מי מזמינים?),
+ *    ספץ by OBJECT OF WORK, and both המקצוענים and זאפ נינג'ה have no top
+ *    level at all — just a flat list of trades ordered by demand. Five cuts
+ *    over one stable leaf set means the cut is a choice, not a discovery.
+ *    What IS stable across all five is the trade noun: אינסטלטור, חשמלאי,
+ *    מנעולן, טכנאי מזגנים, הדברה appear on every single site.
+ *
+ * 2. SO WE CUT BY OBJECT OF WORK, like ספץ — the home, the appliance, the
+ *    body, the animal, the car — because that is the cut that survives our
+ *    own filter. We are not a directory; we only carry work that can start
+ *    in the next hour, and "what is the work being done TO" is the question
+ *    that predicts whether NOW is possible. A life-event cut (עוברים דירה)
+ *    mixes a same-hour move with a scheduled painter; an object cut does
+ *    not.
+ *
+ * 3. AND WE DROPPED WHAT CANNOT HAPPEN NOW. Amit went through ספץ's
+ *    eighteen and ruled: "קח מפה רק את הקטגוריות הרלוונטיות שיכולות
+ *    להתבצע מיידי. לדוגמא עבודות עפר לא מעניין, עורך דין לא מעניין כרגע.
+ *    אבל דוג ווקר כן! ולא חשבתי על זה… שירותים לרכב כן… שמחות ואירועים
+ *    כרגע לא… בעלי חיים כן, מה שרלוונטי."
+ *
+ *    Out: עבודות עפר ופיתוח · עורכי דין · ביטוח ופיננסים · מיסטיקה
+ *    ורוחניות · סיעוד · שירותים לעסקים · שמחות ואירועים · פרחים ומתנות.
+ *    In, and new to this catalogue: בעלי חיים (the department nobody here
+ *    had thought of, and natively on-demand) and שירותים לרכב (the most
+ *    urgent department in the product).
+ *
+ * WHAT WE DELIBERATELY DID NOT COPY. ספץ lists 400 topics in every יישוב in
+ * Israel and honours "now" in almost none of them — their own FAQ answer to
+ * "the professional did not arrive" is that you should telephone him
+ * yourself. A catalogue is a promise about supply. Ours is sized to what a
+ * pilot city can actually answer; everything else is modelled and switched
+ * off, which is what `activationStatus` is for.
+ */
 export const pilotCatalog: CatalogDepartmentDef[] = [
   {
     code: "HOME_URGENT",
-    nameHe: "תקלות בבית",
+    nameHe: "תיקונים בבית",
     categories: [
       { code: "PLUMBING", nameHe: "אינסטלציה", mark: "plumbing", services: [blockage, leak, tap] },
       { code: "ELECTRICAL", nameHe: "חשמל", mark: "electrical", services: [powerOut, socket] },
       { code: "LOCKSMITH", nameHe: "מנעולנות", mark: "locksmith", services: [lockout, cylinder] },
-      { code: "CLIMATE", nameHe: "מיזוג", mark: "climate", services: [acFix] },
-      { code: "APPLIANCE", nameHe: "מכשירי חשמל", mark: "appliance", services: [fridge, washer] },
       { code: "GAS", nameHe: "גז", mark: "gas", services: [gas] },
     ],
   },
   {
-    code: "PEOPLE",
-    nameHe: "אנשים שמגיעים אליך",
+    /*
+     * ספץ gives appliances their own top level and they are right: a dead
+     * fridge is not "plumbing", and a customer looking for a washing-machine
+     * technician does not think of themselves as having a home repair. It is
+     * also the department where the trade name IS the service name, which is
+     * what every Israeli site trained people on.
+     */
+    code: "APPLIANCES",
+    nameHe: "מכשירי חשמל",
     categories: [
-      { code: "FITNESS", nameHe: "כושר ובריאות", mark: "fitness", services: [trainer, massage] },
-      { code: "GROOMING", nameHe: "טיפוח", mark: "grooming", services: [haircut, nails] },
-      { code: "LEARNING", nameHe: "לימודים", mark: "learning", services: [tutor] },
-      {
-        code: "ASSIST",
-        nameHe: "עזרה כללית",
-        mark: "handyman",
-        services: [handymanHour, helpingHands],
-      },
+      { code: "CLIMATE", nameHe: "מיזוג", mark: "climate", services: [acFix] },
+      { code: "APPLIANCE", nameHe: "מוצרי חשמל", mark: "appliance", services: [fridge, washer] },
     ],
   },
   {
     code: "HOME_CARE",
-    nameHe: "תחזוקת הבית",
+    nameHe: "ניקיון ובית",
     categories: [
       { code: "CLEANING", nameHe: "ניקיון", mark: "cleaning", services: [cleanNow, renoClean] },
       { code: "PEST", nameHe: "הדברה", mark: "pest", services: [pest] },
@@ -884,11 +1261,79 @@ export const pilotCatalog: CatalogDepartmentDef[] = [
     ],
   },
   {
+    code: "BEAUTY",
+    nameHe: "טיפוח ויופי",
+    categories: [
+      { code: "GROOMING", nameHe: "טיפוח", mark: "grooming", services: [haircut, nails, makeup] },
+    ],
+  },
+  {
+    /*
+     * מדרג files עיסוי and מאמני כושר under בריאות, beside dentists and
+     * physiotherapists. That medical frame is wrong for a massage someone
+     * orders on a Thursday evening, and it is the reason מדרג has no
+     * at-home wellness identity at all. Own department.
+     */
+    code: "WELLNESS",
+    nameHe: "בריאות וכושר",
+    categories: [
+      { code: "FITNESS", nameHe: "כושר ועיסוי", mark: "fitness", services: [trainer, massage] },
+      { code: "MEDICAL", nameHe: "רפואה עד הבית", mark: "wellness", services: [houseDoctor] },
+    ],
+  },
+  {
+    code: "PETS",
+    nameHe: "בעלי חיים",
+    categories: [
+      { code: "PET_CARE", nameHe: "טיפול בחיות", mark: "garden", services: [dogWalk, petSit] },
+      { code: "PET_GROOM", nameHe: "טיפוח חיות", mark: "grooming", services: [petGroom] },
+      { code: "PET_MED", nameHe: "וטרינריה", mark: "wellness", services: [vet] },
+    ],
+  },
+  {
+    code: "VEHICLE",
+    nameHe: "שירותים לרכב",
+    categories: [
+      {
+        code: "ROADSIDE",
+        nameHe: "תקלות בדרך",
+        mark: "moving",
+        services: [jumpStart, flatTyre, carLockout, towing],
+      },
+    ],
+  },
+  {
     code: "LOGISTICS",
-    nameHe: "שינוע",
+    nameHe: "הובלות ומשלוחים",
     categories: [
       { code: "COURIER", nameHe: "שליחויות", mark: "moving", services: [courier] },
       { code: "MOVING", nameHe: "הובלות", mark: "moving", services: [smallMove] },
+    ],
+  },
+  {
+    code: "TECH",
+    nameHe: "מחשבים וסלולר",
+    categories: [
+      { code: "COMPUTERS", nameHe: "מחשבים", mark: "tv", services: [computerFix, phoneFix] },
+    ],
+  },
+  {
+    /*
+     * ספץ calls this עבודות מזדמנות and TaskRabbit calls it the whole
+     * product. It is the department that catches everything the taxonomy
+     * will never have a name for — which is most of what people actually
+     * need at eight in the evening.
+     */
+    code: "ODD_JOBS",
+    nameHe: "עזרה ועבודות קטנות",
+    categories: [
+      {
+        code: "ASSIST",
+        nameHe: "עזרה כללית",
+        mark: "handyman",
+        services: [handymanHour, helpingHands],
+      },
+      { code: "LEARNING", nameHe: "לימודים", mark: "learning", services: [tutor] },
     ],
   },
   {

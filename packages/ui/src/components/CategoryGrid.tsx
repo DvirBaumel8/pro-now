@@ -1,7 +1,7 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { customerDarkTheme, palette, radii, spacing, tint, type } from "../theme";
+import { customerDarkTheme, depth, palette, radii, spacing, tint, type } from "../theme";
 import { Mark, type MarkName } from "./marks";
 import { Pulse } from "./LiveServiceCard";
 
@@ -67,7 +67,9 @@ export function CategoryGrid({ tiles, width, moreLabelHe, onSelect, onMore }: Ca
           }
           style={({ pressed }) => [styles.tile, { width: tileW }, pressed && styles.pressed]}
         >
-          <Mark name={t.mark} size={26} color={colors.textPrimary} />
+          <View style={styles.markWrap}>
+            <Mark name={t.mark} size={23} color={colors.textPrimary} />
+          </View>
           <Text style={styles.label} numberOfLines={2}>
             {t.nameHe}
           </Text>
@@ -86,7 +88,9 @@ export function CategoryGrid({ tiles, width, moreLabelHe, onSelect, onMore }: Ca
           accessibilityLabel={moreLabelHe}
           style={({ pressed }) => [styles.tile, { width: tileW }, pressed && styles.pressed]}
         >
-          <Text style={styles.dots}>•••</Text>
+          <View style={styles.markWrap}>
+            <Text style={styles.dots}>•••</Text>
+          </View>
           <Text style={styles.label} numberOfLines={2}>
             {moreLabelHe}
           </Text>
@@ -98,17 +102,33 @@ export function CategoryGrid({ tiles, width, moreLabelHe, onSelect, onMore }: Ca
 
 const styles = StyleSheet.create({
   grid: { flexDirection: "row-reverse", flexWrap: "wrap" },
+  /*
+   * RAISED, the only way a dark surface can be. A flat 6%-white wash is a
+   * different colour, not a different height, and six of them read as a
+   * single grey field with icons in it. The fill steps up and the top edge
+   * catches a hairline of light, which is what makes a dark tile look like
+   * an object rather than a region.
+   */
   tile: {
-    minHeight: 104,
+    minHeight: 106,
     borderRadius: radii.lg,
-    backgroundColor: tint.neutralDark(0.06),
+    backgroundColor: depth.panel.mid,
     alignItems: "center",
     justifyContent: "center",
     gap: spacing.sm,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.md,
+    ...depth.litEdge(0.07),
   },
-  pressed: { backgroundColor: tint.neutralDark(0.12) },
+  pressed: { backgroundColor: depth.panel.high },
+  markWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: tint.neutralDark(0.07),
+    alignItems: "center",
+    justifyContent: "center",
+  },
   label: {
     ...type.meta,
     color: colors.textPrimary,

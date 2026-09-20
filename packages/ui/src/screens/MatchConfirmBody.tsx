@@ -1,11 +1,12 @@
 import React from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import Svg, { Path, Rect } from "react-native-svg";
 
 import type { EtaView, PriceQuoteView } from "@pro-now/types";
 
-import { customerDarkTheme, palette, radii, scale, spacing, tabular, type } from "../theme";
+import { customerDarkTheme, depth, palette, radii, scale, spacing, tabular, tint, type } from "../theme";
 import { priceExplainer } from "../pricing-copy";
+import { Glow } from "../components/Glow";
+import { MatchReveal } from "../components/MatchReveal";
 import { LiveField } from "../components/LiveField";
 import { PresenceRing, type PresenceState } from "../components/PresenceRing";
 import { ProviderPortrait } from "../components/ProviderPortrait";
@@ -136,6 +137,13 @@ export interface MatchConfirmBodyProps {
    * availability claim (/CLAUDE.md §3).
    */
   presence?: PresenceState;
+  /**
+   * The spring-in. False for reduced motion, and false when this body is
+   * re-rendered for a reason other than the match arriving — replaying an
+   * arrival that did not happen is the same class of lie as a pulse that
+   * outlives its state (§7).
+   */
+  animateReveal?: boolean;
   /** "זמין עכשיו". Omit to render the ring without a chip. */
   presenceLabelHe?: string | null;
   /**
@@ -172,6 +180,7 @@ export function MatchConfirmBody({
   arrivalClockHe,
   price,
   presence = "ONLINE",
+  animateReveal = true,
   presenceLabelHe = "זמין עכשיו",
   voiceNote,
   hasAlternative,
@@ -215,6 +224,21 @@ export function MatchConfirmBody({
         <View style={[styles.hero, { height: heroH }]}>
           <View style={StyleSheet.absoluteFill} pointerEvents="none">
             <LiveField state="MATCHED" width={width} height={heroH} tone="dark" />
+            {/*
+              * The light is ON the person. Everything above this line was
+              * already correct and still read flat, because a dark shadow
+              * cast into a dark room is nothing — see components/Glow.tsx.
+              * One soft source behind the portrait is what turns a circle
+              * on black into someone standing in a lit doorway.
+              */}
+            <Glow
+              color={presence === "ONLINE" ? "trust" : "signal"}
+              width={width}
+              height={heroH}
+              intensity={0.16}
+              originY={0.58}
+              spread={0.62}
+            />
           </View>
 
           <Pressable
@@ -250,16 +274,33 @@ export function MatchConfirmBody({
             * real signed-up professional has an approved photo it fills
             * exactly this space and nothing else about the screen changes.
             */}
+          {/*
+            * THE ARRIVAL. Amit: "ברגע שמוצא מקצוען שיהיה אווירה של מצאנו
+            * מישהו… אפקט שנותן הרגשה של זכייה. התמונת פרופיל של הבן אדם
+            * והמקצוע חשובים מאוד שיקפצו ישר."
+            *
+            * So the portrait springs in rather than appearing, and the
+            * name and trade follow a beat later. The stagger is the point:
+            * it is what makes the screen read as someone arriving instead
+            * of as a view being rendered. MatchReveal has the full note.
+            */}
           <View style={styles.heroFill} pointerEvents="none">
-            <PresenceRing state={presence} size={portraitSize} labelHe={presenceLabelHe}>
-              <ProviderPortrait
-                photoUri={photoUri}
-                displayNameHe={displayNameHe}
-                size={portraitSize}
-                shape="circle"
-                tone="dark"
-              />
-            </PresenceRing>
+            <MatchReveal
+              revealed
+              animate={animateReveal}
+              width={width}
+              portrait={
+                <PresenceRing state={presence} size={portraitSize} labelHe={presenceLabelHe}>
+                  <ProviderPortrait
+                    photoUri={photoUri}
+                    displayNameHe={displayNameHe}
+                    size={portraitSize}
+                    shape="circle"
+                    tone="dark"
+                  />
+                </PresenceRing>
+              }
+            />
           </View>
         </View>
 
@@ -306,22 +347,29 @@ export function MatchConfirmBody({
         </View>
 
         {/* ---------------- When ---------------- */}
+        {/*
+          * A PANEL, NOT A ROW. "מתי הוא מגיע" is half the decision on this
+          * screen and it was set as loose text on the background, which on
+          * a dark surface means it had no more presence than the caption
+          * under it. The panel is raised the only way a dark surface can
+          * be: a lighter fill with a lit top edge (theme `depth`), plus one
+          * dim glow behind the number itself.
+          */}
         <View style={styles.when}>
-          <View style={styles.whenText}>
-            <Text style={styles.whenValue}>
-              {etaMinutes === null ? "—" : `${etaMinutes} דק׳`}
-            </Text>
-            <Text style={styles.whenSub}>
-              {etaMinutes === null
-                ? "זמן ההגעה טרם חושב"
-                : arrivalClockHe
-                  ? `אצלך בערך ב-${arrivalClockHe}`
-                  : eta?.isRouteBased
-                    ? "זמן נסיעה בפועל"
-                    : "זמן נסיעה משוער"}
-            </Text>
-          </View>
-          <RouteLine />
+          <Glow color="signal" width={width - spacing.lg * 2} height={112} intensity={0.1} originY={0.5} spread={0.5} />
+          <Text style={styles.whenLead}>מגיע אליך בעוד</Text>
+          <Text style={styles.whenValue}>
+            {etaMinutes === null ? "—" : `${etaMinutes} דקות`}
+          </Text>
+          <Text style={styles.whenSub}>
+            {etaMinutes === null
+              ? "זמן ההגעה טרם חושב"
+              : arrivalClockHe
+                ? `הגעה משוערת: ${arrivalClockHe}`
+                : eta?.isRouteBased
+                  ? "זמן נסיעה בפועל"
+                  : "זמן נסיעה משוער"}
+          </Text>
         </View>
 
         {/* ---------------- Why this match ---------------- */}
@@ -334,9 +382,19 @@ export function MatchConfirmBody({
                 <View
                   style={[
                     styles.whyDotMark,
-                    { backgroundColor: r.kind === "LIVE" ? colors.action : palette.trust500 },
+                    {
+                      backgroundColor:
+                        r.kind === "LIVE" ? tint.action(0.16) : tint.trust(0.16),
+                    },
                   ]}
-                />
+                >
+                  <View
+                    style={[
+                      styles.whyDotCore,
+                      { backgroundColor: r.kind === "LIVE" ? colors.action : palette.trust300 },
+                    ]}
+                  />
+                </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.whyClaim}>{r.textHe}</Text>
                   {r.detailHe ? <Text style={styles.whyDetail}>{r.detailHe}</Text> : null}
@@ -433,23 +491,6 @@ export function MatchConfirmBody({
   );
 }
 
-/** A short route glyph beside the ETA — movement, not a map. */
-function RouteLine() {
-  return (
-    <Svg width={104} height={40} viewBox="0 0 104 40">
-      <Path
-        d="M4 32C22 32 26 8 50 8s30 24 50 24"
-        stroke={colors.action}
-        strokeWidth={2.2}
-        strokeLinecap="round"
-        strokeDasharray="1 7"
-        fill="none"
-      />
-      <Rect x={0} y={28} width={8} height={8} rx={4} fill={colors.textPrimary} />
-      <Rect x={96} y={28} width={8} height={8} rx={4} fill={colors.action} />
-    </Svg>
-  );
-}
 
 const styles = StyleSheet.create({
   screen: { backgroundColor: colors.bg, overflow: "hidden" },
@@ -526,17 +567,29 @@ const styles = StyleSheet.create({
   factDot: { color: colors.textSecondary, fontSize: scale.micro },
 
   when: {
-    flexDirection: "row-reverse",
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.xl,
+    paddingVertical: spacing.lg,
+    borderRadius: radii.xl,
+    backgroundColor: depth.panel.mid,
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
+    overflow: "hidden",
+    ...depth.litEdge(0.08),
   },
-  whenText: { alignItems: "flex-end" },
-  whenValue: { ...type.display, ...tabular, fontSize: scale.hero, lineHeight: 46, color: colors.textPrimary },
-  whenSub: { ...type.caption, color: colors.textSecondary, writingDirection: "rtl", marginTop: 2 },
+  whenLead: { ...type.meta, color: colors.textSecondary, writingDirection: "rtl" },
+  /* The one hero-sized number on this screen (§1). */
+  whenValue: { ...type.hero, ...tabular, color: colors.textPrimary, writingDirection: "rtl", marginTop: 2 },
+  whenSub: { ...type.meta, ...tabular, color: colors.textSecondary, writingDirection: "rtl", marginTop: 4 },
 
-  why: { paddingHorizontal: spacing.lg, marginTop: spacing.xl, gap: spacing.lg },
+  why: {
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.lg,
+    padding: spacing.lg,
+    borderRadius: radii.xl,
+    backgroundColor: depth.panel.low,
+    gap: spacing.lg,
+    ...depth.litEdge(0.05),
+  },
   whyTitle: {
     ...type.section,
     color: colors.textPrimary,
@@ -544,7 +597,15 @@ const styles = StyleSheet.create({
     writingDirection: "rtl",
   },
   whyItem: { flexDirection: "row-reverse", gap: spacing.md, alignItems: "flex-start" },
-  whyDotMark: { width: 8, height: 8, borderRadius: 4, marginTop: 8 },
+  whyDotMark: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 1,
+  },
+  whyDotCore: { width: 9, height: 9, borderRadius: 5 },
   whyClaim: {
     ...type.bodyStrong,
     color: colors.textPrimary,

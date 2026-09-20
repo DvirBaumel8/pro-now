@@ -348,6 +348,44 @@ export const tint = {
   neutralDark: (a = 0.06) => `rgba(247,243,250,${a})`,
 } as const;
 
+/**
+ * ---------------------------------------------------------------------
+ * DEPTH ON A DARK SURFACE
+ * ---------------------------------------------------------------------
+ * Amit's note on the first dark build was that it still was not "זוהר
+ * וחדשני" next to the board, and the diagnosis is mechanical rather than
+ * stylistic: **shadows do not exist on near-black.** `elevation()` casts a
+ * dark shadow, and a dark shadow on a dark surface is nothing at all. So
+ * every panel in the dark build sat perfectly flat, and the screen read as
+ * one sheet of black with text on it.
+ *
+ * Dark interfaces get their depth from the opposite direction — from LIGHT.
+ * Two mechanisms, and they are the entire vocabulary:
+ *
+ *   `litEdge`  a hairline highlight along the TOP of a raised surface, as
+ *              if a light source above it caught the edge. This is why a
+ *              panel looks raised rather than merely a different colour.
+ *   `Glow`     a wide, very low-opacity radial light behind the one thing
+ *              on the screen that matters. See components/Glow.tsx.
+ *
+ * THIS AMENDS §5. The rule says card + shadow + border is forbidden — a
+ * surface is raised or outlined, never both. That rule was written for the
+ * light theme, where it is exactly right. On the dark theme a top-edge
+ * hairline IS the elevation, not a second decoration competing with it, and
+ * forbidding it leaves dark surfaces with no way to be raised at all. So:
+ * on dark, `litEdge` replaces the shadow rather than joining it, and a full
+ * four-sided border is still forbidden alongside it.
+ */
+export const depth = {
+  /** The lit top edge of a raised dark panel. Spread onto the panel style. */
+  litEdge: (a = 0.07) => ({
+    borderTopWidth: 1,
+    borderTopColor: `rgba(247,243,250,${a})`,
+  }),
+  /** The surface colours a raised dark panel steps through. */
+  panel: { low: "#171220", mid: "#1C1626", high: "#241C31" },
+} as const;
+
 export const type = {
   /**
    * THE SCALE, AS NAMES. Every token below resolves to one of the seven

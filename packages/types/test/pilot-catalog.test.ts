@@ -165,10 +165,24 @@ describe("verification is per service, not per account", () => {
   });
 
   it("never marks a service LICENSE_REQUIRED without naming a licence", () => {
+    /*
+     * The two lockouts are the exception this list has to carry, and they
+     * are the reason the rule exists at all. Neither a home nor a car
+     * lockout has a statutory licence in Israel — what makes them
+     * LICENSE_REQUIRED is the ownership check, which is a stricter gate
+     * than a trade licence and is modelled as its own credential. Without
+     * naming those here, the assertion would force us to invent a licence
+     * that does not exist in order to pass (/CLAUDE.md §4).
+     */
     const licences: CredentialKind[] = [
       "ELECTRICIAN_LICENSE",
       "GAS_LICENSE",
       "PEST_CONTROL_LICENSE",
+      "PROPERTY_LINK_POLICY",
+      "VEHICLE_LINK_POLICY",
+      "DRIVING_LICENSE",
+      "MEDICAL_LICENSE",
+      "VETERINARY_LICENSE",
     ];
     for (const s of services) {
       if (s.trustProfile !== "LICENSE_REQUIRED") continue;
@@ -184,9 +198,22 @@ describe("verification is per service, not per account", () => {
     }
   });
 
-  it("requires a link-to-property policy for the lockout, and only there", () => {
+  it("requires a link-to-property policy for the home lockout, and only there", () => {
     const withPolicy = services.filter((s) => s.requiredCredentials.includes("PROPERTY_LINK_POLICY"));
     expect(withPolicy.map((s) => s.id)).toEqual(["svc-lock"]);
+  });
+
+  /*
+   * A CAR IS NOT A PROPERTY, and the separation is enforced rather than
+   * documented. Both lockouts open something for a person who cannot, at
+   * that moment, prove it is theirs — but a home is proven with a lease or
+   * a bill and a car with a plate against a registration, at the roadside,
+   * usually at night. One policy written for one of them must never end up
+   * governing the other by accident.
+   */
+  it("requires a link-to-vehicle policy for the car lockout, and only there", () => {
+    const withPolicy = services.filter((s) => s.requiredCredentials.includes("VEHICLE_LINK_POLICY"));
+    expect(withPolicy.map((s) => s.id)).toEqual(["svc-car-lockout"]);
   });
 
   it("requires a licence and insurance for anyone driving on a job", () => {
@@ -327,8 +354,22 @@ describe("how a professional is found is a property of the service", () => {
   });
 
   it("keeps NONE for the services with nothing to show, and only those", () => {
+    /*
+     * Four services, and each is genuinely un-photographable. A massage and
+     * a training session have no object at all. A dead battery looks
+     * exactly like a working one. And a car whose keys are locked inside is
+     * a car: a photograph tells the locksmith nothing he will not see on
+     * arrival, and asking for one at the roadside at night is the same
+     * discourtesy as asking someone booking a haircut to photograph their
+     * hair.
+     */
     const none = services.filter((s) => s.mediaIntent === "NONE").map((s) => s.id);
-    expect(none.sort()).toEqual(["svc-massage", "svc-trainer"]);
+    expect(none.sort()).toEqual([
+      "svc-car-lockout",
+      "svc-jump-start",
+      "svc-massage",
+      "svc-trainer",
+    ]);
     for (const id of none) expect(pilotServiceById[id]!.customerPhotoPromptHe).toBeNull();
   });
 

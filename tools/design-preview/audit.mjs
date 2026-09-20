@@ -160,7 +160,15 @@ await visit('welcome', null, []);
 await visit('auth-phone', null, [CUST]);
 await visit('customer-home', CUST, []);
 await visit('service', CUST, ['פתיחת סתימה']);
-await visit('category-drill', CUST, ['שיפוץ והתקנות']);
+/*
+ * The department names changed when the taxonomy was rebuilt from what
+ * Israeli customers already recognise (see pilot-catalog's tree comment).
+ * These steps failing is the audit doing its job: a renamed category is
+ * exactly the kind of change that silently makes a screen unreachable,
+ * and an audit that skipped the step would have reported "clean" for a
+ * screen it never opened.
+ */
+await visit('category-drill', CUST, ['ניקיון ובית']);
 await visit('arrival-verify', CUST, [
   'פתיחת סתימה',
   'בקשת בעל מקצוע עכשיו',
@@ -170,8 +178,8 @@ await visit('arrival-verify', CUST, [
   'המקצוען יצא לדרך',
   'המקצוען כמעט אצלך',
 ]);
-await visit('person-fit', CUST, ['אנשים שמגיעים אליך', 'תספורת עד הבית', 'הצג איך נראית התאמה אישית']);
-await visit('service-scheduled', CUST, ['שיפוץ והתקנות', 'הרכבת רהיטים']);
+await visit('person-fit', CUST, ['עוד קטגוריות', 'טיפוח ויופי', 'תספורת עד הבית', 'הצג איך נראית התאמה אישית']);
+await visit('service-scheduled', CUST, ['עוד קטגוריות', 'שיפוץ והתקנות', 'הרכבת רהיטים']);
 await visit('describe', CUST, ['פתיחת סתימה', 'בקשת בעל מקצוע עכשיו']);
 // The utility row became a branded header; history moved behind the menu.
 await visit('calls', CUST, [async () => p.getByLabel('תפריט').first().click()]);

@@ -3,10 +3,10 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import type { PriceQuoteView } from "@pro-now/types";
 
-import { customerTheme, elevation, imageRatio, radii, scale, spacing, tabular, tint, type } from "../theme";
+import { customerDarkTheme, depth, elevation, radii, scale, spacing, tabular, tint, type } from "../theme";
 import { priceExplainer } from "../pricing-copy";
 import { ClockMark, Mark, type MarkName, ShieldCheckMark } from "../components/marks";
-import { ImageSlot, SectionHeader, Surface } from "../components/surfaces";
+import { SectionHeader, Surface } from "../components/surfaces";
 
 /**
  * C04 — the service page, reached from the home catalogue and shown before
@@ -41,7 +41,21 @@ import { ImageSlot, SectionHeader, Surface } from "../components/surfaces";
  *   nobody has accepted yet.
  */
 
-const colors = customerTheme.colors;
+/**
+ * DARK, AND SHORTER. Two rounds of feedback landed on this screen at once.
+ *
+ * It was still ivory after the customer app went dark, which made the
+ * ordering step the one light interruption in a dark flow — and not for
+ * the reason light is allowed (§0: a surface you touch or read closely).
+ *
+ * And Amit on the copy: "לא צריך מלא מלא מלל, צריך ממוקד ונגיש." He is
+ * right, and the count is the argument: before the first tappable thing
+ * this screen showed a hero placeholder, a title, a description, a supply
+ * pill, a section heading, and a note under the chips. Six blocks to say
+ * "what's wrong?" — on a screen a person opens because water is coming out
+ * of something.
+ */
+const colors = customerDarkTheme.colors;
 
 export { priceExplainer };
 
@@ -87,8 +101,8 @@ export interface ServiceDetailBodyProps {
 export function ServiceDetailBody({
   nameHe,
   mark,
-  photoSubject,
-  photoUri = null,
+  photoSubject: _photoSubject,
+  photoUri: _photoUri = null,
   descriptionHe,
   symptomsHe = [],
   includedHe,
@@ -112,54 +126,48 @@ export function ServiceDetailBody({
   return (
     <View style={[styles.screen, { width, height }]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        {/* ---------------- Hero photo ---------------- */}
-        <View style={styles.heroWrap}>
-          <ImageSlot
-            subject={photoSubject}
-            uri={photoUri}
-            ratio={imageRatio.hero}
-            radius={0}
-            colors={colors}
-            overlay
-            style={{ width }}
-          />
+        {/* ----------------------------------------------------------
+            ONE HEADER. The hero was a full-bleed grey hatched rectangle
+            standing in for a photograph nobody has commissioned, at a
+            third of the screen — a placeholder that large does not read as
+            "photo pending", it reads as broken. And the back control and
+            the service mark were two overlapping discs in the same corner.
+
+            What is left is the mark, the name, one line, and the supply
+            fact. Everything that is not one of those four was explaining
+            the screen to the person already looking at it.
+            ---------------------------------------------------------- */}
+        <View style={styles.head}>
           <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel="חזרה" style={styles.back}>
             <Text style={styles.backGlyph}>›</Text>
           </Pressable>
-          <View style={styles.heroBubble}>
-            <Mark name={mark} size={24} color={colors.action} />
-          </View>
-        </View>
 
-        <View style={styles.titleBlock}>
+          <View style={styles.markWrap}>
+            <Mark name={mark} size={26} color={colors.textPrimary} />
+          </View>
+
           <Text style={styles.title}>{nameHe}</Text>
-          <Text style={styles.description}>{descriptionHe}</Text>
+          <Text style={styles.description} numberOfLines={2}>
+            {descriptionHe}
+          </Text>
 
-          {/* Supply — real or absent, never implied */}
-          <View style={styles.supplyRow}>
-            {availableNowCount === null ? (
-              <View style={[styles.supplyPill, { backgroundColor: tint.neutralLight(0.05) }]}>
-                <Text style={[styles.supplyText, { color: colors.textSecondary }]}>
-                  {comingSoon ? "השירות ייפתח בקרוב" : "נתוני זמינות אינם זמינים כרגע"}
-                </Text>
-              </View>
-            ) : availableNowCount === 0 ? (
-              <View style={[styles.supplyPill, { backgroundColor: tint.warning(0.14) }]}>
-                <Text style={[styles.supplyText, { color: colors.textPrimary }]}>
-                  כרגע אין בעלי מקצוע זמינים באזור שלך
-                </Text>
-              </View>
-            ) : (
-              <View style={[styles.supplyPill, { backgroundColor: tint.action(0.12) }]}>
-                <View style={styles.dot} />
-                <Text style={[styles.supplyText, { color: colors.actionText }]}>
-                  {availableNowCount === 1
-                    ? "בעל מקצוע אחד זמין עכשיו באזור שלך"
-                    : `${availableNowCount} בעלי מקצוע זמינים עכשיו באזור שלך`}
-                </Text>
-              </View>
-            )}
-          </View>
+          {/* Supply — real or absent, never implied. */}
+          {availableNowCount === null ? (
+            <Text style={styles.supplyQuiet}>
+              {comingSoon ? "השירות ייפתח בקרוב" : "נבדוק זמינות כששולחים"}
+            </Text>
+          ) : availableNowCount === 0 ? (
+            <Text style={[styles.supplyQuiet, { color: colors.statusWarningText }]}>
+              אין פנויים באזור שלך כרגע
+            </Text>
+          ) : (
+            <View style={styles.supplyRow}>
+              <View style={styles.dot} />
+              <Text style={styles.supplyLive}>
+                {availableNowCount === 1 ? "אחד פנוי עכשיו" : `${availableNowCount} פנויים עכשיו`}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* ---------------- What's actually happening ---------------- */}
@@ -337,34 +345,21 @@ const styles = StyleSheet.create({
   // clear it — otherwise the closing note is unreachable, not just hidden.
   scroll: { paddingBottom: 116 },
 
-  heroWrap: { position: "relative" },
-  back: {
-    position: "absolute",
-    top: spacing.lg,
-    right: spacing.lg,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(255,255,255,0.9)",
+  head: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, alignItems: "flex-end" },
+  /* A glyph, not a white puck on a dark screen. */
+  back: { alignSelf: "flex-start", width: 44, height: 44, alignItems: "center", justifyContent: "center", marginLeft: -spacing.md },
+  backGlyph: { ...type.section, fontWeight: "300", color: colors.textSecondary },
+  markWrap: {
+    width: 54,
+    height: 54,
+    borderRadius: 18,
+    backgroundColor: depth.panel.mid,
     alignItems: "center",
     justifyContent: "center",
+    marginBottom: spacing.md,
+    ...depth.litEdge(0.07),
   },
-  backGlyph: { fontSize: scale.section, lineHeight: 28, color: colors.textPrimary, fontWeight: "300" },
-  heroBubble: {
-    position: "absolute",
-    bottom: -22,
-    right: spacing.lg,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.surface,
-    alignItems: "center",
-    justifyContent: "center",
-    ...elevation(2),
-  },
-
-  titleBlock: { paddingHorizontal: spacing.lg, paddingTop: spacing.xxl, alignItems: "flex-end" },
-  title: { ...type.h1, color: colors.textPrimary, writingDirection: "rtl" },
+  title: { ...type.title, color: colors.textPrimary, writingDirection: "rtl", textAlign: "right" },
   description: {
     ...type.body,
     color: colors.textSecondary,
@@ -373,19 +368,10 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
 
-  supplyRow: { alignSelf: "stretch", marginTop: spacing.lg },
-  supplyPill: {
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    gap: spacing.sm,
-    alignSelf: "flex-end",
-    paddingHorizontal: spacing.md,
-    paddingVertical: 9,
-    borderRadius: radii.pill,
-    maxWidth: "100%",
-  },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.action },
-  supplyText: { ...type.captionStrong, writingDirection: "rtl" },
+  supplyRow: { flexDirection: "row-reverse", alignItems: "center", gap: spacing.sm, marginTop: spacing.md },
+  dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.action },
+  supplyLive: { ...type.metaStrong, color: colors.actionText, writingDirection: "rtl" },
+  supplyQuiet: { ...type.meta, color: colors.textSecondary, writingDirection: "rtl", marginTop: spacing.md },
 
   block: { paddingHorizontal: spacing.lg, marginTop: spacing.xl },
 

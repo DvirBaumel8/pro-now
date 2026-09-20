@@ -6,10 +6,12 @@ import type { AreaAvailabilityView } from "@pro-now/types";
 import { prosFreeShort } from "../lexicon";
 import { matchServicesByText, type ServiceMatchRule } from "../service-match";
 import { resolveHomeSupply } from "../home-supply";
-import { customerDarkTheme, customerTheme, elevation, radii, spacing, tabular, tint, type } from "../theme";
+import { customerDarkTheme, customerTheme, depth, elevation, radii, spacing, tabular, tint, type } from "../theme";
 import { type MarkName } from "../components/marks";
 import { NavGlyph } from "../components/NavGlyph";
 import { CaptureCard } from "../components/CaptureCard";
+import { Glow } from "../components/Glow";
+import { CategoryCard } from "../components/CategoryCard";
 import { CategoryGrid, type CategoryTile } from "../components/CategoryGrid";
 import { IntentSuggestions } from "../components/IntentSuggestions";
 import { ServiceListRow } from "../components/ServiceListRow";
@@ -225,6 +227,13 @@ export function CustomerHomeBody({
     return seen;
   }, [services]);
   const [dept, setDept] = useState<string>(ALL);
+  /*
+   * "עוד קטגוריות" used to jump straight into the sixth department, which
+   * is a tile pretending to be a category when it is really a door. With
+   * eleven departments and five tiles the overflow is now most of the
+   * catalogue, so it opens the full list.
+   */
+  const [showAllDepts, setShowAllDepts] = useState(false);
   const listed = useMemo(
     () => (dept === ALL ? services : services.filter((s) => s.departmentHe === dept)),
     [services, dept]
@@ -307,6 +316,47 @@ export function CustomerHomeBody({
    * into groups with their own headings, and the reachable ones are
    * physically bigger. See ServiceListRow's `emphasis`.
    */
+  if (showAllDepts && dept === ALL) {
+    return (
+      <ScrollView
+        style={[styles.screen, { width }]}
+        contentContainerStyle={{ paddingBottom: spacing.xxl }}
+      >
+        <View style={{ paddingHorizontal: gutter, paddingTop: spacing.md }}>
+          <Pressable
+            onPress={() => setShowAllDepts(false)}
+            accessibilityRole="button"
+            accessibilityLabel="חזרה"
+            style={styles.back}
+          >
+            <Text style={styles.backText}>חזרה ›</Text>
+          </Pressable>
+
+          <Text style={styles.deptTitle}>כל הקטגוריות</Text>
+
+          <View style={styles.rows}>
+            {departments.map((d) => {
+              const inDept = services.filter((s2) => s2.departmentHe === d);
+              return (
+                <CategoryCard
+                  key={d}
+                  nameHe={d}
+                  mark={(inDept[0]?.departmentMark ?? inDept[0]?.mark ?? "handyman") as MarkName}
+                  serviceCount={inDept.length}
+                  liveCount={inDept.filter(isFree).length}
+                  onPress={() => {
+                    setShowAllDepts(false);
+                    setDept(d);
+                  }}
+                />
+              );
+            })}
+          </View>
+        </View>
+      </ScrollView>
+    );
+  }
+
   if (dept !== ALL) {
     const reachable = listed.filter(isFree);
     /*
@@ -329,19 +379,31 @@ export function CustomerHomeBody({
       (s2) => !isFree(s2) && !s2.comingSoon && !s2.scheduledOnly && !s2.notInMarket
     );
 
-    const quietGroups: { titleHe: string; noteHe: string; items: HomeServiceItem[] }[] = [
+    const quietGroups: {
+      titleHe: string;
+      noteHe: string;
+      glyphHe: string;
+      items: HomeServiceItem[];
+    }[] = [
       {
         titleHe: "נבדוק ביחד",
         noteHe: "השירות פעיל. כמה אנשים פנויים תלוי ברגע — נבדוק ברגע שתבחרו.",
+        glyphHe: "?",
         items: unknown,
       },
       {
         titleHe: "בתיאום מראש",
         noteHe: "עבודות שלפי טבען לא מתחילות ברגע — קובעים מועד.",
+        glyphHe: "◷",
         items: scheduled,
       },
-      { titleHe: "עוד לא באזור שלכם", noteHe: "פעיל אצלנו, פשוט עוד לא כאן.", items: elsewhere },
-      { titleHe: "בקרוב", noteHe: "בדרך למוצר, עוד לא נפתח.", items: soon },
+      {
+        titleHe: "עוד לא באזור שלכם",
+        noteHe: "פעיל אצלנו, פשוט עוד לא כאן.",
+        glyphHe: "◎",
+        items: elsewhere,
+      },
+      { titleHe: "בקרוב", noteHe: "בדרך למוצר, עוד לא נפתח.", glyphHe: "✧", items: soon },
     ].filter((g) => g.items.length > 0);
 
     return (
@@ -392,10 +454,26 @@ export function CustomerHomeBody({
             </View>
           ) : null}
 
+          {/*
+            * EACH GROUP IS A CARD, because each group is a different KIND
+            * of answer — and the review's objection to the flat list was
+            * precisely that the three kinds were rendered as one grey
+            * column. A heading and a line of explanation at the top of a
+            * raised surface says "this is a category of silence, and here
+            * is what it means", which is the sentence the customer
+            * otherwise has to assemble from four identical rows.
+            */}
           {quietGroups.map((g) => (
-            <View key={g.titleHe} style={styles.group}>
-              <Text style={styles.groupTitleQuiet}>{g.titleHe}</Text>
-              <Text style={styles.groupNote}>{g.noteHe}</Text>
+            <View key={g.titleHe} style={styles.groupCard}>
+              <View style={styles.groupCardHead}>
+                <View style={styles.groupMark}>
+                  <Text style={styles.groupMarkText}>{g.glyphHe}</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.groupTitleQuiet}>{g.titleHe}</Text>
+                  <Text style={styles.groupNote}>{g.noteHe}</Text>
+                </View>
+              </View>
               <View style={styles.rows}>
                 {g.items.map((s2) => (
                   <ServiceListRow
@@ -447,7 +525,21 @@ export function CustomerHomeBody({
         <Text style={styles.headline}>מה אתם צריכים עכשיו?</Text>
 
         {matchRules ? (
-          <View style={{ marginTop: spacing.lg }}>
+          <View style={styles.captureWrap}>
+            {/*
+              * The lit panel needs a light source, or it is just a white
+              * rectangle pasted onto black. A wide, very dim coral glow
+              * behind it makes the card read as the thing the room is lit
+              * by — which is exactly its job on this screen.
+              */}
+            <Glow
+              color="signal"
+              width={inner + spacing.xl * 2}
+              height={260}
+              intensity={0.13}
+              originY={0.44}
+              spread={0.6}
+            />
             <CaptureCard
               width={inner}
               text={query}
@@ -489,7 +581,7 @@ export function CustomerHomeBody({
               tiles={tiles}
               moreLabelHe={overflow > 0 ? "עוד קטגוריות" : null}
               onSelect={(id) => setDept(id)}
-              onMore={() => setDept(departments[MAX_TILES] ?? ALL)}
+              onMore={() => setShowAllDepts(true)}
             />
           </View>
         ) : null}
@@ -500,7 +592,7 @@ export function CustomerHomeBody({
             boxing it turned it into a table of figures in review.
             --------------------------------------------------------------- */}
         {free.length > 0 ? (
-          <View style={{ marginTop: spacing.xl }}>
+          <View style={styles.livePanel}>
             <View style={styles.groupHead}>
               <Pulse color={colors.action} size={6} />
               <Text style={styles.groupTitle}>אפשר להזמין עכשיו</Text>
@@ -598,6 +690,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
+  captureWrap: { marginTop: spacing.lg, alignItems: "center" },
   orPick: {
     ...type.bodyStrong,
     color: colors.textPrimary,
@@ -619,6 +712,23 @@ const styles = StyleSheet.create({
   liveCardTitle: { ...type.bodyStrong, color: customerTheme.colors.textPrimary, writingDirection: "rtl" },
 
   group: { marginTop: spacing.xl },
+  groupCard: {
+    marginTop: spacing.lg,
+    padding: spacing.lg,
+    borderRadius: radii.xl,
+    backgroundColor: depth.panel.low,
+    ...depth.litEdge(0.05),
+  },
+  groupCardHead: { flexDirection: "row-reverse", gap: spacing.md, alignItems: "flex-start" },
+  groupMark: {
+    width: 38,
+    height: 38,
+    borderRadius: 13,
+    backgroundColor: tint.neutralDark(0.07),
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  groupMarkText: { ...type.body, color: colors.textSecondary },
   groupNote: {
     ...type.meta,
     color: colors.textSecondary,
@@ -636,6 +746,15 @@ const styles = StyleSheet.create({
   },
   rows: { marginHorizontal: -spacing.sm, marginTop: spacing.sm },
 
+  livePanel: {
+    marginTop: spacing.xl,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.sm,
+    borderRadius: radii.xl,
+    backgroundColor: depth.panel.low,
+    ...depth.litEdge(0.06),
+  },
   liveRow: {
     flexDirection: "row-reverse",
     alignItems: "center",

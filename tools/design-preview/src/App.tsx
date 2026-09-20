@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 
-import { ActiveJobCapsule, AddressPickerBody, AppHeader, customerDarkTheme, ArrivalVerifyBody, CallsListBody, CAPSULE_HEIGHT, ChatBody, ConnectionBanner, CustomerHomeBody, CustomerProfileBody, customerTheme, DescribeFaultBody, JobCompleteBody, lex, MatchConfirmBody, NavGlyph, Persona, PhoneAuthBody, ProEarningsBody, ProJobBody, ProJobSettledBody, ProOfferBody, ProOnlineBody, ProProfileBody, ProShiftBody, proTheme, ProVerificationBody, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, Sheet, spacing, tint, TrackingBody, type as t, WelcomeBody } from "@pro-now/ui";
+import { ActiveJobCapsule, AddressPickerBody, AppHeader, customerDarkTheme, ScreenTransition, ArrivalVerifyBody, CallsListBody, CAPSULE_HEIGHT, ChatBody, ConnectionBanner, CustomerHomeBody, CustomerProfileBody, customerTheme, DescribeFaultBody, JobCompleteBody, lex, MatchConfirmBody, NavGlyph, Persona, PhoneAuthBody, ProEarningsBody, ProJobBody, ProJobSettledBody, ProOfferBody, ProOnlineBody, ProProfileBody, ProShiftBody, proTheme, ProVerificationBody, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, Sheet, spacing, tint, TrackingBody, type as t, WelcomeBody } from "@pro-now/ui";
 import type { JobMediaItem, LiveLocationState, MarkName, NavGlyphName } from "@pro-now/ui";
 import type { AuthStage, ChatMessage, ConnectionState } from "@pro-now/ui";
 import { buildIntakeBrief, pilotIntakeByService, pilotServiceById, readAvailability } from "@pro-now/types";
@@ -1019,7 +1019,15 @@ function CustomerApp({
         }
       />
 
-      <View style={{ height: bodyH }}>{body}</View>
+      {/*
+        * Every route change animates. The prototype swapped bodies
+        * instantly, which makes each navigation read as a page load rather
+        * than as movement — see ScreenTransition for why the transition is
+        * deliberately only 260ms.
+        */}
+      <View style={{ height: bodyH, overflow: "hidden" }}>
+        <ScreenTransition transitionKey={`${tab}:${route.name}`}>{body}</ScreenTransition>
+      </View>
 
       {demo ? <DemoBar label={demo.label} onPress={demo.next} width={width} /> : null}
 
@@ -1482,7 +1490,15 @@ function ProApp({
 
   return (
     <View style={{ width, height }}>
-      <View style={{ height: bodyH }}>{body}</View>
+      {/*
+        * Every route change animates. The prototype swapped bodies
+        * instantly, which makes each navigation read as a page load rather
+        * than as movement — see ScreenTransition for why the transition is
+        * deliberately only 260ms.
+        */}
+      <View style={{ height: bodyH, overflow: "hidden" }}>
+        <ScreenTransition transitionKey={`${tab}:${proView ?? "none"}:${job ?? "idle"}`}>{body}</ScreenTransition>
+      </View>
 
       {/*
         * An offer ARRIVES. It does not replace a tab — it rises over
