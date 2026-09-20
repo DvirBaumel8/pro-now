@@ -79,6 +79,15 @@ export interface SavedSession {
    * against. Remembering it claims nothing that was not already true.
    */
   authedSides?: ("customer" | "pro")[];
+  /** Which figure walks the street for this customer. Null is a real answer. */
+  avatar?: string | null;
+  /**
+   * Whether the avatar question has been ANSWERED, which is not the same
+   * as whether an avatar was chosen. Skipping is an answer; without this
+   * flag a customer who skipped would be asked again every single time,
+   * which is what makes an optional step feel compulsory.
+   */
+  avatarAnswered?: boolean;
 }
 
 function storage(): Storage | null {

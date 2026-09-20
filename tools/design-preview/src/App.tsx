@@ -3,14 +3,14 @@ import { Animated, Easing, Pressable, StyleSheet, Text, View, useWindowDimension
 
 import { CARD_REST, customerCategoryById, liveAreaLineHe, DEMO_WORLD, type CandidatePresence, type LivingMapPhase, type LivingMapState, themeForDepartment } from "@pro-now/types";
 import { discover, emptyDiscoveries, type DiscoveryState } from "@pro-now/types";
-import { screenKey, travelAssetFor } from "@pro-now/types";
+import { screenKey, travelAssetFor, type AvatarChoice } from "@pro-now/types";
 import { matchServicesByText } from "@pro-now/ui";
 import { canSaveSession, clearSession, loadSession, saveSession, savedAgoHe } from "./session";
 import { HAIR_DISCOVERY_IDS } from "@pro-now/ui";
 
 import { worldSources } from "./worldSources";
 
-import { ActiveJobCapsule, AddressPickerBody, AppHeader, customerDarkTheme, FocusSheet, ScreenTransition, ArrivalVerifyBody, CallsListBody, CAPSULE_HEIGHT, ChatBody, ConnectionBanner, CategoryBody, CustomerHomeBody, CustomerProfileBody, customerTheme, DescribeFaultBody, JobCompleteBody, lex, MatchConfirmBody, NavGlyph, Persona, PhoneAuthBody, ProEarningsBody, ProJobBody, ProJobSettledBody, ProOfferBody, ProOnlineBody, ProPricingBody, ProProfileBody, ProShiftBody, proTheme, ProVerificationBody, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, Sheet, spacing, tint, TrackingBody, type as t, WelcomeBody } from "@pro-now/ui";
+import { ActiveJobCapsule, AddressPickerBody, AppHeader, AvatarPickerBody, customerDarkTheme, FocusSheet, ScreenTransition, ArrivalVerifyBody, CallsListBody, CAPSULE_HEIGHT, ChatBody, ConnectionBanner, CategoryBody, CustomerHomeBody, CustomerProfileBody, customerTheme, DescribeFaultBody, JobCompleteBody, lex, MatchConfirmBody, NavGlyph, Persona, PhoneAuthBody, ProEarningsBody, ProJobBody, ProJobSettledBody, ProOfferBody, ProOnlineBody, ProPricingBody, ProProfileBody, ProShiftBody, proTheme, ProVerificationBody, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, Sheet, spacing, tint, TrackingBody, type as t, WelcomeBody } from "@pro-now/ui";
 import type { JobMediaItem, LiveLocationState, MarkName, NavGlyphName, ProPricingRow } from "@pro-now/ui";
 import type { AuthStage, ChatMessage, ConnectionState } from "@pro-now/ui";
 import { buildIntakeBrief, pilotIntakeByService, pilotServiceById, readAvailability } from "@pro-now/types";
@@ -122,7 +122,22 @@ type CustomerTab = "home" | "calls" | "card";
 type ProTab = "shift" | "earnings" | "verify" | "profile";
 type Side = "customer" | "pro";
 /** Before either side's app: the landing page and the sign-in. */
-type Gate = { name: "welcome" } | { name: "auth"; side: Side };
+type Gate =
+  | { name: "welcome" }
+  | { name: "auth"; side: Side }
+  /**
+   * WHO WALKS DOWN THE STREET.
+   *
+   * Sits between signing in and the app, and only for a customer who has
+   * not answered it before. Amit: *"בבניית פרופיל לקוח יבנה את האווטאר
+   * שלו... פשוט ממש, שלוקח 20 שניות עד דקה, שלא ידלגו — לא חובה."*
+   *
+   * "Not mandatory" is why the ANSWER is recorded rather than the choice:
+   * somebody who skipped has answered, and must not be asked again every
+   * time they open the app. That is the difference between optional and
+   * nagging.
+   */
+  | { name: "avatar" };
 
 type CustomerRoute =
   | { name: "home" }
@@ -294,6 +309,16 @@ export function App() {
     saveSession({ side });
   }, [side]);
 
+  /**
+   * The avatar, and whether the question has been answered at all.
+   *
+   * Two values rather than one, because `null` is ambiguous on its own: it
+   * is both "has not been asked" and "was asked and said no". Only the
+   * second may skip the screen.
+   */
+  const [avatar, setAvatar] = useState<AvatarChoice>(restored?.avatar ?? null);
+  const avatarAnswered = useRef(restored?.avatarAnswered ?? false);
+
   /** Sides this device has already signed in on. See `session.ts`. */
   const authedSides = useRef<Set<Side>>(new Set(restored?.authedSides ?? []));
   const enter = useCallback((s: Side) => {
@@ -405,9 +430,35 @@ export function App() {
               authedSides.current.add(gate.side);
               saveSession({ authedSides: [...authedSides.current] });
               setSide(gate.side);
-              setGate(null);
+              // A customer who has never been asked meets the avatar once.
+              // A professional does not: they are not the one walking.
+              setGate(gate.side === "customer" && !avatarAnswered.current ? { name: "avatar" } : null);
             }}
             onBack={() => setGate({ name: "welcome" })}
+            width={w}
+            height={h - bannerH}
+          />
+        ) : gate?.name === "avatar" ? (
+          <AvatarPickerBody
+            value={avatar}
+            sources={worldSources}
+            onChoose={(id) => {
+              setAvatar(id);
+              avatarAnswered.current = true;
+              saveSession({ avatar: id, avatarAnswered: true });
+              setGate(null);
+            }}
+            /*
+             * Skipping is an ANSWER, recorded as one. Treating it as a
+             * deferral means asking again tomorrow, which is what makes an
+             * optional step feel compulsory.
+             */
+            onSkip={() => {
+              setAvatar(null);
+              avatarAnswered.current = true;
+              saveSession({ avatar: null, avatarAnswered: true });
+              setGate(null);
+            }}
             width={w}
             height={h - bannerH}
           />

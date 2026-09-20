@@ -54,20 +54,25 @@ await inspect('02-auth');
 await p.getByLabel('מספר טלפון').fill('0501234567'); await click('שליחת קוד');
 await p.getByLabel('קוד האימות').fill('123456'); await click('כניסה');
 await p.waitForTimeout(1400);
-await inspect('03-home', { needsBack: false });
+
+// The avatar step, which a new customer meets once. Skipping is a real
+// answer, so the sweep takes it: that is the path most people will take.
+await inspect('03-avatar', { needsBack: false });
+await tryClick('דלג כרגע', 1200);
+await inspect('04-home', { needsBack: false });
 
 for (const [i, cat] of ['לבית', 'ביוטי ושיער', 'ניקיון', 'הובלות ומשלוחים', 'רכב', 'חיות', 'בריאות וכושר', 'מחשבים וסלולר'].entries()) {
   const ok = await p.getByRole('button', { name: cat }).first().click({ timeout: 4000 }).then(() => true).catch(() => false);
   if (!ok) { problems.push(`home: category "${cat}" not tappable`); continue; }
   await p.waitForTimeout(1100);
-  await inspect(`04-cat-${i}-${cat.replace(/\s/g, '_')}`);
+  await inspect(`05-cat-${i}-${cat.replace(/\s/g, '_')}`);
   await p.goBack(); await p.waitForTimeout(900);
 }
 
 await p.getByRole('button', { name: 'לבית' }).first().click(); await p.waitForTimeout(1100);
 await p.getByRole('button', { name: /פתיחת סתימה/ }).first().click(); await p.waitForTimeout(900);
-await inspect('05-service');
-await click('בקשת בעל מקצוע עכשיו'); await inspect('06-describe');
+await inspect('06-service');
+await click('בקשת בעל מקצוע עכשיו'); await inspect('07-describe');
 await click('שליחת הקריאה'); await p.waitForTimeout(2600);
 await inspect('07-living-searching', { needsBack: false });
 await p.waitForTimeout(3400); await inspect('08-living-found', { needsBack: false });
