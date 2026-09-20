@@ -8,6 +8,7 @@ import {
   districtCentre,
   WORLD_DISTRICTS,
   type DepartmentCode,
+  WORLD_SIZE,
 } from "@pro-now/types";
 
 import { AssetSlot, EMPTY_ASSET_SOURCES, type WorldAssetSources } from "./AssetSlot";
@@ -82,15 +83,20 @@ function shapeOf(assetId: string): { ratio: number; anchorX: number } {
   return { ratio: item.intrinsicHeight / item.intrinsicWidth, anchorX: item.anchor.x };
 }
 
-/** A shopfront's share of the VIEWPORT's width at the nearest depth. */
 /*
- * Raised with the venues, and for the same reason: the artwork surrounds
- * each shopfront with greenery and signage, so a 0.26 box drew a shop at
- * roughly an eighth of the phone. A landmark you cannot read is not a
- * landmark. It stays below the venue ratio, because a district is scenery
- * and a venue is a choice.
+ * A SHOPFRONT'S SHARE OF THE WORLD — not of the phone.
+ *
+ * This was 0.42 of the VIEWPORT, which meant a shop kept its size on screen
+ * however far the camera pulled back. On the tracking shot, where the world
+ * is about 1.25 screens across, that made one shop a third of the entire
+ * neighbourhood: five of them filled the frame and collided with each other
+ * and with the buildings painted on the plate. Amit: *"כל המכוניות
+ * והבניינים והנסיעה מבולגנת ממש."*
+ *
+ * A building has a size in the world and the camera scales it with the
+ * ground it stands on, which is what happens when you walk towards a real
+ * shop. See `WORLD_SIZE`.
  */
-const DISTRICT_WIDTH_RATIO = 0.42;
 
 export function DistrictLayer({
   width,
@@ -100,7 +106,10 @@ export function DistrictLayer({
   activeDepartment = null,
   onSelect,
 }: DistrictLayerProps) {
+  // `width` is the WORLD's width in points; a district's size is a share of
+  // it. `sizeBasis` survives only for the callers that have not moved yet.
   const basis = sizeBasis ?? width;
+  void basis;
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
@@ -113,7 +122,7 @@ export function DistrictLayer({
           const district = WORLD_DISTRICTS[site.department];
           const scale = depthScale(at.v);
           const shape = shapeOf(district.venueAssetId);
-          const w = basis * DISTRICT_WIDTH_RATIO * scale;
+          const w = width * WORLD_SIZE.district * scale;
           const faceShape = shapeOf(district.characterWorldAssetId);
           const h = w * shape.ratio;
           const dimmed = activeDepartment !== null && activeDepartment !== site.department;
@@ -170,7 +179,7 @@ export function DistrictLayer({
                       anchor: { x: 0.5, y: 1 },
                       role: "BUILDING",
                       theme: "SHARED",
-                      defaultWidthRatio: DISTRICT_WIDTH_RATIO,
+                      defaultWidthRatio: WORLD_SIZE.district,
                       critical: false,
                     },
                     layer: "WORLD_OBJECT",

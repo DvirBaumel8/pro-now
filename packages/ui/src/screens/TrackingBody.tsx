@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import {
   assessArrival,
   routeAt,
+  worldZoomFor,
   routeProgress,
   type ArrivalSignals,
   type EtaView,
@@ -223,17 +224,43 @@ export function TrackingBody({
                   ? null
                   : routeAt((departmentCode as never) ?? "HOME_URGENT", tripProgress).at
               }
-            />
-            <RouteLayer
-              width={width}
-              height={mapH}
-              sizeBasis={width}
-              department={(departmentCode as never) ?? "HOME_URGENT"}
-              progress={tripProgress}
-              vehicleAssetId={vehicleAssetId}
-              sources={worldSources}
-              animate={animate}
-            />
+              /*
+               * WIDE ENOUGH TO BE A JOURNEY.
+               *
+               * The camera used to sit at the district shot, close enough
+               * that two shopfronts filled the frame — so following
+               * somebody was watching a wall go past. "ROUTE" pulls back
+               * far enough that the street, the shops along it and the
+               * direction of travel are all in the same picture, which is
+               * the only thing that makes movement legible.
+               */
+              zoom={worldZoomFor("ROUTE")}
+            >
+              {/*
+                * THE ROUTE AND THE VEHICLE, INSIDE THE WORLD.
+                *
+                * These were siblings of the backdrop, laid out against the
+                * PHONE while the ground panned and zoomed underneath them.
+                * A world coordinate plotted in viewport space is not a
+                * position at all: the scooter appeared wherever the
+                * arithmetic put it, unrelated to the road. Amit: *"כל
+                * המכוניות והבניינים והנסיעה מבולגנת ממש."*
+                *
+                * Now they are drawn in the world's own space, so the road
+                * under the wheels is the road that was painted there.
+                */}
+              {(world) => (
+                <RouteLayer
+                  width={world.width}
+                  height={world.height}
+                  department={(departmentCode as never) ?? "HOME_URGENT"}
+                  progress={tripProgress}
+                  vehicleAssetId={vehicleAssetId}
+                  sources={worldSources}
+                  animate={animate}
+                />
+              )}
+            </WorldBackdrop>
           </>
         ) : (
           <RealMapSurface assigned={assigned} width={width} height={mapH} tone="dark" />

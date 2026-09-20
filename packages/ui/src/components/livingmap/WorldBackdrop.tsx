@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { Animated, Easing, StyleSheet, View } from "react-native";
 
-import { WORLD_EXTENT, worldZoomFor } from "@pro-now/types";
+import { worldBox, worldZoomFor } from "@pro-now/types";
 
 import { palette } from "../../theme";
 import { AssetSlot, EMPTY_ASSET_SOURCES, type WorldAssetSources } from "./AssetSlot";
@@ -47,6 +47,19 @@ import { WorldLife } from "./WorldLife";
 export interface WorldBackdropProps {
   width: number;
   height: number;
+  /**
+   * Anything that belongs IN the world rather than on top of it.
+   *
+   * The route and the vehicle used to be drawn as a sibling of this
+   * component, in viewport coordinates, while the ground panned and zoomed
+   * underneath them — so the scooter's world position was plotted against
+   * the phone and it ended up standing on a pavement it had never been
+   * placed on. Amit: *"הנסיעה מבולגנת ממש."*
+   *
+   * Passed the world's real size in points, so a child can lay itself out
+   * in the same space the ground is drawn in and move with it.
+   */
+  children?: (world: { width: number; height: number }) => React.ReactNode;
   sources?: WorldAssetSources;
   /**
    * The ground plate. Defaults to the neighbourhood, falling back to the
@@ -98,6 +111,7 @@ export function WorldBackdrop({
   departmentCode = null,
   focus = null,
   zoom,
+  children,
 }: WorldBackdropProps) {
   const assetId = sources[groundAssetId] ? groundAssetId : fallbackGroundAssetId;
   const hasArt = Boolean(sources[assetId]);
@@ -191,8 +205,11 @@ export function WorldBackdrop({
    * fallback is shown fitted, as it was. The screen degrades to the smaller
    * truth instead of pretending the bigger one is there.
    */
-  const worldW = width * (isWorldPlate ? WORLD_EXTENT.width : 1) * lens;
-  const worldH = height * (isWorldPlate ? WORLD_EXTENT.height : 1) * lens;
+  // Same rule as the live world: the box is the plate's shape, so a
+  // measured coordinate is a plate pixel. See `worldBox`.
+  const wb = worldBox(width, height, lens, isWorldPlate);
+  const worldW = wb.width;
+  const worldH = wb.height;
 
   // How far the plate sits so a given world point lands mid-screen.
   const shift = (f: { u: number; v: number }, axis: "u" | "v") =>
@@ -320,6 +337,9 @@ export function WorldBackdrop({
           animate={animate}
           departmentCode={departmentCode}
         />
+
+        {/* In the world, not over it. See `children` above. */}
+        {children?.({ width: worldW, height: worldH })}
       </Animated.View>
     </View>
   );

@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from "react";
 import { Animated, Easing, StyleSheet, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 
-import { assignmentRoute, CUSTOMER_POINT, type DepartmentCode } from "@pro-now/types";
+import { assignmentRoute, CUSTOMER_POINT, WORLD_SIZE, type DepartmentCode } from "@pro-now/types";
 
 import { palette } from "../../theme";
 import { AssetSlot, EMPTY_ASSET_SOURCES, type WorldAssetSources } from "./AssetSlot";
@@ -27,7 +27,13 @@ import { HAIR_PACK_V0 } from "./hairPack";
  * because a route that ever runs the other way should turn the vehicle
  * round rather than need a second file.
  */
-const TRAVELLER_HEIGHT = 0.12;
+/*
+ * A share of the WORLD's height, not of the phone's. Sized against the
+ * screen, the scooter stayed the same size while the camera pulled back —
+ * so on the wide journey shot it was a motorcycle the size of a building,
+ * and on the close shot a speck. See `WORLD_SIZE`.
+ */
+const TRAVELLER_HEIGHT = WORLD_SIZE.travellerHeight;
 
 function shapeOf(assetId: string): number {
   const item = HAIR_PACK_V0[assetId];
@@ -93,7 +99,9 @@ export function RouteLayer({
   sources = EMPTY_ASSET_SOURCES,
   animate = true,
 }: RouteLayerProps) {
+  // `width`/`height` are the WORLD's size in points.
   const basis = sizeBasis ?? width;
+  void basis;
   const route = assignmentRoute(department);
   const steps = route.map((_, i) => i / (route.length - 1));
 
@@ -124,7 +132,7 @@ export function RouteLayer({
   /*
    * Sized by HEIGHT, drawn at the file's own proportions. See above.
    */
-  const h = basis * TRAVELLER_HEIGHT;
+  const h = height * TRAVELLER_HEIGHT;
   const w = h / shapeOf(vehicleAssetId);
 
   /*

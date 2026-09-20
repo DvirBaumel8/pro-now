@@ -62,6 +62,62 @@ import type { NormalizedPoint } from "./virtual-venue";
  */
 export const WORLD_EXTENT = { width: 2.4, height: 2.4 } as const;
 
+/**
+ * THE PLATE'S OWN SHAPE, AND WHY THE WORLD MUST TAKE IT.
+ *
+ * ---------------------------------------------------------------------
+ * THE BUG THIS FIXES
+ * ---------------------------------------------------------------------
+ * Amit, on the tracking screen: *"כל המכוניות והבניינים והנסיעה מבולגנת
+ * ממש."* Shops overlapping shops, a scooter apparently parked on a
+ * pavement, nothing standing where it was placed.
+ *
+ * Two causes, and this is the second and more insidious one.
+ *
+ * `PLATE_SPOTS` were measured off the painted plate in the plate's own
+ * pixels — that is the whole point of measuring rather than designing them.
+ * But the world box was `2.4 × 2.4` viewports, whose aspect is the PHONE's,
+ * and the plate was drawn into it with `cover`. A 948×1659 image covering a
+ * 936×1320 box overflows vertically and is centre-cropped, so world `v` and
+ * plate `y` are not the same number — and worse, the offset between them
+ * changes with the phone, because the box's aspect is the phone's aspect. A
+ * shop measured onto a pavement therefore stood on a pavement on one device
+ * and in the road on another, and no amount of re-measuring could fix it.
+ *
+ * ---------------------------------------------------------------------
+ * THE RULE
+ * ---------------------------------------------------------------------
+ * The world IS the plate. Its width is `WORLD_EXTENT.width` viewports, as
+ * before, and its HEIGHT follows from the artwork's aspect ratio rather
+ * than from the screen. Then `cover` and `contain` agree, nothing is
+ * cropped, and a normalised coordinate is a plate pixel on every device —
+ * which is what makes measuring the plate worth doing at all.
+ *
+ * The number is the delivered file's, and it is stated here rather than
+ * read from the image because the layout must be computable without having
+ * loaded anything.
+ */
+export const PLATE_ASPECT = 948 / 1659;
+
+/**
+ * How big the world box is, in points, for a given viewport.
+ *
+ * `worldSized: false` is the old one-screen fallback for the hero plates,
+ * which are composed for a single frame and have no coordinates in them.
+ */
+export function worldBox(
+  viewportWidth: number,
+  viewportHeight: number,
+  zoom: number,
+  plateShaped = true
+): { width: number; height: number } {
+  if (!plateShaped) {
+    return { width: viewportWidth * zoom, height: viewportHeight * zoom };
+  }
+  const width = viewportWidth * WORLD_EXTENT.width * zoom;
+  return { width, height: width / PLATE_ASPECT };
+}
+
 /** How much of the world one screen shows, per axis. */
 export const VIEWPORT_FRACTION = {
   width: 1 / WORLD_EXTENT.width,
@@ -196,23 +252,38 @@ export const DISTRICT_SITES: readonly DistrictSite[] = [
  */
 export const PLATE_SPOTS: readonly NormalizedPoint[] = [
   /*
-   * Kept away from the plate's left and right edges. Two of the measured
-   * spots came out at u 0.05, which scores well as pavement and is a bad
-   * place for a shop: a building is drawn from its footing outwards, so at
-   * the edge half of it hangs past the world and gets clipped. The bound is
-   * 0.12–0.88, which is roughly a building's own half-width.
+   * RE-MEASURED, WITH THE RULE THE FIRST MEASUREMENT DID NOT HAVE.
+   *
+   * Amit: *"כל המכוניות והבניינים והנסיעה מבולגנת ממש."* Seven of the
+   * fifty-five pairs of spots were closer together than a shopfront is
+   * wide, so seven pairs of buildings were drawn through each other. The
+   * first pass scored each point on its own merits — is this pavement, is
+   * there a road nearby — and never asked the only question that matters
+   * for a set of them: can two shops stand here at once?
+   *
+   * So the picking is greedy now. Points are scored as before (pavement
+   * under the footing, almost no road under it, a road within reach,
+   * because a shopfront faces a street) and then taken best-first, each one
+   * only if it clears every spot already taken on at least one axis — a
+   * building's width apart across the street, or a building's depth apart
+   * up it. Clearing on one axis is enough because the world is drawn in
+   * perspective: two shops at the same height must stand apart, and two at
+   * different heights read as near and far.
+   *
+   * Bounded to u 0.12–0.88 as before, since a building is drawn outward
+   * from its footing and half of one at the edge hangs off the world.
    */
-  { u: 0.153, v: 0.345 },
-  { u: 0.566, v: 0.370 },
-  { u: 0.566, v: 0.817 },
-  { u: 0.729, v: 0.851 },
-  { u: 0.150, v: 0.741 },
-  { u: 0.522, v: 0.168 },
-  { u: 0.160, v: 0.480 },
-  { u: 0.803, v: 0.514 },
-  { u: 0.315, v: 0.682 },
-  { u: 0.271, v: 0.252 },
-  { u: 0.180, v: 0.598 },
+  { u: 0.605, v: 0.170 },
+  { u: 0.310, v: 0.200 },
+  { u: 0.130, v: 0.340 },
+  { u: 0.615, v: 0.355 },
+  { u: 0.350, v: 0.405 },
+  { u: 0.770, v: 0.515 },
+  { u: 0.345, v: 0.545 },
+  { u: 0.340, v: 0.675 },
+  { u: 0.125, v: 0.750 },
+  { u: 0.790, v: 0.835 },
+  { u: 0.360, v: 0.875 },
 ];
 
 /** The measured spot a trade stands on, by its position in the table. */
@@ -550,4 +621,92 @@ export function worldZoomFor(shot: "WIDE" | "DISTRICT" | "VENUE" | "ROUTE"): num
     case "ROUTE":
       return fit * 1.25;
   }
+}
+
+/**
+ * HOW BIG THINGS ARE, AND WHY IT IS MEASURED AGAINST THE WORLD.
+ *
+ * ---------------------------------------------------------------------
+ * THE BUG
+ * ---------------------------------------------------------------------
+ * Amit: *"כל המכוניות והבניינים והנסיעה מבולגנת ממש."*
+ *
+ * Every object in the world was sized against the VIEWPORT — a shopfront
+ * was "0.42 of the phone", a venue "0.52 of the phone". That is a rule
+ * about the screen, not about the place, and it has a consequence that only
+ * shows up once the camera moves: **zooming out made everything bigger
+ * relative to the street.**
+ *
+ * Work it through on the tracking screen. The camera pulls back so the
+ * whole journey fits, which makes the world about 1.25 screens across. The
+ * shops keep their 0.42-of-a-screen size, so each one is now a third of the
+ * entire neighbourhood. Five of them fill the frame, they collide with each
+ * other and with the painted buildings on the plate, and the scooter
+ * travelling between them is a speck. Nothing is misplaced; everything is
+ * the wrong SIZE, which looks like the same thing and is not.
+ *
+ * ---------------------------------------------------------------------
+ * THE RULE
+ * ---------------------------------------------------------------------
+ * A building has a size in the WORLD, as a share of the plate's width, and
+ * the camera scales it along with the ground it stands on — which is what
+ * happens when you walk towards a real shop. Zoom in and it grows; pull
+ * back and it takes its place among the others.
+ *
+ * The numbers come from the plate itself: a painted shopfront on that
+ * street spans roughly a sixth of the image. A PRO NOW venue is allowed to
+ * be a little larger than a plain district, because at the end of a search
+ * it is the thing the camera came for; a person is roughly a tenth of a
+ * building; a vehicle sits between the two.
+ */
+/**
+ * The separation the measurement guarantees between any two spots: a
+ * building's width across the street, or a building's depth up it.
+ *
+ * Stated here, next to the sizes, because the two are one decision. A shop
+ * wider than this walks into its neighbour, and every size below is bounded
+ * by it rather than chosen by eye.
+ */
+export const SPOT_SEPARATION = { u: 0.2, v: 0.13 } as const;
+
+export const WORLD_SIZE = {
+  /** A trade's landmark, standing on the street it belongs to. */
+  district: 0.16,
+  /** One candidate's shopfront. The thing a search arrives at. */
+  venue: 0.17,
+  /**
+   * The chosen one, lifted so the eye lands on it — but no wider than the
+   * gap between two measured spots, or being chosen means walking into the
+   * shop next door.
+   */
+  chosenVenue: 0.2,
+  /** A professional standing in a doorway. */
+  character: 0.055,
+  /** What travels the lane. Height, not width — see RouteLayer. */
+  travellerHeight: 0.05,
+} as const;
+
+/** Everything wrong with the sizes, as a test rather than as a comment. */
+export function worldSizeViolations(): string[] {
+  const out: string[] = [];
+
+  // A shop must not be wider than the gap the spots guarantee, or the
+  // separation enforced in PLATE_SPOTS buys nothing.
+  if (WORLD_SIZE.chosenVenue > SPOT_SEPARATION.u) {
+    out.push("a venue is wider than the space between two measured spots");
+  }
+  if (WORLD_SIZE.venue > WORLD_SIZE.chosenVenue) {
+    out.push("being chosen must not make a venue smaller");
+  }
+  // A person standing beside a building must read as a person.
+  if (WORLD_SIZE.character > WORLD_SIZE.district / 2) {
+    out.push("a character is too large beside its own building");
+  }
+  // Nothing may be so large that two of them cannot be on screen together;
+  // that is the difference between a neighbourhood and a billboard.
+  for (const [name, v] of Object.entries(WORLD_SIZE)) {
+    if (v > 0.3) out.push(`${name} takes up too much of the world at ${v}`);
+    if (v <= 0) out.push(`${name} must be positive`);
+  }
+  return out;
 }

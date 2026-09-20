@@ -2,6 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   MIN_VENUE_SEPARATION,
+  SPOT_SEPARATION,
+  PLATE_ASPECT,
+  WORLD_SIZE,
+  worldBox,
+  worldSizeViolations,
+  worldZoomFor,
   alongStreet,
   plateSpotFor,
   depthOrder,
@@ -211,5 +217,43 @@ describe("shops of one trade do not stand on top of each other", () => {
 
   it("puts a single candidate on their own trade's spot", () => {
     expect(venueSlots("BEAUTY", 1)[0]).toEqual(plateSpotFor("BEAUTY"));
+  });
+});
+
+describe("sizes are measured against the world, not the screen", () => {
+  it("holds its own invariants", () => {
+    expect(worldSizeViolations()).toEqual([]);
+  });
+
+  it("keeps a shop narrower than the gap the spots guarantee", () => {
+    // Otherwise the separation enforced when the plate was measured buys
+    // nothing, and the buildings collide again at the next camera move.
+    for (const site of DISTRICT_SITES) {
+      const a = plateSpotFor(site.department);
+      for (const other of DISTRICT_SITES) {
+        if (other.department === site.department) continue;
+        const b = plateSpotFor(other.department);
+        const apart =
+          Math.abs(a.u - b.u) >= SPOT_SEPARATION.u || Math.abs(a.v - b.v) >= SPOT_SEPARATION.v;
+        expect(apart, `${site.department} vs ${other.department}`).toBe(true);
+      }
+    }
+  });
+
+  it("puts the whole world on one screen at the widest shot", () => {
+    // `worldBox` at the fitting zoom must be exactly one viewport wide —
+    // this is what "pulled all the way back" means, and it is the moment
+    // the old viewport-relative sizes were most wrong.
+    const box = worldBox(390, 550, worldZoomFor("WIDE"));
+    expect(Math.round(box.width)).toBe(390);
+  });
+
+  it("shapes the world like the plate rather than like the phone", () => {
+    // A box shaped like the screen centre-crops the artwork, so a measured
+    // coordinate lands somewhere different on every device.
+    for (const [w, h] of [[390, 550], [430, 700], [360, 480]]) {
+      const box = worldBox(w, h, 1);
+      expect(box.width / box.height).toBeCloseTo(PLATE_ASPECT, 5);
+    }
   });
 });

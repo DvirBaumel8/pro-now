@@ -159,6 +159,13 @@ export interface LivingMapSceneProps {
  */
 const SWEEP_TICK_MS = 200;
 
+/**
+ * How much of the top of this screen belongs to the headline and the back
+ * control. A venue card that would land inside it flips under its shop
+ * instead of being read through a banner.
+ */
+const VENUE_CARD_TOP_CLEARANCE = 132;
+
 export function LivingMapScene({
   state,
   etaMinutes,
@@ -588,6 +595,13 @@ export function LivingMapScene({
                 height={world.height}
                 sizeBasis={width}
                 visibleLeft={world.visibleLeft}
+                visibleTop={world.visibleTop}
+                /*
+                 * The headline and the back control own the top of this
+                 * screen. Without saying so, a card arriving on a shop near
+                 * the top of the frame is read through "מצאנו לך התאמה".
+                 */
+                topClearance={VENUE_CARD_TOP_CLEARANCE}
                 sources={worldSources}
                 /*
                  * A DIFFERENT SHOPFRONT PER CANDIDATE.

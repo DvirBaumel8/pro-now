@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, PanResponder, StyleSheet, View } from "react-native";
 
-import { WORLD_EXTENT, type NormalizedPoint } from "@pro-now/types";
+import { worldBox, type NormalizedPoint } from "@pro-now/types";
 
 /**
  * WORLD VIEWPORT — the window the neighbourhood is seen through.
@@ -82,8 +82,15 @@ export function WorldViewport({
   children,
   onDragStart,
 }: WorldViewportProps) {
-  const worldW = width * (worldSized ? WORLD_EXTENT.width : 1) * zoom;
-  const worldH = height * (worldSized ? WORLD_EXTENT.height : 1) * zoom;
+  /*
+   * The world box takes the PLATE's aspect, not the phone's. See
+   * `worldBox` — a box shaped like the screen centre-crops the artwork,
+   * which put every measured coordinate somewhere slightly different on
+   * every device.
+   */
+  const box = worldBox(width, height, zoom, worldSized);
+  const worldW = box.width;
+  const worldH = box.height;
 
   /** Where the plate sits so a world point lands mid-screen. */
   const offsetFor = useMemo(

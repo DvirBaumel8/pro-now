@@ -7,6 +7,7 @@ import {
   depthOrder,
   type AvailabilityScene,
   type CandidatePresence,
+  WORLD_SIZE,
   type VirtualVenue,
 } from "@pro-now/types";
 
@@ -63,6 +64,13 @@ export interface VenueLayerProps {
    * all about what the person can see.
    */
   visibleLeft?: number;
+  /** World pixels at the screen's top edge, for the same reason. */
+  visibleTop?: number;
+  /**
+   * How much of the top of the screen is already spoken for — a headline,
+   * a back control — so a card knows when it has to move out from under it.
+   */
+  topClearance?: number;
   /** Per-kind venue art. Grey slots until the pack lands. */
   sources?: WorldAssetSources;
   assetIdForKind?: (kind: VirtualVenue["kind"]) => string;
@@ -144,7 +152,12 @@ function shapeOf(assetId: string): { ratio: number; anchorX: number } {
  * width once the camera has arrived on it. This is the resting size; the
  * chosen one is lifted further below.
  */
-const VENUE_WIDTH_RATIO = 0.52;
+/*
+ * A VENUE'S SHARE OF THE WORLD — not of the phone. See DistrictLayer for
+ * the whole diagnosis: sizing against the viewport meant the shops grew
+ * relative to the street every time the camera pulled back, until they
+ * collided with each other and with the plate.
+ */
 
 /**
  * The extra size the chosen venue gets.
@@ -154,7 +167,7 @@ const VENUE_WIDTH_RATIO = 0.52;
  * itself grows — which is what "this is the one" looks like from across a
  * street.
  */
-const CHOSEN_SCALE = 1.22;
+const CHOSEN_SCALE = WORLD_SIZE.chosenVenue / WORLD_SIZE.venue;
 
 export function VenueLayer({
   venues,
@@ -172,8 +185,12 @@ export function VenueLayer({
   muted = false,
   sizeBasis,
   visibleLeft = 0,
+  visibleTop = 0,
+  topClearance = 0,
 }: VenueLayerProps) {
+  // `width` is the WORLD's width in points.
   const basis = sizeBasis ?? width;
+  void basis;
   const waitingById = new Map(availability.map((a) => [a.candidateId, a]));
   const byId = new Map(candidates.map((c) => [c.candidateId, c]));
 
@@ -204,7 +221,7 @@ export function VenueLayer({
         const assetId = assetIdForCandidate?.(venue.candidateId) ?? assetIdForKind(venue.kind);
         const shape = shapeOf(assetId);
         const isChosen = !muted && selectedCandidateId === venue.candidateId;
-        const w = basis * VENUE_WIDTH_RATIO * (venue.scale ?? 1) * (isChosen ? CHOSEN_SCALE : 1);
+        const w = width * WORLD_SIZE.venue * (venue.scale ?? 1) * (isChosen ? CHOSEN_SCALE : 1);
         const h = w * shape.ratio;
         const left = venue.worldAnchor.u * width - w * shape.anchorX;
         const top = venue.worldAnchor.v * height - h;
@@ -220,6 +237,23 @@ export function VenueLayer({
         const overflowRight = cardCentre + CARD_W / 2 - (visibleLeft + basis - 12);
         const overflowLeft = visibleLeft + 12 - (cardCentre - CARD_W / 2);
         const cardShift = overflowRight > 0 ? -overflowRight : overflowLeft > 0 ? overflowLeft : 0;
+
+        /*
+         * AND KEPT BELOW THE HEADLINE.
+         *
+         * The card hangs above its own shop, which is right until the
+         * camera arrives on a shop near the top of the frame — then the
+         * card rises behind the "מצאנו לך התאמה" banner and the
+         * professional's name is read through it.
+         *
+         * Sliding it down like the horizontal case would detach it from its
+         * building, so it FLIPS to the other side instead: still touching
+         * the shop, still obviously about that shop, just underneath it.
+         * `topClearance` is the space the screen's own furniture occupies.
+         */
+        const CARD_H = 92;
+        const cardTopOnScreen = top - visibleTop - CARD_H;
+        const cardBelow = cardTopOnScreen < topClearance;
         const dimmed = !muted && selectedCandidateId != null && !selected;
 
         /*
@@ -278,7 +312,7 @@ export function VenueLayer({
                     anchor: { x: 0.5, y: 1 },
                     role: "HERO_BUILDING",
                     theme: "HAIR",
-                    defaultWidthRatio: VENUE_WIDTH_RATIO,
+                    defaultWidthRatio: WORLD_SIZE.venue,
                     critical: true,
                   },
                   layer: "WORLD_OBJECT",
@@ -371,7 +405,11 @@ export function VenueLayer({
                * building rather than jumping to the middle.
                */
               <View
-                style={[styles.card, { transform: [{ translateX: cardShift }] }]}
+                style={[
+                  styles.card,
+                  cardBelow ? styles.cardBelow : styles.cardAbove,
+                  { transform: [{ translateX: cardShift }] },
+                ]}
                 pointerEvents="none"
               >
                 <Text style={styles.name} numberOfLines={1}>
@@ -401,8 +439,6 @@ const styles = StyleSheet.create({
   venue: { position: "absolute", alignItems: "center" },
   card: {
     position: "absolute",
-    bottom: "100%",
-    marginBottom: spacing.xs,
     minWidth: 150,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
@@ -412,6 +448,10 @@ const styles = StyleSheet.create({
     borderTopColor: "rgba(247,243,250,0.12)",
     alignItems: "flex-end",
   },
+  /** Above the shop, which is where it belongs when there is room. */
+  cardAbove: { bottom: "100%", marginBottom: spacing.xs },
+  /** Flipped under it when the headline would otherwise cover it. */
+  cardBelow: { top: "100%", marginTop: spacing.xs },
   name: { ...type.bodyStrong, fontSize: scale.meta, color: palette.nightText, writingDirection: "rtl" },
   profession: { ...type.micro, color: palette.nightTextSoft, writingDirection: "rtl" },
   facts: { ...type.micro, color: palette.nightTextSoft, writingDirection: "rtl", marginTop: 2 },
