@@ -31,3 +31,4 @@ export * from "./world-motion";
 export * from "./avatar";
 export * from "./world-steering";
 export * from "./visual-register";
+export * from "./ground-plate";
