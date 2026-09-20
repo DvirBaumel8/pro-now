@@ -28,3 +28,42 @@ export function headingFrom(dx: number, dy: number, radius: number): Heading {
   const deg = (Math.atan2(dx, -dy) * 180) / Math.PI;
   return ORDER[Math.round(((deg + 360) % 360) / 45) % 8]!;
 }
+
+/**
+ * HOW HARD THE THUMB IS PUSHING, 0 to 1.
+ *
+ * ---------------------------------------------------------------------
+ * WHY THE PAD HAS TO ANSWER THIS
+ * ---------------------------------------------------------------------
+ * Amit wants running: *"שאתה יכול לרוץ עם החצים."* A separate run button
+ * is the obvious build and the wrong one — it puts a second thing under
+ * the same thumb and makes speed a mode you toggle rather than something
+ * you do.
+ *
+ * A thumbstick already carries the answer in how far it has travelled
+ * from the centre. Near the middle is a walk, out at the rim is a run,
+ * and changing between them is the same gesture as steering. Nothing new
+ * appears on screen.
+ *
+ * Zero inside the deadzone, so the value and the heading agree about
+ * standing still.
+ */
+export function intensityFrom(dx: number, dy: number, radius: number): number {
+  const d = Math.hypot(dx, dy);
+  const dead = radius * DEADZONE;
+  if (d <= dead) return 0;
+  return Math.max(0, Math.min(1, (d - dead) / (radius - dead)));
+}
+
+/**
+ * Where a walk becomes a run.
+ *
+ * Past halfway rather than at the very rim: a threshold at the edge can
+ * only be held by somebody pressing their thumb off the control, so the
+ * run would be the one speed nobody could sustain.
+ */
+export const RUN_AT = 0.55;
+
+export function gaitFor(intensity: number): "WALK" | "RUN" {
+  return intensity >= RUN_AT ? "RUN" : "WALK";
+}

@@ -17,3 +17,4 @@ export * from "./SteerPad";
 export * from "./Walker";
 export * from "./ContactShadow";
 export * from "./ScrimBand";
+export * from "./ErrandLayer";

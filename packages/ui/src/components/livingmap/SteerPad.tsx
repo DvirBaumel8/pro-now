@@ -4,9 +4,9 @@ import { PanResponder, StyleSheet, Text, View } from "react-native";
 import type { Heading } from "@pro-now/types";
 
 import { type } from "../../theme";
-import { headingFrom } from "./steerPad";
+import { gaitFor, headingFrom, intensityFrom } from "./steerPad";
 
-export { headingFrom, DEADZONE } from "./steerPad";
+export { headingFrom, intensityFrom, gaitFor, DEADZONE, RUN_AT } from "./steerPad";
 
 /**
  * THE CONTROL THAT WALKS YOU DOWN THE STREET.
@@ -48,13 +48,22 @@ export { headingFrom, DEADZONE } from "./steerPad";
 export interface SteerPadProps {
   /** Called as the heading changes, and with null when the thumb lifts. */
   onHeading?: (h: Heading) => void;
+  /**
+   * Called when the walk becomes a run, or stops being one.
+   *
+   * Reported as a gait rather than as a number, because that is the whole
+   * of what anything downstream needs and it changes a handful of times
+   * in a walk instead of every frame. See `intensityFrom`.
+   */
+  onGait?: (g: "WALK" | "RUN") => void;
   /** Hidden entirely when there is no avatar to walk. */
   visible?: boolean;
   size?: number;
 }
 
-export function SteerPad({ onHeading, visible = true, size = 116 }: SteerPadProps) {
+export function SteerPad({ onHeading, onGait, visible = true, size = 116 }: SteerPadProps) {
   const current = useRef<Heading>(null);
+  const gait = useRef<"WALK" | "RUN">("WALK");
 
   const emit = useCallback(
     (h: Heading) => {
@@ -65,6 +74,15 @@ export function SteerPad({ onHeading, visible = true, size = 116 }: SteerPadProp
       onHeading?.(h);
     },
     [onHeading]
+  );
+
+  const emitGait = useCallback(
+    (g: "WALK" | "RUN") => {
+      if (gait.current === g) return;
+      gait.current = g;
+      onGait?.(g);
+    },
+    [onGait]
   );
 
   /*
@@ -79,14 +97,26 @@ export function SteerPad({ onHeading, visible = true, size = 116 }: SteerPadProp
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: (e) => {
         const { locationX, locationY } = e.nativeEvent;
-        emit(headingFrom(locationX - size / 2, locationY - size / 2, size / 2));
+        const dx = locationX - size / 2;
+        const dy = locationY - size / 2;
+        emit(headingFrom(dx, dy, size / 2));
+        emitGait(gaitFor(intensityFrom(dx, dy, size / 2)));
       },
       onPanResponderMove: (e) => {
         const { locationX, locationY } = e.nativeEvent;
-        emit(headingFrom(locationX - size / 2, locationY - size / 2, size / 2));
+        const dx = locationX - size / 2;
+        const dy = locationY - size / 2;
+        emit(headingFrom(dx, dy, size / 2));
+        emitGait(gaitFor(intensityFrom(dx, dy, size / 2)));
       },
-      onPanResponderRelease: () => emit(null),
-      onPanResponderTerminate: () => emit(null),
+      onPanResponderRelease: () => {
+        emit(null);
+        emitGait("WALK");
+      },
+      onPanResponderTerminate: () => {
+        emit(null);
+        emitGait("WALK");
+      },
     })
   ).current;
 

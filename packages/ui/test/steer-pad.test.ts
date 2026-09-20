@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { headingFrom } from "../src/components/livingmap/steerPad";
+import { RUN_AT, gaitFor, headingFrom, intensityFrom } from "../src/components/livingmap/steerPad";
 
 const R = 58;
 
@@ -40,5 +40,49 @@ describe("reading a thumb as a direction", () => {
     }
     expect(seen.size).toBe(8);
     expect(seen.has(null)).toBe(false);
+  });
+});
+
+describe("pushing harder is running", () => {
+  /*
+   * A separate run button is the obvious build and the wrong one: it
+   * puts a second thing under the same thumb and makes speed a mode you
+   * toggle rather than something you do.
+   */
+  it("is still standing still inside the deadzone", () => {
+    expect(intensityFrom(0, 0, 58)).toBe(0);
+    expect(intensityFrom(5, 0, 58)).toBe(0);
+  });
+
+  it("reaches full push at the rim", () => {
+    expect(intensityFrom(58, 0, 58)).toBeCloseTo(1, 5);
+  });
+
+  it("never exceeds one, however far past the rim a thumb slides", () => {
+    expect(intensityFrom(400, 400, 58)).toBe(1);
+  });
+
+  it("walks near the middle and runs out wide", () => {
+    expect(gaitFor(intensityFrom(20, 0, 58))).toBe("WALK");
+    expect(gaitFor(intensityFrom(56, 0, 58))).toBe("RUN");
+  });
+
+  /*
+   * A threshold at the very edge can only be held by pressing a thumb
+   * off the control, so the run would be the one speed nobody could
+   * sustain.
+   */
+  it("puts the run within reach of a thumb that stays on the pad", () => {
+    expect(RUN_AT).toBeLessThan(0.75);
+    expect(RUN_AT).toBeGreaterThan(0.3);
+  });
+
+  it("agrees with the heading about the deadzone", () => {
+    // Zero push and no heading must happen at the same distance, or the
+    // figure faces somewhere it is not going.
+    for (let d = 0; d < 58; d += 2) {
+      const still = headingFrom(d, 0, 58) === null;
+      expect(intensityFrom(d, 0, 58) === 0, `d=${d}`).toBe(still);
+    }
   });
 });

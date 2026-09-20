@@ -11,6 +11,7 @@ import {
   stepFrom,
   STEER_GAIT,
   WORLD_SIZE,
+  type Gait,
   type Heading,
   type NormalizedPoint,
 } from "@pro-now/types";
@@ -96,6 +97,15 @@ export interface WalkerProps {
    * camera.
    */
   autoTo?: NormalizedPoint | null;
+  /**
+   * Walking or running.
+   *
+   * The gait carries its own speed, stride length, rise and lean — see
+   * `GAITS` — so this one word changes all four together. That is the
+   * point of the table: a run built by multiplying a walk's speed gives
+   * tiny frantic steps, which reads as a video played fast.
+   */
+  gait?: Gait;
   animate?: boolean;
   /** Told where the customer got to, rarely — for the scene to remember. */
   onSettled?: (at: NormalizedPoint) => void;
@@ -115,6 +125,7 @@ export function Walker({
   startAt,
   heading,
   autoTo = null,
+  gait = STEER_GAIT,
   animate = true,
   onSettled,
 }: WalkerProps) {
@@ -170,7 +181,7 @@ export function Walker({
         return;
       }
 
-      const next = clampWalkable(stepFrom(at.current, h, dt));
+      const next = clampWalkable(stepFrom(at.current, h, dt, GAITS[gait].speed));
       /*
        * Distance is measured from what actually moved, not from the time
        * elapsed. Walking into the edge of the world stops the figure; if
@@ -185,8 +196,8 @@ export function Walker({
 
       u.setValue(next.u);
       v.setValue(next.v);
-      bob.setValue(bobAt(STEER_GAIT, distance.current));
-      lean.setValue(leanAt(STEER_GAIT, distance.current, facingFor(h)));
+      bob.setValue(bobAt(gait, distance.current));
+      lean.setValue(leanAt(gait, distance.current, facingFor(h)));
 
       if (now - lastReport > REPORT_MS) {
         lastReport = now;
@@ -201,7 +212,7 @@ export function Walker({
       cancelAnimationFrame(frame);
       onSettled?.(at.current);
     };
-  }, [animate, bob, heading, lean, onSettled, source, target, u, v]);
+  }, [animate, bob, gait, heading, lean, onSettled, source, target, u, v]);
 
   /*
    * Facing is STATE and not another Animated value, deliberately. It
@@ -272,7 +283,7 @@ export function Walker({
            * about where the foot is.
            */
           opacity: bob.interpolate({
-            inputRange: [-GAITS[STEER_GAIT].bob, 0],
+            inputRange: [-GAITS[gait].bob, 0],
             outputRange: [SHADOW.opacity * (1 - SHADOW.liftFade), SHADOW.opacity],
             extrapolate: "clamp",
           }),

@@ -1,14 +1,20 @@
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import { Animated, Image, Pressable, StyleSheet, Text, View } from "react-native";
 
 import {
   avatarById,
+  discover,
+  emptyDiscoveries,
+  errandsBetween,
+  PLATE_SPOTS,
+  reachedNow,
   walkingAssetFor,
   WALK_START,
   WORLD_DISTRICTS,
   worldZoomFor,
   type AvatarChoice,
   type DepartmentCode,
+  type Gait,
   type Heading,
   type NormalizedPoint,
 } from "@pro-now/types";
@@ -16,6 +22,7 @@ import {
 import { BackButton, BACK_BUTTON_CLEARANCE } from "../components/BackButton";
 import { EMPTY_ASSET_SOURCES, type WorldAssetSources } from "../components/livingmap/AssetSlot";
 import { DistrictLayer } from "../components/livingmap/DistrictLayer";
+import { ErrandLayer } from "../components/livingmap/ErrandLayer";
 import { ScrimBand } from "../components/livingmap/ScrimBand";
 import { SteerPad } from "../components/livingmap/SteerPad";
 import { Walker } from "../components/livingmap/Walker";
@@ -98,6 +105,28 @@ export function StrollBody({
   const v = useRef(new Animated.Value(WALK_START.v)).current;
   const walkedTo = useRef<NormalizedPoint>(WALK_START);
   const [heading, setHeading] = useState<Heading>(null);
+  const [gait, setGait] = useState<Gait>("WALK");
+
+  /*
+   * ---------------------------------------------------------------------
+   * SOMETHING TO WALK TOWARDS
+   * ---------------------------------------------------------------------
+   * A control that moves a figure is not a game; it is a control. What
+   * makes the street worth crossing is that crossing it does something.
+   *
+   * These stand BETWEEN the shops rather than in their doorways, because
+   * a thing you find on the way to a shop is a thing you found by
+   * accident — see `errandsBetween`. Reaching one is the discovery; the
+   * same `discover()` records it that records a tapped one, so nothing
+   * about the counter or the drawer had to learn a new idea.
+   *
+   * None of them may say anything about the job. That is checked rather
+   * than trusted, because a line of text is exactly where a claim sneaks
+   * in — see `errandViolations`.
+   */
+  const errands = useMemo(() => errandsBetween(PLATE_SPOTS, ERRAND_LINES), []);
+  const [found, setFound] = useState(() => emptyDiscoveries(errands.map((e) => e.id)));
+  const [lastFoundHe, setLastFoundHe] = useState<string | null>(null);
 
   /*
    * WHICH TRADE IS UNDERFOOT.
@@ -125,11 +154,26 @@ export function StrollBody({
    */
   const [depth, setDepth] = useState<number>(WALK_START.v);
 
-  const remember = useCallback((at: NormalizedPoint) => {
-    walkedTo.current = at;
-    setNearest(nearestDistrict(at));
-    setDepth((was) => (depthChanged(was, at.v) ? at.v : was));
-  }, []);
+  const remember = useCallback(
+    (at: NormalizedPoint) => {
+      walkedTo.current = at;
+      setNearest(nearestDistrict(at));
+      setDepth((was) => (depthChanged(was, at.v) ? at.v : was));
+
+      /*
+       * Reached anything? `reachedNow` is pure and `discover` is
+       * idempotent, so standing still on top of something counts once.
+       */
+      setFound((was) => {
+        const hit = reachedNow(at, errands, was.found);
+        if (hit.length === 0) return was;
+        const line = errands.find((e) => e.id === hit[0])?.foundHe ?? null;
+        if (line) setLastFoundHe(line);
+        return hit.reduce((acc, id) => discover(acc, id), was);
+      });
+    },
+    [errands]
+  );
 
   const label = nearest ? WORLD_DISTRICTS[nearest].labelHe : null;
 
@@ -193,6 +237,18 @@ export function StrollBody({
               activeDepartment={nearest}
               onSelect={onOpenDepartment}
             />
+            {/*
+              * Drawn before the walker, so the figure passes over the
+              * glow rather than the glow sitting on its shoulders.
+              */}
+            <ErrandLayer
+              errands={errands}
+              found={found.found}
+              width={world.width}
+              height={world.height}
+              animate={animate}
+            />
+
             {canWalk ? (
               <Walker
                 assetId={walkAssetId}
@@ -204,6 +260,7 @@ export function StrollBody({
                 v={v}
                 startAt={walkedTo.current}
                 heading={heading}
+                gait={gait}
                 animate={animate}
                 onSettled={remember}
               />
@@ -253,6 +310,21 @@ export function StrollBody({
       </View>
 
       {/*
+        * WHAT JUST HAPPENED, FOR A MOMENT.
+        *
+        * One line, above the trade label, and it replaces itself rather
+        * than stacking: a street that keeps a log of what you have done
+        * is a screen with a log on it. There is no counter and no goal —
+        * `discoveryProgressHe` stays out of this screen entirely, because
+        * nobody has to play.
+        */}
+      {lastFoundHe ? (
+        <View style={[styles.found, { bottom: height * 0.36 }]} pointerEvents="none">
+          <Text style={styles.foundText}>{lastFoundHe}</Text>
+        </View>
+      ) : null}
+
+      {/*
         * WHERE YOU ARE, NAMED. A trade, never a business and never a
         * person: this is a street of professions, and who is behind any
         * door is a question only the server gets to answer.
@@ -265,7 +337,7 @@ export function StrollBody({
 
       {canWalk ? (
         <View style={styles.steerWrap} pointerEvents="box-none">
-          <SteerPad onHeading={setHeading} />
+          <SteerPad onHeading={setHeading} onGait={setGait} />
         </View>
       ) : avatar ? (
         /*
@@ -306,6 +378,25 @@ export function StrollBody({
   );
 }
 
+/**
+ * What the street does when you reach something.
+ *
+ * Small, ordinary, and about the city rather than about the job: a cat, a
+ * light, some pigeons. Nothing here may mention the professional, an ETA
+ * or a price — `errandViolations` refuses a line that does, because a
+ * game that starts making promises has stopped being a game.
+ */
+const ERRAND_LINES = [
+  "חתול יצא מתחת לספסל",
+  "הפנס נדלק כשעברתם",
+  "יונים עפו מהעץ",
+  "מישהו פתח תריס למעלה",
+  "הממטרות נדלקו בערוגה",
+  "כלב נבח מהחצר",
+  "אופניים חלפו על ידכם",
+  "ריח של מאפייה מהפינה",
+];
+
 const styles = StyleSheet.create({
   screen: { overflow: "hidden", backgroundColor: "#0B0918" },
   /*
@@ -343,6 +434,15 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(16,12,22,0.74)",
   },
   hereText: { ...type.bodyStrong, color: palette.nightText, writingDirection: "rtl" },
+  found: {
+    position: "absolute",
+    alignSelf: "center",
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.pill,
+    backgroundColor: "rgba(40,28,16,0.82)",
+  },
+  foundText: { ...type.caption, color: "#FFE9C7", writingDirection: "rtl" },
   steerWrap: { position: "absolute", left: spacing.lg, bottom: spacing.xl * 2 },
   pick: {
     position: "absolute",

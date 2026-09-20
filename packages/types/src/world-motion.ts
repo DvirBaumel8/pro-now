@@ -45,7 +45,7 @@
  */
 
 /** What kind of thing is moving. Decides its gait and its speed. */
-export type Gait = "WALK" | "RIDE" | "DRIVE" | "HAUL";
+export type Gait = "WALK" | "RUN" | "RIDE" | "DRIVE" | "HAUL";
 
 export interface GaitSpec {
   /**
@@ -81,6 +81,16 @@ export interface GaitSpec {
 export const GAITS: Readonly<Record<Gait, GaitSpec>> = {
   /** On foot. The only one with a real stride. */
   WALK: { cyclesPerWorld: 34, bob: 0.03, lean: 1.6, speed: 0.045 },
+  /*
+   * RUNNING. Amit: *"שאתה יכול לרוץ עם החצים, לשחק בין החנויות."*
+   *
+   * Not simply a faster walk. A run has FEWER strides per unit of ground
+   * because each one covers more of it, a bigger rise on each, and a
+   * deeper forward lean. Scaling the walk's speed alone gives a figure
+   * doing tiny frantic steps, which reads as a video played fast rather
+   * than as somebody running.
+   */
+  RUN: { cyclesPerWorld: 22, bob: 0.055, lean: 3.2, speed: 0.115 },
   /** Two wheels. A little suspension chatter, no stride, no lean. */
   RIDE: { cyclesPerWorld: 12, bob: 0.008, lean: 0, speed: 0.12 },
   /** Four wheels, light. */
@@ -154,17 +164,31 @@ export function pathLength(points: readonly { u: number; v: number }[]): number 
   return total;
 }
 
+/** The gaits with legs. Leaning and a real stride belong to these only. */
+export const ON_FOOT: readonly Gait[] = ["WALK", "RUN"];
+
 /** Everything wrong with the motion model, as a test rather than as prose. */
 export function worldMotionViolations(): string[] {
   const out: string[] = [];
 
   for (const [name, g] of Object.entries(GAITS)) {
-    // Above roughly 4% of its own height a walk reads as a bounce.
-    if (g.bob > 0.04) out.push(`${name} bobs too far at ${g.bob}`);
+    /*
+     * ON FOOT OR ON WHEELS — the distinction these rules are actually
+     * about.
+     *
+     * They were written when WALK was the only gait with legs, so they
+     * said "WALK" and meant "on foot". The moment RUN arrived they
+     * rejected it for bobbing and leaning, which is exactly what running
+     * does. The rule was wrong, not the gait.
+     */
+    const onFoot = ON_FOOT.includes(name as Gait);
+    // A run genuinely rises further than a walk; past this it is a hop.
+    const maxBob = onFoot ? (name === "RUN" ? 0.07 : 0.04) : 0.04;
+    if (g.bob > maxBob) out.push(`${name} bobs too far at ${g.bob}`);
     if (g.bob <= 0) out.push(`${name} must move at all`);
     if (g.speed <= 0) out.push(`${name} must have a speed`);
     // Wheels do not lean; a leaning scooter looks blown over.
-    if (name !== "WALK" && g.lean !== 0) out.push(`${name} must not lean`);
+    if (!onFoot && g.lean !== 0) out.push(`${name} must not lean`);
   }
 
   // A person on foot must be the slowest thing on the street.
