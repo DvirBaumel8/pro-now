@@ -4,6 +4,8 @@ import { Animated, Easing, Pressable, StyleSheet, Text, View, useWindowDimension
 import { CARD_REST, customerCategoryById, liveAreaLineHe, DEMO_WORLD, type CandidatePresence, type LivingMapPhase, type LivingMapState, themeForDepartment } from "@pro-now/types";
 import { discover, emptyDiscoveries, type DiscoveryState } from "@pro-now/types";
 import { screenKey, travelAssetFor } from "@pro-now/types";
+import { matchServicesByText } from "@pro-now/ui";
+import { canSaveSession, clearSession, loadSession, saveSession, savedAgoHe } from "./session";
 import { HAIR_DISCOVERY_IDS } from "@pro-now/ui";
 
 import { worldSources } from "./worldSources";
@@ -281,7 +283,27 @@ export function App() {
   // A pinned phase (`?phase=`) is a request to look at one screen. Sending
   // the reviewer through welcome and sign-in first would defeat that.
   const [gate, setGate] = useState<Gate | null>(PINNED || REVIEW_CYCLE ? null : { name: "welcome" });
-  const [side, setSide] = useState<Side>("customer");
+  /*
+   * The last review session, so a reload comes back to the side you were
+   * on with what you typed still there. Only inputs are restored — see
+   * `session.ts` for why a live job never is.
+   */
+  const restored = useMemo(() => loadSession(), []);
+  const [side, setSide] = useState<Side>(restored?.side ?? "customer");
+  useEffect(() => {
+    saveSession({ side });
+  }, [side]);
+
+  /** Sides this device has already signed in on. See `session.ts`. */
+  const authedSides = useRef<Set<Side>>(new Set(restored?.authedSides ?? []));
+  const enter = useCallback((s: Side) => {
+    if (authedSides.current.has(s)) {
+      setSide(s);
+      setGate(null);
+      return;
+    }
+    setGate({ name: "auth", side: s });
+  }, []);
   /** The request in flight, shared by both sides. See `LiveRequest`. */
   const [liveRequest, setLiveRequest] = useState<LiveRequest | null>(null);
   /**
@@ -362,8 +384,17 @@ export function App() {
         {gate?.name === "welcome" ? (
           <WelcomeBody
             worldSources={worldSources}
-            onCustomer={() => setGate({ name: "auth", side: "customer" })}
-            onProfessional={() => setGate({ name: "auth", side: "pro" })}
+            /*
+             * Straight in if this device has signed in on that side before.
+             * The welcome screen itself is kept — it is the screen Amit
+             * reviews most and skipping it would make it unreachable
+             * without a reset — but the phone number and the code are not
+             * asked twice. The code screen accepts any six digits because
+             * there is no server to check them against, so remembering that
+             * it was passed claims nothing that was not already true.
+             */
+            onCustomer={() => enter("customer")}
+            onProfessional={() => enter("pro")}
             width={w}
             height={h - bannerH}
           />
@@ -371,6 +402,8 @@ export function App() {
           <AuthGate
             side={gate.side}
             onDone={() => {
+              authedSides.current.add(gate.side);
+              saveSession({ authedSides: [...authedSides.current] });
               setSide(gate.side);
               setGate(null);
             }}
@@ -417,6 +450,22 @@ export function App() {
             <Text style={styles.noticeText}>
               אב־טיפוס. אין שרת — כל הנתונים הם דוגמאות. גע כדי לסגור.
             </Text>
+            {/*
+              * WHAT IS REMEMBERED, SAID WHERE IT MATTERS.
+              *
+              * Amit asked when the prototype would start saving what he
+              * chooses so a flow can be tested for real. It does now — and
+              * the second line is not decoration: a reviewer who does not
+              * know their answers are kept will assume a stale address is
+              * a bug, and one who thinks EVERYTHING is kept will expect a
+              * job to still be running. Both sentences are needed.
+              */}
+            {canSaveSession() ? (
+              <Text style={styles.noticeSub}>
+                {savedAgoHe(restored, Date.now()) ?? "מה שתבחרו ותכתבו יישמר במכשיר הזה"} · קריאה
+                פעילה לא נשמרת
+              </Text>
+            ) : null}
           </Pressable>
         ) : null}
       </View>
@@ -532,7 +581,12 @@ function CustomerApp({
   const supply = readAvailability(snapshot, Date.now());
   const [tab, setTab] = useState<CustomerTab>("home");
   const capture = useCapture();
-  const [faultText, setFaultText] = useState("");
+  /*
+   * The last review session, read once. Everything seeded from it below is
+   * an INPUT the person supplied; nothing about a live job is restored.
+   */
+  const saved = useMemo(() => loadSession(), []);
+  const [faultText, setFaultText] = useState(saved?.faultText ?? "");
   const [chat, setChat] = useState<ChatMessage[]>(chatSeed);
   const [sheet, setSheet] = useState<null | "call" | "safety" | "payment">(null);
   /*
@@ -543,7 +597,13 @@ function CustomerApp({
    * picture of a choice rather than a choice.
    */
   const [openVenue, setOpenVenue] = useState<string | null>(null);
-  const [addressId, setAddressId] = useState<string>("addr_home");
+  /*
+   * Seeded from the last review session, so a reload lands where you were
+   * with what you typed still in the boxes. See `session.ts` for the line
+   * between "what the person chose" (saved) and "what the server owns"
+   * (never saved).
+   */
+  const [addressId, setAddressId] = useState<string>(saved?.addressId ?? "addr_home");
   const [live, setLive] = useState<LiveLocationState>({ status: "idle" });
 
   const chosen = savedAddresses.find((a) => a.id === addressId) ?? savedAddresses[0]!;
@@ -588,9 +648,19 @@ function CustomerApp({
    * travel: they are what the professional's offer card is built from two
    * screens later. Keyed by question id, last answer wins.
    */
-  const [intakeAnswers, setIntakeAnswers] = useState<IntakeAnswer[]>([]);
+  const [intakeAnswers, setIntakeAnswers] = useState<IntakeAnswer[]>(
+    (saved?.intakeAnswers as IntakeAnswer[] | undefined) ?? []
+  );
+  /**
+   * A sentence typed on the category screen that matched nothing there.
+   *
+   * It comes back to the home screen's field rather than being dropped, so
+   * the full catalogue gets a chance to answer it. Held here because it
+   * travels between two screens.
+   */
+  const [homeQuery, setHomeQuery] = useState<string | null>(null);
   /** The service this journey is about, kept after the route moves on. */
-  const [lastRequestedId, setLastRequestedId] = useState<string | null>(null);
+  const [lastRequestedId, setLastRequestedId] = useState<string | null>(saved?.lastServiceId ?? null);
   /**
    * The name of whatever the customer is actually tracking.
    *
@@ -613,6 +683,25 @@ function CustomerApp({
       mark: (page?.mark ?? "plumbing") as MarkName,
     };
   }, [route, lastRequestedId]);
+
+  /*
+   * WRITE WHAT WAS CHOSEN, NEVER WHAT IS LIVE.
+   *
+   * The address, the text, the answers and the last service asked about —
+   * inputs, all of them. The route is deliberately absent: restoring
+   * "מקצוען בדרך אליך · 9 דקות" after a night away would be fabricating a
+   * live job, which is the same class of mistake as inventing availability
+   * and more convincing because the reviewer created it themselves.
+   */
+  useEffect(() => {
+    saveSession({
+      side: "customer",
+      addressId,
+      faultText,
+      intakeAnswers,
+      lastServiceId: lastRequestedId,
+    });
+  }, [addressId, faultText, intakeAnswers, lastRequestedId]);
 
   const answerIntake = useCallback((a: IntakeAnswer) => {
     setIntakeAnswers((prev) => [...prev.filter((p) => p.questionId !== a.questionId), a]);
@@ -922,6 +1011,17 @@ const go = useCallback((r: CustomerRoute) => {
           history={customerHistory}
           lifetimeSpendMinorUnits={164400}
           onOpenCall={() => goTab("calls")}
+          /*
+           * A review session that remembers what you typed needs an
+           * obvious way back to a first-run state, or the second test of
+           * the sign-up flow runs with last week's answers in the boxes.
+           * Reloads afterwards so every screen re-seeds from nothing.
+           */
+          onResetReviewSession={() => {
+            clearSession();
+            if (typeof window !== "undefined") window.location.reload();
+          }}
+          reviewSavedHe={savedAgoHe(saved, Date.now())}
           onEditAddresses={() => go({ name: "address" })}
           onEditPayment={() => setSheet("payment")}
           width={width}
@@ -984,6 +1084,36 @@ const go = useCallback((r: CustomerRoute) => {
             }))}
             worldSources={worldSources}
             onSelectService={(id) => go({ name: "service", serviceId: id })}
+            /*
+             * TYPED, NOT TAPPED.
+             *
+             * Run through the SAME matcher the home screen uses, so the
+             * two cannot disagree about what a sentence means — but scoped
+             * to this category, because the customer has already told us
+             * the area and a match outside it is the app ignoring what
+             * they said.
+             *
+             * No match is a real outcome and is handled rather than
+             * swallowed: the text goes back to the home screen's field,
+             * where the full catalogue can answer it and the suggestions
+             * appear. That is a better answer than a confident wrong
+             * service, and it never leaves the customer holding a sentence
+             * with nowhere to put it.
+             */
+            onDescribe={(textHe) => {
+              const inCategory = new Set(servicesForCategory(category).map((s2) => s2.id));
+              const best = matchServicesByText(
+                textHe,
+                catalogMatchRules.filter((r) => inCategory.has(r.serviceId))
+              )[0];
+              if (best) {
+                setFaultText(textHe);
+                go({ name: "service", serviceId: best.serviceId });
+                return;
+              }
+              setHomeQuery(textHe);
+              go({ name: "home" });
+            }}
             onBack={() => go({ name: "home" })}
             width={width}
             height={bodyH}
@@ -1050,11 +1180,13 @@ const go = useCallback((r: CustomerRoute) => {
             onChangeText={setFaultText}
             photos={capture.photos}
             onAddPhoto={capture.addPhoto}
+            onAddFromLibrary={capture.addFromLibrary}
             onRemovePhoto={capture.removePhoto}
             voice={capture.voice}
             recording={capture.recording}
             recordSeconds={capture.recordSeconds}
             canRecord={capture.canRecord}
+            recordBlockedHe={capture.recordBlockedHe}
             onStartRecord={capture.startRecord}
             onStopRecord={capture.stopRecord}
             onDeleteVoice={capture.deleteVoice}
@@ -1460,16 +1592,20 @@ const go = useCallback((r: CustomerRoute) => {
              * Wiring a second, fake set of buttons on this screen would have
              * been easier and would have been a lie.
              */
+            seedQueryHe={homeQuery}
             capture={{
               photos: capture.photos.length,
               voiceSeconds: capture.voice?.seconds ?? null,
               recording: capture.recording,
               recordSeconds: capture.recordSeconds,
               canRecord: capture.canRecord,
+              recordBlockedHe: capture.recordBlockedHe,
               onStartRecord: capture.startRecord,
               onStopRecord: capture.stopRecord,
               onDeleteVoice: capture.deleteVoice,
               onAddPhoto: capture.addPhoto,
+              // The gallery, which used to be wired to the camera.
+              onAddFromLibrary: capture.addFromLibrary,
               onClearPhotos: () => capture.photos.forEach((p) => capture.removePhoto(p.id)),
             }}
             width={width}
@@ -1716,7 +1852,21 @@ function ProApp({
    * treats an unset price as not dispatchable, so the shift screen cannot
    * offer a service nobody has put a number on.
    */
-  const [pricing, setPricing] = useState<ProPricingRow[]>(() => pricingRowsFor([...DEMO_VERIFIED]));
+  const [pricing, setPricing] = useState<ProPricingRow[]>(() => {
+    // The prices a professional typed are theirs and are tedious to retype;
+    // the eligibility that sits beside them is the server's and is rebuilt
+    // from the catalogue every time rather than restored from a browser.
+    const stored = loadSession()?.prices ?? {};
+    return pricingRowsFor([...DEMO_VERIFIED]).map((r) => ({
+      ...r,
+      amountMinorUnits: r.serviceId in stored ? (stored[r.serviceId] ?? null) : r.amountMinorUnits,
+    }));
+  });
+  useEffect(() => {
+    saveSession({
+      prices: Object.fromEntries(pricing.map((r) => [r.serviceId, r.amountMinorUnits])),
+    });
+  }, [pricing]);
   const pricingRows = pricing;
   /**
    * When this shift actually went online. The shift clock counts from a real
@@ -2521,6 +2671,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
   noticeText: { ...t.caption, color: "#FFFFFF", textAlign: "center", writingDirection: "rtl" },
+  noticeSub: {
+    ...t.caption,
+    color: "rgba(255,255,255,0.72)",
+    textAlign: "center",
+    writingDirection: "rtl",
+    marginTop: 2,
+  },
 
   howRow: { flexDirection: "row-reverse", gap: 12, marginBottom: 18, alignItems: "flex-start" },
   howNum: {

@@ -59,6 +59,15 @@ export interface CaptureCardProps {
   recording: boolean;
   recordSeconds: number;
   canRecord: boolean;
+  /**
+   * Why recording is unavailable, in Hebrew, or null when it is fine.
+   *
+   * A disabled circle at 35% opacity with no explanation is worse than no
+   * button: it reads as broken rather than as unavailable, and it gives the
+   * person nothing to do about it. If the microphone cannot be reached,
+   * this says which of the three reasons applies.
+   */
+  recordBlockedHe?: string | null;
   /** Hidden entirely when the chosen service has no use for a photograph. */
   allowPhoto?: boolean;
   onStartRecord?: () => void;
@@ -79,6 +88,7 @@ export function CaptureCard({
   recording,
   recordSeconds,
   canRecord,
+  recordBlockedHe = null,
   allowPhoto = true,
   onStartRecord,
   onStopRecord,
@@ -114,6 +124,15 @@ export function CaptureCard({
 
       {recording ? <Listening seconds={recordSeconds} /> : null}
 
+      {/* Said once, under the field, rather than hidden behind a dim
+          circle. It is a fact about this device, not an error the person
+          caused, so it is phrased as one. */}
+      {!recording && recordBlockedHe ? (
+        <Text style={[styles.blocked, tone === "dark" ? styles.blockedDark : null]}>
+          {recordBlockedHe}
+        </Text>
+      ) : null}
+
       <View style={styles.actions}>
         <RoundAction tone={tone}
           labelHe={recording ? "עצור" : "הקלטה"}
@@ -130,7 +149,15 @@ export function CaptureCard({
           <RoundAction tone={tone}
             labelHe="גלריה"
             glyph="gallery"
-            onPress={onAddFromLibrary ?? onAddPhoto}
+            /*
+              * No fallback to the camera. It used to be
+              * `onAddFromLibrary ?? onAddPhoto`, which meant that whenever
+              * the library handler was not wired — which was always — the
+              * gallery button opened the camera. A silent fallback to the
+              * wrong behaviour is how a bug survives a review: the button
+              * did something, so it looked connected.
+              */
+            onPress={onAddFromLibrary}
             badgeHe={photos > 0 ? String(photos) : null}
           />
         ) : null}
@@ -308,6 +335,8 @@ function CaptureGlyph({ name, color }: { name: "mic" | "camera" | "gallery"; col
 }
 
 const styles = StyleSheet.create({
+  blocked: { ...type.caption, color: palette.ink500, textAlign: "right", paddingHorizontal: spacing.lg },
+  blockedDark: { color: "rgba(247,243,250,0.62)" },
   cardDark: {
     backgroundColor: depth.panel.high,
     borderWidth: 1,

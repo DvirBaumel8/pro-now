@@ -96,6 +96,14 @@ export interface DescribeFaultBodyProps {
   onChangeText: (v: string) => void;
   photos: FaultPhoto[];
   onAddPhoto?: () => void;
+  /**
+   * The photo library, which is a different door from the camera.
+   *
+   * One "הוספה" button that always opened the camera meant a customer who
+   * had already photographed the leak an hour ago could not send that
+   * photograph — they had to go and take another one.
+   */
+  onAddFromLibrary?: () => void;
   onRemovePhoto?: (id: string) => void;
   voice: FaultVoice | null;
   recording: boolean;
@@ -103,6 +111,8 @@ export interface DescribeFaultBodyProps {
   recordSeconds: number;
   /** Absent when the device or browser cannot record; the row then explains. */
   canRecord: boolean;
+  /** Why the microphone cannot be reached, in Hebrew. Null when it can. */
+  recordBlockedHe?: string | null;
   onStartRecord?: () => void;
   onStopRecord?: () => void;
   onDeleteVoice?: () => void;
@@ -124,11 +134,13 @@ export function DescribeFaultBody({
   onChangeText,
   photos,
   onAddPhoto,
+  onAddFromLibrary,
   onRemovePhoto,
   voice,
   recording,
   recordSeconds,
   canRecord,
+  recordBlockedHe = null,
   onStartRecord,
   onStopRecord,
   onDeleteVoice,
@@ -234,7 +246,10 @@ export function DescribeFaultBody({
               </Pressable>
             ) : (
               <Text style={styles.cannot}>
-                המכשיר או הדפדפן הזה לא מאפשר הקלטה. אפשר לכתוב במקום.
+                {/* The specific reason when we have one. "המכשיר לא
+                    מאפשר" is wrong and unhelpful when the truth is that
+                    the preview is in a frame without microphone access. */}
+                {recordBlockedHe ?? "המכשיר או הדפדפן הזה לא מאפשר הקלטה."} אפשר לכתוב במקום.
               </Text>
             )}
             <Text style={styles.hint}>
@@ -262,10 +277,27 @@ export function DescribeFaultBody({
               </View>
             ))}
 
-            <Pressable onPress={onAddPhoto} accessibilityRole="button" style={styles.photoAdd}>
+            <Pressable
+              onPress={onAddPhoto}
+              accessibilityRole="button"
+              accessibilityLabel="צילום תמונה"
+              style={styles.photoAdd}
+            >
               <Text style={styles.photoAddPlus}>+</Text>
-              <Text style={styles.photoAddText}>הוספה</Text>
+              <Text style={styles.photoAddText}>צילום</Text>
             </Pressable>
+
+            {onAddFromLibrary ? (
+              <Pressable
+                onPress={onAddFromLibrary}
+                accessibilityRole="button"
+                accessibilityLabel="בחירה מהגלריה"
+                style={styles.photoAdd}
+              >
+                <Text style={styles.photoAddPlus}>+</Text>
+                <Text style={styles.photoAddText}>גלריה</Text>
+              </Pressable>
+            ) : null}
           </View>
           <Text style={styles.hint}>
             {photoPromptHe ?? "תמונה אחת מספיקה."} המקצוען רואה אותה לפני שהוא יוצא.

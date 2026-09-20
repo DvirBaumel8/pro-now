@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import type { AreaAvailabilityView } from "@pro-now/types";
@@ -164,12 +164,16 @@ export interface CustomerHomeBodyProps {
    * Omit all of it and the hero degrades to a plain text box, which is the
    * correct fallback — not a microphone button that does nothing.
    */
+  /** A description typed on another screen that had no row for it. */
+  seedQueryHe?: string | null;
   capture?: {
     photos: number;
     voiceSeconds: number | null;
     recording: boolean;
     recordSeconds: number;
     canRecord: boolean;
+    /** Why the microphone cannot be reached, in Hebrew. Null when it can. */
+    recordBlockedHe?: string | null;
     onStartRecord?: () => void;
     onStopRecord?: () => void;
     onDeleteVoice?: () => void;
@@ -213,6 +217,7 @@ export function CustomerHomeBody({
   totalAvailableNow,
   onSelectService,
   onChangeAddress,
+  seedQueryHe,
   capture,
   onSelectCategory,
   worldSources,
@@ -236,7 +241,24 @@ export function CustomerHomeBody({
     return st === "AVAILABLE" || st === "LIMITED";
   };
 
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(seedQueryHe ?? "");
+
+  /*
+   * A SENTENCE HANDED BACK FROM SOMEWHERE ELSE.
+   *
+   * The category screen lets somebody type when none of its rows is what
+   * they need. If the text matches nothing inside that category, it comes
+   * here — where the whole catalogue can answer it — and it must arrive in
+   * the field rather than being dropped on the way. A customer who typed a
+   * sentence and landed on an empty home screen would reasonably conclude
+   * the app ignored them.
+   *
+   * Keyed on the seed itself, so it fills the field when a new sentence
+   * arrives and never fights the person's own typing afterwards.
+   */
+  useEffect(() => {
+    if (seedQueryHe) setQuery(seedQueryHe);
+  }, [seedQueryHe]);
 
   /**
    * The department filter. `ALL` is a value, not a null — a nullable filter
@@ -587,6 +609,7 @@ export function CustomerHomeBody({
               recording={capture?.recording ?? false}
               recordSeconds={capture?.recordSeconds ?? 0}
               canRecord={capture?.canRecord ?? false}
+              recordBlockedHe={capture?.recordBlockedHe ?? null}
               onStartRecord={capture?.onStartRecord}
               onStopRecord={capture?.onStopRecord}
               onDeleteVoice={capture?.onDeleteVoice}

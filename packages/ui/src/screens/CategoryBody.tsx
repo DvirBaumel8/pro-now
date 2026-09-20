@@ -1,5 +1,5 @@
 import React from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { districtFor, type CustomerCategory } from "@pro-now/types";
 
@@ -61,6 +61,21 @@ export interface CategoryBodyProps {
   worldSources?: WorldAssetSources;
   animate?: boolean;
   onSelectService?: (serviceId: string) => void;
+  /**
+   * WHAT THE CUSTOMER TYPED, WHEN NONE OF THE ROWS IS IT.
+   *
+   * Amit: *"כשבוחרים בקטגוריות נפתחות אפשרויות. חסרה אפשרות הקלדה ידנית
+   * בשלב זה."* He is right, and the omission was a real dead end rather
+   * than a missing convenience.
+   *
+   * The home screen opens with a text field, so the customer is invited to
+   * describe the problem in their own words — and then tapping a category
+   * takes that invitation away and hands them a closed list. Anyone whose
+   * problem is not one of five rows is stuck, and their only move is back.
+   * A marketplace whose front door is "say what you need" cannot have a
+   * second screen that says "choose from these".
+   */
+  onDescribe?: (textHe: string) => void;
   onBack?: () => void;
   width?: number;
   height?: number;
@@ -72,11 +87,14 @@ export function CategoryBody({
   worldSources,
   animate = true,
   onSelectService,
+  onDescribe,
   onBack,
   width = 390,
   height = 780,
 }: CategoryBodyProps) {
   const district = districtFor(category.faceDepartment);
+  const [typed, setTyped] = React.useState("");
+  const canSend = typed.trim().length > 1;
 
   return (
     <View style={[styles.screen, { width, height }]}>
@@ -154,12 +172,92 @@ export function CategoryBody({
         {services.length === 0 ? (
           <Text style={styles.empty}>השירותים בקטגוריה הזו ייפתחו בקרוב.</Text>
         ) : null}
+
+        {/*
+          * THE WAY OUT OF THE LIST.
+          *
+          * Deliberately BELOW the rows rather than above them. Most people
+          * will find what they need in five short lines and tapping is
+          * faster than typing; putting a text field first would make the
+          * easy case do the hard thing. But the list must not be the only
+          * door, which is what it was.
+          *
+          * The label says "אחר" rather than "חיפוש", because this is not
+          * searching the catalogue — it is the customer telling us
+          * something we do not have a row for, which is information worth
+          * having even when it does not match anything.
+          */}
+        {onDescribe ? (
+          <View style={styles.other}>
+            <Text style={styles.otherLabel}>משהו אחר?</Text>
+            <View style={styles.otherRow}>
+              <TextInput
+                value={typed}
+                onChangeText={setTyped}
+                placeholder={`תארו במילים שלכם — ${district.labelHe}`}
+                placeholderTextColor="rgba(247,243,250,0.45)"
+                style={styles.otherInput}
+                textAlign="right"
+                multiline
+                accessibilityLabel="תיאור חופשי של מה שצריך"
+                onSubmitEditing={() => canSend && onDescribe(typed.trim())}
+                returnKeyType="send"
+              />
+              <Pressable
+                onPress={() => canSend && onDescribe(typed.trim())}
+                disabled={!canSend}
+                accessibilityRole="button"
+                accessibilityLabel="שליחת התיאור"
+                style={({ pressed }) => [
+                  styles.otherSend,
+                  !canSend ? styles.otherSendOff : null,
+                  pressed ? styles.pressed : null,
+                ]}
+              >
+                <Text style={styles.otherSendText}>שליחה</Text>
+              </Pressable>
+            </View>
+            {/* Says what happens next, because a text box with no stated
+                consequence is a suggestion box. */}
+            <Text style={styles.otherHint}>
+              נמצא את המקצוען המתאים לפי מה שכתבתם.
+            </Text>
+          </View>
+        ) : null}
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  other: { marginTop: spacing.xl, gap: spacing.sm },
+  otherLabel: { ...type.captionStrong, color: colors.textSecondary, textAlign: "right", writingDirection: "rtl" },
+  otherRow: { flexDirection: "row-reverse", alignItems: "flex-end", gap: spacing.sm },
+  otherInput: {
+    ...type.body,
+    flex: 1,
+    color: colors.textPrimary,
+    backgroundColor: depth.panel.mid,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: "rgba(247,243,250,0.10)",
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    minHeight: 52,
+    writingDirection: "rtl",
+  },
+  otherSend: {
+    minHeight: 52,
+    minWidth: 76,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.lg,
+    backgroundColor: colors.action,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  otherSendOff: { opacity: 0.4 },
+  otherSendText: { ...type.bodyStrong, color: palette.night900 },
+  otherHint: { ...type.caption, color: colors.textSecondary, textAlign: "right", writingDirection: "rtl" },
   screen: { backgroundColor: palette.night900, overflow: "hidden", borderRadius: radii.xl },
   content: { paddingHorizontal: spacing.xl, paddingBottom: spacing.xxl, justifyContent: "flex-end", flexGrow: 1 },
 

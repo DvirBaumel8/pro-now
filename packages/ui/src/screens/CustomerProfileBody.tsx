@@ -77,6 +77,17 @@ export interface CustomerProfileBodyProps {
   onOpenCall?: (id: string) => void;
   onEditAddresses?: () => void;
   onEditPayment?: () => void;
+  /**
+   * Throw away everything this device remembered and start clean.
+   *
+   * Present only in the prototype. A review session that keeps what you
+   * typed needs an obvious way to get back to a first-run state, or the
+   * second time anybody tests the sign-up flow they are testing it with
+   * last week's answers already filled in.
+   */
+  onResetReviewSession?: () => void;
+  /** What is currently remembered, in one line. Null when nothing is. */
+  reviewSavedHe?: string | null;
   width?: number;
   height?: number;
 }
@@ -92,6 +103,8 @@ export function CustomerProfileBody({
   onOpenCall,
   onEditAddresses,
   onEditPayment,
+  onResetReviewSession,
+  reviewSavedHe,
   width = 390,
   height = 780,
 }: CustomerProfileBodyProps) {
@@ -265,6 +278,25 @@ export function CustomerProfileBody({
 
           <Text style={styles.footnote}>{lex.trustNote}</Text>
         </View>
+
+        {/* ---------------- Prototype only, and labelled as such ------- */}
+        {onResetReviewSession ? (
+          <View style={styles.block}>
+            <SectionHeader title="תצוגה" colors={colors} />
+            <Surface colors={colors} level={1} padded={false} style={{ paddingVertical: spacing.xs }}>
+              <SettingRow
+                icon={<ShieldCheckMark size={17} color={colors.textSecondary} />}
+                label="התחלה מחדש"
+                value={reviewSavedHe ?? "מוחק מה שנשמר במכשיר הזה"}
+                onPress={onResetReviewSession}
+              />
+            </Surface>
+            <Text style={styles.footnote}>
+              מה שבחרתם ומה שכתבתם נשמר במכשיר הזה בלבד ולא נשלח לשום מקום. קריאה פעילה לא
+              נשמרת.
+            </Text>
+          </View>
+        ) : null}
       </ScrollView>
     </View>
   );
