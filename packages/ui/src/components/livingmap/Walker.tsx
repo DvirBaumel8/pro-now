@@ -245,14 +245,25 @@ export function Walker({
   if (!source) return null;
 
   /*
-   * SIZE. The avatar is the nearest thing in the world — it is the person
-   * holding the phone — so it is drawn larger than a professional standing
-   * in a doorway and larger than anything travelling the lane. Depth still
-   * applies on top: walking up the street makes it smaller, exactly as it
-   * does for everything else, because one depth rule for the whole world
-   * is what stops a figure reading as a sticker.
+   * SIZE, MEASURED AGAINST THE BUILDINGS RATHER THAN AGAINST THE WORLD.
+   *
+   * This used to be a fraction of the world's HEIGHT while the
+   * professionals standing in doorways were a fraction of a shopfront's
+   * WIDTH. Two rulers, nothing keeping them in step, and the result
+   * shipped: the customer stood 2.75 times the height of the
+   * professional in the next doorway — taller than a two-storey shop.
+   *
+   * Now both come from `personOfVenue`, so they cannot drift again, and
+   * the avatar's small extra size is `avatarOfPerson`: a number with a
+   * reason (it is the nearest figure in the world) rather than an
+   * accident of which quantity somebody reached for first.
+   *
+   * Depth still applies on top: walking up the street makes it smaller,
+   * exactly as it does for everything else.
    */
-  const baseH = height * AVATAR_HEIGHT * Math.max(0, heightRatio);
+  const venueWidth = width * WORLD_SIZE.district;
+  const baseH =
+    venueWidth * WORLD_SIZE.personOfVenue * WORLD_SIZE.avatarOfPerson * Math.max(0, heightRatio);
 
   const scale = v.interpolate({ inputRange: [0, 1], outputRange: [depthScale(0), depthScale(1)] });
 
@@ -371,15 +382,6 @@ const COMPASS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"] as const;
 
 /** Close enough. See `headingToward`. */
 const ARRIVED = 0.02;
-
-/**
- * The avatar's height as a fraction of the world.
- *
- * Larger than `travellerHeight` and larger than `character`, because this
- * one figure is in the foreground by definition: it is where the customer
- * is standing.
- */
-const AVATAR_HEIGHT = WORLD_SIZE.travellerHeight * 2.1;
 
 /** A standing person is roughly this much wider than tall. */
 const FIGURE_ASPECT = 0.42;

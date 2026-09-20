@@ -227,8 +227,8 @@ export function DistrictLayer({
                   bottom: 0,
                   // The figure's own proportions, not a square: see
                   // VenueLayer for the letterboxing this fixes.
-                  height: w * 0.42,
-                  width: (w * 0.42) / faceShape.ratio,
+                  height: w * WORLD_SIZE.personOfVenue,
+                  width: (w * WORLD_SIZE.personOfVenue) / faceShape.ratio,
                 }}
                 pointerEvents="none"
               >
@@ -250,8 +250,8 @@ export function DistrictLayer({
                     layer: "PRESENCE",
                     left: 0,
                     top: 0,
-                    width: (w * 0.42) / faceShape.ratio,
-                    height: w * 0.42,
+                    width: (w * WORLD_SIZE.personOfVenue) / faceShape.ratio,
+                    height: w * WORLD_SIZE.personOfVenue,
                     depthOrder: 0,
                   }}
                   sources={sources}

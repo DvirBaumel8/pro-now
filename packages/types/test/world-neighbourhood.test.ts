@@ -270,3 +270,51 @@ describe("sizes are measured against the world, not the screen", () => {
     }
   });
 });
+
+describe("people are the same size as people", () => {
+  /*
+   * Amit: *"תוודאו שכל הפרופורציות נכונות."* They were not, and the
+   * reason is worth keeping: the doorway professionals were sized
+   * against a shopfront's WIDTH and the customer's avatar against the
+   * WORLD'S HEIGHT. Two rulers, nothing holding them together, and the
+   * customer ended up 2.75 times the height of the professional beside
+   * him.
+   */
+  it("measures every figure against the buildings, not against the world", () => {
+    // One number for a person's height, one allowance for the avatar's
+    // nearness. Anything else reintroduces the second ruler.
+    expect(WORLD_SIZE.personOfVenue).toBeGreaterThan(0);
+    expect(WORLD_SIZE.avatarOfPerson).toBeGreaterThanOrEqual(1);
+  });
+
+  it("keeps the customer a person rather than a landmark", () => {
+    expect(WORLD_SIZE.avatarOfPerson).toBeLessThanOrEqual(1.4);
+  });
+
+  it("fits somebody under the lintel of the shop they stand in front of", () => {
+    // A figure 0.42 of a shopfront's width is roughly a third of its
+    // height at the proportions these buildings are drawn at.
+    expect(WORLD_SIZE.personOfVenue).toBeLessThan(0.6);
+  });
+
+  it("keeps a walking person smaller than the vehicles sharing the street", () => {
+    /*
+     * Expressed in the same units to be comparable at all: a traveller is
+     * a fraction of the world's HEIGHT, a person a fraction of a
+     * shopfront's WIDTH, and the plate is taller than it is wide.
+     */
+    const worldHeightPerWidth = 1 / PLATE_ASPECT;
+    const personOfWorldWidth = WORLD_SIZE.district * WORLD_SIZE.personOfVenue;
+    const travellerOfWorldWidth = WORLD_SIZE.travellerHeight * worldHeightPerWidth;
+    expect(personOfWorldWidth).toBeLessThan(travellerOfWorldWidth);
+    // But not absurdly so: a scooter is not a bus.
+    expect(travellerOfWorldWidth / personOfWorldWidth).toBeLessThan(2);
+  });
+
+  it("keeps the avatar within a stride of the professionals it walks past", () => {
+    const person = WORLD_SIZE.district * WORLD_SIZE.personOfVenue;
+    const avatar = person * WORLD_SIZE.avatarOfPerson;
+    expect(avatar / person).toBeLessThan(1.4);
+    expect(avatar).toBeLessThan(WORLD_SIZE.district);
+  });
+});

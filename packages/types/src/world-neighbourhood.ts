@@ -672,6 +672,30 @@ export const WORLD_SIZE = {
   chosenVenue: 0.2,
   /** A professional standing in a doorway. */
   character: 0.055,
+  /**
+   * A PERSON'S HEIGHT, AS A FRACTION OF A SHOPFRONT'S WIDTH.
+   *
+   * ---------------------------------------------------------------------
+   * WHY THE FIGURES ARE MEASURED AGAINST THE BUILDINGS
+   * ---------------------------------------------------------------------
+   * Amit: *"תוודאו שכל הפרופורציות נכונות."* They were not. The doorway
+   * professionals were sized at 0.42 of a shopfront's width — a number
+   * written straight into DistrictLayer — while the customer's own avatar
+   * was sized as a fraction of the WORLD'S HEIGHT. Two different rulers,
+   * so nothing kept them agreeing, and the avatar ended up 2.75 times the
+   * height of the professional standing in a doorway beside him: a
+   * customer taller than a two-storey shop.
+   *
+   * One ruler now. A person is this fraction of a shopfront's width, and
+   * every figure in the world derives from it. The avatar is allowed to be
+   * slightly larger — see `AVATAR_OF_PERSON` — because it is the nearest
+   * thing in the world by definition, and that allowance is a number with
+   * a reason rather than an accident of which quantity somebody reached
+   * for first.
+   */
+  personOfVenue: 0.42,
+  /** The customer's own figure, as a multiple of anybody else's height. */
+  avatarOfPerson: 1.15,
   /** What travels the lane. Height, not width — see RouteLayer. */
   travellerHeight: 0.05,
 } as const;
@@ -692,9 +716,30 @@ export function worldSizeViolations(): string[] {
   if (WORLD_SIZE.character > WORLD_SIZE.district / 2) {
     out.push("a character is too large beside its own building");
   }
+  /*
+   * A person is a person, whoever they are. The avatar may be nearer and
+   * so a little larger, but a customer twice the height of the
+   * professional in the next doorway is not perspective, it is a bug —
+   * and it shipped, which is why this is checked rather than assumed.
+   */
+  if (WORLD_SIZE.avatarOfPerson > 1.4 || WORLD_SIZE.avatarOfPerson < 1) {
+    out.push(`the avatar is ${WORLD_SIZE.avatarOfPerson}x a person, which is not one`);
+  }
+  // Somebody standing in a doorway must fit under the lintel.
+  if (WORLD_SIZE.personOfVenue > 0.6) {
+    out.push("a person is too tall for the shop they are standing in front of");
+  }
   // Nothing may be so large that two of them cannot be on screen together;
   // that is the difference between a neighbourhood and a billboard.
+  /*
+   * The size rules below are about things measured against the WORLD.
+   * `personOfVenue` and `avatarOfPerson` are ratios between two things in
+   * it, so they are checked above instead — a ratio of 1.15 is not "115%
+   * of the neighbourhood".
+   */
+  const RATIOS = ["personOfVenue", "avatarOfPerson"];
   for (const [name, v] of Object.entries(WORLD_SIZE)) {
+    if (RATIOS.includes(name)) continue;
     if (v > 0.3) out.push(`${name} takes up too much of the world at ${v}`);
     if (v <= 0) out.push(`${name} must be positive`);
   }

@@ -27,6 +27,10 @@ import {
   WALK_START,
   walkingAssetFor,
   avatarById,
+  errandsBetween,
+  PLATE_SPOTS,
+  reachedNow,
+  type Gait,
   type AvatarChoice,
 } from "@pro-now/types";
 
@@ -40,6 +44,7 @@ import { MatchSheet } from "./MatchSheet";
 import { DistrictLayer } from "./DistrictLayer";
 import { VenueLayer } from "./VenueLayer";
 import { WorldLife } from "./WorldLife";
+import { ErrandLayer } from "./ErrandLayer";
 import { PlayDrawer } from "./PlayDrawer";
 import { ScrimBand } from "./ScrimBand";
 import { livingPalette as P } from "./palette";
@@ -495,6 +500,25 @@ export function LivingMapScene({
   const walkV = useRef(new Animated.Value(WALK_START.v)).current;
   const walkedTo = useRef<NormalizedPoint>(WALK_START);
   const [heading, setHeading] = useState<Heading>(null);
+  const [gait, setGait] = useState<Gait>("WALK");
+
+  /*
+   * ---------------------------------------------------------------------
+   * THE GAME LIVES INSIDE THE WAIT, NOT BESIDE IT
+   * ---------------------------------------------------------------------
+   * Amit: *"יש 20 דקות עד שהוא מגיע, ב-20 דקות האלה אני רוצה שיהיה משחק."*
+   *
+   * The pad arrived here first and had nothing to walk towards, so it was
+   * a control rather than a game. These are the same errands the street
+   * uses, laid out between the same shops — the street and the wait are
+   * one world and should not have two sets of things in them.
+   *
+   * They are handed UP through `onFound`, so the discovery counter, the
+   * drawer and the wait all stay in one place. Nothing here decides what
+   * a discovery means; it only notices that somebody reached one.
+   */
+  const errands = useMemo(() => errandsBetween(PLATE_SPOTS, ERRAND_LINES), []);
+  const [lastFoundHe, setLastFoundHe] = useState<string | null>(null);
 
   /*
    * ---------------------------------------------------------------------
@@ -554,9 +578,31 @@ export function LivingMapScene({
     if (!mayWalk) setHeading(null);
   }, [mayWalk]);
 
-  const rememberWalk = useCallback((at: NormalizedPoint) => {
-    walkedTo.current = at;
-  }, []);
+  const rememberWalk = useCallback(
+    (at: NormalizedPoint) => {
+      walkedTo.current = at;
+      const hit = reachedNow(at, errands, discoveries?.found ?? []);
+      if (hit.length === 0) return;
+      const line = errands.find((e) => e.id === hit[0])?.foundHe ?? null;
+      if (line) setLastFoundHe(line);
+      for (const id of hit) onFound?.(id);
+    },
+    [discoveries?.found, errands, onFound]
+  );
+
+  /*
+   * THE GAME ENDS WHEN THE PROFESSIONAL DOES.
+   *
+   * Not on a timer of its own and not when everything has been found:
+   * the wait is over when the wait is over. Leaving somebody playing
+   * while a person knocks on their door is the one failure this whole
+   * feature cannot afford, and `mayWalk` already falls to false the
+   * moment the phase changes — this only clears the line so the last
+   * thing on screen is not a cat.
+   */
+  useEffect(() => {
+    if (phase !== "ASSIGNED_ROUTE") setLastFoundHe(null);
+  }, [phase]);
 
   const cx = width / 2;
   const cy = height * 0.5;
@@ -770,6 +816,21 @@ export function LivingMapScene({
               * art has not arrived. A stand-in body would be the app
               * telling somebody what they look like.
               */}
+            {/*
+              * Only while there is a wait to spend. During the search the
+              * street has nothing to collect — that screen shows, it does
+              * not play.
+              */}
+            {mayWalk ? (
+              <ErrandLayer
+                errands={errands}
+                found={discoveries?.found ?? []}
+                width={world.width}
+                height={world.height}
+                animate={animate}
+              />
+            ) : null}
+
             {canWalk ? (
               <Walker
                 assetId={walkAssetId}
@@ -781,6 +842,7 @@ export function LivingMapScene({
                 v={walkV}
                 startAt={walkedTo.current}
                 heading={mayWalk ? heading : null}
+                gait={gait}
                 autoTo={autoTo}
                 animate={animate}
                 onSettled={rememberWalk}
@@ -952,6 +1014,19 @@ export function LivingMapScene({
       ) : null}
 
       {/*
+        * WHAT JUST HAPPENED. One line, replacing itself rather than
+        * stacking, and gone the moment the wait is.
+        */}
+      {mayWalk && lastFoundHe ? (
+        <View
+          style={[styles.foundLine, { bottom: Math.round(height * SHEET_SHARE) + spacing.xl * 3 }]}
+          pointerEvents="none"
+        >
+          <Text style={styles.foundLineText}>{lastFoundHe}</Text>
+        </View>
+      ) : null}
+
+      {/*
         * SAFETY IS PINNED AND NEVER COVERED. The mini-game layer is told
         * where this is and refuses to take a touch inside it — see
         * MiniGameLayer. An interaction that can swallow the safety control
@@ -995,7 +1070,7 @@ export function LivingMapScene({
           style={[styles.steerWrap, { bottom: Math.round(height * SHEET_SHARE) + spacing.xl }]}
           pointerEvents="box-none"
         >
-          <SteerPad onHeading={setHeading} />
+          <SteerPad onHeading={setHeading} onGait={setGait} />
         </View>
       ) : null}
 
@@ -1038,11 +1113,38 @@ function firstName(nameHe: string): string {
  * handed to the world stage and to the mini-game are computed from the same
  * source as the bands that are actually drawn.
  */
+/**
+ * What the street does when you reach something during the wait.
+ *
+ * The same list the stroll screen uses, because it is the same street.
+ * Nothing here may mention the professional, an ETA or a price —
+ * `errandViolations` refuses a line that does.
+ */
+const ERRAND_LINES = [
+  "חתול יצא מתחת לספסל",
+  "הפנס נדלק כשעברתם",
+  "יונים עפו מהעץ",
+  "מישהו פתח תריס למעלה",
+  "הממטרות נדלקו בערוגה",
+  "כלב נבח מהחצר",
+  "אופניים חלפו על ידכם",
+  "ריח של מאפייה מהפינה",
+];
+
 const HUD_SHARE = 0.17;
 const SHEET_SHARE = 0.26;
 
 const styles = StyleSheet.create({
   steerWrap: { position: "absolute", left: spacing.lg },
+  foundLine: {
+    position: "absolute",
+    alignSelf: "center",
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.pill,
+    backgroundColor: "rgba(40,28,16,0.85)",
+  },
+  foundLineText: { ...type.caption, color: "#FFE9C7", writingDirection: "rtl" },
   scene: { overflow: "hidden", backgroundColor: P.nightTop },
   themeWash: { ...StyleSheet.absoluteFillObject },
   pulse: { position: "absolute", width: 180, height: 180, borderRadius: 90, borderWidth: 2 },
