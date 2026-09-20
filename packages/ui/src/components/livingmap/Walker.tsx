@@ -200,6 +200,10 @@ export function Walker({
 
   const scale = v.interpolate({ inputRange: [0, 1], outputRange: [depthScale(0), depthScale(1)] });
 
+  const figureW = baseH * FIGURE_ASPECT;
+  const shadowW = figureW * SHADOW.widthRatio;
+  const shadowH = shadowW * SHADOW.flatness;
+
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       {/*
@@ -213,31 +217,34 @@ export function Walker({
           position: "absolute",
           left: 0,
           top: 0,
-          width: baseH * SHADOW.widthRatio * SHADOW_FIGURE_RATIO,
-          height: baseH * SHADOW.widthRatio * SHADOW_FIGURE_RATIO * SHADOW.flatness,
+          width: shadowW,
+          height: shadowH,
           borderRadius: 999,
           backgroundColor: "rgba(14,10,20,1)",
-          opacity: Animated.multiply(
-            /*
-             * Fading with the lift, read straight off the bob rather than
-             * off a clock — so the shadow and the step can never disagree
-             * about where the foot is.
-             */
-            bob.interpolate({
-              inputRange: [-GAITS[STEER_GAIT].bob, 0],
-              outputRange: [SHADOW.opacity * (1 - SHADOW.liftFade), SHADOW.opacity],
-              extrapolate: "clamp",
-            }),
-            1
-          ),
+          /*
+           * Fading with the lift, read straight off the bob rather than
+           * off a clock — so the shadow and the step can never disagree
+           * about where the foot is.
+           */
+          opacity: bob.interpolate({
+            inputRange: [-GAITS[STEER_GAIT].bob, 0],
+            outputRange: [SHADOW.opacity * (1 - SHADOW.liftFade), SHADOW.opacity],
+            extrapolate: "clamp",
+          }),
           transform: [
-            {
-              translateX: Animated.subtract(
-                Animated.multiply(u, width),
-                Animated.multiply(scale, (baseH * SHADOW.widthRatio * SHADOW_FIGURE_RATIO) / 2)
-              ),
-            },
-            { translateY: Animated.multiply(v, height) },
+            /*
+             * CENTRED ON THE GROUND POINT, BOTH WAYS.
+             *
+             * A transform's scale is about the box's CENTRE, so the
+             * visual centre of a box at `translate` stays at
+             * `translate + size/2` whatever the scale — which means the
+             * offset is half the UNSCALED size and must not be multiplied
+             * by it. I had it scaled, and the ellipse crept sideways and
+             * downward out from under the feet as the figure walked up
+             * the street. It is the same arithmetic the scooter needed.
+             */
+            { translateX: Animated.subtract(Animated.multiply(u, width), shadowW / 2) },
+            { translateY: Animated.subtract(Animated.multiply(v, height), shadowH / 2) },
             { scale },
           ],
         }}
@@ -248,27 +255,28 @@ export function Walker({
           position: "absolute",
           left: 0,
           top: 0,
-          width: baseH * FIGURE_ASPECT,
+          width: figureW,
           height: baseH,
           transform: [
-            // Centred horizontally on the walker's point.
-            {
-              translateX: Animated.subtract(
-                Animated.multiply(u, width),
-                Animated.multiply(scale, (baseH * FIGURE_ASPECT) / 2)
-              ),
-            },
+            /*
+             * Centred horizontally on the walker's point — by half the
+             * UNSCALED width, because scale is about the centre and so
+             * leaves the centre where the translate put it.
+             */
+            { translateX: Animated.subtract(Animated.multiply(u, width), figureW / 2) },
             /*
              * The feet, not the middle. `scale` below grows the box about
              * its CENTRE, so half of any growth goes downward and a figure
-             * that scales up sinks into the pavement. Subtracting half the
-             * scaled height puts the bottom edge exactly on the point.
-             * Amit saw the un-corrected version on the scooter and called
-             * it what it was: *"כאילו הוא נופל."*
+             * that scales up sinks into the pavement. After scaling by s
+             * the bottom edge sits at `top + h * (1 + s) / 2`, so that is
+             * what has to be subtracted — not `s * h / 2`, which is what I
+             * wrote first and which left the figure hovering above the
+             * road with a gap that changed as it walked. Amit saw exactly
+             * this on the scooter: *"כאילו הוא נופל."*
              */
             {
               translateY: Animated.subtract(
-                Animated.multiply(v, height),
+                Animated.subtract(Animated.multiply(v, height), baseH / 2),
                 Animated.multiply(scale, baseH / 2)
               ),
             },
@@ -298,8 +306,6 @@ const AVATAR_HEIGHT = WORLD_SIZE.travellerHeight * 2.1;
 /** A standing person is roughly this much wider than tall. */
 const FIGURE_ASPECT = 0.42;
 
-/** The shadow is sized off the figure's WIDTH, which is derived from its height. */
-const SHADOW_FIGURE_RATIO = FIGURE_ASPECT;
 
 const styles = StyleSheet.create({
   figure: { width: "100%", height: "100%" },

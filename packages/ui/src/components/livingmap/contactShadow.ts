@@ -38,7 +38,7 @@ export const SHADOW = {
   /** The ellipse's height as a fraction of its own width — a flat oval. */
   flatness: 0.3,
   /** How dark it is at full contact. */
-  opacity: 0.3,
+  opacity: 0.36,
   /** How much narrower it gets at the top of a stride. */
   liftShrink: 0.22,
   /** How much fainter it gets at the top of a stride. */
