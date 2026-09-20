@@ -265,6 +265,23 @@ export function StrollBody({
         <View style={styles.steerWrap} pointerEvents="box-none">
           <SteerPad onHeading={setHeading} />
         </View>
+      ) : avatar ? (
+        /*
+         * A FIGURE WAS CHOSEN AND THERE IS NO ART FOR IT YET.
+         *
+         * This is a state I created and then very nearly shipped with the
+         * wrong words in it: the screen offered "בחרו דמות" to somebody
+         * who had already chosen one, so the only control on it did
+         * nothing and implied the fault was theirs.
+         *
+         * The honest version says what is actually true — the street can
+         * be looked at, the walking figure has not been drawn yet — and
+         * leaves the drag on, which `explorable` above already does when
+         * there is nobody to follow.
+         */
+        <View style={styles.pending} pointerEvents="none">
+          <Text style={styles.pendingText}>הדמות שלכם עדיין בציור · אפשר לגרור ולהסתכל</Text>
+        </View>
       ) : (
         /*
          * NO AVATAR, SO NO WALK — and the screen says why rather than
@@ -361,6 +378,16 @@ const styles = StyleSheet.create({
     backgroundColor: palette.signal500,
   },
   pickText: { ...type.bodyStrong, color: "#17121F", writingDirection: "rtl" },
+  pending: {
+    position: "absolute",
+    alignSelf: "center",
+    bottom: spacing.xl * 2,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radii.pill,
+    backgroundColor: "rgba(16,12,22,0.74)",
+  },
+  pendingText: { ...type.caption, color: "rgba(247,243,250,0.82)", writingDirection: "rtl" },
   note: { position: "absolute", left: 0, right: 0, bottom: spacing.sm, alignItems: "center" },
   noteText: { ...type.caption, color: "rgba(247,243,250,0.5)", writingDirection: "rtl" },
 });
