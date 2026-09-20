@@ -1,6 +1,12 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import {
+  arrivalDetailHe,
+  arrivalHeadlineHe,
+  type ArrivalAssessment,
+} from "@pro-now/types";
+
 import { customerDarkTheme, depth, palette, radii, spacing, tabular, tint, type } from "../theme";
 import { Glow } from "./Glow";
 
@@ -52,15 +58,23 @@ import { Glow } from "./Glow";
 
 const colors = customerDarkTheme.colors;
 
-export type ArrivalState = "COMMITTED" | "RUNNING_LATE" | "REDISPATCHING" | "BROKEN";
-
 export interface ArrivalPromiseProps {
-  state: ArrivalState;
+  /**
+   * The verdict from `assessArrival`, not a UI state this screen invented.
+   *
+   * THE WORDS COME FROM THE SAME MODULE AS THE RULE. A screen that says
+   * "בדרך אליך" while the machine says ARRIVAL_AT_RISK is the exact failure
+   * Arrival Assurance exists to prevent, and it is invisible in review when
+   * the sentence and the state live in different files. So this component
+   * renders `arrivalHeadlineHe` and `arrivalDetailHe` and owns no copy of
+   * its own for the phases.
+   */
+  assessment: ArrivalAssessment;
   /** "22:49" — computed by the server from a real route. */
   arrivalClockHe: string | null;
   /** Minutes remaining, when known. */
   minutesAway?: number | null;
-  /** For RUNNING_LATE: what the clock said before it moved. */
+  /** What the clock said before it moved. Shown beside the new one. */
   previousClockHe?: string | null;
   /** The professional's name, once there is one. */
   displayNameHe?: string | null;
@@ -71,7 +85,7 @@ export interface ArrivalPromiseProps {
 }
 
 export function ArrivalPromise({
-  state,
+  assessment,
   arrivalClockHe,
   minutesAway,
   previousClockHe,
@@ -80,26 +94,32 @@ export function ArrivalPromise({
   onCancel,
   width,
 }: ArrivalPromiseProps) {
-  const late = state === "RUNNING_LATE";
-  const searching = state === "REDISPATCHING";
-  const broken = state === "BROKEN";
+  const phase = assessment.phase;
+  const committed = phase === "ON_ROUTE" || phase === "NEW_PRO_ASSIGNED";
+  const late = phase === "DELAYED";
+  const atRisk = phase === "ARRIVAL_AT_RISK";
+  const searching = phase === "REMATCHING";
+  const broken = phase === "RECOVERY";
+
   const accent = broken
     ? colors.statusDanger
-    : late
+    : atRisk || late
       ? colors.statusWarning
       : searching
         ? palette.signal500
         : palette.trust300;
 
-  const headline = broken
-    ? "לא הצלחנו למצוא מחליף"
-    : searching
-      ? "מחפשים לכם מישהו אחר"
-      : late
-        ? "מתעכב"
-        : displayNameHe
-          ? `${displayNameHe} בדרך אליכם`
-          : "בדרך אליכם";
+  const headline = arrivalHeadlineHe(assessment, displayNameHe);
+  const detail = arrivalDetailHe(assessment);
+
+  /*
+   * THE CLOCK DISAPPEARS WITH THE CONFIDENCE BEHIND IT. Once the position
+   * is stale or the professional is gone, the promised time is a real
+   * number that is no longer about anything — the most seductive form of a
+   * fabricated ETA (/CLAUDE.md §3). The machine has already decided this;
+   * the screen only has to obey it.
+   */
+  const showClock = arrivalClockHe !== null && !atRisk && !searching && !broken;
 
   return (
     <View style={[styles.wrap, { width }]}>
@@ -125,7 +145,7 @@ export function ArrivalPromise({
         * can make around — and a person deciding whether to wait, or to
         * start cooking, or to put a child to bed, is making a plan.
         */}
-      {arrivalClockHe ? (
+      {showClock ? (
         <>
           <Text style={styles.clock}>{arrivalClockHe}</Text>
           <Text style={styles.clockLabel}>
@@ -136,15 +156,9 @@ export function ArrivalPromise({
               : "זמן ההגעה"}
           </Text>
         </>
-      ) : (
-        <Text style={styles.noEta}>
-          {searching
-            ? "נעדכן את זמן ההגעה ברגע שמישהו יאשר."
-            : broken
-              ? "אין כרגע זמן הגעה כי אין מי שיצא."
-              : "זמן ההגעה יחושב כשהוא ייצא לדרך."}
-        </Text>
-      )}
+      ) : null}
+
+      {detail ? <Text style={styles.detail}>{detail}</Text> : null}
 
       {/*
         * A CHANGED PROMISE IS STATED, NOT SWAPPED. When the ETA moves, the
@@ -154,17 +168,7 @@ export function ArrivalPromise({
         */}
       {late && previousClockHe ? (
         <View style={styles.changed}>
-          <Text style={styles.changedText}>
-            הבטחנו {previousClockHe} · התנועה שינתה את זה, ואנחנו אומרים את זה עכשיו ולא בדיעבד
-          </Text>
-        </View>
-      ) : null}
-
-      {searching ? (
-        <View style={styles.changed}>
-          <Text style={styles.changedText}>
-            המקצוען הקודם לא יכול היה לצאת. התחלנו לחפש מחדש בלי שתצטרכו לבקש.
-          </Text>
+          <Text style={styles.changedText}>הבטחנו {previousClockHe}</Text>
         </View>
       ) : null}
 
@@ -173,7 +177,7 @@ export function ArrivalPromise({
         * person standing in a flooded kitchen an IVR is an insult, so the
         * way out is a button, in the product, on the screen that broke.
         */}
-      {state !== "COMMITTED" ? (
+      {!committed ? (
         <View style={styles.actions}>
           <Pressable
             onPress={onGetHelp}
@@ -212,12 +216,13 @@ const styles = StyleSheet.create({
   headline: { ...type.bodyStrong, color: colors.textPrimary, writingDirection: "rtl" },
   clock: { ...type.hero, ...tabular, color: colors.textPrimary, marginTop: spacing.sm },
   clockLabel: { ...type.meta, color: colors.textSecondary, writingDirection: "rtl", marginTop: 2 },
-  noEta: {
+  detail: {
     ...type.meta,
     color: colors.textSecondary,
     textAlign: "center",
     writingDirection: "rtl",
     marginTop: spacing.md,
+    lineHeight: 20,
   },
   changed: {
     marginTop: spacing.md,

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 
-import { ActiveJobCapsule, AddressPickerBody, AppHeader, customerDarkTheme, ScreenTransition, ArrivalVerifyBody, CallsListBody, CAPSULE_HEIGHT, ChatBody, ConnectionBanner, CustomerHomeBody, CustomerProfileBody, customerTheme, DescribeFaultBody, JobCompleteBody, lex, MatchConfirmBody, NavGlyph, Persona, PhoneAuthBody, ProEarningsBody, ProJobBody, ProJobSettledBody, ProOfferBody, ProOnlineBody, ProProfileBody, ProShiftBody, proTheme, ProVerificationBody, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, Sheet, spacing, tint, TrackingBody, type as t, WelcomeBody } from "@pro-now/ui";
+import { ActiveJobCapsule, AddressPickerBody, AppHeader, customerDarkTheme, FocusSheet, ScreenTransition, ArrivalVerifyBody, CallsListBody, CAPSULE_HEIGHT, ChatBody, ConnectionBanner, CustomerHomeBody, CustomerProfileBody, customerTheme, DescribeFaultBody, JobCompleteBody, lex, MatchConfirmBody, NavGlyph, Persona, PhoneAuthBody, ProEarningsBody, ProJobBody, ProJobSettledBody, ProOfferBody, ProOnlineBody, ProProfileBody, ProShiftBody, proTheme, ProVerificationBody, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, Sheet, spacing, tint, TrackingBody, type as t, WelcomeBody } from "@pro-now/ui";
 import type { JobMediaItem, LiveLocationState, MarkName, NavGlyphName } from "@pro-now/ui";
 import type { AuthStage, ChatMessage, ConnectionState } from "@pro-now/ui";
 import { buildIntakeBrief, pilotIntakeByService, pilotServiceById, readAvailability } from "@pro-now/types";
@@ -609,17 +609,25 @@ function CustomerApp({
       setElapsed(secs);
       if (secs < 6) return;
       /*
-       * WHERE THE SEARCH ENDS DEPENDS ON THE SERVICE, not on the screen.
-       * FASTEST_ELIGIBLE goes straight to tracking — the customer delegated
-       * the choice and being asked to approve it now would be a burden.
-       * PERSON_FIT stops and asks, because for those services the person IS
-       * the thing being bought.
+       * EVERY SEARCH ENDS BY SHOWING THE PERSON. This used to branch:
+       * PERSON_FIT stopped and asked, FASTEST_ELIGIBLE went straight to
+       * tracking on the reasoning that the customer had delegated the
+       * choice and being asked again would be a burden.
+       *
+       * Amit opened the prototype and found the hole that argument leaves:
+       * "הוא ישר מעביר אותי לדף מקצוען בדרך אליך בלי שבחרתי אותו בכלל."
+       * He is right, and the mistake was conflating two different things.
+       * Delegating the CHOICE is not the same as declining to be TOLD. Gett
+       * assigns your driver too — and then spends its best screen showing
+       * you who he is. Skipping that screen does not save the customer
+       * effort; it removes the only moment where a stranger stops being an
+       * abstraction before he is at the door.
+       *
+       * So the reveal is universal now, and what differs is only what it
+       * offers afterwards: PERSON_FIT can propose someone else, dispatch
+       * services cannot.
        */
-      setRoute(
-        isPersonFit(serviceId)
-          ? { name: "matchconfirm", serviceId, index: 0 }
-          : { name: "tracking", stage: "assigned" }
-      );
+      setRoute({ name: "matchconfirm", serviceId, index: 0 });
     }, 1000);
     return () => clearInterval(id);
   }, [route.name, route]);
@@ -798,6 +806,7 @@ function CustomerApp({
         return (
           <SearchingBody
             serviceNameHe={SERVICE_PAGES[route.serviceId]?.nameHe ?? ""}
+            mark={(SERVICE_PAGES[route.serviceId]?.mark ?? "handyman") as MarkName}
             elapsedSeconds={elapsed}
             candidatesConsidered={12}
             candidatesEligible={3}
@@ -865,7 +874,15 @@ function CustomerApp({
             eta={matchFixture.eta}
             arrivalClockHe={arrivalClockHe}
             price={page.price}
-            hasAlternative={route.index < personFitCandidates.length - 1}
+            /*
+             * Only PERSON_FIT offers another. For a blocked drain the
+             * second-fastest plumber is not a different product, and
+             * offering him invites a comparison the customer has no basis
+             * to make while water is on the floor.
+             */
+            hasAlternative={
+              isPersonFit(route.serviceId) && route.index < personFitCandidates.length - 1
+            }
             onAccept={() => go({ name: "tracking", stage: "assigned" })}
             onAnother={() =>
               go({ name: "matchconfirm", serviceId: route.serviceId, index: route.index + 1 })
@@ -903,7 +920,6 @@ function CustomerApp({
               const at = new Date(Date.now() + mins * 60_000);
               return `${String(at.getHours()).padStart(2, "0")}:${String(at.getMinutes()).padStart(2, "0")}`;
             })()}
-            arrivalState="COMMITTED"
             onGetHelp={() => setSheet("safety")}
             onCancelJob={() => go({ name: "home" })}
             priceLineHe={`${lex.visitFee} ₪179 · ${lex.quotePending}`}
@@ -940,23 +956,52 @@ function CustomerApp({
           />
         );
       case "quote":
+        /*
+         * THE QUOTE IS NOT A PAGE. It rises out of the dark tracking screen
+         * as a light sheet, with the live job still visible above it.
+         *
+         * ChatGPT: "אל תנווט ב־cut ממסך שחור למסך לבן… זה טקס, לא theme
+         * switch." A cut to full ivory reads as a bug or as a different
+         * app; a sheet that always arrives the same way teaches light a
+         * meaning the product can rely on — stop and read before you agree
+         * to money. It also keeps the professional on screen, which is the
+         * truth: he is still in your kitchen while you read his price.
+         */
         return (
-          <QuoteApprovalBody
-            quote={quoteFixture}
-            serviceNameHe={trackedService.nameHe}
-            professionalDisplayName={matchFixture.professional.displayName}
-            onApprove={() => {
-              onQuoteDecision("APPROVED");
-              go({ name: "tracking", stage: "arrived" });
-            }}
-            onDecline={() => {
-              onQuoteDecision("DECLINED");
-              go({ name: "tracking", stage: "arrived" });
-            }}
-            onAskQuestion={() => go({ name: "chat" })}
-            width={width}
-            height={bodyH}
-          />
+          <View style={{ width, height: bodyH }}>
+            <TrackingBody
+              status="IN_PROGRESS"
+              serviceNameHe={trackedService.nameHe}
+              professional={matchFixture.professional}
+              eta={matchFixture.eta}
+              width={width}
+              height={bodyH}
+            />
+            <FocusSheet
+              visible
+              titleHe={`${matchFixture.professional.displayName} שלח הצעת מחיר`}
+              onDismiss={() => go({ name: "tracking", stage: "arrived" })}
+              width={width}
+              height={bodyH}
+            >
+              <QuoteApprovalBody
+                quote={quoteFixture}
+                serviceNameHe={trackedService.nameHe}
+                professionalDisplayName={matchFixture.professional.displayName}
+                onApprove={() => {
+                  onQuoteDecision("APPROVED");
+                  go({ name: "tracking", stage: "arrived" });
+                }}
+                onDecline={() => {
+                  onQuoteDecision("DECLINED");
+                  go({ name: "tracking", stage: "arrived" });
+                }}
+                onAskQuestion={() => go({ name: "chat" })}
+                width={width}
+                height={Math.round(bodyH * 0.78) - 56}
+              />
+            </FocusSheet>
+          </View>
         );
       case "complete":
         return (

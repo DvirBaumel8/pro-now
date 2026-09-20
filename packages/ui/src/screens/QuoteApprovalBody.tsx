@@ -249,7 +249,14 @@ export function QuoteApprovalBody({
 }
 
 const styles = StyleSheet.create({
-  screen: { backgroundColor: colors.bg, overflow: "hidden", borderRadius: radii.xl },
+  /*
+   * NO PAGE BACKGROUND AND NO CORNERS. This body now renders inside
+   * FocusSheet, which owns the surface, the radius and the shadow. A screen
+   * that paints its own rounded page inside a sheet produces the
+   * double-rounded-corner artefact that makes a sheet look like a
+   * screenshot of a page.
+   */
+  screen: { backgroundColor: "transparent", overflow: "hidden" },
   // Clears the pinned action bar, so the version-hash line can be scrolled
   // into view rather than sitting permanently behind the approve button.
   scroll: { paddingBottom: 150 },

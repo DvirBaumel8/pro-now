@@ -1,9 +1,10 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { customerDarkTheme, depth, radii, spacing, tabular, tint, type } from "../theme";
+import { customerDarkTheme, depth, palette, radii, spacing, tabular, tint, type } from "../theme";
 import { Card } from "../components/Card";
-import { ScanField } from "../components/ScanField";
+import { CandidatePresence, type Candidate } from "../components/CandidatePresence";
+import { ProWorld } from "../components/ProWorld";
 
 /**
  * C08 — the search.
@@ -31,6 +32,11 @@ const colors = customerDarkTheme.colors;
 
 export interface SearchingBodyProps {
   serviceNameHe: string;
+  /**
+   * The REAL candidates dispatch has returned so far. Empty until the
+   * server has any — never padded to fill the ring.
+   */
+  candidates?: Candidate[];
   /** Seconds since the request was sent. Presentation only. */
   elapsedSeconds: number;
   /** From DispatchResultView — the size of the pool the server looked at. */
@@ -47,6 +53,7 @@ export interface SearchingBodyProps {
 
 export function SearchingBody({
   serviceNameHe,
+  candidates = [],
   elapsedSeconds,
   candidatesConsidered,
   candidatesEligible,
@@ -62,15 +69,42 @@ export function SearchingBody({
 
   return (
     <View style={[styles.screen, { width, height }]}>
-      {/* The scan fills the screen. It is the state, not a backdrop. */}
-      <ScanField width={width} height={height} active={!exhausted} />
+      {/*
+        * THE WORLD FILLS THE SCREEN. It is the state, not a backdrop — and
+        * it is deliberately the friendliest thing in the product, because
+        * this is the most anxious minute in it. See LiveWorld for the three
+        * rules that keep a world this full of life from claiming anything.
+        */}
+      <ProWorld width={width} height={height} active={!exhausted} />
+
+      {/*
+        * REAL CANDIDATES ONLY, IN A LAYER WITH NO GEOGRAPHY. Empty renders
+        * nothing: an empty orbit over a lively world is the honest picture
+        * of "still looking". See CandidatePresence for the rule.
+        */}
+      <CandidatePresence
+        candidates={candidates}
+        width={width}
+        height={height}
+        active={!exhausted}
+      />
 
       {/* The one line, over the scan, where the eye already is. */}
       {!exhausted ? (
         <View style={styles.overlay} pointerEvents="none">
-          <Text style={styles.scanTitle}>מחפשים מקצוען לידך</Text>
-          <Text style={styles.scanService}>{serviceNameHe}</Text>
-          <Text style={styles.scanElapsed}>{elapsed}</Text>
+          {/*
+            * ONE LINE, AND A JOB BRIEF. ChatGPT's instruction for this
+            * screen was "בלי עוד פרוזה" — the world below is doing the
+            * work of keeping someone company, and every extra sentence
+            * here is something to read at the moment nobody is reading.
+            */}
+          <Text style={styles.scanTitle}>מחפשים את האדם המתאים לך</Text>
+          <View style={styles.brief}>
+            <Text style={styles.briefText} numberOfLines={1}>
+              {serviceNameHe} · עכשיו
+            </Text>
+            <Text style={styles.scanElapsed}>{elapsed}</Text>
+          </View>
         </View>
       ) : null}
 
@@ -144,14 +178,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   scanTitle: { ...type.title, color: colors.textPrimary, textAlign: "center", writingDirection: "rtl" },
-  scanService: {
-    ...type.body,
-    color: colors.textSecondary,
-    textAlign: "center",
-    writingDirection: "rtl",
-    marginTop: 2,
+  /*
+   * The brief travels with the customer from the intake screen: what they
+   * asked for, condensed to one line, so the search never feels like it
+   * lost the thread of the request.
+   */
+  brief: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: radii.pill,
+    backgroundColor: "rgba(16,12,22,0.55)",
   },
-  scanElapsed: { ...type.metaStrong, ...tabular, color: colors.actionText, marginTop: spacing.sm },
+  briefText: { ...type.meta, color: colors.textPrimary, writingDirection: "rtl" },
+  scanElapsed: { ...type.metaStrong, ...tabular, color: palette.signal300 },
 
   title: { ...type.section, color: colors.textPrimary, textAlign: "right", writingDirection: "rtl" },
 

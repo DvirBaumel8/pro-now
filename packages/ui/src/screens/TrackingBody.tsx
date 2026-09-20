@@ -1,11 +1,17 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import type { EtaView, JobState, ProfessionalSummaryView } from "@pro-now/types";
+import {
+  assessArrival,
+  type ArrivalSignals,
+  type EtaView,
+  type JobState,
+  type ProfessionalSummaryView,
+} from "@pro-now/types";
 
 import { formatCompletedJobs, formatEta, formatProNowRating } from "../format";
 import { customerDarkTheme, depth, palette, radii, scale, spacing, tabular, type } from "../theme";
-import { ArrivalPromise, type ArrivalState } from "../components/ArrivalPromise";
+import { ArrivalPromise } from "../components/ArrivalPromise";
 import { ProviderPortrait } from "../components/ProviderPortrait";
 import { RealMapSurface } from "../components/RealMapSurface";
 import { ScreenShell } from "../components/ScreenShell";
@@ -59,10 +65,14 @@ export interface TrackingBodyProps {
   /** "22:49" — the promise, computed by the server from a real route. */
   arrivalClockHe?: string | null;
   /**
-   * What is actually happening to the promise. Defaults to COMMITTED, and
-   * the other three are the reason this screen exists — see ArrivalPromise.
+   * The raw signals. The screen does NOT take a phase — it takes the facts
+   * and asks `assessArrival`, so the customer's screen and the server's
+   * dispatch logic can never disagree about whether an arrival is in
+   * trouble. That disagreement is the failure mode Arrival Assurance
+   * exists to prevent, and it is invisible when each side decides for
+   * itself.
    */
-  arrivalState?: ArrivalState;
+  arrival?: ArrivalSignals;
   /** For RUNNING_LATE: the clock time we gave before it moved. */
   previousClockHe?: string | null;
   onGetHelp?: () => void;
@@ -81,7 +91,7 @@ export function TrackingBody({
   eta,
   priceLineHe,
   arrivalClockHe = null,
-  arrivalState = "COMMITTED",
+  arrival,
   previousClockHe = null,
   onGetHelp,
   onCancelJob,
@@ -96,6 +106,20 @@ export function TrackingBody({
   const jobsLine = formatCompletedJobs(professional.proNowCompletedJobs);
   // Anything past the search means a professional is attached to this job.
   const assigned = status !== "SEARCHING" && status !== "DRAFT" && status !== "OFFERING";
+
+  /*
+   * With no signals from the caller the screen assumes nothing is wrong —
+   * but it assumes it by running the SAME function, with a promise that has
+   * not yet passed, rather than by hard-coding a happy phase. A default
+   * that bypasses the rule is a default that will survive the rule changing.
+   */
+  const assessment = assessArrival(
+    arrival ?? {
+      promisedArrivalMs: eta ? Date.now() + eta.etaSeconds * 1000 : null,
+      lastLocationMs: Date.now(),
+      nowMs: Date.now(),
+    }
+  );
 
   const headline =
     status === "PRO_EN_ROUTE"
@@ -137,7 +161,7 @@ export function TrackingBody({
           * time, says out loud when it moves, and carries its own way out.
           */}
         <ArrivalPromise
-          state={arrivalState}
+          assessment={assessment}
           arrivalClockHe={arrivalClockHe}
           minutesAway={etaDisplay && etaDisplay.unit.includes("דק") ? Number(etaDisplay.value) : null}
           previousClockHe={previousClockHe}

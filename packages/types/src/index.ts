@@ -10,5 +10,6 @@ export * from "./providers/maps-routing-provider";
 export * from "./providers/external-reputation-provider";
 export * from "./providers/notification-provider";
 export * from "./pilot-catalog";
+export * from "./arrival-assurance";
 export * from "./market-activation";
 export * from "./intake";
