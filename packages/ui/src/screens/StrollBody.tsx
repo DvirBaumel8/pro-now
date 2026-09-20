@@ -3,7 +3,6 @@ import { Animated, Image, Pressable, StyleSheet, Text, View } from "react-native
 
 import {
   avatarById,
-  districtCentre,
   walkingAssetFor,
   WALK_START,
   WORLD_DISTRICTS,
@@ -22,6 +21,9 @@ import { SteerPad } from "../components/livingmap/SteerPad";
 import { Walker } from "../components/livingmap/Walker";
 import { WorldViewport } from "../components/livingmap/WorldViewport";
 import { palette, radii, spacing, type } from "../theme";
+import { depthChanged, nearestDistrict } from "./stroll";
+
+export { nearestDistrict, NEAR, DEPTH_STEP } from "./stroll";
 
 /**
  * THE STREET, AS A PLACE YOU CAN GO.
@@ -126,7 +128,7 @@ export function StrollBody({
   const remember = useCallback((at: NormalizedPoint) => {
     walkedTo.current = at;
     setNearest(nearestDistrict(at));
-    setDepth((was) => (Math.abs(was - at.v) > 0.02 ? at.v : was));
+    setDepth((was) => (depthChanged(was, at.v) ? at.v : was));
   }, []);
 
   const label = nearest ? WORLD_DISTRICTS[nearest].labelHe : null;
@@ -302,32 +304,6 @@ export function StrollBody({
       </View>
     </View>
   );
-}
-
-/**
- * The trade the walker is closest to, or null out in the open.
- *
- * Deliberately generous about "nowhere": a label that changes every step
- * turns a street into a tooltip, and standing in the road between two
- * shops belongs to neither of them.
- */
-const NEAR = 0.16;
-
-function nearestDistrict(at: NormalizedPoint): DepartmentCode | null {
-  let best: DepartmentCode | null = null;
-  let bestD = NEAR;
-  for (const code of Object.keys(WORLD_DISTRICTS) as DepartmentCode[]) {
-    const spot = districtCentre(code);
-    if (!spot) continue;
-    // `dv` weighted as everywhere else: the world is drawn in 3/4, so a
-    // step north covers less visible ground than a step east.
-    const d = Math.hypot(spot.u - at.u, (spot.v - at.v) * 0.6);
-    if (d < bestD) {
-      bestD = d;
-      best = code;
-    }
-  }
-  return best;
 }
 
 const styles = StyleSheet.create({
