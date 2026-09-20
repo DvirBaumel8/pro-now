@@ -1,3 +1,4 @@
+import type { DepartmentCode } from "@pro-now/types";
 import {
   allServices,
   browseOnly,
@@ -288,6 +289,45 @@ function notIncluded(s: CatalogServiceDef): string[] {
 
 export type ServicePage = Omit<ServiceDetailBodyProps, "width" | "height">;
 
+/**
+ * Which department a service belongs to.
+ *
+ * Needed because the Living Map's world is chosen by department, and a
+ * service alone does not know its own — the tree does. Derived here rather
+ * than duplicated into each service, so adding a service to a department is
+ * still one edit.
+ */
+export const departmentCodeByServiceId: Record<string, DepartmentCode> = (() => {
+  // Built with an explicit loop rather than `Object.fromEntries`, whose
+  // return type is always `{[k: string]: T}` with T widened to `string`.
+  // The widening is what let a department code reach the world as a plain
+  // string, which is how a caller ended up having to assert it back.
+  const out: Record<string, DepartmentCode> = {};
+  for (const d of pilotCatalog) {
+    for (const c of d.categories) {
+      for (const s of c.services) out[s.id] = d.code;
+    }
+  }
+  return out;
+})();
+
+/**
+ * Which trade a service actually belongs to, in Hebrew.
+ *
+ * This exists because of a real bug. The Living Map drew its candidates
+ * from `personFitCandidates`, which is a barber fixture, for EVERY service
+ * — so asking for "נזילה או דליפת מים" produced a match headed
+ * "ספרית עד הבית · תספורות ועיצוב". Nothing about the screen was wrong;
+ * the data underneath it had no connection to the request.
+ *
+ * A demo professional may be obviously a placeholder. It may not practise
+ * the wrong trade, because that is not a placeholder — it is a wrong
+ * answer rendered convincingly.
+ */
+export const categoryNameByServiceId: Record<string, string> = Object.fromEntries(
+  pilotCatalog.flatMap((d) => d.categories.flatMap((c) => c.services.map((s) => [s.id, c.nameHe])))
+);
+
 /** Every service gets a real page. None is a fallback to the plumbing one. */
 export const catalogServicePages: Record<string, ServicePage> = Object.fromEntries(
   allServices(pilotCatalog).map((s) => [
@@ -417,7 +457,18 @@ export const isPersonFit = (serviceId: string): boolean =>
  * SHAPE is the point: what a customer needs to see before letting someone
  * into their home, and in what order.
  */
-export const personFitCandidates = [
+export type DemoCandidate = {
+  seed: string;
+  displayNameHe: string;
+  headlineHe: string;
+  specialtiesHe: string[];
+  ratingAverage: number | null;
+  ratingCount: number;
+  completedJobs: number;
+  portfolio: { id: string; uri: string | null; captionHe: string }[];
+};
+
+export const personFitCandidates: DemoCandidate[] = [
   {
     seed: "pro_barber_1",
     displayNameHe: "דוגמה ט׳ (תצוגה)",
@@ -458,6 +509,37 @@ export const personFitCandidates = [
     portfolio: [{ id: "w1", uri: null, captionHe: "תספורת מכונה" }],
   },
 ];
+
+/**
+ * The candidates the Living Map shows, for whatever was actually asked for.
+ *
+ * PERSON_FIT services choose a person, and for those the barber fixtures
+ * above are the right shape — a portfolio, specialties, the things you
+ * weigh when picking who comes to cut your hair. Everything else is
+ * FASTEST_ELIGIBLE: the trade is what matters, so the demo professional is
+ * labelled with the service's own category and nothing more.
+ *
+ * Names stay marked "תצוגה" in both branches. The fix is that the trade is
+ * now true even when the person is not.
+ */
+export function demoCandidatesFor(serviceId: string, count = 3): DemoCandidate[] {
+  if (isPersonFit(serviceId)) return personFitCandidates.slice(0, count);
+
+  const trade = categoryNameByServiceId[serviceId] ?? "בעל מקצוע";
+  const marks = ["ט׳", "י׳", "י״א", "י״ב"];
+  return Array.from({ length: count }, (_, i) => ({
+    seed: `pro_${serviceId}_${i}`,
+    displayNameHe: `דוגמה ${marks[i] ?? String(i + 1)} (תצוגה)`,
+    headlineHe: trade,
+    specialtiesHe: [],
+    // No invented reputation. The screen shows a rating row only when a
+    // real one exists, and in the prototype it never does.
+    ratingAverage: null,
+    ratingCount: 0,
+    completedJobs: 0,
+    portfolio: [],
+  }));
+}
 
 /**
  * WHY THIS MATCH — assembled from facts, never from a score.

@@ -3,6 +3,7 @@ import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-nativ
 
 import { formatMoney, money, type ProPresenceState } from "@pro-now/types";
 
+import { BackButton } from "../components/BackButton";
 import { proTheme, radii, scale, spacing, tint, type } from "../theme";
 import { MapSurface } from "../components/MapSurface";
 import { BottomSheet, Chip } from "../components/surfaces";
@@ -112,14 +113,7 @@ export function ProOnlineBody({
       {/* Earnings float above the map, big numbers as the spec asks */}
       <View style={[styles.topBar, onBack ? styles.topBarRow : null]}>
         {onBack ? (
-          <Pressable
-            onPress={onBack}
-            accessibilityRole="button"
-            accessibilityLabel="חזרה למשמרת"
-            style={styles.backHit}
-          >
-            <Text style={styles.backText}>חזרה</Text>
-          </Pressable>
+          <BackButton onPress={onBack} tone={"dark"} placement="inline" />
         ) : null}
         <View style={styles.earnCard}>
           <Text style={styles.earnLabel}>היום</Text>

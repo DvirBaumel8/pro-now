@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
+import { BackButton } from "../components/BackButton";
 import { customerTheme, elevation, proTheme, radii, scale, spacing, tabular, tint, type } from "../theme";
 import { ClockMark, ShieldCheckMark } from "../components/marks";
 import { Persona } from "../components/Persona";
@@ -97,9 +98,7 @@ export function ChatBody({
     <View style={[s.screen, { width, height, backgroundColor: colors.bg }]}>
       {/* ---------------- Who, and which job ---------------- */}
       <View style={[s.head, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-        <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel="חזרה" style={s.back}>
-          <Text style={[s.backGlyph, { color: colors.textPrimary }]}>›</Text>
-        </Pressable>
+        <BackButton onPress={onBack} tone={"light"} placement="inline" />
 
         <View style={s.headMain}>
           <Persona seed={counterpartSeed} size={40} ring={colors.trust} />
@@ -243,8 +242,6 @@ function makeStyles() {
       paddingBottom: spacing.md,
       borderBottomWidth: StyleSheet.hairlineWidth * 2,
     },
-    back: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
-    backGlyph: { fontSize: scale.section, lineHeight: 26, fontWeight: "300" },
     headMain: { flex: 1, flexDirection: "row-reverse", alignItems: "center", gap: spacing.md },
     headText: { flex: 1, alignItems: "flex-end" },
     name: { ...type.bodyStrong, writingDirection: "rtl" },

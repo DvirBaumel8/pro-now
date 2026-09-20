@@ -4,6 +4,7 @@ import Svg, { Rect } from "react-native-svg";
 
 import { formatMoney, money } from "@pro-now/types";
 
+import { BackButton } from "../components/BackButton";
 import { proTheme, radii, scale, spacing, tabular, tint, type } from "../theme";
 import { Mark, type MarkName, ShieldCheckMark } from "../components/marks";
 import { SectionHeader, Surface } from "../components/surfaces";
@@ -88,9 +89,7 @@ export function ProEarningsBody({
     <View style={[styles.screen, { width, height }]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         <View style={styles.head}>
-          <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel="חזרה" style={styles.back}>
-            <Text style={styles.backGlyph}>›</Text>
-          </Pressable>
+          <BackButton onPress={onBack} tone={"light"} placement="absolute" />
 
           <Text style={styles.period}>{periodLabelHe}</Text>
           <Text style={styles.net}>{formatMoney(money(periodNetMinorUnits, "ILS"))}</Text>
@@ -228,16 +227,6 @@ const styles = StyleSheet.create({
   head: { paddingHorizontal: spacing.lg, paddingTop: spacing.xxl, alignItems: "flex-end" },
   // 44x44 minimum. A 25px chevron is a control most thumbs miss, which
   // is the same defect that made the demo bar unhittable.
-  back: {
-    position: "absolute",
-    top: spacing.lg,
-    right: spacing.lg,
-    width: 44,
-    height: 44,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  backGlyph: { fontSize: scale.section, lineHeight: 28, color: colors.textPrimary, fontWeight: "300" },
   period: { ...type.overline, color: colors.textSecondary },
   net: { ...type.displayXL, ...tabular, fontSize: scale.display, lineHeight: 56, color: colors.textPrimary, marginTop: 2 },
   netLabel: { ...type.caption, color: colors.textSecondary, writingDirection: "rtl" },

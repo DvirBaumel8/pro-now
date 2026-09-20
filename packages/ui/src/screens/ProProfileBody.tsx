@@ -1,5 +1,5 @@
 import React from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import {
   formatMoney,
@@ -8,6 +8,7 @@ import {
   type ProfessionalSummaryView,
 } from "@pro-now/types";
 
+import { BackButton } from "../components/BackButton";
 import { customerTheme, elevation, radii, scale, spacing, tabular, tint, type } from "../theme";
 import { formatCompletedJobs, formatProNowRating } from "../format";
 import { Mark, type MarkName, ShieldCheckMark, StarMark } from "../components/marks";
@@ -100,9 +101,7 @@ export function ProProfileBody({
         <View style={styles.hero}>
           <HeroFlourish color={colors.trust} opacity={0.12} />
 
-          <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel="חזרה" style={styles.back}>
-            <Text style={styles.backGlyph}>›</Text>
-          </Pressable>
+          <BackButton onPress={onBack} tone={"light"} placement="absolute" />
 
           {/*
             * A real photo when the professional has uploaded one; otherwise
@@ -410,16 +409,6 @@ const styles = StyleSheet.create({
   },
   // 44x44 minimum. A 25px chevron is a control most thumbs miss, which
   // is the same defect that made the demo bar unhittable.
-  back: {
-    position: "absolute",
-    top: spacing.lg,
-    right: spacing.lg,
-    width: 44,
-    height: 44,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  backGlyph: { fontSize: scale.title, lineHeight: 30, color: colors.textPrimary, fontWeight: "300" },
 
   heroPortrait: { width: 132, ...elevation(2) },
   portrait: { width: 132 },

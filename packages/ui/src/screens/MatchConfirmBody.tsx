@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import type { EtaView, PriceQuoteView } from "@pro-now/types";
 
+import { BackButton } from "../components/BackButton";
 import { customerDarkTheme, depth, palette, radii, scale, spacing, tabular, tint, type } from "../theme";
 import { priceExplainer } from "../pricing-copy";
 import { Glow } from "../components/Glow";
@@ -241,14 +242,7 @@ export function MatchConfirmBody({
             />
           </View>
 
-          <Pressable
-            onPress={onBack}
-            accessibilityRole="button"
-            accessibilityLabel="חזרה"
-            style={styles.back}
-          >
-            <Text style={styles.backGlyph}>›</Text>
-          </Pressable>
+          <BackButton onPress={onBack} tone="dark" placement="absolute" />
 
           <View style={styles.heroTop}>
             <Text style={styles.brandMark}>PRO NOW MATCH</Text>
@@ -509,17 +503,6 @@ const styles = StyleSheet.create({
    * the brightest object on a dark screen whose entire job is to make one
    * person the brightest object on it.
    */
-  back: {
-    position: "absolute",
-    top: spacing.sm,
-    right: spacing.lg,
-    width: 44,
-    height: 44,
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 2,
-  },
-  backGlyph: { ...type.section, fontWeight: "400", color: "rgba(255,255,255,0.75)" },
 
   heroTop: { alignSelf: "stretch", paddingHorizontal: spacing.lg, paddingTop: spacing.lg, alignItems: "center" },
   brandMark: { ...type.microStrong, color: palette.signal300, letterSpacing: 1.8 },

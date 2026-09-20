@@ -212,8 +212,6 @@ export function Gallery() {
           <SearchingBody
             serviceNameHe="תיקון נזילה בברז"
             elapsedSeconds={38}
-            candidatesConsidered={12}
-            candidatesEligible={3}
             width={PHONE_W}
             height={PHONE_H}
           />
@@ -223,9 +221,6 @@ export function Gallery() {
           <SearchingBody
             serviceNameHe="עבודות חשמל"
             elapsedSeconds={95}
-            candidatesConsidered={8}
-            candidatesEligible={0}
-            exhausted
             width={PHONE_W}
             height={PHONE_H}
           />

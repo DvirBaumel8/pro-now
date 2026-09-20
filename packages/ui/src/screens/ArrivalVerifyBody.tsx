@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
+import { BackButton } from "../components/BackButton";
 import { customerTheme, palette, radii, scale, spacing, tabular, tint, type } from "../theme";
 import { LiveField } from "../components/LiveField";
 import { ProviderPortrait } from "../components/ProviderPortrait";
@@ -59,6 +60,8 @@ export interface ArrivalVerifyBodyProps {
   onMessage?: () => void;
   onShare?: () => void;
   onReport?: () => void;
+  /** Back to the live job. The arrival code stays valid either way. */
+  onBack?: () => void;
   width?: number;
   height?: number;
 }
@@ -75,6 +78,7 @@ export function ArrivalVerifyBody({
   onMessage,
   onShare,
   onReport,
+  onBack,
   width = 390,
   height = 780,
 }: ArrivalVerifyBodyProps) {
@@ -83,6 +87,7 @@ export function ArrivalVerifyBody({
 
   return (
     <View style={[styles.screen, { width, height }]}>
+      {onBack ? <BackButton onPress={onBack} tone="dark" /> : null}
       <View style={{ height: fieldH }}>
         <LiveField state="ROUTE" width={width} height={fieldH} tone="dark" />
         <View style={styles.fieldOverlay} pointerEvents="none">

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
+import { BackButton } from "../components/BackButton";
 import { customerTheme, elevation, proTheme, radii, scale, spacing, tabular, type } from "../theme";
 import { ShieldCheckMark } from "../components/marks";
 import { isPlausibleILPhone } from "../phone";
@@ -86,9 +87,7 @@ export function PhoneAuthBody({
 
   return (
     <View style={[styles.screen, { width, height, backgroundColor: colors.bg }]}>
-      <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel="חזרה" style={styles.back}>
-        <Text style={[styles.backGlyph, { color: colors.textPrimary }]}>›</Text>
-      </Pressable>
+      <BackButton onPress={onBack} tone={"light"} placement="absolute" />
 
       <View style={styles.body}>
         <Text style={[styles.title, { color: colors.textPrimary }]}>
@@ -201,17 +200,6 @@ export function PhoneAuthBody({
 
 const styles = StyleSheet.create({
   screen: { overflow: "hidden", borderRadius: radii.xl, justifyContent: "space-between" },
-  back: {
-    position: "absolute",
-    top: spacing.lg,
-    right: spacing.lg,
-    width: 44,
-    height: 44,
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 2,
-  },
-  backGlyph: { fontSize: scale.section, lineHeight: 28, fontWeight: "300" },
 
   body: { paddingHorizontal: spacing.xl, paddingTop: spacing.xxl * 2, alignItems: "flex-end" },
   title: { ...type.h1, writingDirection: "rtl", textAlign: "right" },

@@ -3,6 +3,8 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import {
   assessArrival,
+  routeAt,
+  routeProgress,
   type ArrivalSignals,
   type EtaView,
   type JobState,
@@ -10,10 +12,14 @@ import {
 } from "@pro-now/types";
 
 import { formatCompletedJobs, formatEta, formatProNowRating } from "../format";
+import { BackButton } from "../components/BackButton";
 import { customerDarkTheme, depth, palette, radii, scale, spacing, tabular, type } from "../theme";
 import { ArrivalPromise } from "../components/ArrivalPromise";
 import { ProviderPortrait } from "../components/ProviderPortrait";
 import { RealMapSurface } from "../components/RealMapSurface";
+import { WorldBackdrop } from "../components/livingmap/WorldBackdrop";
+import { RouteLayer } from "../components/livingmap/RouteLayer";
+import { type WorldAssetSources } from "../components/livingmap/AssetSlot";
 import { ScreenShell } from "../components/ScreenShell";
 import { ShieldCheckMark, StarMark } from "../components/marks";
 
@@ -80,6 +86,28 @@ export interface TrackingBodyProps {
   onCall?: () => void;
   onMessage?: () => void;
   onSafety?: () => void;
+  /**
+   * Leave the tracking screen. The job keeps running.
+   *
+   * Not a cancellation — `onCancelJob` is that, and it is a different
+   * control with a different consequence. This one only goes back to the
+   * app, which the screen previously offered no way to do at all.
+   */
+  onBack?: () => void;
+  /** The world art, as far as it exists. Absent falls back to the grid. */
+  worldSources?: WorldAssetSources;
+  /** Which trade is on the way: decides the street and the vehicle. */
+  departmentCode?: string | null;
+  /**
+   * The ETA in seconds as it was WHEN THE JOB WAS ASSIGNED.
+   *
+   * Needed because progress is "how much of the trip is done", and that
+   * cannot be worked out from the remaining time alone. Held by the app
+   * rather than recomputed here, so a re-render never restarts the trip.
+   */
+  etaSecondsAtAssignment?: number | null;
+  vehicleAssetId?: string;
+  animate?: boolean;
   width?: number;
   height?: number;
 }
@@ -98,6 +126,12 @@ export function TrackingBody({
   onCall,
   onMessage,
   onSafety,
+  onBack,
+  worldSources,
+  departmentCode = null,
+  etaSecondsAtAssignment = null,
+  vehicleAssetId,
+  animate = true,
   width = 390,
   height = 780,
 }: TrackingBodyProps) {
@@ -133,12 +167,80 @@ export function TrackingBody({
             : "מעדכנים…";
 
 
+  /*
+   * How far through the trip, read once and shared.
+   *
+   * The camera and the vehicle both use it, so they cannot disagree about
+   * where the professional is — and it is null, not zero, when the server
+   * has given no ETA, which holds the journey still rather than creeping
+   * forward at an invented speed.
+   */
+  const tripProgress = routeProgress({
+    etaSecondsAtAssignment: etaSecondsAtAssignment ?? null,
+    etaSecondsNow: eta?.etaSeconds ?? null,
+  });
+
   // The map gets the top 54%; the sheet sizes itself and overlaps the rest.
   const mapH = Math.round(height * 0.54);
 
   return (
     <ScreenShell side="customer" tone="dark" liveState="ROUTE" width={width} height={height}>
-      <RealMapSurface assigned={assigned} width={width} height={mapH} tone="dark" />
+      {/* ---------------------------------------------------------------
+          THE PROFESSIONAL, COMING DOWN OUR STREETS.
+          ---------------------------------------------------------------
+          Amit: *"גם את העמוד הזה נצטרך לעשות שאיש המקצוע הנכון נוסע אליך
+          ורואים אותו זז במפה שבנינו."*
+
+          This was an abstract dark grid with a dotted curve on it — the
+          only screen in the product still happening somewhere other than
+          the neighbourhood, at the exact moment the customer cares most.
+
+          What moves is driven by PROGRESS through the server's own ETA, not
+          by coordinates: the professional really is that far through the
+          trip, and where they physically are is not claimed. The line under
+          the map says so, and it stays until a maps vendor is chosen.
+          --------------------------------------------------------------- */}
+      <View style={{ width, height: mapH, overflow: "hidden" }}>
+        {worldSources ? (
+          <>
+            <WorldBackdrop
+              width={width}
+              height={mapH}
+              sources={worldSources}
+              departmentCode={departmentCode}
+              animate={animate}
+              /*
+               * THE CAMERA FOLLOWS THEM.
+               *
+               * A fixed shot with a vehicle crossing it is a map with a dot
+               * on it. A camera that stays with the professional as they
+               * come down the street is somebody approaching — and since
+               * both the camera and the vehicle read the same `progress`,
+               * they cannot drift apart.
+               */
+              focus={
+                tripProgress === null
+                  ? null
+                  : routeAt((departmentCode as never) ?? "HOME_URGENT", tripProgress).at
+              }
+            />
+            <RouteLayer
+              width={width}
+              height={mapH}
+              sizeBasis={width}
+              department={(departmentCode as never) ?? "HOME_URGENT"}
+              progress={tripProgress}
+              vehicleAssetId={vehicleAssetId}
+              sources={worldSources}
+              animate={animate}
+            />
+          </>
+        ) : (
+          <RealMapSurface assigned={assigned} width={width} height={mapH} tone="dark" />
+        )}
+      </View>
+
+      {onBack ? <BackButton onPress={onBack} tone="dark" /> : null}
 
       {/* The state, as one word, over the map. */}
       <View style={styles.statusPill} pointerEvents="none">

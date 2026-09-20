@@ -46,6 +46,16 @@ export interface FocusSheetProps {
   animate?: boolean;
   /** Fraction of the screen the sheet covers. */
   heightFraction?: number;
+  /**
+   * How far the world behind is dimmed.
+   *
+   * 0.55 is right for a quote: money deserves a screen of its own. It is
+   * wrong for a professional's card at the end of a journey through the
+   * world — ChatGPT: *"העולם לא מוחשך לגמרי: overlay שחור בערך 0.12–0.16
+   * בלבד, בלי blur כבד."* The camera spent two and a half seconds getting
+   * there; dimming the place away erases the arrival.
+   */
+  scrimOpacity?: number;
   width: number;
   height: number;
   children: React.ReactNode;
@@ -57,6 +67,7 @@ export function FocusSheet({
   onDismiss,
   animate = true,
   heightFraction = 0.78,
+  scrimOpacity = 0.55,
   width,
   height,
   children,
@@ -90,7 +101,13 @@ export function FocusSheet({
         * The dark screen dims but does not disappear. Tapping it dismisses,
         * which is the one gesture people try first on a sheet.
         */}
-      <Animated.View style={[StyleSheet.absoluteFill, styles.scrim, { opacity: v }]}>
+      <Animated.View
+        style={[
+          StyleSheet.absoluteFill,
+          styles.scrim,
+          { opacity: Animated.multiply(v, scrimOpacity / 0.55) },
+        ]}
+      >
         <Pressable
           style={StyleSheet.absoluteFill}
           onPress={onDismiss}

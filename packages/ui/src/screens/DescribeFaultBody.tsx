@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-
 
 import type { IntakeAnswer, IntakeQuestion, ServiceIntake } from "@pro-now/types";
 
+import { BackButton } from "../components/BackButton";
 import { customerDarkTheme, depth, elevation, radii, scale, spacing, tabular, tint, type } from "../theme";
 import { Mark, type MarkName, ShieldCheckMark } from "../components/marks";
 import { ImageSlot, SectionHeader, Surface } from "../components/surfaces";
@@ -148,9 +149,7 @@ export function DescribeFaultBody({
             * the kind of defect a screenshot catches and a code review
             * never does.
             */}
-          <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel="חזרה" style={styles.back}>
-            <Text style={styles.backGlyph}>›</Text>
-          </Pressable>
+          <BackButton onPress={onBack} tone={"dark"} placement="inline" />
 
           <View style={styles.titleRow}>
             <View style={styles.markBubble}>
@@ -458,18 +457,6 @@ const styles = StyleSheet.create({
 
   head: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, alignItems: "flex-end" },
   titleRow: { flexDirection: "row-reverse", alignItems: "center", gap: spacing.md, alignSelf: "stretch" },
-  // 44x44 minimum. A 25px chevron is a control most thumbs miss, which
-  // is the same defect that made the demo bar unhittable.
-  /* A glyph, not a puck. Same fix as the service and match screens. */
-  back: {
-    alignSelf: "flex-start",
-    width: 44,
-    height: 44,
-    alignItems: "center",
-    justifyContent: "center",
-    marginLeft: -spacing.md,
-  },
-  backGlyph: { ...type.section, fontWeight: "300", color: colors.textSecondary },
   markBubble: {
     width: 48,
     height: 48,

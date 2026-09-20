@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
 
-import { customerTheme, elevation, palette, radii, spacing, tabular, tint, type } from "../theme";
+import { customerDarkTheme, customerTheme, depth, elevation, palette, radii, spacing, tabular, tint, type } from "../theme";
 
 /**
  * THE LIT FIELD — a white card on a dark screen.
@@ -37,6 +37,20 @@ import { customerTheme, elevation, palette, radii, spacing, tabular, tint, type 
 const colors = customerTheme.colors;
 
 export interface CaptureCardProps {
+  /**
+   * Which surface this card is sitting on.
+   *
+   * It was hard-wired to the light theme, which was right when the home
+   * screen was a page of ivory. The home screen is now the neighbourhood,
+   * and a full-width white slab over it read as a different app pasted on
+   * top — the exact complaint Amit made about the whole screen not being at
+   * the level of the rest.
+   *
+   * Dark makes it a lit panel standing on the world instead. The light
+   * variant stays, unchanged, for the service pages that are still ivory.
+   */
+  tone?: "light" | "dark";
+
   text: string;
   onChangeText: (v: string) => void;
   placeholderHe?: string;
@@ -72,18 +86,27 @@ export function CaptureCard({
   onAddPhoto,
   onAddFromLibrary,
   onClearPhotos,
+  tone = "light",
   width,
 }: CaptureCardProps) {
   const hasMedia = photos > 0 || (voiceSeconds ?? 0) > 0;
 
   return (
-    <View style={[styles.card, { width }, elevation(3)]}>
+    <View
+      style={[
+        styles.card,
+        { width },
+        // Depth on a dark surface comes from light, never from a shadow: a
+        // dark shadow on near-black is nothing at all.
+        tone === "dark" ? styles.cardDark : elevation(3),
+      ]}
+    >
       <TextInput
         value={text}
         onChangeText={onChangeText}
         placeholder={placeholderHe}
-        placeholderTextColor={palette.ink300}
-        style={styles.input}
+        placeholderTextColor={tone === "dark" ? "rgba(247,243,250,0.45)" : palette.ink300}
+        style={[styles.input, tone === "dark" ? styles.inputDark : null]}
         textAlign="right"
         multiline
         accessibilityLabel="ספרו מה צריך"
@@ -92,7 +115,7 @@ export function CaptureCard({
       {recording ? <Listening seconds={recordSeconds} /> : null}
 
       <View style={styles.actions}>
-        <RoundAction
+        <RoundAction tone={tone}
           labelHe={recording ? "עצור" : "הקלטה"}
           glyph="mic"
           active={recording}
@@ -101,10 +124,10 @@ export function CaptureCard({
           badgeHe={!recording && (voiceSeconds ?? 0) > 0 ? formatSeconds(voiceSeconds ?? 0) : null}
         />
         {allowPhoto ? (
-          <RoundAction labelHe="מצלמה" glyph="camera" onPress={onAddPhoto} />
+          <RoundAction tone={tone} labelHe="מצלמה" glyph="camera" onPress={onAddPhoto} />
         ) : null}
         {allowPhoto ? (
-          <RoundAction
+          <RoundAction tone={tone}
             labelHe="גלריה"
             glyph="gallery"
             onPress={onAddFromLibrary ?? onAddPhoto}
@@ -158,6 +181,7 @@ function RoundAction({
   disabled,
   badgeHe,
   onPress,
+  tone = "light",
 }: {
   labelHe: string;
   glyph: "mic" | "camera" | "gallery";
@@ -165,6 +189,7 @@ function RoundAction({
   disabled?: boolean;
   badgeHe?: string | null;
   onPress?: () => void;
+  tone?: "light" | "dark";
 }) {
   return (
     <Pressable
@@ -174,15 +199,25 @@ function RoundAction({
       accessibilityLabel={badgeHe ? `${labelHe}, ${badgeHe}` : labelHe}
       style={({ pressed }) => [styles.action, disabled && { opacity: 0.35 }, pressed && { opacity: 0.8 }]}
     >
-      <View style={[styles.circle, active && styles.circleActive]}>
-        <CaptureGlyph name={glyph} color={active ? "#FFFFFF" : colors.textPrimary} />
+      <View style={[styles.circle, tone === "dark" ? styles.circleDark : null, active && styles.circleActive]}>
+        <CaptureGlyph
+          name={glyph}
+          color={active ? "#FFFFFF" : tone === "dark" ? customerDarkTheme.colors.textPrimary : colors.textPrimary}
+        />
         {badgeHe ? (
           <View style={styles.badge}>
             <Text style={styles.badgeText}>{badgeHe}</Text>
           </View>
         ) : null}
       </View>
-      <Text style={[styles.actionLabel, active && { color: colors.actionText }]} numberOfLines={1}>
+      <Text
+        style={[
+          styles.actionLabel,
+          tone === "dark" ? { color: customerDarkTheme.colors.textSecondary } : null,
+          active && { color: colors.actionText },
+        ]}
+        numberOfLines={1}
+      >
         {labelHe}
       </Text>
     </Pressable>
@@ -273,6 +308,14 @@ function CaptureGlyph({ name, color }: { name: "mic" | "camera" | "gallery"; col
 }
 
 const styles = StyleSheet.create({
+  cardDark: {
+    backgroundColor: depth.panel.high,
+    borderWidth: 1,
+    borderColor: "rgba(247,243,250,0.1)",
+    ...depth.litEdge(0.1),
+  },
+  inputDark: { color: customerDarkTheme.colors.textPrimary },
+  circleDark: { backgroundColor: "rgba(247,243,250,0.08)" },
   card: {
     backgroundColor: colors.surface,
     borderRadius: radii.xl,

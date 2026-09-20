@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { readAvailability, type AreaAvailabilityView } from "../src";
+import { liveAreaLineHe, readAvailability, type AreaAvailabilityView } from "../src";
 
 /**
  * Every test here is the same assertion in different clothes: a fact the
@@ -139,5 +139,28 @@ describe("readAvailability — a server that contradicts itself", () => {
     );
     expect(r.supplyFor("x").nearestRouteEtaMinutes).toBeNull();
     expect(r.supplyFor("y").nearestRouteEtaMinutes).toBeNull();
+  });
+});
+
+describe("liveAreaLineHe", () => {
+  const services = [{ hasSupply: true }, { hasSupply: true }, { hasSupply: false }];
+
+  it("says how many services can happen, not how many people exist", () => {
+    const line = liveAreaLineHe({ fresh: true, areaLabel: "חולון", services });
+    expect(line).toBe("2 שירותים זמינים עכשיו בחולון");
+  });
+
+  it("says nothing at all when the snapshot is stale", () => {
+    expect(liveAreaLineHe({ fresh: false, areaLabel: "חולון", services })).toBeNull();
+  });
+
+  it("says nothing rather than announcing zero", () => {
+    expect(liveAreaLineHe({ fresh: true, areaLabel: "חולון", services: [{ hasSupply: false }] })).toBeNull();
+  });
+
+  it("copes with no area label", () => {
+    expect(liveAreaLineHe({ fresh: true, areaLabel: null, services: [{ hasSupply: true }] })).toBe(
+      "שירות אחד זמין עכשיו"
+    );
   });
 });

@@ -1,7 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 
-import { ActiveJobCapsule, AddressPickerBody, AppHeader, customerDarkTheme, FocusSheet, ScreenTransition, ArrivalVerifyBody, CallsListBody, CAPSULE_HEIGHT, ChatBody, ConnectionBanner, CustomerHomeBody, CustomerProfileBody, customerTheme, DescribeFaultBody, JobCompleteBody, lex, MatchConfirmBody, NavGlyph, Persona, PhoneAuthBody, ProEarningsBody, ProJobBody, ProJobSettledBody, ProOfferBody, ProOnlineBody, ProProfileBody, ProShiftBody, proTheme, ProVerificationBody, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, Sheet, spacing, tint, TrackingBody, type as t, WelcomeBody } from "@pro-now/ui";
+import { CARD_REST, customerCategoryById, liveAreaLineHe, DEMO_WORLD, type CandidatePresence, type LivingMapPhase, type LivingMapState, themeForDepartment } from "@pro-now/types";
+import { discover, emptyDiscoveries, type DiscoveryState } from "@pro-now/types";
+import { screenKey, travelAssetFor } from "@pro-now/types";
+import { HAIR_DISCOVERY_IDS } from "@pro-now/ui";
+
+import { worldSources } from "./worldSources";
+
+import { ActiveJobCapsule, AddressPickerBody, AppHeader, customerDarkTheme, FocusSheet, ScreenTransition, ArrivalVerifyBody, CallsListBody, CAPSULE_HEIGHT, ChatBody, ConnectionBanner, CategoryBody, CustomerHomeBody, CustomerProfileBody, customerTheme, DescribeFaultBody, JobCompleteBody, lex, MatchConfirmBody, NavGlyph, Persona, PhoneAuthBody, ProEarningsBody, ProJobBody, ProJobSettledBody, ProOfferBody, ProOnlineBody, ProProfileBody, ProShiftBody, proTheme, ProVerificationBody, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, Sheet, spacing, tint, TrackingBody, type as t, WelcomeBody } from "@pro-now/ui";
 import type { JobMediaItem, LiveLocationState, MarkName, NavGlyphName } from "@pro-now/ui";
 import type { AuthStage, ChatMessage, ConnectionState } from "@pro-now/ui";
 import { buildIntakeBrief, pilotIntakeByService, pilotServiceById, readAvailability } from "@pro-now/types";
@@ -11,20 +18,21 @@ import type { JobState, ProPresenceState } from "@pro-now/types";
 import { matchFixture, offerFixture } from "./fixtures";
 import {
   catalogHomeServices,
-  togglesFor,
   catalogMatchRules,
   catalogServicePages,
+  departmentCodeByServiceId,
   eligibilityFor,
   isPersonFit,
   matchReasons,
+  demoCandidatesFor,
   personFitCandidates,
   photoPromptFor,
+  togglesFor,
 } from "./catalogAdapter";
 import { useCapture } from "./useCapture";
 import {
   availabilitySnapshot,
   callsList,
-  castSeeds,
   chatSeed,
   customerHistory,
   customerOpenCall,
@@ -116,10 +124,26 @@ type Gate = { name: "welcome" } | { name: "auth"; side: Side };
 type CustomerRoute =
   | { name: "home" }
   | { name: "address" }
+  /**
+   * A CATEGORY IS A DESTINATION, NOT A REDIRECT.
+   *
+   * Tapping "לבית" used to open the first service behind it, so the app
+   * announced that the customer had a blocked drain before they said
+   * anything. Amit: *"למה אני לוחץ על בית ומכניס אותי ישר לאינסטלטור?"*
+   * Now it goes somewhere: that trade's street, and the short question.
+   */
+  | { name: "category"; categoryId: string }
   | { name: "service"; serviceId: string }
   | { name: "describe"; serviceId: string; symptomsHe: string[] }
   | { name: "chat" }
-  | { name: "searching"; serviceId: string }
+  /**
+   * ONE ROUTE FOR FOUR PHASES. Searching, found, reveal and route are the
+   * same mounted Living Map scene changing shape — not four destinations.
+   * Amit's note was that the transitions between cards made no sense, and
+   * four routes would have kept producing four hard cuts however well each
+   * one was drawn.
+   */
+  | { name: "living"; serviceId: string; phase: LivingMapPhase }
   /** PERSON_FIT only: the system proposes, the customer confirms. */
   | { name: "matchconfirm"; serviceId: string; index: number }
   | { name: "tracking"; stage: "assigned" | "enroute" | "arrived" }
@@ -127,6 +151,44 @@ type CustomerRoute =
   | { name: "arrival" }
   | { name: "quote" }
   | { name: "complete" };
+
+/**
+ * DEEP LINK TO ONE LIVING MAP PHASE — `?phase=SEARCHING`, `CANDIDATES_FOUND`,
+ * `MATCH_REVEAL`, `ASSIGNED_ROUTE`, with an optional `&service=svc-leak`.
+ *
+ * The four phases are one scene that advances itself on a timer, which is
+ * correct for a person using the app and useless for anyone reviewing it:
+ * the found state is on screen for two seconds, so capturing it means
+ * racing a clock. This pins the scene to a single phase and stops the
+ * timer, so a review, a screenshot or the audit walker can look at one
+ * phase for as long as it needs to. It is inert unless the parameter is
+ * present, and the preview app is developer-only.
+ */
+const PHASES: readonly LivingMapPhase[] = [
+  "SEARCHING",
+  "CANDIDATES_FOUND",
+  "MATCH_REVEAL",
+  "ASSIGNED_ROUTE",
+];
+const PINNED: { phase: LivingMapPhase; serviceId: string } | null = (() => {
+  const q = new URLSearchParams(window.location.search);
+  const raw = q.get("phase");
+  if (!raw) return null;
+  const phase = PHASES.find((p) => p === raw.toUpperCase());
+  if (!phase) return null;
+  return { phase, serviceId: q.get("service") ?? "svc-leak" };
+})();
+
+/**
+ * TEMPORARY — REVIEW CYCLE. Remove once the Living Map screenshots are taken.
+ *
+ * The artifact host does not forward a query string into the preview frame,
+ * so `?phase=` works locally and not there. This walks the four phases on a
+ * slow loop from boot so each one can be captured from the published
+ * artifact without touching the app.
+ */
+const REVIEW_CYCLE = false;
+const REVIEW_PHASE_MS = 9000;
 
 /**
  * Every service page, derived from the catalogue.
@@ -215,7 +277,9 @@ export function App() {
   const w = Math.min(430, width);
   const h = height;
 
-  const [gate, setGate] = useState<Gate | null>({ name: "welcome" });
+  // A pinned phase (`?phase=`) is a request to look at one screen. Sending
+  // the reviewer through welcome and sign-in first would defeat that.
+  const [gate, setGate] = useState<Gate | null>(PINNED || REVIEW_CYCLE ? null : { name: "welcome" });
   const [side, setSide] = useState<Side>("customer");
   /** The request in flight, shared by both sides. See `LiveRequest`. */
   const [liveRequest, setLiveRequest] = useState<LiveRequest | null>(null);
@@ -268,9 +332,35 @@ export function App() {
           />
         </View>
 
+        {/*
+          * THE DOOR ANIMATES TOO.
+          *
+          * The three steps before the app — the landing page, the sign-in,
+          * and the app itself opening — were a hard cut, and they are the
+          * first three things anybody sees. Going in slides forward; the
+          * back control on the sign-in slides back, because it is a back
+          * and the model works that out on its own.
+          *
+          * `side: "gate"` here for all three, including the app, so that
+          * opening the app reads as one move into it rather than as a
+          * change of product. Once inside, each app runs its own
+          * transitions and this one holds still.
+          */}
+        {/*
+          * Sized and clipped, because the transition positions its child
+          * absolutely: without this it would be laid out over the
+          * connection banner above rather than under it.
+          */}
+        <View style={{ height: h - bannerH, overflow: "hidden" }}>
+        <ScreenTransition
+          transitionKey={
+            gate?.name === "auth" ? `gate:auth:${gate.side}` : gate?.name === "welcome" ? "gate:welcome" : "gate:app"
+          }
+          screen={{ side: "gate", name: gate?.name === "auth" ? "auth" : gate?.name === "welcome" ? "welcome" : "home" }}
+        >
         {gate?.name === "welcome" ? (
           <WelcomeBody
-            castSeeds={castSeeds}
+            worldSources={worldSources}
             onCustomer={() => setGate({ name: "auth", side: "customer" })}
             onProfessional={() => setGate({ name: "auth", side: "pro" })}
             width={w}
@@ -315,6 +405,8 @@ export function App() {
             onQuoteSeen={() => setQuoteDecision(null)}
           />
         )}
+        </ScreenTransition>
+        </View>
 
         {notice && !gate ? (
           // Offset by the banner, which is in the layout above this overlay.
@@ -442,6 +534,14 @@ function CustomerApp({
   const [faultText, setFaultText] = useState("");
   const [chat, setChat] = useState<ChatMessage[]>(chatSeed);
   const [sheet, setSheet] = useState<null | "call" | "safety" | "payment">(null);
+  /*
+   * WHICH SHOP IS OPEN.
+   *
+   * Amit: *"כל חנות כזו בעצם תהיה הכרטיס, שם יקפוץ פרופיל המקצוען."* The
+   * venue was decorative until now — a building you cannot open is a
+   * picture of a choice rather than a choice.
+   */
+  const [openVenue, setOpenVenue] = useState<string | null>(null);
   const [addressId, setAddressId] = useState<string>("addr_home");
   const [live, setLive] = useState<LiveLocationState>({ status: "idle" });
 
@@ -475,7 +575,13 @@ function CustomerApp({
       { enableHighAccuracy: false, timeout: 8000, maximumAge: 60_000 }
     );
   }, []);
-  const [route, setRoute] = useState<CustomerRoute>({ name: "home" });
+  const [route, setRoute] = useState<CustomerRoute>(
+    PINNED
+      ? { name: "living", serviceId: PINNED.serviceId, phase: PINNED.phase }
+      : REVIEW_CYCLE
+        ? { name: "living", serviceId: "svc-leak", phase: "SEARCHING" }
+        : { name: "home" }
+  );
   /**
    * The intake answers live in the app, not in the screen, because they
    * travel: they are what the professional's offer card is built from two
@@ -494,11 +600,14 @@ function CustomerApp({
    */
   const trackedService = useMemo(() => {
     const id =
-      route.name === "service" || route.name === "describe" || route.name === "searching"
+      route.name === "service" || route.name === "describe" || route.name === "living"
         ? route.serviceId
         : lastRequestedId;
     const page = id ? SERVICE_PAGES[id] : undefined;
     return {
+      // Carried so the tracking screen knows which street the professional
+      // comes down and what they are driving.
+      id: id ?? null,
       nameHe: page?.nameHe ?? "תיקון נזילה בברז",
       mark: (page?.mark ?? "plumbing") as MarkName,
     };
@@ -508,6 +617,19 @@ function CustomerApp({
     setIntakeAnswers((prev) => [...prev.filter((p) => p.questionId !== a.questionId), a]);
   }, []);
   const [elapsed, setElapsed] = useState(0);
+  /*
+   * The waiting game is OPT-IN and off by default. It is a hypothesis test,
+   * not a feature: does anyone want to touch the world while they wait?
+   * Defaulting it on would answer the question by forcing it.
+   */
+  /**
+   * The neighbourhood's discoveries, for the length of one wait.
+   *
+   * Local and unpersisted on purpose. Nothing found here survives the
+   * screen — no points, no wallet, no loyalty — because a reward is a
+   * commercial decision nobody has made (/CLAUDE.md §4).
+   */
+  const [discoveries, setDiscoveries] = useState<DiscoveryState>(() => emptyDiscoveries(HAIR_DISCOVERY_IDS));
 
   // A tracked job needs somewhere to go next; the prototype offers the same
   // advances the server would push. Computed BEFORE the body height, because
@@ -562,12 +684,12 @@ function CustomerApp({
    * while merely browsing a service page, advertising an unrelated call.
    */
   const jobScreens = [
+    "living",
     "tracking",
     "arrival",
     "chat",
     "quote",
     "complete",
-    "searching",
     "matchconfirm",
   ];
   const capsule =
@@ -595,42 +717,52 @@ function CustomerApp({
    */
 
 
-  // The search advances on its own, the way it will in production when the
-  // server answers — so the wait is experienced rather than described.
+  /**
+   * THE SEARCH ADVANCES ITSELF, the way the server will — so the wait is
+   * experienced rather than described.
+   *
+   * And it now advances through PHASES of one scene rather than navigating
+   * between screens: SEARCHING → CANDIDATES_FOUND → MATCH_REVEAL, and then
+   * the customer decides. That last stop is the fix for the thing Amit
+   * caught: *"הוא ישר מעביר אותי לדף מקצוען בדרך אליך בלי שבחרתי אותו
+   * בכלל."* Delegating the choice is not the same as declining to be told
+   * who is coming.
+   */
   useEffect(() => {
-    if (route.name !== "searching") {
+    if (route.name !== "living") {
       setElapsed(0);
       return;
     }
+    if (route.phase !== "SEARCHING" && route.phase !== "CANDIDATES_FOUND") return;
+    // A pinned phase is being looked at, not lived through. Let it stand still.
+    if (PINNED || REVIEW_CYCLE) return;
     const started = Date.now();
     const serviceId = route.serviceId;
+    const fromPhase = route.phase;
     const id = setInterval(() => {
       const secs = Math.floor((Date.now() - started) / 1000);
-      setElapsed(secs);
-      if (secs < 6) return;
-      /*
-       * EVERY SEARCH ENDS BY SHOWING THE PERSON. This used to branch:
-       * PERSON_FIT stopped and asked, FASTEST_ELIGIBLE went straight to
-       * tracking on the reasoning that the customer had delegated the
-       * choice and being asked again would be a burden.
-       *
-       * Amit opened the prototype and found the hole that argument leaves:
-       * "הוא ישר מעביר אותי לדף מקצוען בדרך אליך בלי שבחרתי אותו בכלל."
-       * He is right, and the mistake was conflating two different things.
-       * Delegating the CHOICE is not the same as declining to be TOLD. Gett
-       * assigns your driver too — and then spends its best screen showing
-       * you who he is. Skipping that screen does not save the customer
-       * effort; it removes the only moment where a stranger stops being an
-       * abstraction before he is at the door.
-       *
-       * So the reveal is universal now, and what differs is only what it
-       * offers afterwards: PERSON_FIT can propose someone else, dispatch
-       * services cannot.
-       */
-      setRoute({ name: "matchconfirm", serviceId, index: 0 });
+      setElapsed((e) => e + 1);
+      if (fromPhase === "SEARCHING" && secs >= 5) {
+        setRoute({ name: "living", serviceId, phase: "CANDIDATES_FOUND" });
+      } else if (fromPhase === "CANDIDATES_FOUND" && secs >= 2) {
+        setRoute({ name: "living", serviceId, phase: "MATCH_REVEAL" });
+      }
     }, 1000);
     return () => clearInterval(id);
-  }, [route.name, route]);
+  }, [route]);
+
+  /** TEMPORARY — see REVIEW_CYCLE. */
+  useEffect(() => {
+    if (!REVIEW_CYCLE) return;
+    const id = setInterval(() => {
+      setRoute((r) => {
+        if (r.name !== "living") return { name: "living", serviceId: "svc-leak", phase: "SEARCHING" };
+        const next = PHASES[(PHASES.indexOf(r.phase) + 1) % PHASES.length] ?? "SEARCHING";
+        return { name: "living", serviceId: r.serviceId, phase: next };
+      });
+    }, REVIEW_PHASE_MS);
+    return () => clearInterval(id);
+  }, []);
 
   /*
    * Routes live under the "home" tab, so navigating to one from another tab
@@ -639,10 +771,143 @@ function CustomerApp({
    * underneath a tab that was still rendering its own screen. Keeping the
    * tab switch inside `go` makes that impossible to forget at a call site.
    */
-  const go = useCallback((r: CustomerRoute) => {
+  /**
+ * The services a customer category actually covers, in this catalogue.
+ *
+ * This replaced a function that returned the FIRST service and opened it —
+ * a shortcut that made tapping "לבית" mean "I have a blocked drain". A
+ * category is several departments wide; the only honest thing to do with a
+ * tap on one is to show what it contains and ask.
+ */
+function servicesForCategory(category: { departments: readonly string[] }) {
+  return catalogHomeServices.filter((s2) =>
+    category.departments.includes(departmentCodeByServiceId[s2.id] ?? "")
+  );
+}
+
+const go = useCallback((r: CustomerRoute) => {
+    /*
+     * The stack remembers WHERE YOU WERE, not where you are going. That
+     * distinction was the bug: the stack was filled by an effect watching
+     * `route`, so it recorded the screen you had just arrived at — and a
+     * back then popped the screen you were standing on and "returned" you
+     * to it. Pressing back appeared to do nothing, or, once the browser's
+     * own history had drifted a step out of line with ours, landed on some
+     * screen from earlier in the session. Amit's original question —
+     * *"איך חוזרים אחורה במסכים של הלקוח?"* — was still only half answered:
+     * there was a control on every screen, and it did not reliably go back.
+     */
+    backStack.current = [...backStack.current, { route: hereRef.current, tab: tabRef.current }].slice(-40);
     setRoute(r);
     if (r.name !== "home") setTab("home");
+    pushHistory();
   }, []);
+
+  /**
+   * Move to a tab, recording where you were so back can return there.
+   *
+   * A tab is a sibling of home rather than a step into it (see
+   * `navigation-flow.ts`), so the transition barely moves — but it is still
+   * a navigation, and leaving it out of the history is what made the back
+   * gesture fall out of the app.
+   */
+  const goTab = useCallback((t: CustomerTab) => {
+    backStack.current = [...backStack.current, { route: hereRef.current, tab: tabRef.current }].slice(-40);
+    setTab(t);
+    setRoute({ name: "home" });
+    pushHistory();
+  }, []);
+
+  /*
+   * ---------------------------------------------------------------------
+   * THE PHONE'S OWN BACK GESTURE
+   * ---------------------------------------------------------------------
+   * Amit: *"איך חוזרים אחורה במסכים של הלקוח?"* Adding a visible control to
+   * every screen answers half of it. The other half is that he is reviewing
+   * this in a browser on a phone, where the swipe-from-the-edge and the
+   * Android back button are how people leave a screen — and here they did
+   * nothing at all, or worse, left the prototype entirely.
+   *
+   * Navigation lives in React state rather than in the URL, so the history
+   * stack has to be maintained by hand: every `go` pushes an entry, and a
+   * `popstate` is routed into the same `back()` the on-screen control uses.
+   * The two are then the same action by construction, which is the only way
+   * they stay in agreement as screens are added.
+   *
+   * The entries are deliberately empty of state. The artifact host strips
+   * query strings (this is the same constraint that killed `?phase=`), so a
+   * URL-encoded route would survive locally and silently break in the one
+   * place Amit actually looks at it.
+   */
+  const backStack = useRef<{ route: CustomerRoute; tab: CustomerTab }[]>([]);
+  /*
+   * Where we are RIGHT NOW, readable from a callback that was created on
+   * the first render. `go` is memoised with no dependencies on purpose —
+   * every screen holds a handler built from it — so it cannot close over
+   * the current route, and a ref is what lets it record the screen it is
+   * leaving without being rebuilt on every navigation.
+   */
+  const hereRef = useRef<CustomerRoute>({ name: "home" });
+  const tabRef = useRef<CustomerTab>("home");
+  const pushHistory = () => {
+    if (typeof window === "undefined") return;
+    window.history.pushState({ proNow: true }, "");
+  };
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onPop = () => {
+      const previous = backStack.current.pop();
+      // Nothing behind us: home, rather than falling out of the prototype.
+      setRoute(previous?.route ?? { name: "home" });
+      // The tab comes back too. Going back from a screen opened out of the
+      // calls list used to land on the home tab, which is a different
+      // place from the one you left.
+      setTab(previous?.tab ?? "home");
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  // Keep the "where we are" refs in step with the state they mirror. This
+  // does NOT push anything: `go` does the pushing, because only `go` knows
+  // that a move is happening rather than a re-render.
+  useEffect(() => {
+    hereRef.current = route;
+    tabRef.current = tab;
+  }, [route, tab]);
+
+  /**
+   * WHERE THE CUSTOMER IS, as the transition model understands it.
+   *
+   * Two facts, and they are not the same fact. The KEY is identity: change
+   * it and a transition plays. The SCREEN is position in the journey:
+   * compare it with the last one and the direction falls out.
+   *
+   * What is deliberately left out of the subject matters as much as what is
+   * in it. The living map's phase and the tracking stage both change while
+   * you are standing still — the world is searching, then it has found
+   * someone, then they are driving — and those are one scene changing
+   * shape. Feeding them in would cut a continuous journey into four page
+   * loads, which is the exact fault the whole thing was built to fix.
+   */
+  const screenNow = useMemo(() => {
+    // Off the home tab, the tab IS the screen: the calls list and the card
+    // are siblings of home, not steps into it.
+    const name = tab === "home" ? route.name : tab;
+    const subject =
+      tab !== "home"
+        ? null
+        : route.name === "category"
+          ? route.categoryId
+          : route.name === "service" || route.name === "describe" || route.name === "living" || route.name === "matchconfirm"
+            ? route.serviceId
+            : null;
+    return {
+      key: screenKey({ side: "customer", name, subject }),
+      screen: { side: "customer" as const, name },
+    };
+  }, [tab, route]);
 
   const body = useMemo(() => {
     if (tab === "card") {
@@ -655,7 +920,7 @@ function CustomerApp({
           openCalls={route.name === "tracking" ? customerOpenCall : []}
           history={customerHistory}
           lifetimeSpendMinorUnits={164400}
-          onOpenCall={() => setTab("calls")}
+          onOpenCall={() => goTab("calls")}
           onEditAddresses={() => go({ name: "address" })}
           onEditPayment={() => setSheet("payment")}
           width={width}
@@ -698,6 +963,32 @@ function CustomerApp({
             height={bodyH}
           />
         );
+      case "category": {
+        const category = customerCategoryById(route.categoryId);
+        if (!category) return null;
+        return (
+          <CategoryBody
+            category={category}
+            services={servicesForCategory(category).map((s2) => ({
+              id: s2.id,
+              nameHe: s2.nameHe,
+              descriptionHe: s2.descriptionHe ?? null,
+              /*
+               * Read from the same snapshot every other number on screen
+               * reads, and null when the snapshot did not mention this
+               * service — silence rather than a zero that would read as
+               * "nobody is free".
+               */
+              availableNowCount: supply.supplyFor(s2.id).count,
+            }))}
+            worldSources={worldSources}
+            onSelectService={(id) => go({ name: "service", serviceId: id })}
+            onBack={() => go({ name: "home" })}
+            width={width}
+            height={bodyH}
+          />
+        );
+      }
       case "service": {
         const page = SERVICE_PAGES[route.serviceId]!;
         /*
@@ -795,27 +1086,120 @@ function CustomerApp({
                 createdAtMs: Date.now(),
               });
               setLastRequestedId(route.serviceId);
-              go({ name: "searching", serviceId: route.serviceId });
+              go({ name: "living", serviceId: route.serviceId, phase: "SEARCHING" });
             }}
             width={width}
             height={bodyH}
           />
         );
       }
-      case "searching":
+      case "living": {
+        /*
+         * THE DEMO CANDIDATES, AND WHY THEY ARE SHAPED LIKE THIS.
+         *
+         * `CandidatePresence` has `lat?: never` and `lng?: never`, so these
+         * fixtures physically cannot carry a position — which is the point.
+         * The prototype shows three bubbles because three candidates exist
+         * in the fixture, not to make the ring look better; `foundHeadlineHe`
+         * counts the same array, so the number on screen and the number of
+         * people can never disagree.
+         */
+        const cands: CandidatePresence[] = demoCandidatesFor(route.serviceId, 3).map((c, i) => ({
+          candidateId: `demo-cand-${i}`,
+          displayNameHe: c.displayNameHe,
+          professionHe: c.headlineHe,
+          photoUri: null,
+          /*
+           * Carried through from the fixture rather than invented here. A
+           * derived candidate has no rating and no jobs, so `matchFactsHe`
+           * returns nothing and the sheet shows "חדש ב-PRO NOW" — which is
+           * true of a professional nobody has hired yet.
+           */
+          ratingAverage: c.ratingAverage,
+          ratingCount: c.ratingCount,
+          completedJobs: c.completedJobs,
+          state:
+            route.phase === "SEARCHING"
+              ? ("CHECKING" as const)
+              : i === 0 && (route.phase === "MATCH_REVEAL" || route.phase === "ASSIGNED_ROUTE")
+                ? ("CHOSEN" as const)
+                : ("ELIGIBLE" as const),
+        }));
+
+        const page = SERVICE_PAGES[route.serviceId];
+        const etaMin = matchFixture.eta ? Math.round(matchFixture.eta.etaSeconds / 60) : null;
+        const arrival = etaMin === null ? null : new Date(Date.now() + etaMin * 60_000);
+        const arrivalClockHe =
+          arrival === null
+            ? null
+            : `${String(arrival.getHours()).padStart(2, "0")}:${String(arrival.getMinutes()).padStart(2, "0")}`;
+
+        const living: LivingMapState = {
+          phase: route.phase,
+          theme: themeForDepartment(departmentCodeByServiceId[route.serviceId] ?? "HOME_URGENT"),
+          adapter: DEMO_WORLD,
+          candidates: route.phase === "SEARCHING" ? cands.slice(0, 2) : cands,
+          /*
+           * No journey on the demo world. `livingMapViolations` refuses a
+           * real position over invented streets, and that refusal is the
+           * whole reason the invented city is allowed to exist.
+           */
+          journey: null,
+        };
+
         return (
           <SearchingBody
-            serviceNameHe={SERVICE_PAGES[route.serviceId]?.nameHe ?? ""}
-            mark={(SERVICE_PAGES[route.serviceId]?.mark ?? "handyman") as MarkName}
-            elapsedSeconds={elapsed}
-            candidatesConsidered={12}
-            candidatesEligible={3}
-            onCancel={() => go({ name: "home" })}
-            onBroaden={() => go({ name: "home" })}
+            worldSources={worldSources}
+            departmentCode={departmentCodeByServiceId[route.serviceId]}
+            serviceNameHe={page?.nameHe ?? ""}
+            living={living}
+            etaMinutes={route.phase === "SEARCHING" ? null : etaMin}
+            arrivalClockHe={route.phase === "SEARCHING" ? null : arrivalClockHe}
+            checkingEligibility={route.phase !== "SEARCHING"}
+            discoveries={discoveries}
+            onFound={(id) => setDiscoveries((d) => discover(d, id))}
+            onPlayAction={(action) => {
+              // Every route out of the wait is a real destination. This is
+              // the thing that was missing when finishing the old game left
+              // the screen with nowhere to go.
+              if (action === "JOB_DETAILS") go({ name: "tracking", stage: "enroute" });
+              if (action === "FOLLOW_PRO") go({ name: "tracking", stage: "enroute" });
+            }}
+            onAccept={() => go({ name: "living", serviceId: route.serviceId, phase: "ASSIGNED_ROUTE" })}
+            onAnother={
+              isPersonFit(route.serviceId)
+                ? () => go({ name: "matchconfirm", serviceId: route.serviceId, index: 1 })
+                : undefined
+            }
+            onSafety={() => setSheet("safety")}
+            onOpenProfile={(id) => setOpenVenue(id)}
+            profileOpen={openVenue !== null}
+            /*
+             * THE WAY OUT, AND WHAT IT COSTS.
+             *
+             * Amit found this screen with no back control at all, which was
+             * the worst place to have none: the request is out, nobody has
+             * answered, and the only thing to do was wait.
+             *
+             * Before an assignment, going back means the request stops — so
+             * it is labelled "ביטול הבקשה" rather than drawn as a chevron.
+             * A bare arrow would have let someone end their own call for
+             * help with a gesture they made without reading. Once a
+             * professional is en route the label disappears, because then
+             * leaving is only leaving: the job keeps running and the calls
+             * list still holds it.
+             */
+            onBack={() =>
+              route.phase === "ASSIGNED_ROUTE"
+                ? go({ name: "tracking", stage: "enroute" })
+                : go({ name: "service", serviceId: route.serviceId })
+            }
+            backLabelHe={route.phase === "ASSIGNED_ROUTE" ? null : "ביטול הבקשה"}
             width={width}
             height={bodyH}
           />
         );
+      }
       case "matchconfirm": {
         const page = SERVICE_PAGES[route.serviceId]!;
         const c = personFitCandidates[route.index % personFitCandidates.length]!;
@@ -921,7 +1305,37 @@ function CustomerApp({
               return `${String(at.getHours()).padStart(2, "0")}:${String(at.getMinutes()).padStart(2, "0")}`;
             })()}
             onGetHelp={() => setSheet("safety")}
+            /*
+             * The world, and who is coming through it. `departmentCode`
+             * decides which street they come down and what they are
+             * driving; the ETA the fixture carries is the one the trip
+             * started with, so progress is a fraction of a real number
+             * rather than a timer this screen invented.
+             */
+            worldSources={worldSources}
+            departmentCode={trackedService.id ? departmentCodeByServiceId[trackedService.id] : null}
+            etaSecondsAtAssignment={matchFixture.eta?.etaSeconds ?? null}
+            /*
+             * WHAT COMES DOWN THE LANE IS THE TRADE'S, NOT A DEFAULT.
+             *
+             * This was pinned to the courier's scooter, so a customer whose
+             * car would not start watched a delivery moped drive towards
+             * their house. The trade decides — a tow truck for the garage, a
+             * van for a move, the handler on foot for the dog — and the
+             * scooter stays the honest fallback for everyone who really does
+             * arrive on two wheels.
+             */
+            vehicleAssetId={travelAssetFor(
+              (trackedService.id ? departmentCodeByServiceId[trackedService.id] : null) ?? "HOME_URGENT"
+            )}
             onCancelJob={() => go({ name: "home" })}
+            /*
+             * Leaving, not cancelling. `onCancelJob` above is the one that
+             * ends the job; this only returns to the app while the
+             * professional stays on the way — the distinction the customer
+             * has to be able to feel before tapping.
+             */
+            onBack={() => go({ name: "home" })}
             priceLineHe={`${lex.visitFee} ₪179 · ${lex.quotePending}`}
             onCall={() => setSheet("call")}
             onMessage={() => go({ name: "chat" })}
@@ -951,6 +1365,7 @@ function CustomerApp({
             onMessage={() => go({ name: "chat" })}
             onShare={() => setSheet("safety")}
             onReport={() => setSheet("safety")}
+            onBack={() => go({ name: "tracking", stage: "arrived" })}
             width={width}
             height={bodyH}
           />
@@ -997,6 +1412,12 @@ function CustomerApp({
                   go({ name: "tracking", stage: "arrived" });
                 }}
                 onAskQuestion={() => go({ name: "chat" })}
+                /*
+                 * Back is not a decline. The sheet closes, the quote stays
+                 * pending, and the professional is told nothing — because a
+                 * navigation control must never carry a financial answer.
+                 */
+                onBack={() => go({ name: "tracking", stage: "arrived" })}
                 width={width}
                 height={Math.round(bodyH * 0.78) - 56}
               />
@@ -1015,6 +1436,7 @@ function CustomerApp({
             paymentMethodLabelHe="ויזה · 4417"
             onSubmitReview={() => go({ name: "home" })}
             onDownloadInvoice={() => setSheet("payment")}
+            onBack={() => go({ name: "home" })}
             width={width}
             height={bodyH}
           />
@@ -1050,25 +1472,49 @@ function CustomerApp({
               onClearPhotos: () => capture.photos.forEach((p) => capture.removePhoto(p.id)),
             }}
             width={width}
+            worldSources={worldSources}
             onSelectService={(id) => go({ name: "service", serviceId: id })}
+            /*
+             * A category does not open a category page. It takes the
+             * customer into that part of the world, which is Amit's own
+             * instruction: *"לחיצה לא פותחת דף קטגוריה משעמם — היא מכניסה
+             * את המשתמש לתוך אותו עולם."* The prototype travels there and
+             * then asks the short question that turns a trade into a
+             * request.
+             */
+            onSelectCategory={(id) => go({ name: "category", categoryId: id })}
+            /*
+             * One true sentence, counted from the same snapshot every
+             * other number on this screen reads. See `liveAreaLineHe` for
+             * why it counts services rather than people.
+             */
+            liveLineHe={liveAreaLineHe({
+              fresh: supply.fresh,
+              areaLabel: supply.areaLabel,
+              services: catalogHomeServices.map((s2) => ({
+                hasSupply: (supply.supplyFor(s2.id).count ?? 0) > 0,
+              })),
+            })}
           />
         );
     }
-  }, [tab, route, elapsed, width, bodyH, go, snapshot, supply, addressId, live, askLocation, addressLabel, capture, faultText, intakeAnswers, answerIntake, trackedService, onSendRequest]);
+  }, [tab, route, elapsed, width, bodyH, go, goTab, snapshot, supply, addressId, live, askLocation, addressLabel, capture, faultText, intakeAnswers, answerIntake, trackedService, onSendRequest]);
 
   return (
     <View style={{ width, height }}>
       <AppHeader
         width={width}
         greetingHe="שלום"
-        onMenu={() => {
-          setTab("calls");
-          setRoute({ name: "home" });
-        }}
-        onAccount={() => {
-          setTab("card");
-          setRoute({ name: "home" });
-        }}
+        /*
+         * A TAB IS A MOVE TOO.
+         *
+         * These set the tab directly and pushed nothing, so back from the
+         * calls list or the card left the prototype entirely instead of
+         * returning to the home screen — the one place a reviewer on a
+         * phone reaches for back first.
+         */
+        onMenu={() => goTab("calls")}
+        onAccount={() => goTab("card")}
         trailing={
           <Pressable
             onPress={onSwitch}
@@ -1082,13 +1528,20 @@ function CustomerApp({
       />
 
       {/*
-        * Every route change animates. The prototype swapped bodies
-        * instantly, which makes each navigation read as a page load rather
-        * than as movement — see ScreenTransition for why the transition is
-        * deliberately only 260ms.
+        * Every move animates, and the SHAPE of the animation is worked out
+        * from the two screens rather than from the control that was
+        * pressed — see `navigation-flow.ts`. Going deeper slides one way,
+        * coming back slides the other, switching tabs barely moves at all.
+        *
+        * The key carries the screen's SUBJECT, not just its route name.
+        * Tapping a second category is still `category`, so keying on the
+        * name alone meant the busiest taps in the app swapped their
+        * contents with no motion — the dead tiles Amit kept pointing at.
         */}
       <View style={{ height: bodyH, overflow: "hidden" }}>
-        <ScreenTransition transitionKey={`${tab}:${route.name}`}>{body}</ScreenTransition>
+        <ScreenTransition transitionKey={screenNow.key} screen={screenNow.screen}>
+          {body}
+        </ScreenTransition>
       </View>
 
       {demo ? <DemoBar label={demo.label} onPress={demo.next} width={width} /> : null}
@@ -1110,6 +1563,52 @@ function CustomerApp({
         </Pressable>
         <Text style={styles.sheetNote}>באב־טיפוס אין חיוג אמיתי.</Text>
       </Sheet>
+
+      {/* ---------------------------------------------------------------
+          THE SHOP, OPENED.
+          ---------------------------------------------------------------
+          A full profile rather than the small card that was there before:
+          who they are, what they are actually verified for, what people
+          have said. It rises over the world instead of replacing it, so
+          closing it puts the customer back on the same street rather than
+          somewhere new — which is the difference between looking in a
+          window and being taken to a page.
+          --------------------------------------------------------------- */}
+      <FocusSheet
+        visible={openVenue !== null}
+        titleHe="הפרופיל של המקצוען"
+        onDismiss={() => setOpenVenue(null)}
+        width={width}
+        height={bodyH}
+        /*
+         * NOT A QUOTE SHEET.
+         *
+         * ChatGPT's spec, and the reason is the whole journey: *"במצב
+         * הסופי הכרטיס תופס כ-38–42% מגובה המסך, לא 78% כמו quote.
+         * מאחוריו ממשיכים לראות את החלק העליון של העסק ואת הרחוב."*
+         *
+         * The camera spent two and a half seconds taking the customer
+         * somewhere. A sheet that then covers the place erases what the
+         * journey was for. So it sits low, the street stays visible, and
+         * the world dims rather than disappearing — a light scrim and no
+         * heavy blur.
+         */
+        heightFraction={CARD_REST.heightShare}
+        scrimOpacity={CARD_REST.scrimOpacity}
+      >
+        <ProProfileBody
+          professional={matchFixture.professional}
+          services={profileServices}
+          reviews={profileReviews}
+          workPhotoSubjects={profileWorkPhotos}
+          activeSinceYear={2014}
+          areaLabelHe="גוש דן"
+          fromPriceMinorUnits={17900}
+          onBack={() => setOpenVenue(null)}
+          width={width}
+          height={Math.round(bodyH * CARD_REST.heightShare) - 56}
+        />
+      </FocusSheet>
 
       <Sheet
         visible={sheet === "safety"}
@@ -1391,6 +1890,29 @@ function ProApp({
     setJob(next);
   };
 
+  /**
+   * WHERE THE PROFESSIONAL IS.
+   *
+   * The order here mirrors the order the body is chosen in, and it has to:
+   * if the two disagree, the app animates a move to a screen it is not
+   * showing. Kept adjacent for exactly that reason.
+   */
+  const proScreen = useMemo(() => {
+    const name =
+      settled !== null
+        ? "settled"
+        : proView === "chat"
+          ? "chat"
+          : tab === "earnings" || tab === "verify" || tab === "profile"
+            ? tab
+            : job
+              ? "job"
+              : proView === "presence"
+                ? "presence"
+                : "shift";
+    return { key: screenKey({ side: "pro", name }), screen: { side: "pro" as const, name } };
+  }, [settled, proView, tab, job]);
+
   const body = settled !== null ? (
     <ProJobSettledBody
       addedNetMinorUnits={settled}
@@ -1553,13 +2075,19 @@ function ProApp({
   return (
     <View style={{ width, height }}>
       {/*
-        * Every route change animates. The prototype swapped bodies
-        * instantly, which makes each navigation read as a page load rather
-        * than as movement — see ScreenTransition for why the transition is
-        * deliberately only 260ms.
+        * The professional's side moves by the same rules as the customer's:
+        * four tabs that are siblings of each other, and the work that sits
+        * below them. See `navigation-flow.ts`.
+        *
+        * The job's STATE is not part of the key. A job going from assigned
+        * to en route to diagnosis is one screen following a job, not three
+        * pages — keying on it replayed a page transition over a
+        * professional who was mid-drive.
         */}
       <View style={{ height: bodyH, overflow: "hidden" }}>
-        <ScreenTransition transitionKey={`${tab}:${proView ?? "none"}:${job ?? "idle"}`}>{body}</ScreenTransition>
+        <ScreenTransition transitionKey={proScreen.key} screen={proScreen.screen}>
+          {body}
+        </ScreenTransition>
       </View>
 
       {/*

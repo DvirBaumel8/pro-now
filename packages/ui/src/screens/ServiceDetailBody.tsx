@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import type { PriceQuoteView } from "@pro-now/types";
 
+import { BackButton } from "../components/BackButton";
 import { customerDarkTheme, depth, elevation, radii, scale, spacing, tabular, tint, type } from "../theme";
 import { priceExplainer } from "../pricing-copy";
 import { ClockMark, Mark, type MarkName, ShieldCheckMark } from "../components/marks";
@@ -138,9 +139,7 @@ export function ServiceDetailBody({
             the screen to the person already looking at it.
             ---------------------------------------------------------- */}
         <View style={styles.head}>
-          <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel="חזרה" style={styles.back}>
-            <Text style={styles.backGlyph}>›</Text>
-          </Pressable>
+          <BackButton onPress={onBack} tone={"dark"} placement="inline" />
 
           <View style={styles.markWrap}>
             <Mark name={mark} size={26} color={colors.textPrimary} />
@@ -346,9 +345,6 @@ const styles = StyleSheet.create({
   scroll: { paddingBottom: 116 },
 
   head: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, alignItems: "flex-end" },
-  /* A glyph, not a white puck on a dark screen. */
-  back: { alignSelf: "flex-start", width: 44, height: 44, alignItems: "center", justifyContent: "center", marginLeft: -spacing.md },
-  backGlyph: { ...type.section, fontWeight: "300", color: colors.textSecondary },
   markWrap: {
     width: 54,
     height: 54,

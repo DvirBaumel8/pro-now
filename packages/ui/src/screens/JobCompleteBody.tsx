@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-
 
 import { formatMoney, money } from "@pro-now/types";
 
+import { BackButton } from "../components/BackButton";
 import { customerTheme, elevation, radii, scale, spacing, tabular, tint, type } from "../theme";
 import { Mark, type MarkName, StarMark } from "../components/marks";
 import { RingedAvatar, SectionHeader, Surface } from "../components/surfaces";
@@ -51,6 +52,8 @@ export interface JobCompleteBodyProps {
   existingRating?: number | null;
   onSubmitReview?: (rating: number, text: string) => void;
   onDownloadInvoice?: () => void;
+  /** Back to the app. The review can still be left later. */
+  onBack?: () => void;
   width?: number;
   height?: number;
 }
@@ -67,6 +70,7 @@ export function JobCompleteBody({
   existingRating = null,
   onSubmitReview,
   onDownloadInvoice,
+  onBack,
   width = 390,
   height = 780,
 }: JobCompleteBodyProps) {
@@ -76,6 +80,7 @@ export function JobCompleteBody({
 
   return (
     <View style={[styles.screen, { width, height }]}>
+      {onBack ? <BackButton onPress={onBack} tone="light" /> : null}
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         {/* ---------------- Confirmation ---------------- */}
         <View style={styles.head}>

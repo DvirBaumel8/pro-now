@@ -12,7 +12,10 @@ import { NavGlyph } from "../components/NavGlyph";
 import { CaptureCard } from "../components/CaptureCard";
 import { Glow } from "../components/Glow";
 import { CategoryCard } from "../components/CategoryCard";
-import { CategoryGrid, type CategoryTile } from "../components/CategoryGrid";
+import { CategoryFaces } from "../components/CategoryFaces";
+import { Scrim } from "../components/Scrim";
+import { WorldBackdrop } from "../components/livingmap/WorldBackdrop";
+import { type WorldAssetSources } from "../components/livingmap/AssetSlot";
 import { IntentSuggestions } from "../components/IntentSuggestions";
 import { ServiceListRow } from "../components/ServiceListRow";
 import { Pulse } from "../components/LiveServiceCard";
@@ -174,6 +177,26 @@ export interface CustomerHomeBodyProps {
     onAddFromLibrary?: () => void;
     onClearPhotos?: () => void;
   };
+  /**
+   * Opens a category. The world travels there; it does not open a list.
+   *
+   * Amit: *"לחיצה לא פותחת דף קטגוריה משעמם — היא מכניסה את המשתמש לתוך
+   * אותו עולם."* So the handler is named for the category rather than for
+   * a screen, and what happens next is the host's decision.
+   */
+  onSelectCategory?: (categoryId: string) => void;
+  /** World and character art, as far as it exists. */
+  worldSources?: WorldAssetSources;
+  /**
+   * The one live sentence, assembled by the app from the availability
+   * snapshot it already holds.
+   *
+   * A sentence rather than a count so this screen cannot do arithmetic on
+   * supply and get it subtly wrong — and null rather than a zero, because
+   * "0 פנויים" at the top of the home screen is a worse lie than silence
+   * when the snapshot is simply stale.
+   */
+  liveLineHe?: string | null;
   width?: number;
 }
 
@@ -191,6 +214,9 @@ export function CustomerHomeBody({
   onSelectService,
   onChangeAddress,
   capture,
+  onSelectCategory,
+  worldSources,
+  liveLineHe = null,
   width = 390,
 }: CustomerHomeBodyProps) {
   const gutter = spacing.lg;
@@ -209,7 +235,6 @@ export function CustomerHomeBody({
     const st = supply.supplyFor(s.id).state;
     return st === "AVAILABLE" || st === "LIMITED";
   };
-  const free = services.filter(isFree);
 
   const [query, setQuery] = useState("");
 
@@ -281,24 +306,6 @@ export function CustomerHomeBody({
     });
   }, [matched, supply]);
 
-  /**
-   * Six departments as tiles.
-   *
-   * A grid, not the list an earlier pass built: six is not a list, it is a
-   * shape taken in at a glance. See CategoryGrid for the full argument and
-   * for why these tiles carry no shadow and no border.
-   */
-  const MAX_TILES = 5;
-  const tiles: CategoryTile[] = departments.slice(0, MAX_TILES).map((d) => {
-    const inDept = services.filter((s) => s.departmentHe === d);
-    return {
-      id: d,
-      nameHe: d,
-      mark: (inDept[0]?.departmentMark ?? inDept[0]?.mark ?? "handyman") as MarkName,
-      liveCount: inDept.filter(isFree).length,
-    };
-  });
-  const overflow = departments.length - tiles.length;
 
   const hasText = query.trim().length >= 2;
   const hasMedia = (capture?.photos ?? 0) > 0 || (capture?.voiceSeconds ?? 0) > 0;
@@ -498,8 +505,38 @@ export function CustomerHomeBody({
   }
 
   return (
+    <View style={[styles.screen, { width }]}>
+      {/* ---------------------------------------------------------------
+          THE WORLD, BEHIND THE QUESTION.
+          ---------------------------------------------------------------
+          Amit asked for this directly a while back — *"חייב להשתמש גם במפה
+          הזאת שאנחנו כל כך משקיעים בה במסך הראשי"* — and then, seeing the
+          screen without it, said it was not at the level of the rest.
+
+          It is the neighbourhood drifting behind the top third, with the
+          page fading over it. Not the Living Map: no candidates, no
+          venues, nothing interactive, nothing that could be mistaken for
+          supply. Just the fact that this product happens somewhere.
+          --------------------------------------------------------------- */}
+      <View style={[styles.backdrop, { width }]} pointerEvents="none">
+        <WorldBackdrop width={width} height={HOME_WORLD_HEIGHT} sources={worldSources} />
+        {/* The page coming up over the world, as one gradient. Bands with
+            hard edges were what made the welcome screen look like artwork
+            printed on strips of tape. */}
+        <Scrim
+          width={width}
+          height={HOME_WORLD_HEIGHT}
+          stops={[
+            { at: 0, opacity: 0.5 },
+            { at: 0.3, opacity: 0.3 },
+            { at: 0.72, opacity: 0.86 },
+            { at: 1, opacity: 1 },
+          ]}
+        />
+      </View>
+
     <ScrollView
-      style={[styles.screen, { width }]}
+      style={[{ width }]}
       contentContainerStyle={{ paddingBottom: spacing.xxl }}
       keyboardShouldPersistTaps="handled"
     >
@@ -541,6 +578,7 @@ export function CustomerHomeBody({
               spread={0.6}
             />
             <CaptureCard
+              tone="dark"
               width={inner}
               text={query}
               onChangeText={setQuery}
@@ -572,54 +610,57 @@ export function CustomerHomeBody({
           </View>
         ) : null}
 
-        {/* --- or pick a category --- */}
-        {tiles.length > 1 ? (
-          <View style={{ marginTop: spacing.xl }}>
-            <Text style={styles.orPick}>או בחרו קטגוריה</Text>
-            <CategoryGrid
-              width={inner}
-              tiles={tiles}
-              moreLabelHe={overflow > 0 ? "עוד קטגוריות" : null}
-              onSelect={(id) => setDept(id)}
-              onMore={() => setShowAllDepts(true)}
-            />
-          </View>
-        ) : null}
+        {/* ---------------------------------------------------------------
+            THE WAYS IN.
+            ---------------------------------------------------------------
+            This was a six-tile grid of outline icons with a "···" tile
+            reading "עוד קטגוריות". Amit: *"גם העמוד הזה וההצעות האלה מזה
+            קשור."* A broom glyph belongs to every cleaning app ever built
+            and says nothing about a product whose whole language is a world
+            with people in it — and a tile whose content is "there is more of
+            this" is the catalogue admitting what it is.
+
+            Eight ways in now, grouped the way somebody thinks rather than
+            the way dispatch is organised, each wearing the face of the
+            person who does that work. None of them carries a name, a rating
+            or an availability dot: they navigate, they do not report.
+            --------------------------------------------------------------- */}
+        <View style={{ marginTop: spacing.xl }}>
+          <Text style={styles.orPick}>או בחרו לפי סוג</Text>
+          <CategoryFaces
+            width={inner}
+            sources={worldSources}
+            onSelect={(id) => onSelectCategory?.(id)}
+          />
+        </View>
 
         {/* ---------------------------------------------------------------
             WHAT CAN ACTUALLY HAPPEN RIGHT NOW.
             Rows, not a panel in a box: this is a short live readout, and
             boxing it turned it into a table of figures in review.
             --------------------------------------------------------------- */}
-        {free.length > 0 ? (
-          <View style={styles.livePanel}>
-            <View style={styles.groupHead}>
-              <Pulse color={colors.action} size={6} />
-              <Text style={styles.groupTitle}>אפשר להזמין עכשיו</Text>
-            </View>
-            <View style={styles.rows}>
-              {free.slice(0, 4).map((s2) => {
-                const sup = supply.supplyFor(s2.id);
-                return (
-                  <Pressable
-                    key={s2.id}
-                    onPress={() => onSelectService?.(s2.id)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${s2.nameHe} · ${prosFreeShort(sup.count ?? 0, sup.nearestRouteEtaMinutes)}`}
-                    style={({ pressed }) => [styles.liveRow, pressed && { opacity: 0.75 }]}
-                  >
-                    <Text style={styles.liveName} numberOfLines={1}>
-                      {s2.nameHe}
-                    </Text>
-                    {typeof sup.nearestRouteEtaMinutes === "number" ? (
-                      <Text style={styles.liveEta}>{sup.nearestRouteEtaMinutes} דק׳</Text>
-                    ) : (
-                      <Text style={styles.liveSoft}>פנוי</Text>
-                    )}
-                  </Pressable>
-                );
-              })}
-            </View>
+        {/* ---------------------------------------------------------------
+            WHAT IS TRUE RIGHT NOW, IN ONE LINE.
+            ---------------------------------------------------------------
+            This was a boxed list headed "אפשר להזמין עכשיו" carrying four
+            services with minute counts beside them — "פתיחת סתימה 11 דק׳",
+            "ננעלתי בחוץ 22 דק׳". Amit asked what those had to do with
+            anything, and the honest answer is: nothing. They were the first
+            four rows of the catalogue that happened to have supply. Nobody
+            on this screen has said they are locked out, so an ETA for being
+            locked out is a number applied to a stranger.
+
+            What the availability snapshot actually knows is one fact, and
+            it is a good one: how many professionals are online around here
+            at this moment. That is worth saying plainly and is true for
+            whoever is reading. Services with ETAs belong further in, once
+            somebody has said what they need — which is exactly where they
+            already appear.
+            --------------------------------------------------------------- */}
+        {liveLineHe ? (
+          <View style={styles.liveNow}>
+            <Pulse color={colors.action} size={6} />
+            <Text style={styles.liveNowText}>{liveLineHe}</Text>
           </View>
         ) : null}
 
@@ -649,31 +690,67 @@ export function CustomerHomeBody({
         ) : null}
       </View>
     </ScrollView>
+    </View>
   );
 }
 
+/**
+ * How tall the world is behind the top of the home screen.
+ *
+ * A third of a tall phone: enough to be a place, not so much that the
+ * question and the ways in get pushed below the fold. Fixed rather than a
+ * percentage because it is composed against the header and the capture
+ * card, which do not scale with the screen either.
+ */
+const HOME_WORLD_HEIGHT = 300;
+
 const styles = StyleSheet.create({
+  backdrop: { position: "absolute", top: 0, left: 0, height: HOME_WORLD_HEIGHT },
+
+  liveNow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginTop: spacing.xl,
+  },
+  liveNowText: { ...type.meta, color: colors.textSecondary, writingDirection: "rtl" },
+
   screen: { backgroundColor: colors.bg },
 
+  /*
+   * A CHIP, BECAUSE IT IS STANDING ON ARTWORK NOW.
+   *
+   * Secondary-grey text worked on an ivory page and disappeared over the
+   * neighbourhood — trees and pavement behind small type is the most
+   * reliable way to make a label unreadable. Text on a picture needs a
+   * surface of its own; a colour change alone only moves the problem to a
+   * different part of the image.
+   */
   address: {
     flexDirection: "row-reverse",
     alignItems: "center",
     alignSelf: "flex-end",
     gap: 6,
-    minHeight: 44,
+    minHeight: 40,
     paddingHorizontal: spacing.md,
-    marginRight: -spacing.md,
     borderRadius: radii.pill,
+    backgroundColor: "rgba(16,12,22,0.55)",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(247,243,250,0.14)",
   },
-  addressText: { ...type.meta, color: colors.textSecondary, writingDirection: "rtl", maxWidth: 220 },
+  addressText: { ...type.meta, color: colors.textPrimary, writingDirection: "rtl", maxWidth: 220 },
   addressChevron: { ...type.meta, color: colors.textSecondary, marginTop: -3 },
 
   greeting: {
     ...type.body,
-    color: colors.textSecondary,
+    // Over the world, so it takes the bright text colour and a shadow
+    // rather than the quiet grey it had on ivory.
+    color: colors.textPrimary,
     textAlign: "right",
     writingDirection: "rtl",
-    marginTop: spacing.sm,
+    marginTop: spacing.md,
+    textShadowColor: "rgba(16,12,22,0.9)",
+    textShadowRadius: 8,
   },
   /*
    * TITLE, NOT HERO. §1 allows one display-or-hero per viewport, and on
@@ -688,6 +765,8 @@ const styles = StyleSheet.create({
     textAlign: "right",
     writingDirection: "rtl",
     marginTop: 2,
+    textShadowColor: "rgba(16,12,22,0.9)",
+    textShadowRadius: 10,
   },
 
   captureWrap: { marginTop: spacing.lg, alignItems: "center" },

@@ -1,31 +1,69 @@
+import { TRANSITIONS, transitionDirection, type NavDirection, type TransitionShape } from "@pro-now/types";
 import React, { useEffect, useRef } from "react";
 import { Animated, Easing, StyleSheet } from "react-native";
 
 /**
  * How one screen becomes the next.
  *
- * Amit: "המעברים בין הכרטיסיות שיהיו יותר חלקות וחדשניות." The prototype
- * swapped bodies instantly, which is not a neutral choice — an instant cut
- * makes every navigation feel like a page load, and on a phone it also
- * destroys the sense that you moved somewhere rather than that something
- * was replaced.
+ * ---------------------------------------------------------------------
+ * WHAT THIS COMPONENT NO LONGER DECIDES
+ * ---------------------------------------------------------------------
+ * It used to own the whole transition: one animation, played for every
+ * navigation in the product. Amit: *"אין חלונות מעבר אין עניין מזה"*, and
+ * then *"תעבוד על כל המעברי עמוד."*
  *
- * The transition is deliberately small: 260ms, a short rise and a fraction
- * of scale. Anything longer starts costing real time on a screen someone
- * opened because their kitchen is flooding, and a flashy transition is the
- * first thing that feels dated. Motion here is for continuity, not for
- * show.
+ * The shape of a transition is not a property of the component that plays
+ * it — it is a fact about the two screens either side of it, and that fact
+ * now lives in `navigation-flow.ts`, where it is testable without a
+ * renderer. This component's whole job is to play what it is handed.
  *
- * `depth` is what makes it read as navigation rather than as a fade:
- * going forward, the new screen rises slightly and settles; coming back, it
- * arrives from the opposite direction. The direction carries the
- * information, which is the difference between animation and decoration.
+ * The important consequence is that NOTHING PASSES A DIRECTION. A screen
+ * does not announce that it is a back; the component works it out from
+ * where you were and where you are. That is what makes the phone's own back
+ * gesture, the on-screen back control and a deep link all agree — they are
+ * the same move, so they are the same animation, by construction rather
+ * than by everyone remembering.
+ *
+ * ---------------------------------------------------------------------
+ * WHY IT SLIDES, AND WHY LEFT IS FORWARD
+ * ---------------------------------------------------------------------
+ * It used to rise 18px and fade. A vertical nudge reads as a REFRESH — the
+ * motion a list makes when it reloads. It says "this content changed", not
+ * "you went somewhere". Screens here are places, so arriving at one should
+ * read as travel. The app is Hebrew: reading runs right to left, so going
+ * forward the new screen arrives from the LEFT, the direction the eye is
+ * already travelling, and coming back reverses it.
+ *
+ * ---------------------------------------------------------------------
+ * WHY THE OLD SCREEN IS NOT ANIMATED OUT
+ * ---------------------------------------------------------------------
+ * Only `opacity` and `transform` run off the JS thread. Keeping the
+ * outgoing screen mounted to slide it away means holding two full screens —
+ * two worlds, two maps — alive at once on a phone, and the incoming one
+ * then stutters exactly when it is most visible. One layer arriving over a
+ * settled background is the honest trade.
  */
 
 export interface ScreenTransitionProps {
-  /** Changing this key replays the transition. Usually the route name. */
+  /**
+   * The identity of the screen being shown: build it with `screenKey` so
+   * two categories count as two screens. Changing it replays the
+   * transition.
+   */
   transitionKey: string;
-  direction?: "forward" | "back";
+  /**
+   * Where you are, so the direction can be worked out. `name` is the route
+   * name; `side` separates the customer's journey from the professional's.
+   * Omit it and everything is lateral — correct for a surface with no
+   * journey, wrong for the app.
+   */
+  screen?: { side: "customer" | "pro" | "gate"; name: string };
+  /**
+   * An override, for the rare move whose direction is not its depth. Almost
+   * nothing should pass this; if a screen needs it, the depth table is
+   * probably wrong.
+   */
+  direction?: NavDirection;
   /** Reduced-motion: renders the settled frame with no animation. */
   animate?: boolean;
   children: React.ReactNode;
@@ -33,11 +71,33 @@ export interface ScreenTransitionProps {
 
 export function ScreenTransition({
   transitionKey,
-  direction = "forward",
+  screen,
+  direction,
   animate = true,
   children,
 }: ScreenTransitionProps) {
   const v = useRef(new Animated.Value(animate ? 0 : 1)).current;
+
+  /*
+   * The screen we came FROM, and the shape currently playing.
+   *
+   * Both are refs, and the shape is CHOSEN ONCE per move rather than
+   * recomputed on every render. That is not a micro-optimisation — a parent
+   * re-render halfway through a slide (the world ticks, a timer fires, an
+   * availability reading arrives) would otherwise recompute the direction
+   * from a `previous` that now equals `screen`, swap the animation's start
+   * offset underneath it and make the screen visibly jump.
+   */
+  const previous = useRef<{ side: "customer" | "pro" | "gate"; name: string } | null>(null);
+  const playing = useRef<{ key: string; shape: TransitionShape } | null>(null);
+
+  if (playing.current === null || playing.current.key !== transitionKey) {
+    const resolved: NavDirection =
+      direction ?? (screen ? transitionDirection(previous.current, screen) : "lateral");
+    playing.current = { key: transitionKey, shape: TRANSITIONS[resolved] };
+    if (screen) previous.current = screen;
+  }
+  const shape = playing.current.shape;
 
   useEffect(() => {
     if (!animate) {
@@ -47,25 +107,37 @@ export function ScreenTransition({
     v.setValue(0);
     const a = Animated.timing(v, {
       toValue: 1,
-      duration: 260,
+      duration: shape.durationMs,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     });
     a.start();
     return () => a.stop();
-  }, [transitionKey, animate, v]);
+    /*
+     * Keyed on the move itself. `shape` is in the list because the linter
+     * is right to want it, and it is safe because it is one of three frozen
+     * objects chosen once per move — so it changes exactly when
+     * `transitionKey` does and never mid-flight.
+     */
+  }, [transitionKey, animate, v, shape]);
 
-  const from = direction === "back" ? -18 : 18;
+  /*
+   * The distance is a share of the view's own width rather than a pixel
+   * count, so the move reads the same on a small phone and a large one.
+   */
+  const from = `${Math.round(shape.fromX * 100)}%`;
 
   return (
     <Animated.View
       style={[
         StyleSheet.absoluteFill,
         {
-          opacity: v,
+          opacity: v.interpolate({
+            inputRange: [0, 0.4, 1],
+            outputRange: [shape.fromOpacity, Math.max(shape.fromOpacity, 0.85), 1],
+          }),
           transform: [
-            { translateY: v.interpolate({ inputRange: [0, 1], outputRange: [from, 0] }) },
-            { scale: v.interpolate({ inputRange: [0, 1], outputRange: [0.985, 1] }) },
+            { translateX: v.interpolate({ inputRange: [0, 1], outputRange: [from, "0%"] }) },
           ],
         },
       ]}

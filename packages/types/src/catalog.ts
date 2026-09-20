@@ -1,3 +1,4 @@
+import type { DepartmentCode } from "./world-districts";
 /**
  * The service catalogue: a shape, and the fields a service must declare
  * before it can be offered.
@@ -271,7 +272,16 @@ export interface CatalogCategoryDef {
 }
 
 export interface CatalogDepartmentDef {
-  code: string;
+  /**
+   * The department code, and it is the SAME union the world uses.
+   *
+   * It was a bare `string`, which meant every consumer that needed a real
+   * department — the world, the camera, the district table — had to assert
+   * one back out of the catalogue and would have kept compiling after a
+   * typo. A department that has no district is a set of services with
+   * nowhere to happen, and that should not be expressible.
+   */
+  code: DepartmentCode;
   nameHe: string;
   categories: CatalogCategoryDef[];
 }

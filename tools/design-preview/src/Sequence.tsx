@@ -81,8 +81,6 @@ export function CustomerSequence({ width, height }: { width: number; height: num
         <SearchingBody
           serviceNameHe="תיקון נזילה בברז"
           elapsedSeconds={elapsed}
-          candidatesConsidered={12}
-          candidatesEligible={3}
           width={width}
           height={height}
         />

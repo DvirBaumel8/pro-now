@@ -171,7 +171,7 @@ stay light on their own merits rather than by inheritance.
 | 1 | Welcome / sign-in | dark | — | display | 0 |
 | 2 | Home / intent capture | **dark** | — | title | 1 (the capture card) |
 | 3 | Service / intake | dark | — | title | 1 |
-| 4 | Searching | dark | LiveField SEARCHING | hero | 0 |
+| 4 | Searching | dark | Living Map — see `03c-LIVING-MAP-ART-DIRECTION.md` | hero | 0 |
 | 5 | Match | **dark throughout** | LiveField MATCHED behind the portrait | title (the person) | 1 |
 | 6 | Trust profile | dark | — | title | 1 |
 | 7 | Full trust sheet | dark | — | title | 1 |
@@ -215,3 +215,31 @@ a month later, three languages again.
     IntentSuggestions one coral action, alternatives as quiet rows
     VoiceNote        a real message for a real request. No stock intro.
     TrustRail        the vertical verification timeline — NOT BUILT YET
+
+---
+
+## 13. The Living Map world is art, not primitives
+
+Rules 1–12 govern the interface. The Living Map world layer is a raster
+asset pack authored outside the codebase, in 3/4 miniature perspective,
+placed by normalized anchor rather than by any grid this system defines, so
+the rules written for UI composition do not fit it.
+
+**The exemption is narrow, and it is only from UI composition.** The world
+layer is exempt from the container, elevation, border and card rules, which
+describe surfaces it does not have. It is NOT exempt from accessibility,
+truthfulness, reduced-motion, performance or data integrity. Rule 8 in
+particular — never an invented face — binds the world layer exactly as it
+binds a screen, and rule 10's ban on presenting a fixture as live data binds
+it too. An exemption written too widely is how a decorative layer starts
+claiming things.
+
+`docs/03c-LIVING-MAP-ART-DIRECTION.md` is binding for that layer and takes
+precedence over this file on composition questions only. The HUD, type,
+colour, coral, safe zones, one question per screen and provenance are still
+governed here.
+
+The reason this rule exists is that the first Living Map was drawn with the
+primitives above and passed every check in this file while missing the
+intent completely. A system that can approve the wrong picture needs a
+boundary drawn around what it is competent to approve.

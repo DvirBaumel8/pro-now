@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { formatMoney, money, type QuoteView } from "@pro-now/types";
 
+import { BackButton } from "../components/BackButton";
 import { customerTheme, elevation, radii, scale, spacing, tabular, tint, type } from "../theme";
 import { RingedAvatar, Surface } from "../components/surfaces";
 import { VoiceNote } from "../components/VoiceNote";
@@ -71,6 +72,15 @@ export interface QuoteApprovalBodyProps {
     playing?: boolean;
     onTogglePlay?: () => void;
   } | null;
+  /**
+   * Back, without answering the quote.
+   *
+   * Deliberately not a decline: leaving a screen is not a decision, and a
+   * quote that expired because someone pressed a chevron would be a
+   * financial consequence hidden in a navigation control. The quote stays
+   * pending exactly as it was.
+   */
+  onBack?: () => void;
   width?: number;
   height?: number;
 }
@@ -91,6 +101,7 @@ export function QuoteApprovalBody({
   onDecline,
   onAskQuestion,
   voiceNote = null,
+  onBack,
   width = 390,
   height = 780,
 }: QuoteApprovalBodyProps) {
@@ -100,6 +111,7 @@ export function QuoteApprovalBody({
 
   return (
     <View style={[styles.screen, { width, height }]}>
+      {onBack ? <BackButton onPress={onBack} tone="light" /> : null}
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         {/* ------------------------------------------------------------
             WHO, THEN HOW MUCH. In that order, and nothing between them.

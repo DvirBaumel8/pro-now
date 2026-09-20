@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 
+import { BackButton } from "../components/BackButton";
 import { customerTheme, elevation, radii, scale, spacing, tint, type } from "../theme";
 import { ClockMark, PinMark, ShieldCheckMark } from "../components/marks";
 import { Persona } from "../components/Persona";
@@ -100,9 +101,7 @@ export function AddressPickerBody({
     <View style={[styles.screen, { width, height }]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         <View style={styles.head}>
-          <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel="חזרה" style={styles.back}>
-            <Text style={styles.backGlyph}>›</Text>
-          </Pressable>
+          <BackButton onPress={onBack} tone={"light"} placement="absolute" />
           <Text style={styles.title}>לאן לשלוח את המקצוען?</Text>
           <Text style={styles.subtitle}>הכתובת המלאה נחשפת רק אחרי שמקצוען מקבל את הקריאה.</Text>
         </View>
@@ -291,16 +290,6 @@ const styles = StyleSheet.create({
   head: { paddingHorizontal: spacing.lg, paddingTop: spacing.xxl, alignItems: "flex-end" },
   // 44x44 minimum. A 25px chevron is a control most thumbs miss, which
   // is the same defect that made the demo bar unhittable.
-  back: {
-    position: "absolute",
-    top: spacing.lg,
-    right: spacing.lg,
-    width: 44,
-    height: 44,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  backGlyph: { fontSize: scale.section, lineHeight: 28, color: colors.textPrimary, fontWeight: "300" },
   title: { ...type.h1, color: colors.textPrimary, writingDirection: "rtl", textAlign: "right" },
   subtitle: {
     ...type.caption,

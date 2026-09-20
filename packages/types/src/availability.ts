@@ -155,3 +155,43 @@ function normaliseService(s: AreaAvailabilityView["services"][number]): ServiceS
       return UNKNOWN(s.reasonCode ?? null);
   }
 }
+
+/**
+ * The one live sentence for the top of the home screen.
+ *
+ * ---------------------------------------------------------------------
+ * WHY IT DOES NOT COUNT PEOPLE
+ * ---------------------------------------------------------------------
+ * The obvious line is "23 מקצוענים פנויים עכשיו באזור שלך", and the obvious
+ * way to get 23 is `reading.total`. That number is a sum of per-service
+ * counts, and one professional approved for three services is counted three
+ * times in it. It is the right number for "how much supply is there across
+ * the catalogue" and the wrong number to put in front of a customer as a
+ * headcount — it would be inflated, and inflated in a way that grows as we
+ * approve people for more services.
+ *
+ * So the sentence counts SERVICES, which is what the snapshot actually
+ * knows: how many of the things you could ask for can happen right now. No
+ * arithmetic, no double counting, and still the fact worth saying.
+ *
+ * Replaces a panel that listed four arbitrary services with ETAs beside
+ * them. Amit asked what those had to do with anything, and the answer was
+ * nothing: they were the first four rows of the catalogue that happened to
+ * have supply, offering a stranger a time estimate for being locked out of
+ * a flat they had not mentioned.
+ */
+export function liveAreaLineHe(reading: {
+  fresh: boolean;
+  areaLabel: string | null;
+  services: readonly { hasSupply: boolean }[];
+}): string | null {
+  // A stale snapshot says nothing. Silence is better than a number that was
+  // true twenty minutes ago and is being read as "now".
+  if (!reading.fresh) return null;
+
+  const open = reading.services.filter((s) => s.hasSupply).length;
+  if (open === 0) return null;
+
+  const where = reading.areaLabel ? ` ב${reading.areaLabel}` : "";
+  return open === 1 ? `שירות אחד זמין עכשיו${where}` : `${open} שירותים זמינים עכשיו${where}`;
+}
