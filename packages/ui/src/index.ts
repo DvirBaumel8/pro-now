@@ -35,6 +35,7 @@ export * from "./screens/MatchConfirmBody";
 export * from "./screens/ProShiftBody";
 export * from "./screens/ProJobSettledBody";
 export * from "./screens/ServiceDetailBody";
+export * from "./screens/ProPricingBody";
 export * from "./screens/ProProfileBody";
 export * from "./screens/QuoteApprovalBody";
 export * from "./screens/JobCompleteBody";

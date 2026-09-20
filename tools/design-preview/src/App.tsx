@@ -8,8 +8,8 @@ import { HAIR_DISCOVERY_IDS } from "@pro-now/ui";
 
 import { worldSources } from "./worldSources";
 
-import { ActiveJobCapsule, AddressPickerBody, AppHeader, customerDarkTheme, FocusSheet, ScreenTransition, ArrivalVerifyBody, CallsListBody, CAPSULE_HEIGHT, ChatBody, ConnectionBanner, CategoryBody, CustomerHomeBody, CustomerProfileBody, customerTheme, DescribeFaultBody, JobCompleteBody, lex, MatchConfirmBody, NavGlyph, Persona, PhoneAuthBody, ProEarningsBody, ProJobBody, ProJobSettledBody, ProOfferBody, ProOnlineBody, ProProfileBody, ProShiftBody, proTheme, ProVerificationBody, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, Sheet, spacing, tint, TrackingBody, type as t, WelcomeBody } from "@pro-now/ui";
-import type { JobMediaItem, LiveLocationState, MarkName, NavGlyphName } from "@pro-now/ui";
+import { ActiveJobCapsule, AddressPickerBody, AppHeader, customerDarkTheme, FocusSheet, ScreenTransition, ArrivalVerifyBody, CallsListBody, CAPSULE_HEIGHT, ChatBody, ConnectionBanner, CategoryBody, CustomerHomeBody, CustomerProfileBody, customerTheme, DescribeFaultBody, JobCompleteBody, lex, MatchConfirmBody, NavGlyph, Persona, PhoneAuthBody, ProEarningsBody, ProJobBody, ProJobSettledBody, ProOfferBody, ProOnlineBody, ProPricingBody, ProProfileBody, ProShiftBody, proTheme, ProVerificationBody, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, Sheet, spacing, tint, TrackingBody, type as t, WelcomeBody } from "@pro-now/ui";
+import type { JobMediaItem, LiveLocationState, MarkName, NavGlyphName, ProPricingRow } from "@pro-now/ui";
 import type { AuthStage, ChatMessage, ConnectionState } from "@pro-now/ui";
 import { buildIntakeBrief, pilotIntakeByService, pilotServiceById, readAvailability } from "@pro-now/types";
 import type { IntakeAnswer, IntakeBriefLine, OfferCardView, PriceModel } from "@pro-now/types";
@@ -27,6 +27,7 @@ import {
   demoCandidatesFor,
   personFitCandidates,
   photoPromptFor,
+  pricingRowsFor,
   togglesFor,
 } from "./catalogAdapter";
 import { useCapture } from "./useCapture";
@@ -1706,7 +1707,17 @@ function ProApp({
   const [now, setNow] = useState(() => Date.now());
   const [job, setJob] = useState<JobState | null>(null);
   const [proChat, setProChat] = useState<ChatMessage[]>(chatSeed);
-  const [proView, setProView] = useState<null | "chat" | "presence">(null);
+  const [proView, setProView] = useState<null | "chat" | "presence" | "pricing">(null);
+  /**
+   * The professional's own prices, one row per applied service.
+   *
+   * They start unset, which is the honest state of a marketplace that has
+   * not opened — and is a different thing from free. `pricedForDispatch`
+   * treats an unset price as not dispatchable, so the shift screen cannot
+   * offer a service nobody has put a number on.
+   */
+  const [pricing, setPricing] = useState<ProPricingRow[]>(() => pricingRowsFor([...DEMO_VERIFIED]));
+  const pricingRows = pricing;
   /**
    * When this shift actually went online. The shift clock counts from a real
    * timestamp rather than from a fixture, so "מחובר כבר" is true and the
@@ -1909,6 +1920,8 @@ function ProApp({
               ? "job"
               : proView === "presence"
                 ? "presence"
+                : proView === "pricing"
+                ? "pricing"
                 : "shift";
     return { key: screenKey({ side: "pro", name }), screen: { side: "pro" as const, name } };
   }, [settled, proView, tab, job]);
@@ -2033,7 +2046,29 @@ function ProApp({
         services={proServices}
         onToggleOnline={toggle}
         onManageServices={() => setProSheet("services")}
+        onOpenPricing={() => setProView("pricing")}
         onBack={() => setProView(null)}
+        width={width}
+        height={bodyH}
+      />
+    ) : proView === "pricing" ? (
+      /*
+       * WHERE THE PRICE IS SET — דורון's question, answered as a screen.
+       *
+       * The amounts live in the app rather than in the screen because they
+       * are the professional's, not this view's: they belong to the account
+       * and will be the server's. Nothing here computes a net payout, since
+       * the commission is an undecided business question (/CLAUDE.md §4).
+       */
+      <ProPricingBody
+        rows={pricingRows}
+        commissionPercent={null}
+        onChange={(serviceId, amountMinorUnits) =>
+          setPricing((prev) =>
+            prev.map((r) => (r.serviceId === serviceId ? { ...r, amountMinorUnits } : r))
+          )
+        }
+        onBack={() => setProView("presence")}
         width={width}
         height={bodyH}
       />

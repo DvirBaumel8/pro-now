@@ -55,6 +55,15 @@ export interface ProOnlineBodyProps {
   services: ProServiceToggle[];
   onToggleOnline?: () => void;
   onManageServices?: () => void;
+  /**
+   * Open the professional's own prices.
+   *
+   * It belongs on this screen rather than in a settings menu because it is
+   * part of the same decision: the services you are online for and what you
+   * charge for them are one thought, and a service with no price cannot
+   * take a call however eligible you are for it.
+   */
+  onOpenPricing?: () => void;
   /** Present when this screen is pushed from the shift screen. */
   onBack?: () => void;
   width?: number;
@@ -80,6 +89,7 @@ export function ProOnlineBody({
   services,
   onToggleOnline,
   onManageServices,
+  onOpenPricing,
   onBack,
   width = 390,
   height = 780,
@@ -217,6 +227,20 @@ export function ProOnlineBody({
             })}
           </View>
 
+          {onOpenPricing ? (
+            <Pressable
+              onPress={onOpenPricing}
+              accessibilityRole="button"
+              accessibilityLabel="המחירים שלך"
+              style={({ pressed }) => [styles.pricingRow, pressed && { opacity: 0.8 }]}
+            >
+              <Text style={styles.pricingLabel}>המחירים שלך</Text>
+              {/* States what it is FOR, because "מחירים" alone reads as a
+                  price list the platform sets. */}
+              <Text style={styles.pricingHint}>אתה קובע כמה עולה להגיע</Text>
+            </Pressable>
+          ) : null}
+
           <Pressable
             onPress={onToggleOnline}
             disabled={isTransitioning}
@@ -266,6 +290,19 @@ function LiveBeacon({ color }: { color: string }) {
 }
 
 const styles = StyleSheet.create({
+  pricingRow: {
+    flexDirection: "row-reverse",
+    alignItems: "baseline",
+    justifyContent: "space-between",
+    minHeight: 44,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.md,
+    backgroundColor: colors.surfaceElevated,
+    paddingVertical: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  pricingLabel: { ...type.bodyStrong, color: colors.textPrimary },
+  pricingHint: { ...type.caption, color: colors.textSecondary },
   manageHit: { minHeight: 44, minWidth: 64, justifyContent: "center", alignItems: "flex-start" },
   backHit: {
     minHeight: 44,

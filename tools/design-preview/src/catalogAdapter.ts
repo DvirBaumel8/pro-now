@@ -1,4 +1,5 @@
 import type { DepartmentCode } from "@pro-now/types";
+import type { ProPricingRow } from "@pro-now/ui";
 import {
   allServices,
   browseOnly,
@@ -648,3 +649,35 @@ export function matchReasons(args: {
 }
 
 export { pilotServiceById };
+
+/**
+ * The professional's price rows, built from the same applied services the
+ * toggles are built from.
+ *
+ * The pricing MODEL comes from the catalogue rather than from a fixture:
+ * what a professional is asked to type is a property of the service, and a
+ * fixture that decided it here would drift from the service page the
+ * customer reads. The AMOUNTS start null — nobody has set a price yet,
+ * which is the true state of a marketplace that has not opened, and is a
+ * different thing from free.
+ */
+export function pricingRowsFor(
+  verified: CredentialKind[],
+  ids: readonly string[] = DEMO_PRO_SERVICE_IDS
+): ProPricingRow[] {
+  const have = new Set(verified);
+  return appliedServices(ids).map((s) => {
+    const missing = s.requiredCredentials.filter((c) => !have.has(c));
+    return {
+      serviceId: s.id,
+      nameHe: s.nameHe,
+      mark: s.mark as MarkName,
+      pricingModel: s.pricingModel,
+      amountMinorUnits: null,
+      blockedReasonHe:
+        missing.length === 0
+          ? null
+          : `גם אחרי שתקבע מחיר, השירות חסום עד שיושלם: ${missing.map((c) => credentialHe[c]).join(" · ")}`,
+    };
+  });
+}
