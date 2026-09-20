@@ -68,6 +68,14 @@ export interface CaptureCardProps {
    * this says which of the three reasons applies.
    */
   recordBlockedHe?: string | null;
+  /**
+   * Open this page in a tab of its own.
+   *
+   * Offered only when the page is embedded, because that is the one case
+   * where the message above has an action attached to it. Sending somebody
+   * to a browser setting they cannot change is worse than saying nothing.
+   */
+  onOpenInOwnTab?: () => void;
   /** Hidden entirely when the chosen service has no use for a photograph. */
   allowPhoto?: boolean;
   onStartRecord?: () => void;
@@ -89,6 +97,7 @@ export function CaptureCard({
   recordSeconds,
   canRecord,
   recordBlockedHe = null,
+  onOpenInOwnTab,
   allowPhoto = true,
   onStartRecord,
   onStopRecord,
@@ -128,9 +137,21 @@ export function CaptureCard({
           circle. It is a fact about this device, not an error the person
           caused, so it is phrased as one. */}
       {!recording && recordBlockedHe ? (
-        <Text style={[styles.blocked, tone === "dark" ? styles.blockedDark : null]}>
-          {recordBlockedHe}
-        </Text>
+        <View style={styles.blockedRow}>
+          <Text style={[styles.blocked, tone === "dark" ? styles.blockedDark : null]}>
+            {recordBlockedHe}
+          </Text>
+          {onOpenInOwnTab ? (
+            <Pressable
+              onPress={onOpenInOwnTab}
+              accessibilityRole="button"
+              accessibilityLabel="פתיחה בלשונית נפרדת"
+              style={({ pressed }) => [styles.blockedAction, pressed && { opacity: 0.8 }]}
+            >
+              <Text style={styles.blockedActionText}>פתיחה בלשונית נפרדת</Text>
+            </Pressable>
+          ) : null}
+        </View>
       ) : null}
 
       <View style={styles.actions}>
@@ -335,8 +356,17 @@ function CaptureGlyph({ name, color }: { name: "mic" | "camera" | "gallery"; col
 }
 
 const styles = StyleSheet.create({
-  blocked: { ...type.caption, color: palette.ink500, textAlign: "right", paddingHorizontal: spacing.lg },
+  blockedRow: { paddingHorizontal: spacing.lg, gap: spacing.xs, alignItems: "flex-end" },
+  blocked: { ...type.caption, color: palette.ink500, textAlign: "right", writingDirection: "rtl" },
   blockedDark: { color: "rgba(247,243,250,0.62)" },
+  blockedAction: {
+    minHeight: 44,
+    justifyContent: "center",
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.pill,
+    backgroundColor: "rgba(247,243,250,0.10)",
+  },
+  blockedActionText: { ...type.captionStrong, color: palette.nightText, writingDirection: "rtl" },
   cardDark: {
     backgroundColor: depth.panel.high,
     borderWidth: 1,

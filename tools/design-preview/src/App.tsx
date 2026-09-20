@@ -1592,6 +1592,7 @@ const go = useCallback((r: CustomerRoute) => {
              * Wiring a second, fake set of buttons on this screen would have
              * been easier and would have been a lie.
              */
+            height={bodyH}
             seedQueryHe={homeQuery}
             capture={{
               photos: capture.photos.length,
@@ -1600,6 +1601,8 @@ const go = useCallback((r: CustomerRoute) => {
               recordSeconds: capture.recordSeconds,
               canRecord: capture.canRecord,
               recordBlockedHe: capture.recordBlockedHe,
+              // Only when embedded: in a top-level tab there is nothing to open.
+              onOpenInOwnTab: capture.framed ? capture.openInOwnTab : undefined,
               onStartRecord: capture.startRecord,
               onStopRecord: capture.stopRecord,
               onDeleteVoice: capture.deleteVoice,

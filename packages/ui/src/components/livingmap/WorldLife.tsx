@@ -67,18 +67,32 @@ import { AssetSlot, EMPTY_ASSET_SOURCES, type WorldAssetSources } from "./AssetS
  * different streets is deliberate: two vehicles on the same road at once
  * is a convoy, and a convoy looks like a loop.
  */
+/*
+ * THE RATIOS ARE SHARES OF THE WORLD, NOT OF THE PHONE.
+ *
+ * They were shares of the viewport, and a dog walker at 0.14 of the phone
+ * came out as tall as a shopfront — a person standing in the middle of the
+ * road, bigger than the building behind them. Same fault as the districts
+ * and the route: a size measured against the screen stops meaning anything
+ * the moment the camera moves. See `WORLD_SIZE`.
+ *
+ * Everything travels the MAIN street now. The four streets are an idealised
+ * model and only the main one lines up with the road actually painted on
+ * this plate; a van driving down "רחוב השוק" was a van driving through a
+ * row of balconies.
+ */
 const MOMENT_ASSET: Readonly<
   Record<WorldMoment, { assetId: string; widthRatio: number; street: number; at?: number }>
 > = {
-  COURIER_PASS: { assetId: "courier_scooter", widthRatio: 0.16, street: 0 },
-  MOVER_PASS: { assetId: "moving_van", widthRatio: 0.22, street: 2 },
-  TOW_PASS: { assetId: "tow_truck", widthRatio: 0.26, street: 3 },
-  DOG_WALK: { assetId: "dog_walker", widthRatio: 0.14, street: 2 },
+  COURIER_PASS: { assetId: "courier_scooter", widthRatio: 0.11, street: 0 },
+  MOVER_PASS: { assetId: "moving_van", widthRatio: 0.15, street: 0 },
+  TOW_PASS: { assetId: "tow_truck", widthRatio: 0.17, street: 0 },
+  DOG_WALK: { assetId: "dog_walker", widthRatio: 0.06, street: 0 },
   // `at` is a point along the street: a light comes on in a shop, not in
   // mid-air.
-  WINDOW_LIGHT: { assetId: "amb_window_light", widthRatio: 0.1, street: 0, at: 0.3 },
-  BIRDS: { assetId: "amb_birds", widthRatio: 0.18, street: 1, at: 0.5 },
-  CAT_APPEAR: { assetId: "amb_cat", widthRatio: 0.07, street: 2, at: 0.7 },
+  WINDOW_LIGHT: { assetId: "amb_window_light", widthRatio: 0.07, street: 0, at: 0.3 },
+  BIRDS: { assetId: "amb_birds", widthRatio: 0.12, street: 0, at: 0.5 },
+  CAT_APPEAR: { assetId: "amb_cat", widthRatio: 0.03, street: 0, at: 0.7 },
 };
 
 /**
@@ -106,10 +120,7 @@ export interface WorldLifeProps {
   /** The world's size. Streets are laid out as fractions of this. */
   width: number;
   height: number;
-  /**
-   * What a vehicle's size is a fraction of: the viewport, not the world.
-   * A courier at 16% of a 2.4-screen world is a courier the size of a bus.
-   */
+  /** Kept for callers that have not moved to world-relative sizes. */
   sizeBasis?: number;
   sources?: WorldAssetSources;
   /** False holds the street completely still. */
@@ -134,6 +145,7 @@ export function WorldLife({
   sizeBasis,
 }: WorldLifeProps) {
   const basis = sizeBasis ?? width;
+  void basis;
   const [playing, setPlaying] = useState<Playing[]>([]);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -184,7 +196,8 @@ export function WorldLife({
         // the road pretending to be one.
         if (!sources[spec.assetId]) return null;
 
-        const base = basis * spec.widthRatio;
+        // Against the WORLD, so the camera scales it with everything else.
+        const base = width * spec.widthRatio;
         const w = base;
         const significant = isSignificant(p.moment);
 

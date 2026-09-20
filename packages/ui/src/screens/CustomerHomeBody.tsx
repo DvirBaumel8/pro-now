@@ -174,6 +174,8 @@ export interface CustomerHomeBodyProps {
     canRecord: boolean;
     /** Why the microphone cannot be reached, in Hebrew. Null when it can. */
     recordBlockedHe?: string | null;
+    /** Present only when the page is embedded and recording needs its own tab. */
+    onOpenInOwnTab?: () => void;
     onStartRecord?: () => void;
     onStopRecord?: () => void;
     onDeleteVoice?: () => void;
@@ -202,6 +204,21 @@ export interface CustomerHomeBodyProps {
    */
   liveLineHe?: string | null;
   width?: number;
+  /**
+   * THE SCREEN'S HEIGHT, AND WHY IT IS NOT OPTIONAL IN PRACTICE.
+   *
+   * This screen had no height at all. Its root `View` carried only a
+   * background colour, so it grew to fit its own content, the `ScrollView`
+   * inside it grew to fit ITS content — and a scroll view as tall as the
+   * thing it contains has nothing to scroll. The page then ran past the
+   * bottom of the phone and was simply clipped by the frame above it.
+   * Amit: *"עמוד הבית לא נגלל למטה, הכל תקוע."*
+   *
+   * Every other screen in the product takes a height for exactly this
+   * reason. This one was the exception and it is the one screen everybody
+   * lands on.
+   */
+  height?: number;
 }
 
 const ALL = "הכול";
@@ -223,6 +240,7 @@ export function CustomerHomeBody({
   worldSources,
   liveLineHe = null,
   width = 390,
+  height = 780,
 }: CustomerHomeBodyProps) {
   const gutter = spacing.lg;
   const inner = width - gutter * 2;
@@ -527,7 +545,7 @@ export function CustomerHomeBody({
   }
 
   return (
-    <View style={[styles.screen, { width }]}>
+    <View style={[styles.screen, { width, height }]}>
       {/* ---------------------------------------------------------------
           THE WORLD, BEHIND THE QUESTION.
           ---------------------------------------------------------------
@@ -557,10 +575,16 @@ export function CustomerHomeBody({
         />
       </View>
 
+    {/*
+      * `flex: 1` is what makes this scroll. Without a bounded height the
+      * scroll view expands to its content and there is nothing to scroll —
+      * see the `height` prop.
+      */}
     <ScrollView
-      style={[{ width }]}
+      style={[{ width, flex: 1 }]}
       contentContainerStyle={{ paddingBottom: spacing.xxl }}
       keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
     >
       <View style={{ paddingHorizontal: gutter }}>
         {/* Where we are sending someone. A property of the request, not a
@@ -610,6 +634,7 @@ export function CustomerHomeBody({
               recordSeconds={capture?.recordSeconds ?? 0}
               canRecord={capture?.canRecord ?? false}
               recordBlockedHe={capture?.recordBlockedHe ?? null}
+              onOpenInOwnTab={capture?.onOpenInOwnTab}
               onStartRecord={capture?.onStartRecord}
               onStopRecord={capture?.onStopRecord}
               onDeleteVoice={capture?.onDeleteVoice}

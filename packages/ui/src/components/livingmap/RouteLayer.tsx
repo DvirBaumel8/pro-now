@@ -177,13 +177,34 @@ export function RouteLayer({
               {
                 translateX: driver.interpolate({
                   inputRange: steps,
-                  outputRange: route.map((s) => s.at.u * width - w / 2),
+                  // Centre-anchored, because the scale below is about the
+                // centre: any other anchor slides sideways as it grows.
+                outputRange: route.map((s) => s.at.u * width - w / 2),
                 }),
               },
               {
+                /*
+                 * WHY THE SCALE IS BAKED INTO THIS NUMBER.
+                 *
+                 * Amit: *"התצוגה מוזרה של הקטנוע כאילו הוא נופל."* He is
+                 * describing a real thing. `scale` below is applied about
+                 * the box's CENTRE — that is what a transform does — and it
+                 * changes along the route, because nearer is larger. So as
+                 * the scooter came down the street the box grew and shrank
+                 * around its middle and the wheels rose off the road and
+                 * sank back into it, over and over. It reads as falling
+                 * because it is falling: half the growth goes downward.
+                 *
+                 * The fix is arithmetic rather than a transform-origin,
+                 * which react-native-web does not reliably animate. After
+                 * scaling by `s` about the centre, the bottom edge sits at
+                 * `top + h * (1 + s) / 2`. Setting that equal to the point
+                 * on the road gives the `top` below — so the wheels stay on
+                 * the tarmac at every size.
+                 */
                 translateY: driver.interpolate({
                   inputRange: steps,
-                  outputRange: route.map((s) => s.at.v * height - h),
+                  outputRange: route.map((s) => s.at.v * height - (h * (1 + s.scale)) / 2),
                 }),
               },
               // Nearer means larger: the same depth rule the whole world uses.

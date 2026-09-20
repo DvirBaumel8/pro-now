@@ -125,10 +125,27 @@ export function useCapture() {
       // Permission refused, or no microphone. Saying which is the whole
       // point: "לא אושרה גישה" is something a person can act on, and a
       // silent no-op is not.
+      /*
+       * SAY WHICH REFUSAL THIS IS, AND WHAT TO DO ABOUT IT.
+       *
+       * Amit: *"ההקלטה לא עובדת, מזה ההרשאות האלה, לא מצליח להבין."* The
+       * message before this one told him permission was refused and left
+       * him to go and find a browser setting — which is the wrong
+       * instruction, because in the embedded preview there is no setting to
+       * find. The page is running inside a frame that was never granted
+       * microphone access, and no amount of allowing it in Safari changes
+       * that. The one thing that works is opening the link in its own tab.
+       *
+       * So the framed case is named separately from the refused-by-a-person
+       * case, and it says the thing that actually fixes it.
+       */
       const name = (e as { name?: string })?.name;
+      const framed = typeof window !== "undefined" && window.self !== window.top;
       setRecordError(
         name === "NotAllowedError"
-          ? "לא אושרה גישה למיקרופון. אפשר לאשר בהגדרות הדפדפן ולנסות שוב."
+          ? framed
+            ? "התצוגה כאן רצה בתוך מסגרת שאין לה הרשאת מיקרופון. פתחו את הקישור בלשונית נפרדת — שם ההקלטה עובדת."
+            : "לא אושרה גישה למיקרופון. אפשר לאשר בהגדרות הדפדפן ולנסות שוב."
           : name === "NotFoundError"
             ? "לא נמצא מיקרופון במכשיר."
             : "ההקלטה לא הצליחה להתחיל."
@@ -144,6 +161,19 @@ export function useCapture() {
   }, []);
 
   const deleteVoice = useCallback(() => setVoice(null), []);
+
+  /**
+   * Open this page in a tab of its own.
+   *
+   * The only real remedy for the framed case, and it is one tap rather than
+   * a hunt through browser settings. Offered only when it would help — in a
+   * top-level tab there is nothing to open.
+   */
+  const framed = typeof window !== "undefined" && window.self !== window.top;
+  const openInOwnTab = useCallback(() => {
+    if (typeof window === "undefined") return;
+    window.open(window.location.href, "_blank", "noopener");
+  }, []);
 
   /**
    * ONE PICKER, TWO DOORS — and the difference is a single attribute.
@@ -164,8 +194,59 @@ export function useCapture() {
    * library is a small false statement about where it came from, and the
    * professional reads that caption.
    */
-  const pickImage = useCallback((source: "camera" | "library") => {
+  const pickImage = useCallback(async (source: "camera" | "library") => {
     if (typeof document === "undefined") return;
+
+    /*
+     * THE LIBRARY, WITHOUT THE CAMERA — WHERE THE BROWSER ALLOWS IT.
+     *
+     * Amit: *"בעמוד הראשי שלוחצים גלריה — שלא יפתח גם מצלמה, רק גלריה."*
+     *
+     * Our two buttons already differ correctly: the camera one carries
+     * `capture`, the gallery one does not. What he is seeing is the PHONE's
+     * own sheet. On iOS, `<input type="file" accept="image/*">` always
+     * offers "Take Photo" beside "Photo Library", and there is no web API
+     * that removes it — the sheet belongs to the operating system.
+     *
+     * Where a browser has a real file picker (`showOpenFilePicker`, on
+     * Chrome and Edge including Android) we use it instead, and that one
+     * opens the files and nothing else. iOS Safari does not have it and
+     * falls through to the input below, where the OS sheet is the best
+     * available.
+     *
+     * In the shipped app this disappears: expo-image-picker's
+     * `launchImageLibraryAsync` opens the photo library directly, with no
+     * camera option, because it is the native picker rather than a file
+     * input.
+     */
+    const picker = (window as unknown as {
+      showOpenFilePicker?: (o: unknown) => Promise<{ getFile: () => Promise<File> }[]>;
+    }).showOpenFilePicker;
+
+    if (source === "library" && typeof picker === "function") {
+      try {
+        const handles = await picker({
+          multiple: true,
+          types: [{ description: "תמונות", accept: { "image/*": [".png", ".jpg", ".jpeg", ".heic", ".webp"] } }],
+          excludeAcceptAllOption: true,
+        });
+        const files = await Promise.all(handles.map((h) => h.getFile()));
+        if (files.length === 0) return;
+        setPhotos((cur) => [
+          ...cur,
+          ...files.map((file, i) => {
+            const url = URL.createObjectURL(file);
+            objectUrls.current.push(url);
+            return { id: `${Date.now()}-${i}`, uri: url, subjectHe: "תמונה מהגלריה" };
+          }),
+        ]);
+        return;
+      } catch {
+        // Cancelled, or the picker refused. Either way, fall through to the
+        // input rather than leaving the button doing nothing.
+      }
+    }
+
     const input = document.createElement("input");
     input.type = "file";
     input.accept = "image/*";
@@ -193,8 +274,12 @@ export function useCapture() {
     input.click();
   }, []);
 
-  const addPhoto = useCallback(() => pickImage("camera"), [pickImage]);
-  const addFromLibrary = useCallback(() => pickImage("library"), [pickImage]);
+  const addPhoto = useCallback(() => {
+    void pickImage("camera");
+  }, [pickImage]);
+  const addFromLibrary = useCallback(() => {
+    void pickImage("library");
+  }, [pickImage]);
 
   const removePhoto = useCallback((id: string) => {
     setPhotos((cur) => cur.filter((p) => p.id !== id));
@@ -215,6 +300,9 @@ export function useCapture() {
     canRecord,
     /** Why recording is unavailable or failed, in Hebrew. Null when fine. */
     recordBlockedHe: recordError ?? recordBlockedHe,
+    /** True when this page is embedded, so recording cannot be granted here. */
+    framed,
+    openInOwnTab,
     startRecord,
     stopRecord,
     deleteVoice,

@@ -1,5 +1,5 @@
 import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import {
   assessArrival,
@@ -280,7 +280,23 @@ export function TrackingBody({
         * empty white under the last line on a tall phone — the sheet has as
         * much to say as it has, and the map takes the rest.
         */}
-      <View style={styles.sheet}>
+      {/*
+        * THE SHEET IS BOUNDED AND IT SCROLLS.
+        *
+        * It used to be anchored to the bottom and sized purely by its
+        * content, on the theory that a sheet should say as much as it has
+        * to say. That is right until it has more to say than the phone is
+        * tall — an assurance line, a professional, three actions, a price
+        * line and a masking note — and then it grows upward past the top of
+        * the screen and the overflow is simply clipped, with no way to
+        * reach it. Amit: *"גם פה לא נגלל ולא זז."*
+        *
+        * So it is capped at the space the map is not using, plus a little
+        * of the map's own, and anything beyond that scrolls. The map keeps
+        * its share on a tall phone; on a short one the sheet can take more
+        * of the screen rather than losing its last line.
+        */}
+      <View style={[styles.sheet, { maxHeight: height - mapH * 0.42 }]}>
         <View style={styles.grabber} />
 
         {/*
@@ -289,6 +305,11 @@ export function TrackingBody({
           * did not arrive" is that you telephone him. Ours states a clock
           * time, says out loud when it moves, and carries its own way out.
           */}
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: spacing.sm }}
+          bounces={false}
+        >
         <ArrivalPromise
           assessment={assessment}
           arrivalClockHe={arrivalClockHe}
@@ -345,6 +366,7 @@ export function TrackingBody({
 
         {priceLineHe ? <Text style={styles.price}>{priceLineHe}</Text> : null}
         <Text style={styles.masked}>המספרים מוסתרים משני הצדדים</Text>
+        </ScrollView>
       </View>
     </ScreenShell>
   );
