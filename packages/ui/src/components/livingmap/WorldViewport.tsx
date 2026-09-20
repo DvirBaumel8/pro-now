@@ -54,6 +54,26 @@ export interface WorldViewportProps {
   worldSized?: boolean;
   /** Lets the person drag the world around. */
   explorable?: boolean;
+  /**
+   * THE CAMERA FOLLOWS A PERSON RATHER THAN GOING TO A PLACE.
+   *
+   * Two Animated values in world coordinates — the walking customer's
+   * position, written sixty times a second by `Walker`. When they are
+   * here, the view is derived from them by interpolation, which means the
+   * world moves on whatever driver the platform gives it and NOTHING
+   * above this component re-renders while somebody walks.
+   *
+   * It also means the camera cannot lag behind the figure or lead it:
+   * there is one number for where the customer is and both the figure and
+   * the view are computed from it.
+   *
+   * Following also takes the drag away, because they are contradictory
+   * gestures. Dragging says "the world moves and I am nowhere"; walking
+   * says "I move and the world stays". Leaving both on would let somebody
+   * pan the street away from their own avatar and then wonder why it snaps
+   * back the moment they take a step.
+   */
+  follow?: { u: Animated.Value; v: Animated.Value } | null;
   animate?: boolean;
   /** Told the size of the world, so children can lay out in it. */
   /**
@@ -78,6 +98,7 @@ export function WorldViewport({
   zoom = 1,
   worldSized = true,
   explorable = false,
+  follow = null,
   animate = true,
   children,
   onDragStart,
@@ -138,7 +159,7 @@ export function WorldViewport({
         // A threshold, so a tap on a shop still reaches the shop. Without
         // it the responder swallows every touch and nothing is tappable.
         onStartShouldSetPanResponder: () => false,
-        onMoveShouldSetPanResponder: (_e, g) => explorable && Math.hypot(g.dx, g.dy) > 12,
+        onMoveShouldSetPanResponder: (_e, g) => explorable && !follow && Math.hypot(g.dx, g.dy) > 12,
         onPanResponderGrant: () => {
           startAt.current = dragged ?? to.current;
           onDragStart?.();
@@ -150,10 +171,41 @@ export function WorldViewport({
           });
         },
       }),
-    [dragged, explorable, height, onDragStart, width, worldH, worldW]
+    [dragged, explorable, follow, height, onDragStart, width, worldH, worldW]
   );
 
-  const transform = dragged
+  /*
+   * FOLLOWING, AS ARITHMETIC RATHER THAN AS A LOOP.
+   *
+   * The offset that puts a world point mid-screen is `width/2 - u*worldW`,
+   * clamped so the edge of the plate never comes into frame. `interpolate`
+   * clamps on its INPUT, so the bounds are expressed as the two values of
+   * `u` at which the offset would hit them — which is the same clamp,
+   * written where Animated can apply it without JS.
+   */
+  const followTransform = useMemo(() => {
+    if (!follow || !worldSized) return null;
+    const axis = (value: Animated.Value, screen: number, world: number) => {
+      const span = world - screen;
+      // A world no larger than the screen has nothing to follow across.
+      if (span <= 0) return new Animated.Value((screen - world) / 2);
+      const low = screen / 2 / world;
+      const high = (world - screen / 2) / world;
+      return value.interpolate({
+        inputRange: [low, high],
+        outputRange: [0, -span],
+        extrapolate: "clamp",
+      });
+    };
+    return [
+      { translateX: axis(follow.u, width, worldW) },
+      { translateY: axis(follow.v, height, worldH) },
+    ];
+  }, [follow, height, width, worldH, worldSized, worldW]);
+
+  const transform = followTransform
+    ? followTransform
+    : dragged
     ? [{ translateX: dragged.x }, { translateY: dragged.y }]
     : [
         {

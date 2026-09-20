@@ -31,6 +31,7 @@ describe("the avatar roster", () => {
       portraitAssetId: `p${i}`,
       worldAssetId: `w${i}`,
       presentation: i % 2 ? ("MAN" as const) : ("WOMAN" as const),
+      heightRatio: 1,
       labelHe: `דמות ${i}`,
     }));
     expect(avatarViolations(tooMany).join(" ")).toContain("twenty seconds");
@@ -64,14 +65,63 @@ describe("an avatar is not identity", () => {
     // and it is enforced by the type having no field for it.
     for (const a of AVATARS) {
       expect(Object.keys(a).sort()).toEqual(
-        ["id", "labelHe", "portraitAssetId", "presentation", "worldAssetId"].sort()
+        ["heightRatio", "id", "labelHe", "portraitAssetId", "presentation", "worldAssetId"].sort()
       );
     }
   });
 
   it("labels the drawing, never the person", () => {
     for (const a of AVATARS) {
+      if (a.presentation === "ANIMAL") {
+        // An animal's label says what the drawing is, which is still a
+        // fact about the picture rather than about the customer.
+        expect(a.labelHe.length).toBeGreaterThan(0);
+        continue;
+      }
       expect(a.labelHe).toMatch(/^דמות \d+/);
+    }
+  });
+});
+
+describe("ten people and two animals", () => {
+  /*
+   * ChatGPT, closing this: *"הייתי נועל 10 אנשים + 2 חיות. לא מוסיף עכשיו
+   * עוד שתי דמויות רק בשביל סימטריית 6/6, במיוחד אחרי שהחלטנו שהבחירה
+   * עצמה לא שואלת מגדר."* The picker shows a grid and takes a tap; there
+   * is no gender question to balance.
+   */
+  it("keeps the grid mostly people", () => {
+    const animals = AVATARS.filter((a) => a.presentation === "ANIMAL");
+    expect(animals.length).toBe(2);
+    expect(AVATARS.length - animals.length).toBe(10);
+  });
+
+  it("draws an animal shorter than a person", () => {
+    for (const a of AVATARS) {
+      if (a.presentation === "ANIMAL") {
+        expect(a.heightRatio).toBeLessThan(0.8);
+        expect(a.heightRatio).toBeGreaterThan(0);
+      } else {
+        expect(a.heightRatio).toBe(1);
+      }
+    }
+  });
+
+  it("refuses an animal drawn at human height", () => {
+    const wrong = AVATARS.map((a) =>
+      a.presentation === "ANIMAL" ? { ...a, heightRatio: 1 } : a
+    );
+    expect(avatarViolations(wrong).join(" ")).toContain("human height");
+  });
+
+  it("refuses a roster that has become a pet shop", () => {
+    const pets = AVATARS.map((a) => ({ ...a, presentation: "ANIMAL" as const, heightRatio: 0.4 }));
+    expect(avatarViolations(pets).join(" ")).toContain("mostly animals");
+  });
+
+  it("still gives every identity a walking figure, animals included", () => {
+    for (const a of AVATARS) {
+      expect(walkingAssetFor(a.id)).toBe(a.worldAssetId);
     }
   });
 });

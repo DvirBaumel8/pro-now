@@ -50,11 +50,19 @@
  */
 
 /**
- * How an avatar presents. Three values, and "unspecified" is a real
- * answer rather than a missing one: a customer who does not want to say
- * still gets to walk down the street.
+ * How an avatar presents.
+ *
+ * "UNSPECIFIED" is a real answer rather than a missing one: a customer who
+ * does not want to say still gets to walk down the street.
+ *
+ * "ANIMAL" is not a joke entry. Amit asked for animals and ChatGPT locked
+ * the roster at ten people and two of them — and the reason to keep them
+ * is that they are the clearest possible statement that this choice is
+ * not a profile photo. Somebody who picks the cat has understood exactly
+ * what the avatar is for, which is the understanding the whole screen is
+ * trying to produce in twenty seconds.
  */
-export type AvatarPresentation = "WOMAN" | "MAN" | "UNSPECIFIED";
+export type AvatarPresentation = "WOMAN" | "MAN" | "UNSPECIFIED" | "ANIMAL";
 
 export interface AvatarOption {
   /** Stable id. What gets stored; never a description of a person. */
@@ -85,31 +93,56 @@ export interface AvatarOption {
    * claim about who the customer is.
    */
   labelHe: string;
+  /**
+   * How tall this figure is drawn, as a fraction of a standing person.
+   *
+   * A dog rendered at a person's height is a dog the size of a horse, and
+   * the world's whole depth model rests on everything at the same distance
+   * agreeing about scale. One number per identity keeps that true without
+   * the renderer needing to know what any of them are.
+   */
+  heightRatio: number;
 }
 
 /**
- * The roster.
+ * The roster: ten people and two animals.
  *
  * Twelve, and the number is a judgement rather than a constant: enough
  * that most people in Israel find somebody close, few enough to fit one
  * screen without scrolling and be chosen in twenty seconds. Order is
  * fixed so the grid does not reshuffle between visits — a picker whose
  * contents move is a picker you have to read twice.
+ *
+ * The split is ten and two rather than twelve people, and that was a
+ * decision rather than a shortage. The first instinct was to add two more
+ * people so the human half came to six and six — and it is the wrong
+ * instinct, because the picker never asks about gender in the first
+ * place. It shows a grid and takes a tap. Balancing a question nobody is
+ * asked buys nothing, and it would have cost the two entries that make
+ * the screen fun.
  */
 export const AVATARS: readonly AvatarOption[] = [
-  { id: "av_01", portraitAssetId: "avatar_01_portrait", worldAssetId: "avatar_01_world_back", presentation: "WOMAN", labelHe: "דמות 1" },
-  { id: "av_02", portraitAssetId: "avatar_02_portrait", worldAssetId: "avatar_02_world_back", presentation: "WOMAN", labelHe: "דמות 2" },
-  { id: "av_03", portraitAssetId: "avatar_03_portrait", worldAssetId: "avatar_03_world_back", presentation: "WOMAN", labelHe: "דמות 3 · כיסוי ראש" },
-  { id: "av_04", portraitAssetId: "avatar_04_portrait", worldAssetId: "avatar_04_world_back", presentation: "WOMAN", labelHe: "דמות 4" },
-  { id: "av_05", portraitAssetId: "avatar_05_portrait", worldAssetId: "avatar_05_world_back", presentation: "WOMAN", labelHe: "דמות 5" },
-  { id: "av_06", portraitAssetId: "avatar_06_portrait", worldAssetId: "avatar_06_world_back", presentation: "WOMAN", labelHe: "דמות 6" },
-  { id: "av_07", portraitAssetId: "avatar_07_portrait", worldAssetId: "avatar_07_world_back", presentation: "MAN", labelHe: "דמות 7" },
-  { id: "av_08", portraitAssetId: "avatar_08_portrait", worldAssetId: "avatar_08_world_back", presentation: "MAN", labelHe: "דמות 8" },
-  { id: "av_09", portraitAssetId: "avatar_09_portrait", worldAssetId: "avatar_09_world_back", presentation: "MAN", labelHe: "דמות 9 · כיסוי ראש" },
-  { id: "av_10", portraitAssetId: "avatar_10_portrait", worldAssetId: "avatar_10_world_back", presentation: "MAN", labelHe: "דמות 10" },
-  { id: "av_11", portraitAssetId: "avatar_11_portrait", worldAssetId: "avatar_11_world_back", presentation: "MAN", labelHe: "דמות 11" },
-  { id: "av_12", portraitAssetId: "avatar_12_portrait", worldAssetId: "avatar_12_world_back", presentation: "MAN", labelHe: "דמות 12" },
+  { id: "av_01", portraitAssetId: "avatar_01_portrait", worldAssetId: "avatar_01_world_back", presentation: "WOMAN", heightRatio: 1, labelHe: "דמות 1" },
+  { id: "av_02", portraitAssetId: "avatar_02_portrait", worldAssetId: "avatar_02_world_back", presentation: "WOMAN", heightRatio: 1, labelHe: "דמות 2" },
+  { id: "av_03", portraitAssetId: "avatar_03_portrait", worldAssetId: "avatar_03_world_back", presentation: "WOMAN", heightRatio: 1, labelHe: "דמות 3 · כיסוי ראש" },
+  { id: "av_04", portraitAssetId: "avatar_04_portrait", worldAssetId: "avatar_04_world_back", presentation: "WOMAN", heightRatio: 1, labelHe: "דמות 4" },
+  { id: "av_05", portraitAssetId: "avatar_05_portrait", worldAssetId: "avatar_05_world_back", presentation: "WOMAN", heightRatio: 1, labelHe: "דמות 5" },
+  { id: "av_06", portraitAssetId: "avatar_06_portrait", worldAssetId: "avatar_06_world_back", presentation: "MAN", heightRatio: 1, labelHe: "דמות 6" },
+  { id: "av_07", portraitAssetId: "avatar_07_portrait", worldAssetId: "avatar_07_world_back", presentation: "MAN", heightRatio: 1, labelHe: "דמות 7" },
+  { id: "av_08", portraitAssetId: "avatar_08_portrait", worldAssetId: "avatar_08_world_back", presentation: "MAN", heightRatio: 1, labelHe: "דמות 8 · כיסוי ראש" },
+  { id: "av_09", portraitAssetId: "avatar_09_portrait", worldAssetId: "avatar_09_world_back", presentation: "MAN", heightRatio: 1, labelHe: "דמות 9" },
+  { id: "av_10", portraitAssetId: "avatar_10_portrait", worldAssetId: "avatar_10_world_back", presentation: "MAN", heightRatio: 1, labelHe: "דמות 10" },
+  /*
+   * The two animals. Shorter, and the number is the whole of what the
+   * renderer needs to know about them: `Walker` multiplies the standing
+   * height by it and the contact shadow, the depth scale and the gait all
+   * follow from there. ChatGPT: *"הכלב והחתול יקבלו כמובן אותה לוגיקה
+   * בגובה ובפרופורציה שלהם."*
+   */
+  { id: "av_11", portraitAssetId: "avatar_11_portrait", worldAssetId: "avatar_11_world_back", presentation: "ANIMAL", heightRatio: 0.46, labelHe: "כלב" },
+  { id: "av_12", portraitAssetId: "avatar_12_portrait", worldAssetId: "avatar_12_world_back", presentation: "ANIMAL", heightRatio: 0.38, labelHe: "חתול" },
 ];
+
 
 /** The customer's choice. `null` is a real and permanent state. */
 export type AvatarChoice = string | null;
@@ -162,10 +195,31 @@ export function avatarViolations(roster: readonly AvatarOption[] = AVATARS): str
   if (roster.length < 6) out.push("the roster is too short to find yourself in");
 
   // Nobody should have to pick somebody who presents as another gender to
-  // find a figure at all.
+  // find a figure at all. Counted against the PEOPLE rather than against
+  // the whole roster, so adding an animal can never make this fail.
   for (const p of ["WOMAN", "MAN"] as const) {
     if (roster.filter((a) => a.presentation === p).length < 3) {
       out.push(`too few options presenting as ${p}`);
+    }
+  }
+
+  // The grid is people with a couple of animals in it, not a pet shop.
+  const animals = roster.filter((a) => a.presentation === "ANIMAL").length;
+  if (animals > roster.length / 4) out.push("the roster is mostly animals");
+
+  for (const a of roster) {
+    // A height of zero is an invisible avatar; a height above a person is
+    // an animal the size of a van, and both would pass every other rule
+    // here while being obviously wrong on screen.
+    if (a.heightRatio <= 0) out.push(`"${a.id}" has no height`);
+    if (a.heightRatio > 1) out.push(`"${a.id}" is taller than a standing person`);
+    // An animal drawn at a person's height is the specific mistake this
+    // field exists to prevent.
+    if (a.presentation === "ANIMAL" && a.heightRatio >= 0.8) {
+      out.push(`"${a.id}" is an animal drawn at human height`);
+    }
+    if (a.presentation !== "ANIMAL" && a.heightRatio !== 1) {
+      out.push(`"${a.id}" is a person and must be a person's height`);
     }
   }
 

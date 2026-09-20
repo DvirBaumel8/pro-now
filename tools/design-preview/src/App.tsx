@@ -499,6 +499,7 @@ export function App() {
               setQuoteDecision(d);
               setPendingQuote(null);
             }}
+            avatar={avatar}
           />
         ) : (
           <ProApp
@@ -640,6 +641,7 @@ function CustomerApp({
   onSendRequest,
   pendingQuote,
   onQuoteDecision,
+  avatar,
 }: {
   width: number;
   height: number;
@@ -648,6 +650,12 @@ function CustomerApp({
   /** A quote the professional sent and the customer has not answered. */
   pendingQuote: { sentAtMs: number } | null;
   onQuoteDecision: (d: "APPROVED" | "DECLINED") => void;
+  /**
+   * Who the customer walks the street as. Owned above, because the picker
+   * runs before this component exists — and `null` is the answer for
+   * everybody who skipped it, which the whole app has to handle.
+   */
+  avatar: AvatarChoice;
 }) {
   const snapshot = useLiveSnapshot();
   /**
@@ -1384,6 +1392,13 @@ const go = useCallback((r: CustomerRoute) => {
             onSafety={() => setSheet("safety")}
             onOpenProfile={(id) => setOpenVenue(id)}
             profileOpen={openVenue !== null}
+            /*
+             * WHO IS WALKING. Whatever they picked at the start, or null
+             * if they skipped it — in which case the street still works,
+             * there is simply nobody in it and the camera goes back to
+             * looking at places rather than following a person.
+             */
+            avatar={avatar}
             /*
              * THE WAY OUT, AND WHAT IT COSTS.
              *

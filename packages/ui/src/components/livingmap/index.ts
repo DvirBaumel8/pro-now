@@ -12,3 +12,7 @@ export * from "./WorldBackdrop";
 export * from "./WorldViewport";
 export * from "./DistrictLayer";
 export * from "./RouteLayer";
+export * from "./ShopSign";
+export * from "./SteerPad";
+export * from "./Walker";
+export * from "./ContactShadow";

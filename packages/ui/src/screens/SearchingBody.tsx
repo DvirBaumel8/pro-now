@@ -3,6 +3,7 @@ import { StyleSheet, View } from "react-native";
 
 import {
   DEMO_WORLD,
+  type AvatarChoice,
   type DiscoveryState,
   type LivingMapState,
   type PlayDrawerActionId,
@@ -95,6 +96,15 @@ export interface SearchingBodyProps {
   onOpenProfile?: (candidateId: string) => void;
   /** Whether that card is on screen; closing it is a camera move. */
   profileOpen?: boolean;
+  /**
+   * The figure the customer walks the street as, or null if they skipped.
+   *
+   * Passed straight through. This screen does not know what an avatar is
+   * beyond "the scene may want one" — which is the point: skipping the
+   * picker has to be a first-class state all the way down, not a special
+   * case anybody has to remember.
+   */
+  avatar?: AvatarChoice;
   width?: number;
   height?: number;
 }
@@ -119,6 +129,7 @@ export function SearchingBody({
   backLabelHe = null,
   onOpenProfile,
   profileOpen = false,
+  avatar = null,
   width = 390,
   height = 780,
 }: SearchingBodyProps) {
@@ -144,6 +155,7 @@ export function SearchingBody({
       <LivingMapScene
         onOpenProfile={onOpenProfile}
         profileOpen={profileOpen}
+        avatar={avatar}
         topInset={onBack ? BACK_BUTTON_CLEARANCE : 0}
         state={state}
         serviceNameHe={serviceNameHe}

@@ -22,6 +22,12 @@ import {
   type DiscoveryState,
   type LivingMapState,
   type PlayDrawerActionId,
+  type Heading,
+  type NormalizedPoint,
+  CUSTOMER_POINT,
+  walkingAssetFor,
+  avatarById,
+  type AvatarChoice,
 } from "@pro-now/types";
 
 import { palette, radii, spacing, tabular, type } from "../../theme";
@@ -36,6 +42,8 @@ import { VenueLayer } from "./VenueLayer";
 import { WorldLife } from "./WorldLife";
 import { PlayDrawer } from "./PlayDrawer";
 import { livingPalette as P } from "./palette";
+import { SteerPad } from "./SteerPad";
+import { Walker } from "./Walker";
 
 /**
  * THE LIVING MAP — one mounted scene that changes shape four times.
@@ -144,6 +152,19 @@ export interface LivingMapSceneProps {
    * mean taking the whole journey again, every time.
    */
   profileOpen?: boolean;
+  /**
+   * WHO THE CUSTOMER IS IN THIS WORLD.
+   *
+   * Amit: *"אני רוצה גם שהלקוח יגדיר לעצמו אווטאר בהתחלה… ואיתו הוא יטייל
+   * בין העסקים."*
+   *
+   * Null is a real answer and the common one at first: the picker is
+   * skippable on purpose (*"לא חובה"*). A customer with no avatar still
+   * gets the whole street, just without a figure in it — the camera goes
+   * back to looking at places rather than following a person, and no
+   * stand-in body is invented for them.
+   */
+  avatar?: AvatarChoice;
   width: number;
   height: number;
 }
@@ -184,6 +205,7 @@ export function LivingMapScene({
   topInset = 0,
   onOpenProfile,
   profileOpen = false,
+  avatar = null,
   width,
   height,
 }: LivingMapSceneProps) {
@@ -441,6 +463,61 @@ export function LivingMapScene({
     return () => loop.stop();
   }, [animate, phase, pulse]);
 
+  /*
+   * ---------------------------------------------------------------------
+   * THE WALK
+   * ---------------------------------------------------------------------
+   * Amit: *"רוצה חוויה של טיול ברחוב בין מגוון העסקים שלנו — זו החוויה
+   * שאני חייב שירגישו, כמו VR."*
+   *
+   * A drag and a walk move the same pixels across the same screen and mean
+   * opposite things. Dragging moves the world under a fixed viewer: the
+   * camera changes, the person is nowhere, and what is happening is that a
+   * map is being read. Walking moves a person through a world that stays
+   * where it is, and the camera follows because it is watching them.
+   *
+   * That is the whole of "like VR" on a phone, and it needs exactly two
+   * things this scene did not have: somebody to be, and a control that
+   * moves them. See `Walker` and `SteerPad`.
+   *
+   * The position lives in Animated values rather than in state on purpose.
+   * The figure's transform and the camera's offset are both derived from
+   * the SAME two numbers, so they cannot drift apart, and nothing in this
+   * file re-renders while somebody is walking — which matters, because
+   * this component draws the whole neighbourhood.
+   */
+  const walkAssetId = walkingAssetFor(avatar);
+  const walkHeight = avatarById(avatar)?.heightRatio ?? 1;
+  const canWalk = Boolean(walkAssetId && worldSources?.[walkAssetId]);
+
+  const walkU = useRef(new Animated.Value(CUSTOMER_POINT.u)).current;
+  const walkV = useRef(new Animated.Value(CUSTOMER_POINT.v)).current;
+  const walkedTo = useRef<NormalizedPoint>(CUSTOMER_POINT);
+  const [heading, setHeading] = useState<Heading>(null);
+
+  /*
+   * WALKING IS FOR THE STREET, NOT FOR THE WAIT AND NOT FOR THE TRIP.
+   *
+   * While dispatch is still searching, walking away would be walking away
+   * from a question that is being asked on the customer's behalf. Once a
+   * professional is on the way, the screen's subject is that trip, and a
+   * camera that can be walked off it would lose the one thing the customer
+   * is there to watch. Between those two — the street full of candidates —
+   * is exactly where wandering is the point.
+   */
+  const mayWalk = canWalk && phase === "CANDIDATES_FOUND" && !profileOpen && journeyMs === null;
+
+  // Taking the thumb off, and being taken off the street, are the same
+  // thing to the figure: it stops. Without this a phase change mid-step
+  // would leave it walking into a screen it is no longer on.
+  useEffect(() => {
+    if (!mayWalk) setHeading(null);
+  }, [mayWalk]);
+
+  const rememberWalk = useCallback((at: NormalizedPoint) => {
+    walkedTo.current = at;
+  }, []);
+
   const cx = width / 2;
   const cy = height * 0.5;
   const accent = P.themeAccent[state.theme];
@@ -515,6 +592,11 @@ export function LivingMapScene({
          */
         worldSized={Boolean(worldSources?.["world_neighbourhood"])}
         explorable={Boolean(worldSources)}
+        /*
+         * Following replaces the drag while there is somebody to follow.
+         * They are contradictory gestures — see `WorldViewport.follow`.
+         */
+        follow={mayWalk ? { u: walkU, v: walkV } : null}
         animate={animate}
       >
         {(world) => (
@@ -635,6 +717,32 @@ export function LivingMapScene({
                  */
                 progress={phase === "SEARCHING" ? undefined : found}
                 muted={phase === "SEARCHING"}
+              />
+            ) : null}
+
+            {/*
+              * THE CUSTOMER. Drawn last, so it is in front of the shops it
+              * is walking past — the one figure in this world that is
+              * always nearest, because it is where the person holding the
+              * phone is standing.
+              *
+              * It renders nothing at all when no avatar was chosen or the
+              * art has not arrived. A stand-in body would be the app
+              * telling somebody what they look like.
+              */}
+            {canWalk ? (
+              <Walker
+                assetId={walkAssetId}
+                heightRatio={walkHeight}
+                sources={worldSources}
+                width={world.width}
+                height={world.height}
+                u={walkU}
+                v={walkV}
+                startAt={walkedTo.current}
+                heading={mayWalk ? heading : null}
+                animate={animate}
+                onSettled={rememberWalk}
               />
             ) : null}
           </>
@@ -823,6 +931,23 @@ export function LivingMapScene({
       ) : null}
 
       {/*
+        * THE CONTROL THAT WALKS — screen space, never in the world.
+        *
+        * It is pinned low and to the side because that is where a thumb
+        * already rests on a phone held one-handed, and it is on the LEFT
+        * in a right-to-left app for the same reason the back control is on
+        * the right: the reading direction is mirrored, the hand is not.
+        *
+        * It appears only while there is a street to walk down and somebody
+        * to walk it. See `mayWalk`.
+        */}
+      {mayWalk ? (
+        <View style={styles.steerWrap} pointerEvents="box-none">
+          <SteerPad onHeading={setHeading} />
+        </View>
+      ) : null}
+
+      {/*
         * THE ONE LINE THAT MAKES THE INVENTED CITY HONEST. It is small and
         * it is always there while the adapter is illustrative.
         */}
@@ -865,6 +990,12 @@ const HUD_SHARE = 0.17;
 const SHEET_SHARE = 0.26;
 
 const styles = StyleSheet.create({
+  steerWrap: {
+    position: "absolute",
+    left: spacing.lg,
+    // Clear of the honesty line at the very bottom, which nothing covers.
+    bottom: spacing.xl * 2,
+  },
   scene: { overflow: "hidden", backgroundColor: P.nightTop },
   themeWash: { ...StyleSheet.absoluteFillObject },
   pulse: { position: "absolute", width: 180, height: 180, borderRadius: 90, borderWidth: 2 },
