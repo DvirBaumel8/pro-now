@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import {
@@ -176,9 +176,37 @@ export function TrackingBody({
    * has given no ETA, which holds the journey still rather than creeping
    * forward at an invented speed.
    */
+  /*
+   * A CLOCK, SO THE SECONDS BETWEEN READINGS ARE DRAWN.
+   *
+   * Readings arrive every few seconds, and the figure used to be pinned to
+   * the last one — motionless in the road, then a jump. `routeProgress`
+   * now subtracts the elapsed seconds from the ETA the server gave, which
+   * renders a claim already made rather than inventing one; it still
+   * refuses to move at all without an ETA, and still stops at the door.
+   *
+   * Ticking once a second is enough: the vehicle eases between readings on
+   * its own, so this only has to keep supplying it with somewhere to ease
+   * towards.
+   */
+  const [tick, setTick] = useState(() => Date.now());
+  useEffect(() => {
+    if (!animate) return;
+    const id = setInterval(() => setTick(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [animate]);
+  const etaReadAt = useRef(Date.now());
+  const lastEta = useRef(eta?.etaSeconds ?? null);
+  if ((eta?.etaSeconds ?? null) !== lastEta.current) {
+    lastEta.current = eta?.etaSeconds ?? null;
+    etaReadAt.current = Date.now();
+  }
+
   const tripProgress = routeProgress({
     etaSecondsAtAssignment: etaSecondsAtAssignment ?? null,
     etaSecondsNow: eta?.etaSeconds ?? null,
+    etaReadAtMs: etaReadAt.current,
+    nowMs: tick,
   });
 
   // The map gets the top 54%; the sheet sizes itself and overlaps the rest.

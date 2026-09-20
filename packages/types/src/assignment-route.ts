@@ -119,11 +119,46 @@ export function routeAt(department: DepartmentCode, progress: number): RouteStep
 export function routeProgress(args: {
   etaSecondsAtAssignment: number | null;
   etaSecondsNow: number | null;
+  /**
+   * Now, and when the current ETA was read. Both optional; supplying them
+   * is what lets the journey continue between readings — see below.
+   */
+  nowMs?: number;
+  etaReadAtMs?: number;
 }): number | null {
   const { etaSecondsAtAssignment: total, etaSecondsNow: left } = args;
   if (total === null || left === null) return null;
   if (!Number.isFinite(total) || !Number.isFinite(left) || total <= 0) return null;
-  return Math.max(0, Math.min(1, 1 - left / total));
+
+  /*
+   * WHY THE CLOCK IS ALLOWED IN HERE, AND WHAT IT IS NOT ALLOWED TO DO.
+   *
+   * Amit: *"חייב להשקיע יותר בתזוזה... זה נראה כמו סתם הנפשה גרועה."* On
+   * the tracking screen the largest part of that was not the animation at
+   * all — it was that the professional did not move. Readings arrive every
+   * few seconds and the figure was pinned to the last one, so it sat
+   * motionless in the road and then jumped. A still figure on a road is
+   * read as a broken animation, and reasonably so.
+   *
+   * The distinction that keeps this honest is between INVENTING progress
+   * and RENDERING a claim already made. The server said fourteen minutes.
+   * Fourteen minutes is a statement about time passing; drawing the
+   * seconds between two readings is showing that statement, not adding to
+   * it. What would be invention is continuing past the end, or moving when
+   * no ETA was given at all, and neither is possible here: the seconds
+   * elapsed are subtracted from the ETA the server actually gave, and the
+   * result is clamped, so a late professional stops at the door rather
+   * than walking through it.
+   *
+   * Without the clock this behaves exactly as before, which is what keeps
+   * every existing caller and every existing test correct.
+   */
+  const elapsedSeconds =
+    args.nowMs !== undefined && args.etaReadAtMs !== undefined
+      ? Math.max(0, (args.nowMs - args.etaReadAtMs) / 1000)
+      : 0;
+  const remaining = Math.max(0, left - elapsedSeconds);
+  return Math.max(0, Math.min(1, 1 - remaining / total));
 }
 
 /**

@@ -212,16 +212,26 @@ export function WorldBackdrop({
   const worldH = wb.height;
 
   // How far the plate sits so a given world point lands mid-screen.
-  const shift = (f: { u: number; v: number }, axis: "u" | "v") =>
-    isWorldPlate
-      ? axis === "u"
-        ? width / 2 - f.u * worldW
-        : height / 2 - f.v * worldH
-      : // Fitted fallback: centred, and a request to travel is ignored
-        // rather than answered with a crop of somewhere else.
-        axis === "u"
-        ? (width - worldW) / 2
-        : (height - worldH) / 2;
+  /*
+   * CLAMPED, SO THE EDGE OF THE WORLD NEVER ENTERS THE FRAME.
+   *
+   * `WorldViewport` has always clamped this; the backdrop did not, and it
+   * did not matter while the camera only ever looked near the middle. It
+   * started mattering the moment the camera FOLLOWED somebody: the
+   * professional's route ends at the customer, low in the world, so the
+   * focus walked past what the plate could cover and the frame filled with
+   * black down one side and along the bottom. Looking past the end of the
+   * plate is what turns a place back into a photograph.
+   */
+  const shift = (f: { u: number; v: number }, axis: "u" | "v") => {
+    if (!isWorldPlate) {
+      // Fitted fallback: centred, and a request to travel is ignored
+      // rather than answered with a crop of somewhere else.
+      return axis === "u" ? (width - worldW) / 2 : (height - worldH) / 2;
+    }
+    if (axis === "u") return Math.min(0, Math.max(width - worldW, width / 2 - f.u * worldW));
+    return Math.min(0, Math.max(height - worldH, height / 2 - f.v * worldH));
+  };
 
   const travelTransform = [
     {

@@ -91,6 +91,17 @@ export interface RunningMoment {
   moment: WorldMoment;
   /** When it started, on the same clock passed to `directWorld`. */
   startedAt: number;
+  /**
+   * How long THIS playing actually lasts, when it is not the table's value.
+   *
+   * A journey's length is a property of the traveller and the road, not of
+   * the moment — a person on foot and a scooter take different times over
+   * the same street (see `world-motion.ts`). The director has to cull by
+   * the duration being played or the two disagree, and the visible symptom
+   * is a figure that arrives at the end of the road and then stands there,
+   * motionless, until the table says it may leave.
+   */
+  durationMs?: number;
 }
 
 export interface DirectorDecision {
@@ -127,7 +138,9 @@ export function directWorld(args: {
    */
   departmentCode?: string | null;
 }): DirectorDecision {
-  const running = args.running.filter((r) => args.now - r.startedAt < MOMENT_SPEC[r.moment].durationMs);
+  const running = args.running.filter(
+    (r) => args.now - r.startedAt < (r.durationMs ?? MOMENT_SPEC[r.moment].durationMs)
+  );
 
   if (args.reducedMotion) return { running, start: null };
 

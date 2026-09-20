@@ -81,3 +81,58 @@ describe("progress comes from the server's ETA", () => {
     expect(routeProgress({ etaSecondsAtAssignment: 600, etaSecondsNow: 900 })).toBe(0);
   });
 });
+
+describe("the journey continues between readings", () => {
+  /*
+   * The fault: readings arrive every few seconds and the figure was pinned
+   * to the last one, so it sat motionless in the road and then jumped. A
+   * still figure on a road reads as a broken animation, and reasonably so.
+   */
+  it("moves as the seconds pass, without a new reading", () => {
+    const read = 1_000_000;
+    const a = routeProgress({
+      etaSecondsAtAssignment: 600,
+      etaSecondsNow: 600,
+      etaReadAtMs: read,
+      nowMs: read,
+    });
+    const b = routeProgress({
+      etaSecondsAtAssignment: 600,
+      etaSecondsNow: 600,
+      etaReadAtMs: read,
+      nowMs: read + 60_000,
+    });
+    expect(a).toBe(0);
+    expect(b).toBeCloseTo(0.1, 6);
+  });
+
+  it("behaves exactly as before when no clock is supplied", () => {
+    // Every existing caller passes no clock, and must be unaffected.
+    expect(routeProgress({ etaSecondsAtAssignment: 600, etaSecondsNow: 300 })).toBeCloseTo(0.5, 6);
+  });
+
+  it("stops at the door rather than walking through it", () => {
+    // Inventing progress would mean continuing past the end. A late
+    // professional is late; the drawing must not resolve that for them.
+    const read = 1_000_000;
+    expect(
+      routeProgress({
+        etaSecondsAtAssignment: 600,
+        etaSecondsNow: 30,
+        etaReadAtMs: read,
+        nowMs: read + 10 * 60_000,
+      })
+    ).toBe(1);
+  });
+
+  it("still refuses to move at all without an ETA", () => {
+    expect(
+      routeProgress({
+        etaSecondsAtAssignment: null,
+        etaSecondsNow: null,
+        etaReadAtMs: 1,
+        nowMs: 99_999,
+      })
+    ).toBeNull();
+  });
+});

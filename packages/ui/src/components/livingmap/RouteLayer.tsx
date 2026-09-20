@@ -2,7 +2,16 @@ import React, { useEffect, useRef } from "react";
 import { Animated, Easing, StyleSheet, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 
-import { assignmentRoute, CUSTOMER_POINT, WORLD_SIZE, type DepartmentCode } from "@pro-now/types";
+import {
+  assignmentRoute,
+  bobAt,
+  CUSTOMER_POINT,
+  leanAt,
+  pathLength,
+  WORLD_SIZE,
+  type DepartmentCode,
+  type Gait,
+} from "@pro-now/types";
 
 import { palette } from "../../theme";
 import { AssetSlot, EMPTY_ASSET_SOURCES, type WorldAssetSources } from "./AssetSlot";
@@ -102,7 +111,12 @@ export function RouteLayer({
   // `width`/`height` are the WORLD's size in points.
   const basis = sizeBasis ?? width;
   void basis;
-  const route = assignmentRoute(department);
+  /*
+   * Sampled finely enough for the gait. See STREET_SAMPLES in WorldLife:
+   * a sine read at three points per cycle and interpolated linearly is a
+   * wobble, not a step.
+   */
+  const route = assignmentRoute(department, 160);
   const steps = route.map((_, i) => i / (route.length - 1));
 
   /*
@@ -142,7 +156,21 @@ export function RouteLayer({
    * the vehicle does not flip back and forth on a bend.
    */
   const netTravel = (route[route.length - 1]?.at.u ?? 0) - (route[0]?.at.u ?? 0);
-  const facing = netTravel > 0 ? -1 : 1;
+  const facing: 1 | -1 = netTravel > 0 ? -1 : 1;
+
+  /*
+   * THE PROFESSIONAL IS TRAVELLING, NOT SLIDING.
+   *
+   * The same gait the street's own traffic uses — see `world-motion.ts`.
+   * It matters more here than anywhere: this is the one screen where
+   * somebody is watching a single figure for minutes at a time, and a
+   * sticker being dragged down a road holds up badly under that.
+   *
+   * The dog walker arrives on foot and everything else on wheels, which is
+   * a fact about the trade rather than a choice about the animation.
+   */
+  const gait: Gait = vehicleAssetId === "dog_walker" ? "WALK" : vehicleAssetId === "courier_scooter" ? "RIDE" : "HAUL";
+  const travelled = route.map((_, i) => pathLength(route.slice(0, i + 1).map((r) => r.at)));
 
   // The road already travelled, so the customer can see the shape of the
   // trip rather than only its current point.
@@ -209,9 +237,25 @@ export function RouteLayer({
               },
               // Nearer means larger: the same depth rule the whole world uses.
               {
+                // One rise and fall per stride of ground covered, scaled
+                // down with distance so a figure far up the street bobs as
+                // little as it is small.
+                translateY: driver.interpolate({
+                  inputRange: steps,
+                  outputRange: travelled.map((d, i) => bobAt(gait, d) * h * route[i]!.scale),
+                }),
+              },
+              {
                 scale: driver.interpolate({
                   inputRange: steps,
                   outputRange: route.map((s) => s.scale),
+                }),
+              },
+              {
+                // Leaning into the walk. Zero for anything on wheels.
+                rotate: driver.interpolate({
+                  inputRange: steps,
+                  outputRange: travelled.map((d) => `${leanAt(gait, d, facing).toFixed(2)}deg`),
                 }),
               },
               // Turned to face the way it is going, not mirrored art.

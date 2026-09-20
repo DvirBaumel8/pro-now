@@ -9,6 +9,11 @@ import {
   depthScale,
   alongStreet,
   STREETS,
+  bobAt,
+  leanAt,
+  pathLength,
+  travelMs,
+  type Gait,
   type RunningMoment,
   type WorldMoment,
 } from "@pro-now/types";
@@ -82,12 +87,12 @@ import { AssetSlot, EMPTY_ASSET_SOURCES, type WorldAssetSources } from "./AssetS
  * row of balconies.
  */
 const MOMENT_ASSET: Readonly<
-  Record<WorldMoment, { assetId: string; widthRatio: number; street: number; at?: number }>
+  Record<WorldMoment, { assetId: string; widthRatio: number; street: number; at?: number; gait?: Gait }>
 > = {
-  COURIER_PASS: { assetId: "courier_scooter", widthRatio: 0.11, street: 0 },
-  MOVER_PASS: { assetId: "moving_van", widthRatio: 0.15, street: 0 },
-  TOW_PASS: { assetId: "tow_truck", widthRatio: 0.17, street: 0 },
-  DOG_WALK: { assetId: "dog_walker", widthRatio: 0.06, street: 0 },
+  COURIER_PASS: { assetId: "courier_scooter", widthRatio: 0.11, street: 0, gait: "RIDE" },
+  MOVER_PASS: { assetId: "moving_van", widthRatio: 0.15, street: 0, gait: "HAUL" },
+  TOW_PASS: { assetId: "tow_truck", widthRatio: 0.17, street: 0, gait: "HAUL" },
+  DOG_WALK: { assetId: "dog_walker", widthRatio: 0.06, street: 0, gait: "WALK" },
   // `at` is a point along the street: a light comes on in a shop, not in
   // mid-air.
   WINDOW_LIGHT: { assetId: "amb_window_light", widthRatio: 0.07, street: 0, at: 0.3 },
@@ -101,7 +106,18 @@ const MOMENT_ASSET: Readonly<
  * Enough points that a bend never shows as a corner, few enough that the
  * interpolation stays cheap. The move runs on the native driver either way.
  */
-const STREET_SAMPLES = 24;
+/**
+ * How finely a road is sampled.
+ *
+ * 24 was enough when the only things read off the path were position and
+ * scale, which change slowly. The gait does not: a walker takes about
+ * sixteen strides down the main street, and a sine sampled fewer than a
+ * few times per cycle and then linearly interpolated does not come back as
+ * a step — it comes back as an arbitrary wobble, which is exactly the
+ * "bad animation" this was meant to fix. 160 gives about ten samples per
+ * stride, and the cost is four arrays of numbers per moving thing.
+ */
+const STREET_SAMPLES = 160;
 
 interface Playing extends RunningMoment {
   /** Which way round the square. Decided once, at the start. */
@@ -163,14 +179,46 @@ export function WorldLife({
       if (!decision.start) return kept;
 
       const driver = new Animated.Value(0);
+      /*
+       * HOW LONG IT TAKES IS A PROPERTY OF THE TRAVELLER AND THE ROAD.
+       *
+       * Every moment used to carry its own duration, so a person on foot
+       * and a scooter crossed the same street in whatever time the table
+       * said — which meant one of them was sprinting. Now the gait's real
+       * speed and the road's real length decide, and the table's duration
+       * is left to the ambient moments, which are not journeys.
+       *
+       * LINEAR, and this matters as much as the gait. Traffic was eased in
+       * and out, so a van accelerated from nothing, cruised, and slowed to
+       * a halt in the middle of a road for no reason at all. Easing belongs
+       * to a camera, which is making a decision; a van is just driving.
+       */
+      const startSpec = MOMENT_ASSET[decision.start];
+      const travelling = isSignificant(decision.start);
+      const road = STREETS[startSpec.street % STREETS.length]!;
+      const duration = travelling
+        ? travelMs(startSpec.gait ?? "DRIVE", pathLength(road.path))
+        : MOMENT_SPEC[decision.start].durationMs;
       Animated.timing(driver, {
         toValue: 1,
-        duration: MOMENT_SPEC[decision.start].durationMs,
-        easing: isSignificant(decision.start) ? Easing.linear : Easing.inOut(Easing.quad),
+        duration,
+        easing: travelling ? Easing.linear : Easing.inOut(Easing.quad),
         useNativeDriver: true,
       }).start();
 
-      return [...kept, { moment: decision.start, startedAt: Date.now(), reversed: Math.random() < 0.5, from: Math.random() * Math.PI * 2, driver }];
+      return [
+        ...kept,
+        {
+          moment: decision.start,
+          startedAt: Date.now(),
+          // The director culls by this, so what is playing and what it
+          // believes is playing cannot drift apart.
+          durationMs: duration,
+          reversed: Math.random() < 0.5,
+          from: Math.random() * Math.PI * 2,
+          driver,
+        },
+      ];
     });
 
     timer.current = setTimeout(beat, nextBeatMs(Math.random()));
@@ -222,6 +270,20 @@ export function WorldLife({
           return { u: at.u, v: at.v, scale: depthScale(at.v) };
         });
         const steps = path.map((_, i) => i / (path.length - 1));
+
+        /*
+         * HOW FAR IT HAS COME, AT EVERY SAMPLE.
+         *
+         * The gait is driven by distance travelled rather than by a clock —
+         * see `world-motion.ts` for why that is the whole difference
+         * between walking and being dragged. So the path is measured as it
+         * is walked, and the bob and the lean are sampled at exactly the
+         * points the position is sampled at. They cannot drift apart,
+         * because they are readings of the same journey.
+         */
+        const gait: Gait = spec.gait ?? "DRIVE";
+        const facing: 1 | -1 = p.reversed ? -1 : 1;
+        const travelled = path.map((_, i) => pathLength(path.slice(0, i + 1)));
         const still =
           spec.at !== undefined ? alongStreet(STREETS[spec.street % STREETS.length]!, spec.at) : null;
 
@@ -241,9 +303,29 @@ export function WorldLife({
                   }),
                 },
                 {
+                  /*
+                   * THE STEP. One rise and fall per stride of ground
+                   * covered, scaled with distance so a figure far up the
+                   * street bobs as little as it is small. Listed before
+                   * `scale` so it is in the same space as the position
+                   * above it.
+                   */
+                  translateY: p.driver.interpolate({
+                    inputRange: steps,
+                    outputRange: travelled.map((d, i) => bobAt(gait, d) * base * path[i]!.scale),
+                  }),
+                },
+                {
                   scale: p.driver.interpolate({
                     inputRange: steps,
                     outputRange: path.map((q) => q.scale),
+                  }),
+                },
+                {
+                  // Leaning into the walk. Zero for anything on wheels.
+                  rotate: p.driver.interpolate({
+                    inputRange: steps,
+                    outputRange: travelled.map((d) => `${leanAt(gait, d, facing).toFixed(2)}deg`),
                   }),
                 },
                 // Facing. Round one way or round the other.
