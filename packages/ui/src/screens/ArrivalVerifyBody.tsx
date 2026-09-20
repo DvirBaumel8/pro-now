@@ -189,12 +189,17 @@ export function ArrivalVerifyBody({
 function CodeDigits({ code }: { code: string }) {
   const v = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    Animated.timing(v, {
+    // Stopped on the way out, like every other one-shot in the app: a
+    // started animation with no cleanup keeps a frame callback alive
+    // against a view that has gone.
+    const anim = Animated.timing(v, {
       toValue: 1,
       duration: 420,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
-    }).start();
+    });
+    anim.start();
+    return () => anim.stop();
   }, [v]);
 
   return (

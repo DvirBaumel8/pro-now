@@ -68,28 +68,53 @@ export function ProJobSettledBody({
   const sweep = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.timing(rise, {
+    const anim = Animated.timing(rise, {
       toValue: 1,
       duration: 420,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
-    }).start();
+    });
+    anim.start();
+    return () => anim.stop();
   }, [rise]);
 
   // The bar fills over the dwell, so the professional can SEE how long they
   // have before the app moves on. A timer that is invisible feels like a
   // screen that vanished; a timer they can watch feels like a screen that
   // finished.
+  /*
+   * THE CALLBACK IS HELD IN A REF, AND THAT IS THE WHOLE FIX.
+   *
+   * `onDone` was in the dependency array, and every caller passes an
+   * inline arrow — a new function on every render. The professional's
+   * side re-renders once a second from its own shift clock, so this
+   * effect was torn down and rebuilt every second: the timeout was
+   * cleared and re-armed before it could ever fire, and the bar eased
+   * from wherever it had got to towards 1 over a fresh full duration,
+   * approaching it and never arriving.
+   *
+   * So the screen never advanced and the bar never filled. It looked
+   * like a slow animation; it was a timer that could not finish.
+   */
+  const done = useRef(onDone);
   useEffect(() => {
-    Animated.timing(sweep, {
+    done.current = onDone;
+  }, [onDone]);
+
+  useEffect(() => {
+    const bar = Animated.timing(sweep, {
       toValue: 1,
       duration: dwellMs,
       easing: Easing.linear,
       useNativeDriver: false,
-    }).start();
-    const id = setTimeout(() => onDone?.(), dwellMs);
-    return () => clearTimeout(id);
-  }, [dwellMs, onDone, sweep]);
+    });
+    bar.start();
+    const id = setTimeout(() => done.current?.(), dwellMs);
+    return () => {
+      clearTimeout(id);
+      bar.stop();
+    };
+  }, [dwellMs, sweep]);
 
   const m = (v: number | null) => (v === null ? "—" : formatMoney(money(v, "ILS")));
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { elevation, radii, scale, spacing, type } from "../theme";
@@ -37,17 +37,36 @@ export function Sheet({
   height: number;
 }) {
   const v = useRef(new Animated.Value(0)).current;
+  const [mounted, setMounted] = useState(visible);
 
+  /*
+   * THE EXIT HAS TO OUTLIVE THE PROP.
+   *
+   * The dismiss animation started and, on the same render, `visible`
+   * became false and the tree unmounted — so a 180ms slide ran to
+   * completion on a node nobody could see, and on screen the sheet simply
+   * vanished. Half the motion in this component was unreachable.
+   *
+   * Staying mounted until the animation's own completion callback fires
+   * is what makes a close look like a close. `finished` matters: an
+   * animation interrupted by re-opening must not then unmount the sheet
+   * that is on its way back in.
+   */
   useEffect(() => {
-    Animated.timing(v, {
+    if (visible) setMounted(true);
+    const anim = Animated.timing(v, {
       toValue: visible ? 1 : 0,
       duration: visible ? 280 : 180,
       easing: visible ? Easing.out(Easing.cubic) : Easing.in(Easing.quad),
       useNativeDriver: true,
-    }).start();
+    });
+    anim.start(({ finished }) => {
+      if (finished && !visible) setMounted(false);
+    });
+    return () => anim.stop();
   }, [visible, v]);
 
-  if (!visible) return null;
+  if (!mounted) return null;
 
   return (
     /*

@@ -163,63 +163,84 @@ export function WorldLife({
   const basis = sizeBasis ?? width;
   void basis;
   const [playing, setPlaying] = useState<Playing[]>([]);
+  /** What is on the street, readable without waiting for a render. */
+  const playingRef = useRef<Playing[]>([]);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Every traffic animation currently running, so unmount can stop them. */
+  const running = useRef<Animated.CompositeAnimation[]>([]);
 
+  /*
+   * ---------------------------------------------------------------------
+   * THE ANIMATION IS STARTED OUTSIDE THE STATE UPDATER
+   * ---------------------------------------------------------------------
+   * All of this used to live inside `setPlaying(current => ...)` — a
+   * reducer that created an `Animated.Value` and called `.start()` on it.
+   * A state updater must be pure, and React is allowed to call it twice:
+   * under StrictMode every vehicle started two animations against two
+   * values, one of which nothing ever rendered and nothing ever stopped.
+   *
+   * A ref mirror of what is playing lets the decision be made, the
+   * animation started once, and the state set once — in that order, all
+   * outside the updater. The mirror is written in the same breath as the
+   * state so the two cannot disagree about what is on the street.
+   */
   const beat = useCallback(() => {
-    setPlaying((current) => {
-      const decision = directWorld({
-        now: Date.now(),
-        running: current,
-        roll: Math.random(),
-        reducedMotion: !animate,
-        departmentCode,
-      });
-
-      const kept = current.filter((p) => decision.running.some((r) => r.moment === p.moment));
-      if (!decision.start) return kept;
-
-      const driver = new Animated.Value(0);
-      /*
-       * HOW LONG IT TAKES IS A PROPERTY OF THE TRAVELLER AND THE ROAD.
-       *
-       * Every moment used to carry its own duration, so a person on foot
-       * and a scooter crossed the same street in whatever time the table
-       * said — which meant one of them was sprinting. Now the gait's real
-       * speed and the road's real length decide, and the table's duration
-       * is left to the ambient moments, which are not journeys.
-       *
-       * LINEAR, and this matters as much as the gait. Traffic was eased in
-       * and out, so a van accelerated from nothing, cruised, and slowed to
-       * a halt in the middle of a road for no reason at all. Easing belongs
-       * to a camera, which is making a decision; a van is just driving.
-       */
-      const startSpec = MOMENT_ASSET[decision.start];
-      const travelling = isSignificant(decision.start);
-      const road = STREETS[startSpec.street % STREETS.length]!;
-      const duration = travelling
-        ? travelMs(startSpec.gait ?? "DRIVE", pathLength(road.path))
-        : MOMENT_SPEC[decision.start].durationMs;
-      Animated.timing(driver, {
-        toValue: 1,
-        duration,
-        easing: travelling ? Easing.linear : Easing.inOut(Easing.quad),
-        useNativeDriver: true,
-      }).start();
-
-      return [
-        ...kept,
-        {
-          moment: decision.start,
-          startedAt: Date.now(),
-          // The director culls by this, so what is playing and what it
-          // believes is playing cannot drift apart.
-          durationMs: duration,
-          reversed: Math.random() < 0.5,
-          from: Math.random() * Math.PI * 2,
-          driver,
-        },
-      ];
+    const current = playingRef.current;
+    const decision = directWorld({
+      now: Date.now(),
+      running: current,
+      roll: Math.random(),
+      reducedMotion: !animate,
+      departmentCode,
     });
+
+    const kept = current.filter((p) => decision.running.some((r) => r.moment === p.moment));
+
+    if (!decision.start) {
+      playingRef.current = kept;
+      setPlaying(kept);
+      timer.current = setTimeout(beat, nextBeatMs(Math.random()));
+      return;
+    }
+
+    const driver = new Animated.Value(0);
+    const startSpec = MOMENT_ASSET[decision.start];
+    const travelling = isSignificant(decision.start);
+    const road = STREETS[startSpec.street % STREETS.length]!;
+    const duration = travelling
+      ? travelMs(startSpec.gait ?? "DRIVE", pathLength(road.path))
+      : MOMENT_SPEC[decision.start].durationMs;
+
+    /*
+     * LINEAR, and this matters as much as the gait. Traffic was eased in
+     * and out, so a van accelerated from nothing, cruised, and slowed to
+     * a halt in the middle of a road for no reason at all. Easing belongs
+     * to a camera, which is making a decision; a van is just driving.
+     */
+    const anim = Animated.timing(driver, {
+      toValue: 1,
+      duration,
+      easing: travelling ? Easing.linear : Easing.inOut(Easing.quad),
+      useNativeDriver: true,
+    });
+    running.current.push(anim);
+    anim.start();
+
+    const next = [
+      ...kept,
+      {
+        moment: decision.start,
+        startedAt: Date.now(),
+        // The director culls by this, so what is playing and what it
+        // believes is playing cannot drift apart.
+        durationMs: duration,
+        reversed: Math.random() < 0.5,
+        from: Math.random() * Math.PI * 2,
+        driver,
+      },
+    ];
+    playingRef.current = next;
+    setPlaying(next);
 
     timer.current = setTimeout(beat, nextBeatMs(Math.random()));
   }, [animate, departmentCode]);
@@ -227,11 +248,21 @@ export function WorldLife({
   useEffect(() => {
     if (!animate) {
       setPlaying([]);
+      playingRef.current = [];
       return;
     }
     timer.current = setTimeout(beat, nextBeatMs(Math.random()));
     return () => {
       if (timer.current) clearTimeout(timer.current);
+      /*
+       * Every traffic animation stopped on the way out. They were started
+       * and never stopped, so leaving this screen left a frame callback
+       * per vehicle running against a view that no longer existed — and
+       * the street starts a new one every few seconds, so the count only
+       * went up.
+       */
+      for (const anim of running.current) anim.stop();
+      running.current = [];
     };
   }, [animate, beat]);
 
@@ -283,7 +314,33 @@ export function WorldLife({
          */
         const gait: Gait = spec.gait ?? "DRIVE";
         const facing: 1 | -1 = p.reversed ? -1 : 1;
-        const travelled = path.map((_, i) => pathLength(path.slice(0, i + 1)));
+        /*
+         * MEASURED ONCE, CUMULATIVELY.
+         *
+         * This was `path.map((_, i) => pathLength(path.slice(0, i + 1)))`
+         * — for 160 samples that is 12,800 array copies and 12,700
+         * distance calculations, per moving item, per render, and the
+         * scene re-renders up to twenty times a second during a journey.
+         * Roughly half a million square roots a second to describe four
+         * vehicles driving down a street.
+         *
+         * A running total is the same numbers in one pass. The 0.6
+         * weighting on `dv` is the world's own 3/4 rule and matches
+         * `pathLength`, which this replaces — the two must agree or the
+         * gait drifts against the position it is supposed to belong to.
+         */
+        const travelled: number[] = [];
+        {
+          let total = 0;
+          for (let i = 0; i < path.length; i += 1) {
+            if (i > 0) {
+              const a = path[i - 1]!;
+              const b = path[i]!;
+              total += Math.hypot(b.u - a.u, (b.v - a.v) * 0.6);
+            }
+            travelled.push(total);
+          }
+        }
         const still =
           spec.at !== undefined ? alongStreet(STREETS[spec.street % STREETS.length]!, spec.at) : null;
 
@@ -297,9 +354,27 @@ export function WorldLife({
                   }),
                 },
                 {
+                  /*
+                   * THE WHEELS ON THE TARMAC, NOT NEAR IT.
+                   *
+                   * `scale` below grows the box about its CENTRE, so after
+                   * scaling by s the bottom edge sits at
+                   * `top + base * (1 + s) / 2`. Subtracting only half the
+                   * unscaled height leaves a gap that changes with depth:
+                   * `depthScale` runs 0.74 to 1.18, so a van drifts about
+                   * a fifth of its own height as it drives down the
+                   * street, sinking into the road when near and hovering
+                   * when far.
+                   *
+                   * This is the fourth place this exact mistake has been
+                   * made — RouteLayer and Walker both carry the same
+                   * correction and the same comment, and Amit named the
+                   * symptom the first time: *"כאילו הוא נופל."* Anything
+                   * that scales and stands on the ground needs this line.
+                   */
                   translateY: p.driver.interpolate({
                     inputRange: steps,
-                    outputRange: path.map((q) => q.v * height - base / 2),
+                    outputRange: path.map((q) => q.v * height - (base * (1 + q.scale)) / 2),
                   }),
                 },
                 {

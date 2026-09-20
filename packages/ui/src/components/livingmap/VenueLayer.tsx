@@ -170,6 +170,14 @@ function shapeOf(assetId: string): { ratio: number; anchorX: number } {
  */
 const CHOSEN_SCALE = WORLD_SIZE.chosenVenue / WORLD_SIZE.venue;
 
+/**
+ * The latest a shop may start waking, as a fraction of the reveal.
+ *
+ * Leaves room for the 0.4 the wake itself takes, so even the last shop
+ * finishes before the transition does.
+ */
+const LAST_WAKE = 0.55;
+
 export function VenueLayer({
   venues,
   candidates,
@@ -261,7 +269,21 @@ export function VenueLayer({
          * STAGGERED WAKING. Three shops lighting up at once is a switch
          * being flipped; one after another is a street noticing you.
          */
-        const stagger = 0.18 * i;
+        /*
+         * CAPPED, BECAUSE AN UNCAPPED STAGGER IS A CRASH.
+         *
+         * `0.18 * i` passes 1 at the seventh venue, and the input range
+         * became [0, 1.08, 1, 1] — decreasing at index 2. React Native's
+         * interpolation invariant requires a monotonically non-decreasing
+         * input range and throws, which takes the whole Living Map down
+         * mid-render. Nothing caps how many candidates dispatch may
+         * return, so a wide fan-out was a white screen.
+         *
+         * Capping is also better than the alternative: a stagger that
+         * kept growing would have the last shop waking after the customer
+         * had already chosen one.
+         */
+        const stagger = Math.min(LAST_WAKE, 0.18 * i);
         const wake = progress
           ? progress.interpolate({
               inputRange: [0, stagger, Math.min(1, stagger + 0.4), 1],

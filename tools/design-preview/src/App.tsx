@@ -526,6 +526,22 @@ export function App() {
             }}
             avatar={avatar}
             art={art}
+            standIn={standIn}
+            onToggleStandIn={() => {
+              const next = !standIn;
+              setStandIn(next);
+              /*
+               * Re-ask only if there is nothing to walk as. The faces are
+               * real now and the question arrives by itself after
+               * sign-in, so re-opening the picker here would take a
+               * choice somebody already made and put it back in front of
+               * them.
+               */
+              if (!avatar) {
+                avatarAnswered.current = false;
+                setGate({ name: "avatar" });
+              }
+            }}
           />
         ) : (
           <ProApp
@@ -557,57 +573,6 @@ export function App() {
           * demo control here. A demo control that can be mistaken for the
           * product is worse than no demo control.
           */}
-        {!AVATARS.some((a) => worldSources[a.worldAssetId]) && !gate ? (
-          <Pressable
-            onPress={() => {
-              const next = !standIn;
-              setStandIn(next);
-              /*
-               * Turning it on has to re-ask the question, or somebody who
-               * already skipped never sees the picker and never gets a
-               * figure to walk with.
-               *
-               * But it must not jump the queue. This control is reachable
-               * from the landing page, and sending somebody straight to
-               * the avatar picker from there skips the sign-in — which is
-               * how the walk test first failed: no welcome, no auth, no
-               * app. The picker opens now only if we are already inside;
-               * otherwise the flag is set and the question arrives in its
-               * own place, after sign-in.
-               */
-              /*
-               * Re-ask only if there is nothing to walk as.
-               *
-               * When the portraits were missing this control had to open
-               * the picker, because the picker was hidden and nobody had
-               * ever been asked. The faces are real now and the question
-               * arrives by itself after sign-in — so re-opening it here
-               * would take a choice somebody already made and put it back
-               * in front of them for no reason.
-               */
-              if (!avatar && !gate) {
-                avatarAnswered.current = false;
-                setGate(next ? { name: "avatar" } : null);
-              }
-            }}
-            accessibilityRole="button"
-            /*
-             * Below the connection banner and out of every screen's way.
-             *
-             * It started at the bottom of the screen and landed straight
-             * on top of the landing page's own call to action, which the
-             * walk test caught by being unable to click through it. A demo
-             * control that blocks the product is worse than one nobody
-             * finds.
-             */
-            style={[styles.standIn, { top: bannerH + spacing.xl * 2 }]}
-          >
-            <Text style={styles.standInText}>
-              {standIn ? "▪ הליכה (הדגמה)" : "▸ הליכה (הדגמה)"}
-            </Text>
-          </Pressable>
-        ) : null}
-
         {notice && !gate ? (
           // Offset by the banner, which is in the layout above this overlay.
           // Without it the prototype notice lands on top of the message
@@ -731,6 +696,8 @@ function CustomerApp({
   onQuoteDecision,
   avatar,
   art,
+  standIn,
+  onToggleStandIn,
 }: {
   width: number;
   height: number;
@@ -747,6 +714,9 @@ function CustomerApp({
   avatar: AvatarChoice;
   /** The art that has arrived — or, in review, the borrowed stand-ins. */
   art: WorldAssetSources;
+  /** Whether the walking figures are currently borrowed. */
+  standIn: boolean;
+  onToggleStandIn: () => void;
 }) {
   const snapshot = useLiveSnapshot();
   /**
@@ -1852,8 +1822,36 @@ const go = useCallback((r: CustomerRoute) => {
     }
   }, [tab, route, elapsed, width, bodyH, go, goTab, snapshot, supply, addressId, live, askLocation, addressLabel, capture, faultText, intakeAnswers, answerIntake, trackedService, onSendRequest]);
 
+  /*
+   * ONLY WHERE THERE IS A STREET TO WALK DOWN.
+   *
+   * This floated over every screen in the app, including a service page
+   * about parts that were not supplied in advance — where a button
+   * marked "הליכה" is nonsense. Amit, on the artifact: *"למה יש פה כפתור
+   * הליכה מה קשור."*
+   *
+   * A demo control that appears where the thing it demonstrates does not
+   * exist is worse than no demo control: it reads as a feature of the
+   * screen it is standing on. So it lives here, where the route is
+   * known, rather than above the whole app where it was not.
+   */
+  const walkingDemo =
+    !AVATARS.some((a) => worldSources[a.worldAssetId]) &&
+    tab === "home" &&
+    WALKABLE_SCREENS.includes(route.name) ? (
+      <Pressable
+        onPress={onToggleStandIn}
+        accessibilityRole="button"
+        accessibilityLabel="הדגמה — הליכה עם דמויות מושאלות. הדמויות פונות למצלמה; האווטאר האמיתי ייראה מהגב."
+        style={styles.standIn}
+      >
+        <Text style={styles.standInText}>{standIn ? "▪ הליכה (הדגמה)" : "▸ הליכה (הדגמה)"}</Text>
+      </Pressable>
+    ) : null;
+
   return (
     <View style={{ width, height }}>
+      {walkingDemo}
       <AppHeader
         width={width}
         greetingHe="שלום"
@@ -2709,6 +2707,15 @@ function ProApp({
  * it does. A demo control that can be mistaken for the product is worse than
  * no demo control.
  */
+/**
+ * The screens where walking is a thing that exists.
+ *
+ * Home, because the street's door is there; the street itself; and the
+ * living map, which is where the wait's game runs. Everywhere else the
+ * control would be describing something that is not on the screen.
+ */
+const WALKABLE_SCREENS = ["home", "stroll", "living"];
+
 const DEMO_H = 60;
 
 function DemoBar({
@@ -2885,6 +2892,8 @@ const styles = StyleSheet.create({
    */
   standIn: {
     position: "absolute",
+    zIndex: 5,
+    top: spacing.xl * 2,
     left: spacing.md,
     paddingVertical: 6,
     paddingHorizontal: spacing.md,

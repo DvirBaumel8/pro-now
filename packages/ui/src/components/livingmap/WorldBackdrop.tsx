@@ -162,27 +162,54 @@ export function WorldBackdrop({
    * times the viewport, so a focus of (0.5, 0.5) is the middle of the
    * whole neighbourhood rather than the middle of the screen.
    */
-  const travel = useRef(new Animated.Value(0)).current;
-  const fromFocus = useRef<{ u: number; v: number }>({ u: 0.5, v: 0.5 });
-  const toFocus = useRef<{ u: number; v: number }>(focus ?? { u: 0.5, v: 0.5 });
+  /*
+   * ---------------------------------------------------------------------
+   * THE CAMERA HOLDS ITS POSITION, NOT A PROGRESS BAR
+   * ---------------------------------------------------------------------
+   * This used to be a 0-to-1 driver interpolating between a remembered
+   * `from` and a `to`, reset to 0 on every change of focus. On the
+   * tracking screen the focus changes once a second, so a 1400ms ease was
+   * interrupted at about 70% of its length, every second, for the whole
+   * trip — and because `from` was set to the previous TARGET rather than
+   * to where the plate actually was, `setValue(0)` snapped the unfinished
+   * remainder forward before easing again.
+   *
+   * A hitch once a second, and a camera permanently behind the vehicle it
+   * was following.
+   *
+   * Two values holding the actual position fix it by construction:
+   * `Animated.timing` resumes from wherever a value currently IS, so a
+   * new target mid-move is a redirect rather than a restart. It is the
+   * pattern `RouteLayer` already used and the reason that file never had
+   * this bug.
+   */
+  const camU = useRef(new Animated.Value(focus?.u ?? 0.5)).current;
+  const camV = useRef(new Animated.Value(focus?.v ?? 0.5)).current;
 
   useEffect(() => {
     const next = focus ?? { u: 0.5, v: 0.5 };
-    if (next.u === toFocus.current.u && next.v === toFocus.current.v) return;
-    fromFocus.current = toFocus.current;
-    toFocus.current = next;
-    travel.setValue(0);
     if (!animate) {
-      travel.setValue(1);
+      camU.setValue(next.u);
+      camV.setValue(next.v);
       return;
     }
-    Animated.timing(travel, {
-      toValue: 1,
-      duration: 1400,
-      easing: Easing.inOut(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
-  }, [animate, focus, travel]);
+    const move = Animated.parallel([
+      Animated.timing(camU, {
+        toValue: next.u,
+        duration: 1400,
+        easing: Easing.inOut(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(camV, {
+        toValue: next.v,
+        duration: 1400,
+        easing: Easing.inOut(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]);
+    move.start();
+    return () => move.stop();
+  }, [animate, camU, camV, focus]);
 
   /*
    * THE PLATE IS THE WHOLE NEIGHBOURHOOD, NOT ONE SCREEN OF IT.
@@ -223,29 +250,26 @@ export function WorldBackdrop({
    * black down one side and along the bottom. Looking past the end of the
    * plate is what turns a place back into a photograph.
    */
-  const shift = (f: { u: number; v: number }, axis: "u" | "v") => {
-    if (!isWorldPlate) {
-      // Fitted fallback: centred, and a request to travel is ignored
-      // rather than answered with a crop of somewhere else.
-      return axis === "u" ? (width - worldW) / 2 : (height - worldH) / 2;
-    }
-    if (axis === "u") return Math.min(0, Math.max(width - worldW, width / 2 - f.u * worldW));
-    return Math.min(0, Math.max(height - worldH, height / 2 - f.v * worldH));
+
+  /*
+   * The clamp expressed where Animated can apply it: the two values of
+   * the focus at which the offset would hit the edge of the plate. Same
+   * arithmetic as `shift`, written so it needs no JS per frame.
+   */
+  const axis = (value: Animated.Value, screen: number, world: number) => {
+    if (!isWorldPlate) return new Animated.Value((screen - world) / 2);
+    const span = world - screen;
+    if (span <= 0) return new Animated.Value((screen - world) / 2);
+    return value.interpolate({
+      inputRange: [screen / 2 / world, (world - screen / 2) / world],
+      outputRange: [0, -span],
+      extrapolate: "clamp",
+    });
   };
 
   const travelTransform = [
-    {
-      translateX: travel.interpolate({
-        inputRange: [0, 1],
-        outputRange: [shift(fromFocus.current, "u"), shift(toFocus.current, "u")],
-      }),
-    },
-    {
-      translateY: travel.interpolate({
-        inputRange: [0, 1],
-        outputRange: [shift(fromFocus.current, "v"), shift(toFocus.current, "v")],
-      }),
-    },
+    { translateX: axis(camU, width, worldW) },
+    { translateY: axis(camV, height, worldH) },
   ];
 
   return (

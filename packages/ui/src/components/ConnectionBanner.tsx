@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { radii, scale, spacing, type } from "../theme";
@@ -56,13 +56,29 @@ export function ConnectionBanner({
 
   const visible = state !== "online";
 
+  /*
+   * THE BANNER STAYS UNTIL IT HAS FINISHED LEAVING.
+   *
+   * The slide-up started and the same render returned null, so coming
+   * back online made the banner disappear rather than retract — and the
+   * animation ran out on an unmounted node. On the one component whose
+   * job is to say the connection changed, an instant disappearance is
+   * the least reassuring way to say it came back.
+   */
+  const [mounted, setMounted] = useState(visible);
+
   useEffect(() => {
-    Animated.timing(v, {
+    if (visible) setMounted(true);
+    const anim = Animated.timing(v, {
       toValue: visible ? 1 : 0,
       duration: 220,
       easing: Easing.out(Easing.quad),
       useNativeDriver: true,
-    }).start();
+    });
+    anim.start(({ finished }) => {
+      if (finished && !visible) setMounted(false);
+    });
+    return () => anim.stop();
   }, [visible, v]);
 
   useEffect(() => {
@@ -75,7 +91,7 @@ export function ConnectionBanner({
     return () => loop.stop();
   }, [state, spin]);
 
-  if (!visible) return null;
+  if (!mounted) return null;
 
   const bg =
     state === "offline" ? colors.statusDanger : state === "reconnecting" ? colors.statusWarning : colors.textPrimary;

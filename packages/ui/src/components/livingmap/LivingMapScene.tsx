@@ -231,7 +231,26 @@ export function LivingMapScene({
   }
 
   const chosen = candidates.find((c) => c.state === "CHOSEN") ?? null;
-  const visible = candidates.filter((c) => c.state !== "RULED_OUT");
+  /*
+   * MEMOISED, BECAUSE EVERYTHING DOWNSTREAM IS MEMOISED ON IT.
+   *
+   * This was a fresh array literal every render, and `venues`,
+   * `availability` and `sweep` all list it as a dependency — so all three
+   * `useMemo`s recomputed on every render and handed new objects down.
+   * `sweepFrame` returns a new `camera.focus` literal, which became the
+   * walker's `autoTo`, which is in the walk loop's dependency array: the
+   * requestAnimationFrame loop was cancelled and rebuilt five to twenty
+   * times a second, and each teardown fired `onSettled` — so the "once
+   * per 700ms" report ran at 20Hz.
+   *
+   * The comments in this file claim nothing above the walker re-renders
+   * while somebody walks. One unmemoised filter quietly defeated all of
+   * them.
+   */
+  const visible = useMemo(
+    () => candidates.filter((c) => c.state !== "RULED_OUT"),
+    [candidates]
+  );
 
   /*
    * THE CAMERA, DRIVEN BY THE PHASE.
@@ -306,11 +325,35 @@ export function LivingMapScene({
       setJourneyMs(JOURNEY_TOTAL_MS);
       return;
     }
+    /*
+     * THE CLOCK TICKS AT 20Hz; THE SCREEN DOES NOT.
+     *
+     * `setJourneyMs` used to be called on every tick, re-rendering this
+     * component — and with it WorldStage, WorldLife, eleven districts,
+     * every venue and the walker — twenty times a second for the whole
+     * journey. On the one screen that is live while dispatch is running.
+     *
+     * Nothing downstream reads the millisecond. `beatAt` turns it into
+     * one of five beats and `cardMayShow` into a yes or no, so the screen
+     * has about six distinct states across the whole move. Committing
+     * only when one of those changes keeps the timing exact — the clock
+     * is still read at 20Hz — and drops the re-renders from roughly
+     * eighty to six.
+     */
     const startedAt = Date.now();
+    let committed = -1;
     const id = setInterval(() => {
       const t = Date.now() - startedAt;
-      setJourneyMs(t);
-      if (t >= JOURNEY_TOTAL_MS) clearInterval(id);
+      const done = t >= JOURNEY_TOTAL_MS;
+      const changed =
+        committed < 0 ||
+        beatAt(t) !== beatAt(committed) ||
+        cardMayShow(t) !== cardMayShow(committed);
+      if (changed || done) {
+        committed = t;
+        setJourneyMs(t);
+      }
+      if (done) clearInterval(id);
     }, 50);
     return () => clearInterval(id);
     /*
@@ -498,6 +541,13 @@ export function LivingMapScene({
 
   const walkU = useRef(new Animated.Value(WALK_START.u)).current;
   const walkV = useRef(new Animated.Value(WALK_START.v)).current;
+  /*
+   * One object, not a new literal each render: it is the first dependency
+   * of the viewport's follow transform, so a fresh identity threw away
+   * and rebuilt the two interpolation nodes that position the ENTIRE
+   * world layer, five to twenty times a second, mid-camera-move.
+   */
+  const followPair = useMemo(() => ({ u: walkU, v: walkV }), [walkU, walkV]);
   const walkedTo = useRef<NormalizedPoint>(WALK_START);
   const [heading, setHeading] = useState<Heading>(null);
   const [gait, setGait] = useState<Gait>("WALK");
@@ -682,7 +732,7 @@ export function LivingMapScene({
          * Following replaces the drag while there is somebody to follow.
          * They are contradictory gestures — see `WorldViewport.follow`.
          */
-        follow={mayWalk || autoTo ? { u: walkU, v: walkV } : null}
+        follow={mayWalk || autoTo ? followPair : null}
         animate={animate}
       >
         {(world) => (

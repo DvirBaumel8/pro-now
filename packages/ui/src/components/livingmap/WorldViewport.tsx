@@ -144,12 +144,25 @@ export function WorldViewport({
       travel.setValue(1);
       return;
     }
-    Animated.timing(travel, {
+    /*
+ * STOPPED ON THE WAY OUT.
+ *
+ * A one-shot `timing` that is started and never stopped keeps a frame
+ * callback alive against a node whose view has already gone. It is
+ * invisible until a screen is opened and closed a few times, and then it
+ * is a slow leak on the one screen that stays live during dispatch.
+ *
+ * Every `Animated.loop` in this codebase already cleaned up; it was only
+ * the single shots that were missed.
+ */
+    const anim = Animated.timing(travel, {
       toValue: 1,
       duration: 1200,
       easing: Easing.inOut(Easing.cubic),
       useNativeDriver: true,
-    }).start();
+    });
+    anim.start();
+    return () => anim.stop();
   }, [animate, dragged, focus, offsetFor, travel]);
 
   const startAt = useRef({ x: 0, y: 0 });

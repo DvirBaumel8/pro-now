@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { customerTheme, palette, radii, spacing, type } from "../theme";
@@ -74,9 +74,23 @@ export function FocusSheet({
 }: FocusSheetProps) {
   const v = useRef(new Animated.Value(0)).current;
 
+  /*
+   * MOUNTED UNTIL THE DISMISS HAS ACTUALLY PLAYED.
+   *
+   * The 240ms slide-down started and the same render returned null. The
+   * comment two lines below explains that leaving should not feel
+   * laboured — it did not feel like anything, because the sheet was gone
+   * before the first frame. The professional's card vanished instead of
+   * closing, which is also what made the camera move underneath it read
+   * as unrelated rather than as one gesture.
+   */
+  const [mounted, setMounted] = useState(visible);
+
   useEffect(() => {
+    if (visible) setMounted(true);
     if (!animate) {
       v.setValue(visible ? 1 : 0);
+      setMounted(visible);
       return;
     }
     const a = Animated.timing(v, {
@@ -87,11 +101,13 @@ export function FocusSheet({
       easing: visible ? Easing.out(Easing.cubic) : Easing.in(Easing.cubic),
       useNativeDriver: true,
     });
-    a.start();
+    a.start(({ finished }) => {
+      if (finished && !visible) setMounted(false);
+    });
     return () => a.stop();
   }, [visible, animate, v]);
 
-  if (!visible) return null;
+  if (!mounted) return null;
 
   const sheetH = Math.round(height * heightFraction);
 

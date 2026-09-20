@@ -1,5 +1,5 @@
 import { TRANSITIONS, transitionDirection, type NavDirection, type TransitionShape } from "@pro-now/types";
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Animated, Easing, StyleSheet } from "react-native";
 
 /**
@@ -122,13 +122,37 @@ export function ScreenTransition({
   }, [transitionKey, animate, v, shape]);
 
   /*
-   * The distance is a share of the view's own width rather than a pixel
-   * count, so the move reads the same on a small phone and a large one.
+   * ---------------------------------------------------------------------
+   * POINTS, NOT PERCENTAGES — AND THE REASON IS THE NATIVE DRIVER
+   * ---------------------------------------------------------------------
+   * This was `"-22%"`, which is the right idea and does not survive the
+   * trip to a phone. React Native's native driver converts only colours,
+   * `deg` and `rad` when it serialises an interpolation's output range;
+   * a percentage string falls through and is handed to the native module
+   * as a string. On Android that is a failed cast, and on iOS
+   * `doubleValue` quietly reads "-22%" as -22 POINTS — a nudge instead of
+   * a slide, on every screen change in the product.
+   *
+   * It looked correct only because the gallery runs on react-native-web,
+   * where `useNativeDriver` is ignored and the JS interpolation handles
+   * the string properly. A defect that is invisible in the place you
+   * review and certain in the place you ship.
+   *
+   * So the share of the width is resolved to points here, against the
+   * measured layout. The move still reads the same on a small phone and
+   * a large one — it is the same fraction, worked out one step earlier.
    */
-  const from = `${Math.round(shape.fromX * 100)}%`;
+  const [width, setWidth] = useState(0);
+  const from = shape.fromX * width;
 
   return (
     <Animated.View
+      onLayout={(e) => {
+        const w = e.nativeEvent.layout.width;
+        // Only on a real change: onLayout fires on every re-layout and a
+        // setState per fire would re-render the screen mid-transition.
+        setWidth((was: number) => (Math.abs(was - w) > 0.5 ? w : was));
+      }}
       style={[
         StyleSheet.absoluteFill,
         {
@@ -137,7 +161,7 @@ export function ScreenTransition({
             outputRange: [shape.fromOpacity, Math.max(shape.fromOpacity, 0.85), 1],
           }),
           transform: [
-            { translateX: v.interpolate({ inputRange: [0, 1], outputRange: [from, "0%"] }) },
+            { translateX: v.interpolate({ inputRange: [0, 1], outputRange: [from, 0] }) },
           ],
         },
       ]}
