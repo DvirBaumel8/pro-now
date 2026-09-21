@@ -13,6 +13,19 @@
  * It refuses to cut anywhere the alpha is not empty, so a sheet whose
  * objects touch or overlap fails loudly rather than producing three
  * buildings with each other's corners shaved off.
+ *
+ * ---------------------------------------------------------------------
+ * ROWS FIRST, THEN COLUMNS
+ * ---------------------------------------------------------------------
+ * The first version cut on empty COLUMNS only, which is right for a row
+ * of shopfronts and wrong for the 2x2 grids that started arriving — four
+ * figures came back as two objects, each a column containing two people
+ * stacked, and the ids did not line up.
+ *
+ * Splitting on empty rows first and then on empty columns inside each
+ * band handles both, and reads objects in the order somebody looking at
+ * the sheet would name them: left to right along the top, then the next
+ * line down.
  */
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
@@ -28,38 +41,63 @@ const png = PNG.sync.read(readFileSync(sheet));
 const { width: W, height: H, data } = png;
 const alphaAt = (x, y) => data[(y * W + x) * 4 + 3];
 
-// Columns that contain anything at all.
-const occupied = [];
-for (let x = 0; x < W; x++) {
-  let any = false;
-  for (let y = 0; y < H && !any; y++) if (alphaAt(x, y) > 8) any = true;
-  occupied.push(any);
-}
-
-// Runs of occupied columns are the objects.
-const runs = [];
-let start = -1;
-for (let x = 0; x <= W; x++) {
-  if (x < W && occupied[x]) {
-    if (start < 0) start = x;
-  } else if (start >= 0) {
-    // Ignore specks — a stray antialiased pixel is not a building.
-    if (x - start > W / 50) runs.push([start, x - 1]);
-    start = -1;
+/** Runs of "has something in it" along one axis, ignoring specks. */
+function runsOf(length, hasAnything, minRun) {
+  const out = [];
+  let start = -1;
+  for (let i = 0; i <= length; i += 1) {
+    if (i < length && hasAnything(i)) {
+      if (start < 0) start = i;
+    } else if (start >= 0) {
+      // A stray antialiased pixel is not a building.
+      if (i - start > minRun) out.push([start, i - 1]);
+      start = -1;
+    }
   }
+  return out;
 }
 
-if (runs.length !== ids.length) {
-  console.error(`found ${runs.length} objects but got ${ids.length} ids: ${runs.map((r) => r.join("-")).join(", ")}`);
+/*
+ * Bands of rows that contain anything, then objects within each band.
+ * Reading order: along the top, then the next line down — which is the
+ * order somebody looking at the sheet would name them in.
+ */
+const bands = runsOf(
+  H,
+  (y) => {
+    for (let x = 0; x < W; x += 1) if (alphaAt(x, y) > 8) return true;
+    return false;
+  },
+  H / 50
+);
+
+const boxes = [];
+for (const [bandTop, bandBottom] of bands) {
+  const cols = runsOf(
+    W,
+    (x) => {
+      for (let y = bandTop; y <= bandBottom; y += 1) if (alphaAt(x, y) > 8) return true;
+      return false;
+    },
+    W / 50
+  );
+  for (const [x0, x1] of cols) boxes.push({ x0, x1, bandTop, bandBottom });
+}
+
+if (boxes.length !== ids.length) {
+  console.error(
+    `found ${boxes.length} objects but got ${ids.length} ids: ` +
+      boxes.map((b) => `${b.x0}-${b.x1}@${b.bandTop}`).join(", ")
+  );
   process.exit(1);
 }
 
 const outDir = path.join(path.dirname(new URL(import.meta.url).pathname), "public", "world");
 mkdirSync(outDir, { recursive: true });
 
-runs.forEach(([x0, x1], i) => {
+boxes.forEach(({ x0, x1, bandTop, bandBottom }, i) => {
   let y0 = H, y1 = -1;
-  for (let y = 0; y < H; y++) {
+  for (let y = bandTop; y <= bandBottom; y++) {
     for (let x = x0; x <= x1; x++) {
       if (alphaAt(x, y) > 8) {
         if (y < y0) y0 = y;
