@@ -41,6 +41,11 @@ geography · pilot services beyond the seeded candidates · support hours/
 SLA · data retention periods · chat/call masking vendor · analytics vendor
 · cloud hosting vendor · final brand/trademark/domain clearance.
 
+The maps one has its numbers written down below — see *The maps vendor,
+with the numbers*. The decision is still a decision; what is no longer
+missing is the price of each option and what each one costs us in
+honesty.
+
 Everywhere one of these matters, the codebase exposes an interface + a
 labeled sandbox adapter + an `app_config`/roadmap TODO — never a guessed
 answer.
@@ -78,6 +83,54 @@ grid, the category page, the sentence matcher and the professional's
 eligibility list all pick it up, because they are all derived from that
 one file. `content-completeness.test.ts` refuses a half-written entry, so
 a service cannot be added without the fields that make it work.
+
+### The maps vendor, with the numbers (asked 2026-09-21)
+
+Amit: *"ברגע שיהיה חיבור לספק המפות נוכל לעשות הדמיות אמיתיות? במקום בתים
+אמיתיים יהיו את המבנים והדמויות שלנו? ורק הצורה של המפה תהיה אמיתית? כמה
+זה עולה? איך מתחברים?"*
+
+**Yes, and it is the normal way to use these products.** A modern map is
+vector tiles — roads, water, parks, land use, building footprints, labels
+— each as its own layer, plus a STYLE that says how each layer is drawn
+or whether it is drawn at all. So the real street geometry can stay while
+the built environment is replaced with ours: building layers switched
+off, our shopfronts placed at real coordinates as symbol layers, parks
+and water kept in their true shapes and recoloured to our palette,
+figures moving along the real street network. That is a style and a
+sprite sheet, not a custom renderer.
+
+Published prices, read on 2026-09-21 — they move, so re-check before
+deciding:
+
+| | Free per month | Then |
+| --- | --- | --- |
+| Mapbox Maps SDK (mobile) | 25,000 monthly active users | $4.00 / 1,000 MAU to 125k, $3.20 to 250k, $2.40 above |
+| Mapbox Directions | 100,000 requests | $2.00 / 1,000 to 500k |
+| Google Maps dynamic maps | 10,000 map loads | $7.00 / 1,000 to 100k, $5.60 to 500k |
+| MapLibre + a tile vendor or self-hosted | — | hosting; the renderer is open source and the style is entirely ours |
+
+The shapes of those two bills are different in a way that matters for
+this product. Mapbox charges per PERSON per month however many times they
+open the map; Google charges per map LOAD, and in a dispatch product one
+customer watching one job is many loads. At 50,000 customers a month
+Mapbox is about $100; the same traffic on per-load pricing is not
+comparable in kind, so the estimate has to be built from expected loads
+per job rather than from users.
+
+Connecting is small and is already scaffolded: `MapsRoutingProvider` in
+`packages/types` is the interface, the sandbox adapter is what runs
+today, and a real vendor is an account, a token in `.env` (never
+committed) and one adapter. The work is not the integration.
+
+**Two things that are NOT engineering and must be decided first.** Which
+vendor, which is on the list above and stays there. And the fact that the
+moment our shops sit at real coordinates, the map starts making claims
+about WHERE professionals are — today the city is honest precisely
+because it is labelled an illustration and its positions are invented
+(/CLAUDE.md §3). On a real map every position drawn must come from the
+server and must be true, and "approximate area" has to be a deliberate,
+designed answer rather than a blurred marker.
 
 ## MVP success — two levels
 **Technical:** stable end-to-end loop, safe atomic assignment, payment
