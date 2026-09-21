@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { AVATARS, avatarById, avatarViolations, walkingAssetFor } from "../src/avatar";
+import { AVATARS, avatarById, avatarViolations, walkingAssetFor, walkingFallbackFor } from "../src/avatar";
 
 describe("the avatar roster", () => {
   it("holds its own rules", () => {
@@ -122,6 +122,32 @@ describe("ten people and two animals", () => {
   it("still gives every identity a walking figure, animals included", () => {
     for (const a of AVATARS) {
       expect(walkingAssetFor(a.id)).toBe(a.worldAssetId);
+    }
+  });
+});
+
+/**
+ * The stand-in, which exists because the shipped world had nobody in it.
+ */
+describe("the walking figure and its stand-in", () => {
+  it("offers a face for every avatar, since no figure is drawn yet", () => {
+    for (const a of AVATARS) {
+      expect(walkingFallbackFor(a.id)).toBe(a.portraitAssetId);
+    }
+  });
+
+  it("shows nobody for somebody who skipped the picker", () => {
+    // Skipping is a first-class answer, and an unasked-for marker walking
+    // the street would be the app choosing a character for them.
+    expect(walkingFallbackFor(null)).toBeNull();
+    expect(walkingAssetFor(null)).toBeNull();
+  });
+
+  it("never returns the same drawing for the figure and the stand-in", () => {
+    // If these ever coincide the fallback has silently become the figure,
+    // and a head would be walking down the street at a person's height.
+    for (const a of AVATARS) {
+      expect(walkingFallbackFor(a.id)).not.toBe(walkingAssetFor(a.id));
     }
   });
 });

@@ -26,6 +26,7 @@ import {
   type NormalizedPoint,
   WALK_START,
   walkingAssetFor,
+  walkingFallbackFor,
   avatarById,
   errandsBetween,
   PLATE_SPOTS,
@@ -586,8 +587,25 @@ export function LivingMapScene({
    * this component draws the whole neighbourhood.
    */
   const walkAssetId = walkingAssetFor(avatar);
+  /* Their face on a pin until their figure is drawn — see Walker. */
+  const walkFallbackId = walkingFallbackFor(avatar);
   const walkHeight = avatarById(avatar)?.heightRatio ?? 1;
-  const canWalk = Boolean(walkAssetId && worldSources?.[walkAssetId]);
+  /*
+   * WALKING NEEDS SOMEBODY TO WALK, AND THE PIN COUNTS.
+   *
+   * This was `walkAssetId && sources[walkAssetId]` — the drawn figure,
+   * which does not exist yet. So `canWalk` was false for every customer,
+   * which switched off the steer pad, the following camera AND the walker
+   * itself. A customer chose a character, opened the street, and found an
+   * empty world they could not move through: exactly Amit's *"אני לא רואה
+   * ולא מבין."*
+   *
+   * The marker is a real figure as far as walking is concerned — it has a
+   * position, a stride, a shadow and a size — so it belongs in this test.
+   */
+  const canWalk = Boolean(
+    (walkAssetId && worldSources?.[walkAssetId]) || (walkFallbackId && worldSources?.[walkFallbackId])
+  );
 
   const walkU = useRef(new Animated.Value(WALK_START.u)).current;
   const walkV = useRef(new Animated.Value(WALK_START.v)).current;
@@ -985,6 +1003,7 @@ export function LivingMapScene({
             {canWalk ? (
               <Walker
                 assetId={walkAssetId}
+                fallbackAssetId={walkFallbackId}
                 heightRatio={walkHeight}
                 sources={worldSources}
                 width={world.width}

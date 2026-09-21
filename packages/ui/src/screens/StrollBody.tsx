@@ -9,6 +9,7 @@ import {
   PLATE_SPOTS,
   reachedNow,
   walkingAssetFor,
+  walkingFallbackFor,
   WALK_START,
   WORLD_DISTRICTS,
   worldZoomFor,
@@ -90,7 +91,24 @@ export function StrollBody({
   height = 780,
 }: StrollBodyProps) {
   const walkAssetId = walkingAssetFor(avatar);
-  const canWalk = Boolean(walkAssetId && sources[walkAssetId]);
+  /* Their face on a pin until their figure is drawn — see Walker. */
+  const walkFallbackId = walkingFallbackFor(avatar);
+  /*
+   * WALKING NEEDS SOMEBODY TO WALK, AND THE PIN COUNTS.
+   *
+   * This was `walkAssetId && sources[walkAssetId]` — the drawn figure,
+   * which does not exist yet. So `canWalk` was false for every customer,
+   * which switched off the steer pad, the following camera AND the walker
+   * itself. A customer chose a character, opened the street, and found an
+   * empty world they could not move through: exactly Amit's *"אני לא רואה
+   * ולא מבין."*
+   *
+   * The marker is a real figure as far as walking is concerned — it has a
+   * position, a stride, a shadow and a size — so it belongs in this test.
+   */
+  const canWalk = Boolean(
+    (walkAssetId && sources[walkAssetId]) || (walkFallbackId && sources[walkFallbackId])
+  );
   const heightRatio = avatarById(avatar)?.heightRatio ?? 1;
 
   /*
@@ -295,6 +313,7 @@ export function StrollBody({
             {canWalk ? (
               <Walker
                 assetId={walkAssetId}
+                fallbackAssetId={walkFallbackId}
                 heightRatio={heightRatio}
                 sources={sources}
                 width={world.width}

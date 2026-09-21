@@ -60,6 +60,14 @@ export interface WalkerProps {
   /** The chosen avatar's world figure, or null for "not chosen / no art". */
   assetId: string | null;
   /**
+   * The face to show while the walking figure has not been drawn.
+   *
+   * Drawn as a marker rather than as a figure — see `walkingFallbackFor`.
+   * Null means show nothing, which stays the right answer for a customer
+   * who skipped the picker.
+   */
+  fallbackAssetId?: string | null;
+  /**
    * How tall this figure is, as a fraction of a standing person.
    *
    * Comes from the roster rather than from anything this component can
@@ -116,6 +124,7 @@ const REPORT_MS = 700;
 
 export function Walker({
   assetId,
+  fallbackAssetId = null,
   heightRatio = 1,
   sources = EMPTY_ASSET_SOURCES,
   width,
@@ -129,7 +138,19 @@ export function Walker({
   animate = true,
   onSettled,
 }: WalkerProps) {
-  const source = assetId ? sources[assetId] : undefined;
+  const figureSource = assetId ? sources[assetId] : undefined;
+  /*
+   * THE FIGURE IF IT EXISTS, THE FACE IF IT DOES NOT, NOTHING IF NEITHER.
+   *
+   * Until this, no `avatar_XX_world_back` had been drawn and `Walker`
+   * returned null — so a customer chose a character, walked into the
+   * street, and there was nobody in it. The marker below is the stand-in;
+   * the moment the real figures land, `figureSource` resolves and this
+   * whole branch stops being reached.
+   */
+  const markerSource = figureSource ? undefined : fallbackAssetId ? sources[fallbackAssetId] : undefined;
+  const source = figureSource ?? markerSource;
+  const asMarker = !figureSource && Boolean(markerSource);
 
   const at = useRef<NormalizedPoint>(clampWalkable(startAt));
   const distance = useRef(0);
@@ -306,7 +327,18 @@ export function Walker({
 
   const scale = v.interpolate({ inputRange: [0, 1], outputRange: [depthScale(0), depthScale(1)] });
 
-  const figureW = baseH * FIGURE_ASPECT;
+  /*
+   * A PIN IS A DIFFERENT SHAPE FROM A PERSON.
+   *
+   * A standing figure is tall and narrow; a marker is nearly round with a
+   * point under it. Sized off the same `baseH` so it stands the right
+   * height against the shopfronts — a pin the size of a person's head is
+   * as wrong as one the size of a shop — but with its own proportions, so
+   * the face is big enough to recognise and the point lands on the ground
+   * rather than floating with empty box beneath it.
+   */
+  const boxH = asMarker ? baseH * MARKER_HEIGHT : baseH;
+  const figureW = asMarker ? boxH * MARKER_ASPECT : baseH * FIGURE_ASPECT;
   const shadowW = figureW * SHADOW.widthRatio;
   const shadowH = shadowW * SHADOW.flatness;
 
@@ -362,7 +394,7 @@ export function Walker({
           left: 0,
           top: 0,
           width: figureW,
-          height: baseH,
+          height: boxH,
           transform: [
             /*
              * Centred horizontally on the walker's point — by half the
@@ -382,19 +414,43 @@ export function Walker({
              */
             {
               translateY: Animated.subtract(
-                Animated.subtract(Animated.multiply(v, height), baseH / 2),
-                Animated.multiply(scale, baseH / 2)
+                Animated.subtract(Animated.multiply(v, height), boxH / 2),
+                Animated.multiply(scale, boxH / 2)
               ),
             },
             // The stride, in figure-heights and scaled with the figure.
-            { translateY: Animated.multiply(Animated.multiply(bob, baseH), scale) },
+            { translateY: Animated.multiply(Animated.multiply(bob, boxH), scale) },
             { scale },
             { rotate: lean.interpolate({ inputRange: [-4, 4], outputRange: ["-4deg", "4deg"] }) },
             { scaleX: facing },
           ],
         }}
       >
-        <Image source={source} style={styles.figure} resizeMode="contain" />
+        {asMarker ? (
+          /*
+           * A PIN WITH THEIR FACE IN IT, NOT A FLOATING HEAD.
+           *
+           * The portrait is a bust. Standing one in the street at a
+           * person's height reads as a head walking along on nothing,
+           * which is worse than an empty street. A ringed circle with a
+           * point at the bottom is a shape everybody already reads as
+           * "somebody is here" — so the customer can see where they are
+           * and that it is THEIR character, without the drawing
+           * pretending to be a person.
+           *
+           * The pin is the full box, and the face sits in the round part,
+           * so the point lands where the feet would and the contact shadow
+           * beneath it stays correct with no special case.
+           */
+          <View style={styles.marker}>
+            <View style={styles.markerRing}>
+              <Image source={source} style={styles.markerFace} resizeMode="cover" />
+            </View>
+            <View style={styles.markerPoint} />
+          </View>
+        ) : (
+          <Image source={source} style={styles.figure} resizeMode="contain" />
+        )}
       </Animated.View>
     </View>
   );
@@ -425,7 +481,47 @@ const ARRIVED = 0.02;
 /** A standing person is roughly this much wider than tall. */
 const FIGURE_ASPECT = 0.42;
 
+/**
+ * The marker's height, as a fraction of the figure it stands in for.
+ *
+ * Shorter than a person on purpose: a pin is a sign above a spot, not a
+ * body. Tall enough to be seen from across the street, short enough that
+ * nobody reads it as the finished character.
+ */
+const MARKER_HEIGHT = 0.82;
+/** Nearly round — the ring plus the point beneath it. */
+const MARKER_ASPECT = 0.84;
+
 
 const styles = StyleSheet.create({
   figure: { width: "100%", height: "100%" },
+
+  /*
+   * The marker occupies the same box the figure would, so everything that
+   * positions a walker — the centring, the feet-not-middle arithmetic, the
+   * bob, the contact shadow — works on it unchanged.
+   */
+  marker: { width: "100%", height: "100%", alignItems: "center", justifyContent: "flex-start" },
+  markerRing: {
+    width: "100%",
+    aspectRatio: 1,
+    borderRadius: 999,
+    overflow: "hidden",
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.92)",
+    backgroundColor: "rgba(20,14,28,0.9)",
+  },
+  markerFace: { width: "100%", height: "100%" },
+  /*
+   * The point, drawn as a rotated square with its lower half showing
+   * below the ring — a triangle without an SVG, which keeps this one
+   * component free of a renderer it does not otherwise need.
+   */
+  markerPoint: {
+    width: "34%",
+    aspectRatio: 1,
+    marginTop: "-17%",
+    transform: [{ rotate: "45deg" }],
+    backgroundColor: "rgba(255,255,255,0.92)",
+  },
 });

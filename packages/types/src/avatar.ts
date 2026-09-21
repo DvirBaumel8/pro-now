@@ -164,6 +164,33 @@ export function walkingAssetFor(id: AvatarChoice): string | null {
   return avatarById(id)?.worldAssetId ?? null;
 }
 
+/**
+ * THE FACE, FOR WHEN THE FIGURE HAS NOT BEEN DRAWN YET.
+ *
+ * ---------------------------------------------------------------------
+ * WHY THIS EXISTS AT ALL
+ * ---------------------------------------------------------------------
+ * `Walker` renders nothing when it has no source, which is right: an
+ * invisible customer is better than a grey rectangle walking down a
+ * street. But the twelve `avatar_XX_world_back` files have not been drawn,
+ * and the twelve portraits have — so the shipped result was that a
+ * customer picked a character, walked into the world, and there was
+ * NOBODY THERE. Amit, exactly: *"עכשיו לראות איך הוא במפה זז, אני לא
+ * רואה ולא מבין."* He could not see it because it was not there.
+ *
+ * The portrait is a head-and-shoulders bust. Standing one in the street at
+ * a person's height would be a floating head, which is worse than nothing.
+ * So the caller draws it as a MARKER — a ringed portrait on a pin — which
+ * is a convention everybody already reads as "you are here" and which
+ * nothing about it claims to be the finished figure.
+ *
+ * It swaps itself out: the day `avatar_XX_world_back` lands,
+ * `walkingAssetFor` resolves and this is never consulted again.
+ */
+export function walkingFallbackFor(id: AvatarChoice): string | null {
+  return avatarById(id)?.portraitAssetId ?? null;
+}
+
 /** Every rule this roster has to satisfy, as a test rather than as prose. */
 export function avatarViolations(roster: readonly AvatarOption[] = AVATARS): string[] {
   const out: string[] = [];
