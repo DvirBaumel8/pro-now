@@ -1440,7 +1440,24 @@ const go = useCallback((r: CustomerRoute) => {
           phase: route.phase,
           theme: themeForDepartment(departmentCodeByServiceId[route.serviceId] ?? "HOME_URGENT"),
           adapter: DEMO_WORLD,
-          candidates: route.phase === "SEARCHING" ? cands.slice(0, 2) : cands,
+          /*
+           * NOBODY IS NAMED DURING THE SEARCH.
+           *
+           * This used to show two CHECKING bubbles here, which was a
+           * reasonable guess before Amit said what the search is:
+           * *"השלב של החיפוש יהיה שלב שהרדאר שלנו עובר בלי כפתור לחיצות,
+           * עם הדמות בין הרחובות ומחפש איש מקצוע."* No buttons, nobody
+           * named — the camera touring the shops with the figure walking
+           * it IS the search being shown.
+           *
+           * And the app cannot do otherwise even if it wanted to:
+           * `GET /v1/jobs/:id` returns a status, not a roster, so
+           * `scenePhaseForJob` never produces a named candidate before
+           * assignment. Two floating names over the city was the gallery
+           * showing a search that cannot happen — the same two-worlds
+           * problem as the home screen, on the screen Amit reviews most.
+           */
+          candidates: route.phase === "SEARCHING" ? [] : cands,
           /*
            * No journey on the demo world. `livingMapViolations` refuses a
            * real position over invented streets, and that refusal is the
