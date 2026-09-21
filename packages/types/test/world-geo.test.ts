@@ -8,6 +8,14 @@ import {
   geoHeightMetres,
   geoViolations,
   geoWidthMetres,
+  groundDepth,
+  groundProject,
+  groundScale,
+  groundViolations,
+  pitchForMetres,
+  pitchForShot,
+  PLAN_METRES,
+  SHOT_METRES,
   inCarriageway,
   metresToWorld,
   nearestWay,
@@ -289,5 +297,81 @@ describe("what makes an extract usable", () => {
       fetchedAt: new Date().toISOString(),
     };
     expect(geoViolations(credited)).toEqual([]);
+  });
+});
+
+describe("the ground plane, tilted", () => {
+  it("is the identity when there is no tilt", () => {
+    for (const v of [0, 0.3, 0.7, 1]) {
+      for (const u of [0, 0.5, 1]) {
+        expect(groundProject({ u, v }, 0)).toEqual({ u, v });
+      }
+    }
+    expect(groundViolations(0)).toEqual([]);
+  });
+
+  it("holds together at every tilt", () => {
+    for (const pitch of [0, 0.25, 0.5, 0.75, 1]) {
+      expect(groundViolations(pitch)).toEqual([]);
+    }
+  });
+
+  /*
+   * THE PROPERTY THAT MAKES IT A TILTED PLANE RATHER THAN A SQUASHED ONE.
+   *
+   * "Just scale the map vertically" always looks wrong and this is why:
+   * on a real ground plane, equal steps up the street cover less and less
+   * of the picture. Squashing keeps them equal, and the eye reads the
+   * result as a map that has been sat on.
+   */
+  it("compresses distance with depth", () => {
+    const near = groundDepth(1, 1) - groundDepth(0.9, 1);
+    const far = groundDepth(0.1, 1) - groundDepth(0, 1);
+    expect(near).toBeGreaterThan(far * 1.2);
+  });
+
+  it("converges parallel kerbs towards a vanishing point", () => {
+    const nearGap = groundProject({ u: 0.8, v: 1 }, 1).u - groundProject({ u: 0.2, v: 1 }, 1).u;
+    const farGap = groundProject({ u: 0.8, v: 0 }, 1).u - groundProject({ u: 0.2, v: 0 }, 1).u;
+    expect(farGap).toBeLessThan(nearGap);
+    expect(farGap).toBeGreaterThan(0);
+  });
+
+  it("agrees with the sizes the world has always drawn", () => {
+    // `depthScale` is 0.74 at the far edge and 1.18 at the near one, and
+    // has been since the plaza. The tilt is the projection those numbers
+    // always implied, so the ratio has to be the same one.
+    expect(groundScale(0, 1) / groundScale(1, 1)).toBeCloseTo(0.74 / 1.18, 9);
+  });
+});
+
+describe("how high the camera stands", () => {
+  it("is in the street up close and overhead far away", () => {
+    expect(pitchForMetres(100)).toBe(1);
+    expect(pitchForMetres(SHOT_METRES.EXPLORE)).toBe(1);
+    expect(pitchForMetres(900)).toBe(0);
+  });
+
+  it("rises without a step in it", () => {
+    let last = 1;
+    for (let m = 150; m <= 700; m += 10) {
+      const p = pitchForMetres(m);
+      expect(p).toBeLessThanOrEqual(last + 1e-9);
+      expect(Math.abs(p - last)).toBeLessThan(0.06);
+      last = p;
+    }
+  });
+
+  it("walks the street and plans from above", () => {
+    expect(pitchForShot("EXPLORE")).toBe(1);
+    expect(pitchForShot("VENUE")).toBe(1);
+    // The wide shot is mostly a plan, and the route shot is mostly a
+    // street — both are on the ramp rather than at an end, which is the
+    // point of a continuous camera. Only a view of the whole district
+    // goes fully overhead.
+    expect(pitchForShot("WIDE")).toBeLessThan(0.4);
+    expect(pitchForShot("ROUTE")).toBeGreaterThan(pitchForShot("WIDE"));
+    expect(pitchForShot("ROUTE")).toBeLessThan(1);
+    expect(pitchForMetres(PLAN_METRES)).toBe(0);
   });
 });

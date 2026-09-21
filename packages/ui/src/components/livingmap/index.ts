@@ -19,3 +19,4 @@ export * from "./ContactShadow";
 export * from "./ScrimBand";
 export * from "./ErrandLayer";
 export * from "./GeoPlate";
+export * from "./PaintedGround";

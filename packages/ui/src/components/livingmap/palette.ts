@@ -13,8 +13,16 @@
  * have. Inside the world, a colour is just a colour.
  */
 export const livingPalette = {
-  nightTop: "#141226",
-  nightBottom: "#1D1A33",
+  /*
+   * Warmed a shade when the world stopped being a photograph.
+   *
+   * The painted plate's night is not this colour — the paint has sodium
+   * light bounced all through it. Drawn as a flat gradient behind flat
+   * shapes, #141226 is a screen turned off. Two points of red is not a
+   * redesign; it is the difference between a night and an absence.
+   */
+  nightTop: "#17132A",
+  nightBottom: "#211B37",
   asphalt: "#262238",
   laneMark: "#F0E6D2",
   median: "#2E4F3A",

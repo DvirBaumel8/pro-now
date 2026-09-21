@@ -737,3 +737,191 @@ export const REAL_METRES = {
   /** How near a shop you must be for it to count as underfoot. */
   reach: 14,
 } as const;
+
+/* ------------------------------------------------------------------ */
+/* THE GROUND PLANE, TILTED                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A MAP IS SEEN FROM ABOVE AND A WORLD IS SEEN FROM THE STREET.
+ *
+ * ---------------------------------------------------------------------
+ * THE CONTRADICTION THE FIRST BUILD SHIPPED WITH
+ * ---------------------------------------------------------------------
+ * Our city is drawn in 3/4 — shopfronts with a roof and a side, figures
+ * standing up, vehicles with a top and a flank. A street plan is drawn
+ * from directly overhead. The first version of the real map put one on
+ * the other and it reads well enough in a screenshot, which is exactly
+ * what makes it dangerous: two incompatible projections, held together by
+ * the eye being generous.
+ *
+ * ChatGPT, asked which way to resolve it:
+ *
+ *     "הייתי בוחר להטות את מישור העולם, ולא להשאיר מפה שטוחה עם בניינים
+ *      זקופים... אם הכביש נשאר 90° מלמעלה והחנות/האדם/הרכב ב-3/4, המוח
+ *      יקרא אותם כאייקונים שמונחים על מפה — בדיוק אותה בעיית 'מדבקה'
+ *      שנלחמנו בה עם הרכבים."
+ *
+ * That is the same sentence that killed the side-view vehicles, applied
+ * one level up. A flat plan with upright buildings on it is a sticker
+ * album; the buildings were never the problem.
+ *
+ * ---------------------------------------------------------------------
+ * AND WHY THE TILT IS IN THE PROJECTION RATHER THAN IN A TRANSFORM
+ * ---------------------------------------------------------------------
+ * The obvious build is `rotateX` on the world container with every
+ * standing object counter-rotated about its own base. It needs
+ * `transformOrigin`, which React Native 0.74 does not have; it puts a 3D
+ * transform on the layer that is already carrying the camera; and it
+ * makes hit-testing a projection problem.
+ *
+ * None of that is necessary, because this world ALREADY has a ground
+ * plane in it. `depthScale` has drawn far things smaller since the plaza,
+ * and every figure and building is sized through it. The only thing
+ * missing was that POSITIONS stayed linear while SIZES were perspective —
+ * a quiet inconsistency that has been there the whole time and that the
+ * painted plate hid, because the painting had the perspective baked in.
+ *
+ * So the tilt is the projection those sizes always implied. Nothing
+ * rotates, everything stands up by construction, and the same function
+ * places the road, the shopfront and the walker — which is the only way
+ * they can be guaranteed to agree.
+ */
+
+/** The far edge's scale relative to the near edge, at full tilt. */
+const HORIZON_SCALE = 0.74 / 1.18;
+
+/**
+ * How tilted the ground is, 0 for a plan and 1 for the world's own 3/4.
+ *
+ * A function of how much of the place is in frame, not of a mode the user
+ * picks. ChatGPT again, and this is the part that also answers Amit's
+ * older complaint (*"שיהיה אפשרות להגדיל את המפה ולראות מרחוק... שאדע
+ * לאן יש לי ללכת"*):
+ *
+ *     "ב-Explore המישור מוטה בערך 28–35°... ב-Overview, כשהמשתמש עושה
+ *      zoom-out כדי להבין לאן ללכת, המצלמה עולה בהדרגה לכיוון top-down.
+ *      לא שני עולמות ולא שתי מפות — אותו עולם, מצלמה אחת שמשנה pitch
+ *      לפי zoom."
+ *
+ * Which is right, and is how a person actually uses a place: you walk at
+ * street level and you plan from above. Below 200m across the frame you
+ * are in the street; past 620m you are reading a map; between them the
+ * camera rises, and because it is one continuous function there is never
+ * a cut between two worlds.
+ */
+export const STREET_METRES = 200;
+export const PLAN_METRES = 620;
+
+export function pitchForMetres(metresAcross: number): number {
+  if (metresAcross <= STREET_METRES) return 1;
+  if (metresAcross >= PLAN_METRES) return 0;
+  const t = (metresAcross - STREET_METRES) / (PLAN_METRES - STREET_METRES);
+  // Smoothstep, so the horizon does not start or stop moving abruptly —
+  // a linear rise reads as the ground being winched.
+  return 1 - t * t * (3 - 2 * t);
+}
+
+/** The same question asked of a shot rather than of a number. */
+export function pitchForShot(shot: GeoShot): number {
+  return pitchForMetres(SHOT_METRES[shot]);
+}
+
+/** How much the ground narrows at depth `v`, at this tilt. */
+export function groundScale(v: number, pitch: number): number {
+  const full = HORIZON_SCALE + (1 - HORIZON_SCALE) * Math.max(0, Math.min(1, v));
+  return 1 + pitch * (full - 1);
+}
+
+/**
+ * A point on the flat plan, placed on the tilted ground.
+ *
+ * `u` converges towards the middle with distance, which is what makes two
+ * parallel kerbs meet at a vanishing point. `v` compresses, because equal
+ * steps up the street cover less and less of the picture — that integral
+ * is the whole difference between a tilted plane and a squashed one, and
+ * skipping it is why "just scale the map vertically" always looks wrong.
+ *
+ * At `pitch = 0` this is the identity, exactly, so the plan view is the
+ * real geometry untouched rather than a nearly-flat 3/4.
+ */
+export function groundProject(p: NormalizedPoint, pitch: number): NormalizedPoint {
+  if (pitch <= 0) return p;
+  const s = groundScale(p.v, pitch);
+  return { u: 0.5 + (p.u - 0.5) * s, v: groundDepth(p.v, pitch) };
+}
+
+/**
+ * Where depth `v` lands on the picture.
+ *
+ * ∫₀ᵛ s / ∫₀¹ s, with `s` linear in v, which has a closed form — so this
+ * is arithmetic rather than a table, and it is exact at both ends.
+ */
+export function groundDepth(v: number, pitch: number): number {
+  if (pitch <= 0) return v;
+  const a = groundScale(0, pitch);
+  const b = groundScale(1, pitch);
+  const total = (a + b) / 2;
+  if (total === 0) return v;
+  const x = Math.max(0, Math.min(1, v));
+  return (a * x + ((b - a) * x * x) / 2) / total;
+}
+
+/** The inverse, for turning a tap back into a place on the plan. */
+export function groundUnproject(p: NormalizedPoint, pitch: number): NormalizedPoint {
+  if (pitch <= 0) return p;
+  const a = groundScale(0, pitch);
+  const b = groundScale(1, pitch);
+  const total = (a + b) / 2;
+  /*
+   * Solve ((b-a)/2)x² + a·x − total·v = 0 for x, taking the root in [0,1].
+   * `b === a` is the untilted case and would divide by zero.
+   */
+  const A = (b - a) / 2;
+  const C = -total * p.v;
+  const x =
+    Math.abs(A) < 1e-9 ? -C / a : (-a + Math.sqrt(Math.max(0, a * a - 4 * A * C))) / (2 * A);
+  const v = Math.max(0, Math.min(1, x));
+  const s = groundScale(v, pitch);
+  return { u: 0.5 + (p.u - 0.5) / (s || 1), v };
+}
+
+/**
+ * Everything the tilt has to be true of, as a test rather than a diagram.
+ *
+ * A projection is the kind of code that is obviously right and quietly
+ * off by a factor, and the symptom is a shopfront half a street from its
+ * own doorstep — which nobody can see, because the doorstep is not drawn.
+ */
+export function groundViolations(pitch: number): string[] {
+  const out: string[] = [];
+
+  // The frame's edges are the frame's edges at any tilt, or the world
+  // shrinks away from the screen and shows the background behind it.
+  if (Math.abs(groundDepth(0, pitch)) > 1e-9) out.push("the far edge has left the top of the frame");
+  if (Math.abs(groundDepth(1, pitch) - 1) > 1e-9) out.push("the near edge has left the bottom of the frame");
+
+  // The middle of the road stays the middle of the road.
+  const spine = groundProject({ u: 0.5, v: 0.3 }, pitch);
+  if (Math.abs(spine.u - 0.5) > 1e-9) out.push("the vanishing point is not on the centre line");
+
+  // Monotonic, or two places up the street swap over.
+  let last = -Infinity;
+  for (let i = 0; i <= 20; i++) {
+    const d = groundDepth(i / 20, pitch);
+    if (d < last) out.push("depth is not monotonic, so the street folds over itself");
+    last = d;
+  }
+
+  // Round-trip, which is the one that catches a wrong constant.
+  for (const v of [0, 0.17, 0.5, 0.83, 1]) {
+    for (const u of [0, 0.25, 0.5, 1]) {
+      const back = groundUnproject(groundProject({ u, v }, pitch), pitch);
+      if (Math.abs(back.u - u) > 1e-6 || Math.abs(back.v - v) > 1e-6) {
+        out.push(`(${u}, ${v}) does not survive a round trip through the ground plane`);
+      }
+    }
+  }
+
+  return out;
+}

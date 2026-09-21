@@ -13,6 +13,7 @@ import {
   planWorld,
   plotSpotsFromGeo,
   REAL_METRES,
+  SHOT_METRES,
   PLATE_SPOTS,
   reachedNow,
   gaitForAvatar,
@@ -37,6 +38,7 @@ import { ScrimBand } from "../components/livingmap/ScrimBand";
 import { SteerPad } from "../components/livingmap/SteerPad";
 import { Walker } from "../components/livingmap/Walker";
 import { GeoPlate } from "../components/livingmap/GeoPlate";
+import { PaintedGround } from "../components/livingmap/PaintedGround";
 import { WorldViewport } from "../components/livingmap/WorldViewport";
 import { palette, radii, spacing, type } from "../theme";
 import { depthChanged, nearestDistrict } from "./stroll";
@@ -368,8 +370,41 @@ export function StrollBody({
               * second viewport for the ground is how the two ended up
               * disagreeing last time.
               */}
-            {geo ? (
-              <GeoPlate geo={geo} width={world.width} height={world.height} />
+            {/*
+              THE PAINTING IS THE MATERIAL; THE EXTRACT IS THE SHAPE.
+
+              Amit, after three rounds of me redrawing the city out of
+              polygons: *"איפה העולם הקסום שבנינו?"* The answer is that it
+              is right here and I had stopped using it. The plate goes
+              down first, at world size, and the real street network is
+              carved through it — so the blocks between the roads are the
+              artwork, and only the streets come from OpenStreetMap.
+            */}
+            {geo && ground ? (
+              <>
+                <PaintedGround
+                  source={ground}
+                  bounds={geo.bounds}
+                  width={world.width}
+                  height={world.height}
+                />
+                <View style={StyleSheet.absoluteFill}>
+                  <GeoPlate
+                    geo={geo}
+                    width={world.width}
+                    height={world.height}
+                    metresAcross={SHOT_METRES.EXPLORE}
+                    paintedGround
+                  />
+                </View>
+              </>
+            ) : geo ? (
+              <GeoPlate
+                geo={geo}
+                width={world.width}
+                height={world.height}
+                metresAcross={SHOT_METRES.EXPLORE}
+              />
             ) : ground ? (
               <Image
                 source={ground}
