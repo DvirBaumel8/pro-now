@@ -95,6 +95,27 @@ export function SteerPad({ onHeading, onGait, visible = true, size = 116 }: Stee
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
+      /*
+       * A THUMBSTICK DOES NOT HAND ITS TOUCH TO ANYBODY.
+       *
+       * `onPanResponderTerminationRequest` defaults to TRUE, so any other
+       * responder in the tree that asked to take over got it — and this
+       * pad's terminate handler calls `emit(null)`, which stops the walk.
+       *
+       * The symptom was that holding an arrow moved the figure about three
+       * pixels and then stopped, on both the street and the wait. It read
+       * as the walk being broken, and I chased it through the rAF loop,
+       * the pavement mask and the camera clamp before measuring the thing
+       * that was actually happening: the pad was granted the touch, the
+       * figure took two steps, something else asked for the responder, and
+       * the pad politely gave it away.
+       *
+       * Refusing is the correct semantic and not a workaround: once a
+       * thumb is on a directional pad, that touch belongs to walking until
+       * it lifts. Anything else means a scroll view somewhere on the
+       * screen can quietly stop you mid-street.
+       */
+      onPanResponderTerminationRequest: () => false,
       onPanResponderGrant: (e) => {
         const { locationX, locationY } = e.nativeEvent;
         const dx = locationX - size / 2;
