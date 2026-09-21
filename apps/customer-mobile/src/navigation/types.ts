@@ -24,10 +24,26 @@ export type CustomerStackParamList = {
    * the matcher's job, and it needs the catalogue, not a navigation call.
    */
   RequestDetails: { serviceId: string; serviceName: string; describedHe?: string };
+  /**
+   * Where to send somebody. The job is created HERE, not on the previous
+   * screen, because a job without a real address cannot be dispatched and
+   * the address is the last thing the customer supplies.
+   */
+  Address: { serviceId: string; serviceName: string; describedHe?: string };
   Searching: { jobId: string };
   Match: { jobId: string };
   Tracking: { jobId: string };
   Quote: { jobId: string };
   Complete: { jobId: string };
-  Review: { jobId: string; professionalName: string };
+  /*
+   * C15 had its own screen until the review moved into the completion
+   * screen, where the job actually ends. Two review forms meant two ways
+   * to send a rating, and the standalone one had a quiet bug: submitting
+   * without choosing a star sent five, and a failed request navigated away
+   * as though it had worked.
+   *
+   * There is no job history in this app yet, so nothing could reach it
+   * anyway — and a screen nobody can reach does not exist. It comes back
+   * as a route the day there is a list of past jobs to open it from.
+   */
 };

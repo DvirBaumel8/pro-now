@@ -27,6 +27,25 @@ export const createJobSchema = z.object({
 });
 export type CreateJobInput = z.infer<typeof createJobSchema>;
 
+/**
+ * Saving a place to be sent to.
+ *
+ * `formatted` is what the customer will read back on the job card, so it
+ * is required and bounded rather than optional — an address with no text
+ * is a pin nobody can check before a professional is dispatched to it.
+ *
+ * `label` ("בית", "המשרד") is optional because most people have one
+ * address and naming it is ceremony.
+ */
+export const createAddressSchema = z.object({
+  formatted: z.string().min(3).max(300),
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
+  label: z.string().max(40).optional(),
+  placeId: z.string().max(200).optional(),
+});
+export type CreateAddressInput = z.infer<typeof createAddressSchema>;
+
 export const locationPingSchema = z.object({
   lat: z.number().min(-90).max(90),
   lng: z.number().min(-180).max(180),

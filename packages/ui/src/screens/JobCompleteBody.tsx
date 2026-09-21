@@ -46,6 +46,26 @@ export interface JobCompleteBodyProps {
   whenHe: string;
   receiptLines: ReceiptLine[];
   totalChargedMinorUnits: number;
+  /**
+   * WHETHER THE MONEY ACTUALLY MOVED.
+   *
+   * This screen said "חויב ₪300 · ✓ התשלום עבר בהצלחה" from the day it was
+   * written, in an app with no payment provider at all — choosing one is
+   * still an open business decision (/CLAUDE.md §4), so there was nothing
+   * behind the tick. Telling somebody their card was charged when it was
+   * not is the worst thing in this product to be wrong about: they stop
+   * watching for the charge, and they are the only person who would have
+   * noticed it never arrived.
+   *
+   * So the number is labelled for what is true. Captured says "חויב";
+   * anything else says "לתשלום" — the amount is real either way, because
+   * it is the quote the customer approved, and only the tense is in
+   * question.
+   *
+   * Default false, deliberately: a caller who forgets this understates
+   * rather than overstates, and understating is recoverable.
+   */
+  paymentCaptured?: boolean;
   /** Last 4 digits only. The client never holds a full instrument. */
   paymentMethodLabelHe: string | null;
   /** Set once a review exists for this job — the form is then closed. */
@@ -66,6 +86,7 @@ export function JobCompleteBody({
   whenHe,
   receiptLines,
   totalChargedMinorUnits,
+  paymentCaptured = false,
   paymentMethodLabelHe,
   existingRating = null,
   onSubmitReview,
@@ -95,7 +116,7 @@ export function JobCompleteBody({
 
         {/* ---------------- Receipt ---------------- */}
         <View style={styles.block}>
-          <SectionHeader title="חיוב" colors={colors} />
+          <SectionHeader title={paymentCaptured ? "חיוב" : "סיכום לתשלום"} colors={colors} />
           <Surface colors={colors} level={1} padded={false} style={styles.card}>
             {receiptLines.map((l, i) => (
               <View key={l.id} style={[styles.line, i > 0 && styles.lineDivided]}>
@@ -110,7 +131,7 @@ export function JobCompleteBody({
             ))}
             <View style={styles.totalRow}>
               <Text style={styles.totalValue}>{formatMoney(money(totalChargedMinorUnits, "ILS"))}</Text>
-              <Text style={styles.totalLabel}>חויב</Text>
+              <Text style={styles.totalLabel}>{paymentCaptured ? "חויב" : "לתשלום"}</Text>
             </View>
           </Surface>
 
@@ -119,7 +140,16 @@ export function JobCompleteBody({
               <Text style={styles.link}>חשבונית</Text>
             </Pressable>
             <Text style={styles.payMethod} numberOfLines={1}>
-              {paymentMethodLabelHe ?? "אמצעי התשלום יוצג לאחר סליקה"}
+              {paymentMethodLabelHe ??
+                (paymentCaptured
+                  ? "אמצעי התשלום יוצג לאחר סליקה"
+                  : /*
+                     * Not "the method will appear later" — that implies a
+                     * charge is on its way. Nothing has been taken, and
+                     * the customer should know that now rather than
+                     * discover it on a statement that never shows it.
+                     */
+                    "טרם בוצע חיוב")}
             </Text>
           </View>
         </View>

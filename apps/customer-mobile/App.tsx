@@ -12,12 +12,12 @@ import { AvatarPickerScreen } from "./src/screens/AvatarPickerScreen";
 import { HomeScreen } from "./src/screens/HomeScreen";
 import { ServiceSelectScreen } from "./src/screens/ServiceSelectScreen";
 import { RequestDetailsScreen } from "./src/screens/RequestDetailsScreen";
+import { AddressScreen } from "./src/screens/AddressScreen";
 import { SearchingScreen } from "./src/screens/SearchingScreen";
 import { MatchScreen } from "./src/screens/MatchScreen";
 import { TrackingScreen } from "./src/screens/TrackingScreen";
 import { QuoteScreen } from "./src/screens/QuoteScreen";
 import { CompleteScreen } from "./src/screens/CompleteScreen";
-import { ReviewScreen } from "./src/screens/ReviewScreen";
 
 const Stack = createNativeStackNavigator<CustomerStackParamList>();
 
@@ -58,12 +58,12 @@ function Root() {
         <Stack.Screen name="Home" component={HomeScreen} />
         <Stack.Screen name="ServiceSelect" component={ServiceSelectScreen} options={{ headerShown: true, title: "" }} />
         <Stack.Screen name="RequestDetails" component={RequestDetailsScreen} options={{ headerShown: true, title: "" }} />
+        <Stack.Screen name="Address" component={AddressScreen} />
         <Stack.Screen name="Searching" component={SearchingScreen} />
         <Stack.Screen name="Match" component={MatchScreen} />
         <Stack.Screen name="Tracking" component={TrackingScreen} />
         <Stack.Screen name="Quote" component={QuoteScreen} />
         <Stack.Screen name="Complete" component={CompleteScreen} />
-        <Stack.Screen name="Review" component={ReviewScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

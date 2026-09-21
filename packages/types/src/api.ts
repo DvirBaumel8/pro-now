@@ -126,6 +126,23 @@ export interface JobView {
   quotes?: QuoteView[];
 }
 
+/**
+ * A place the customer can be sent to.
+ *
+ * `formatted` is what a professional reads before knocking, which is why
+ * it is a plain required string rather than a set of components: the thing
+ * that has to be right is the sentence somebody acts on.
+ */
+export interface AddressView {
+  id: string;
+  label: string | null;
+  formatted: string;
+  lat: number;
+  lng: number;
+  placeId: string | null;
+  createdAt: string;
+}
+
 /** Result of the dispatch attempt that POST /v1/jobs kicks off. */
 export interface DispatchResultView {
   status: "OFFER_SENT" | "NO_ELIGIBLE_CANDIDATES" | string;

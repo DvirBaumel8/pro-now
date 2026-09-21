@@ -1,5 +1,6 @@
 import Constants from "expo-constants";
 import type {
+  AddressView,
   CatalogResponse,
   DispatchResultView,
   JobMatchView,
@@ -53,6 +54,17 @@ export const api = {
   requestOtp: (phone: string) => request<{ ok: boolean; sandboxHint?: string }>("/v1/auth/otp/request", { method: "POST", body: JSON.stringify({ phone }) }),
   verifyOtp: (phone: string, code: string) => request<{ token: string; userId: string }>("/v1/auth/otp/verify", { method: "POST", body: JSON.stringify({ phone, code }) }),
   getCatalog: () => request<CatalogResponse>("/v1/catalog"),
+  /*
+   * The customer's saved places. Until these existed, `POST /v1/jobs`
+   * could not succeed for anybody who was not in the seed data — it
+   * requires an `addressId` and nothing in the API could make one.
+   */
+  getAddresses: () => request<{ addresses: AddressView[] }>("/v1/me/addresses"),
+  createAddress: (input: { formatted: string; lat: number; lng: number; label?: string }) =>
+    request<{ address: AddressView }>("/v1/me/addresses", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
   createJob: (input: { serviceId: string; addressId: string; description?: string }, idempotencyKey: string) =>
     request<{ job: JobView; dispatch: DispatchResultView }>("/v1/jobs", { method: "POST", headers: { "Idempotency-Key": idempotencyKey }, body: JSON.stringify(input) }),
   getJob: (id: string) => request<{ job: JobView }>(`/v1/jobs/${id}`),

@@ -1,89 +1,131 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert } from "react-native";
+import React, { useCallback, useMemo, useState } from "react";
+import { useWindowDimensions, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { customerTheme, typography, spacing, radius } from "@pro-now/ui";
+
+import {
+  pilotIntakeByService,
+  pilotServiceById,
+  type IntakeAnswer,
+} from "@pro-now/types";
+import {
+  DescribeFaultBody,
+  catalogHomeServices,
+  catalogServicePages,
+  customerDarkTheme,
+  photoPromptFor,
+} from "@pro-now/ui";
+
 import type { CustomerStackParamList } from "../navigation/types";
-import { api } from "../api/client";
+import { useCapture } from "../capture/useCapture";
 
 type Props = NativeStackScreenProps<CustomerStackParamList, "RequestDetails">;
 
 /**
- * C06 + C07 — Request details and price preview, combined into one screen
- * for this delivery's prototype depth. See /docs/02-UX-FLOWS.md.
+ * C06 — telling us what happened.
+ *
+ * ---------------------------------------------------------------------
+ * WHAT THIS SCREEN USED TO BE
+ * ---------------------------------------------------------------------
+ * A title, a text box, two buttons with emoji on them that did nothing at
+ * all — `📷 צלם תמונה` and `🎙️ תאר בקול` had no handlers — and a green
+ * card reading "דמי ביקור החל מ־₪179", written into the component for
+ * every service in the catalogue. A massage and a tow truck both quoted
+ * ₪179. The address sent with the request was the literal string
+ * `"demo-address"`.
+ *
+ * A price beside a service definition gets read as a promise, and the only
+ * system allowed to make that promise is the pricing engine on the server
+ * — which is why the catalogue says HOW a service is priced and never how
+ * much. The hard-coded number is gone; the service's own pricing model is
+ * what the screen explains.
+ *
+ * ---------------------------------------------------------------------
+ * THE BUTTONS WORK NOW, AND THEY ARE DIFFERENT BUTTONS
+ * ---------------------------------------------------------------------
+ * Amit: *"גלריה ומצלמה — שניהם פותחים מצלמה"*, then *"שלוחצים גלריה שלא
+ * יפתח גם מצלמה, רק גלריה"*, then *"ההקלטה לא עובדת, מה זה ההרשאות האלה"*.
+ * All three are the same complaint: a control that mimes its function.
+ * `useCapture` is the real camera, the real library and the real
+ * microphone, and a permission that comes back "no" produces a sentence
+ * instead of a dim circle.
+ *
+ * ---------------------------------------------------------------------
+ * AND THE QUESTIONS THIS SERVICE ASKS
+ * ---------------------------------------------------------------------
+ * `pilotIntakeByService` holds the intake per service, so a blocked drain
+ * is asked where the water is standing and a personal trainer is not. A
+ * service with no intake gets no questions rather than generic ones — the
+ * screen is then exactly what it was, which is the point: a service
+ * without a good set of questions must not be given a bad one.
  */
 export function RequestDetailsScreen({ route, navigation }: Props) {
-  const { serviceId, serviceName } = route.params;
-  const [description, setDescription] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+  const { serviceId, serviceName, describedHe } = route.params;
+  const { width, height } = useWindowDimensions();
 
-  async function onRequestNow() {
-    setSubmitting(true);
-    try {
-      const idempotencyKey = `job_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-      const { job } = await api.createJob(
-        { serviceId, addressId: "demo-address", description },
-        idempotencyKey
-      );
-      navigation.navigate("Searching", { jobId: job.id });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "שגיאה לא צפויה";
-      Alert.alert("לא הצלחנו לשלוח את הבקשה", message);
-    } finally {
-      setSubmitting(false);
-    }
-  }
+  const page = catalogServicePages[serviceId];
+  const service = pilotServiceById[serviceId];
+  const mark = useMemo(
+    () => catalogHomeServices.find((s) => s.id === serviceId)?.mark ?? "plumbing",
+    [serviceId]
+  );
+
+  const capture = useCapture(service?.photoSubjectHe ?? "");
+  const [text, setText] = useState(describedHe ?? "");
+  const [answers, setAnswers] = useState<IntakeAnswer[]>([]);
+
+  const onAnswer = useCallback((a: IntakeAnswer) => {
+    // Last answer per question wins; a question is answered once.
+    setAnswers((prev) => [...prev.filter((p) => p.questionId !== a.questionId), a]);
+  }, []);
+
+  /*
+   * The fault, then the door. The job is created on the address screen
+   * because `POST /v1/jobs` needs a real `addressId` that belongs to this
+   * customer — the old code sent the literal string "demo-address", which
+   * worked against a seeded development database and nowhere else.
+   */
+  const onSend = useCallback(() => {
+    navigation.navigate("Address", {
+      serviceId,
+      serviceName: page?.nameHe ?? serviceName,
+      describedHe: text,
+    });
+  }, [navigation, serviceId, serviceName, page, text]);
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>תראה לנו מה קרה</Text>
-      <Text style={styles.subtitle}>{serviceName}</Text>
-
-      <View style={styles.mediaRow}>
-        <TouchableOpacity style={styles.mediaButton}><Text style={styles.mediaLabel}>📷 צלם תמונה</Text></TouchableOpacity>
-        <TouchableOpacity style={styles.mediaButton}><Text style={styles.mediaLabel}>🎙️ תאר בקול</Text></TouchableOpacity>
-      </View>
-
-      <TextInput
-        style={styles.textArea}
-        multiline
-        numberOfLines={4}
-        placeholder="לדוגמה: יש מים מתחת לכיור וכל פעם שאני פותח את הברז זה מטפטף."
-        placeholderTextColor={customerTheme.colors.textSecondary}
-        value={description}
-        onChangeText={setDescription}
-        textAlign="right"
+    <View style={{ flex: 1, backgroundColor: customerDarkTheme.colors.bg }}>
+      <DescribeFaultBody
+        serviceNameHe={page?.nameHe ?? serviceName}
+        mark={mark}
+        /*
+         * Symptoms are chosen on the service page and shown back here for
+         * confirmation. Nothing has chosen any yet on this path, so the
+         * list is empty rather than pre-ticked with a guess.
+         */
+        symptomsHe={[]}
+        photoPromptHe={photoPromptFor(serviceId)}
+        intake={pilotIntakeByService[serviceId]}
+        answers={answers}
+        onAnswer={onAnswer}
+        text={text}
+        onChangeText={setText}
+        photos={capture.photos}
+        onAddPhoto={capture.addPhoto}
+        onAddFromLibrary={capture.addFromLibrary}
+        onRemovePhoto={capture.removePhoto}
+        voice={capture.voice}
+        recording={capture.recording}
+        recordSeconds={capture.recordSeconds}
+        canRecord={capture.canRecord}
+        recordBlockedHe={capture.recordBlockedHe}
+        onStartRecord={capture.startRecord}
+        onStopRecord={capture.stopRecord}
+        onDeleteVoice={capture.deleteVoice}
+        onSend={onSend}
+        onBack={navigation.canGoBack() ? () => navigation.goBack() : undefined}
+        width={width}
+        height={height}
       />
-
-      <View style={styles.priceCard}>
-        <Text style={styles.priceLabel}>דמי ביקור החל מ-</Text>
-        <Text style={styles.priceValue}>₪179</Text>
-        <Text style={styles.priceNote}>עבודה נוספת רק לאחר אישורך</Text>
-      </View>
-
-      <TouchableOpacity
-        style={[styles.primaryButton, submitting && { opacity: 0.6 }]}
-        onPress={onRequestNow}
-        disabled={submitting}
-        accessibilityRole="button"
-      >
-        <Text style={styles.primaryButtonLabel}>{submitting ? "שולח בקשה…" : "בקש עכשיו"}</Text>
-      </TouchableOpacity>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: customerTheme.colors.bg, padding: spacing.lg },
-  title: { ...typography.h1, color: customerTheme.colors.textPrimary, textAlign: "right" },
-  subtitle: { ...typography.body, color: customerTheme.colors.textSecondary, textAlign: "right", marginTop: 4 },
-  mediaRow: { flexDirection: "row-reverse", gap: spacing.sm, marginTop: spacing.lg },
-  mediaButton: { backgroundColor: customerTheme.colors.surface, borderWidth: 1, borderColor: customerTheme.colors.border, borderRadius: radius.md, padding: spacing.md, flex: 1, alignItems: "center" },
-  mediaLabel: { ...typography.caption, color: customerTheme.colors.textPrimary },
-  textArea: { marginTop: spacing.md, backgroundColor: customerTheme.colors.surface, borderWidth: 1, borderColor: customerTheme.colors.border, borderRadius: radius.md, padding: spacing.md, minHeight: 100, textAlignVertical: "top", ...typography.body, color: customerTheme.colors.textPrimary },
-  priceCard: { marginTop: spacing.lg, backgroundColor: "rgba(23,201,100,0.08)", borderRadius: radius.md, padding: spacing.lg, alignItems: "flex-end" },
-  priceLabel: { ...typography.caption, color: customerTheme.colors.textSecondary },
-  priceValue: { ...typography.h1, color: customerTheme.colors.textPrimary, marginTop: 2 },
-  priceNote: { ...typography.caption, color: customerTheme.colors.textSecondary, marginTop: 4 },
-  primaryButton: { backgroundColor: customerTheme.colors.action, borderRadius: radius.md, padding: spacing.md, alignItems: "center", marginTop: spacing.xl },
-  primaryButtonLabel: { ...typography.button, color: "#fff" },
-});
