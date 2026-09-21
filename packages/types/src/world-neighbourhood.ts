@@ -1,4 +1,4 @@
-import type { DepartmentCode } from "./world-districts";
+import { tradeGround, type DepartmentCode } from "./world-districts";
 import type { NormalizedPoint } from "./virtual-venue";
 
 /**
@@ -534,11 +534,24 @@ export const OVERFLOW_SPOTS: readonly NormalizedPoint[] = [
  */
 export function groundSpotFor(
   spots: readonly NormalizedPoint[] | null | undefined,
-  department: DepartmentCode
+  department: DepartmentCode,
+  /**
+   * Where the trades that have no door stand — a park or a square rather
+   * than a frontage. See `tradeGround`: a dog walker works in a park and
+   * a trainer works wherever you are, and standing either in a doorway is
+   * a small untruth told by the artwork.
+   *
+   * Absent, or empty, and everything stands on a frontage as before.
+   */
+  open?: readonly NormalizedPoint[] | null
 ): NormalizedPoint {
-  if (!spots || spots.length === 0) return plateSpotFor(department);
   const i = DISTRICT_SITES.findIndex((d) => d.department === department);
-  return spots[(i < 0 ? 0 : i) % spots.length]!;
+  const at = i < 0 ? 0 : i;
+  if (open && open.length > 0 && tradeGround(department) === "OPEN_GROUND") {
+    return open[at % open.length]!;
+  }
+  if (!spots || spots.length === 0) return plateSpotFor(department);
+  return spots[at % spots.length]!;
 }
 
 /** The measured spot a trade stands on, by its position in the table. */

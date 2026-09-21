@@ -1284,3 +1284,67 @@ function lawnOver(
   const ring = [...left, ...right.reverse()];
   return { id, kind: "GREEN", ring: ring.map((p) => unprojectFromWorld(bounds, p)) };
 }
+
+/**
+ * OPEN GROUND, FOR THE TRADES THAT HAVE NO DOOR.
+ *
+ * The other half of `tradeGround`. A dog walker works in a park and a
+ * trainer works wherever you are; standing either of them in a shopfront
+ * is a small untruth told by the artwork, and it is the kind that only
+ * becomes visible once the streets are real.
+ *
+ * Returned in the same shape as `plotSpotsFromGeo` so the layer that
+ * places trades does not have to learn a second idea — the difference
+ * between the two is which list a trade is drawn from, and that is a
+ * property of the trade rather than a rule in the renderer.
+ *
+ * `facing` points at the nearest road for the same reason a shopfront's
+ * does: whatever is drawn there should be turned towards the street
+ * rather than towards the middle of a lawn.
+ */
+export function openGroundFromGeo(plan: WorldPlan, opts: PlotSpotOptions = {}): PlotSpot[] {
+  const separation = opts.separation ?? 0.06;
+  const maxV = opts.maxV ?? 0.86;
+
+  const out: Array<PlotSpot & { size: number }> = [];
+  for (const area of plan.areas) {
+    if (area.kind !== "GREEN" && area.kind !== "SQUARE") continue;
+    if (area.ring.length < 3) continue;
+
+    const centre = ringCentroid(area.ring);
+    if (centre.v > maxV || centre.v < 0 || centre.u < 0 || centre.u > 1) continue;
+
+    const near = nearestWay(plan, centre);
+    const facing = near
+      ? (() => {
+          const du = near.on.at.u - centre.u;
+          const dv = near.on.at.v - centre.v;
+          const len = Math.hypot(du, dv) || 1;
+          return { u: du / len, v: dv / len };
+        })()
+      : { u: 0, v: 1 };
+
+    const areaMetres = Math.abs(ringArea(area.ring)) * plan.widthMetres * (plan.widthMetres / plan.aspect);
+    out.push({
+      ...centre,
+      plotId: area.id,
+      wayId: near?.way.id ?? "",
+      setbackMetres: near ? worldToMetres(plan.geo.bounds, near.on.distance) : 0,
+      facing,
+      areaMetres,
+      size: areaMetres,
+    });
+  }
+
+  /* Biggest open space first: a trainer belongs in the park, not on a
+   * traffic island. */
+  out.sort((a, b) => b.size - a.size);
+  const kept: PlotSpot[] = [];
+  for (const s of out) {
+    if (kept.some((k) => Math.hypot(k.u - s.u, k.v - s.v) < separation)) continue;
+    const { size: _size, ...spot } = s;
+    void _size;
+    kept.push(spot);
+  }
+  return kept;
+}

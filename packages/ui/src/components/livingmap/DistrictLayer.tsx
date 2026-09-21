@@ -121,6 +121,16 @@ export interface DistrictLayerProps {
    */
   spots?: readonly NormalizedPoint[] | null;
   /**
+   * Where the trades that have no door stand: a park or a square.
+   *
+   * See `tradeGround`. A dog walker works in a park and a trainer works
+   * wherever you are — a shopfront for either is a small untruth told by
+   * the artwork, and one that only becomes visible once the streets are
+   * real. The split is a property of the TRADE, so this layer only has
+   * to hand both lists to `groundSpotFor` and let it choose.
+   */
+  openGround?: readonly NormalizedPoint[] | null;
+  /**
    * A POOL OF LIGHT UNDER EACH SHOPFRONT.
    *
    * On the painted plate every business has its own light baked into the
@@ -209,6 +219,7 @@ export function DistrictLayer({
   onSelect,
   vRange,
   spots = null,
+  openGround = null,
   districtWidth,
   litGround = false,
 }: DistrictLayerProps) {
@@ -230,7 +241,7 @@ export function DistrictLayer({
          * happen to be drawn rather than the trade's own. See
          * `groundSpotFor` for what that cost.
          */
-        .map((site) => ({ site, at: groundSpotFor(spots, site.department) }))
+        .map((site) => ({ site, at: groundSpotFor(spots, site.department, openGround) }))
         .filter(({ at }) => !vRange || (at.v >= vRange.min && at.v < vRange.max))
         .sort((a, b) => depthOrder(a.at.v) - depthOrder(b.at.v))
         .map(({ site, at }) => {

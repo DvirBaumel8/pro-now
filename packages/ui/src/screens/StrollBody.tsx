@@ -10,8 +10,10 @@ import {
   groundDisclosureHe,
   geoZoomFor,
   metresToWorld,
+  openGroundFromGeo,
   planWorld,
   plotSpotsFromGeo,
+  pruneDeadEnds,
   REAL_METRES,
   SHOT_METRES,
   PLATE_SPOTS,
@@ -189,11 +191,15 @@ export function StrollBody({
    * And a shopfront becomes SIXTEEN METRES wide rather than a fraction
    * chosen by eye, which is the first true size in this world.
    */
-  const plan = useMemo(() => (geo ? planWorld(geo) : null), [geo]);
-  const spots = useMemo(
-    () => (plan ? plotSpotsFromGeo(plan) : null),
-    [plan]
-  );
+  const plan = useMemo(() => (geo ? planWorld(pruneDeadEnds(geo).geo) : null), [geo]);
+  const spots = useMemo(() => (plan ? plotSpotsFromGeo(plan) : null), [plan]);
+  /*
+   * And the parks and squares, for the trades that have no door — see
+   * `tradeGround`. The stroll screen is where somebody walks up to a
+   * business, so it is where a dog walker standing in a shop doorway
+   * would read as wrong.
+   */
+  const openGround = useMemo(() => (plan ? openGroundFromGeo(plan) : null), [plan]);
   /* Which ground is underfoot is `WorldGround`'s decision now. */
 
 
@@ -301,7 +307,7 @@ export function StrollBody({
   const remember = useCallback(
     (at: NormalizedPoint) => {
       walkedTo.current = at;
-      setNearest(nearestDistrict(at, reach, spots));
+      setNearest(nearestDistrict(at, reach, spots, openGround));
       /*
        * THE INSTRUCTION GOES AWAY ONCE IT HAS BEEN FOLLOWED.
        *
@@ -426,6 +432,7 @@ export function StrollBody({
               sizeBasis={width}
               sources={sources}
               spots={spots}
+              openGround={openGround}
               districtWidth={shopWidth}
               litGround={Boolean(geo)}
               vRange={canWalk ? { min: 0, max: depth } : undefined}
@@ -487,6 +494,7 @@ export function StrollBody({
                 sizeBasis={width}
                 sources={sources}
                 spots={spots}
+                openGround={openGround}
                 districtWidth={shopWidth}
                 litGround={Boolean(geo)}
                 vRange={{ min: depth, max: 1.01 }}

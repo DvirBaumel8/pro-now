@@ -16,6 +16,7 @@ import {
   lengthMetres,
   nearestNode,
   routeAlongRoads,
+  roadRouteAt,
   routeViolations,
 } from "../src/world-routing";
 
@@ -200,5 +201,51 @@ describe("what a route is not", () => {
     const route = routeAlongRoads(graph, spots[0]!, spots[3]!)!;
     expect(Object.keys(route).sort()).toEqual(["drive", "metres", "path"]);
     expect(metresToWorld(fixture.bounds, route.metres)).toBeGreaterThan(0);
+  });
+});
+
+describe("the animation only needs to know how far", () => {
+  /*
+   * ChatGPT's seam, taken now rather than later: *"לא הייתי נותן
+   * לאנימציה לדעת בכלל על נקודות המסלול. מבחינתה היא מקבלת
+   * distanceAlongRoute ומחזירה position + heading."*
+   *
+   * A layer that thinks in metres can be given a speed, slowed into a
+   * corner and eased away from a stop, none of which touches routing. A
+   * layer that thinks in "fraction of the trip" can only be given a
+   * different fraction — which is why every earlier attempt at making
+   * the vehicles feel real ended up as another easing curve.
+   */
+  const spots = plotSpotsFromGeo(plan);
+  const route = routeAlongRoads(graph, spots[0]!, spots[5]!)!;
+
+  it("answers in metres", () => {
+    const half = roadRouteAt(route, route.metres / 2);
+    const same = alongRoute(route, 0.5);
+    expect(half.at.u).toBeCloseTo(same.at.u, 12);
+    expect(half.at.v).toBeCloseTo(same.at.v, 12);
+  });
+
+  it("is a constant speed, so a speed can be given to it", () => {
+    const step = route.metres / 50;
+    let previous = roadRouteAt(route, 0).at;
+    const moved: number[] = [];
+    for (let i = 1; i <= 50; i++) {
+      const at = roadRouteAt(route, step * i).at;
+      moved.push(worldToMetres(fixture.bounds, Math.hypot(at.u - previous.u, at.v - previous.v)));
+      previous = at;
+    }
+    const mean = moved.reduce((a, b) => a + b, 0) / moved.length;
+    expect(mean).toBeCloseTo(step, 0);
+  });
+
+  it("clamps at both ends rather than driving off the route", () => {
+    expect(roadRouteAt(route, -100).at.u).toBeCloseTo(roadRouteAt(route, 0).at.u, 9);
+    expect(roadRouteAt(route, route.metres * 4).at.u).toBeCloseTo(roadRouteAt(route, route.metres).at.u, 9);
+  });
+
+  it("does not divide by a zero-length route", () => {
+    const still = { path: [{ u: 0.3, v: 0.3 }], drive: [], metres: 0 };
+    expect(roadRouteAt(still, 12).at).toEqual({ u: 0.3, v: 0.3 });
   });
 });

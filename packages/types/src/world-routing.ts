@@ -297,19 +297,55 @@ export function lengthMetres(plan: WorldPlan, path: readonly NormalizedPoint[]):
   return worldToMetres(plan.geo.bounds, total);
 }
 
+export interface RoutePose {
+  at: NormalizedPoint;
+  heading: NormalizedPoint;
+}
+
 /**
- * Where along a route a vehicle is, and which way it is pointing.
+ * WHERE A VEHICLE IS AFTER TRAVELLING THIS MANY METRES.
  *
- * `t` is a fraction of the DRAWN LENGTH rather than of the number of
- * points, because a route's points are junctions and they are nowhere
- * near evenly spaced — advancing by point index makes a van crawl down a
- * long straight and then leap across four turns in a row, which is
- * precisely the *"נוסעות לא טוב"* this file exists to fix.
+ * ---------------------------------------------------------------------
+ * WHY DISTANCE AND NOT A FRACTION, AND CERTAINLY NOT AN INDEX
+ * ---------------------------------------------------------------------
+ * ChatGPT, on reading that the router was in:
+ *
+ *     "מכאן גם לא הייתי נותן לאנימציה לדעת בכלל על נקודות המסלול.
+ *      מבחינתה היא מקבלת distanceAlongRoute ומחזירה position + heading.
+ *      כך אפשר בהמשך לעשות acceleration, braking ו-cornering בלי לשנות
+ *      ניווט."
+ *
+ * Which is the right seam and worth taking now rather than later. A
+ * layer that thinks in metres can be given a speed, slowed into a corner
+ * and eased away from a stop, and none of that touches routing. A layer
+ * that thinks in "fraction of the trip" can only be given a different
+ * fraction, which is why every previous attempt at making the vehicles
+ * feel real ended up as a different easing curve.
+ *
+ * `alongRoute` stays as the fraction-shaped wrapper, because the screen
+ * still gets a 0..1 progress from the server's ETA and that conversion
+ * belongs in one place.
+ *
+ * Named `roadRouteAt` rather than `routeAt` because `assignment-route`
+ * already exports a `routeAt` for the painted plate's curve, and two
+ * functions with one name that answer in different units is the kind of
+ * collision that produces a van at a plausible wrong place.
  */
-export function alongRoute(
-  route: RoadRoute,
-  t: number
-): { at: NormalizedPoint; heading: NormalizedPoint } {
+export function roadRouteAt(route: RoadRoute, metres: number): RoutePose {
+  const total = route.metres;
+  return alongRoute(route, total <= 0 ? 0 : metres / total);
+}
+
+/**
+ * The same question asked as a fraction of the drawn length.
+ *
+ * A fraction of LENGTH rather than of the number of points: a route's
+ * points are junctions and they are nowhere near evenly spaced, so
+ * advancing by index makes a van crawl down a long straight and then leap
+ * across four turns in a row — precisely the *"נוסעות לא טוב"* this file
+ * exists to fix.
+ */
+export function alongRoute(route: RoadRoute, t: number): RoutePose {
   const pts = route.path;
   if (pts.length === 0) return { at: { u: 0.5, v: 0.5 }, heading: { u: 0, v: 1 } };
   if (pts.length === 1) return { at: pts[0]!, heading: { u: 0, v: 1 } };

@@ -50,12 +50,13 @@ export const DEPTH_WEIGHT = 0.6;
 export function nearestDistrict(
   at: NormalizedPoint,
   near = NEAR,
-  spots: readonly NormalizedPoint[] | null = null
+  spots: readonly NormalizedPoint[] | null = null,
+  openGround: readonly NormalizedPoint[] | null = null
 ): DepartmentCode | null {
   let best: DepartmentCode | null = null;
   let bestD = near;
   for (const code of Object.keys(WORLD_DISTRICTS) as DepartmentCode[]) {
-    const spot = groundSpotFor(spots, code);
+    const spot = groundSpotFor(spots, code, openGround);
     if (!spot) continue;
     const d = Math.hypot(spot.u - at.u, (spot.v - at.v) * DEPTH_WEIGHT);
     if (d < bestD) {

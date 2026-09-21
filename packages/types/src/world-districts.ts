@@ -318,3 +318,82 @@ export function travelAssetFor(department: DepartmentCode): string {
   const district = WORLD_DISTRICTS[department];
   return district.travelAssetId ?? district.characterWorldAssetId;
 }
+
+/**
+ * TWO KINDS OF PLACE A TRADE CAN STAND IN.
+ *
+ * ---------------------------------------------------------------------
+ * WHERE THIS CAME FROM
+ * ---------------------------------------------------------------------
+ * Amit, deciding what happens to the roads that stop in the middle of a
+ * real extract:
+ *
+ *     "אפשר לוותר עליהם ולשים שם מדשאות ועסקים שלנו עתידיים. דוג ווקרים
+ *      ומאמני כושר, לא יודע."
+ *
+ * ChatGPT, on reading that it had been built:
+ *
+ *     "הניקוי של dead-end לא־נגישים עושה משהו מעבר לאסתטיקה: הוא יוצר
+ *      לכם שני סוגי מרחב טבעיים — רחוב לשירותים עם home base, ו-green/
+ *      open zone למקצוענים שלא אמורים לקבל חזית בכלל... הייתי שומר את
+ *      ההבחנה הזאת גם בטיפוסים ולא רק ברנדרר."
+ *
+ * It is right, and it fixes something that has been slightly wrong since
+ * the first district was drawn. A city made entirely of shopfronts says
+ * every trade works out of premises, and several of ours plainly do not:
+ * a dog walker works in a park, a trainer works wherever you are. Giving
+ * them a shopfront is a small untruth told by the artwork, and it is the
+ * kind that only becomes visible once the streets are real.
+ *
+ * Kept as a property of the TRADE rather than as a rule in the renderer,
+ * so a screen cannot quietly disagree with another screen about whether
+ * a trade has a door.
+ */
+export type TradeGround =
+  /** Works out of premises; stands on a frontage. */
+  | "SHOPFRONT"
+  /** Works in the open; stands in a park or a square, never in a doorway. */
+  | "OPEN_GROUND";
+
+/**
+ * Which trades have no door.
+ *
+ * Deliberately short. A trade is listed here only when a shopfront would
+ * be actively wrong — not merely when some of its professionals travel,
+ * because nearly all of them do: this is a NOW product and almost every
+ * job happens at the customer's address. A plumber has a workshop; a dog
+ * walker has a park.
+ *
+ * `WELLNESS` covers fitness training and `PETS` covers dog walking, which
+ * are the two Amit named. Anything else joining them is a product
+ * decision and belongs in a commit message, not in a default.
+ */
+const OPEN_GROUND_TRADES: ReadonlySet<DepartmentCode> = new Set<DepartmentCode>([
+  "WELLNESS",
+  "PETS",
+]);
+
+export function tradeGround(department: DepartmentCode): TradeGround {
+  return OPEN_GROUND_TRADES.has(department) ? "OPEN_GROUND" : "SHOPFRONT";
+}
+
+/**
+ * Everything wrong with the split, as a test rather than prose.
+ *
+ * The failure mode it guards is the one that would be invisible: every
+ * trade quietly becoming OPEN_GROUND, or the set growing until the
+ * street has nothing on it.
+ */
+export function tradeGroundViolations(): string[] {
+  const out: string[] = [];
+  const all = Object.keys(WORLD_DISTRICTS) as DepartmentCode[];
+  const open = all.filter((d) => tradeGround(d) === "OPEN_GROUND");
+  if (open.length === 0) out.push("no trade works in the open, so the parks are decoration");
+  if (open.length > all.length / 3) {
+    out.push(`${open.length} of ${all.length} trades have no premises, which empties the street`);
+  }
+  for (const code of OPEN_GROUND_TRADES) {
+    if (!(code in WORLD_DISTRICTS)) out.push(`${code} works in the open and is not a trade`);
+  }
+  return out;
+}

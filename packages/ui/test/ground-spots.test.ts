@@ -8,6 +8,10 @@ import {
   type WorldGeo,
   groundSpotFor,
   metresToWorld,
+  openGroundFromGeo,
+  pruneDeadEnds,
+  tradeGround,
+  tradeGroundViolations,
   planWorld,
   plotSpotsFromGeo,
   REAL_METRES,
@@ -55,6 +59,38 @@ describe("one ground, one answer", () => {
     const placed = DISTRICT_SITES.map((s) => groundSpotFor(spots, s.department));
     const keys = new Set(placed.map((p) => `${p.u.toFixed(5)},${p.v.toFixed(5)}`));
     expect(keys.size).toBe(placed.length);
+  });
+});
+
+describe("the trades that have no door", () => {
+  /*
+   * Amit turned the closed roads into parks and added the product point:
+   * *"שם ישבו עסקים שלנו עתידיים — דוג ווקרים ומאמני כושר."* ChatGPT then
+   * asked for the distinction to live in the TYPES rather than in the
+   * renderer, so two screens cannot disagree about whether a trade has a
+   * door. This is that, checked.
+   */
+  const open = openGroundFromGeo(planWorld(pruneDeadEnds(geo).geo));
+
+  it("stands the door-less trades on open ground", () => {
+    expect(open.length).toBeGreaterThan(0);
+    for (const site of DISTRICT_SITES) {
+      const at = groundSpotFor(spots, site.department, open);
+      const onOpen = open.some((o) => o.u === at.u && o.v === at.v);
+      expect(onOpen).toBe(tradeGround(site.department) === "OPEN_GROUND");
+    }
+  });
+
+  it("falls back to a frontage when there is no open ground", () => {
+    for (const site of DISTRICT_SITES) {
+      expect(groundSpotFor(spots, site.department, [])).toEqual(
+        groundSpotFor(spots, site.department)
+      );
+    }
+  });
+
+  it("keeps the street from emptying", () => {
+    expect(tradeGroundViolations()).toEqual([]);
   });
 });
 
