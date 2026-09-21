@@ -125,10 +125,10 @@ blocks the epic's stated acceptance criteria.
 See `/docs/EPIC-0-REPORT.md` for the as-built state, contradictions found
 between source documents, and the recommended next epic.
 
-**Read `§17` in that report first**, then `§16` and `§15` — together they
-are the current truth about what has actually been installed, compiled,
-linted, bundled, rendered and executed. They supersede the older
-`§7`/`§8`.
+**Read `§18` in that report first**, then `§17`, `§16` and `§15` —
+together they are the current truth about what has actually been
+installed, compiled, linted, bundled, rendered and executed. They
+supersede the older `§7`/`§8`.
 
 `§17` records the move out of the build container onto a developer
 machine, which is where the Prisma blocker ended and where three defects
@@ -152,6 +152,12 @@ container and of nowhere else, and the wording outlived the container.
 Two other container assumptions outlived it the same way, a hard-coded
 browser path and a hard-coded port, both since removed (§17.3).
 
-The database checks (`db:verify`, `verify:rowlock`) are the two gates that
-cannot run without PostgreSQL. Anyone re-verifying on a fresh machine
-should treat them as unmeasured until they have one.
+The database checks now run here too: `db:verify` 1411/1411 and
+`verify:rowlock` 7/7 against PostgreSQL 16.15 + PostGIS 3.4.6, and
+`npm run dev:api` boots and serves the catalogue out of it (§18). The one
+remaining unmeasured gate on this machine is `expo export`.
+
+Local setup has one step the docs used to omit: the env file belongs at
+`apps/api/.env`, because the Prisma CLI and the API both run with
+`apps/api` as their working directory. Nothing read `.env` at all until
+§18.1 — every earlier session exported its variables by hand.

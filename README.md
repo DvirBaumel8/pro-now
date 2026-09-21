@@ -6,8 +6,8 @@ request a trusted, verified professional to come **now**. See
 `/CLAUDE.md` for the engineering contract and `/docs/00-VISION.md` onward
 for the full product/engineering specification this repo implements.
 
-**Start here:** `/docs/EPIC-0-REPORT.md` — read **§17** first, then **§16**
-and **§15**. Together they are the honest record of what has actually been
+**Start here:** `/docs/EPIC-0-REPORT.md` — read **§18** first, then **§17**
+and **§16**. Together they are the honest record of what has actually been
 installed, compiled, linted, bundled, rendered and executed. They supersede
 the older §7/§8, which describe a session that could not run anything.
 
@@ -32,9 +32,17 @@ the older §7/§8, which describe a session that could not run anything.
 
 - Node.js 20+
 - npm 10+
-- PostgreSQL 16 + PostGIS 3.4, and Redis 7
-  (`docker-compose.yml` is the intended path; it is **unverified** — the
-  verification session had no Docker daemon and used local services instead)
+- PostgreSQL 16 + PostGIS 3.4
+- Redis 7 — optional for local work. The server logs `Redis not reachable
+  at startup — will retry lazily` and serves requests without it; only the
+  dispatch accept path needs it.
+
+`docker-compose.yml` is one way to get both, and is still **unverified** —
+no session has had a Docker daemon. On macOS 13 Docker Desktop will not
+install at all (it requires a newer macOS), and there
+[Postgres.app](https://postgresapp.com/) is the shorter path: the
+PostgreSQL 16 build ships PostGIS 3.4 and needs macOS 10.15. Everything
+below was measured against it.
 
 ## Verification status
 
@@ -54,11 +62,12 @@ the repository moved out of the build container — see EPIC-0-REPORT §17.
 | Screen sweep | `npm run verify:screens` | **PASS** |
 | Play layer | `npm run verify:game` | **PASS** |
 | Admin build | `next build` | **PASS — 7 pages** |
+| Schema vs. real database | `npm run db:verify` | **PASS — 1411/1411** |
+| Row lock vs. real Postgres | `npm run verify:rowlock` | **PASS — 7/7, with a control** |
+| API boot | `npm run dev:api` | **PASS — /health 200, catalogue served from the database** |
 
 Not re-measured on this machine, and therefore not claimed: the mobile
-bundles (`expo export`), and everything that needs a database —
-`npm run db:verify` and `npm run verify:rowlock`. There is no PostgreSQL
-on this machine yet; see **Setup**.
+bundles (`expo export`).
 
 ### The Prisma blocker is gone
 
@@ -78,11 +87,18 @@ ever writes — was silently wrong at runtime, not merely untyped.
 ```bash
 npm install
 npm run db:generate -w apps/api  # Prisma client; nothing in apps/api compiles without it
-cp .env.example .env             # fill in local values
-docker compose up -d             # postgres+postgis on 5432, redis on 6379
 
-npm run db:migrate --workspace=apps/api
-npm run db:seed    --workspace=apps/api
+# The Prisma CLI and the API both run with apps/api as their working
+# directory, so the real env file belongs there. The template stays at the
+# root because it documents the whole repository.
+cp .env.example apps/api/.env    # fill in local values
+
+# A database matching apps/api/.env — DATABASE_URL, role, and the postgis
+# extension. With Postgres.app, `createuser`/`createdb` do this directly.
+docker compose up -d             # or any PostgreSQL 16 + PostGIS 3.4
+
+npm run db:migrate:deploy --workspace=apps/api   # applies 0_init
+npm run db:seed           --workspace=apps/api   # 9 departments, 15 categories, 25 services
 
 npm run dev:api        # Fastify API on :4000
 npm run dev:admin      # Next.js admin on :3000

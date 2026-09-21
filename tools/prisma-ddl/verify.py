@@ -91,6 +91,15 @@ def main():
     )
     extension_owned = {r[0] for r in cur.fetchall()}
 
+    # Prisma's migration ledger is bookkeeping, not schema. `prisma migrate
+    # deploy` creates `_prisma_migrations` and schema.prisma does not
+    # declare it, by design — so the verifier reported it as an undeclared
+    # table the first time the migration was applied by Prisma rather than
+    # by hand. Its name is fixed by Prisma's own protocol and cannot drift
+    # the way an extension's contents can, which is why this one is named
+    # here while PostGIS's objects are asked for.
+    not_declared_here = extension_owned | {"_prisma_migrations"}
+
     # ---------------- enums ----------------
     cur.execute(
         """
@@ -122,7 +131,7 @@ def main():
     for t, c, dt, nullable, udt in cur.fetchall():
         db_cols.setdefault(t, {})[c] = (dt, nullable == "YES", udt)
 
-    db_cols = {t: c for t, c in db_cols.items() if t not in extension_owned}
+    db_cols = {t: c for t, c in db_cols.items() if t not in not_declared_here}
 
     expected_tables = {m["table"]: m for m in models.values()}
     for table, model in expected_tables.items():
@@ -160,7 +169,7 @@ def main():
             )
 
     for table in db_cols:
-        if table in extension_owned:
+        if table in not_declared_here:
             continue
         check(table in expected_tables, f"table {table} exists in the database but not in the schema")
 
@@ -223,7 +232,7 @@ def main():
     )
     # Keyed by index name, but filtered by the TABLE it sits on: an index is
     # not itself recorded as extension-owned even when its table is.
-    db_idx = {r[1] for r in cur.fetchall() if r[0] not in extension_owned}
+    db_idx = {r[1] for r in cur.fetchall() if r[0] not in not_declared_here}
     expected_idx = set()
     for model in models.values():
         expected_idx.add(model["table"] + "_pkey")

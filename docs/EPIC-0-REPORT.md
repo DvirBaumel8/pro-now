@@ -1592,13 +1592,7 @@ rediscover and each one would have cost it again.
 the admin build green at 7 pages.
 
 **Not measured here, and therefore not claimed:** the mobile bundles
-(`expo export`), `db:verify` and `verify:rowlock`. The last two need
-PostgreSQL 16 + PostGIS, and this machine has no database, no Docker and
-no Redis yet. Their previous results (1411/1411 and 7/7) were real, and
-they were measured against a database that no longer exists. Re-running
-them is the first thing to do once there is one.
-
-`verify:silhouettes` needs numpy, which the system Python does not have.
+(`expo export`).
 
 ### 17.5 Where the history lives
 
@@ -1607,3 +1601,68 @@ behind**. The two histories part at `47f74ef` (§10); since then GitHub
 received two README commits that are not in this history, and this
 history received everything else. The `github-synced` tag at `aee6799`
 marks the last sync and is no longer close to true.
+
+
+## 18. A database on this machine, and the server's first boot (2026-09-21)
+
+Docker Desktop no longer installs on macOS 13, which is what this machine
+runs, so `docker-compose.yml` stayed unverified for a fourth session.
+Postgres.app was the shorter path and is a better fit besides: its
+PostgreSQL 16 build ships PostGIS 3.4, needs macOS 10.15, and is one
+application rather than a virtual machine.
+
+Redis was skipped deliberately. `plugins/redis.ts` already logs *Redis not
+reachable at startup — will retry lazily* and continues; only the dispatch
+accept path needs it, and none of the checks below do.
+
+### 18.1 Nothing read `.env`
+
+`packages/config` reads `process.env` and validates it, "on the stated
+assumption that something else has populated it". Nothing did. Every
+session so far had exported its variables in the shell, so the documented
+setup — `cp .env.example .env`, then `npm run dev:api` — had never once
+been executed as written, and both `prisma migrate` and `prisma db seed`
+failed on `Environment variable not found: DATABASE_URL` the first time
+anyone tried.
+
+`apps/api/src/load-env.ts` now loads it, imported first by `server.ts` and
+by `seed.ts`. It reads `.env` then `../../.env`, because the repository
+documents the file at the root while every tool that needs it runs with
+`apps/api` as the working directory. `dotenv` never overwrites a variable
+that is already set, so a secret manager still wins everywhere it exists
+and this is inert wherever the file is absent.
+
+### 18.2 What the database says
+
+`prisma migrate deploy` applied `0_init` against PostgreSQL 16.15 +
+PostGIS 3.4.6: **47 tables, 9 enums, 45 foreign keys**, exactly as §12
+recorded. Seeding produced 9 departments, 15 categories and 25 services,
+15 of them pilot-active.
+
+- `npm run verify:rowlock` — **7/7**, against these real tables. The
+  control passes too: without `FOR UPDATE` both accepts win, so the race
+  is real and test B is proving something.
+- `npm run db:verify` — **1411/1411**, both directions.
+
+That second number needed a one-line fix. The verifier reported
+`_prisma_migrations` as a table the schema does not declare, which is
+true and is not a defect: it is Prisma's own migration ledger, created by
+`migrate deploy`. The 1411/1411 in §12 was measured against a database
+migrated **by hand**, where that table did not exist. It is excluded by
+name now — unlike an extension's contents, its name is fixed by Prisma's
+protocol and cannot drift.
+
+### 18.3 The server booted
+
+For the first time in this project's history, `npm run dev:api` came up.
+`GET /health` returned `{"ok":true,"sandbox":true}`, and `GET /v1/catalog`
+returned the seeded departments in Hebrew, out of PostgreSQL, through
+Prisma, over HTTP. The whole stack has now been executed end to end on one
+machine.
+
+One thing is worth someone's attention rather than a fix: the WELLNESS
+department renders as "Wellness" among four Hebrew names, because
+`seed-data/services.ts` copies `docs/09b-SERVICE-CATALOG.md` faithfully
+and the catalogue itself has English in that cell. A Hebrew-first product
+showing one English department is a copy decision, not a bug, and
+`/CLAUDE.md §4` says this codebase does not invent those.

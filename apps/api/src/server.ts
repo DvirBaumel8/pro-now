@@ -1,3 +1,5 @@
+import "./load-env";
+
 import Fastify from "fastify";
 import websocketPlugin from "@fastify/websocket";
 import { loadEnv } from "@pro-now/config";

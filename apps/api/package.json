@@ -17,6 +17,7 @@
     "db:seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "dotenv": "^16.4.5",
     "@pro-now/config": "*",
     "@pro-now/types": "*",
     "@pro-now/validation": "*",
