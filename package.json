@@ -28,7 +28,8 @@
     "verify:a11y": "node tools/design-preview/audit.mjs",
     "verify:screens": "node tools/design-preview/sweep.mjs",
     "verify:game": "node tools/design-preview/game.mjs",
-    "verify:type-scale": "node scripts/check-type-scale.mjs"
+    "verify:type-scale": "node scripts/check-type-scale.mjs",
+    "verify:silhouettes": "node tools/design-preview/measure-silhouettes.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
