@@ -215,7 +215,27 @@ export function SearchingScreen({ route, navigation }: Props) {
         onBack={onBack}
         backLabelHe={leavingCancels(status) ? "ביטול הבקשה" : null}
         onAccept={() => navigation.replace("Tracking", { jobId })}
-        onSafety={() => navigation.navigate("Tracking", { jobId })}
+        /*
+         * NO "SOMEBODY ELSE" AND NO SAFETY BUTTON, YET.
+         *
+         * Both controls render only when a handler is passed, which is
+         * why passing nothing is the honest answer rather than an
+         * oversight.
+         *
+         * `onAnother` would mean "send a different professional". There is
+         * no endpoint for that: the nearest thing is cancelling the job
+         * and starting again, which is a different and much larger action
+         * than the label promises. A button that quietly cancels a
+         * dispatched job because it said "מישהו אחר" is worse than no
+         * button.
+         *
+         * `onSafety` had been wired to the tracking screen, which is not
+         * safety — it is the screen you were already on the way to. A
+         * control called safety that navigates somewhere ordinary is the
+         * kind of thing somebody presses once, in the moment they actually
+         * need it, and it is the worst possible moment to discover it does
+         * nothing.
+         */
         width={width}
         height={height}
       />

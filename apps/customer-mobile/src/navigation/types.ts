@@ -31,7 +31,17 @@ export type CustomerStackParamList = {
    */
   Address: { serviceId: string; serviceName: string; describedHe?: string };
   Searching: { jobId: string };
-  Match: { jobId: string };
+  /*
+   * C09 had its own screen until the reveal moved into the living map,
+   * where the world stays mounted and the match lands in it rather than
+   * being a navigation. Nothing pushed this route any more, and a screen
+   * nobody can reach does not exist — the same reasoning that removed the
+   * standalone review screen.
+   *
+   * `MatchScreen` itself was honest: it fetched /match and rendered it,
+   * holding no copy of the professional, the ETA or the price. It comes
+   * back the day there is a reason to show a match outside the world.
+   */
   Tracking: { jobId: string };
   Quote: { jobId: string };
   Complete: { jobId: string };

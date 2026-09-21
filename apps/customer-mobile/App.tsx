@@ -14,7 +14,6 @@ import { ServiceSelectScreen } from "./src/screens/ServiceSelectScreen";
 import { RequestDetailsScreen } from "./src/screens/RequestDetailsScreen";
 import { AddressScreen } from "./src/screens/AddressScreen";
 import { SearchingScreen } from "./src/screens/SearchingScreen";
-import { MatchScreen } from "./src/screens/MatchScreen";
 import { TrackingScreen } from "./src/screens/TrackingScreen";
 import { QuoteScreen } from "./src/screens/QuoteScreen";
 import { CompleteScreen } from "./src/screens/CompleteScreen";
@@ -60,7 +59,6 @@ function Root() {
         <Stack.Screen name="RequestDetails" component={RequestDetailsScreen} options={{ headerShown: true, title: "" }} />
         <Stack.Screen name="Address" component={AddressScreen} />
         <Stack.Screen name="Searching" component={SearchingScreen} />
-        <Stack.Screen name="Match" component={MatchScreen} />
         <Stack.Screen name="Tracking" component={TrackingScreen} />
         <Stack.Screen name="Quote" component={QuoteScreen} />
         <Stack.Screen name="Complete" component={CompleteScreen} />
