@@ -12,6 +12,7 @@ export * from "./providers/notification-provider";
 export * from "./pilot-catalog";
 export * from "./arrival-assurance";
 export * from "./living-map";
+export * from "./job-scene";
 export * from "./world-assets";
 export * from "./world-play";
 export * from "./virtual-venue";
