@@ -17,6 +17,34 @@ export function setSessionToken(token: string | null) {
 
 
 /**
+ * AN ERROR THAT SAYS WHETHER THE SERVER ANSWERED.
+ *
+ * Every failure used to arrive as a bare `Error`, so a caller could not
+ * tell "the server refused this" from "the request never got there" — and
+ * on the professional's accept those are opposite facts. A refusal means
+ * somebody else took the job. A transport failure means we do not know
+ * whether it was taken, and quietly returning them to the shift screen
+ * leaves them waiting for offers while a customer waits for them.
+ *
+ * `code` is the server's own error code when there was a response, and
+ * null when there was not.
+ */
+export class ApiError extends Error {
+  readonly code: string | null;
+  readonly status: number | null;
+  constructor(message: string, code: string | null, status: number | null) {
+    super(message);
+    this.name = "ApiError";
+    this.code = code;
+    this.status = status;
+  }
+  /** True when nothing came back — the outcome is genuinely unknown. */
+  get unreachable(): boolean {
+    return this.status === null;
+  }
+}
+
+/**
  * The API's error envelope is `{ code, message }` (/docs/06-API-SPEC.md),
  * but a failed request can also return a proxy's HTML or nothing at all —
  * so the body is narrowed rather than trusted.
@@ -29,15 +57,42 @@ function serverMessage(body: unknown): string | undefined {
   return undefined;
 }
 
+function serverCode(body: unknown): string | null {
+  if (typeof body === "object" && body !== null && "code" in body) {
+    const { code } = body as { code: unknown };
+    if (typeof code === "string") return code;
+  }
+  return null;
+}
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(init.headers as Record<string, string> | undefined),
   };
   if (sessionToken) headers.Authorization = `Bearer ${sessionToken}`;
-  const res = await fetch(`${BASE_URL}${path}`, { ...init, headers });
+  /*
+   * The transport failure is caught SEPARATELY from the refusal, because
+   * they are different facts and the caller needs to tell them apart.
+   */
+  let res: Response;
+  try {
+    res = await fetch(`${BASE_URL}${path}`, { ...init, headers });
+  } catch (err) {
+    throw new ApiError(
+      err instanceof Error ? err.message : `Could not reach ${path}`,
+      null,
+      null
+    );
+  }
   const body: unknown = await res.json().catch(() => null);
-  if (!res.ok) throw new Error(serverMessage(body) ?? `Request to ${path} failed with ${res.status}`);
+  if (!res.ok) {
+    throw new ApiError(
+      serverMessage(body) ?? `Request to ${path} failed with ${res.status}`,
+      serverCode(body),
+      res.status
+    );
+  }
   return body as T;
 }
 

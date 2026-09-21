@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { OfferCardView } from "@pro-now/types";
 import { OfferCard, OfferCardSkeleton, proTheme, spacing, typography } from "@pro-now/ui";
 
 import type { ProStackParamList } from "../navigation/types";
-import { api } from "../api/client";
+import { ApiError, api } from "../api/client";
 
 type Props = NativeStackScreenProps<ProStackParamList, "Offer">;
 
@@ -64,9 +64,36 @@ export function OfferScreen({ route, navigation }: Props) {
       const result = await api.acceptOffer(offer?.offerId ?? offerId);
       // Navigate with the jobId the SERVER returned, never a local guess.
       navigation.replace("Job", { jobId: result.jobId });
-    } catch {
-      // OFFER_NO_LONGER_AVAILABLE, an expiry, or a network error — return to
-      // the shift screen rather than stranding them on a dead offer.
+    } catch (err) {
+      /*
+       * A REFUSAL AND A LOST CONNECTION ARE OPPOSITE FACTS.
+       *
+       * Both used to bounce the professional silently back to the shift
+       * screen. A refusal is fine to do that with — somebody else took the
+       * job and there is nothing to tell them beyond that.
+       *
+       * A transport failure is not. The accept may well have SUCCEEDED and
+       * only the answer was lost, in which case the professional is
+       * assigned to a job they do not know about, sitting on the shift
+       * screen waiting for offers while a customer waits for them at a
+       * door. That is the worst outcome in the product and it was
+       * indistinguishable from the ordinary one.
+       *
+       * So the unknown case says it is unknown and offers to look again,
+       * and it does not navigate away from the decision on its own.
+       */
+      if (err instanceof ApiError && err.unreachable) {
+        Alert.alert(
+          "לא קיבלנו תשובה",
+          "ייתכן שהעבודה כבר שלך וייתכן שלא. אל תצא מהמשמרת — נבדוק שוב.",
+          [
+            { text: "בדיקה שוב", onPress: () => void handleAccept() },
+            { text: "חזרה למשמרת", onPress: () => navigation.replace("Offline") },
+          ]
+        );
+        return;
+      }
+      // OFFER_NO_LONGER_AVAILABLE or an expiry: somebody else has it.
       navigation.replace("Offline");
     } finally {
       setResponding(false);
