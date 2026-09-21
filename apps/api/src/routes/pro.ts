@@ -86,11 +86,38 @@ export default async function proRoutes(app: FastifyInstance) {
 
     // Earnings are derived from ledger_entries, never summed ad-hoc from
     // jobs — see /docs/05-DATABASE.md §Payments.
+    /*
+     * GROSS AND NET, BOTH FROM THE LEDGER.
+     *
+     * The professional's screen showed "ברוטו ₪2,100" and "עמלת פלטפורמה
+     * −₪420" written into the component — a 20% commission, to everybody,
+     * when the commission percentage is an open business decision
+     * (/CLAUDE.md §4). The app was announcing a rate nobody had set.
+     *
+     * Both numbers come from ledger rows now, or neither does. What was
+     * actually charged is CUSTOMER_CHARGE; what the professional is owed
+     * is PROFESSIONAL_PAYABLE; the difference is what was taken, and it is
+     * a SUBTRACTION of two recorded facts rather than a percentage
+     * applied. When there are no charge rows, gross is null and the
+     * screen omits the breakdown instead of implying a deduction of zero.
+     */
     const entries = await app.prisma.ledgerEntry.findMany({
-      where: { payment: { job: { assignedProfessionalId: professional.id } }, entryType: "PROFESSIONAL_PAYABLE" },
+      where: { payment: { job: { assignedProfessionalId: professional.id } } },
     });
-    const netMinorUnits = entries.reduce((sum, e) => sum + e.amountMinorUnits, 0);
-    return reply.send({ netMinorUnits, currency: "ILS", jobCount: entries.length });
+
+    const payable = entries.filter((e) => e.entryType === "PROFESSIONAL_PAYABLE");
+    const charges = entries.filter((e) => e.entryType === "CUSTOMER_CHARGE");
+
+    const netMinorUnits = payable.reduce((sum, e) => sum + e.amountMinorUnits, 0);
+    const grossMinorUnits =
+      charges.length === 0 ? null : charges.reduce((sum, e) => sum + e.amountMinorUnits, 0);
+
+    return reply.send({
+      netMinorUnits,
+      grossMinorUnits,
+      currency: "ILS",
+      jobCount: payable.length,
+    });
   });
 
   app.get("/v1/pro/verification", { onRequest: app.requireAuth }, async (req, reply) => {

@@ -179,6 +179,18 @@ export type VerificationStatusView =
   | "SUSPENDED"
   | "EXPIRED";
 
+/** One credential row, as the verification centre reads it. */
+export interface ProCredentialView {
+  id: string;
+  serviceId: string;
+  /** LICENSE | CERTIFICATE | INSURANCE */
+  type: string;
+  /** PENDING | VERIFIED | EXPIRED | REJECTED */
+  status: string;
+  issuer: string | null;
+  expiresAt: string | null;
+}
+
 export interface ProfessionalVerificationView {
   id: string;
   userId: string;
@@ -189,6 +201,33 @@ export interface ProfessionalVerificationView {
   presenceState: ProPresenceState;
   createdAt: string;
   updatedAt: string;
+
+  /*
+   * THE EXPANSIONS THE ROUTE ALREADY SENT AND THE TYPE DID NOT ADMIT TO.
+   *
+   * `/v1/pro/verification` has always included these; the type stopped at
+   * the profile's own columns, so the verification centre could not read
+   * them and showed four hard-coded rows instead — telling every
+   * professional in the marketplace that their identity and business were
+   * verified and their electrician's licence had expired.
+   *
+   * Every one is optional because an older server, or a professional
+   * partway through onboarding, genuinely has nothing to send. Absent
+   * means "not submitted", which the screen draws as NOT_STARTED — never
+   * as verified.
+   */
+  identityVerification?: {
+    status: string;
+    /** True for a result from the stub adapter. A sandbox pass is not a pass. */
+    isSandbox: boolean;
+    verifiedAt?: string | null;
+  } | null;
+  businessProfile?: {
+    verificationStatus: string;
+    legalName?: string | null;
+  } | null;
+  credentials?: ProCredentialView[];
+  externalProfiles?: { linkStatus: string; profileUrl: string | null }[];
 }
 
 /**

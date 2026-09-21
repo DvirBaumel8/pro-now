@@ -57,7 +57,14 @@ export const api = {
   sendQuote: (jobId: string, lineItems: Array<{ description: string; quantity: number; unitPriceMinorUnits: number }>) =>
     request<{ quote: QuoteView }>(`/v1/jobs/${jobId}/quotes`, { method: "POST", body: JSON.stringify({ lineItems }) }),
   complete: (jobId: string) => request<{ ok: boolean }>(`/v1/jobs/${jobId}/complete`, { method: "POST" }),
-  getEarnings: () => request<{ netMinorUnits: number; currency: string; jobCount: number }>("/v1/pro/earnings"),
+  getEarnings: () =>
+    request<{
+      netMinorUnits: number;
+      /** Null when no charge rows exist. Never a percentage of net. */
+      grossMinorUnits: number | null;
+      currency: string;
+      jobCount: number;
+    }>("/v1/pro/earnings"),
   getVerification: () => request<{ professional: ProfessionalVerificationView }>("/v1/pro/verification"),
   /*
    * Which services this professional may go online for, decided by the

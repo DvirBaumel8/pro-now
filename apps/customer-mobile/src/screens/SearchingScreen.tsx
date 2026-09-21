@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useWindowDimensions, View } from "react-native";
+import { Alert, useWindowDimensions, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 
 import {
@@ -15,6 +15,7 @@ import {
 import { SearchingBody, customerDarkTheme } from "@pro-now/ui";
 
 import type { CustomerStackParamList } from "../navigation/types";
+import { api } from "../api/client";
 import { useJobWatch } from "../api/useJobWatch";
 import { useAvatar } from "../avatar/AvatarProvider";
 import { worldSources } from "../world/worldSources";
@@ -170,19 +171,34 @@ export function SearchingScreen({ route, navigation }: Props) {
   );
 
   const onBack = useCallback(() => {
-    /*
-     * Leaving before assignment ends the request; afterwards it is only
-     * navigation. `leavingCancels` owns that boundary so the label and the
-     * behaviour cannot drift apart.
-     *
-     * NOTE: there is no cancel endpoint on this client yet, so this backs
-     * out of the screen rather than telling the server. Wiring
-     * `POST /v1/jobs/:id/cancel` here is a one-line change the day it
-     * exists; promising a cancellation we do not send would be worse than
-     * the extra tap.
-     */
-    navigation.replace("Home");
-  }, [navigation]);
+    void (async () => {
+      /*
+       * LEAVING BEFORE ASSIGNMENT ENDS THE REQUEST — AND HAS TO SAY SO TO
+       * THE SERVER.
+       *
+       * The control said "ביטול הבקשה" and then only navigated. The job
+       * stayed SEARCHING, dispatch kept working, and a professional could
+       * be sent to somebody who believed they had cancelled and had
+       * already gone out. A label that names a consequence has to cause
+       * it.
+       *
+       * After assignment the label is a bare chevron and leaving is only
+       * navigation — the job carries on, which is what the customer
+       * expects when somebody is already driving to them.
+       */
+      if (leavingCancels(status)) {
+        try {
+          await api.cancelJob(jobId);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "שגיאה לא צפויה";
+          // Do not leave. They asked to cancel and nothing was cancelled.
+          Alert.alert("הבקשה לא בוטלה", message);
+          return;
+        }
+      }
+      navigation.replace("Home");
+    })();
+  }, [status, jobId, navigation]);
 
   const etaMinutes = match?.eta ? Math.round(match.eta.etaSeconds / 60) : null;
 

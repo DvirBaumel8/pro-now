@@ -68,6 +68,13 @@ export const api = {
   createJob: (input: { serviceId: string; addressId: string; description?: string }, idempotencyKey: string) =>
     request<{ job: JobView; dispatch: DispatchResultView }>("/v1/jobs", { method: "POST", headers: { "Idempotency-Key": idempotencyKey }, body: JSON.stringify(input) }),
   getJob: (id: string) => request<{ job: JobView }>(`/v1/jobs/${id}`),
+  /*
+   * Stopping the request. The searching screen offered "ביטול הבקשה" and
+   * then only navigated away — the job stayed SEARCHING on the server and
+   * a professional could still be dispatched to somebody who believed
+   * they had cancelled.
+   */
+  cancelJob: (id: string) => request<{ ok: boolean }>(`/v1/jobs/${id}/cancel`, { method: "POST" }),
   /** Everything the match card renders — see /docs/06-API-SPEC.md. */
   getMatch: (jobId: string) => request<JobMatchView>(`/v1/jobs/${jobId}/match`),
   approveQuote: (quoteId: string, quoteVersionHash: string, idempotencyKey: string) =>

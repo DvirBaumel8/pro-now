@@ -3,7 +3,6 @@ import { Alert, useWindowDimensions, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import * as Location from "expo-location";
 
-import type { AddressView } from "@pro-now/types";
 import { AddressPickerBody, customerDarkTheme, type LiveLocationState, type SavedAddress } from "@pro-now/ui";
 
 import type { CustomerStackParamList } from "../navigation/types";
@@ -44,7 +43,6 @@ export function AddressScreen({ route, navigation }: Props) {
   const { width, height } = useWindowDimensions();
 
   const [saved, setSaved] = useState<SavedAddress[]>([]);
-  const [rows, setRows] = useState<AddressView[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [live, setLive] = useState<LiveLocationState>({ status: "idle" });
   const [liveFix, setLiveFix] = useState<{ lat: number; lng: number; labelHe: string } | null>(null);
@@ -56,7 +54,6 @@ export function AddressScreen({ route, navigation }: Props) {
       .getAddresses()
       .then(({ addresses }) => {
         if (!alive) return;
-        setRows(addresses);
         setSaved(
           addresses.map((a) => ({
             id: a.id,
@@ -172,11 +169,6 @@ export function AddressScreen({ route, navigation }: Props) {
     },
     [sending, liveFix, serviceId, describedHe, navigation]
   );
-
-  // `rows` backs the saved list; referenced so a future edit that stops
-  // keeping them in step is a compile-time conversation rather than a
-  // silently stale screen.
-  void rows;
 
   return (
     <View style={{ flex: 1, backgroundColor: customerDarkTheme.colors.bg }}>
