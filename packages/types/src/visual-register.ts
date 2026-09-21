@@ -164,3 +164,39 @@ export function registerViolations(): string[] {
 
   return out;
 }
+
+
+/**
+ * ---------------------------------------------------------------------
+ * WHAT MAY NOT APPEAR ON ANY OF IT
+ * ---------------------------------------------------------------------
+ * The fitness trainer arrived wearing Under Armour: the logo on his
+ * shirt, on his shorts, and on both shoes. It was drawn in good faith —
+ * the brief said "a trainer", and that is what a trainer looks like in
+ * the reference material a generator has seen.
+ *
+ * It is a registered mark of a real company, on a character that would
+ * sit inside a commercial product, in a shop. Cheap to catch here and
+ * expensive to catch after the app is published, which is the shape of
+ * every problem this file exists for.
+ *
+ * `/docs/18-ROADMAP.md` already lists brand and trademark clearance as a
+ * decision nobody here may make. This is the standing instruction that
+ * keeps the question from arising in the first place: the art is of
+ * PEOPLE DOING WORK, and everything they wear and carry is plain.
+ *
+ * It cannot be checked from a `.webp`, so it lives here as the brief
+ * rather than as a function — written down where the next person to
+ * commission a figure will read it, which is the only enforcement a
+ * drawing rule can have.
+ */
+export const ART_BRAND_RULE = {
+  /** No logo, wordmark or recognisable livery on clothing. */
+  clothing: "plain",
+  /** Tools and cases carry no maker's mark. */
+  tools: "unbranded",
+  /** Vehicles carry PRO NOW or nothing — never a real fleet's colours. */
+  vehicles: "PRO NOW or nothing",
+  /** Shop signage is the trade's own icon; no street brand, no address. */
+  signage: "trade icon only",
+} as const;
