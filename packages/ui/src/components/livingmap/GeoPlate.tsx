@@ -364,6 +364,23 @@ export function GeoPlate({
   const paveTile = Math.max(8, metresToWorld(geo.bounds, paveMetres) * S);
 
   /*
+   * ---------------------------------------------------------------------
+   * HOW MUCH TREE IS WORTH DRAWING
+   * ---------------------------------------------------------------------
+   * A canopy is a shadow, five lobes and up to five highlights: eleven
+   * nodes, which is right when it is forty points across and absurd when
+   * it is three. With three hundred trees that is 3,300 of the 3,900 SVG
+   * nodes this plate produces, and react-native-svg on a mid-range
+   * Android does not draw four thousand nodes while the camera is moving.
+   *
+   * The props only appear over the MATERIAL, which only appears when the
+   * camera has pulled back — so in practice every drawn tree is small.
+   * Past this distance it becomes a shadow and one disc, which is what it
+   * looks like anyway, and the plate drops to about a thousand nodes.
+   */
+  const detailedTrees = (metresAcross ?? 0) <= 220;
+
+  /*
    * EVERY DRAWN POINT GOES THROUGH THE SAME GROUND PLANE.
    *
    * Not a transform on the layer — see `groundProject`, which explains
@@ -1083,18 +1100,6 @@ export function GeoPlate({
           */}
           {(props ? dressing.trees : []).map((t, i) => (
               <G key={`tr${i}`}>
-                {/*
-                  A CANOPY IS SEVERAL MASSES, NOT A DISC.
-
-                  Two versions before this one. A flat mid-green circle
-                  filled the street with what looked like map markers;
-                  darkening it made them look like holes. A tree reads as
-                  a tree because its outline is lumpy and because one
-                  side of it is catching the light from the lamp it is
-                  standing next to — so: a soft shadow on the ground,
-                  five lobes of the same dark green, and a warm rim on
-                  the lobes that face the light.
-                */}
                 <Circle
                   cx={t.at.u * S}
                   cy={t.at.v * sy + t.r * sy * 0.5}
@@ -1102,27 +1107,50 @@ export function GeoPlate({
                   fill="#0B0917"
                   opacity={0.45}
                 />
-                {t.lobes.map((l, k) => (
+                {detailedTrees ? (
+                  <>
+                    {/*
+                      A CANOPY IS SEVERAL MASSES, NOT A DISC.
+
+                      Two versions before this one. A flat mid-green
+                      circle filled the street with what looked like map
+                      markers; darkening it made them look like holes. A
+                      tree reads as a tree because its outline is lumpy
+                      and because one side of it is catching the light
+                      from the lamp it stands next to.
+                    */}
+                    {t.lobes.map((l, k) => (
+                      <Circle
+                        key={`lb${k}`}
+                        cx={(t.at.u + l.du * t.r) * S}
+                        cy={(t.at.v + l.dv * t.r) * sy}
+                        r={l.r * t.r * S}
+                        fill={t.tone === 2 ? livingPalette.foliage : livingPalette.foliageDark}
+                        opacity={0.95}
+                      />
+                    ))}
+                    {t.lobes.map((l, k) =>
+                      l.lit > 0.25 ? (
+                        <Circle
+                          key={`lt${k}`}
+                          cx={(t.at.u + l.du * t.r * 1.05) * S}
+                          cy={(t.at.v + l.dv * t.r * 1.05 - t.r * 0.12) * sy}
+                          r={l.r * t.r * S * 0.62}
+                          fill={livingPalette.foliageLight}
+                          opacity={0.14 + l.lit * 0.3}
+                        />
+                      ) : null
+                    )}
+                  </>
+                ) : (
+                  /* Three points across. One disc is the whole tree. */
                   <Circle
-                    key={`lb${k}`}
-                    cx={(t.at.u + l.du * t.r) * S}
-                    cy={(t.at.v + l.dv * t.r) * sy}
-                    r={l.r * t.r * S}
+                    cx={t.at.u * S}
+                    cy={t.at.v * sy}
+                    r={t.r * S}
                     fill={t.tone === 2 ? livingPalette.foliage : livingPalette.foliageDark}
                     opacity={0.95}
                   />
-                ))}
-                {t.lobes.map((l, k) =>
-                  l.lit > 0.25 ? (
-                    <Circle
-                      key={`lt${k}`}
-                      cx={(t.at.u + l.du * t.r * 1.05) * S}
-                      cy={(t.at.v + l.dv * t.r * 1.05 - t.r * 0.12) * sy}
-                      r={l.r * t.r * S * 0.62}
-                      fill={livingPalette.foliageLight}
-                      opacity={0.14 + l.lit * 0.3}
-                    />
-                  ) : null
                 )}
               </G>
             ))}

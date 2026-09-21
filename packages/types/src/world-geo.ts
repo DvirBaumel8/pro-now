@@ -724,6 +724,22 @@ export function geoZoomFor(shot: GeoShot, bounds: GeoBounds, extentWidth = 2.4):
 }
 
 /**
+ * The inverse: how much street a given zoom actually puts in the frame.
+ *
+ * Needed because two screens were TELLING the ground how far back they
+ * were standing while the camera was at a different zoom entirely. The
+ * living map holds `worldZoomFor(camera.shot)` and was passing
+ * `SHOT_METRES.EXPLORE` — so the ground believed it was in the street,
+ * kept the painted plate, and the repeat it exists to avoid was the
+ * whole screen. A number that is derived cannot disagree with the thing
+ * it is derived from.
+ */
+export function metresAcrossAt(zoom: number, bounds: GeoBounds, extentWidth = 2.4): number {
+  if (zoom <= 0) return geoWidthMetres(bounds);
+  return geoWidthMetres(bounds) / (extentWidth * zoom);
+}
+
+/**
  * The sizes the world's own objects have, in metres.
  *
  * Deliberately few, and deliberately boring. A shopfront is sixteen metres

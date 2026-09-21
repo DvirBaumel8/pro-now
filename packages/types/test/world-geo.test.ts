@@ -20,6 +20,8 @@ import {
   PLAN_METRES,
   SHOT_METRES,
   inCarriageway,
+  geoZoomFor,
+  metresAcrossAt,
   metresToWorld,
   nearestWay,
   planWorld,
@@ -573,5 +575,40 @@ describe("roads that stop in the middle of the city", () => {
     expect(lawn).toBeDefined();
     // A ribbon: two sides of a three-point way, so six corners.
     expect(lawn!.ring.length).toBe(6);
+  });
+});
+
+describe("how far back the camera is standing", () => {
+  /*
+   * THE BUG THIS EXISTS FOR, AND IT SHIPPED FOR AN HOUR.
+   *
+   * Two screens TOLD the ground how much street was in frame while their
+   * viewport was at a different zoom entirely — the living map held
+   * `worldZoomFor(camera.shot)`, often the whole neighbourhood, and
+   * asserted `SHOT_METRES.EXPLORE`. The ground therefore believed it was
+   * in the street, kept the painted plate, and the repeat that the whole
+   * material exists to avoid was the entire screen.
+   *
+   * A number that is DERIVED from the lens cannot disagree with it.
+   */
+  it("inverts the shot it came from", () => {
+    for (const shot of ["WIDE", "DISTRICT", "VENUE", "ROUTE", "EXPLORE"] as const) {
+      const zoom = geoZoomFor(shot, fixture.bounds);
+      expect(metresAcrossAt(zoom, fixture.bounds)).toBeCloseTo(SHOT_METRES[shot], 6);
+    }
+  });
+
+  it("says the whole place is in frame at no zoom at all", () => {
+    expect(metresAcrossAt(0, fixture.bounds)).toBeCloseTo(geoWidthMetres(fixture.bounds), 6);
+    expect(metresAcrossAt(-3, fixture.bounds)).toBeCloseTo(geoWidthMetres(fixture.bounds), 6);
+  });
+
+  it("shows less street the further in it goes", () => {
+    let previous = Infinity;
+    for (const zoom of [0.5, 1, 2, 4, 8]) {
+      const metres = metresAcrossAt(zoom, fixture.bounds);
+      expect(metres).toBeLessThan(previous);
+      previous = metres;
+    }
   });
 });

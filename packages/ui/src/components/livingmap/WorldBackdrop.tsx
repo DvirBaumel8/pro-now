@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { Animated, Easing, StyleSheet, View } from "react-native";
 
-import { type WorldGeo, SHOT_METRES, geoAspect, worldBox, worldZoomFor } from "@pro-now/types";
+import { type WorldGeo, geoAspect, metresAcrossAt, worldBox, worldZoomFor } from "@pro-now/types";
 
 import { palette } from "../../theme";
 import { AssetSlot, EMPTY_ASSET_SOURCES, type WorldAssetSources } from "./AssetSlot";
@@ -361,7 +361,10 @@ export function WorldBackdrop({
             height={worldH}
             sources={sources}
             geo={geo}
-            metresAcross={SHOT_METRES.ROUTE}
+            /* Derived from the lens this backdrop is actually at — see
+               `metresAcrossAt`, and the screen that asserted one and used
+               another. */
+            metresAcross={metresAcrossAt(lens, geo.bounds)}
             animate={animate}
           />
         </Animated.View>

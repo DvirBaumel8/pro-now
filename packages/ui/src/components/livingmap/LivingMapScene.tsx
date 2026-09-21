@@ -36,7 +36,7 @@ import {
   type AvatarChoice,
   type LivingMapPhase,
   type WorldGeo,
-  SHOT_METRES,
+  metresAcrossAt,
   geoAspect,
   groundDisclosureHe,
 } from "@pro-now/types";
@@ -765,6 +765,16 @@ export function LivingMapScene({
   const mayWalk = canWalk && phase === "ASSIGNED_ROUTE" && !profileOpen && journeyMs === null;
 
   /*
+   * THE LENS, NAMED ONCE.
+   *
+   * It was computed inline on the viewport and asserted separately to
+   * the ground, and the two disagreed — see `metresAcrossAt`. One
+   * expression, read by both.
+   */
+  const lens = worldZoomFor(mayWalk ? (wide ? "WIDE" : "EXPLORE") : camera.shot);
+
+
+  /*
    * THE SEARCH WALKS THE CUSTOMER, RATHER THAN HANDING THEM A CONTROL.
    *
    * *"הרדאר שלנו עובר בלי כפתור לחיצות, עם הדמות בין הרחובות ומחפש איש
@@ -936,7 +946,7 @@ export function LivingMapScene({
          * screens where a person moves themselves now agree, which is
          * what they should have done from the start.
          */
-        zoom={worldZoomFor(mayWalk ? (wide ? "WIDE" : "EXPLORE") : camera.shot)}
+        zoom={lens}
         /*
          * Only the neighbourhood plate is a world. The fallback street
          * plate is one screen, and blowing it up to travel across would
@@ -987,7 +997,16 @@ export function LivingMapScene({
                 height={world.height}
                 sources={worldSources ?? undefined}
                 geo={geo}
-                metresAcross={SHOT_METRES.EXPLORE}
+                /*
+                 * DERIVED FROM THE LENS, NOT ASSERTED.
+                 *
+                 * This said `SHOT_METRES.EXPLORE` while the viewport
+                 * below was at `worldZoomFor(camera.shot)` — often the
+                 * whole neighbourhood. The ground therefore believed it
+                 * was in the street, kept the painted plate, and the
+                 * repeat it exists to avoid filled the screen.
+                 */
+                metresAcross={geo ? metresAcrossAt(lens, geo.bounds) : undefined}
                 animate={animate}
               />
             ) : null}
