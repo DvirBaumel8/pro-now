@@ -85,3 +85,56 @@ describe("availabilitySceneViolations", () => {
     expect(v.join(" ")).toContain("appears twice");
   });
 });
+
+/**
+ * The rule the scene cannot enforce on its own, stated here so the
+ * caller's mistake has somewhere to be caught.
+ *
+ * `availabilityScenes` is honest by construction: it draws exactly the
+ * ids it is handed. What went wrong was the HANDING — the living map
+ * passed every candidate that was not still being checked, which included
+ * the one it had already chosen. The screen then said "פנוי עכשיו · מוכן
+ * לצאת" over the shop of the professional who was fourteen minutes away
+ * and driving, beside a card saying so.
+ */
+describe("who counts as available", () => {
+  it("draws nobody when the caller says nobody is free", () => {
+    const scenes = availabilityScenes({
+      candidateIds: ["a", "b", "c"],
+      availableCandidateIds: [],
+      departmentCode: "HOME_URGENT",
+    });
+    expect(scenes).toEqual([]);
+  });
+
+  it("draws only the ids it was given, never the whole list", () => {
+    // The property that makes the caller's filter the only decision: if
+    // this ever widened, a screen could show availability it never asked
+    // for and the server never confirmed.
+    const scenes = availabilityScenes({
+      candidateIds: ["a", "b", "c"],
+      availableCandidateIds: ["b"],
+      departmentCode: "HOME_URGENT",
+    });
+    expect(scenes.map((s) => s.candidateId)).toEqual(["b"]);
+  });
+
+  it("ignores an available id that is not a candidate at all", () => {
+    // A stale id from a previous search must not summon a scene over a
+    // shop nobody is standing in.
+    const scenes = availabilityScenes({
+      candidateIds: ["a"],
+      availableCandidateIds: ["a", "ghost"],
+      departmentCode: "HOME_URGENT",
+    });
+    expect(scenes.map((s) => s.candidateId)).toEqual(["a"]);
+  });
+
+  it("never says a professional is free without saying what they are doing", () => {
+    // "פנוי עכשיו" on its own is a claim; the posture is what makes it a
+    // picture of somebody rather than a badge.
+    for (const posture of ["AT_DOOR", "EMPTY_LEAD", "EMPTY_LOAD", "KIT_READY"] as const) {
+      expect(postureLabelHe(posture)).toContain("·");
+    }
+  });
+});

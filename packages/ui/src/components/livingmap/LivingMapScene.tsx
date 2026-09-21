@@ -302,14 +302,35 @@ export function LivingMapScene({
    * wrong about it — and the whole reason this is honest is that it is the
    * same fact a "זמין עכשיו" badge would have carried, drawn as a scene.
    */
+  /*
+   * AND NOBODY IS "AVAILABLE" ONCE THEY ARE YOURS.
+   *
+   * `availableCandidateIds` was everyone not CHECKING, which included the
+   * CHOSEN one. So while a card on the same screen said "14 דק׳ · הגעה
+   * משוערת 04:46", the chosen professional's own shop still read "פנוי
+   * עכשיו · מוכן לצאת" — free now, ready to leave, about the person who
+   * had already left and was driving to you.
+   *
+   * Two rules, and they are different facts. A CHOSEN candidate is not
+   * available, whatever the phase: they are assigned. And in
+   * ASSIGNED_ROUTE nobody is, because the search is over and the world
+   * has stopped advertising supply — a street still saying "free now" over
+   * the other shops while somebody is on the way is the product selling
+   * to a customer it has already served.
+   */
   const availability = useMemo(
     () =>
       availabilityScenes({
         candidateIds: visible.map((c) => c.candidateId),
-        availableCandidateIds: visible.filter((c) => c.state !== "CHECKING").map((c) => c.candidateId),
+        availableCandidateIds:
+          phase === "ASSIGNED_ROUTE"
+            ? []
+            : visible
+                .filter((c) => c.state !== "CHECKING" && c.state !== "CHOSEN")
+                .map((c) => c.candidateId),
         departmentCode: departmentCode ?? "",
       }),
-    [departmentCode, visible]
+    [departmentCode, visible, phase]
   );
   /*
    * ---------------------------------------------------------------------
