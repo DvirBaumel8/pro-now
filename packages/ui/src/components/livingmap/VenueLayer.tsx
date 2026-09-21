@@ -15,6 +15,7 @@ import { palette, radii, scale, spacing, type } from "../../theme";
 import { AssetSlot, EMPTY_ASSET_SOURCES, type WorldAssetSources } from "./AssetSlot";
 import { ShopSign, signAccent } from "./ShopSign";
 import { HAIR_PACK_V0 } from "./hairPack";
+import { venueChrome } from "./venueChrome";
 
 /**
  * VENUE LAYER — the choices, as places in the world.
@@ -67,6 +68,18 @@ export interface VenueLayerProps {
   visibleLeft?: number;
   /** World pixels at the screen's top edge, for the same reason. */
   visibleTop?: number;
+  /**
+   * Whether the camera is following somebody — in which case the two
+   * offsets above are stale and the card cannot be kept on screen.
+   *
+   * See `WorldViewport.children` for why there is no honest number to
+   * pass instead. The card's answer is to stand down: while the camera is
+   * following, the person it names is the one already named in the
+   * drawer at the foot of the screen and in the headline above it, so a
+   * third copy that slides off the edge of the phone is a defect with no
+   * corresponding loss when it goes.
+   */
+  cameraFollowing?: boolean;
   /**
    * How much of the top of the screen is already spoken for — a headline,
    * a back control — so a card knows when it has to move out from under it.
@@ -195,6 +208,7 @@ export function VenueLayer({
   sizeBasis,
   visibleLeft = 0,
   visibleTop = 0,
+  cameraFollowing = false,
   topClearance = 0,
 }: VenueLayerProps) {
   // `width` is the WORLD's width in points.
@@ -264,6 +278,17 @@ export function VenueLayer({
         const cardTopOnScreen = top - visibleTop - CARD_H;
         const cardBelow = cardTopOnScreen < topClearance;
         const dimmed = !muted && selectedCandidateId != null && !selected;
+        /*
+         * WHICH OF THE TWO PIECES OF TYPE THIS SHOP WEARS.
+         *
+         * One question, asked once, in `venueChrome` — where a test can
+         * ask it too. The four ways it was got wrong in place are written
+         * out there. Note that `selected` still decides which shop is LIT
+         * and which recede, and that is deliberately not part of this: the
+         * chosen shop stays lit through the whole wait even when its card
+         * has stood down.
+         */
+        const chrome = venueChrome({ muted, dimmed, selected, cameraFollowing });
 
         /*
          * STAGGERED WAKING. Three shops lighting up at once is a switch
@@ -373,16 +398,43 @@ export function VenueLayer({
               * of each other. The sign's job is to identify the shops you
               * have NOT opened — which is every other shop on the street.
               */}
-            {selected ? null : (
+            {/*
+              * AND NOT WHILE THE STREET IS BEING SEARCHED, OR WHILE IT IS
+              * SOMEBODY ELSE'S TURN. Two separate faults, one condition.
+              *
+              *  1. `muted` is the search: nothing has been decided, the
+              *     shops take no taps and the screen reader is told
+              *     "בודקים בעל מקצוע" rather than a name. The sign was
+              *     painting the professional's real name on the shopfront
+              *     through all of it, at 55% opacity — so the search
+              *     screen named available people before dispatch had
+              *     chosen anybody, which is the one thing the world may
+              *     never do (/CLAUDE.md §3). Quieter is not the same as
+              *     not said.
+              *
+              *  2. `dimmed` is another shop being the subject. The venue
+              *     is already drawn at 0.35 for that, and the sign was
+              *     then taking a further 0.55 of its own on top — 19% in
+              *     total, at which the dark plate behind the letters has
+              *     effectively gone and the name is pale text lying
+              *     directly on the pavement. On the wait screen that read
+              *     as two smears of ghost type across the artwork. A
+              *     label cannot recede the way a building can: past a
+              *     point it stops being quiet and starts being damage.
+              *
+              * So the rule is simply that a shop wears its name when it
+              * is a shop you could walk into: not while we are still
+              * asking, and not while the street's attention is elsewhere.
+              */}
+            {chrome.sign ? (
               <View style={styles.signSlot} pointerEvents="none">
                 <ShopSign
                   nameHe={candidate.displayNameHe}
                   shopWidth={w}
                   accent={signAccent(venue.candidateId)}
-                  quiet={dimmed || muted}
                 />
               </View>
-            )}
+            ) : null}
 
             {/*
               * THE PERSON, WAITING OUTSIDE. Drawn beside the venue rather
@@ -445,7 +497,7 @@ export function VenueLayer({
               * returns nothing rather than a manufactured number, so a
               * professional nobody has hired yet gets one honest line.
               */}
-            {selected ? (
+            {chrome.card ? (
               /*
                * KEPT INSIDE THE SCREEN.
                *

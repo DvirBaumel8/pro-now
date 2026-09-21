@@ -846,7 +846,26 @@ export function LivingMapScene({
          * `worldZoomFor` translates the shot where the extent is known, so
          * WIDE fits the whole neighbourhood.
          */
-        zoom={worldZoomFor(camera.shot)}
+        /*
+         * AND WALKING IS ITS OWN SHOT.
+         *
+         * `ROUTE` is the shot for WATCHING a route: 1.25 screens across,
+         * which is right when the camera is doing the moving and the
+         * customer is a spectator. The wait is not that any more — it is
+         * the walk — and at 1.25 the whole neighbourhood is on the phone
+         * at once. Both edges of the plate are in frame, the steer pad
+         * shuffles the figure around inside a picture, and there is
+         * nothing past the edge to go and find. Amit asked for the
+         * opposite in as many words: *"שיהיה אפשר באמת לטייל בין
+         * המקצועות."*
+         *
+         * `EXPLORE` is the shot the stroll screen already uses, and it is
+         * the shot for this for the same reasons — 1.85 screens across,
+         * several shopfronts in view, somewhere to walk TO. The two
+         * screens where a person moves themselves now agree, which is
+         * what they should have done from the start.
+         */
+        zoom={worldZoomFor(mayWalk ? "EXPLORE" : camera.shot)}
         /*
          * Only the neighbourhood plate is a world. The fallback street
          * plate is one screen, and blowing it up to travel across would
@@ -954,6 +973,12 @@ export function LivingMapScene({
                 sizeBasis={width}
                 visibleLeft={world.visibleLeft}
                 visibleTop={world.visibleTop}
+                /*
+                 * And whether those two mean anything right now. They do
+                 * not while the camera is walking with the customer — see
+                 * `WorldViewport.children`.
+                 */
+                cameraFollowing={world.following}
                 /*
                  * The headline and the back control own the top of this
                  * screen. Without saying so, a card arriving on a shop near
@@ -1415,11 +1440,38 @@ const styles = StyleSheet.create({
   },
   safetyText: { ...type.metaStrong, color: palette.berry300, writingDirection: "rtl" },
 
-  demoNoteWrap: { position: "absolute", bottom: spacing.sm, left: spacing.lg, right: spacing.lg },
+  /*
+   * THE HONEST LINE HAS TO BE READABLE TO BE HONEST.
+   *
+   * It was 40% white type with nothing behind it, lying straight on the
+   * plate. Over the night sky at the top of a wide shot that was fine;
+   * over the sunlit paving of the EXPLORE shot it was a pale smear across
+   * a shopfront that read as a rendering fault, and the sentence it was
+   * carrying — that this city is an illustration and the real map arrives
+   * with the maps provider — could not be read at all.
+   *
+   * A disclaimer nobody can read is worse than no disclaimer, because it
+   * looks like the disclosure has been made. So it gets the same dark
+   * plate the shop signs get, sized to the sentence rather than to the
+   * screen, and enough contrast to be read on the brightest part of the
+   * artwork. It is still small and still quiet; it is no longer optional.
+   */
+  demoNoteWrap: {
+    position: "absolute",
+    bottom: spacing.sm,
+    left: spacing.lg,
+    right: spacing.lg,
+    alignItems: "center",
+  },
   demoNote: {
     ...type.micro,
-    color: "rgba(247,243,250,0.4)",
+    color: "rgba(247,243,250,0.82)",
     textAlign: "center",
     writingDirection: "rtl",
+    backgroundColor: "rgba(12,9,16,0.72)",
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: radii.sm,
+    overflow: "hidden",
   },
 });

@@ -81,12 +81,33 @@ export interface WorldViewportProps {
    * so a label or a card can tell whether it is about to hang off the
    * phone. `visibleLeft`/`visibleTop` are world pixels at the screen's
    * left/top edge.
+   *
+   * `following` IS PART OF THAT ANSWER, AND LEAVING IT OUT WAS A LIE.
+   *
+   * `visibleLeft` is read from `to.current` — the camera's own travel
+   * target. That is the truth while the camera is travelling and while it
+   * is parked, and it is the truth during a drag because the drag writes
+   * its own ref. It is NOT the truth while the viewport is following
+   * somebody: then the transform comes from `followTransform`, which
+   * interpolates the followed point's Animated values and clamps them at
+   * the edges of the plate, and `to.current` still holds whatever the last
+   * `focus` asked for. The two disagreed by a factor of two on the wait
+   * screen — the camera was clamped at half the offset the number claimed
+   * — so the one card that uses it to stay on the phone slid a quarter of
+   * itself off the right edge and stayed there for the whole wait.
+   *
+   * There is no honest plain number to hand over in that case: the
+   * position lives in Animated values precisely so that walking does not
+   * re-render the neighbourhood, and reading it back per frame would undo
+   * that. So the flag says the offsets are stale and a caller that needs
+   * to be exact must not use them. See `VenueLayer`.
    */
   children: (world: {
     width: number;
     height: number;
     visibleLeft: number;
     visibleTop: number;
+    following: boolean;
   }) => React.ReactNode;
   onDragStart?: () => void;
   /**
@@ -369,6 +390,8 @@ export function WorldViewport({
            */
           visibleLeft: -(dragging ? dragAt.current.x : to.current.x),
           visibleTop: -(dragging ? dragAt.current.y : to.current.y),
+          /* Whether the two numbers above mean anything. See `children`. */
+          following: followTransform !== null,
         })}
       </Animated.View>
     </View>

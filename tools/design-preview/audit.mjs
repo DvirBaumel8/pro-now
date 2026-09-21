@@ -129,22 +129,62 @@ const step = async (label, action) => {
   }
 };
 
-/** Through the gate: pick a side, then sign in. Both sides, same shape. */
+/**
+ * Through the gate: pick a side, then sign in. Both sides, same shape.
+ *
+ * THE TWO FILLS ARE STEPS TOO, AND LEAVING THEM OUT COST THE WHOLE RUN.
+ *
+ * `step` exists so that a missed click is recorded as a failure against
+ * the screen it was meant to reach, and the audit carries on to the next
+ * one. These two `fill` calls sat outside it, so when the phone field was
+ * not there the raw Playwright timeout escaped `visit`'s catch, escaped
+ * the top level, and killed the process — with every screen after it
+ * unmeasured and nothing written down about why. A verification tool that
+ * dies rather than reporting is worse than one that reports a failure,
+ * because a dead run looks like an infrastructure problem rather than a
+ * finding.
+ */
 const signIn = async (label, sideHe) => {
   await step(label, sideHe);
-  await p.getByLabel('מספר טלפון').fill('0501234567');
+  await step(label, async () => p.getByLabel('מספר טלפון').fill('0501234567'));
   await step(label, 'שליחת קוד');
-  await p.getByLabel('קוד האימות').fill('123456');
+  await step(label, async () => p.getByLabel('קוד האימות').fill('123456'));
   await step(label, 'כניסה');
 };
 
+/**
+ * EVERY VISIT STARTS FROM NOTHING.
+ *
+ * This reloaded the page and assumed that was a fresh start. It stopped
+ * being one when sign-in began to persist: the first visit that signed in
+ * left the session behind, so every later visit reloaded straight into
+ * the signed-in app, the "אני צריך מקצוען" click landed on a screen that
+ * has no such control, and the audit sat waiting thirty seconds for a
+ * phone field on the home screen before dying.
+ *
+ * The audit's whole value is that each screen is measured as itself, so
+ * the stored session goes before each run. It is the same reason `visit`
+ * navigates at all rather than driving one long journey.
+ */
 const visit = async (label, sideHe, steps) => {
+  await p.goto('http://localhost:4421/', { waitUntil: 'networkidle' });
+  await p.evaluate(() => {
+    try { localStorage.clear(); } catch { /* private mode, nothing stored anyway */ }
+    try { sessionStorage.clear(); } catch { /* same */ }
+  });
   await p.goto('http://localhost:4421/', { waitUntil: 'networkidle' });
   await p.waitForTimeout(1600);
   try {
     if (sideHe) await signIn(label, sideHe);
+    /*
+     * The customer side asks who you are before it asks what you need.
+     * Skipping is a first-class answer — see `shouldOfferPicker` — and it
+     * is the right one here: the picker has a screen of its own in this
+     * list and the journeys below are about everything after it.
+     */
+    try { await p.locator('text=דלג כרגע').first().click({ timeout: 1500 }); await p.waitForTimeout(600); } catch { /* no picker on this build */ }
     // The professional side opens with a "how it works" sheet on arrival.
-    try { await p.locator('text=הבנתי, בוא נתחיל').first().click({ timeout: 1500 }); await p.waitForTimeout(500); } catch {}
+    try { await p.locator('text=הבנתי, בוא נתחיל').first().click({ timeout: 1500 }); await p.waitForTimeout(500); } catch { /* already dismissed */ }
     for (const s of steps) await step(label, s);
   } catch (e) {
     if (e.message !== 'step-missed') throw e;
@@ -159,28 +199,52 @@ const PRO = 'אני בעל מקצוע';
 await visit('welcome', null, []);
 await visit('auth-phone', null, [CUST]);
 await visit('customer-home', CUST, []);
-await visit('service', CUST, ['פתיחת סתימה']);
 /*
- * The department names changed when the taxonomy was rebuilt from what
- * Israeli customers already recognise (see pilot-catalog's tree comment).
- * These steps failing is the audit doing its job: a renamed category is
- * exactly the kind of change that silently makes a screen unreachable,
- * and an audit that skipped the step would have reported "clean" for a
- * screen it never opened.
+ * THE FRONT DOOR IS A QUESTION NOW, NOT A LIST OF SERVICES.
+ *
+ * Every journey below used to tap a service straight from the home
+ * screen, because that is what the home screen was. It is "מה אתם צריכים
+ * עכשיו?" and eight ways in, and a customer reaches a service through the
+ * category the way these journeys now do. Six screens were unreachable
+ * and therefore unaudited until this was corrected — the audit was doing
+ * its job by refusing to measure them, and the fix is to walk the walk
+ * the app actually has.
+ *
+ * The department names were rebuilt from what Israeli customers already
+ * recognise (see pilot-catalog's tree comment), so the door names here
+ * are the ones on the screen rather than the ones in the domain model.
  */
-await visit('category-drill', CUST, ['ניקיון ובית']);
+const HOME_DOOR = 'לבית';
+const BEAUTY_DOOR = 'ביוטי ושיער';
+
+await visit('service', CUST, [HOME_DOOR, 'פתיחת סתימה']);
+await visit('category-drill', CUST, [HOME_DOOR]);
 await visit('arrival-verify', CUST, [
+  HOME_DOOR,
   'פתיחת סתימה',
   'בקשת בעל מקצוע עכשיו',
   'שליחת הקריאה',
-  // The search runs for real; the tracking screen only exists after it ends.
+  // The search runs for real; nothing downstream exists until it ends.
   async () => p.waitForTimeout(7000),
-  'המקצוען יצא לדרך',
+  /*
+   * AND THE WAY OUT OF THE SEARCH IS THROUGH THE MATCH AND THE DRAWER.
+   *
+   * This stepped from "שליחת הקריאה" straight onto a tracking control, on
+   * the assumption that the search hands you to a tracking screen. It
+   * does not: it finds somebody, offers them, and — once accepted — the
+   * wait is the world, with the drawer at the foot of it carrying every
+   * way out. Following the professional is one of those ways, and it is
+   * the one that reaches the screen this journey is named after.
+   */
+  'כן, מתאים לי',
+  // The drawer's label carries the professional's own name, so match on
+  // the part of it that does not change.
+  'לעקוב אחרי',
   'המקצוען כמעט אצלך',
 ]);
-await visit('person-fit', CUST, ['עוד קטגוריות', 'טיפוח ויופי', 'תספורת עד הבית', 'הצג איך נראית התאמה אישית']);
-await visit('service-scheduled', CUST, ['עוד קטגוריות', 'שיפוץ והתקנות', 'הרכבת רהיטים']);
-await visit('describe', CUST, ['פתיחת סתימה', 'בקשת בעל מקצוע עכשיו']);
+await visit('person-fit', CUST, [BEAUTY_DOOR, 'תספורת עד הבית', 'הצג איך נראית התאמה אישית']);
+await visit('service-scheduled', CUST, [HOME_DOOR, 'הרכבת רהיטים']);
+await visit('describe', CUST, [HOME_DOOR, 'פתיחת סתימה', 'בקשת בעל מקצוע עכשיו']);
 // The utility row became a branded header; history moved behind the menu.
 await visit('calls', CUST, [async () => p.getByLabel('תפריט').first().click()]);
 await visit('card', CUST, [async () => p.getByLabel(/החשבון שלי/).first().click()]);

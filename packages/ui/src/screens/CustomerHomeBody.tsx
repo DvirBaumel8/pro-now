@@ -827,7 +827,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     alignSelf: "flex-end",
     gap: 6,
-    minHeight: 40,
+    /*
+     * 44, NOT 40. It is the address the professional is sent to, and
+     * changing it is the one control on this screen a person taps in a
+     * hurry, standing somewhere that is not home. `verify:a11y` measured
+     * it at 40 — under Apple's 44pt minimum, which is the size below
+     * which a thumb starts missing. Four points is the whole fix.
+     */
+    minHeight: 44,
     paddingHorizontal: spacing.md,
     borderRadius: radii.pill,
     backgroundColor: "rgba(16,12,22,0.55)",
