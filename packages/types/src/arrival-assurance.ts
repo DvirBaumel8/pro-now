@@ -54,6 +54,24 @@
  * goes right is indistinguishable from any competitor's.
  */
 export type ArrivalPhase =
+  /**
+   * HE IS HERE. THE JOURNEY IS OVER AND NOTHING ABOUT IT IS TRUE ANY MORE.
+   *
+   * This phase was missing, and what it cost is the plainest possible
+   * example of why the words and the state have to live in one file. The
+   * screen's own status line read "העבודה בעיצומה" — the professional is
+   * inside the house, working — while the card above it said
+   * "דוגמה א׳ בדרך אליכם" over a countdown ticking down fourteen minutes
+   * to an arrival that had already happened.
+   *
+   * Every part of that was working as written. `assessArrival` answers
+   * "how is the journey going", and a journey with no bad news in it is
+   * ON_ROUTE; it was never told the journey had ended, because there was
+   * no way to tell it. So the one screen in the product whose job is to
+   * be honest about a promised time was inventing one (/CLAUDE.md §3),
+   * for the whole length of the visit.
+   */
+  | "ARRIVED"
   /** Accepted, moving, ETA holding. */
   | "ON_ROUTE"
   /** The ETA slipped past its tolerance, but he is still coming. */
@@ -114,6 +132,12 @@ export const PILOT_ARRIVAL_TOLERANCE: ArrivalTolerance = {
 };
 
 export interface ArrivalSignals {
+  /**
+   * True once the professional is at the door — the server's own arrival,
+   * never a client's inference from a countdown reaching zero. See the
+   * `ARRIVED` phase for what it cost to have no way of saying this.
+   */
+  arrived?: boolean;
   /** Server's promised arrival, epoch ms. Null when none was ever computed. */
   promisedArrivalMs: number | null;
   /** When the professional's position last updated, epoch ms. */
@@ -160,6 +184,20 @@ export function assessArrival(
     s.promisedArrivalMs === null
       ? null
       : Math.round((s.nowMs - s.promisedArrivalMs) / 60_000);
+
+  /*
+   * ARRIVAL OUTRANKS EVERYTHING, INCLUDING THE BAD NEWS.
+   *
+   * It is first for the same reason a cancelled professional outranks a
+   * late one: once he is at the door, how the journey went stopped being
+   * the customer's problem. A promise that was running twenty minutes
+   * late and was then kept is a kept promise, and telling somebody their
+   * professional is at risk of not arriving while he is standing in
+   * their kitchen is worse than saying nothing.
+   */
+  if (s.arrived) {
+    return { phase: "ARRIVED", risk: null, minutesLate, shouldNotify: false };
+  }
 
   // --- the professional is gone, in one of its three shapes ---
   if (s.replacementAssigned) {
@@ -256,6 +294,8 @@ export interface RematchCarryOver {
 export function arrivalHeadlineHe(a: ArrivalAssessment, displayNameHe?: string | null): string {
   const who = displayNameHe ?? "המקצוען";
   switch (a.phase) {
+    case "ARRIVED":
+      return displayNameHe ? `${who} הגיע אליכם` : "המקצוען הגיע";
     case "ON_ROUTE":
       return displayNameHe ? `${who} בדרך אליכם` : "בדרך אליכם";
     case "DELAYED":
@@ -276,6 +316,8 @@ export function arrivalHeadlineHe(a: ArrivalAssessment, displayNameHe?: string |
 /** The line under the headline. Explains, never reassures falsely. */
 export function arrivalDetailHe(a: ArrivalAssessment): string | null {
   switch (a.phase) {
+    case "ARRIVED":
+      return null;
     case "ON_ROUTE":
       return null;
     case "DELAYED":

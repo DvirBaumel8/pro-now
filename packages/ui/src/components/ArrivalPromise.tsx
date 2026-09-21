@@ -95,13 +95,24 @@ export function ArrivalPromise({
   width,
 }: ArrivalPromiseProps) {
   const phase = assessment.phase;
-  const committed = phase === "ON_ROUTE" || phase === "NEW_PRO_ASSIGNED";
+  const arrived = phase === "ARRIVED";
+  /*
+   * ARRIVED IS A KEPT PROMISE, so it belongs with the states that have
+   * nothing to recover from. The recovery actions below — "דברו איתנו
+   * עכשיו" and "ביטול בלי חיוב" — are for a promise that is in trouble.
+   * Offering a free cancellation to somebody whose professional is
+   * already working in their kitchen is both a wrong action and a wrong
+   * claim about what it would cost them.
+   */
+  const committed = phase === "ARRIVED" || phase === "ON_ROUTE" || phase === "NEW_PRO_ASSIGNED";
   const late = phase === "DELAYED";
   const atRisk = phase === "ARRIVAL_AT_RISK";
   const searching = phase === "REMATCHING";
   const broken = phase === "RECOVERY";
 
-  const accent = broken
+  const accent = arrived
+    ? palette.trust300
+    : broken
     ? colors.statusDanger
     : atRisk || late
       ? colors.statusWarning
@@ -119,7 +130,16 @@ export function ArrivalPromise({
    * fabricated ETA (/CLAUDE.md §3). The machine has already decided this;
    * the screen only has to obey it.
    */
-  const showClock = arrivalClockHe !== null && !atRisk && !searching && !broken;
+  /*
+   * AND IT DISAPPEARS WHEN THERE IS NOTHING LEFT TO PROMISE.
+   *
+   * A promised arrival time under the words "הגיע אליכם" is not a
+   * promise, it is a countdown to something that already happened — and
+   * it ran for the whole length of the visit, ticking towards an arrival
+   * fourteen minutes away while the same screen's status line said the
+   * work was under way. See the `ARRIVED` phase.
+   */
+  const showClock = arrivalClockHe !== null && !arrived && !atRisk && !searching && !broken;
 
   return (
     <View style={[styles.wrap, { width }]}>

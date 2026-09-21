@@ -1396,7 +1396,7 @@ tallest thing the HUD ever holds.
 
 ### 15.10 State
 
-751 tests pass. Lint and typecheck are clean across every workspace except
+755 tests pass. Lint and typecheck are clean across every workspace except
 `apps/api`, which still fails on the documented `prisma generate` blocker
 (§12.5) — unchanged and unrelated.
 

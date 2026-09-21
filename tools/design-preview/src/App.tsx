@@ -1734,6 +1734,16 @@ const go = useCallback((r: CustomerRoute) => {
               serviceNameHe={trackedService.nameHe}
               professional={matchFixture.professional}
               eta={matchFixture.eta}
+              /*
+               * THE SAME STREET AS THE SCREEN UNDERNEATH.
+               *
+               * This one was left without the art, so reading a price
+               * cut from the lit city to the grey "the map will go here"
+               * placeholder and back again — on the one screen where the
+               * professional is supposed to still be visibly in your
+               * kitchen while you read what he wants for the work.
+               */
+              worldSources={art}
               width={width}
               height={bodyH}
             />

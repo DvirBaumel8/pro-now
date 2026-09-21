@@ -180,3 +180,41 @@ describe("what the customer is told", () => {
     for (const s of changed) expect(assessArrival(s).shouldNotify).toBe(true);
   });
 });
+
+describe("once he is at the door", () => {
+  const base = { promisedArrivalMs: Date.now() - 20 * 60_000, lastLocationMs: Date.now(), nowMs: Date.now() };
+
+  it("stops talking about the journey", () => {
+    // Twenty minutes past the promise, which without `arrived` is
+    // ARRIVAL_AT_RISK — and which, once he is standing in the kitchen, is
+    // a kept promise rather than a warning to give somebody.
+    const a = assessArrival({ ...base, arrived: true });
+    expect(a.phase).toBe("ARRIVED");
+    expect(a.risk).toBeNull();
+    expect(a.shouldNotify).toBe(false);
+  });
+
+  it("says he arrived rather than that he is coming", () => {
+    // The defect this exists for: "דוגמה א׳ בדרך אליכם" over a countdown,
+    // on a screen whose own status line said the work was under way.
+    const a = assessArrival({ ...base, arrived: true });
+    expect(arrivalHeadlineHe(a, "דוגמה א׳")).toContain("הגיע");
+    expect(arrivalHeadlineHe(a, "דוגמה א׳")).not.toContain("בדרך");
+    expect(arrivalDetailHe(a)).toBeNull();
+  });
+
+  it("outranks a stale location, because there is nothing left to locate", () => {
+    const a = assessArrival({
+      ...base,
+      arrived: true,
+      lastLocationMs: Date.now() - 60 * 60_000,
+    });
+    expect(a.phase).toBe("ARRIVED");
+  });
+
+  it("still reports the journey when he has not arrived", () => {
+    // The guard must not swallow the cases the module exists for.
+    expect(assessArrival({ ...base, arrived: false }).phase).toBe("ARRIVAL_AT_RISK");
+    expect(assessArrival(base).phase).toBe("ARRIVAL_AT_RISK");
+  });
+});

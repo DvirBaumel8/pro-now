@@ -148,12 +148,37 @@ export function TrackingBody({
    * not yet passed, rather than by hard-coding a happy phase. A default
    * that bypasses the rule is a default that will survive the rule changing.
    */
+  /*
+   * THE JOB STATE IS PART OF THE ARRIVAL SIGNAL, AND LEAVING IT OUT WAS A
+   * FABRICATED ETA.
+   *
+   * `assessArrival` answers "how is the journey going", and a journey
+   * with no bad news in it is ON_ROUTE. It had no way to be told the
+   * journey had ENDED — so on this screen, with the status line reading
+   * "העבודה בעיצומה", the card above it said "בדרך אליכם" over a clock
+   * counting down fourteen minutes to an arrival that had already
+   * happened, for the whole length of the visit.
+   *
+   * The server says he is there; this passes that on rather than letting
+   * the screen infer it from a countdown reaching zero, which would be
+   * the same invention wearing a different hat.
+   */
+  const hasArrived =
+    status === "PRO_ARRIVED" ||
+    status === "DIAGNOSIS" ||
+    status === "WAITING_QUOTE_APPROVAL" ||
+    status === "IN_PROGRESS" ||
+    status === "COMPLETION_PENDING";
+
   const assessment = assessArrival(
-    arrival ?? {
-      promisedArrivalMs: eta ? Date.now() + eta.etaSeconds * 1000 : null,
-      lastLocationMs: Date.now(),
-      nowMs: Date.now(),
-    }
+    arrival
+      ? { ...arrival, arrived: arrival.arrived ?? hasArrived }
+      : {
+          arrived: hasArrived,
+          promisedArrivalMs: eta ? Date.now() + eta.etaSeconds * 1000 : null,
+          lastLocationMs: Date.now(),
+          nowMs: Date.now(),
+        }
   );
 
   const headline =
