@@ -6,7 +6,7 @@ import type { ProfessionalVerificationView, ProServiceEligibilityView } from "@p
 import {
   ProVerificationBody,
   proTheme,
-  type MarkName,
+  markForService,
   type ProServiceEligibility,
   type StepState,
   type VerificationStep,
@@ -161,7 +161,8 @@ export function VerificationCenterScreen({ navigation }: Props) {
         return {
           id: s.serviceId,
           nameHe: s.nameHe,
-          mark: "handyman" as MarkName,
+            // The catalogue's own mark for this trade — see markForService.
+          mark: markForService(s.serviceId),
           live: s.eligible,
           blockedByHe: s.eligible
             ? null

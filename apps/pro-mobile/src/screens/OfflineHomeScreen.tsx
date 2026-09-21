@@ -3,7 +3,7 @@ import { useWindowDimensions, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 
 import { ProShiftBody, proTheme, type ShiftServiceChip, type ShiftSnapshot } from "@pro-now/ui";
-import type { MarkName } from "@pro-now/ui";
+import { markForService } from "@pro-now/ui";
 
 import type { ProStackParamList } from "../navigation/types";
 import { api } from "../api/client";
@@ -64,12 +64,8 @@ export function OfflineHomeScreen({ navigation }: Props) {
       services.map((s) => ({
         id: s.serviceId,
         nameHe: s.nameHe,
-        /*
-         * The catalogue's mark would be better and needs a join this app
-         * does not have; a neutral one is honest, where a plumbing spanner
-         * beside a dog walker would not be.
-         */
-        mark: "handyman" as MarkName,
+          // The catalogue's own mark for this trade — see markForService.
+          mark: markForService(s.serviceId),
         /*
          * "Live" is the server's eligibility, not a local switch. A row
          * the professional turned on but is not eligible for is not live,

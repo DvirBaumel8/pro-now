@@ -772,3 +772,22 @@ export function categoryServiceViolations(): string[] {
   }
   return out;
 }
+
+
+/**
+ * THE MARK FOR ONE SERVICE, BY ID.
+ *
+ * The professional's app had `"handyman"` written into two screens, for
+ * every service in the marketplace: a dog walker's shift chip carrying a
+ * spanner, a hairdresser's verification row carrying one too. It was a
+ * placeholder because that app could not reach the catalogue, which it
+ * now can.
+ *
+ * Falls back to the handyman mark rather than to nothing, because a chip
+ * with no mark is a chip with a hole in it — and the fallback is the
+ * generic tool rather than a specific one, so a wrong answer is visibly
+ * a default instead of confidently the wrong trade.
+ */
+export function markForService(serviceId: string): MarkName {
+  return catalogHomeServices.find((s) => s.id === serviceId)?.mark ?? "handyman";
+}
