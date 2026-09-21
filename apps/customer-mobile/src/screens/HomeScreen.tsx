@@ -117,7 +117,13 @@ export function HomeScreen({ navigation }: Props) {
           const name = services.find((s) => s.id === id)?.nameHe ?? "";
           navigation.navigate("RequestDetails", { serviceId: id, serviceName: name });
         }}
-        onSelectCategory={(id) => navigation.navigate("ServiceSelect", { departmentCode: id })}
+        /*
+         * A category id, and now the parameter says so. It always was
+         * one — `CustomerHomeBody` hands back a category, not a
+         * department — but the route called it `departmentCode`, and the
+         * screen on the other end read neither and showed plumbing.
+         */
+        onSelectCategory={(categoryId) => navigation.navigate("ServiceSelect", { categoryId })}
         width={width}
         height={height}
       />

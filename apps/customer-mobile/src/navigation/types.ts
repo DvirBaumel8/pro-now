@@ -9,8 +9,21 @@ export type CustomerStackParamList = {
    */
   AvatarPicker: { returning?: boolean } | undefined;
   Home: undefined;
-  ServiceSelect: { departmentCode: string };
-  RequestDetails: { serviceId: string; serviceName: string };
+  /**
+   * One of the eight customer categories, NOT a department code.
+   *
+   * It was called `departmentCode` and carried a category id, which is how
+   * the screen behind it came to ignore the value entirely and show a
+   * plumbing list whatever you tapped. Naming a parameter for what is
+   * actually in it is not pedantry here; it is the whole bug.
+   */
+  ServiceSelect: { categoryId: string };
+  /**
+   * `describedHe` is what the customer typed when no row was their fault.
+   * Carried rather than resolved: choosing a service from a sentence is
+   * the matcher's job, and it needs the catalogue, not a navigation call.
+   */
+  RequestDetails: { serviceId: string; serviceName: string; describedHe?: string };
   Searching: { jobId: string };
   Match: { jobId: string };
   Tracking: { jobId: string };

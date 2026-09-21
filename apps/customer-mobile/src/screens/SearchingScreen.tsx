@@ -9,22 +9,17 @@ import {
   scenePhaseForJob,
   themeForDepartment,
   type CandidatePresence,
-  type JobMatchView,
-  type JobState,
   type LivingMapPhase,
   type LivingMapState,
 } from "@pro-now/types";
 import { SearchingBody, customerDarkTheme } from "@pro-now/ui";
 
 import type { CustomerStackParamList } from "../navigation/types";
-import { api } from "../api/client";
+import { useJobWatch } from "../api/useJobWatch";
 import { useAvatar } from "../avatar/AvatarProvider";
 import { worldSources } from "../world/worldSources";
 
 type Props = NativeStackScreenProps<CustomerStackParamList, "Searching">;
-
-/** How often we ask the server what happened. See the note below. */
-const POLL_MS = 2500;
 
 /**
  * C08 — the wait, in the app people install.
@@ -76,9 +71,7 @@ export function SearchingScreen({ route, navigation }: Props) {
   const { width, height } = useWindowDimensions();
   const { choice: avatar } = useAvatar();
 
-  const [status, setStatus] = useState<JobState>("SEARCHING");
-  const [match, setMatch] = useState<JobMatchView | null>(null);
-  const [departmentCode, setDepartmentCode] = useState<string | undefined>(undefined);
+  const { status, match, departmentCode } = useJobWatch(jobId);
 
   /*
    * THE REVEAL IS A MOMENT, NOT A STATE THE SERVER HAS.
@@ -89,100 +82,18 @@ export function SearchingScreen({ route, navigation }: Props) {
    * PRO_ASSIGNED — so the screen holds the reveal for as long as the scene
    * needs and then lets the phase mapping take over.
    *
-   * A ref, not state, because nothing renders from it: it only records
-   * that the beat has already been played, so a later poll cannot replay
-   * it and yank a customer who is mid-walk back into a reveal.
+   * A ref records that the beat has already been played, so a later poll
+   * cannot replay it and yank a customer who is mid-walk back into a
+   * reveal. Nothing renders from it, which is why it is not state.
    */
   const revealedRef = useRef(false);
   const [revealing, setRevealing] = useState(false);
 
-  /*
-   * ONE TIMER, POLLING UNTIL THERE IS NOTHING LEFT TO ASK.
-   *
-   * The interval is cleared on every path out — assigned, cancelled,
-   * unmounted — because a screen that keeps polling after it is gone is
-   * both a battery cost and a source of navigations that fire at the wrong
-   * moment.
-   */
   useEffect(() => {
-    let alive = true;
-
-    const tick = async () => {
-      try {
-        const { job } = await api.getJob(jobId);
-        if (!alive) return;
-        setStatus(job.status);
-
-        if (job.assignedProfessionalId && !revealedRef.current) {
-          /*
-           * Somebody real has been assigned. Only now do we ask who — and
-           * only the answer to that question can produce a CHOSEN
-           * candidate, which is what `MATCH_REVEAL` requires.
-           */
-          try {
-            const m = await api.getMatch(jobId);
-            if (!alive) return;
-            setMatch(m);
-            revealedRef.current = true;
-            setRevealing(true);
-          } catch {
-            /*
-             * The job is assigned but the match endpoint failed. The
-             * world still opens the street — the job is real and the
-             * professional is coming — it just shows no face and no ETA
-             * until a later poll gets one. Showing the assignment without
-             * the details is honest; inventing the details is not.
-             */
-            revealedRef.current = true;
-          }
-        }
-      } catch {
-        /*
-         * A transient network error is not news. The screen keeps the last
-         * status it knew and keeps asking — it must never show "we could
-         * not find anyone" because a request timed out.
-         */
-      }
-    };
-
-    void tick();
-    const id = setInterval(() => void tick(), POLL_MS);
-    return () => {
-      alive = false;
-      clearInterval(id);
-    };
-  }, [jobId]);
-
-  /*
-   * Which trade's world this is.
-   *
-   * The catalogue knows which department a service belongs to; the route
-   * only carries a job id. Rather than thread the department through three
-   * screens, this resolves it once from the job's service. Until it
-   * answers, the world uses its default theme — a neighbourhood is a
-   * neighbourhood, and the districts it emphasises are a refinement.
-   */
-  useEffect(() => {
-    let alive = true;
-    Promise.all([api.getJob(jobId), api.getCatalog()])
-      .then(([{ job }, catalog]) => {
-        if (!alive) return;
-        for (const d of catalog.departments) {
-          for (const c of d.categories) {
-            if (c.services.some((s) => s.id === job.serviceId)) {
-              setDepartmentCode(d.code);
-              return;
-            }
-          }
-        }
-      })
-      .catch(() => {
-        /* No department, default world. Nothing is claimed either way. */
-      });
-    return () => {
-      alive = false;
-    };
-  }, [jobId]);
+    if (!match || revealedRef.current) return;
+    revealedRef.current = true;
+    setRevealing(true);
+  }, [match]);
 
   /* The reveal beat, then the street. */
   useEffect(() => {

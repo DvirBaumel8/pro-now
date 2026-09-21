@@ -1,4 +1,4 @@
-import type { DepartmentCode } from "@pro-now/types";
+import { CUSTOMER_CATEGORIES, type DepartmentCode } from "@pro-now/types";
 import type { ProPricingRow } from "../screens/ProPricingBody";
 import {
   allServices,
@@ -12,6 +12,7 @@ import {
   type PriceQuoteView,
 } from "@pro-now/types";
 import type { MarkName } from "../components/marks";
+import type { CategoryServiceItem } from "../screens/CategoryBody";
 import type { HomeServiceItem } from "../screens/CustomerHomeBody";
 import type { ServiceDetailBodyProps } from "../screens/ServiceDetailBody";
 import type { ProServiceEligibility } from "../screens/ProVerificationBody";
@@ -691,4 +692,83 @@ export function pricingRowsFor(
           : `גם אחרי שתקבע מחיר, השירות חסום עד שיושלם: ${missing.map((c) => credentialHe[c]).join(" · ")}`,
     };
   });
+}
+
+// ---------------------------------------------------------------------
+// The category screen's rows
+// ---------------------------------------------------------------------
+
+/**
+ * WHAT IS BEHIND EACH OF THE EIGHT FRONT DOORS.
+ *
+ * ---------------------------------------------------------------------
+ * THE BUG THIS REPLACES
+ * ---------------------------------------------------------------------
+ * `apps/customer-mobile`'s category screen listed seven Hebrew strings —
+ * "סתימה", "נזילה", "ברז / כיור" — hard-written into the component, and
+ * every single row navigated to the same hard-coded `HOME_PLUMB_BLOCK`.
+ * It ignored which category had been tapped. Choosing "חיות" and choosing
+ * "רכב" both opened a plumbing list and both requested a blocked drain.
+ *
+ * Amit saw it from the outside and described it exactly: *"איפה כל הדברים
+ * של כל המקצועות? למה אין, ולא קיים בקטלוג?"* — and /CLAUDE.md §3 names
+ * the shape of it: "no hard-coded plumber-only architecture".
+ *
+ * ---------------------------------------------------------------------
+ * REGROUPING, NEVER INVENTING
+ * ---------------------------------------------------------------------
+ * A customer category is a way in, not a department: "לבית" stands in
+ * front of four dispatch departments at once, because nobody thinks of
+ * their leaking tap as belonging to HOME_URGENT rather than IMPROVEMENT.
+ * So this joins the two — the category names its departments, the
+ * catalogue names each department's services — and adds nothing of its
+ * own. A service that is not in `pilotCatalog` cannot appear here, which
+ * is the property the hand-written list did not have.
+ *
+ * Order is the catalogue's order, which is the order Amit and
+ * `/docs/09b-SERVICE-CATALOG.md` decided. Sorting by anything else — most
+ * popular, nearest, cheapest — would be a ranking, and the customer would
+ * read it as one at a moment when nothing has been ranked.
+ *
+ * `availableNowCount: null` everywhere, for the reason it is null on the
+ * home grid: a number on this screen may come only from a live snapshot,
+ * never from a constant (/CLAUDE.md §3).
+ */
+export const catalogCategoryServices: Record<string, CategoryServiceItem[]> = Object.fromEntries(
+  CUSTOMER_CATEGORIES.map((category) => {
+    const wanted = new Set<string>(category.departments);
+    const rows = pilotCatalog
+      .filter((d) => wanted.has(d.code as DepartmentCode))
+      .flatMap((d) => d.categories.flatMap((c) => c.services))
+      .map(
+        (s): CategoryServiceItem => ({
+          id: s.id,
+          nameHe: s.nameHe,
+          descriptionHe: s.descriptionHe,
+          availableNowCount: null,
+        })
+      );
+    return [category.id, rows];
+  })
+);
+
+/**
+ * Every category leads somewhere, checked rather than assumed.
+ *
+ * `customerCategoryViolations` already proves every DEPARTMENT is
+ * reachable from the home screen. This proves the next link in the same
+ * chain: that arriving at a category actually finds services. A category
+ * whose departments hold nothing is a door onto an empty room, and it
+ * fails silently — the screen renders, the customer taps, and there is
+ * simply nothing there.
+ */
+export function categoryServiceViolations(): string[] {
+  const out: string[] = [];
+  for (const c of CUSTOMER_CATEGORIES) {
+    const rows = catalogCategoryServices[c.id] ?? [];
+    if (rows.length === 0) {
+      out.push(`"${c.labelHe}" opens onto no services at all — a door with nothing behind it.`);
+    }
+  }
+  return out;
 }
