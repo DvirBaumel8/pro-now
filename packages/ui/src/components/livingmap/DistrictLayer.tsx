@@ -121,6 +121,21 @@ export interface DistrictLayerProps {
    */
   spots?: readonly NormalizedPoint[] | null;
   /**
+   * A POOL OF LIGHT UNDER EACH SHOPFRONT.
+   *
+   * On the painted plate every business has its own light baked into the
+   * artwork and into the pavement around it. Stood on a real street the
+   * building keeps its light and the ground under it does not, so the
+   * shop looks pasted onto the pavement rather than standing on it —
+   * which is the "sticker" problem ChatGPT named about the vehicles,
+   * arriving one more time in a different place.
+   *
+   * One soft warm disc at the footing fixes it, and it is also the first
+   * item on ChatGPT's list of what buys the most life: *"glow של
+   * החנויות"*. It says nothing about anybody — see `AMBIENT_KINDS`.
+   */
+  litGround?: boolean;
+  /**
    * How wide a shopfront is, as a fraction of the world.
    *
    * `WORLD_SIZE.district` is a number chosen by eye against a painting,
@@ -195,6 +210,7 @@ export function DistrictLayer({
   vRange,
   spots = null,
   districtWidth,
+  litGround = false,
 }: DistrictLayerProps) {
   // `width` is the WORLD's width in points; a district's size is a share of
   // it. `sizeBasis` survives only for the callers that have not moved yet.
@@ -303,6 +319,27 @@ export function DistrictLayer({
               ]}
               pointerEvents="box-none"
             >
+              {/*
+                THE POOL OF LIGHT THIS SHOP THROWS ON ITS OWN PAVEMENT.
+                Behind the artwork and wider than it, centred on the
+                footing rather than on the picture — a shopfront lights
+                the ground in front of its door, not the middle of its
+                own roof. See `litGround`.
+              */}
+              {litGround ? (
+                <View
+                  pointerEvents="none"
+                  style={{
+                    position: "absolute",
+                    left: w * shape.anchorX - w * 0.85,
+                    top: h - w * 0.42,
+                    width: w * 1.7,
+                    height: w * 0.84,
+                    borderRadius: w * 0.85,
+                    backgroundColor: "rgba(255,196,107,0.10)",
+                  }}
+                />
+              ) : null}
               <Pressable
                 onPress={onSelect ? () => onSelect(site.department) : undefined}
                 disabled={!onSelect}

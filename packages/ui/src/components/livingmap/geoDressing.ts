@@ -320,9 +320,16 @@ export function dressGeo(plan: WorldPlan, opts: DressingOptions = {}): GeoDressi
     const v0 = Math.min(...vs);
     const v1 = Math.max(...vs);
     const spanMetres = worldToMetresApprox(plan, Math.max(u1 - u0, v1 - v0));
-    const want = Math.max(2, Math.min(14, Math.round(spanMetres / 16)));
+    const want = Math.max(3, Math.min(20, Math.round(spanMetres / 11)));
     let placed = 0;
-    for (let k = 0; k < want * 6 && placed < want; k++) {
+    /*
+     * MANY MORE ATTEMPTS THAN PLACEMENTS.
+     *
+     * A linear park is a long thin shape inside a large bounding box, so
+     * most uniform samples land outside its ring and are thrown away.
+     * Six tries per tree left one tree in a two-hundred-metre garden.
+     */
+    for (let k = 0; k < want * 40 && placed < want; k++) {
       if (trees.length >= maxTrees) break;
       const a = hash01(area.id, k * 3);
       const b = hash01(area.id, k * 3 + 1);

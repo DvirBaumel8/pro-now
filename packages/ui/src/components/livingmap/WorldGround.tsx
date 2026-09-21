@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import { Image, StyleSheet, View } from "react-native";
 
-import { type WorldGeo, groundMaterials, pruneDeadEnds } from "@pro-now/types";
+import { type WorldGeo, GROUND_GRASS_ID, groundMaterials, pruneDeadEnds } from "@pro-now/types";
 
 import { type WorldAssetSources, EMPTY_ASSET_SOURCES } from "./AssetSlot";
 import { GeoPlate } from "./GeoPlate";
@@ -68,9 +68,10 @@ export function WorldGround({
   const layer = useMemo(() => {
     const mats = groundMaterials((id) => Boolean(sources[id]));
     const pave = mats.length > 0 ? ((sources[mats[0]!] as { uri: string } | undefined) ?? null) : null;
-    if (plate) return { tiles: [plate], material: false, tileMetres: undefined, pave };
+    const grass = (sources[GROUND_GRASS_ID] as { uri: string } | undefined) ?? null;
+    if (plate) return { tiles: [plate], material: false, tileMetres: undefined, pave, grass };
     if (mats.length > 0) {
-      return { tiles: mats.map((id) => sources[id]!), material: true, tileMetres: 14, pave: null };
+      return { tiles: mats.map((id) => sources[id]!), material: true, tileMetres: 14, pave: null, grass };
     }
     return null;
   }, [plate, sources]);
@@ -110,6 +111,7 @@ export function WorldGround({
           paintedGround
           drawProps={layer.material}
           paveSource={layer.pave}
+          grassSource={layer.grass}
           animate={animate}
         />
       </View>

@@ -236,6 +236,54 @@ def seam_error(im):
     return (across_h / max(inside_h, 1e-6), across_v / max(inside_v, 1e-6))
 
 
+def build_grass(seed):
+    """
+    PLANTED GROUND, ON THE SAME TORUS.
+
+    The parks that `pruneDeadEnds` leaves where a road used to be were
+    drawn as a flat polygon and read as a green slab — a placeholder,
+    which on a real street is worse than the road it replaced. A material
+    fixes it for the same reason it fixed the paving: what makes ground
+    read as ground is texture at two scales, and a fill colour has none.
+
+    Two scales here: broad patches where the grass is longer or drier,
+    and a fine speckle of blades. Dark, because it is night and because a
+    lawn at night is nearly grey — the thing that makes it read as grass
+    is the variation, not the colour.
+    """
+    rng = np.random.default_rng(seed)
+    # Night grass is very nearly grey. The first pass used a garden-centre
+    # green and the parks came out as highlighter stripes across a warm
+    # lit city — the variation is what reads as grass, never the hue.
+    base = np.array([26.0, 38.0, 30.0])
+
+    patch = wrapped_noise(S, 3, seed + 7)[..., None]
+    fine = wrapped_noise(S, 6, seed + 19)[..., None]
+    img = base + patch * np.array([5.0, 9.0, 4.0]) + fine * np.array([4.0, 7.0, 3.0])
+
+    # Blades: short bright strokes, wrapped, denser where the patch noise
+    # says the grass is longer.
+    blade = Image.new("L", (S, S), 0)
+    px = blade.load()
+    r = random.Random(seed + 313)
+    p2 = patch[:, :, 0]
+    for _ in range(26000):
+        x = r.randrange(S)
+        y = r.randrange(S)
+        if p2[y, x] < r.uniform(-0.9, 0.7):
+            continue
+        ln = r.randrange(2, 5)
+        ang = r.uniform(-0.6, 0.6) - math.pi / 2
+        for k in range(ln):
+            xx = int((x + math.cos(ang) * k)) % S
+            yy = int((y + math.sin(ang) * k)) % S
+            px[xx, yy] = 255
+    b = wrap_blur(np.asarray(blade), 0.5)[..., None] / 255.0
+    img = img + b * np.array([14.0, 24.0, 12.0])
+
+    return Image.fromarray(np.clip(img, 0, 255).astype(np.uint8), "RGB")
+
+
 if __name__ == "__main__":
     import sys
 
@@ -263,4 +311,11 @@ if __name__ == "__main__":
             raise SystemExit(f"tile {i} has a visible seam")
         for d in out_dirs:
             im.save(f"{d}/world_ground_mat_{i}.webp", "WEBP", quality=90, method=5)
-    print(f"wrote 4 tiles to: {', '.join(out_dirs)}")
+    grass = build_grass(97)
+    h, v = seam_error(grass)
+    print(f"world_ground_grass: seam {h:.2f}/{v:.2f} {'ok' if max(h, v) < 1.6 else 'SEAM'}")
+    if max(h, v) >= 1.6:
+        raise SystemExit("the grass tile has a visible seam")
+    for d in out_dirs:
+        grass.save(f"{d}/world_ground_grass.webp", "WEBP", quality=90, method=5)
+    print(f"wrote 5 tiles to: {', '.join(out_dirs)}")

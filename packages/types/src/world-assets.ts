@@ -592,6 +592,16 @@ export const GROUND_MATERIAL_IDS = [
 export type GroundMaterialId = (typeof GROUND_MATERIAL_IDS)[number];
 
 /**
+ * PLANTED GROUND, for the parks that replace closed roads.
+ *
+ * Its own id rather than a fifth paving variant, because it is used
+ * somewhere specific — `pruneDeadEnds` leaves a park where a road used to
+ * stop in the middle of the city, and a park drawn as a fill colour reads
+ * as a placeholder. Same night, same family, same torus.
+ */
+export const GROUND_GRASS_ID = "world_ground_grass";
+
+/**
  * Which material tiles this build actually has.
  *
  * Returns them in a fixed order, and an EMPTY array until at least two

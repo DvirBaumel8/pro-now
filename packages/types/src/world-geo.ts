@@ -1255,7 +1255,18 @@ function lawnOver(
 ): GeoArea {
   const bounds = geo.bounds;
   const world = points.map((p) => projectToWorld(bounds, p));
-  const half = metresToWorld(bounds, (widthMetres + 7) / 2);
+  /*
+   * WIDE ENOUGH TO PLANT, NARROW ENOUGH TO BELONG.
+   *
+   * Three widths before this one. At the road's own width the lawn is a
+   * ribbon and reads as the road still being there, painted green. At
+   * thirty metres it is a boulevard garden — a real urban form, and on
+   * screen a green quad lying across a street corner and covering the
+   * city we are trying to show. A closed lane becomes a planted strip
+   * with a few trees on it, and the surrounding blocks stay visible,
+   * which is what a closed lane actually looks like.
+   */
+  const half = metresToWorld(bounds, (widthMetres + 11) / 2);
 
   const left: NormalizedPoint[] = [];
   const right: NormalizedPoint[] = [];

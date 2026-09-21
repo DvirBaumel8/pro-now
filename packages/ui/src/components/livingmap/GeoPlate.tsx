@@ -187,6 +187,8 @@ export interface GeoPlateProps {
   paveSource?: { uri: string } | null;
   /** How much real ground one repeat of `paveSource` covers. */
   paveMetres?: number;
+  /** Planted ground for the parks. Same idea as `paveSource`. */
+  grassSource?: { uri: string } | null;
   /**
    * The city's own furniture: trees, lamps, lit windows, crossings.
    *
@@ -243,6 +245,20 @@ const KERB_METRES = 2.6;
  * that, buildings darkest of all. Four values, in order, and the street
  * network is the first thing the eye finds.
  */
+/**
+ * PLANTING, WHICH IS A DIFFERENT GREEN FROM FOLIAGE.
+ *
+ * `livingPalette.foliage` is a canopy seen from the side, lit from
+ * above — far too saturated for ground cover, where it reads as a
+ * highlighter stripe. Grass at night is almost grey, and what makes it
+ * read as grass is the warmer edge where the pavement lighting reaches
+ * it rather than the colour of the middle.
+ */
+const GREEN_INK = {
+  grass: "#20362A",
+  verge: "#4C8A63",
+} as const;
+
 const ROAD_INK = {
   /*
    * AND THEN WARMED, WHICH IS A SEPARATE FIX FROM BRIGHTENED.
@@ -293,6 +309,7 @@ export function GeoPlate({
   drawProps,
   paveSource = null,
   paveMetres = 14,
+  grassSource = null,
 }: GeoPlateProps) {
   /*
    * PROPS FOLLOW THE GROUND, NOT THE MODE.
@@ -435,8 +452,17 @@ export function GeoPlate({
               width={paveTile}
               height={paveTile}
             >
+              {/*
+                A STRING, NOT A SOURCE OBJECT.
+
+                `react-native-svg`'s Image takes a require() result or a
+                URI on native, and on web it wants the plain string —
+                handed `{uri}` there it renders the broken-image glyph,
+                tiled, which on a park is a wall of grey icons. Passing
+                the string works on both.
+              */}
               <SvgImage
-                href={paveSource}
+                href={paveSource.uri}
                 x={0}
                 y={0}
                 width={paveTile}
@@ -461,6 +487,18 @@ export function GeoPlate({
                 height={paveTile}
                 fill={livingPalette.nightBottom}
                 opacity={0.66}
+              />
+            </Pattern>
+          ) : null}
+          {grassSource ? (
+            <Pattern id="geoGrass" patternUnits="userSpaceOnUse" width={paveTile} height={paveTile}>
+              <SvgImage
+                href={grassSource.uri}
+                x={0}
+                y={0}
+                width={paveTile}
+                height={paveTile}
+                preserveAspectRatio="xMidYMid slice"
               />
             </Pattern>
           ) : null}
@@ -506,13 +544,44 @@ export function GeoPlate({
               the canopies `dressGeo` scatters inside it are what make it
               read as ground rather than as a shape somebody filled in.
             */}
-            <Path d={d} fill="#22402F" opacity={paintedGround ? 0.92 : 0.85} />
+            {/*
+              ROUNDED, BECAUSE A PARK DOES NOT HAVE CORNERS WHERE THE
+              ROAD ENDED.
+
+              The lawn is built from the centreline of the way it
+              replaced, so its ends are square and its corners are
+              mitred — which reads as a green rectangle laid on the city.
+              Stroking the same path in the same colour with round joins
+              and caps rounds it off for one extra node, and widens it by
+              a couple of metres, which is about the verge a road has
+              either side of it anyway.
+            */}
+            <Path
+              d={d}
+              fill={grassSource ? "url(#geoGrass)" : GREEN_INK.grass}
+              stroke={grassSource ? "url(#geoGrass)" : GREEN_INK.grass}
+              strokeWidth={8}
+              strokeLinejoin="round"
+              strokeLinecap="round"
+              /*
+               * OPAQUE OVER A PAINTING.
+               *
+               * Translucent, it was a green film over a brightly lit
+               * pavement and never got darker than a highlighter however
+               * far the colour was pushed — the pavement underneath was
+               * doing all the work. A lawn REPLACED the road; it does
+               * not tint it.
+               */
+              opacity={1}
+            />
             <Path
               d={d}
               fill="none"
-              stroke={livingPalette.foliageLight}
+              stroke={GREEN_INK.verge}
               strokeWidth={2.5}
-              opacity={0.28}
+              strokeLinejoin="round"
+              strokeLinecap="round"
+              opacity={0.45}
             />
           </G>
         ))}

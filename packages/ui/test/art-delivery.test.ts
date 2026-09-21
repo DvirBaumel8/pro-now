@@ -4,6 +4,7 @@ import path from "node:path";
 
 import {
   AVATARS,
+  GROUND_GRASS_ID,
   GROUND_MATERIAL_IDS,
   WORLD_DISTRICTS,
   type DepartmentCode,
@@ -74,6 +75,7 @@ function requestedIds(): Set<string> {
    * looked like files nobody draws. See `GROUND_MATERIAL_IDS`.
    */
   for (const id of GROUND_MATERIAL_IDS) ids.add(id);
+  ids.add(GROUND_GRASS_ID);
   ids.add("courier_scooter");
   ids.add("moving_van");
   ids.add("tow_truck");

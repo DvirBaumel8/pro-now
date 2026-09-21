@@ -427,6 +427,7 @@ export function StrollBody({
               sources={sources}
               spots={spots}
               districtWidth={shopWidth}
+              litGround={Boolean(geo)}
               vRange={canWalk ? { min: 0, max: depth } : undefined}
               /*
                * The trade underfoot is lit and the rest go quiet — which
@@ -487,6 +488,7 @@ export function StrollBody({
                 sources={sources}
                 spots={spots}
                 districtWidth={shopWidth}
+                litGround={Boolean(geo)}
                 vRange={{ min: depth, max: 1.01 }}
                 activeDepartment={nearest}
                 onSelect={onOpenDepartment}

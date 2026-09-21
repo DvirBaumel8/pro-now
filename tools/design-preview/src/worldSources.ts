@@ -63,6 +63,7 @@ export const worldSources: WorldAssetSources = {
   shared_ground_street: { uri: "world/shared_ground_street.webp" },
   tow_truck: { uri: "world/tow_truck.webp" },
   welcome_hero: { uri: "world/welcome_hero.webp" },
+  world_ground_grass: { uri: "world/world_ground_grass.webp" },
   world_ground_mat_1: { uri: "world/world_ground_mat_1.webp" },
   world_ground_mat_2: { uri: "world/world_ground_mat_2.webp" },
   world_ground_mat_3: { uri: "world/world_ground_mat_3.webp" },
