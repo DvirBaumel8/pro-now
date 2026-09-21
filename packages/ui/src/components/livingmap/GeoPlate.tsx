@@ -1,5 +1,5 @@
-import React, { useMemo } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useMemo, useRef } from "react";
+import { Animated, Easing, StyleSheet, Text, View } from "react-native";
 import Svg, { Circle, Defs, G, LinearGradient, Path, Rect, Stop } from "react-native-svg";
 
 import {
@@ -126,6 +126,22 @@ export interface GeoPlateProps {
    */
   paintedGround?: boolean;
   /**
+   * WHETHER THE CITY BREATHES.
+   *
+   * Amit: *"תגיעו לתוצאה המושלמת של העיר שלנו על מפה אמיתית ותנועתיות."*
+   * The ambient world — couriers, vans, walkers — is switched off on a
+   * real street, because each of those has an IDENTITY and an identity on
+   * a real street is a claim about an address. What is left is the kind
+   * of movement that is about nobody: the lamps breathing and a breeze
+   * going through the trees. See `AMBIENT_KINDS` in `geo-truth.ts`, which
+   * is where the line between the two is drawn and tested.
+   *
+   * Two drivers for the whole plate, both on the native driver, both
+   * animating a GROUP rather than each of two hundred nodes — a city that
+   * costs two interpolations to be alive.
+   */
+  animate?: boolean;
+  /**
    * The city's own furniture: trees, lamps, lit windows, crossings.
    *
    * On by default, and it is not decoration in the dismissible sense.
@@ -227,6 +243,7 @@ export function GeoPlate({
   metresAcross,
   dressed = true,
   paintedGround = false,
+  animate = true,
 }: GeoPlateProps) {
   const plan: WorldPlan = useMemo(() => planWorld(geo), [geo]);
   const spineId = useMemo(() => spineOf(plan)?.id ?? null, [plan]);
@@ -293,6 +310,39 @@ export function GeoPlate({
     () => (dressed ? projectDressing(dressGeo(plan), pitch) : null),
     [plan, pitch, dressed]
   );
+
+  /*
+   * ONE BREEZE AND ONE BREATH.
+   *
+   * A sine loop each, at lengths that do not divide into one another, so
+   * the two never come back into phase and the street never looks like it
+   * is on a timer. 9.4s and 6.1s — the numbers matter only in that they
+   * are coprime enough for the eye.
+   */
+  const breeze = useRef(new Animated.Value(0)).current;
+  const breath = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!animate) {
+      breeze.setValue(0);
+      breath.setValue(0);
+      return;
+    }
+    const loop = (v: Animated.Value, ms: number) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(v, { toValue: 1, duration: ms, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+          Animated.timing(v, { toValue: 0, duration: ms, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        ])
+      );
+    const a = loop(breeze, 9400);
+    const b = loop(breath, 6100);
+    a.start();
+    b.start();
+    return () => {
+      a.stop();
+      b.stop();
+    };
+  }, [animate, breeze, breath]);
 
   /* Widths in the fixed user space: a world unit is S wide. */
   const kerb = (halfWidth: number) => (halfWidth * 2 + kerbWorld(plan)) * S;
@@ -540,18 +590,7 @@ export function GeoPlate({
               );
             })}
 
-            {/* Lamp pools first — the trees and the windows sit in them. */}
-            {dressing.lamps.map((l, i) => (
-              <Circle
-                key={`lg${i}`}
-                cx={l.at.u * S}
-                cy={l.at.v * sy}
-                r={l.r * S}
-                fill={livingPalette.lampGlow}
-                opacity={0.11}
-              />
-            ))}
-            {dressing.lamps.map((l, i) => (
+            {(paintedGround ? [] : dressing.lamps).map((l, i) => (
               <Circle
                 key={`lp${i}`}
                 cx={l.at.u * S}
@@ -594,41 +633,6 @@ export function GeoPlate({
               />
             ))}
 
-            {/* Trees last of the ground dressing, so a canopy overhangs
-                the kerb and the windows behind it. */}
-            {dressing.trees.map((t, i) => (
-              <G key={`tr${i}`}>
-                {/*
-                  A CANOPY IS A DARK MASS WITH A LIT TOP, NOT A GREEN DOT.
-                  The first version drew a flat mid-green circle and the
-                  street filled with what looked like markers. The
-                  painting's trees are almost black in the shade with one
-                  lit edge where the lamp reaches them — so: shadow,
-                  dark body, one small highlight off-centre.
-                */}
-                <Circle
-                  cx={t.at.u * S}
-                  cy={t.at.v * sy + t.r * sy * 0.45}
-                  r={t.r * S * 0.75}
-                  fill="#0B0917"
-                  opacity={0.5}
-                />
-                <Circle
-                  cx={t.at.u * S}
-                  cy={t.at.v * sy}
-                  r={t.r * S}
-                  fill={t.tone === 2 ? livingPalette.foliage : livingPalette.foliageDark}
-                  opacity={0.92}
-                />
-                <Circle
-                  cx={t.at.u * S - t.r * S * 0.3}
-                  cy={t.at.v * sy - t.r * sy * 0.34}
-                  r={t.r * S * 0.36}
-                  fill={livingPalette.foliageLight}
-                  opacity={t.tone === 0 ? 0.3 : 0.5}
-                />
-              </G>
-            ))}
           </>
         ) : null}
 
@@ -648,6 +652,111 @@ export function GeoPlate({
           control, and it scales with the city rather than with the phone.
         */}
       </Svg>
+
+      {/*
+        TWO MOVING LAYERS, TWO DRIVERS, AND THE REST OF THE CITY HELD
+        STILL.
+
+        These are out of the base drawing because a transform inside an
+        `<Svg>` cannot ride React Native's native driver — so they are
+        their own transparent SVGs stacked over it, each wrapped in one
+        `Animated.View`. The cost of the city being alive is therefore two
+        interpolations rather than four hundred animated nodes, and both
+        of them run off the JS thread while dispatch updates come in.
+
+        Neither says anything about anybody: see `AMBIENT_KINDS`. The
+        lamps breathe and the trees move in a breeze, and that is the
+        whole of what a real street is allowed to invent.
+      */}
+      {dressing ? (
+        <Animated.View
+          style={[
+            StyleSheet.absoluteFill,
+            {
+              opacity: breath.interpolate({ inputRange: [0, 1], outputRange: [0.78, 1.12] }),
+            },
+          ]}
+          pointerEvents="none"
+        >
+          <Svg width={width} height={height} viewBox={`0 0 ${S} ${sy}`} preserveAspectRatio="none">
+            {dressing.lamps.map((l, i) => (
+              <Circle
+                key={`lg${i}`}
+                cx={l.at.u * S}
+                cy={l.at.v * sy}
+                r={l.r * S}
+                fill={livingPalette.lampGlow}
+                opacity={0.11}
+              />
+            ))}
+          </Svg>
+        </Animated.View>
+      ) : null}
+
+      {dressing ? (
+        <Animated.View
+          style={[
+            StyleSheet.absoluteFill,
+            {
+              transform: [
+                {
+                  translateX: breeze.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [-width * 0.0016, width * 0.0016],
+                  }),
+                },
+              ],
+            },
+          ]}
+          pointerEvents="none"
+        >
+          <Svg width={width} height={height} viewBox={`0 0 ${S} ${sy}`} preserveAspectRatio="none">
+          {/* Trees last of the ground dressing, so a canopy overhangs
+              the kerb and the windows behind it. */}
+            {/*
+              THE PAINTING ALREADY HAS BETTER TREES THAN THESE.
+
+              Drawn over it, a green disc beside a painted palm reads as a
+              marker somebody dropped on the city. The drawn canopies are
+              for the case where there is no artwork underneath; over a
+              painting the layer that moves is the lamplight.
+            */}
+          {(paintedGround ? [] : dressing.trees).map((t, i) => (
+            <G key={`tr${i}`}>
+              {/*
+                A CANOPY IS A DARK MASS WITH A LIT TOP, NOT A GREEN DOT.
+                The first version drew a flat mid-green circle and the
+                street filled with what looked like markers. The
+                painting's trees are almost black in the shade with one
+                lit edge where the lamp reaches them — so: shadow,
+                dark body, one small highlight off-centre.
+              */}
+              <Circle
+                cx={t.at.u * S}
+                cy={t.at.v * sy + t.r * sy * 0.45}
+                r={t.r * S * 0.75}
+                fill="#0B0917"
+                opacity={0.5}
+              />
+              <Circle
+                cx={t.at.u * S}
+                cy={t.at.v * sy}
+                r={t.r * S}
+                fill={t.tone === 2 ? livingPalette.foliage : livingPalette.foliageDark}
+                opacity={0.92}
+              />
+              <Circle
+                cx={t.at.u * S - t.r * S * 0.3}
+                cy={t.at.v * sy - t.r * sy * 0.34}
+                r={t.r * S * 0.36}
+                fill={livingPalette.foliageLight}
+                opacity={t.tone === 0 ? 0.3 : 0.5}
+              />
+            </G>
+          ))}
+          </Svg>
+        </Animated.View>
+      ) : null}
 
       {!geo.real ? (
         <View style={StyleSheet.absoluteFill} pointerEvents="none">

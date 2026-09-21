@@ -47,7 +47,34 @@ export type Provenance =
   | "SERVER"
   /** The device's own location, with the user's permission. */
   | "SELF"
-  /** Invented for the scene — ambient walkers, traffic, district markers. */
+  /**
+   * INVENTED, BUT ABOUT NOBODY.
+   *
+   * -------------------------------------------------------------------
+   * THE DISTINCTION THE FIRST VERSION OF THIS FILE MISSED
+   * -------------------------------------------------------------------
+   * The rule below started as "invented things may not stand on a real
+   * street", and the consequence was a dead city — every walker, every
+   * van, every lit window switched off the moment the streets were real.
+   * Amit's note was immediate and correct: *"אני לא יכול עם המסך הכהה
+   * הזה."* A place with nothing happening in it is not more honest, it
+   * is just worse, and nobody was ever misled by a tree.
+   *
+   * What made the old ambient world dangerous was not that it was
+   * invented. It was that its inventions had IDENTITIES: a courier, a
+   * moving van, a shopfront with a trade name on it. Put those on a real
+   * street and every one of them is a claim that somebody of that trade
+   * is at that address — which is exactly `/CLAUDE.md §3`.
+   *
+   * `AMBIENT` is the other kind: invented, and carrying no identity at
+   * all. Leaves moving, a lamp breathing, light on wet asphalt, a
+   * silhouette of an unbranded car crossing the far end of a street.
+   * None of it says anyone is anywhere, none of it is a professional,
+   * none of it can be tapped, and none of it may ever carry a name — all
+   * of which is enforced below rather than promised.
+   */
+  | "AMBIENT"
+  /** Invented WITH an identity — ambient professionals, district markers. */
   | "DECOR";
 
 export type SurfaceKind =
@@ -62,6 +89,8 @@ export interface Plotted {
   provenance: Provenance;
   /** A name painted on it — a shopfront sign, a person's first name. */
   labelHe?: string;
+  /** Can somebody tap it and get somewhere? Ambient things cannot. */
+  interactive?: boolean;
 }
 
 /**
@@ -72,7 +101,16 @@ export interface Plotted {
  */
 export function plottable(item: Plotted, surface: SurfaceKind): boolean {
   if (surface === "ILLUSTRATED") return true;
-  return item.provenance !== "DECOR";
+  if (item.provenance === "DECOR") return false;
+  if (item.provenance === "AMBIENT") {
+    /*
+     * Atmosphere earns its place on a real street by being about nobody.
+     * A named or tappable ambient object is a thing pretending to be
+     * atmosphere, which is worse than the honest version of either.
+     */
+    return !item.labelHe && item.interactive !== true;
+  }
+  return true;
 }
 
 export function plottableOnly(items: readonly Plotted[], surface: SurfaceKind): Plotted[] {
@@ -100,6 +138,79 @@ export function labelAllowed(item: Plotted, surface: SurfaceKind): boolean {
   return item.provenance === "SERVER";
 }
 
+/**
+ * The atmosphere a real street may carry, in order of how much life it
+ * buys per unit of risk.
+ *
+ * Written down as a list rather than left to each screen, because "a bit
+ * of movement" is exactly the kind of instruction that grows a courier.
+ */
+export const AMBIENT_KINDS = [
+  /** Lamp pools breathing, and shopfront glow. */
+  "LAMP_BREATH",
+  /** Windows changing luminance, slowly and out of step. */
+  "WINDOW_LUMINANCE",
+  /** Canopies and grass moving one to three points. */
+  "LEAF_SWAY",
+  /** Light on wet asphalt, shifting with the camera. */
+  "ASPHALT_SHEEN",
+  /** Near things moving faster than far ones as you walk. */
+  "PARALLAX",
+] as const;
+
+export type AmbientKind = (typeof AMBIENT_KINDS)[number];
+
+/**
+ * MOTION WITHOUT AGENCY IS AMBIENCE. MOTION WITH AGENCY IS AN ENTITY.
+ *
+ * ---------------------------------------------------------------------
+ * THE LINE, AND WHERE I HAD PUT IT WRONG
+ * ---------------------------------------------------------------------
+ * My own first list ended with `DISTANT_TRAFFIC` — one unbranded car
+ * crossing the far end of a street, small, as a silhouette. ChatGPT cut
+ * it, and the argument is better than the concession I was making:
+ *
+ *     "אם משהו גורם למשתמש לחשוב 'יש שם מישהו/משהו שנמצא עכשיו ברחוב
+ *      הזה', הוא Entity. לכן לא הייתי שם אפילו מונית רחוקה על מפה
+ *      אמיתית. היא עדיין נקראת כרכב במקום אמיתי."
+ *
+ * Which is exactly right, and worse for us than for most products: this
+ * app's entire promise is that somebody is on their way to you. A moving
+ * vehicle is the one shape a customer of PRO NOW is primed to read as an
+ * arrival. Making it small and grey does not make it mean less.
+ *
+ * So the rule is a property of the motion, not of its size:
+ *
+ *     Light may move. Leaves may move. Water may move. A shadow may
+ *     breathe. Anything that travels from A to B ON PURPOSE — a person,
+ *     a dog, a bicycle, a van — needs a source of truth.
+ *
+ * `ambientViolations` is that sentence as a check, and it is deliberately
+ * unforgiving: atmosphere with a name on it, atmosphere that can be
+ * tapped, or atmosphere claiming a provenance it does not have are all
+ * refused, because each is a thing pretending to be weather.
+ */
+export function ambientViolations(kind: AmbientKind, item: Plotted): string[] {
+  const out: string[] = [];
+  if (item.provenance !== "AMBIENT") out.push(`${item.id} is ${kind} but claims a source`);
+  if (item.labelHe) out.push(`${item.id} is atmosphere with a name on it`);
+  if (item.interactive) out.push(`${item.id} is atmosphere that can be tapped`);
+  return out;
+}
+
+/**
+ * Whether a described motion is allowed to exist without a server behind
+ * it.
+ *
+ * `travels` is the whole question: does this thing go from one place to
+ * another under its own steam? A canopy that sways returns to where it
+ * was; a courier does not. The signature is short on purpose — anything
+ * that needs a paragraph to argue it is not travelling, is travelling.
+ */
+export function motionNeedsTruth(motion: { travels: boolean; readsAsSomebody: boolean }): boolean {
+  return motion.travels || motion.readsAsSomebody;
+}
+
 export interface PlotScene {
   surface: SurfaceKind;
   /** True only for an extract that is a place. A fixture is not. */
@@ -117,7 +228,11 @@ export function plotViolations(scene: PlotScene): string[] {
 
   for (const item of scene.items) {
     if (!plottable(item, scene.surface)) {
-      out.push(`${item.id} is invented and is being drawn on a real street`);
+      out.push(
+        item.provenance === "AMBIENT"
+          ? `${item.id} is atmosphere pretending to be something you can reach`
+          : `${item.id} is invented and is being drawn on a real street`
+      );
     }
     if (!labelAllowed(item, scene.surface)) {
       out.push(`${item.id} paints "${item.labelHe}" on a real address without a business behind it`);

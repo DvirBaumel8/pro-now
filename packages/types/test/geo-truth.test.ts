@@ -3,10 +3,13 @@ import { describe, expect, it } from "vitest";
 import {
   type PlotScene,
   type Plotted,
+  AMBIENT_KINDS,
+  ambientViolations,
   decorScene,
   disclosureViolations,
   groundDisclosureHe,
   labelAllowed,
+  motionNeedsTruth,
   plotViolations,
   plottable,
   plottableOnly,
@@ -135,5 +138,76 @@ describe("what the screen says about the ground it is drawing", () => {
     // And the live pair disagrees with it, which is the whole point.
     expect(groundDisclosureHe({ realStreets: true })).not.toBe(stale);
     expect(groundDisclosureHe({ realStreets: false })).toBe(stale);
+  });
+});
+
+describe("atmosphere, which is invented and about nobody", () => {
+  const leaf: Plotted = { id: "leaf_sway", at: { u: 0.3, v: 0.4 }, provenance: "AMBIENT" };
+
+  /*
+   * The first version of this file switched the whole world off on a real
+   * street, and Amit's verdict was immediate: *"אני לא יכול עם המסך הכהה
+   * הזה."* A place with nothing happening in it is not more honest. What
+   * was dangerous was never invention — it was invention with an
+   * IDENTITY: a courier, a van, a trade name.
+   */
+  it("lets a real street breathe", () => {
+    expect(plottable(leaf, "REAL")).toBe(true);
+    expect(plotViolations({ surface: "REAL", surfaceIsRealPlace: true, items: [leaf] })).toEqual([]);
+  });
+
+  it("refuses atmosphere with a name on it", () => {
+    const named = { ...leaf, labelHe: "פרו נאו" };
+    expect(plottable(named, "REAL")).toBe(false);
+    expect(labelAllowed(named, "REAL")).toBe(false);
+  });
+
+  it("refuses atmosphere you can tap", () => {
+    expect(plottable({ ...leaf, interactive: true }, "REAL")).toBe(false);
+  });
+
+  it("still refuses an invented professional", () => {
+    const courier: Plotted = { id: "courier", at: { u: 0.2, v: 0.2 }, provenance: "DECOR" };
+    expect(plottable(courier, "REAL")).toBe(false);
+  });
+
+  it("checks each kind of atmosphere against the same rule", () => {
+    for (const kind of AMBIENT_KINDS) {
+      expect(ambientViolations(kind, leaf)).toEqual([]);
+      expect(ambientViolations(kind, { ...leaf, provenance: "DECOR" })).toContain(
+        `leaf_sway is ${kind} but claims a source`
+      );
+    }
+  });
+});
+
+describe("motion without agency", () => {
+  /*
+   * ChatGPT's rule, taken verbatim and made checkable: *"Motion without
+   * agency = ambience. Motion with agency = Entity."* It cut my own
+   * `DISTANT_TRAFFIC` and was right to — in a product whose whole promise
+   * is that somebody is on their way to you, a moving vehicle is the one
+   * shape a customer is primed to read as an arrival, and making it small
+   * and grey does not make it mean less.
+   */
+  it("lets light and leaves move", () => {
+    expect(motionNeedsTruth({ travels: false, readsAsSomebody: false })).toBe(false);
+  });
+
+  it("refuses anything that goes somewhere", () => {
+    expect(motionNeedsTruth({ travels: true, readsAsSomebody: false })).toBe(true);
+  });
+
+  it("refuses anything that reads as a person, even standing still", () => {
+    expect(motionNeedsTruth({ travels: false, readsAsSomebody: true })).toBe(true);
+  });
+
+  it("has no kind of atmosphere that travels", () => {
+    // The list is the enforcement: if a travelling kind is ever added,
+    // this is the test that has to be argued with first.
+    expect(AMBIENT_KINDS).not.toContain("DISTANT_TRAFFIC");
+    for (const kind of AMBIENT_KINDS) {
+      expect(["LAMP_BREATH", "WINDOW_LUMINANCE", "LEAF_SWAY", "ASPHALT_SHEEN", "PARALLAX"]).toContain(kind);
+    }
   });
 });

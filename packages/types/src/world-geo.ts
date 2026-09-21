@@ -925,3 +925,133 @@ export function groundViolations(pitch: number): string[] {
 
   return out;
 }
+
+/* ------------------------------------------------------------------ */
+/* WHERE A REAL BUSINESS STANDS                                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A REAL POSITION, PUT ON A FRONTAGE.
+ *
+ * ---------------------------------------------------------------------
+ * THE PRODUCT DECISION THIS IMPLEMENTS
+ * ---------------------------------------------------------------------
+ * Amit, once the real map existed:
+ *
+ *     "לא מעניין אותי המבנים האמיתיים רק הצורה של העיר, ועליה להלביש את
+ *      העיר שלנו. ובזמן אמת כל איש מקצוע יקבל את העסק שלו לפי המיקום
+ *      שלו. ובעתיד עסקים שירצו לפרסם יהיה להם עסק קבוע לפי הכתובת
+ *      האמיתית שלהם."
+ *
+ * That resolves the hardest open question in this whole change, and it
+ * resolves it in the direction that makes the honesty rule easy instead
+ * of awkward. A shopfront on a real street is not decoration placed on
+ * somebody's building — it is one of exactly two things:
+ *
+ *   1. A professional who is ONLINE RIGHT NOW, drawn at the location the
+ *      server reports for them. The shop exists because they do, it
+ *      appears when they go online and it goes when they go offline.
+ *   2. Later, a paying business at ITS OWN verified address.
+ *
+ * Both are server facts, so both are `SERVER` provenance in
+ * `geo-truth.ts` and both may carry a name. Nothing else stands on a real
+ * street. `plotSpotsFromGeo` — which picks handsome plots — stops being
+ * the product's placement rule the moment real supply exists; it is the
+ * demo's, and the difference is recorded here rather than left implicit.
+ *
+ * ---------------------------------------------------------------------
+ * AND WHAT IT DOES NOT CLAIM
+ * ---------------------------------------------------------------------
+ * ChatGPT, unprompted, on the same question:
+ *
+ *     "אל תנסו לגרום לחזית המצוירת להתאים ל-footprint של הבניין האמיתי
+ *      שמתחתיה. ה-footprint נותן לכם anchor/orientation, לא טענה
+ *      ש'המספרה הזאת נמצאת בתוך הבניין הזה'."
+ *
+ * So this returns an anchor and a direction and NOTHING about the plot:
+ * no size, no shape, no plot id. A shopfront is always drawn at
+ * `REAL_METRES.shopFrontage`, whatever it is standing in front of. A
+ * shopfront that resized itself to the building behind it would be
+ * asserting that the business occupies that building, which is a claim
+ * about a stranger's property that we are in no position to make.
+ */
+export interface Frontage {
+  /** Where the shopfront stands, in the world's own coordinates. */
+  at: NormalizedPoint;
+  /** Unit vector from the doorstep towards the road it faces. */
+  facing: NormalizedPoint;
+  /** The road it fronts. */
+  wayId: string;
+  /** How far the reported position was moved to reach the kerb, in metres. */
+  movedMetres: number;
+}
+
+/**
+ * Put a server-reported position on the nearest street frontage.
+ *
+ * A professional's location is a point, and a point is not a shop: dropped
+ * straight onto the map it lands in the middle of a building, or in the
+ * carriageway, or in a garden. This finds the road it is nearest, stands
+ * the shopfront on the pavement beside that road, and faces it at the
+ * traffic — which is what makes a street of them read as a street.
+ *
+ * `movedMetres` is not decoration either. It is how far we have shifted
+ * somebody from where the server said they were, and a caller that is
+ * about to tell a customer "he is here" needs to be able to see it. Past
+ * a few tens of metres the honest answer is an area, not a shopfront.
+ */
+export function frontageNear(plan: WorldPlan, position: GeoPoint | NormalizedPoint): Frontage | null {
+  const at =
+    "lat" in position ? projectToWorld(plan.geo.bounds, position) : (position as NormalizedPoint);
+  const near = nearestWay(plan, at);
+  if (!near) return null;
+
+  const kerbGap = metresToWorld(plan.geo.bounds, 2.5);
+  const stand = near.way.halfWidth + kerbGap;
+
+  /*
+   * WHICH SIDE OF THE ROAD, AND WHAT TO DO WHEN THE ANSWER IS "ON IT".
+   *
+   * A position inside the carriageway has no side — the offset vector is
+   * near zero and normalising it gives noise, which on screen is a shop
+   * that faces a different way every time the position updates. In that
+   * case the side comes from the road's own normal, chosen once and
+   * deterministically, so a professional stopped at a light does not
+   * pirouette.
+   */
+  const du = at.u - near.on.at.u;
+  const dv = at.v - near.on.at.v;
+  const len = Math.hypot(du, dv);
+  const away =
+    len > 1e-6
+      ? { u: du / len, v: dv / len }
+      : { u: -near.on.heading.v * near.on.side, v: near.on.heading.u * near.on.side };
+
+  const spot = {
+    u: near.on.at.u + away.u * stand,
+    v: near.on.at.v + away.v * stand,
+  };
+
+  return {
+    at: spot,
+    facing: { u: -away.u, v: -away.v },
+    wayId: near.way.id,
+    movedMetres: worldToMetres(plan.geo.bounds, Math.hypot(spot.u - at.u, spot.v - at.v)),
+  };
+}
+
+/**
+ * How far a reported position may be moved before a shopfront is a lie.
+ *
+ * Twenty-five metres is about the width of a street and its pavements: a
+ * professional standing anywhere in that band is, to a customer looking
+ * for them, on that street. Beyond it the shop would be on a different
+ * street from the person, and the right answer is to draw nothing and
+ * say the area instead — which `/CLAUDE.md §3` requires and which is the
+ * one thing a prettier marker cannot fix.
+ */
+export const MAX_FRONTAGE_SHIFT_METRES = 25;
+
+export function frontageIsHonest(f: Frontage | null): boolean {
+  return f !== null && f.movedMetres <= MAX_FRONTAGE_SHIFT_METRES;
+}

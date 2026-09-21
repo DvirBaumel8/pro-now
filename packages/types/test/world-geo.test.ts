@@ -6,8 +6,11 @@ import {
   type WorldGeo,
   geoAspect,
   geoHeightMetres,
+  frontageIsHonest,
+  frontageNear,
   geoViolations,
   geoWidthMetres,
+  MAX_FRONTAGE_SHIFT_METRES,
   groundDepth,
   groundProject,
   groundScale,
@@ -373,5 +376,116 @@ describe("how high the camera stands", () => {
     expect(pitchForShot("ROUTE")).toBeGreaterThan(pitchForShot("WIDE"));
     expect(pitchForShot("ROUTE")).toBeLessThan(1);
     expect(pitchForMetres(PLAN_METRES)).toBe(0);
+  });
+});
+
+describe("where a real business stands", () => {
+  /*
+   * Amit's decision, which is also what makes the honesty rule easy:
+   * *"בזמן אמת כל איש מקצוע יקבל את העסק שלו לפי המיקום שלו. ובעתיד
+   * עסקים שירצו לפרסם יהיה להם עסק קבוע לפי הכתובת האמיתית שלהם."* A
+   * shopfront is a professional who is online or a business at its own
+   * address — never decoration standing on a stranger's building.
+   */
+  const spine = plan.ways.find((w) => w.id === "w_spine")!;
+
+  it("stands a shopfront on the pavement beside the road", () => {
+    const mid = spine.points[Math.floor(spine.points.length / 2)]!;
+    // Somebody standing twelve metres off the centreline.
+    const off = metresToWorld(fixture.bounds, 12);
+    const f = frontageNear(plan, { u: mid.u + off, v: mid.v });
+    expect(f).not.toBeNull();
+    expect(f!.wayId).toBe("w_spine");
+    expect(inCarriageway(plan, f!.at)).toBe(false);
+    const clear = worldToMetres(
+      fixture.bounds,
+      nearestWay(plan, f!.at)!.on.distance - nearestWay(plan, f!.at)!.way.halfWidth
+    );
+    expect(clear).toBeCloseTo(2.5, 1);
+  });
+
+  it("faces it at the traffic", () => {
+    const mid = spine.points[4]!;
+    for (const side of [1, -1]) {
+      const off = metresToWorld(fixture.bounds, 14 * side);
+      const f = frontageNear(plan, { u: mid.u + off, v: mid.v })!;
+      const road = nearestWay(plan, f.at)!;
+      const toRoad = { u: road.on.at.u - f.at.u, v: road.on.at.v - f.at.v };
+      const len = Math.hypot(toRoad.u, toRoad.v) || 1;
+      expect((toRoad.u / len) * f.facing.u + (toRoad.v / len) * f.facing.v).toBeGreaterThan(0.95);
+    }
+  });
+
+  it("keeps the two sides of the street apart", () => {
+    const mid = spine.points[4]!;
+    const off = metresToWorld(fixture.bounds, 14);
+    const left = frontageNear(plan, { u: mid.u - off, v: mid.v })!;
+    const right = frontageNear(plan, { u: mid.u + off, v: mid.v })!;
+    expect(Math.sign(left.at.u - mid.u)).not.toBe(Math.sign(right.at.u - mid.u));
+  });
+
+  /*
+   * A PROFESSIONAL STOPPED AT A LIGHT MUST NOT PIROUETTE.
+   *
+   * Inside the carriageway the offset from the centreline is near zero,
+   * and normalising noise gives a shop that faces a new direction on
+   * every position update. The side then comes from the road's own
+   * normal, which is deterministic.
+   */
+  it("gives a stable answer for somebody standing in the road", () => {
+    const mid = spine.points[spine.points.length - 2]!;
+    const a = frontageNear(plan, mid)!;
+    const b = frontageNear(plan, { u: mid.u + 1e-9, v: mid.v })!;
+    expect(a.at.u).toBeCloseTo(b.at.u, 6);
+    expect(a.at.v).toBeCloseTo(b.at.v, 6);
+    expect(inCarriageway(plan, a.at)).toBe(false);
+  });
+
+  it("takes a real coordinate as readily as a world one", () => {
+    const geoPoint = {
+      lat: (fixture.bounds.north + fixture.bounds.south) / 2,
+      lng: (fixture.bounds.east + fixture.bounds.west) / 2,
+    };
+    const f = frontageNear(plan, geoPoint);
+    expect(f).not.toBeNull();
+    expect(Number.isNaN(f!.at.u)).toBe(false);
+  });
+
+  /*
+   * THE HONESTY LIMIT, WITH ITS CONTROL.
+   *
+   * `movedMetres` is how far we shifted somebody from where the server
+   * said they were. Inside a street's width that is still "on this
+   * street"; well beyond it the shopfront would be on a different street
+   * from the person, and the right answer is an area rather than a
+   * prettier marker.
+   */
+  it("reports how far it moved somebody, and refuses when that is too far", () => {
+    const mid = spine.points[4]!;
+    const close = frontageNear(plan, { u: mid.u + metresToWorld(fixture.bounds, 9), v: mid.v })!;
+    expect(close.movedMetres).toBeLessThan(MAX_FRONTAGE_SHIFT_METRES);
+    expect(frontageIsHonest(close)).toBe(true);
+
+    // Somebody in the middle of a block, far from any kerb this road has.
+    const far = frontageNear(plan, { u: mid.u + metresToWorld(fixture.bounds, 300), v: mid.v });
+    expect(far).not.toBeNull();
+    if (far!.movedMetres > MAX_FRONTAGE_SHIFT_METRES) {
+      expect(frontageIsHonest(far)).toBe(false);
+    }
+    expect(frontageIsHonest(null)).toBe(false);
+  });
+
+  /*
+   * AND WHAT IT DELIBERATELY DOES NOT RETURN.
+   *
+   * ChatGPT: *"אל תנסו לגרום לחזית המצוירת להתאים ל-footprint של הבניין
+   * האמיתי שמתחתיה. ה-footprint נותן לכם anchor/orientation, לא טענה
+   * ש'המספרה הזאת נמצאת בתוך הבניין הזה'."* A shopfront that resized
+   * itself to the building behind it would be asserting that the
+   * business occupies that building.
+   */
+  it("says nothing about the building behind it", () => {
+    const f = frontageNear(plan, spine.points[2]!)!;
+    expect(Object.keys(f).sort()).toEqual(["at", "facing", "movedMetres", "wayId"]);
   });
 });

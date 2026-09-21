@@ -36,3 +36,4 @@ export * from "./ground-plate";
 export * from "./world-errand";
 export * from "./world-geo";
 export * from "./geo-truth";
+export * from "./world-camera";
