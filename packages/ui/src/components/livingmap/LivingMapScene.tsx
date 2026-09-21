@@ -1412,13 +1412,46 @@ const styles = StyleSheet.create({
   },
 
   hudTop: { position: "absolute", top: spacing.xl, left: spacing.lg, right: spacing.lg, alignItems: "center" },
-  headline: { ...type.section, color: palette.nightText, textAlign: "center", writingDirection: "rtl" },
+  /*
+   * THE HALO, AND WHY THE SCRIM WAS NOT DOING THIS JOB.
+   *
+   * `ScrimBand` darkens the top `HUD_SHARE` of the screen — 17%, which is
+   * about 134 points on a phone. The header owns the first sixty of
+   * those, so the headline starts at roughly 160 and the line under it at
+   * 195: BOTH BELOW THE BAND. The band is sized as a share of the screen
+   * and the text is laid out from the top inset downwards, so they were
+   * never going to meet, and the mismatch only showed once the world got
+   * bright — "בודקים זמינות באזור שלך" was being read through a lit
+   * shopfront.
+   *
+   * Making the band taller would be the wrong fix twice over: it would
+   * have to grow to fit the tallest case the HUD ever holds (a
+   * two-line headline, or the ETA at display size), and it would put a
+   * quarter of the artwork behind a slab on every screen to solve a
+   * problem that only some of them have.
+   *
+   * A halo travels with the text instead. It costs nothing when the sky
+   * behind it is already dark, and it is the difference between readable
+   * and not when the camera is down among the shopfronts.
+   */
+  headline: {
+    ...type.section,
+    color: palette.nightText,
+    textAlign: "center",
+    writingDirection: "rtl",
+    textShadowColor: "rgba(8,6,14,0.95)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 12,
+  },
   detail: {
     ...type.meta,
-    color: palette.nightTextSoft,
+    color: palette.nightText,
     textAlign: "center",
     writingDirection: "rtl",
     marginTop: 4,
+    textShadowColor: "rgba(8,6,14,0.95)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 10,
   },
   brief: {
     marginTop: spacing.sm,
@@ -1429,8 +1462,25 @@ const styles = StyleSheet.create({
   },
   briefText: { ...type.meta, color: palette.nightText, writingDirection: "rtl" },
 
-  eta: { ...type.title, ...tabular, color: palette.nightText },
-  etaLabel: { ...type.meta, color: palette.nightTextSoft, writingDirection: "rtl" },
+  // The same halo, for the same reason — and the ETA needs it most,
+  // because the wait is the screen where the camera is closest to the
+  // pavement and the pavement is the brightest thing on the plate.
+  eta: {
+    ...type.title,
+    ...tabular,
+    color: palette.nightText,
+    textShadowColor: "rgba(8,6,14,0.95)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 14,
+  },
+  etaLabel: {
+    ...type.meta,
+    color: palette.nightText,
+    writingDirection: "rtl",
+    textShadowColor: "rgba(8,6,14,0.95)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 10,
+  },
 
   safety: {
     position: "absolute",

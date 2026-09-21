@@ -1293,9 +1293,110 @@ the opposite reason, because the camera clamps at the edge of the plate.
 Both are recorded in the file: the question is not whether one thing
 moved, it is whether anything did.
 
-### 15.8 State
+### 15.8 Two measurements of one plate, disagreeing in silence
 
-720 tests pass. Lint and typecheck are clean across every workspace except
+The morning after, the wait screen was still wrong in four ways, and
+three of them came back to the same habit: a number that answers a
+slightly different question from the one being asked, confidently.
+
+**The camera told the card where the screen was, and was wrong by a
+factor of two.** `WorldViewport` hands its children `visibleLeft` — which
+part of the world is on screen — read from the camera's travel target.
+True while it travels, while it is parked, and while it is dragged.
+False while it is FOLLOWING somebody, because then the transform comes
+from the follow interpolation and clamps at the plate's edge, while the
+target still holds whatever the last focus asked for. The one thing that
+uses the number is the card above the chosen shop, which slides sideways
+to stay on the phone: told the screen was 48 points further right than it
+was, it slid 35 of the 74 it needed, and a quarter of the professional's
+name sat off the right edge for the whole wait. The viewport now says
+whether its offsets mean anything (`following`) and the card stands down
+when they do not — which is also the right product answer, because the
+drawer and the headline already name that person.
+
+**The shop sign was drawn during the search.** At 55% opacity, which is
+not the same as not said: the search screen painted real professionals'
+names on shopfronts before dispatch had chosen anybody. It was also drawn
+on dimmed shops, at 0.55 of an 0.35 venue — 19%, at which the plate
+behind the letters has gone and the name is pale type lying on the
+pavement. And its rule was "not on the selected shop" rather than "not
+where the card already is", so when the card stood down the chosen shop
+went anonymous. One question, asked once, in `venueChrome`, with a test
+that walks all sixteen combinations.
+
+**The wait was shot for watching, not for walking.** `ROUTE` is 1.25
+screens across — right when the camera moves and the customer watches.
+The wait is the walk now, and at 1.25 the whole neighbourhood is on the
+phone at once: both edges of the plate in frame, nothing past the edge to
+find. It takes `EXPLORE`, the shot the stroll screen already uses.
+
+**And the traffic drove through the shops.** `STREETS` is an idealised
+layout and the comment beside it said only `main` lines up with the
+painted road. It does not either: `main` runs down u≈0.5 and u≈0.5 is
+where the shops are, because the middle of this plate is a pedestrian
+square. `measure-road.mjs` now reads the carriageway off the plate — the
+complement of the pavement test, with continuity as the tie-break,
+because a dark roof is wider than the road beside it and won three bands
+in a row on the first attempt.
+
+Which exposed the worst of them. `measure-spots.mjs` tested standable
+ground with `lum > 95`. `measure-pavement.mjs` had already found out, for
+where a PERSON may stand, that brightness is the wrong question here: the
+paving in shadow is darker than 95 and is still paving, while the zebra
+crossings are brighter and are still road. That tool switched to warmth;
+the building tool did not. So the two disagreed about where the ground
+was, and the one placing the buildings was wrong:
+
+| | before | after |
+| --- | --- | --- |
+| standable ground | 0.2% of the plate | 13.6% |
+| separated slots | 7 | 15 |
+| worst placement | 36% clear | 86% clear |
+
+One of the eleven shopfronts had been standing on the zebra crossing, 90%
+of its footprint on asphalt. And the paragraph in `PLATE_SPOTS`
+concluding that this plate could hold four shops and that the next one
+must be drawn differently was a brief written from a measurement bug; it
+is deleted rather than softened. `plate-ground.test.ts` makes the two
+measurements argue in a test instead of agreeing quietly on screen.
+
+Fifteen slots and eleven trades exposed the last of it: every entry in
+`PLATE_SPOTS` is some trade's front door with that trade's building on
+it, so a second plumber was placed inside the barber's shop (76%
+overlap), and the first venue of a trade took that trade's own spot where
+the district layer was already drawing the same shopfront at the same
+size (100% overlap, which reads as the art failing to load).
+`OVERFLOW_SPOTS` is the ground no trade owns, and a trade whose own
+professionals are on the street no longer gets a stand-in as well.
+
+### 15.9 The audit that could not run
+
+`verify:a11y` had been dead since sign-in started persisting. The first
+journey that signed in left the session behind; every later journey
+reloaded into the signed-in app, clicked a control that is not on the
+home screen, and waited thirty seconds for a phone field before killing
+the process. Six more journeys still tapped services from a home screen
+that is a question and eight doors now.
+
+Every visit starts from cleared storage, the two `fill` calls are steps
+like everything else so a miss is recorded rather than fatal, and the
+journeys walk the walk the app has. **10 screens audited with 6
+unreachable, to 16 audited, 0 unreachable, 0 defects.** The one defect it
+found on the way: the address chip at 40pt, under the 44 a thumb needs,
+on the control somebody taps standing somewhere that is not home.
+
+The HUD text was the other half of the same brightness problem.
+`ScrimBand` darkens the top 17% of the screen; the header owns the first
+sixty points of that, so the headline and the line under it both start
+BELOW the band. It never showed while the sky behind them was dark. At
+the `EXPLORE` shot the camera is down among lit paving and
+"בודקים זמינות באזור שלך" was being read through a shopfront. The text
+carries its own halo now rather than the band growing to cover the
+tallest thing the HUD ever holds.
+
+### 15.10 State
+
+743 tests pass. Lint and typecheck are clean across every workspace except
 `apps/api`, which still fails on the documented `prisma generate` blocker
 (§12.5) — unchanged and unrelated.
 
