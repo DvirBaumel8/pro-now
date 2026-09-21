@@ -9,6 +9,7 @@ import { customerTheme } from "@pro-now/ui";
 import type { CustomerStackParamList } from "./src/navigation/types";
 import { AvatarProvider, useAvatar } from "./src/avatar/AvatarProvider";
 import { AvatarPickerScreen } from "./src/screens/AvatarPickerScreen";
+import { IntroScreen } from "./src/screens/IntroScreen";
 import { HomeScreen } from "./src/screens/HomeScreen";
 import { ServiceSelectScreen } from "./src/screens/ServiceSelectScreen";
 import { RequestDetailsScreen } from "./src/screens/RequestDetailsScreen";
@@ -40,7 +41,7 @@ const Stack = createNativeStackNavigator<CustomerStackParamList>();
  * is genuinely nothing yet to be right about.
  */
 function Root() {
-  const { loaded, offerPicker } = useAvatar();
+  const { loaded, offerPicker, showIntro } = useAvatar();
 
   if (!loaded) {
     return <View style={{ flex: 1, backgroundColor: customerTheme.colors.bg }} />;
@@ -51,8 +52,15 @@ function Root() {
       <StatusBar style="dark" />
       <Stack.Navigator
         screenOptions={{ headerShown: false }}
-        initialRouteName={offerPicker ? "AvatarPicker" : "Home"}
+        /*
+         * The explanation, then the figure, then the app. Each of the
+         * first two is shown only if it has never been answered, so a
+         * returning customer opens straight on Home — which is why both
+         * answers are read in one pass before anything mounts.
+         */
+        initialRouteName={showIntro ? "Intro" : offerPicker ? "AvatarPicker" : "Home"}
       >
+        <Stack.Screen name="Intro" component={IntroScreen} />
         <Stack.Screen name="AvatarPicker" component={AvatarPickerScreen} />
         <Stack.Screen name="Home" component={HomeScreen} />
         <Stack.Screen name="ServiceSelect" component={ServiceSelectScreen} options={{ headerShown: true, title: "" }} />

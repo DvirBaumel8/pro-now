@@ -3,6 +3,15 @@ import type { IntakeAnswer } from "@pro-now/types";
 /** Screen map — mirrors /docs/02-UX-FLOWS.md §Customer screens (C04-C15). */
 export type CustomerStackParamList = {
   /**
+   * Three slides that say where this is before anything is asked.
+   *
+   * First, and before the picker: "which of these twelve people are you"
+   * is a strange question until somebody has been told there is a city to
+   * be one of them in. Amit: *"איפה מסך ראשון הסבר על האפליקציה לפני
+   * האווטאר? איך הוא יבין למה הוא נכנס?"*
+   */
+  Intro: undefined;
+  /**
    * The figure the customer walks the street as.
    *
    * `returning: true` means they came from the profile and want to go

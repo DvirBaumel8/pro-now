@@ -70,7 +70,7 @@ export function CategoryCard({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={
-        live ? `${nameHe}, ${liveCount} שירותים פנויים עכשיו` : nameHe
+        live ? `PRO NOW ${nameHe}, ${liveCount} שירותים פנויים עכשיו` : `PRO NOW ${nameHe}`
       }
       style={({ pressed }) => [
         styles.row,
@@ -82,6 +82,25 @@ export function CategoryCard({
       </View>
 
       <View style={styles.text}>
+        {/*
+          * THE WORDMARK OVER THE DOOR, THE WAY IT IS OVER THE SHOP.
+          *
+          * Amit: *"אפשר להוסיף אולי את המושג now או pro now בשם של
+          * הקטגוריה — פרו נאו לבית, פרו נאו ניקיון."*
+          *
+          * Written inline it fights the category for width — "PRO NOW
+          * הובלות ומשלוחים" wraps on a phone, eight times down one
+          * screen — and it repeats a wordmark that is already in the
+          * header. Set above the word instead, small, in the brand's own
+          * colour, it is exactly the composition painted on every
+          * shopfront in the world: the English half is a logo, the
+          * Hebrew half is what you read. So the door and the street it
+          * leads to now carry the same sign, which is the whole of what
+          * was being asked for.
+          */}
+        <Text style={styles.wordmark} numberOfLines={1}>
+          PRO NOW
+        </Text>
         <Text style={styles.name} numberOfLines={1}>
           {nameHe}
         </Text>
@@ -122,6 +141,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   text: { flex: 1, gap: 2 },
+  wordmark: {
+    ...type.micro,
+    // The brand's own coral, and letter-spaced the way the painted signs
+    // are, so it reads as a mark rather than as a word in the sentence.
+    color: colors.action,
+    letterSpacing: 1.2,
+    textAlign: "right",
+    marginBottom: 1,
+  },
   name: {
     ...type.bodyStrong,
     color: colors.textPrimary,

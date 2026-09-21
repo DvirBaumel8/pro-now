@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import {
   assessArrival,
+  jobProgressHe,
   routeAt,
   worldZoomFor,
   routeProgress,
@@ -163,6 +164,10 @@ export function TrackingBody({
    * the screen infer it from a countdown reaching zero, which would be
    * the same invention wearing a different hat.
    */
+  // The first word of the name, the way somebody in your kitchen is
+  // referred to once they are in it.
+  const progressHe = jobProgressHe(status, professional.displayName.split(/\s+/)[0] ?? null);
+
   const hasArrived =
     status === "PRO_ARRIVED" ||
     status === "DIAGNOSIS" ||
@@ -181,16 +186,36 @@ export function TrackingBody({
         }
   );
 
+  /*
+   * ONE WORD PER STATE, AND "מעדכנים…" IS NOT ONE OF THEM.
+   *
+   * Three of the six states a visit passes through had no case here, so
+   * they all fell to the default: a customer standing in their kitchen
+   * while the professional inspected the fault was told the app was
+   * "updating". It is the pill over the map and the second half of the
+   * service line, so it was the loudest thing on the screen, and it said
+   * nothing.
+   *
+   * The default stays, for a state that genuinely has not been seen yet
+   * — a screen that guesses is worse than one that admits it does not
+   * know — but it is no longer where most of the visit lands.
+   */
   const headline =
     status === "PRO_EN_ROUTE"
       ? "בדרך אליך"
       : status === "PRO_ARRIVED"
         ? "הגיע אליך"
-        : status === "IN_PROGRESS"
-          ? "העבודה בעיצומה"
-          : status === "PRO_ASSIGNED"
-            ? "יוצא אליך"
-            : "מעדכנים…";
+        : status === "DIAGNOSIS"
+          ? "בודק מה צריך"
+          : status === "WAITING_QUOTE_APPROVAL"
+            ? "ממתין לאישור שלך"
+            : status === "IN_PROGRESS"
+              ? "העבודה בעיצומה"
+              : status === "COMPLETION_PENDING"
+                ? "סיים — ממתין לאישור"
+                : status === "PRO_ASSIGNED"
+                  ? "יוצא אליך"
+                  : "מעדכנים…";
 
 
   /*
@@ -374,6 +399,19 @@ export function TrackingBody({
           width={width - spacing.lg * 2}
         />
 
+        {/*
+          * WHAT IS HAPPENING, AND WHAT WILL BE ASKED OF YOU.
+          *
+          * Once the arrival code is verified the journey is over, so
+          * everything the arrival card had been saying stops being true
+          * and the screen went quiet: a status word, and nothing else.
+          * Amit: *"אחרי הקוד הגעתי לפה, לא קורה פה כלום."* `jobProgressHe`
+          * lives beside the state machine so the sentence and the state
+          * cannot drift; it promises no times, because a state does not
+          * know any.
+          */}
+        {progressHe ? <Text style={styles.progress}>{progressHe}</Text> : null}
+
         <Text style={styles.service} numberOfLines={1}>
           {serviceNameHe} · {headline}
         </Text>
@@ -488,6 +526,13 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
 
+  progress: {
+    ...type.body,
+    color: colors.textPrimary,
+    textAlign: "right",
+    writingDirection: "rtl",
+    marginTop: spacing.md,
+  },
   service: {
     ...type.meta,
     color: colors.textSecondary,

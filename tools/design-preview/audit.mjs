@@ -363,11 +363,17 @@ const visit = async (label, sideHe, steps) => {
   try {
     if (sideHe) await signIn(label, sideHe);
     /*
-     * The customer side asks who you are before it asks what you need.
-     * Skipping is a first-class answer — see `shouldOfferPicker` — and it
-     * is the right one here: the picker has a screen of its own in this
-     * list and the journeys below are about everything after it.
+     * Both of the things the app asks before it asks what you need: the
+     * three-slide explanation, and then who you are. Skipping either is a
+     * first-class answer — see `IntroBody` and `shouldOfferPicker` — and
+     * it is the right one here, because each has a screen of its own in
+     * this list and the journeys below are about everything after them.
+     *
+     * The order matters and so does the exact text: `text=דלג` also
+     * matches the picker's "דלג כרגע", so the intro's skip has to be
+     * taken first or one click would land on the wrong screen.
      */
+    try { await p.locator('text=דלג').first().click({ timeout: 1500 }); await p.waitForTimeout(700); } catch { /* no intro on this build */ }
     try { await p.locator('text=דלג כרגע').first().click({ timeout: 1500 }); await p.waitForTimeout(600); } catch { /* no picker on this build */ }
     // The professional side opens with a "how it works" sheet on arrival.
     try { await p.locator('text=הבנתי, בוא נתחיל').first().click({ timeout: 1500 }); await p.waitForTimeout(500); } catch { /* already dismissed */ }

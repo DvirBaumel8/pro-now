@@ -34,6 +34,14 @@ await p.getByLabel('קוד האימות').fill('123456');
 await click('כניסה');
 await p.waitForTimeout(1400);
 
+/*
+ * The three slides that now open the app, skipped. `text=דלג` also
+ * matches the picker's "דלג כרגע", so this is taken before the figure is
+ * chosen rather than after.
+ */
+try { await click('דלג'); } catch { /* no intro on this build */ }
+await p.waitForTimeout(600);
+
 // 1 — a figure is chosen.
 const tile = p.getByLabel(/דמות 4$/).first();
 if (!(await tile.count())) problems.push('no avatar tile to choose');

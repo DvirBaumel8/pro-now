@@ -246,7 +246,23 @@ export function RouteLayer({
    * The dog walker arrives on foot and everything else on wheels, which is
    * a fact about the trade rather than a choice about the animation.
    */
-  const gait: Gait = vehicleAssetId === "dog_walker" ? "WALK" : vehicleAssetId === "courier_scooter" ? "RIDE" : "HAUL";
+  /*
+   * A PERSON WALKS. A VAN HAULS. NOTHING RIDES ANY MORE.
+   *
+   * `travelAssetFor` returns the professional's own figure for every
+   * trade that does not travel in a vehicle, so the common case here is
+   * now somebody on foot rather than a courier on two wheels — and the
+   * gait is what makes that legible: WALK bobs once per stride and leans
+   * into the step, HAUL is heavy and level. Reading the asset id keeps
+   * the two from drifting apart the way a hard-coded gait would.
+   */
+  const gait: Gait = vehicleAssetId.startsWith("character_")
+    ? "WALK"
+    : vehicleAssetId === "dog_walker"
+      ? "WALK"
+      : vehicleAssetId === "courier_scooter"
+        ? "RIDE"
+        : "HAUL";
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">

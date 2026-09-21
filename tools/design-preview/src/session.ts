@@ -88,6 +88,8 @@ export interface SavedSession {
    * which is what makes an optional step feel compulsory.
    */
   avatarAnswered?: boolean;
+  /** Whether the three-slide explanation has been through once. */
+  introSeen?: boolean;
 }
 
 function storage(): Storage | null {

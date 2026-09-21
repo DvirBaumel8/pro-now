@@ -109,6 +109,21 @@ await p.getByLabel('מספר טלפון').fill('0501234567'); await click('של�
 await p.getByLabel('קוד האימות').fill('123456'); await click('כניסה');
 await p.waitForTimeout(1400);
 
+/*
+ * THE EXPLANATION COMES FIRST NOW.
+ *
+ * Three slides between signing in and the app, before the avatar — so
+ * every journey that used to go straight from the code screen to the
+ * picker now walks into them and stops. Skipping is a real answer here
+ * (see `IntroBody`), and taking it is what most people will do, so that
+ * is the path these checks take.
+ *
+ * `text=דלג` also matches the picker's own "דלג כרגע", which is why this
+ * runs before the picker step rather than being folded into it.
+ */
+await inspect('02b-intro', { needsBack: false });
+await tryClick('דלג', 900);
+
 // The avatar step, which a new customer meets once. Skipping is a real
 // answer, so the sweep takes it: that is the path most people will take.
 await inspect('03-avatar', { needsBack: false });

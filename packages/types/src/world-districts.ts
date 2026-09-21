@@ -292,12 +292,29 @@ export function venueAssetFor(district: WorldDistrict, index: number): string {
 /**
  * What comes down the lane for this trade.
  *
- * A function rather than a lookup at the call site, because the screen
- * should not have to know that most trades have no vehicle of their own.
- * The scooter is the fallback and is deliberately modest: it claims two
- * wheels and a bag, which is true of most of this catalogue, where a tow
- * truck for a haircut would be a picture of a different job.
+ * ---------------------------------------------------------------------
+ * THE PERSON, NOT A SCOOTER
+ * ---------------------------------------------------------------------
+ * The fallback used to be `courier_scooter`, and the note beside it
+ * argued that a scooter is modest: two wheels and a bag, true of most of
+ * this catalogue, where a tow truck for a haircut would be a picture of
+ * a different job. The second half of that is right and the first half
+ * is wrong, and Amit said why in one line: *"למה אני לא רואה פה את
+ * המקצוען שהזמנתי הולך אליי ברגל? ואני רואה תמונה של קטנוע, אין קשר."*
+ *
+ * He is watching a named person come to his house. Drawing a delivery
+ * scooter instead does not say "modest", it says "this is not the person
+ * you chose" — and for eight of the eleven trades it is not even close
+ * to how they travel. Worse, the art for all eleven professionals has
+ * been on the street the whole time: the same figure standing in the
+ * doorway of the shop he just left.
+ *
+ * So the default is that professional, on foot. `travelAssetId` stays
+ * for the three trades whose vehicle IS the job — a tow truck, a moving
+ * van, a dog walker with dogs — because there the vehicle is the thing
+ * being sent for.
  */
 export function travelAssetFor(department: DepartmentCode): string {
-  return WORLD_DISTRICTS[department].travelAssetId ?? "courier_scooter";
+  const district = WORLD_DISTRICTS[department];
+  return district.travelAssetId ?? district.characterWorldAssetId;
 }

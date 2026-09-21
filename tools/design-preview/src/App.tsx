@@ -31,7 +31,7 @@ const proWorldSources: WorldAssetSources = worldSources.world_neighbourhood
   : {};
 import { standInWorldSources } from "./standInAvatars";
 
-import { ActiveJobCapsule, AddressPickerBody, AppHeader, AvatarPickerBody, customerDarkTheme, FocusSheet, ScreenTransition, ArrivalVerifyBody, CallsListBody, CAPSULE_HEIGHT, ChatBody, ConnectionBanner, CategoryBody, CustomerHomeBody, CustomerProfileBody, customerTheme, DescribeFaultBody, JobCompleteBody, lex, MatchConfirmBody, NavGlyph, Persona, PhoneAuthBody, ProEarningsBody, ProJobBody, ProJobSettledBody, ProOfferBody, ProOnlineBody, ProPricingBody, ProProfileBody, ProShiftBody, proTheme, ProVerificationBody, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, StrollBody, Sheet, spacing, tint, TrackingBody, type as t, WelcomeBody } from "@pro-now/ui";
+import { ActiveJobCapsule, AddressPickerBody, AppHeader, AvatarPickerBody, IntroBody, customerDarkTheme, FocusSheet, ScreenTransition, ArrivalVerifyBody, CallsListBody, CAPSULE_HEIGHT, ChatBody, ConnectionBanner, CategoryBody, CustomerHomeBody, CustomerProfileBody, customerTheme, DescribeFaultBody, JobCompleteBody, lex, MatchConfirmBody, NavGlyph, Persona, PhoneAuthBody, ProEarningsBody, ProJobBody, ProJobSettledBody, ProOfferBody, ProOnlineBody, ProPricingBody, ProProfileBody, ProShiftBody, proTheme, ProVerificationBody, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, StrollBody, Sheet, spacing, tint, TrackingBody, type as t, WelcomeBody } from "@pro-now/ui";
 import type { JobMediaItem, LiveLocationState, MarkName, NavGlyphName, ProPricingRow } from "@pro-now/ui";
 import type { AuthStage, ChatMessage, ConnectionState } from "@pro-now/ui";
 import { buildIntakeBrief, pilotIntakeByService, pilotServiceById, readAvailability } from "@pro-now/types";
@@ -147,6 +147,20 @@ type Gate =
   | { name: "welcome" }
   | { name: "auth"; side: Side }
   /**
+   * WHERE ARE WE, AND WHY AM I BEING ASKED THIS.
+   *
+   * Three slides between signing in and the app, before the avatar rather
+   * than after it — because the avatar only makes sense once somebody
+   * knows there is a street to walk down. Amit: *"איפה מסך ראשון הסבר על
+   * האפליקציה לפני האווטאר? איך הוא יבין למה הוא נכנס?"*
+   *
+   * Both sides see it, with their own three: the customer's questions
+   * from the pavement, the professional's from behind the counter.
+   * Skipping is an answer and is recorded as one, exactly like the
+   * avatar's — see `introSeen`.
+   */
+  | { name: "intro"; side: Side }
+  /**
    * WHO WALKS DOWN THE STREET.
    *
    * Sits between signing in and the app, and only for a customer who has
@@ -194,7 +208,23 @@ type CustomerRoute =
   | { name: "living"; serviceId: string; phase: LivingMapPhase }
   /** PERSON_FIT only: the system proposes, the customer confirms. */
   | { name: "matchconfirm"; serviceId: string; index: number }
-  | { name: "tracking"; stage: "assigned" | "enroute" | "arrived" }
+  /*
+   * THE VISIT HAS MORE THAN ONE MOMENT IN IT.
+   *
+   * There were three stages and the last of them, "arrived", stood for
+   * everything from the knock to the final handshake. So approving a
+   * price returned to the same screen it was opened from, whose only way
+   * forward was "המקצוען שלח הצעת מחיר" — the quote again. Amit:
+   * *"אחרי אישור הצעת מחיר זה מחזיר אותי לפה. למה אני חוזר לאותו עמוד?
+   * איפה עמוד סיכום עבודה? איך נגמרת עבודה בין לקוח למקצוען?"*
+   *
+   * "diagnosis" is the stretch between the knock and the price, "working"
+   * is after it was approved, and "done" is the professional saying he
+   * has finished and waiting for the customer to agree. Each one has its
+   * own sentence on the screen (`jobProgressHe`) and its own next step,
+   * so the visit ends somewhere instead of circling.
+   */
+  | { name: "tracking"; stage: "assigned" | "enroute" | "arrived" | "diagnosis" | "working" | "done" }
   /** The minute before the knock. See ArrivalVerifyBody. */
   | { name: "arrival" }
   | { name: "quote" }
@@ -348,6 +378,12 @@ export function App() {
    */
   const [avatar, setAvatar] = useState<AvatarChoice>(restored?.avatar ?? null);
   const avatarAnswered = useRef(restored?.avatarAnswered ?? false);
+  /*
+   * Seen once, never again — the same rule as the avatar's answer. An
+   * explanation that reappears every morning is not an explanation, it is
+   * an obstacle.
+   */
+  const introSeen = useRef(restored?.introSeen ?? false);
   /**
    * Whether any avatar art has actually arrived.
    *
@@ -453,7 +489,15 @@ export function App() {
         <View style={{ height: h - bannerH, overflow: "hidden" }}>
         <ScreenTransition
           transitionKey={
-            gate?.name === "auth" ? `gate:auth:${gate.side}` : gate?.name === "welcome" ? "gate:welcome" : "gate:app"
+            gate?.name === "auth"
+              ? `gate:auth:${gate.side}`
+              : gate?.name === "welcome"
+                ? "gate:welcome"
+                : gate?.name === "intro"
+                  ? "gate:intro"
+                  : gate?.name === "avatar"
+                    ? "gate:avatar"
+                    : "gate:app"
           }
           screen={{ side: "gate", name: gate?.name === "auth" ? "auth" : gate?.name === "welcome" ? "welcome" : "home" }}
         >
@@ -501,10 +545,34 @@ export function App() {
                * A professional never sees it either: they are not the one
                * walking down the street.
                */
+              /*
+               * The explanation first, then the character. In that order,
+               * because "which of these twelve people are you" is a
+               * strange question until somebody has been told there is a
+               * city to be one of them in.
+               */
+              if (!introSeen.current) {
+                setGate({ name: "intro", side: gate.side });
+                return;
+              }
               const canAsk = gate.side === "customer" && !avatarAnswered.current && avatarArtReady;
               setGate(canAsk ? { name: "avatar" } : null);
             }}
             onBack={() => setGate({ name: "welcome" })}
+            width={w}
+            height={h - bannerH}
+          />
+        ) : gate?.name === "intro" ? (
+          <IntroBody
+            side={gate.side === "pro" ? "PRO" : "CUSTOMER"}
+            sources={gate.side === "pro" ? proWorldSources : art}
+            onDone={() => {
+              introSeen.current = true;
+              saveSession({ introSeen: true });
+              const canAsk =
+                gate.side === "customer" && !avatarAnswered.current && avatarArtReady;
+              setGate(canAsk ? { name: "avatar" } : null);
+            }}
             width={w}
             height={h - bannerH}
           />
@@ -915,13 +983,34 @@ function CustomerApp({
         }
       : null;
 
+  /*
+   * ONE STEP FORWARD PER STAGE, AND THE LAST ONE ENDS THE JOB.
+   *
+   * This used to fall through to "sent a quote" for everything that was
+   * not assigned or en route — so approving a price landed back on a
+   * screen whose only button offered the same quote again, and a visit
+   * could never finish. The chain now runs knock → diagnosis → price →
+   * work → finished → summary, which is the sequence a real visit has.
+   */
   const advance =
     tab === "home" && route.name === "tracking"
       ? route.stage === "assigned"
         ? { label: "המקצוען יצא לדרך", next: () => go({ name: "tracking", stage: "enroute" }) }
         : route.stage === "enroute"
           ? { label: "המקצוען כמעט אצלך", next: () => go({ name: "arrival" }) }
-          : { label: "המקצוען שלח הצעת מחיר", next: () => go({ name: "quote" }) }
+          : route.stage === "arrived"
+            ? {
+                label: "המקצוען מתחיל לבדוק",
+                next: () => go({ name: "tracking", stage: "diagnosis" }),
+              }
+            : route.stage === "diagnosis"
+              ? { label: "המקצוען שלח הצעת מחיר", next: () => go({ name: "quote" }) }
+              : route.stage === "working"
+                ? {
+                    label: "המקצוען סיים את העבודה",
+                    next: () => go({ name: "tracking", stage: "done" }),
+                  }
+                : { label: "סיכום העבודה", next: () => go({ name: "complete" }) }
       : null;
 
   const demo = advance ?? arrivalAdvance ?? previewMatch;
@@ -1630,7 +1719,13 @@ const go = useCallback((r: CustomerRoute) => {
                 ? "PRO_ASSIGNED"
                 : route.stage === "enroute"
                   ? "PRO_EN_ROUTE"
-                  : "IN_PROGRESS"
+                  : route.stage === "arrived"
+                    ? "PRO_ARRIVED"
+                    : route.stage === "diagnosis"
+                      ? "DIAGNOSIS"
+                      : route.stage === "done"
+                        ? "COMPLETION_PENDING"
+                        : "IN_PROGRESS"
             }
             serviceNameHe={trackedService.nameHe}
             professional={matchFixture.professional}
@@ -1730,7 +1825,9 @@ const go = useCallback((r: CustomerRoute) => {
         return (
           <View style={{ width, height: bodyH }}>
             <TrackingBody
-              status="IN_PROGRESS"
+              // He is in the room and diagnosing; the price is what he
+              // came out of the diagnosis with.
+              status="DIAGNOSIS"
               serviceNameHe={trackedService.nameHe}
               professional={matchFixture.professional}
               eta={matchFixture.eta}
@@ -1750,7 +1847,7 @@ const go = useCallback((r: CustomerRoute) => {
             <FocusSheet
               visible
               titleHe={`${matchFixture.professional.displayName} שלח הצעת מחיר`}
-              onDismiss={() => go({ name: "tracking", stage: "arrived" })}
+              onDismiss={() => go({ name: "tracking", stage: "diagnosis" })}
               width={width}
               height={bodyH}
             >
@@ -1760,11 +1857,13 @@ const go = useCallback((r: CustomerRoute) => {
                 professionalDisplayName={matchFixture.professional.displayName}
                 onApprove={() => {
                   onQuoteDecision("APPROVED");
-                  go({ name: "tracking", stage: "arrived" });
+                  // An approved price is the professional's cue to start.
+                  go({ name: "tracking", stage: "working" });
                 }}
                 onDecline={() => {
                   onQuoteDecision("DECLINED");
-                  go({ name: "tracking", stage: "arrived" });
+                  // Declined, he is still in the room and still diagnosing.
+                  go({ name: "tracking", stage: "diagnosis" });
                 }}
                 onAskQuestion={() => go({ name: "chat" })}
                 /*
@@ -1772,7 +1871,7 @@ const go = useCallback((r: CustomerRoute) => {
                  * pending, and the professional is told nothing — because a
                  * navigation control must never carry a financial answer.
                  */
-                onBack={() => go({ name: "tracking", stage: "arrived" })}
+                onBack={() => go({ name: "tracking", stage: "diagnosis" })}
                 width={width}
                 height={Math.round(bodyH * 0.78) - 56}
               />
@@ -2772,7 +2871,22 @@ function ProApp({
  * living map, which is where the wait's game runs. Everywhere else the
  * control would be describing something that is not on the screen.
  */
-const WALKABLE_SCREENS = ["home", "stroll", "living"];
+/*
+ * WHERE A WALKING DEMO MAKES ANY SENSE AT ALL.
+ *
+ * "home" was on this list and should not have been. The home screen has
+ * a city behind it, which is why it looked like a street — but nobody
+ * walks on it: there is no figure, no pad and nothing to steer. So the
+ * button was permanently parked over the top-left of the first screen
+ * anyone sees, offering a demonstration of something that screen does
+ * not do. Amit, on the artifact: *"למה הכפתור הזה תמיד פה."*
+ *
+ * It belongs on the two screens where somebody actually walks. It also
+ * disappears on its own the moment the twelve walking figures arrive —
+ * see `walkingDemo` — which is the real answer to "why is it here": it
+ * is standing in for art that has not landed yet.
+ */
+const WALKABLE_SCREENS = ["stroll", "living"];
 
 const DEMO_H = 60;
 
@@ -2951,7 +3065,15 @@ const styles = StyleSheet.create({
   standIn: {
     position: "absolute",
     zIndex: 5,
-    top: spacing.xl * 2,
+    /*
+     * LOW AND OUT OF THE WAY, not across the top of the screen.
+     *
+     * At the top it sat beside the headline — "מחפשים מי זמין עכשיו" —
+     * and read as part of the app rather than as scaffolding around it.
+     * Down here it is next to the steer pad, which is the thing it is
+     * about.
+     */
+    bottom: spacing.xl,
     left: spacing.md,
     /*
      * 44 POINTS, BECAUSE THE SWEEP SAID SO.

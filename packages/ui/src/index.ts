@@ -47,6 +47,7 @@ export * from "./screens/DescribeFaultBody";
 export * from "./screens/ChatBody";
 export * from "./screens/ProEarningsBody";
 export * from "./screens/AvatarPickerBody";
+export * from "./screens/IntroBody";
 export * from "./screens/CallsListBody";
 export * from "./screens/ProVerificationBody";
 export * from "./screens/WelcomeBody";

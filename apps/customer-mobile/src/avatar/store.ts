@@ -59,3 +59,23 @@ export function decodeAvatar(raw: string | null | undefined): AvatarChoice {
 export function shouldOfferPicker(rawStored: string | null | undefined): boolean {
   return rawStored === null || rawStored === undefined;
 }
+
+/**
+ * WHETHER THE THREE-SLIDE EXPLANATION HAS BEEN THROUGH ONCE.
+ *
+ * A separate key from the avatar's, and separate on purpose. They are two
+ * different answers to two different questions — "do you know where you
+ * are" and "who are you here" — and the second one can be re-opened from
+ * the profile while the first cannot. Sharing one key would mean changing
+ * a figure re-explains the product, and a customer who skipped the
+ * explanation could never be shown it again after choosing a face.
+ *
+ * Presence is the whole test, exactly as it is for the avatar: skipping
+ * the slides is an answer, so it writes the key too. Amit's rule for the
+ * picker — *"שלא ידלגו — לא חובה"* — is the same rule here.
+ */
+export const INTRO_STORAGE_KEY = "pronow.customer.intro.v1";
+
+export function shouldShowIntro(rawStored: string | null | undefined): boolean {
+  return rawStored === null || rawStored === undefined;
+}

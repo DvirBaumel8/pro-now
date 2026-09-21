@@ -108,3 +108,51 @@ export function leavingCancels(status: JobState): boolean {
 export function sceneIsOver(status: JobState): boolean {
   return status === "CANCELLED" || status === "CLOSED" || status === "DISPUTED";
 }
+
+/**
+ * WHAT IS HAPPENING NOW, AND WHAT HAPPENS NEXT.
+ *
+ * ---------------------------------------------------------------------
+ * WHY THIS EXISTS
+ * ---------------------------------------------------------------------
+ * Amit, on the visit: *"חייב לעבוד על מסך העבודה בעיצומה, זה לא מובן
+ * בכלל. אחרי הקוד הגעתי לפה, לא קורה פה כלום."*
+ *
+ * He is right and the screen was not broken — it was silent. Once the
+ * arrival code is verified the journey is over, so everything that
+ * screen had been saying (a countdown, a clock, "בדרך אליך") stops being
+ * true, and what replaced it was a status word: "העבודה בעיצומה". That
+ * is a label, not an answer. A person standing in their own kitchen
+ * watching a stranger work wants to know two things — what is he doing,
+ * and what is going to be asked of me — and neither was anywhere on the
+ * screen.
+ *
+ * So each state says both, in one sentence, and the second half is
+ * always the customer's own next move. Nothing here promises a time:
+ * "how long will the diagnosis take" is not knowable from a state, and
+ * inventing it would be the same fabrication as an invented ETA
+ * (/CLAUDE.md §3).
+ *
+ * It lives beside the state machine rather than in a screen for the same
+ * reason `arrivalHeadlineHe` does: the words and the state must not be
+ * able to drift apart, and they drift the moment they are in different
+ * files.
+ */
+export function jobProgressHe(status: JobState, firstNameHe?: string | null): string | null {
+  const who = firstNameHe ?? "המקצוען";
+  switch (status) {
+    case "PRO_ARRIVED":
+      return `${who} הגיע. עכשיו הוא בודק מה צריך.`;
+    case "DIAGNOSIS":
+      return `${who} בודק את התקלה. בסוף הבדיקה תקבלו ממנו הצעת מחיר לאישור.`;
+    case "WAITING_QUOTE_APPROVAL":
+      return "הצעת המחיר מחכה לאישור שלכם. אפשר לאשר, לשאול או לסרב.";
+    case "IN_PROGRESS":
+      return `${who} עובד עכשיו. כשיסיים תקבלו סיכום לאישור לפני התשלום.`;
+    case "COMPLETION_PENDING":
+      return `${who} סיים וממתין לאישור שלכם שהכול תקין.`;
+    default:
+      // Before he arrives, the arrival assurance owns the words.
+      return null;
+  }
+}

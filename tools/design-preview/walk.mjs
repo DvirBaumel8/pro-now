@@ -18,6 +18,11 @@ await p.waitForTimeout(1300);
  * not. A walk-through that does not match the walk is a walk-through
  * nobody can trust the next time it goes red.
  */
+// The three slides that now open the app. Skipping is the path most
+// people take, and `text=דלג` would also match the picker's "דלג כרגע",
+// so it is taken here rather than folded into the step below.
+try { await click('דלג'); } catch { /* no intro on this build */ }
+
 try {
   await p.getByLabel(/דמות 4$/).first().click({ timeout: 4000 });
   await p.waitForTimeout(400);

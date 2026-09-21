@@ -3,7 +3,14 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import type { AvatarChoice } from "@pro-now/types";
 
-import { AVATAR_STORAGE_KEY, decodeAvatar, encodeAvatar, shouldOfferPicker } from "./store";
+import {
+  AVATAR_STORAGE_KEY,
+  INTRO_STORAGE_KEY,
+  decodeAvatar,
+  encodeAvatar,
+  shouldOfferPicker,
+  shouldShowIntro,
+} from "./store";
 
 /**
  * The avatar, available to every screen and remembered between launches.
@@ -27,28 +34,46 @@ export interface AvatarContextValue {
   loaded: boolean;
   /** True only when they have never been asked. */
   offerPicker: boolean;
+  /**
+   * True only when the three-slide explanation has never been through.
+   *
+   * It rides in this provider rather than one of its own because both
+   * answers come out of the same storage read on the same cold start, and
+   * a second provider would mean a second frame of blank screen before
+   * the app can decide which door to open.
+   */
+  showIntro: boolean;
   choose: (next: AvatarChoice) => void;
+  /** Records that the explanation has been seen, or deliberately skipped. */
+  markIntroSeen: () => void;
 }
 
 const AvatarContext = createContext<AvatarContextValue>({
   choice: null,
   loaded: false,
   offerPicker: false,
+  showIntro: false,
   choose: () => {},
+  markIntroSeen: () => {},
 });
 
 export function AvatarProvider({ children }: { children: React.ReactNode }) {
   const [choice, setChoice] = useState<AvatarChoice>(null);
   const [loaded, setLoaded] = useState(false);
   const [offerPicker, setOfferPicker] = useState(false);
+  const [showIntro, setShowIntro] = useState(false);
 
   useEffect(() => {
     let alive = true;
-    AsyncStorage.getItem(AVATAR_STORAGE_KEY)
-      .then((raw) => {
+    Promise.all([
+      AsyncStorage.getItem(AVATAR_STORAGE_KEY),
+      AsyncStorage.getItem(INTRO_STORAGE_KEY),
+    ])
+      .then(([raw, introRaw]) => {
         if (!alive) return;
         setChoice(decodeAvatar(raw));
         setOfferPicker(shouldOfferPicker(raw));
+        setShowIntro(shouldShowIntro(introRaw));
         setLoaded(true);
       })
       .catch(() => {
@@ -63,6 +88,8 @@ export function AvatarProvider({ children }: { children: React.ReactNode }) {
         if (!alive) return;
         setChoice(null);
         setOfferPicker(false);
+        // Same rule for the slides: on a storage failure, do not nag.
+        setShowIntro(false);
         setLoaded(true);
       });
     return () => {
@@ -85,9 +112,16 @@ export function AvatarProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const markIntroSeen = useCallback(() => {
+    setShowIntro(false);
+    AsyncStorage.setItem(INTRO_STORAGE_KEY, "1").catch(() => {
+      /* They will see it once more after a restart. Not worth blocking on. */
+    });
+  }, []);
+
   const value = useMemo(
-    () => ({ choice, loaded, offerPicker, choose }),
-    [choice, loaded, offerPicker, choose]
+    () => ({ choice, loaded, offerPicker, showIntro, choose, markIntroSeen }),
+    [choice, loaded, offerPicker, showIntro, choose, markIntroSeen]
   );
 
   return <AvatarContext.Provider value={value}>{children}</AvatarContext.Provider>;
