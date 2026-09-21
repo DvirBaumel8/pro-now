@@ -64,6 +64,14 @@ function hash01(seed: string, i: number): number {
   return ((h >>> 0) % 10000) / 10000;
 }
 
+export interface Shrub {
+  at: NormalizedPoint;
+  /** Radius in world units. */
+  r: number;
+  /** 0 darker mass, 1 lighter mass. */
+  tone: 0 | 1;
+}
+
 export interface Tree {
   at: NormalizedPoint;
   /** Canopy radius, in world units. */
@@ -141,6 +149,8 @@ export interface Crossing {
 
 export interface GeoDressing {
   blocks: Block[];
+  /** Planting masses inside green areas — see `dressGeo`. */
+  shrubs: Shrub[];
   trees: Tree[];
   lamps: Lamp[];
   windows: Window_[];
@@ -220,6 +230,7 @@ export function dressGeo(plan: WorldPlan, opts: DressingOptions = {}): GeoDressi
   const lampStep = Math.max(opts.lampSpacing ?? 32, (totalMetres * 2) / maxLamps);
 
   const trees: Tree[] = [];
+  const shrubs: Shrub[] = [];
   const lamps: Lamp[] = [];
 
   for (const way of drivable) {
@@ -320,6 +331,33 @@ export function dressGeo(plan: WorldPlan, opts: DressingOptions = {}): GeoDressi
     const v0 = Math.min(...vs);
     const v1 = Math.max(...vs);
     const spanMetres = worldToMetresApprox(plan, Math.max(u1 - u0, v1 - v0));
+    /*
+     * ---------------------------------------------------------------
+     * A PARK HAS TO READ FROM ABOVE, WHERE A TREE IS TWO PIXELS
+     * ---------------------------------------------------------------
+     * Amit, on the wide shot: *"הפארקים עדיין במבט רחוק לא טובים."* He
+     * is right and individual trees cannot fix it — at 460 metres across
+     * the frame a four-metre canopy is a dot, and a dozen dots on a flat
+     * shape is a flat shape with dots on it.
+     *
+     * What reads at that distance is MASSES: broad patches of darker and
+     * lighter planting, twelve to twenty-five metres across, which are
+     * still several points wide when the whole neighbourhood is in
+     * frame. Close up they sit under the trees as undergrowth, which is
+     * also what they are.
+     */
+    const massWant = Math.max(2, Math.min(14, Math.round(spanMetres / 26)));
+    let massPlaced = 0;
+    for (let k = 0; k < massWant * 40 && massPlaced < massWant; k++) {
+      const a = hash01(area.id, 500 + k * 3);
+      const b = hash01(area.id, 501 + k * 3);
+      const c = hash01(area.id, 502 + k * 3);
+      const at = { u: u0 + (u1 - u0) * a, v: v0 + (v1 - v0) * b };
+      if (!pointInRing(area.ring, at)) continue;
+      shrubs.push({ at, r: m(6 + c * 7), tone: c > 0.5 ? 1 : 0 });
+      massPlaced++;
+    }
+
     const want = Math.max(3, Math.min(20, Math.round(spanMetres / 11)));
     let placed = 0;
     /*
@@ -527,7 +565,7 @@ export function dressGeo(plan: WorldPlan, opts: DressingOptions = {}): GeoDressi
     }
   }
 
-  return { blocks, trees, lamps, windows, crossings };
+  return { blocks, shrubs, trees, lamps, windows, crossings };
 }
 
 /** Put the whole dressing on the tilted ground in one pass. */
@@ -550,6 +588,7 @@ export function projectDressing(d: GeoDressing, pitch: number): GeoDressing {
         return { u: g.u, v: g.v - b.rise };
       }),
     })),
+    shrubs: d.shrubs.map((h) => ({ ...h, at: p(h.at) })),
     trees: d.trees.map((t) => ({ ...t, at: p(t.at) })),
     lamps: d.lamps.map((l) => ({ ...l, at: p(l.at) })),
     /*

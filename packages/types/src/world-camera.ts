@@ -44,6 +44,35 @@ import { PLAN_METRES, STREET_METRES, pitchForMetres } from "./world-geo";
  * every anchor in the world goes through it. A sprite's own rotation is
  * not a function of bearing at all — see `entityRotationFor`, which
  * exists only so that the rule has something to be tested against.
+ *
+ * ---------------------------------------------------------------------
+ * AND IT IS NOT WIRED UP YET. HERE IS THE ATTEMPT, SO IT IS NOT REPEATED
+ * ---------------------------------------------------------------------
+ * The obvious wiring is to rotate the VIEWPORT — the window, not the
+ * world, because the window's centre is the screen's centre and while
+ * the camera is following somebody that is the person, so the city turns
+ * around them rather than swinging them round the city. Every sprite
+ * then gets the inverse rotation about its own feet, which React Native
+ * can express as `[translateY(h/2), rotate(-θ), translateY(-h/2)]`.
+ *
+ * That was built and it broke the frame. Rotating the window needs
+ * `overflow: hidden` or the city spills over the chrome, and the clipped
+ * window then no longer covers the screen: the world is clamped to cover
+ * a RECTANGLE, and a rotated rectangle needs its circumscribed circle
+ * covered. The walk screen came back as a band of city with black above
+ * and below it — a worse version of the hole the animated zoom left, and
+ * for exactly the same reason, which is that the camera's clamp and the
+ * camera's shape were computed independently.
+ *
+ * Doing it properly means the clamp has to know the bearing: the covered
+ * span is `screen · |cos θ| + screenOther · |sin θ|` on each axis, which
+ * is a per-frame quantity, and Animated cannot express it — the same
+ * wall `WorldViewport`'s zoom note ran into. So it waits for the camera
+ * offset to be driven on one clock with the clamp recomputed per frame,
+ * which is a real piece of work rather than a transform.
+ *
+ * Everything below is tested and correct and costs nothing to keep. What
+ * is missing is a viewport that can be turned without losing its corners.
  */
 
 /** How long a heading must be held before the camera believes it. */

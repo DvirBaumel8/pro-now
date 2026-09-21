@@ -255,8 +255,20 @@ const KERB_METRES = 2.6;
  * it rather than the colour of the middle.
  */
 const GREEN_INK = {
-  grass: "#20362A",
-  verge: "#4C8A63",
+  /*
+   * DESATURATED TOWARDS THE CITY.
+   *
+   * A park is not a green patch on a grey map; it is a dark block with
+   * planting in it, like every other block, and the only thing that says
+   * "green" from above is the hue being slightly off neutral. Saturated,
+   * it was the brightest thing on the wide shot — which is a place
+   * nobody is going, outranking eleven places somebody might.
+   */
+  grass: "#1C2D24",
+  verge: "#3E7255",
+  /* Undergrowth close up; the thing that makes a park read far away. */
+  mass: "#274A37",
+  massDark: "#15241C",
 } as const;
 
 const ROAD_INK = {
@@ -289,9 +301,18 @@ const ROAD_INK = {
   plot: "#1B1830",
   /** The façade: in shadow, but warm, because it faces a lit street. */
   wall: "#272138",
-  /** The roof, catching what light there is from above. */
-  plotRoof: "#342C46",
-  roofEdge: "#4E4362",
+  /*
+   * THE ROOF, AND WHY IT GOT DARKER.
+   *
+   * At walking distance a pale roof is a building catching the street
+   * lighting. Pulled back to the whole neighbourhood there are two
+   * hundred of them, and pale roofs make a field of grey rectangles with
+   * our shopfronts somewhere in it. The city has to be DARK for the lit
+   * things — the windows, the lamps, our shops — to be the ones the eye
+   * finds. Same rule as the plots, one level of light up.
+   */
+  plotRoof: "#2A2440",
+  roofEdge: "#3D3656",
   /** What a block drops on the pavement behind it. */
   blockShadow: "#100D1E",
 } as const;
@@ -517,7 +538,7 @@ export function GeoPlate({
           round physically. The lamps make the light; the file does not.
         */}
         {paintedGround && props ? (
-          <Rect x={0} y={0} width={S} height={sy} fill={livingPalette.nightTop} opacity={0.62} />
+          <Rect x={0} y={0} width={S} height={sy} fill={livingPalette.nightTop} opacity={0.7} />
         ) : null}
 
         {(paintedGround ? [] : water).map((d, i) => (
@@ -574,14 +595,23 @@ export function GeoPlate({
                */
               opacity={1}
             />
+            {/*
+              A SOFT EDGE, NOT AN OUTLINE.
+
+              A bright stroke round a park reads as a selected region on
+              a map — Amit, on the wide shot: *"הפארקים עדיין במבט רחוק
+              לא טובים."* What a park actually has at its edge is lighter,
+              drier ground where it meets the pavement, so the edge is a
+              wide, faint band INSIDE the shape rather than a line on it.
+            */}
             <Path
               d={d}
               fill="none"
               stroke={GREEN_INK.verge}
-              strokeWidth={2.5}
+              strokeWidth={5}
               strokeLinejoin="round"
               strokeLinecap="round"
-              opacity={0.45}
+              opacity={0.16}
             />
           </G>
         ))}
@@ -706,7 +736,20 @@ export function GeoPlate({
           `geoDressing.ts`; the flat version was the single biggest
           reason the real map read as a diagram.
         */}
-        {paintedGround
+        {/*
+          BUILDINGS BELONG WITH THE PROPS, NOT WITH THE ABSENCE OF A
+          PAINTING.
+
+          This was gated on `paintedGround`, which conflated two
+          different questions — "is there art underneath" and "is there a
+          city underneath". Over the scene plate both answers are yes, so
+          the gate was right by accident. Over a MATERIAL both are no,
+          and the gate suppressed every building: the wide shot came back
+          as a flat grey field with roads and eleven shopfronts on it,
+          which is a wireframe and is what Amit was looking at when he
+          said *"הכל נראה לא טוב"*.
+        */}
+        {!props
           ? null
           : dressing
           ? dressing.blocks.map((b) => (
@@ -780,6 +823,22 @@ export function GeoPlate({
         */}
         {dressing ? (
           <>
+            {/*
+              PLANTING MASSES, WHICH ARE WHAT A PARK LOOKS LIKE FROM
+              ABOVE. Drawn before the roads' light and the trees, because
+              they are the ground of the park rather than things standing
+              on it. See `dressGeo`.
+            */}
+            {dressing.shrubs.map((h, i) => (
+              <Circle
+                key={`sb${i}`}
+                cx={h.at.u * S}
+                cy={h.at.v * sy}
+                r={h.r * S}
+                fill={h.tone === 1 ? GREEN_INK.mass : GREEN_INK.massDark}
+                opacity={0.5}
+              />
+            ))}
             {dressing.crossings.map((c, i) => {
               const n = { u: -c.along.v, v: c.along.u };
               const bars = 5;
@@ -834,7 +893,7 @@ export function GeoPlate({
             {/* A halo on the lit ones, so the façade glows rather than
                 being speckled. Cheap: one extra rect, no filter.
                 Over a painting there are no drawn façades to light. */}
-            {(paintedGround ? [] : dressing.windows).map((w, i) =>
+            {(props ? dressing.windows : []).map((w, i) =>
               w.lit ? (
                 <Rect
                   key={`wg${i}`}
@@ -843,12 +902,12 @@ export function GeoPlate({
                   width={Math.max(1.6, w.w * 2.2 * S)}
                   height={Math.max(1.6, w.h * 2.2 * sy)}
                   fill={livingPalette.window}
-                  opacity={0.12}
+                  opacity={0.22}
                   rx={1.2}
                 />
               ) : null
             )}
-            {(paintedGround ? [] : dressing.windows).map((w, i) => (
+            {(props ? dressing.windows : []).map((w, i) => (
               <Rect
                 key={`wn${i}`}
                 x={(w.at.u - w.w / 2) * S}
