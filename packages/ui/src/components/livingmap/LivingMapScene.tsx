@@ -25,6 +25,7 @@ import {
   type Heading,
   type NormalizedPoint,
   WALK_START,
+  gaitForAvatar,
   walkingAssetFor,
   walkingFallbackFor,
   avatarById,
@@ -1082,7 +1083,14 @@ export function LivingMapScene({
                 v={walkV}
                 startAt={walkedTo.current}
                 heading={mayWalk ? heading : null}
-                gait={gait}
+                /*
+                 * A RIDE KEEPS ITS OWN GAIT.
+                 *
+                 * The pad reports WALK or RUN, which is the right
+                 * vocabulary for a person and meaningless for a van. See
+                 * `gaitForAvatar`.
+                 */
+                gait={gaitForAvatar(avatar, gait)}
                 autoTo={autoTo}
                 animate={animate}
                 onSettled={rememberWalk}

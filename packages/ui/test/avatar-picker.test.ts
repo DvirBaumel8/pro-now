@@ -16,7 +16,8 @@ import {
 
 describe("how the picker arrives", () => {
   it("holds its own rules", () => {
-    expect(pickerMotionViolations()).toEqual([]);
+    // Against the REAL roster, not a remembered twelve.
+    expect(pickerMotionViolations(AVATARS.length)).toEqual([]);
   });
 
   it("arrives as one sweep rather than as a queue", () => {

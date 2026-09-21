@@ -49,6 +49,8 @@
  * customer who signed up before this existed.
  */
 
+import type { Gait } from "./world-motion";
+
 /**
  * How an avatar presents.
  *
@@ -62,7 +64,20 @@
  * what the avatar is for, which is the understanding the whole screen is
  * trying to produce in twenty seconds.
  */
-export type AvatarPresentation = "WOMAN" | "MAN" | "UNSPECIFIED" | "ANIMAL";
+/**
+ * `VEHICLE` is not a person and is not decoration.
+ *
+ * Amit: *"רוצה שתהיה לי אפשרות לבחור באווטארים גם כלי רכב להסתובב ולחקור
+ * את העיר שלנו — משאית קטנה של פרו נאו, קטנוע של פרו נאו, משהו מיתוגי של
+ * פרו נאו. חייב שהמותג לא יצא להם מהראש."*
+ *
+ * The presentation matters downstream because a vehicle moves
+ * differently from a person: it rides rather than walks, it does not bob
+ * once per stride, and it does not lean into a turn the way somebody
+ * walking does. Reading it from the roster keeps those three facts in one
+ * place instead of in three `if` statements at three call sites.
+ */
+export type AvatarPresentation = "WOMAN" | "MAN" | "UNSPECIFIED" | "ANIMAL" | "VEHICLE";
 
 export interface AvatarOption {
   /** Stable id. What gets stored; never a description of a person. */
@@ -84,6 +99,18 @@ export interface AvatarOption {
    */
   worldAssetId: string;
   presentation: AvatarPresentation;
+  /**
+   * How this one moves, when it is not a pair of legs.
+   *
+   * The steer pad reports WALK or RUN, which is the right vocabulary for
+   * a person and meaningless for a van. A ride carries its own gait and
+   * the pad's is ignored for it — a scooter does not sprint, and the
+   * gait table already gives a ride its own speed, its own suspension
+   * chatter and no lean, so one word here changes all of that together.
+   *
+   * Absent for everybody who walks.
+   */
+  gaitHint?: Gait;
   /**
    * A short label, for the accessibility layer only.
    *
@@ -141,7 +168,48 @@ export const AVATARS: readonly AvatarOption[] = [
    */
   { id: "av_11", portraitAssetId: "avatar_11_portrait", worldAssetId: "avatar_11_world_back", presentation: "ANIMAL", heightRatio: 0.46, labelHe: "כלב" },
   { id: "av_12", portraitAssetId: "avatar_12_portrait", worldAssetId: "avatar_12_world_back", presentation: "ANIMAL", heightRatio: 0.38, labelHe: "חתול" },
+
+  /*
+   * THE THREE THINGS YOU CAN RIDE, AND WHY THEY CARRY THE WORDMARK.
+   *
+   * *"משהו מיתוגי של פרו נאו. חייב שהמותג לא יצא להם מהראש."* Every shop
+   * in this city already has PRO NOW painted over the door; these are the
+   * same mark, moving. A customer who spends twenty minutes driving a
+   * PRO NOW van around a street of PRO NOW shopfronts has been told what
+   * this product is called without being told anything.
+   *
+   * The heights are multiples of a standing person, the same ruler
+   * everything alive in this world is measured with (`WORLD_SIZE`): a
+   * small electric van is about a third taller than the person driving
+   * it, a scooter with a rider is about level with somebody standing, and
+   * a kick scooter is the rider plus the deck they are on.
+   *
+   * The "portrait" of a ride is its side view — what it looks like on the
+   * road — because a vehicle has no face and the picker is choosing a
+   * thing, not a person. `_back` is what follows down the street, exactly
+   * as it is for the twelve people.
+   */
+  { id: "av_13", portraitAssetId: "ride_van_side", worldAssetId: "ride_van_back", presentation: "VEHICLE", gaitHint: "DRIVE", heightRatio: 1.3, labelHe: "ואן PRO NOW" },
+  { id: "av_14", portraitAssetId: "ride_scooter_side", worldAssetId: "ride_scooter_back", presentation: "VEHICLE", gaitHint: "RIDE", heightRatio: 1.05, labelHe: "קטנוע PRO NOW" },
+  { id: "av_15", portraitAssetId: "ride_kick_side", worldAssetId: "ride_kick_back", presentation: "VEHICLE", gaitHint: "RIDE", heightRatio: 1.02, labelHe: "קורקינט PRO NOW" },
 ];
+
+/** Whether this choice is something ridden rather than somebody walking. */
+export function isRide(id: AvatarChoice): boolean {
+  return avatarById(id)?.presentation === "VEHICLE";
+}
+
+/**
+ * How this choice moves: its own gait if it has one, the steer pad's
+ * otherwise.
+ *
+ * One function rather than a ternary at each call site, because the
+ * walking screen and the strolling screen both ask and they must not
+ * answer differently.
+ */
+export function gaitForAvatar(id: AvatarChoice, steered: Gait): Gait {
+  return avatarById(id)?.gaitHint ?? steered;
+}
 
 
 /** The customer's choice. `null` is a real and permanent state. */
@@ -192,6 +260,15 @@ export function walkingFallbackFor(id: AvatarChoice): string | null {
 }
 
 /** Every rule this roster has to satisfy, as a test rather than as prose. */
+/**
+ * How many FIGURES the grid may hold.
+ *
+ * Amit's twenty seconds is about finding yourself among faces. Rides sit
+ * at the end of the grid and are skipped by anybody looking for one, so
+ * they are counted separately.
+ */
+export const PEOPLE_BUDGET = 12;
+
 export function avatarViolations(roster: readonly AvatarOption[] = AVATARS): string[] {
   const out: string[] = [];
 
@@ -216,10 +293,23 @@ export function avatarViolations(roster: readonly AvatarOption[] = AVATARS): str
     }
   }
 
-  // One screen, twenty seconds. More than this is a catalogue and it will
-  // be scrolled rather than chosen.
-  if (roster.length > 12) out.push("the roster is too long to choose from in twenty seconds");
+  /*
+   * One screen, twenty seconds. More than this is a catalogue and it will
+   * be scrolled rather than chosen.
+   *
+   * Fifteen rather than twelve, and the three that were added are the
+   * reason the number moved: they are not more PEOPLE to sort through —
+   * *"רוצה שתהיה לי אפשרות לבחור באווטארים גם כלי רכב"* — they are a
+   * second, obviously different kind of thing at the end of the grid,
+   * and the eye skips a van when it is looking for a face. The budget
+   * that matters is still the one on the twelve: `PEOPLE_BUDGET`.
+   */
+  if (roster.length > 15) out.push("the roster is too long to choose from in twenty seconds");
   if (roster.length < 6) out.push("the roster is too short to find yourself in");
+  const people = roster.filter((a) => a.presentation !== "VEHICLE").length;
+  if (people > PEOPLE_BUDGET) {
+    out.push("there are too many figures to choose between in twenty seconds");
+  }
 
   // Nobody should have to pick somebody who presents as another gender to
   // find a figure at all. Counted against the PEOPLE rather than against
@@ -230,6 +320,10 @@ export function avatarViolations(roster: readonly AvatarOption[] = AVATARS): str
     }
   }
 
+  // Rides are an alternative to a figure, never the grid itself.
+  const rides = roster.filter((a) => a.presentation === "VEHICLE").length;
+  if (rides > roster.length / 3) out.push("the roster is mostly vehicles");
+
   // The grid is people with a couple of animals in it, not a pet shop.
   const animals = roster.filter((a) => a.presentation === "ANIMAL").length;
   if (animals > roster.length / 4) out.push("the roster is mostly animals");
@@ -239,14 +333,30 @@ export function avatarViolations(roster: readonly AvatarOption[] = AVATARS): str
     // an animal the size of a van, and both would pass every other rule
     // here while being obviously wrong on screen.
     if (a.heightRatio <= 0) out.push(`"${a.id}" has no height`);
-    if (a.heightRatio > 1) out.push(`"${a.id}" is taller than a standing person`);
+    /*
+     * A person taller than a person is a mistake; a VAN taller than a
+     * person is a van. The cap moves for rides and stays low, because a
+     * ride that towers over the shopfronts it drives past stops reading
+     * as a street — the same rule the ambient traffic is held to (see
+     * `VEHICLE_OF_PERSON`).
+     */
+    const maxHeight = a.presentation === "VEHICLE" ? 1.6 : 1;
+    if (a.heightRatio > maxHeight) out.push(`"${a.id}" is taller than it can be`);
     // An animal drawn at a person's height is the specific mistake this
     // field exists to prevent.
     if (a.presentation === "ANIMAL" && a.heightRatio >= 0.8) {
       out.push(`"${a.id}" is an animal drawn at human height`);
     }
-    if (a.presentation !== "ANIMAL" && a.heightRatio !== 1) {
+    if (a.presentation !== "ANIMAL" && a.presentation !== "VEHICLE" && a.heightRatio !== 1) {
       out.push(`"${a.id}" is a person and must be a person's height`);
+    }
+    // A ride that does not ride would be steered with a walking gait,
+    // bobbing once per stride down the road.
+    if (a.presentation === "VEHICLE" && !a.gaitHint) {
+      out.push(`"${a.id}" is a vehicle with no gait of its own`);
+    }
+    if (a.presentation !== "VEHICLE" && a.gaitHint) {
+      out.push(`"${a.id}" is a person carrying a vehicle's gait`);
     }
   }
 

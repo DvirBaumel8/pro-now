@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { AVATARS, avatarById, avatarViolations, walkingAssetFor, walkingFallbackFor } from "../src/avatar";
+import {
+  AVATARS,
+  PEOPLE_BUDGET,
+  avatarById,
+  avatarViolations,
+  gaitForAvatar,
+  isRide,
+  walkingAssetFor,
+  walkingFallbackFor,
+} from "../src/avatar";
 
 describe("the avatar roster", () => {
   it("holds its own rules", () => {
@@ -10,7 +19,12 @@ describe("the avatar roster", () => {
   it("can be chosen from in twenty seconds", () => {
     // Amit set the budget and it is the right one: somebody whose kitchen
     // is flooding has not arrived to dress a doll. One screen, no scroll.
-    expect(AVATARS.length).toBeLessThanOrEqual(12);
+    //
+    // Counted against the FIGURES. The three PRO NOW rides sit at the end
+    // of the grid and are skipped by anybody looking for a face, so they
+    // do not spend the budget that matters — but they are capped too.
+    expect(AVATARS.filter((a) => !isRide(a.id)).length).toBeLessThanOrEqual(PEOPLE_BUDGET);
+    expect(AVATARS.length).toBeLessThanOrEqual(15);
   });
 
   it("gives nobody a reason to pick a figure that is not them", () => {
@@ -64,16 +78,24 @@ describe("an avatar is not identity", () => {
     // picture of who to expect. That is a safety property, not a nicety,
     // and it is enforced by the type having no field for it.
     for (const a of AVATARS) {
-      expect(Object.keys(a).sort()).toEqual(
-        ["heightRatio", "id", "labelHe", "portraitAssetId", "presentation", "worldAssetId"].sort()
-      );
+      const allowed = [
+        "heightRatio",
+        "id",
+        "labelHe",
+        "portraitAssetId",
+        "presentation",
+        "worldAssetId",
+        // How a ride moves. Still a fact about the drawing.
+        "gaitHint",
+      ].sort();
+      for (const key of Object.keys(a)) expect(allowed).toContain(key);
     }
   });
 
   it("labels the drawing, never the person", () => {
     for (const a of AVATARS) {
-      if (a.presentation === "ANIMAL") {
-        // An animal's label says what the drawing is, which is still a
+      if (a.presentation === "ANIMAL" || a.presentation === "VEHICLE") {
+        // An animal or a van is labelled by WHAT IT IS, which is still a
         // fact about the picture rather than about the customer.
         expect(a.labelHe.length).toBeGreaterThan(0);
         continue;
@@ -92,8 +114,9 @@ describe("ten people and two animals", () => {
    */
   it("keeps the grid mostly people", () => {
     const animals = AVATARS.filter((a) => a.presentation === "ANIMAL");
+    const rides = AVATARS.filter((a) => a.presentation === "VEHICLE");
     expect(animals.length).toBe(2);
-    expect(AVATARS.length - animals.length).toBe(10);
+    expect(AVATARS.length - animals.length - rides.length).toBe(10);
   });
 
   it("draws an animal shorter than a person", () => {
@@ -101,6 +124,11 @@ describe("ten people and two animals", () => {
       if (a.presentation === "ANIMAL") {
         expect(a.heightRatio).toBeLessThan(0.8);
         expect(a.heightRatio).toBeGreaterThan(0);
+      } else if (a.presentation === "VEHICLE") {
+        // A van is taller than the person driving it, and still below the
+        // roofline of the shops it drives past.
+        expect(a.heightRatio).toBeGreaterThanOrEqual(1);
+        expect(a.heightRatio).toBeLessThanOrEqual(1.6);
       } else {
         expect(a.heightRatio).toBe(1);
       }
@@ -149,5 +177,58 @@ describe("the walking figure and its stand-in", () => {
     for (const a of AVATARS) {
       expect(walkingFallbackFor(a.id)).not.toBe(walkingAssetFor(a.id));
     }
+  });
+});
+
+
+describe("the three PRO NOW rides", () => {
+  it("is what you ride rather than who you are", () => {
+    const rides = AVATARS.filter((a) => a.presentation === "VEHICLE");
+    expect(rides.length).toBe(3);
+    for (const r of rides) {
+      expect(isRide(r.id)).toBe(true);
+      // The mark is the point of them: *"חייב שהמותג לא יצא להם מהראש."*
+      expect(r.labelHe).toContain("PRO NOW");
+    }
+  });
+
+  it("keeps its own gait whatever the pad says", () => {
+    // A scooter does not sprint, and a van steered with a walking gait
+    // would bob once per stride down the road.
+    for (const r of AVATARS.filter((a) => a.presentation === "VEHICLE")) {
+      expect(gaitForAvatar(r.id, "WALK")).toBe(r.gaitHint);
+      expect(gaitForAvatar(r.id, "RUN")).toBe(r.gaitHint);
+    }
+  });
+
+  it("leaves a person's gait to the pad", () => {
+    const person = AVATARS.find((a) => a.presentation === "MAN")!;
+    expect(gaitForAvatar(person.id, "WALK")).toBe("WALK");
+    expect(gaitForAvatar(person.id, "RUN")).toBe("RUN");
+    expect(isRide(person.id)).toBe(false);
+  });
+
+  it("refuses a ride with no gait of its own", () => {
+    const wrong = AVATARS.map((a) =>
+      a.presentation === "VEHICLE" ? { ...a, gaitHint: undefined } : a
+    );
+    expect(avatarViolations(wrong).join(" ")).toContain("no gait of its own");
+  });
+
+  it("refuses a ride that towers over the street", () => {
+    const wrong = AVATARS.map((a) =>
+      a.presentation === "VEHICLE" ? { ...a, heightRatio: 2.4 } : a
+    );
+    expect(avatarViolations(wrong).join(" ")).toContain("taller than it can be");
+  });
+
+  it("refuses a roster that has become a car park", () => {
+    const fleet = AVATARS.map((a) => ({
+      ...a,
+      presentation: "VEHICLE" as const,
+      gaitHint: "DRIVE" as const,
+      heightRatio: 1.2,
+    }));
+    expect(avatarViolations(fleet).join(" ")).toContain("mostly vehicles");
   });
 });

@@ -8,6 +8,7 @@ import {
   errandsBetween,
   PLATE_SPOTS,
   reachedNow,
+  gaitForAvatar,
   walkingAssetFor,
   walkingFallbackFor,
   WALK_START,
@@ -337,7 +338,14 @@ export function StrollBody({
                 v={v}
                 startAt={walkedTo.current}
                 heading={heading}
-                gait={gait}
+                /*
+                 * A RIDE KEEPS ITS OWN GAIT.
+                 *
+                 * The pad reports WALK or RUN, which is the right
+                 * vocabulary for a person and meaningless for a van. See
+                 * `gaitForAvatar`.
+                 */
+                gait={gaitForAvatar(avatar, gait)}
                 animate={animate}
                 onSettled={remember}
               />

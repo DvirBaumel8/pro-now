@@ -103,6 +103,23 @@ const KINDS = [
   { prefix: "character_", suffix: "_icon", words: ["portrait", "icon", "face", "פורטרט"] },
 ];
 
+/**
+ * The three PRO NOW rides a customer can explore the city on.
+ *
+ * Two files each — the side view, which is what the picker shows and
+ * what drives down the road, and the three-quarter back, which is what
+ * you follow. Same naming rule as everything else: the id IS the file
+ * name, so a file that arrives works.
+ */
+const RIDES = [
+  { id: "ride_van_side", words: ["vanside", "ואןצד", "ואן_צד"] },
+  { id: "ride_van_back", words: ["vanback", "ואןגב", "ואן_גב"] },
+  { id: "ride_scooter_side", words: ["scooterside", "קטנועצד"] },
+  { id: "ride_scooter_back", words: ["scooterback", "קטנועגב"] },
+  { id: "ride_kick_side", words: ["kickside", "קורקינטצד"] },
+  { id: "ride_kick_back", words: ["kickback", "קורקינטגב"] },
+];
+
 const TRAVELLERS = [
   { id: "courier_scooter", words: ["scooter", "courier", "שליח", "קטנוע"] },
   { id: "moving_van", words: ["van", "טנדר"] },
@@ -117,8 +134,9 @@ function idFor(name) {
   const n = norm(base);
 
   // Already an asset id? Nothing to guess.
-  if (/^(district_|character_|avatar_)/.test(base)) return base;
+  if (/^(district_|character_|avatar_|ride_)/.test(base)) return base;
 
+  for (const r of RIDES) if (r.words.some((w) => n.includes(norm(w)))) return r.id;
   for (const t of TRAVELLERS) if (t.words.some((w) => n.includes(norm(w)))) return t.id;
 
   const avatar = base.match(/avatar[\s_-]?(\d{1,2})/i);
@@ -142,6 +160,17 @@ function idFor(name) {
 const SERIES = {
   avatar_world_back: { count: 12, id: (n) => `avatar_${n}_world_back` },
   avatar_portrait: { count: 12, id: (n) => `avatar_${n}_portrait` },
+  /*
+   * The six ride files, in the order they are asked for and delivered:
+   * van, scooter, kick scooter — side then back for each.
+   */
+  rides: {
+    count: 6,
+    id: (n) =>
+      ["ride_van_side", "ride_van_back", "ride_scooter_side", "ride_scooter_back", "ride_kick_side", "ride_kick_back"][
+        Number(n) - 1
+      ],
+  },
 };
 const asArg = process.argv.indexOf("--as");
 const seriesName = asArg > 0 ? process.argv[asArg + 1] : null;

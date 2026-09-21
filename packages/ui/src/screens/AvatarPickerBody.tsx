@@ -228,6 +228,26 @@ export function AvatarPickerBody({
    */
   const hasArt = options.some((o) => sources[o.portraitAssetId]);
 
+  /*
+   * AND ONLY THE ONES THAT HAVE ARRIVED.
+   *
+   * The roster is the product's intent; the art pack is what exists
+   * today, and the two are allowed to differ. Three PRO NOW rides joined
+   * the twelve people before their files did — *"רוצה שתהיה לי אפשרות
+   * לבחור באווטארים גם כלי רכב"* — and with no filter the picker would
+   * have grown three empty squares, which is the exact failure this
+   * screen already had once and which Amit named: *"איפה הדמויות?
+   * נוראי."*
+   *
+   * Everywhere else in this product a missing file renders NOTHING rather
+   * than a placeholder. A choice is the same: an option you cannot see is
+   * not a choice, and it appears by itself the day its file lands.
+   *
+   * Before ANY art exists the named tiles stay — that is the gallery's
+   * case, where the tiles are the thing being reviewed.
+   */
+  const shown = hasArt ? options.filter((o) => sources[o.portraitAssetId]) : options;
+
   return (
     <View style={[styles.screen, { width, height }]}>
       {onBack ? <BackButton onPress={onBack} tone="dark" /> : null}
@@ -238,11 +258,13 @@ export function AvatarPickerBody({
       >
         <Text style={styles.title}>מי מטייל ברחוב?</Text>
         <Text style={styles.lede}>
-          בחרו דמות שתלווה אתכם בין העסקים. אפשר לשנות בכל רגע, ואפשר גם בלי.
+          {shown.some((o) => o.presentation === "VEHICLE")
+            ? "בחרו דמות או רכב PRO NOW שתסתובבו איתו בין העסקים. אפשר לשנות בכל רגע, ואפשר גם בלי."
+            : "בחרו דמות שתלווה אתכם בין העסקים. אפשר לשנות בכל רגע, ואפשר גם בלי."}
         </Text>
 
         <View style={[styles.grid, { gap }]}>
-          {options.map((o, i) => {
+          {shown.map((o, i) => {
             const on = picked === o.id;
             return (
               <AvatarCell

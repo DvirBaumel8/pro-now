@@ -19,12 +19,17 @@ export const CELL_RISE_MS = 260;
 /**
  * The gap between one tile arriving and the next.
  *
- * Small enough that twelve of them read as one movement rather than as a
- * queue. At 40ms the last tile lands 440ms after the first, which is
- * under the half-second where a stagger stops feeling like arrival and
- * starts feeling like loading.
+ * Small enough that the whole grid reads as one movement rather than as a
+ * queue: the last tile has to land inside the window where a stagger is
+ * still arrival and not loading.
+ *
+ * It was 40ms, which was right for twelve tiles and wrong the moment the
+ * roster grew to fifteen — three PRO NOW rides joined the twelve people
+ * and the grid started taking 820ms to settle. The rule caught it, which
+ * is the entire reason the rule is a number in a test rather than a
+ * sentence in a comment. 34ms puts fifteen tiles down in 736ms.
  */
-export const CELL_STAGGER_MS = 40;
+export const CELL_STAGGER_MS = 34;
 
 export function cellDelayMs(index: number): number {
   return Math.max(0, index) * CELL_STAGGER_MS;
@@ -67,13 +72,19 @@ export function poseFor(isPicked: boolean, anyPicked: boolean): CellPose {
     : { scale: OTHERS_SCALE, opacity: OTHERS_OPACITY };
 }
 
-/** Everything wrong with the picker's motion, as a test rather than prose. */
-export function pickerMotionViolations(): string[] {
+/**
+ * Everything wrong with the picker's motion, as a test rather than prose.
+ *
+ * `count` is the real roster size rather than a hard-coded twelve. The
+ * hard-coded version passed on the day the roster became fifteen, which
+ * is the one day it needed to fail.
+ */
+export function pickerMotionViolations(count = 12): string[] {
   const out: string[] = [];
 
   // A stagger long enough to watch is a loading spinner made of faces.
-  if (gridSettledMs(12) > 800) {
-    out.push(`the grid takes ${gridSettledMs(12)}ms to arrive, which reads as loading`);
+  if (gridSettledMs(count) > 800) {
+    out.push(`the grid takes ${gridSettledMs(count)}ms to arrive, which reads as loading`);
   }
   // And no stagger at all is twelve things appearing, which reads as a jump.
   if (CELL_STAGGER_MS <= 0) out.push("the tiles arrive all at once");
