@@ -41,6 +41,33 @@ The second one is also where `/CLAUDE.md §3` bites hardest: once the
 streets are real, every drawn position is a claim about somewhere. See
 `packages/types/src/geo-truth.ts`, which refuses invented positions on a
 real surface rather than trusting a reviewer to notice them.
+
+### What is built on top of the geometry
+
+| | |
+| --- | --- |
+| `world-geo.ts` | The extract, the Mercator projection into `{u,v}`, metres, the tilted ground plane, the frontages a shop stands on, and `pruneDeadEnds` |
+| `world-routing.ts` | The street network as a graph; Dijkstra; `roadRouteAt(route, metres)` |
+| `world-camera.ts` | Heading-follow bearing, and the invariant that bearing rotates the world and never the sprites |
+| `vehicle-motion.ts` | The reactive half of movement — pitch under power, roll through a corner, brake lights. The cyclic half stays in `world-motion.ts` |
+| `geo-truth.ts` | Provenance of every drawn position; what atmosphere may do; the disclosure line |
+| `WorldGround.tsx` | Which ground a screen stands on: painted plate + stone road corridor, else material tiles + code props, else the drawn city |
+
+Two rules from this layer are worth stating outside their files.
+
+**Motion without agency is ambience; motion with agency is an entity.**
+Light may move, leaves may move, a shadow may breathe. Anything that
+travels from A to B on purpose — a person, a dog, a van — needs a source
+of truth. That is why a real street carries no ambient traffic at all,
+not even a distant unbranded car: in a product whose promise is that
+somebody is on their way to you, a moving vehicle is the one shape a
+customer reads as an arrival.
+
+**A route carries metres and never minutes.** The distance is along drawn
+geometry with no traffic, no turn restrictions and no one-way streets.
+The graph says where movement can be shown; the server says when the
+professional arrives. `/CLAUDE.md §3` — and the type has nothing on it
+that could be mistaken for a duration.
 | Payments | `PaymentProvider` interface; vendor selected after Israel/business/legal validation (Stripe Connect is a candidate, not a decision) |
 | Identity/KYC | `IdentityVerificationProvider` interface; vendor TBD |
 | External reputation | `ExternalReputationProvider` interface; official Google APIs candidate, no scraping ever |

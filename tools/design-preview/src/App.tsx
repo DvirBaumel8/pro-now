@@ -2,7 +2,14 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Animated, Easing, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 
 import { CARD_REST, customerCategoryById, categoryForDepartment, liveAreaLineHe, DEMO_WORLD, type CandidatePresence, type LivingMapPhase, type LivingMapState, themeForDepartment } from "@pro-now/types";
-import { discover, emptyDiscoveries, type DiscoveryState, type WorldGeo } from "@pro-now/types";
+import {
+  discover,
+  emptyDiscoveries,
+  GROUND_GRASS_ID,
+  GROUND_MATERIAL_IDS,
+  type DiscoveryState,
+  type WorldGeo,
+} from "@pro-now/types";
 import { AVATARS, screenKey, travelAssetFor, type AvatarChoice } from "@pro-now/types";
 import { matchServicesByText } from "@pro-now/ui";
 import { canSaveSession, clearSession, loadSession, saveSession, savedAgoHe } from "./session";
@@ -26,9 +33,21 @@ import { worldSources } from "./worldSources";
  * gallery that shows a better screen than the product is the two-worlds
  * problem that cost a whole night once already.
  */
-const proWorldSources: WorldAssetSources = worldSources.world_neighbourhood
-  ? { world_neighbourhood: worldSources.world_neighbourhood }
-  : {};
+/*
+ * THE PROFESSIONAL'S APP CARRIES THE GROUND AND NOTHING ELSE.
+ *
+ * It has no shopfronts and no avatars — the city is a band at the top of
+ * the shift screen, not a place anybody walks. What it does need is every
+ * layer of the GROUND, and the material tiles were missed when they were
+ * added: the plate arrived and the stone and the grass did not, so the
+ * real street corridor had no pavement in it on that side only.
+ */
+const proWorldSources: WorldAssetSources = Object.fromEntries(
+  ["world_neighbourhood", GROUND_GRASS_ID, ...GROUND_MATERIAL_IDS]
+    .filter((id) => worldSources[id])
+    .map((id) => [id, worldSources[id]!])
+);
+
 import { standInWorldSources } from "./standInAvatars";
 import fixtureGeo from "../geo/fixture_grid.json";
 
@@ -658,6 +677,7 @@ export function App() {
           />
         ) : (
           <ProApp
+            geo={geo}
             width={w}
             height={h - bannerH}
             onSwitch={() => setSide("customer")}
@@ -2228,6 +2248,7 @@ const go = useCallback((r: CustomerRoute) => {
 // ---------------------------------------------------------------------
 
 function ProApp({
+  geo: proGeo,
   width,
   height,
   onSwitch,
@@ -2238,6 +2259,15 @@ function ProApp({
   onSendQuote,
   onQuoteSeen,
 }: {
+  /**
+   * The professional's city is the customer's city.
+   *
+   * It was the last screen still on the painted plate, which is a
+   * quieter version of the same drift the customer screens had: a
+   * plumber and the person who called them looking at two different
+   * streets with the same names.
+   */
+  geo: WorldGeo | null;
   width: number;
   height: number;
   onSwitch: () => void;
@@ -2639,6 +2669,7 @@ function ProApp({
       />
     ) : (
       <ProShiftBody
+        geo={proGeo}
         displayNameHe="דוגמה ד׳ (תצוגה)"
         presenceState={presence}
         shift={{

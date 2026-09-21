@@ -32,4 +32,22 @@ import type { WorldAssetSources } from "@pro-now/ui";
 /* eslint-disable @typescript-eslint/no-require-imports */
 export const worldSources: WorldAssetSources = {
   world_neighbourhood: require("../../assets/world/world_neighbourhood.webp"),
+  /*
+   * AND THE REST OF THE GROUND.
+   *
+   * The plate used to BE the ground, so one line was the whole file. It
+   * is three layers now: the painted city in the blocks, the stone the
+   * real road corridor is laid in, and the grass a closed road becomes.
+   * Shipping only the first gives the professional a city whose streets
+   * have no pavement in them — the same two-worlds problem this file's
+   * own comment warns about, one layer down.
+   *
+   * Still no shopfronts and no avatars. The shift screen wants somewhere
+   * to BE, not a cast.
+   */
+  world_ground_mat_1: require("../../assets/world/world_ground_mat_1.webp"),
+  world_ground_mat_2: require("../../assets/world/world_ground_mat_2.webp"),
+  world_ground_mat_3: require("../../assets/world/world_ground_mat_3.webp"),
+  world_ground_mat_4: require("../../assets/world/world_ground_mat_4.webp"),
+  world_ground_grass: require("../../assets/world/world_ground_grass.webp"),
 };

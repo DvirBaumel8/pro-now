@@ -1,7 +1,13 @@
 import React, { useEffect, useRef } from "react";
 import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { formatMoney, money, type ProPresenceState } from "@pro-now/types";
+import {
+  formatMoney,
+  groundDisclosureHe,
+  money,
+  type ProPresenceState,
+  type WorldGeo,
+} from "@pro-now/types";
 
 import { proTheme, radii, spacing, tabular, tint, type } from "../theme";
 import { MapSurface } from "../components/MapSurface";
@@ -74,6 +80,9 @@ export interface ShiftServiceChip {
 }
 
 export interface ProShiftBodyProps {
+  /** A real street plan, when there is one. See `WorldGround`. */
+  geo?: WorldGeo | null;
+
   displayNameHe: string;
   presenceState: ProPresenceState;
   /** The live shift, as the server reports it. */
@@ -100,6 +109,7 @@ export interface ProShiftBodyProps {
 }
 
 export function ProShiftBody({
+  geo = null,
   displayNameHe,
   presenceState,
   shift,
@@ -165,6 +175,14 @@ export function ProShiftBody({
               height={MAP_BAND_HEIGHT}
               sources={worldSources}
               animate={animate}
+              /*
+               * The professional's city is the customer's city. It was
+               * the last screen still on the painted plate, which is a
+               * quieter version of the same drift: a plumber and the
+               * person who called them looking at two different streets
+               * with the same names.
+               */
+              geo={geo}
             />
             {/*
               * The state, in words, over the city — with its own plate,
@@ -179,7 +197,7 @@ export function ProShiftBody({
             {/* The one line that keeps an invented city honest. */}
             <View style={styles.worldNote} pointerEvents="none">
               <Text style={styles.worldNoteText} numberOfLines={1}>
-                תצוגת העיר היא המחשה · המפה האמיתית תיכנס עם ספק המפות
+                {groundDisclosureHe({ realStreets: Boolean(geo?.real) })}
               </Text>
             </View>
           </>

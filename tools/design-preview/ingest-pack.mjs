@@ -66,7 +66,24 @@ const APP = path.join(ROOT, "apps/customer-mobile/assets/world");
  * written to stop.
  */
 const PRO_APP = path.join(ROOT, "apps/pro-mobile/assets/world");
-const PRO_APP_IDS = new Set(["world_neighbourhood"]);
+const PRO_APP_IDS = new Set([
+  "world_neighbourhood",
+  /*
+   * AND EVERY OTHER LAYER OF THE GROUND.
+   *
+   * The plate used to be the whole ground, so one id was the whole rule.
+   * The ground is now three layers — the painted plate, the stone the
+   * real road corridor is laid in, and the grass the closed roads become
+   * — and syncing only the first gives the professional a city whose
+   * streets have no pavement in them. Same failure this file exists to
+   * prevent, one layer down.
+   */
+  "world_ground_grass",
+  "world_ground_mat_1",
+  "world_ground_mat_2",
+  "world_ground_mat_3",
+  "world_ground_mat_4",
+]);
 
 const folder = process.argv[2];
 const dry = process.argv.includes("--dry");
@@ -133,8 +150,16 @@ function idFor(name) {
   const base = path.basename(name, path.extname(name));
   const n = norm(base);
 
-  // Already an asset id? Nothing to guess.
-  if (/^(district_|character_|avatar_|ride_)/.test(base)) return base;
+  /*
+   * Already an asset id? Nothing to guess.
+   *
+   * `world_` is here because the ground stopped being one file. The
+   * plate, the four stone tiles and the grass are all `world_*`, and
+   * without this they fell through every rule below and were reported as
+   * unplaceable — which meant they never reached the professional's app,
+   * whose copy only happens for a file this function could name.
+   */
+  if (/^(district_|character_|avatar_|ride_|world_)/.test(base)) return base;
 
   for (const r of RIDES) if (r.words.some((w) => n.includes(norm(w)))) return r.id;
   for (const t of TRAVELLERS) if (t.words.some((w) => n.includes(norm(w)))) return t.id;
