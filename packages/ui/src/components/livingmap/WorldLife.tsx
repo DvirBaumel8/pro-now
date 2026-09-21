@@ -14,12 +14,25 @@ import {
   leanAt,
   pathLength,
   travelMs,
+  vehicleHeight,
   type Gait,
   type RunningMoment,
   type WorldMoment,
 } from "@pro-now/types";
 
 import { AssetSlot, EMPTY_ASSET_SOURCES, type WorldAssetSources } from "./AssetSlot";
+import { HAIR_PACK_V0 } from "./hairPack";
+
+/**
+ * The asset's own proportions, so a wide thing gets a wide box. Without
+ * this the art is letterboxed inside a square and floats above the
+ * ground — see the note where this is used.
+ */
+function shapeOf(assetId: string): number {
+  const item = HAIR_PACK_V0[assetId];
+  if (!item) return 1;
+  return item.intrinsicHeight / item.intrinsicWidth;
+}
 
 /**
  * WORLD LIFE — the street, being a street.
@@ -308,10 +321,37 @@ export function WorldLife({
         // the road pretending to be one.
         if (!sources[spec.assetId]) return null;
 
-        // Against the WORLD, so the camera scales it with everything else.
-        const base = width * spec.widthRatio;
-        const w = base;
         const significant = isSignificant(p.moment);
+        /*
+         * A BOX THE SHAPE OF THE THING IN IT, SIZED AGAINST THE PERSON.
+         *
+         * This was one number per vehicle, a share of the world's WIDTH,
+         * drawn into a SQUARE box with `contain`. Both halves wrong, and
+         * they compound:
+         *
+         * The sizes were not anybody's height. Measured against a person
+         * standing on the same pavement, the tow truck — a flatbed with a
+         * car on its back — came out EXACTLY as tall as a pedestrian, and
+         * the dog walker, a grown adult, came out at 0.71 of one.
+         *
+         * And a square box letterboxes a wide asset and centres it. The
+         * tow truck's art is 496x184, so it drew 0.063 of the world tall
+         * inside a 0.17 box and floated a clear 0.054 above where its
+         * wheels belonged — most of a person's height, in mid-air, with
+         * the careful "wheels on the tarmac" correction below faithfully
+         * aligning the bottom of a box that was mostly empty.
+         *
+         * Every screenshot of a vehicle hanging over a shopfront was
+         * this. `VenueLayer` had the identical fault with the buildings
+         * and the fix is the same one: the box takes the asset's own
+         * aspect ratio, and the size that is set is the HEIGHT, from the
+         * one ruler everything alive shares. See `VEHICLE_OF_PERSON`.
+         */
+        const ratio = shapeOf(spec.assetId);
+        const base = significant
+          ? vehicleHeight(width, spec.assetId)
+          : width * spec.widthRatio * ratio;
+        const w = base / ratio;
 
         /*
          * ONE DRIVER, THREE READINGS.
@@ -392,7 +432,7 @@ export function WorldLife({
                 {
                   translateX: p.driver.interpolate({
                     inputRange: steps,
-                    outputRange: path.map((q) => q.u * width - base / 2),
+                    outputRange: path.map((q) => q.u * width - w / 2),
                   }),
                 },
                 {
@@ -452,7 +492,7 @@ export function WorldLife({
             }
           : {
               transform: [
-                { translateX: (still?.u ?? 0.5) * width - base / 2 },
+                { translateX: (still?.u ?? 0.5) * width - w / 2 },
                 { translateY: (still?.v ?? 0.5) * height - base / 2 },
                 { scale: depthScale(still?.v ?? 0.5) },
               ],
@@ -462,7 +502,7 @@ export function WorldLife({
         return (
           <Animated.View
             key={`${p.moment}-${p.startedAt}`}
-            style={[{ position: "absolute", left: 0, top: 0, width: w, height: w }, travelStyle]}
+            style={[{ position: "absolute", left: 0, top: 0, width: w, height: base }, travelStyle]}
           >
             <AssetSlot
               placement={{
@@ -483,7 +523,7 @@ export function WorldLife({
                 left: 0,
                 top: 0,
                 width: w,
-                height: w,
+                height: base,
                 depthOrder: 0,
               }}
               sources={sources}

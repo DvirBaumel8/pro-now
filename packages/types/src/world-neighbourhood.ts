@@ -985,6 +985,66 @@ export const WORLD_SIZE = {
   travellerHeight: 0.05,
 } as const;
 
+/**
+ * A STANDING PERSON, IN WORLD POINTS. The ruler everything alive is
+ * measured with — see `WORLD_SIZE.personOfVenue` for why there is only
+ * one of them.
+ */
+export function personHeight(worldWidth: number): number {
+  return worldWidth * WORLD_SIZE.venue * WORLD_SIZE.personOfVenue;
+}
+
+/**
+ * HOW TALL EACH THING ON WHEELS IS, AS A MULTIPLE OF THE PERSON IN IT.
+ *
+ * ---------------------------------------------------------------------
+ * WHY THE TRAFFIC WAS THE WRONG SIZE, AND WHY IT FLOATED
+ * ---------------------------------------------------------------------
+ * `WorldLife` sized every moving thing by a share of the world's WIDTH,
+ * one number per vehicle, and drew it into a SQUARE box with `contain`.
+ * Both halves of that are wrong and they compound.
+ *
+ * Wrong sizes, measured against a person standing on the same pavement:
+ *
+ *     courier_scooter   1.35 x a person
+ *     moving_van        1.11
+ *     tow_truck         1.00     — a flatbed truck, with a car on it,
+ *                                  exactly as tall as a pedestrian
+ *     dog_walker        0.71     — a grown man, drawn as a child
+ *
+ * And floating, which is worse and has the same cause. A square box of
+ * side `w` with `contain` letterboxes a wide asset: the tow truck's art
+ * is 496x184, so it drew 0.063 tall inside a 0.17 box and sat CENTRED in
+ * it — a clear 0.054 of the world's width above where its wheels were
+ * supposed to be, which is most of a person's height. The vehicles were
+ * not driving down the street, they were hovering over it, and every
+ * screenshot that showed a scooter in mid-air over a shopfront was this.
+ *
+ * `VenueLayer` had the identical fault with the buildings and the note
+ * there says it plainly: the box has to be the asset's own aspect ratio,
+ * so the thing fills it and its base sits where it was placed.
+ *
+ * So: height, from the person's ruler, with a multiple that states a
+ * real relationship. A rider's head is about where it would be standing;
+ * a box van is about a third taller than the person driving it; a
+ * flatbed with a car on it is half as tall again; and somebody walking
+ * dogs is a person.
+ */
+export const VEHICLE_OF_PERSON: Readonly<Record<string, number>> = {
+  dog_walker: 1,
+  courier_scooter: 1.1,
+  moving_van: 1.3,
+  tow_truck: 1.55,
+};
+
+/** What an unlisted traveller is worth: a small van, and no taller. */
+export const DEFAULT_VEHICLE_OF_PERSON = 1.2;
+
+/** How tall this traveller is drawn, in world points. */
+export function vehicleHeight(worldWidth: number, assetId: string): number {
+  return personHeight(worldWidth) * (VEHICLE_OF_PERSON[assetId] ?? DEFAULT_VEHICLE_OF_PERSON);
+}
+
 /** Everything wrong with the sizes, as a test rather than as a comment. */
 export function worldSizeViolations(): string[] {
   const out: string[] = [];

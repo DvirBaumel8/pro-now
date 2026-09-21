@@ -7,7 +7,7 @@ import {
   bobAt,
   CUSTOMER_POINT,
   leanAt,
-  WORLD_SIZE,
+  vehicleHeight,
   type DepartmentCode,
   type Gait,
 } from "@pro-now/types";
@@ -36,12 +36,21 @@ import { HAIR_PACK_V0 } from "./hairPack";
  * round rather than need a second file.
  */
 /*
- * A share of the WORLD's height, not of the phone's. Sized against the
- * screen, the scooter stayed the same size while the camera pulled back —
- * so on the wide journey shot it was a motorcycle the size of a building,
- * and on the close shot a speck. See `WORLD_SIZE`.
+ * AND MEASURED AGAINST THE PERSON, NOT AGAINST THE PLATE.
+ *
+ * This was a share of the WORLD's height, which already fixed the first
+ * fault — sized against the screen, the scooter stayed the same size
+ * while the camera pulled back, so on the wide shot it was a motorcycle
+ * the size of a building. But the world's height comes from the artwork's
+ * aspect ratio and the figures come from a shopfront's width, so the
+ * vehicle and the people beside it were on two different rulers again and
+ * a new plate would have silently changed the relationship between them.
+ *
+ * `vehicleHeight` puts it on the one ruler everything alive uses, and
+ * gives each vehicle a multiple that says something true about it rather
+ * than one number for a scooter and a flatbed truck alike. See
+ * `VEHICLE_OF_PERSON`.
  */
-const TRAVELLER_HEIGHT = WORLD_SIZE.travellerHeight;
 
 function shapeOf(assetId: string): number {
   const item = HAIR_PACK_V0[assetId];
@@ -214,7 +223,7 @@ export function RouteLayer({
   /*
    * Sized by HEIGHT, drawn at the file's own proportions. See above.
    */
-  const h = height * TRAVELLER_HEIGHT;
+  const h = vehicleHeight(width, vehicleAssetId);
   const w = h / shapeOf(vehicleAssetId);
 
   /*

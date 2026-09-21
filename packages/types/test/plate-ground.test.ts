@@ -3,7 +3,11 @@ import { describe, expect, it } from "vitest";
 import { CUSTOMER_POINT } from "../src/assignment-route";
 import {
   CARRIAGEWAY,
+  DEFAULT_VEHICLE_OF_PERSON,
   PLATE_SPOTS,
+  personHeight,
+  VEHICLE_OF_PERSON,
+  vehicleHeight,
   ROAD_SAMPLES,
   WORLD_SIZE,
   roadAt,
@@ -116,5 +120,51 @@ describe("the professional's trip", () => {
         expect(route[i]!.at.v).toBeGreaterThanOrEqual(route[i - 1]!.at.v - 1e-9);
       }
     }
+  });
+});
+
+describe("proportions on one ruler", () => {
+  // The world is measured in world-width units here: 1 is the plate's
+  // full width, which is the unit `personHeight` and `vehicleHeight`
+  // already work in.
+  const person = personHeight(1);
+
+  it("makes a person a believable fraction of the shop they stand outside", () => {
+    // A shopfront is WORLD_SIZE.venue wide and about three quarters as
+    // tall, so a person should come up to roughly half its height: tall
+    // enough to be a person, short enough to walk through the door.
+    const shopHeight = WORLD_SIZE.venue * 0.75;
+    expect(person / shopHeight).toBeGreaterThan(0.4);
+    expect(person / shopHeight).toBeLessThan(0.75);
+  });
+
+  it("keeps the customer's own figure close to everybody else's height", () => {
+    // Nearest thing in the world, and allowed to be a little larger for
+    // it — but not a customer taller than a two-storey shop, which is
+    // what two different rulers produced once.
+    expect(WORLD_SIZE.avatarOfPerson).toBeGreaterThanOrEqual(1);
+    expect(WORLD_SIZE.avatarOfPerson).toBeLessThan(1.3);
+  });
+
+  it("never draws a vehicle shorter than the person in it", () => {
+    // The tow truck — a flatbed with a car on its back — was exactly as
+    // tall as a pedestrian, and the dog walker was 0.71 of one.
+    for (const [assetId, multiple] of Object.entries(VEHICLE_OF_PERSON)) {
+      expect(vehicleHeight(1, assetId)).toBeGreaterThanOrEqual(person - 1e-9);
+      expect(multiple).toBeLessThan(2.2);
+    }
+  });
+
+  it("puts the biggest thing on the road below the roofline", () => {
+    // A vehicle taller than the shops it drives past stops reading as a
+    // street and starts reading as a parade float.
+    const tallest = Math.max(...Object.values(VEHICLE_OF_PERSON), DEFAULT_VEHICLE_OF_PERSON);
+    expect(person * tallest).toBeLessThan(WORLD_SIZE.venue * 0.75);
+  });
+
+  it("sizes an unlisted traveller inside the range of the listed ones", () => {
+    const listed = Object.values(VEHICLE_OF_PERSON);
+    expect(DEFAULT_VEHICLE_OF_PERSON).toBeGreaterThanOrEqual(Math.min(...listed));
+    expect(DEFAULT_VEHICLE_OF_PERSON).toBeLessThanOrEqual(Math.max(...listed));
   });
 });
