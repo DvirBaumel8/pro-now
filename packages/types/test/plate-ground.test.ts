@@ -82,3 +82,39 @@ describe("the plate's ground", () => {
     expect(keys.size).toBe(PLATE_SPOTS.length);
   });
 });
+
+describe("the professional's trip", () => {
+  it("spends the middle of the journey on the road", async () => {
+    const { assignmentRoute } = await import("../src/assignment-route");
+    for (const dept of ["BEAUTY", "LOGISTICS", "HOME_URGENT", "TECH"] as const) {
+      const route = assignmentRoute(dept, 60);
+      // The legs are 22% out, 60% along, 18% in. Sample the middle of the
+      // along-leg, which is the part that must be on tarmac.
+      const middle = route.slice(Math.round(route.length * 0.3), Math.round(route.length * 0.75));
+      for (const step of middle) {
+        const road = roadAt(step.at.v);
+        expect(Math.abs(step.at.u - road.u)).toBeLessThanOrEqual(road.halfWidth + 1e-6);
+      }
+    }
+  });
+
+  it("leaves the road to reach the person, rather than arriving on it", async () => {
+    const { assignmentRoute, CUSTOMER_POINT } = await import("../src/assignment-route");
+    const end = assignmentRoute("BEAUTY", 60).at(-1)!.at;
+    expect(end).toEqual(CUSTOMER_POINT);
+    // The customer stands in the square, which is what the square is for.
+    const road = roadAt(end.v);
+    expect(Math.abs(end.u - road.u)).toBeGreaterThan(road.halfWidth);
+  });
+
+  it("never doubles back towards the shop it started at", async () => {
+    const { assignmentRoute } = await import("../src/assignment-route");
+    // A trip whose depth goes backwards reads as the van reversing.
+    for (const dept of ["BEAUTY", "LOGISTICS", "HOME_URGENT", "TECH"] as const) {
+      const route = assignmentRoute(dept, 60);
+      for (let i = 1; i < route.length; i++) {
+        expect(route[i]!.at.v).toBeGreaterThanOrEqual(route[i - 1]!.at.v - 1e-9);
+      }
+    }
+  });
+});

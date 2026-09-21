@@ -136,7 +136,7 @@ places those screens were claiming things the server had never said, and
 the three endpoints that had to exist before a customer could request
 anybody at all.
 
-Short version: lint is clean across 10 workspaces, 743 unit tests pass, the
+Short version: lint is clean across 10 workspaces, 746 unit tests pass, the
 admin build and both mobile bundles are green, the **baseline migration
 exists** (`apps/api/prisma/migrations/0_init`, derived from the schema by
 `npm run db:ddl`) and is verified against a real PostgreSQL 16 + PostGIS 3.4
