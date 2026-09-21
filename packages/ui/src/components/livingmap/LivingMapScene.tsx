@@ -640,6 +640,26 @@ export function LivingMapScene({
   const walkedTo = useRef<NormalizedPoint>(WALK_START);
   const [heading, setHeading] = useState<Heading>(null);
   const [gait, setGait] = useState<Gait>("WALK");
+  /*
+   * HOW FAR BACK THE CAMERA IS, WHILE WALKING.
+   *
+   * Amit: *"שיהיה אפשרות להגדיל את המפה ולראות מרחוק יותר ולא רק זום
+   * כזה, שאדע לאן יש לי ללכת, לראות את הפארקים, את החנויות מרחוק."*
+   *
+   * The walking shot is deliberately close — several shopfronts in view,
+   * signs readable, a step that moves a small fraction of the frame. That
+   * is the right shot for WALKING and the wrong one for DECIDING WHERE TO
+   * WALK, and both are things somebody does in the same twenty minutes.
+   * So there are two, and the customer says which: `EXPLORE` to be in the
+   * street, `WIDE` to stand back and see the whole quarter — the gardens,
+   * the far shops, and how much of the world is still in front of them.
+   *
+   * It is two steps rather than a pinch because the wait screen already
+   * owns every other gesture: a drag pans, a pad walks, a tap opens a
+   * shop. A third gesture layered on those is a lottery, and a button
+   * says what it does.
+   */
+  const [wide, setWide] = useState(false);
 
   /*
    * ---------------------------------------------------------------------
@@ -865,7 +885,7 @@ export function LivingMapScene({
          * screens where a person moves themselves now agree, which is
          * what they should have done from the start.
          */
-        zoom={worldZoomFor(mayWalk ? "EXPLORE" : camera.shot)}
+        zoom={worldZoomFor(mayWalk ? (wide ? "WIDE" : "EXPLORE") : camera.shot)}
         /*
          * Only the neighbourhood plate is a world. The fallback street
          * plate is one screen, and blowing it up to travel across would
@@ -1278,6 +1298,29 @@ export function LivingMapScene({
       ) : null}
 
       {/*
+        * STAND BACK, OR COME BACK IN. See `wide`.
+        *
+        * It sits directly above the safety control, on the same side, so
+        * the right edge of this screen reads top to bottom as one column
+        * of things the customer can do — and it is a single button whose
+        * label is the thing it will do next rather than a state it is
+        * currently in.
+        */}
+      {mayWalk ? (
+        <Pressable
+          onPress={() => setWide((w) => !w)}
+          accessibilityRole="button"
+          accessibilityLabel={wide ? "חזרה אל הרחוב" : "מבט רחב על השכונה"}
+          style={[
+            styles.lens,
+            { bottom: Math.round(height * SHEET_SHARE) + spacing.xl + 52 },
+          ]}
+        >
+          <Text style={styles.lensText}>{wide ? "חזרה לרחוב" : "מבט רחב"}</Text>
+        </Pressable>
+      ) : null}
+
+      {/*
         * THE CONTROL THAT WALKS — screen space, never in the world.
         *
         * It is pinned low and to the side because that is where a thumb
@@ -1482,6 +1525,16 @@ const styles = StyleSheet.create({
     textShadowRadius: 10,
   },
 
+  lens: {
+    position: "absolute",
+    right: spacing.lg,
+    minHeight: 44,
+    paddingHorizontal: spacing.lg,
+    justifyContent: "center",
+    borderRadius: radii.pill,
+    backgroundColor: "rgba(11,9,24,0.72)",
+  },
+  lensText: { ...type.caption, color: palette.nightText, writingDirection: "rtl" },
   safety: {
     position: "absolute",
     bottom: spacing.xl,

@@ -3066,14 +3066,20 @@ const styles = StyleSheet.create({
     position: "absolute",
     zIndex: 5,
     /*
-     * LOW AND OUT OF THE WAY, not across the top of the screen.
+     * TOP LEFT, AND ONLY ON THE TWO SCREENS THAT WALK.
      *
-     * At the top it sat beside the headline — "מחפשים מי זמין עכשיו" —
-     * and read as part of the app rather than as scaffolding around it.
-     * Down here it is next to the steer pad, which is the thing it is
-     * about.
+     * The complaint was that it was *always* there — it was listed for
+     * the home screen, which has a city behind it and nobody walking on
+     * it, so it was parked over the first screen anyone sees. That is
+     * fixed by the list, not by the position.
+     *
+     * Moving it to the bottom instead was my own mistake and lasted one
+     * screenshot: the wait screen's drawer owns the bottom, and the
+     * button landed on top of "לעקוב אחרי". The steer pad and the safety
+     * control both sit ABOVE that drawer for exactly this reason, and a
+     * gallery-only control has no business taking space they need.
      */
-    bottom: spacing.xl,
+    top: spacing.xl * 2,
     left: spacing.md,
     /*
      * 44 POINTS, BECAUSE THE SWEEP SAID SO.

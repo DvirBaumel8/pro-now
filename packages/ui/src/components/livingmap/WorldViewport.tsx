@@ -278,6 +278,31 @@ export function WorldViewport({
      */
   }, [animate, dragging, focusU, focusV, offsetFor, travel]);
 
+  /*
+   * How much of the last zoom is still showing. 1 means "the layout is
+   * the picture"; anything else is a zoom in flight. See `transform`.
+   */
+  const zoomScale = useRef(new Animated.Value(1)).current;
+  const lastZoom = useRef(zoom);
+  useEffect(() => {
+    if (lastZoom.current === zoom) return;
+    const from = lastZoom.current / zoom;
+    lastZoom.current = zoom;
+    if (!animate) {
+      zoomScale.setValue(1);
+      return;
+    }
+    zoomScale.setValue(from);
+    const anim = Animated.timing(zoomScale, {
+      toValue: 1,
+      duration: 520,
+      easing: Easing.inOut(Easing.cubic),
+      useNativeDriver: true,
+    });
+    anim.start();
+    return () => anim.stop();
+  }, [animate, zoom, zoomScale]);
+
   const startAt = useRef({ x: 0, y: 0 });
   const responder = useMemo(
     () =>
@@ -335,7 +360,40 @@ export function WorldViewport({
     ];
   }, [follow, height, width, worldH, worldSized, worldW]);
 
-  const transform = followTransform
+  /*
+   * ---------------------------------------------------------------------
+   * THE ZOOM, AS A MOVE RATHER THAN A CUT
+   * ---------------------------------------------------------------------
+   * Amit, twice: *"הפלואו קופץ לא טוב"* and *"גם באיתור המסך קופץ."*
+   *
+   * `zoom` decides how big the world's LAYOUT is, and every child's
+   * position is a fraction of that — which is exactly why the coordinates
+   * stay honest, and exactly why a change of zoom landed in one frame.
+   * The search moves through four shots, so the screen jumped four times
+   * on the one screen the customer stares at while waiting.
+   *
+   * Animating the layout size is not an option: every child would
+   * re-measure sixty times a second, on the screen that draws the whole
+   * neighbourhood. So the layout goes to the NEW zoom immediately and a
+   * transform carries the picture from the old one — `scale` from
+   * `oldZoom / newZoom` back to 1. Nothing re-renders; it runs on the
+   * same driver as everything else here.
+   *
+   * THE PART THAT IS NOT OBVIOUS: a scale is about the layer's own
+   * centre, and the layer is up to 1.85 screens wide with its centre
+   * usually off-screen. Left alone, zooming would slide the world
+   * sideways as it grew. So the scale is paired with a compensating
+   * translate that keeps whatever is at the middle of the PHONE where it
+   * is — the same point the eye is already on:
+   *
+   *     screen(p) = tx + w/2 + (p - w/2) * s
+   *     e         = (cx - tx - w/2) * (1 - s)
+   *
+   * `tx` is whichever offset is in play, animated or not, so the
+   * correction is built out of `Animated.subtract`/`multiply` rather than
+   * numbers and holds while the camera is also travelling or following.
+   */
+  const baseTransform = followTransform
     ? followTransform
     : dragging
     ? [{ translateX: dragX }, { translateY: dragY }]
@@ -347,6 +405,16 @@ export function WorldViewport({
           translateY: travel.interpolate({ inputRange: [0, 1], outputRange: [from.current.y, to.current.y] }),
         },
       ];
+
+  const tX = baseTransform[0]!.translateX as Animated.Animated;
+  const tY = baseTransform[1]!.translateY as Animated.Animated;
+  const oneMinusScale = Animated.subtract(1, zoomScale);
+  const transform = [
+    ...baseTransform,
+    { translateX: Animated.multiply(Animated.subtract(width / 2 - worldW / 2, tX), oneMinusScale) },
+    { translateY: Animated.multiply(Animated.subtract(height / 2 - worldH / 2, tY), oneMinusScale) },
+    { scale: zoomScale },
+  ];
 
   return (
     /*
