@@ -149,6 +149,7 @@ export function registerViolations(): string[] {
   // rule silently stops covering the files it was written for.
   for (const id of [
     "world_neighbourhood",
+    "world_ground_mat_1",
     "district_hair",
     "character_hair_world",
     "character_hair_icon",

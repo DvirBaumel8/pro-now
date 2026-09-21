@@ -9,6 +9,7 @@ import {
   geoAspect,
   groundDisclosureHe,
   geoZoomFor,
+  groundMaterials,
   metresToWorld,
   planWorld,
   plotSpotsFromGeo,
@@ -195,6 +196,36 @@ export function StrollBody({
     () => (plan ? plotSpotsFromGeo(plan) : null),
     [plan]
   );
+  /*
+   * ---------------------------------------------------------------------
+   * WHICH GROUND IS UNDERFOOT
+   * ---------------------------------------------------------------------
+   * Three states, in order of how good they are, and the build takes the
+   * best one it actually has.
+   *
+   *   1. MATERIAL tiles — seamless stone with nothing recognisable in it,
+   *      scattered with props in code. No repetition the eye can find and
+   *      no painted road to fight the real one.
+   *   2. The scene plate, tiled. Beautiful, and it repeats, and its
+   *      painted road argues with the carved one.
+   *   3. No artwork: the drawn city, which is honest and is a diagram.
+   *
+   * Amit's *"איפה העולם הקסום שבנינו?"* is why 3 is last rather than
+   * first, and ChatGPT's material kit is why 1 exists at all.
+   */
+  const groundLayer = useMemo(() => {
+    const mats = groundMaterials((id) => Boolean(sources[id]));
+    if (mats.length > 0) {
+      return {
+        sources: mats.map((id) => sources[id]!),
+        material: true,
+        // A paving tile is a few metres of ground, not a neighbourhood.
+        tileMetres: 14,
+      };
+    }
+    return ground ? { sources: [ground], material: false, tileMetres: undefined } : null;
+  }, [ground, sources]);
+
   const shopWidth = useMemo(
     () => (geo ? metresToWorld(geo.bounds, REAL_METRES.shopFrontage) : undefined),
     [geo]
@@ -380,13 +411,14 @@ export function StrollBody({
               carved through it — so the blocks between the roads are the
               artwork, and only the streets come from OpenStreetMap.
             */}
-            {geo && ground ? (
+            {geo && groundLayer ? (
               <>
                 <PaintedGround
-                  source={ground}
+                  source={groundLayer.sources}
                   bounds={geo.bounds}
                   width={world.width}
                   height={world.height}
+                  tileMetres={groundLayer.tileMetres}
                 />
                 <View style={StyleSheet.absoluteFill}>
                   <GeoPlate
@@ -395,6 +427,16 @@ export function StrollBody({
                     height={world.height}
                     metresAcross={SHOT_METRES.EXPLORE}
                     paintedGround
+                    /*
+                     * A MATERIAL HAS NOTHING IN IT, WHICH IS THE POINT.
+                     *
+                     * Over the scene plate the props stay off — it has
+                     * better palms than anything drawn here. Over stone
+                     * they are the city: trees, lamps and their light,
+                     * scattered from the geometry rather than painted
+                     * into a tile that then repeats.
+                     */
+                    drawProps={groundLayer.material}
                   />
                 </View>
               </>

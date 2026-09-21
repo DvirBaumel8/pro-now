@@ -39,7 +39,30 @@ import { type GeoBounds, metresToWorld } from "@pro-now/types";
 export const TILE_METRES = 108;
 
 export interface PaintedGroundProps {
-  source: ImageSourcePropType;
+  /**
+   * One plate, or a set of seamless material tiles.
+   *
+   * -------------------------------------------------------------------
+   * WHY A SET, AND WHY MATERIAL RATHER THAN SCENE
+   * -------------------------------------------------------------------
+   * One plate repeated is a wallpaper: the eye finds the same palm and
+   * the same bench every 108 metres, however the copies are flipped.
+   * ChatGPT's answer was not "send more cities" but a change of kind:
+   *
+   *     "הייתי בונה ערכת חומר מודולרית ללא שום כביש: 4 tiles seamless של
+   *      ground בלבד... בלי דקל, ספסל, פנס, מעבר חציה או אובייקט גדול
+   *      שחוזר במיקום קבוע. ה-base tile צריך להיות חומר, לא סצנה."
+   *
+   * Which is right for a reason beyond repetition: the current plate has
+   * a ROAD painted into it, and that painted road fights the real one
+   * carved over it from the extract. A material has nothing to fight
+   * with. The palms, lamps and benches then come back as props scattered
+   * in code from a seed per tile — so the same corner always looks the
+   * same, without the same corner appearing eight times.
+   *
+   * Several sources are chosen between per tile, deterministically.
+   */
+  source: ImageSourcePropType | readonly ImageSourcePropType[];
   bounds: GeoBounds;
   /** The world box, in points. */
   width: number;
@@ -55,6 +78,11 @@ export function PaintedGround({
   height,
   tileMetres = TILE_METRES,
 }: PaintedGroundProps) {
+  const set = useMemo(
+    () => (Array.isArray(source) ? (source as ImageSourcePropType[]) : [source as ImageSourcePropType]),
+    [source]
+  );
+
   const tiles = useMemo(() => {
     const tileW = Math.max(1, metresToWorld(bounds, tileMetres) * width);
     /*
@@ -68,7 +96,15 @@ export function PaintedGround({
      */
     const cols = Math.ceil(width / tileW);
     const rows = Math.ceil(height / tileW);
-    const out: Array<{ key: string; left: number; top: number; size: number; flipX: boolean; flipY: boolean }> = [];
+    const out: Array<{
+      key: string;
+      left: number;
+      top: number;
+      size: number;
+      flipX: boolean;
+      flipY: boolean;
+      variant: number;
+    }> = [];
     // A hard cap, because a 4km extract at 108m a tile is 1,369 images.
     if (cols * rows > 400) return { tileW, out };
     /*
@@ -93,6 +129,13 @@ export function PaintedGround({
           size: tileW,
           flipX: (c + r) % 2 === 1,
           flipY: r % 3 === 1,
+          /*
+           * SEEDED BY THE TILE'S OWN COORDINATE, never by draw order.
+           * The same corner of the city has to look the same every time
+           * it is walked back to, and an index into a render list does
+           * not survive the camera moving.
+           */
+          variant: variantFor(r, c),
         });
       }
     }
@@ -104,7 +147,7 @@ export function PaintedGround({
       {tiles.out.map((t) => (
         <Image
           key={t.key}
-          source={source}
+          source={set[t.variant % set.length]!}
           style={{
             position: "absolute",
             left: t.left,
@@ -118,6 +161,13 @@ export function PaintedGround({
       ))}
     </View>
   );
+}
+
+/** A stable small integer per tile coordinate. */
+function variantFor(row: number, col: number): number {
+  let h = 2166136261 ^ (row * 73856093) ^ (col * 19349663);
+  h = Math.imul(h ^ (h >>> 13), 16777619);
+  return (h >>> 0) % 64;
 }
 
 const styles = StyleSheet.create({ clip: { overflow: "hidden" } });

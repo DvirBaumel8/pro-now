@@ -552,3 +552,56 @@ export function manifestViolations(manifest: WorldAssetManifest): string[] {
   }
   return v;
 }
+
+/**
+ * THE GROUND AS A MATERIAL, NOT AS A SCENE.
+ *
+ * ---------------------------------------------------------------------
+ * WHY FOUR FILES AND NOT ONE CITY
+ * ---------------------------------------------------------------------
+ * The neighbourhood plate is a picture of a place: a road with markings,
+ * palms, benches, lamps, crossings. Repeat it across a real extract and
+ * two things go wrong at once. The eye finds the same palm every 108
+ * metres however the copies are flipped, and — worse — the painted road
+ * fights the real road carved over it from the extract.
+ *
+ * ChatGPT's answer was a change of kind rather than of quantity:
+ *
+ *     "4 tiles seamless של ground בלבד, שכל אחד 1024×1024... בלי דקל,
+ *      ספסל, פנס, מעבר חציה או אובייקט גדול שחוזר במיקום קבוע. ה-base
+ *      tile צריך להיות חומר, לא סצנה."
+ *
+ * So: paving and stone, seamless on all four edges and against each
+ * other, with nothing in them anybody could recognise twice. Everything
+ * that used to be painted in — the trees, the lamps, the benches — comes
+ * back as props scattered in code from a seed per tile coordinate, so
+ * the same corner always looks the same without the same corner
+ * appearing eight times.
+ *
+ * The ids follow the `world_` prefix, so `kindOfAssetId` already calls
+ * them GROUND and the visual register already forbids them being
+ * photographs.
+ */
+export const GROUND_MATERIAL_IDS = [
+  "world_ground_mat_1",
+  "world_ground_mat_2",
+  "world_ground_mat_3",
+  "world_ground_mat_4",
+] as const;
+
+export type GroundMaterialId = (typeof GROUND_MATERIAL_IDS)[number];
+
+/**
+ * Which material tiles this build actually has.
+ *
+ * Returns them in a fixed order, and an EMPTY array until at least two
+ * exist. One tile is not a material kit — it is the same wallpaper with
+ * extra steps — so a half-delivered set falls back to the painted plate
+ * rather than shipping a worse version of the thing it replaces.
+ */
+export function groundMaterials(
+  has: (assetId: string) => boolean
+): GroundMaterialId[] {
+  const found = GROUND_MATERIAL_IDS.filter((id) => has(id));
+  return found.length >= 2 ? found : [];
+}

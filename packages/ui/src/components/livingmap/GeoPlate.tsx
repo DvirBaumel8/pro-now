@@ -142,6 +142,15 @@ export interface GeoPlateProps {
    */
   animate?: boolean;
   /**
+   * Whether to scatter trees, lamps and their light over the ground.
+   *
+   * Left out, it follows `paintedGround`: off over a painted scene, on
+   * over anything else. A MATERIAL ground — see `GROUND_MATERIAL_IDS` —
+   * is the case that needs both: a painting underneath AND the props on
+   * top, because the material deliberately contains nothing.
+   */
+  drawProps?: boolean;
+  /**
    * The city's own furniture: trees, lamps, lit windows, crossings.
    *
    * On by default, and it is not decoration in the dismissible sense.
@@ -244,7 +253,18 @@ export function GeoPlate({
   dressed = true,
   paintedGround = false,
   animate = true,
+  drawProps,
 }: GeoPlateProps) {
+  /*
+   * PROPS FOLLOW THE GROUND, NOT THE MODE.
+   *
+   * Over the scene plate there is nothing to add — it has better palms
+   * than any circle this file can draw. Over a MATERIAL ground there is
+   * nothing but stone, and the trees, lamps and benches are what turn it
+   * back into our city. So the default is "draw them unless a painted
+   * scene is underneath", and the material path overrides it.
+   */
+  const props = drawProps ?? !paintedGround;
   const plan: WorldPlan = useMemo(() => planWorld(geo), [geo]);
   const spineId = useMemo(() => spineOf(plan)?.id ?? null, [plan]);
   const pitch = useMemo(
@@ -321,6 +341,12 @@ export function GeoPlate({
    */
   const breeze = useRef(new Animated.Value(0)).current;
   const breath = useRef(new Animated.Value(0)).current;
+  /*
+   * The slowest of the three, and deliberately the longest: a road
+   * catching light is a thing you notice having happened rather than
+   * a thing you watch happening.
+   */
+  const sheen = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     if (!animate) {
       breeze.setValue(0);
@@ -336,13 +362,16 @@ export function GeoPlate({
       );
     const a = loop(breeze, 9400);
     const b = loop(breath, 6100);
+    const c = loop(sheen, 13700);
     a.start();
     b.start();
+    c.start();
     return () => {
       a.stop();
       b.stop();
+      c.stop();
     };
-  }, [animate, breeze, breath]);
+  }, [animate, breeze, breath, sheen]);
 
   /* Widths in the fixed user space: a world unit is S wide. */
   const kerb = (halfWidth: number) => (halfWidth * 2 + kerbWorld(plan)) * S;
@@ -590,7 +619,7 @@ export function GeoPlate({
               );
             })}
 
-            {(paintedGround ? [] : dressing.lamps).map((l, i) => (
+            {(props ? dressing.lamps : []).map((l, i) => (
               <Circle
                 key={`lp${i}`}
                 cx={l.at.u * S}
@@ -693,6 +722,41 @@ export function GeoPlate({
         </Animated.View>
       ) : null}
 
+      {/*
+        LIGHT ON THE ASPHALT.
+
+        First on ChatGPT's list of what buys the most life per unit of
+        risk: *"אור חי: pools של פנסים עם flicker כמעט בלתי מורגש...
+        reflections עדינים על אספלט. זה נותן חיים בלי לטעון שמישהו נמצא
+        שם."* It is the carriageways drawn a second time in lamplight at
+        a very low opacity, breathing on their own clock — so the streets
+        look wet under the lamps rather than painted on.
+      */}
+      <Animated.View
+        style={[
+          StyleSheet.absoluteFill,
+          { opacity: sheen.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1] }) },
+        ]}
+        pointerEvents="none"
+      >
+        <Svg width={width} height={height} viewBox={`0 0 ${S} ${sy}`} preserveAspectRatio="none">
+          {order.map((kind) =>
+            roadsByKind[kind]!.map((r) => (
+              <Path
+                key={`sh${r.id}`}
+                d={r.d}
+                fill="none"
+                stroke={livingPalette.lampGlow}
+                strokeWidth={carriage(r.halfWidth) * 0.55}
+                opacity={0.05}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            ))
+          )}
+        </Svg>
+      </Animated.View>
+
       {dressing ? (
         <Animated.View
           style={[
@@ -721,7 +785,7 @@ export function GeoPlate({
               for the case where there is no artwork underneath; over a
               painting the layer that moves is the lamplight.
             */}
-          {(paintedGround ? [] : dressing.trees).map((t, i) => (
+          {(props ? dressing.trees : []).map((t, i) => (
             <G key={`tr${i}`}>
               {/*
                 A CANOPY IS A DARK MASS WITH A LIT TOP, NOT A GREEN DOT.
