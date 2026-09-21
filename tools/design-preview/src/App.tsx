@@ -10,6 +10,25 @@ import { HAIR_DISCOVERY_IDS } from "@pro-now/ui";
 
 import type { WorldAssetSources } from "@pro-now/ui";
 import { worldSources } from "./worldSources";
+
+/**
+ * WHAT THE PROFESSIONAL'S APP ACTUALLY CARRIES.
+ *
+ * One file. The customer's journey happens inside the world — choosing a
+ * character, walking the street, arriving at a shop — so their app ships
+ * the whole pack, about eight megabytes. The professional's shift screen
+ * wants somewhere to BE, not a cast, so it ships the plate and nothing
+ * else: `DistrictLayer` draws nothing for a district whose art is
+ * missing and `WorldLife` skips a moment whose asset is absent, which
+ * makes a pack of one file a complete and correct world.
+ *
+ * The gallery is given exactly that rather than its own richer pack. A
+ * gallery that shows a better screen than the product is the two-worlds
+ * problem that cost a whole night once already.
+ */
+const proWorldSources: WorldAssetSources = worldSources.world_neighbourhood
+  ? { world_neighbourhood: worldSources.world_neighbourhood }
+  : {};
 import { standInWorldSources } from "./standInAvatars";
 
 import { ActiveJobCapsule, AddressPickerBody, AppHeader, AvatarPickerBody, customerDarkTheme, FocusSheet, ScreenTransition, ArrivalVerifyBody, CallsListBody, CAPSULE_HEIGHT, ChatBody, ConnectionBanner, CategoryBody, CustomerHomeBody, CustomerProfileBody, customerTheme, DescribeFaultBody, JobCompleteBody, lex, MatchConfirmBody, NavGlyph, Persona, PhoneAuthBody, ProEarningsBody, ProJobBody, ProJobSettledBody, ProOfferBody, ProOnlineBody, ProPricingBody, ProProfileBody, ProShiftBody, proTheme, ProVerificationBody, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, StrollBody, Sheet, spacing, tint, TrackingBody, type as t, WelcomeBody } from "@pro-now/ui";
@@ -2482,6 +2501,18 @@ function ProApp({
         onToggleOnline={toggle}
         onOpenEarnings={() => setTab("earnings")}
         onManageServices={() => setProView("presence")}
+        /*
+         * THE PLATE, AND NOTHING ELSE — because that is what the
+         * professional's app ships.
+         *
+         * Handing this the gallery's whole pack draws eleven PRO NOW
+         * shopfronts into the band, and the shipped app cannot: it
+         * carries one file, for half a megabyte rather than eight. A
+         * gallery that shows a richer screen than the product is the
+         * two-worlds problem that cost a whole night once already, so it
+         * is given exactly what the app has.
+         */
+        worldSources={proWorldSources}
         width={width}
         height={bodyH}
       />

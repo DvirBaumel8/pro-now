@@ -5,6 +5,11 @@ import { formatMoney, money, type ProPresenceState } from "@pro-now/types";
 
 import { proTheme, radii, spacing, tabular, tint, type } from "../theme";
 import { MapSurface } from "../components/MapSurface";
+import { WorldBackdrop } from "../components/livingmap/WorldBackdrop";
+import type { WorldAssetSources } from "../components/livingmap/AssetSlot";
+
+/** How tall the band at the top of this screen is. */
+const MAP_BAND_HEIGHT = 172;
 import { Chip } from "../components/surfaces";
 import { Mark, type MarkName } from "../components/marks";
 import {
@@ -84,6 +89,14 @@ export interface ProShiftBodyProps {
   onManageServices?: () => void;
   width?: number;
   height?: number;
+  /**
+   * The world's art. Absent, the band falls back to the abstract grid.
+   * The professional's app carries the plate and nothing else — see its
+   * `worldSources`.
+   */
+  worldSources?: WorldAssetSources;
+  /** False holds the city still, for screenshots and tests. */
+  animate?: boolean;
 }
 
 export function ProShiftBody({
@@ -98,6 +111,8 @@ export function ProShiftBody({
   onManageServices,
   width = 390,
   height = 780,
+  worldSources,
+  animate = true,
 }: ProShiftBodyProps) {
   const now = nowMs ?? Date.now();
   const reading = readShift(shift, now);
@@ -106,20 +121,78 @@ export function ProShiftBody({
   const liveServices = services.filter((s) => s.live);
 
   const lines = briefingLines(briefing ?? {});
+  /*
+   * A pack of one file is a complete world — see the professional app's
+   * `worldSources`. What is NOT a world is an empty object, which is what
+   * a build without the art has, so the plate itself is the test.
+   */
+  const hasWorld = Boolean(worldSources?.["world_neighbourhood"]);
   const money0 = (v: number | null) => (v === null ? "—" : formatMoney(money(v, "ILS")));
 
   return (
     <View style={[styles.screen, { width, height }]}>
-      {/* A quiet map band. Context, not the subject — the numbers are. */}
+      {/*
+        * A quiet band with somewhere in it. Context, not the subject —
+        * the numbers are.
+        *
+        * ---------------------------------------------------------------
+        * THE ONE SCREEN IN THE PRODUCT THAT HAPPENED NOWHERE
+        * ---------------------------------------------------------------
+        * This was an abstract grey street grid. That was an honest
+        * placeholder — the maps vendor is an open business decision
+        * (/CLAUDE.md §4) and `MapSurface` carries no geography and says
+        * so — and it is still the screen a professional opens every
+        * morning. Their customer, standing on the same street, gets a
+        * city with light in it; they got a wireframe.
+        *
+        * So when the art is there, the band is the same neighbourhood the
+        * customer is looking at, from above, resting. It is not a map and
+        * does not pretend to be: no position, no pin, no other
+        * professionals — `WorldBackdrop` has nowhere to put any of those,
+        * which is the same structural safeguard the customer's side
+        * relies on. The state is still carried by the status line, which
+        * is the only thing on here that is allowed to say anything.
+        *
+        * Without the art it is the grid, unchanged. A screen that renders
+        * a blank rectangle when a file is missing is worse than the
+        * placeholder it replaced.
+        */}
       <View style={styles.mapBand}>
-        <MapSurface
-          colors={{ ...colors, action: colors.trust }}
-          dark
-          height={172}
-          pulsing={isOnline}
-          statusText={isOnline ? "מחובר — קריאות באזור שלך יגיעו לכאן" : "לא מחובר"}
-          statusTopOffset={16}
-        />
+        {hasWorld ? (
+          <>
+            <WorldBackdrop
+              width={width}
+              height={MAP_BAND_HEIGHT}
+              sources={worldSources}
+              animate={animate}
+            />
+            {/*
+              * The state, in words, over the city — with its own plate,
+              * because the plate is lit paving and white type on lit
+              * paving is not type. See `verify:a11y`'s artwork check.
+              */}
+            <View style={styles.worldStatus} pointerEvents="none">
+              <Text style={styles.worldStatusText} numberOfLines={1}>
+                {isOnline ? "מחובר — קריאות באזור שלך יגיעו לכאן" : "לא מחובר"}
+              </Text>
+            </View>
+            {/* The one line that keeps an invented city honest. */}
+            <View style={styles.worldNote} pointerEvents="none">
+              <Text style={styles.worldNoteText} numberOfLines={1}>
+                תצוגת העיר היא המחשה · המפה האמיתית תיכנס עם ספק המפות
+              </Text>
+            </View>
+          </>
+        ) : (
+          <MapSurface
+            colors={{ ...colors, action: colors.trust }}
+            dark
+            height={MAP_BAND_HEIGHT}
+            pulsing={isOnline}
+            statusText={isOnline ? "מחובר — קריאות באזור שלך יגיעו לכאן" : "לא מחובר"}
+            statusTopOffset={16}
+          />
+        )}
         <View style={styles.mapFade} pointerEvents="none" />
       </View>
 
@@ -365,7 +438,27 @@ function Beacon({ color }: { color: string }) {
 
 const styles = StyleSheet.create({
   screen: { backgroundColor: colors.bg, overflow: "hidden" },
-  mapBand: { height: 172 },
+  mapBand: { height: MAP_BAND_HEIGHT, overflow: "hidden" },
+  worldStatus: {
+    position: "absolute",
+    top: 16,
+    alignSelf: "center",
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.pill,
+    backgroundColor: "rgba(11,9,24,0.78)",
+  },
+  worldStatusText: { ...type.caption, color: "#F7F3FA", writingDirection: "rtl" },
+  worldNote: {
+    position: "absolute",
+    bottom: 6,
+    alignSelf: "center",
+    paddingVertical: 2,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radii.sm,
+    backgroundColor: "rgba(12,9,16,0.72)",
+  },
+  worldNoteText: { ...type.micro, color: "rgba(247,243,250,0.82)", writingDirection: "rtl" },
   mapFade: {
     position: "absolute",
     left: 0,

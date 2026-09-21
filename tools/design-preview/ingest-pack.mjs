@@ -57,6 +57,16 @@ import path from "node:path";
 const ROOT = path.resolve(import.meta.dirname, "../..");
 const GALLERY = path.join(ROOT, "tools/design-preview/public/world");
 const APP = path.join(ROOT, "apps/customer-mobile/assets/world");
+/**
+ * The professional's app carries the plate and nothing else — see
+ * `apps/pro-mobile/src/world/worldSources.ts`. It is one file, so it is
+ * kept in sync here rather than given a manifest of its own: a plate that
+ * is redrawn for the customer and not for the professional is two cities
+ * with the same name, which is exactly the class of drift this tool was
+ * written to stop.
+ */
+const PRO_APP = path.join(ROOT, "apps/pro-mobile/assets/world");
+const PRO_APP_IDS = new Set(["world_neighbourhood"]);
 
 const folder = process.argv[2];
 const dry = process.argv.includes("--dry");
@@ -215,7 +225,12 @@ for (const { file, id } of plan) {
     `from PIL import Image;im=Image.open(${JSON.stringify(src)}).convert("RGBA");im.save(${JSON.stringify(out)},"WEBP",quality=90,method=6)`,
   ]);
   execFileSync("cp", [out, path.join(APP, `${id}.webp`)]);
-  console.log(`  wrote ${id}.webp`);
+  if (PRO_APP_IDS.has(id) && existsSync(PRO_APP)) {
+    execFileSync("cp", [out, path.join(PRO_APP, `${id}.webp`)]);
+    console.log(`  wrote ${id}.webp   (and to the professional's app)`);
+  } else {
+    console.log(`  wrote ${id}.webp`);
+  }
 }
 
 /*

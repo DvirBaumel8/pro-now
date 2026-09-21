@@ -3,6 +3,8 @@ import { useWindowDimensions, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 
 import { ProShiftBody, proTheme, type ShiftServiceChip, type ShiftSnapshot } from "@pro-now/ui";
+
+import { worldSources } from "../world/worldSources";
 import { markForService } from "@pro-now/ui";
 
 import type { ProStackParamList } from "../navigation/types";
@@ -119,6 +121,12 @@ export function OfflineHomeScreen({ navigation }: Props) {
         displayNameHe={displayNameHe}
         presenceState={presenceState}
         shift={shift}
+        /*
+         * The same neighbourhood the customer is standing in. One file —
+         * see `src/world/worldSources.ts` for why the professional's app
+         * carries the plate and none of the cast.
+         */
+        worldSources={worldSources}
         /*
          * No briefing. "How busy is your area" is a real question with a
          * real answer on the server one day; until then `briefingLines`
