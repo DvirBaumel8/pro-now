@@ -31,9 +31,27 @@
  * the wrong id is a barber standing outside a garage.
  *
  * `--dry` prints the plan and writes nothing.
+ *
+ * ---------------------------------------------------------------------
+ * AND FOR FILES THAT NAME NOTHING AT ALL
+ * ---------------------------------------------------------------------
+ *   node tools/design-preview/ingest-pack.mjs <folder> --as avatar_world_back
+ *
+ * A file downloaded from a chat is called
+ * "ChatGPT Image Sep 21, 2026, 06_45_00.png". It names no trade, carries
+ * no number, and `idFor` can only report it as unplaceable — which is
+ * correct, and which at seven in the morning means renaming twelve files
+ * by hand before anything can be ingested.
+ *
+ * `--as` takes the files that could not be placed, puts them in the order
+ * they were delivered (modification time, then name, which is the order a
+ * download folder already has them in), and numbers them into that
+ * series. It is deliberately NOT a guess: the caller is stating that this
+ * folder is that series, in that order, and the plan is printed before
+ * anything is written so a wrong order is visible rather than ingested.
  */
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 const ROOT = path.resolve(import.meta.dirname, "../..");
@@ -110,17 +128,59 @@ function idFor(name) {
   return kind.suffix ? `${kind.prefix}${trade.id}${kind.suffix}` : `${kind.prefix}${trade.id}`;
 }
 
+/** The series `--as` numbers into, if it was given one. */
+const SERIES = {
+  avatar_world_back: { count: 12, id: (n) => `avatar_${n}_world_back` },
+  avatar_portrait: { count: 12, id: (n) => `avatar_${n}_portrait` },
+};
+const asArg = process.argv.indexOf("--as");
+const seriesName = asArg > 0 ? process.argv[asArg + 1] : null;
+if (seriesName && !SERIES[seriesName]) {
+  console.error(`--as must be one of: ${Object.keys(SERIES).join(", ")}`);
+  process.exit(2);
+}
+
 const files = readdirSync(folder).filter((f) => /\.(png|webp|jpg|jpeg)$/i.test(f));
 const plan = [];
-const unplaced = [];
+let unplaced = [];
 for (const f of files) {
   const id = idFor(f);
   if (id) plan.push({ file: f, id });
   else unplaced.push(f);
 }
 
+if (seriesName && unplaced.length) {
+  const series = SERIES[seriesName];
+  /*
+   * DELIVERY ORDER, NOT ALPHABETICAL ORDER.
+   *
+   * "Image (10).png" sorts before "Image (2).png" and a download folder
+   * is full of exactly that. Modification time is the order they arrived
+   * in, which is the order they were asked for; the name is only the
+   * tie-break for files saved in the same second.
+   */
+  const ordered = [...unplaced].sort((a, b) => {
+    const ta = statSync(path.join(folder, a)).mtimeMs;
+    const tb = statSync(path.join(folder, b)).mtimeMs;
+    return ta - tb || a.localeCompare(b);
+  });
+  if (ordered.length > series.count) {
+    console.error(
+      `\n  --as ${seriesName} numbers ${series.count} files and ${ordered.length} could not be placed.` +
+        `\n  Nothing written: I will not guess which ${ordered.length - series.count} to leave out.\n`
+    );
+    process.exit(1);
+  }
+  ordered.forEach((f, i) => {
+    plan.push({ file: f, id: series.id(String(i + 1).padStart(2, "0")), assumed: true });
+  });
+  unplaced = [];
+}
+
 console.log(`\n${files.length} files in ${folder}\n`);
-for (const { file, id } of plan) console.log(`  ${file}  ->  ${id}`);
+for (const { file, id, assumed } of plan) {
+  console.log(`  ${file}  ->  ${id}${assumed ? "   (by delivery order — check this)" : ""}`);
+}
 if (unplaced.length) {
   console.log(`\n  COULD NOT PLACE (rename these and run again):`);
   for (const f of unplaced) console.log(`    ${f}`);
