@@ -1139,3 +1139,127 @@ specific service is the whole correctness requirement — an online
 professional whose licence for that service has lapsed must not be counted,
 because the count would promise what dispatch would then refuse. The UI is
 already wired and will show nothing until that endpoint exists.
+
+---
+
+## 15. The night the apps stopped lying (2026-09-21)
+
+Amit left the session running overnight with one instruction: *"אל תעצרו עד
+לרגע שהכל הכל הכל הכל מושלם."* This section records what was found, because
+most of it was not a bug anybody had reported — it was the shipped apps
+quietly contradicting the product.
+
+### 15.1 The two-apps problem, closed
+
+`packages/ui` held the home screen, the living map, the walking, the
+avatar picker, the category page, the describe-the-fault screen, the quote
+approval, the completion, the professional's shift dashboard, the job
+screen and the verification centre. The gallery rendered all of them every
+day. `apps/customer-mobile` and `apps/pro-mobile` rendered almost none of
+them: they still carried their own Epic-0 screens, written before any of
+that existed, and the two sets had long since diverged in what they listed
+and what they claimed.
+
+Every customer and professional screen now renders the same component the
+gallery does. Three screens were deleted outright rather than wired,
+because each duplicated something the shared body already did better:
+`ReviewScreen` (the review lives on the completion screen), `OnlineScreen`
+(one shift dashboard, not two), and the Navigation/ActiveService/Complete
+trio on the professional's side (one job screen driven by the job's own
+status).
+
+### 15.2 What the shipped apps were claiming
+
+Every one of these was in the build that would have gone to the stores:
+
+| Screen | Claim | Reality |
+| --- | --- | --- |
+| C10/C11 Tracking | "יוסי בדרך אליך · 11 דקות" | No request was made. Same name, same ETA, every job. |
+| C12 Quote | Two line items, ₪300, "אשר עבודה" | Nothing was sent. The approval never reached the server. |
+| C14 Complete | "סה״כ שולם ₪300 · ✓ התשלום עבר בהצלחה" | No payment provider exists (§4). Nothing was charged. |
+| C06 Request | "דמי ביקור החל מ־₪179" | For every service. A massage and a tow truck quoted alike. |
+| C05 Category | Seven plumbing strings | The route parameter was ignored. "חיות" opened a plumbing list. |
+| P13 Offline home | "יוסי כהן", ₪840, 4 jobs, 3:24 online, IDENTITY_VERIFIED | None of it came from anywhere. |
+| P15 Online | An offer four seconds after going online | `setTimeout(…, 4000)` navigating to `"demo-offer"`. |
+| P22 Earnings | "ברוטו ₪2,100 · עמלה −₪420" | A 20% commission, to everybody. The rate is undecided (§4). |
+| P24 Verification | "זהות מאומת · רישיון חשמלאי פג תוקף" | To every professional, including non-electricians. |
+
+The last one is the most serious. Verification is not a feature of this
+product, it is the promise, and P24 was the only place a professional
+could check what they had proven.
+
+### 15.3 The gap that made the whole flow impossible
+
+`POST /v1/jobs` requires an `addressId` and checks it belongs to the
+caller. Nothing in the API could create an address, and nothing could list
+one. A customer who installed the app could not request a professional at
+all. The client hid this by sending the literal string `"demo-address"`,
+which worked against a seeded development database and nowhere else.
+
+Both halves were confident, which is why it survived: the server was right
+to refuse, and the client never saw a refusal.
+
+New: `GET/POST /v1/me/addresses`, `GET /v1/pro/services` (server-decided
+per-service dispatch eligibility with the NAMED missing requirement), and
+`GET /v1/pro/jobs/:id` (the assigned job with the full address, released
+because the job is assigned, and 404 rather than 403 for anyone else).
+
+`POST /v1/jobs/:id/start` also sent every job to `IN_PROGRESS`, so a
+VISIT_QUOTE job skipped `DIAGNOSIS` — the state where the price is
+written — and landed in "working" before the customer had approved
+anything. `nextAfterArrival` has encoded the right answer since the state
+machine was written; the route never asked it.
+
+### 15.4 The plate holds four shops, not eleven
+
+`check-plate.mjs` passed the promenade plate and six of the eleven shops
+were standing in flowerbeds, over kerbs and on a zebra crossing. The tool
+tested the FOOTING — one pixel, eroded by eleven — while a shopfront
+covers roughly 140×105 plate pixels and rises from that point.
+
+Scored against the real footprint, the set we had been reviewing all week:
+שיער 4% clear ground, שיפוצים 10%, תיקונים 15%, חיות 18%, מחשבים 22%. The
+re-measured set is worst 36%, median 63%.
+
+The limit is the plate, not the script. The promenade is an aerial of a
+park walk — planters, palms, benches, bollards, lamp posts — with four
+clean slots at 0.17 wide and ten at 0.09, all compromised. **The next
+plate needs eleven clear paved stretches, each at least 15% of the width
+by 11% of the height, with the clutter between them rather than on them,
+and none of them below v = 0.86** (a shop nearer the viewer than the
+customer means the professional drives away from the eye to reach them).
+That requirement is now `FOOTPRINT` in `ground-plate.ts` with five tests.
+
+### 15.5 Animation defects, second pass
+
+Eleven were found and fixed in the first pass. A second audit found
+eighteen more. The two that mattered most:
+
+- **A drag killed the camera permanently.** `dragged` was set by the pan
+  responder and never cleared by anything. One sideways look and every
+  later camera move — the journey's pull-back and push-in included — ran
+  with the world sitting where a thumb had left it.
+- **The search camera froze 200 ms into every 1200 ms move.** The travel
+  effect depended on `sweep.camera.focus` by identity, and `sweepFrame`
+  returns a fresh literal at 5 Hz. React runs the previous cleanup first,
+  so `anim.stop()` fired and the equality guard then started nothing. The
+  camera tour played as a stutter-and-snap loop.
+
+Also: the mini-game was being collected invisibly during the search, so the
+wait began with half of it spent; the walking figure froze mid-stride at
+every stop on the tour; both avatar tiles flashed on every tap; the
+tracking camera re-eased from a standstill every second for twenty
+minutes; `RouteLayer` still had the O(n²) cumulative-distance map that
+`WorldLife` was fixed for; dragging re-rendered the whole neighbourhood
+sixty times a second; and the match sheet's fold-away had never played a
+single frame.
+
+### 15.6 State
+
+711 tests pass. Lint and typecheck are clean across every workspace except
+`apps/api`, which still fails on the documented `prisma generate` blocker
+(§12.5) — unchanged and unrelated.
+
+Still blocked on a machine that can reach `binaries.prisma.sh`:
+`prisma generate` → `migrate resolve --applied 0_init` → `migrate deploy` →
+`db:seed`.

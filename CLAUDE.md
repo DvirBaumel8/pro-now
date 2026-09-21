@@ -125,10 +125,16 @@ blocks the epic's stated acceptance criteria.
 See `/docs/EPIC-0-REPORT.md` for the as-built state, contradictions found
 between source documents, and the recommended next epic.
 
-**Read `§12` in that report first**, then `§11` and `§10` — together they
-are the current truth about what has actually been installed, compiled,
-linted, bundled, rendered and executed. They supersede the older
-`§7`/`§8`.
+**Read `§15` in that report first**, then `§12`, `§11` and `§10` —
+together they are the current truth about what has actually been
+installed, compiled, linted, bundled, rendered and executed. They supersede
+the older `§7`/`§8`.
+
+`§15` is the one to read before touching either mobile app: it records the
+night the shipped apps stopped carrying their own Epic-0 screens, the nine
+places those screens were claiming things the server had never said, and
+the three endpoints that had to exist before a customer could request
+anybody at all.
 
 Short version: lint is clean across 10 workspaces, 152 unit tests pass, the
 admin build and both mobile bundles are green, the **baseline migration
