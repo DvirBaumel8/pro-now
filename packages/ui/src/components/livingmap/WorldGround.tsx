@@ -27,6 +27,17 @@ import { PaintedGround } from "./PaintedGround";
  * So the decision lives here once, and both screens ask for "the ground".
  */
 
+/**
+ * How much street may be in frame before the plate starts repeating
+ * visibly.
+ *
+ * The plate covers `TILE_METRES` — about 108 — so at 150 metres across
+ * you see one and a half copies and the repeat is off screen. At two
+ * hundred you see two, which is where the eye starts pairing them. That
+ * is the number, and it is a property of the tile rather than a taste.
+ */
+const PLATE_MAX_METRES = 190;
+
 export interface WorldGroundProps {
   /** The world box, in points. */
   width: number;
@@ -69,37 +80,48 @@ export function WorldGround({
     const mats = groundMaterials((id) => Boolean(sources[id]));
     const pave = mats.length > 0 ? ((sources[mats[0]!] as { uri: string } | undefined) ?? null) : null;
     const grass = (sources[GROUND_GRASS_ID] as { uri: string } | undefined) ?? null;
+
     /*
      * ---------------------------------------------------------------
-     * THE MATERIAL WINS ON A REAL MAP, AND IT TOOK THREE ROUNDS TO SEE
+     * WHICH GROUND, AND THE ANSWER IS BOTH — BY HOW FAR BACK YOU STAND
      * ---------------------------------------------------------------
-     * The painted plate is a better picture than anything drawn here and
-     * it has one property that beats that: it repeats. Tiled across a
-     * real extract, the same palm, the same bench and the same flowering
-     * tree appear every hundred metres in a grid — and at the wide shot,
-     * which is the one the dispatch screen holds while somebody waits,
-     * the grid is the first thing the eye finds. Amit, on that shot:
-     * *"כרגע הכל נראה לא טוב."*
+     * Four rounds to arrive at this, and each ground was right about
+     * half of it.
      *
-     * The material has no repeat the eye can find, no painted road to
-     * fight the real one, and — the part that was not obvious — it makes
-     * OUR SHOPFRONTS the brightest thing on the screen instead of one
-     * more lit object among a hundred painted ones. The city stops being
-     * a picture with our shops in it and becomes our shops standing in a
-     * city.
+     * The PAINTED PLATE is a city nothing drawn from polygons will ever
+     * catch. It also repeats: tiled across a real extract, the same palm
+     * and the same bench land every hundred metres in a grid. At walking
+     * distance that costs nothing — about one and a half copies are on
+     * screen and no repeat is visible — and at the wide shot the grid is
+     * the first thing the eye finds. Amit, on exactly that shot: *"כרגע
+     * הכל נראה לא טוב."*
      *
-     * The plate is still the ground everywhere there is no extract, which
-     * is every screen that has not been switched over.
+     * The MATERIAL has no repeat and no painted road to fight the real
+     * one, and it makes our shopfronts the brightest thing on screen
+     * rather than one more lit object among a hundred painted ones. It
+     * is also, close up, a drawing rather than a painting.
+     *
+     * So the ground follows the camera. Standing in the street you get
+     * the painting, which is where its quality is spent and where its
+     * repeat is off screen. Pulled back to read the neighbourhood you
+     * get the material, which is where the repeat would become the
+     * subject and where the drawn city — blocks, lit windows, planting —
+     * is what a map wants anyway.
+     *
+     * The switch happens at a zoom step, which is a tap rather than a
+     * gesture, so it reads as the view changing rather than as the
+     * ground flickering.
      */
+    const far = (metresAcross ?? 0) > PLATE_MAX_METRES;
+    if (plate && !far) {
+      return { tiles: [plate], material: false, tileMetres: undefined, pave, grass };
+    }
     if (mats.length > 0) {
       return { tiles: mats.map((id) => sources[id]!), material: true, tileMetres: 14, pave: null, grass };
     }
     if (plate) return { tiles: [plate], material: false, tileMetres: undefined, pave, grass };
-    if (mats.length > 0) {
-      return { tiles: mats.map((id) => sources[id]!), material: true, tileMetres: 14, pave: null, grass };
-    }
     return null;
-  }, [plate, sources]);
+  }, [plate, sources, metresAcross]);
 
   if (!cleaned) {
     /*

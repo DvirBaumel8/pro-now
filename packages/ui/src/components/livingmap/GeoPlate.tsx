@@ -545,15 +545,24 @@ export function GeoPlate({
           <Path key={`w${i}`} d={d} fill={livingPalette.solarPanel} opacity={0.85} />
         ))}
         {/*
-          GREEN IS DRAWN OVER A PAINTING TOO.
+          AND NOT OVER A PAINTING EITHER.
 
-          Water and squares stay off — the plate has its own and a second
-          one on top would be two rivers. A lawn is different: it is what
-          `pruneDeadEnds` put where a road used to be, so it has to cover
-          the plate's painted ground rather than let a street show through
-          the park that replaced it.
+          This drew the reclaimed lawns over the plate so a closed road
+          would not show through the park that replaced it. Four rounds
+          of trying to make that park look like anything — texture,
+          masses, denser planting, a softer edge — and it stayed a flat
+          green shape against a photorealistic street, because a drawn
+          park cannot compete with a painted one at arm's length.
+
+          The answer was in the problem. `pruneDeadEnds` removes the
+          ROAD; it does not have to add anything. Over the painting the
+          reclaimed ground simply shows the plate's own city, which is
+          beautiful and is already there — the street we do not draw is
+          the street that is not there. The green is drawn over the
+          MATERIAL, where the ground really is bare and something has to
+          be.
         */}
-        {green.map((d, i) => (
+        {(props ? green : []).map((d, i) => (
           <G key={`g${i}`}>
             {/*
               A PARK, NOT A GREEN SLAB.
@@ -829,14 +838,32 @@ export function GeoPlate({
               they are the ground of the park rather than things standing
               on it. See `dressGeo`.
             */}
-            {dressing.shrubs.map((h, i) => (
+            {/*
+              MASSES ARE A FAR-VIEW DEVICE.
+
+              They exist because a four-metre canopy is a dot when the
+              whole neighbourhood is in frame. Standing in the street the
+              same twenty-metre mass is a green balloon the size of a
+              building — which is what it looked like the first time
+              they were drawn at both distances. So they come with the
+              material, which is also the ground that only appears when
+              the camera has pulled back.
+            */}
+            {(props ? dressing.shrubs : []).map((h, i) => (
               <Circle
                 key={`sb${i}`}
                 cx={h.at.u * S}
                 cy={h.at.v * sy}
                 r={h.r * S}
                 fill={h.tone === 1 ? GREEN_INK.mass : GREEN_INK.massDark}
-                opacity={0.5}
+                /*
+                 * Stronger over a painting than over the material. On
+                 * stone the whole park is drawn and the masses are one
+                 * layer of several; over the plate the park is the ONLY
+                 * drawn thing in a painted street, so a faint mass reads
+                 * as a flat green shape with a smudge on it.
+                 */
+                opacity={0.55}
               />
             ))}
             {dressing.crossings.map((c, i) => {
@@ -1044,12 +1071,17 @@ export function GeoPlate({
               painting the layer that moves is the lamplight.
             */}
           {/*
-            Over a painted scene the street trees stay off — it has
-            better ones. The PARK trees do not: a lawn that replaced a
-            road has nothing painted on it at all, so the canopies inside
-            green areas are drawn either way.
+            NOTHING DRAWN OVER A PAINTING, INCLUDING THE PARKS.
+
+            The park trees used to be the exception: a reclaimed lawn had
+            nothing painted on it, so its canopies were drawn either way.
+            That stopped being true when the lawn stopped being drawn —
+            over the plate the reclaimed ground shows the painted city,
+            which already has trees on it, and two flat canopies landing
+            in the middle of it were the last thing on that screen that
+            looked drawn.
           */}
-          {(props ? dressing.trees : dressing.trees.filter((t) => t.inPark)).map((t, i) => (
+          {(props ? dressing.trees : []).map((t, i) => (
               <G key={`tr${i}`}>
                 {/*
                   A CANOPY IS SEVERAL MASSES, NOT A DISC.
