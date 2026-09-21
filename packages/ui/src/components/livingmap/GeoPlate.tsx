@@ -485,10 +485,35 @@ export function GeoPlate({
         {(paintedGround ? [] : water).map((d, i) => (
           <Path key={`w${i}`} d={d} fill={livingPalette.solarPanel} opacity={0.85} />
         ))}
-        {(paintedGround ? [] : green).map((d, i) => (
+        {/*
+          GREEN IS DRAWN OVER A PAINTING TOO.
+
+          Water and squares stay off — the plate has its own and a second
+          one on top would be two rivers. A lawn is different: it is what
+          `pruneDeadEnds` put where a road used to be, so it has to cover
+          the plate's painted ground rather than let a street show through
+          the park that replaced it.
+        */}
+        {green.map((d, i) => (
           <G key={`g${i}`}>
-            <Path d={d} fill={livingPalette.foliageDark} opacity={0.9} />
-            <Path d={d} fill="none" stroke={livingPalette.foliage} strokeWidth={2} />
+            {/*
+              A PARK, NOT A GREEN SLAB.
+
+              Flat `foliage` at full strength came out as a highlighter
+              stripe across the city — a placeholder, which on a real
+              street is worse than the road it replaced. Dark planting
+              tone, a soft lit edge where the street lamps reach it, and
+              the canopies `dressGeo` scatters inside it are what make it
+              read as ground rather than as a shape somebody filled in.
+            */}
+            <Path d={d} fill="#22402F" opacity={paintedGround ? 0.92 : 0.85} />
+            <Path
+              d={d}
+              fill="none"
+              stroke={livingPalette.foliageLight}
+              strokeWidth={2.5}
+              opacity={0.28}
+            />
           </G>
         ))}
         {(paintedGround ? [] : squares).map((d, i) => (
@@ -890,7 +915,13 @@ export function GeoPlate({
               for the case where there is no artwork underneath; over a
               painting the layer that moves is the lamplight.
             */}
-          {(props ? dressing.trees : []).map((t, i) => (
+          {/*
+            Over a painted scene the street trees stay off — it has
+            better ones. The PARK trees do not: a lawn that replaced a
+            road has nothing painted on it at all, so the canopies inside
+            green areas are drawn either way.
+          */}
+          {(props ? dressing.trees : dressing.trees.filter((t) => t.inPark)).map((t, i) => (
               <G key={`tr${i}`}>
                 {/*
                   A CANOPY IS SEVERAL MASSES, NOT A DISC.

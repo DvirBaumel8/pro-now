@@ -4,8 +4,14 @@ import {
   type WorldWay,
   groundProject,
   metresToWorld,
+  pointInRing,
   ringArea,
 } from "@pro-now/types";
+
+/** World units to metres, using the plan's own width. */
+function worldToMetresApprox(plan: WorldPlan, world: number): number {
+  return world * plan.widthMetres;
+}
 
 /**
  * WHAT TURNS A STREET PLAN INTO OUR CITY.
@@ -77,6 +83,8 @@ export interface Tree {
    * shape when the camera moves.
    */
   lobes: ReadonlyArray<{ du: number; dv: number; r: number; lit: number }>;
+  /** Planting inside a green area rather than along a kerb. */
+  inPark?: boolean;
 }
 
 export interface Lamp {
@@ -285,6 +293,64 @@ export function dressGeo(plan: WorldPlan, opts: DressingOptions = {}): GeoDressi
         r: m(way.kind === "ARTERIAL" ? 7 : 5.5),
       });
     });
+  }
+
+  /*
+   * ---------------------------------------------------------------------
+   * AND PLANTING ON THE GROUND THAT USED TO BE A ROAD
+   * ---------------------------------------------------------------------
+   * `pruneDeadEnds` turns a road that stopped in the middle of the city
+   * into a lawn — Amit's own answer to it. Drawn as a bare polygon that
+   * lawn is a flat green slab, which reads as a placeholder rather than
+   * as a park, and a placeholder on a real street is worse than the road
+   * it replaced.
+   *
+   * So every green area gets planting, scattered inside its own ring from
+   * its own id. The trees are the same trees the streets have, which is
+   * what makes a park look like part of this city rather than like a
+   * shape somebody filled in.
+   */
+  for (const area of plan.areas) {
+    if (area.kind !== "GREEN") continue;
+    if (trees.length >= maxTrees) break;
+    const us = area.ring.map((p) => p.u);
+    const vs = area.ring.map((p) => p.v);
+    const u0 = Math.min(...us);
+    const u1 = Math.max(...us);
+    const v0 = Math.min(...vs);
+    const v1 = Math.max(...vs);
+    const spanMetres = worldToMetresApprox(plan, Math.max(u1 - u0, v1 - v0));
+    const want = Math.max(2, Math.min(14, Math.round(spanMetres / 16)));
+    let placed = 0;
+    for (let k = 0; k < want * 6 && placed < want; k++) {
+      if (trees.length >= maxTrees) break;
+      const a = hash01(area.id, k * 3);
+      const b = hash01(area.id, k * 3 + 1);
+      const c = hash01(area.id, k * 3 + 2);
+      const at = { u: u0 + (u1 - u0) * a, v: v0 + (v1 - v0) * b };
+      if (!pointInRing(area.ring, at)) continue;
+      const lobes = [];
+      for (let j = 0; j < 5; j++) {
+        const la = hash01(area.id, k * 31 + j * 7);
+        const lb = hash01(area.id, k * 37 + j * 11);
+        const ang = (j / 5) * Math.PI * 2 + la * 0.8;
+        const reach = j === 0 ? 0 : 0.42 + lb * 0.24;
+        lobes.push({
+          du: Math.cos(ang) * reach,
+          dv: Math.sin(ang) * reach * 0.8,
+          r: j === 0 ? 0.78 : 0.44 + la * 0.22,
+          lit: Math.max(0, -Math.cos(ang - 0.9)),
+        });
+      }
+      trees.push({
+        at,
+        r: m(1.7 + c * 1.4),
+        tone: (Math.floor(c * 3) % 3) as 0 | 1 | 2,
+        lobes,
+        inPark: true,
+      });
+      placed++;
+    }
   }
 
   /*

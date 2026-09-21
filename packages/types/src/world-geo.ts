@@ -1055,3 +1055,221 @@ export const MAX_FRONTAGE_SHIFT_METRES = 25;
 export function frontageIsHonest(f: Frontage | null): boolean {
   return f !== null && f.movedMetres <= MAX_FRONTAGE_SHIFT_METRES;
 }
+
+/* ------------------------------------------------------------------ */
+/* ROADS THAT STOP IN THE MIDDLE OF THE CITY                           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A STREET THAT GOES NOWHERE IS A DRAWING MISTAKE, EVEN WHEN IT IS TRUE.
+ *
+ * ---------------------------------------------------------------------
+ * WHAT AMIT SAW
+ * ---------------------------------------------------------------------
+ *     "שים לב מעכשיו שיש כבישים חתוכים באמצע המפה, אפשר לוותר עליהם
+ *      ולשים שם מדשאות ועסקים שלנו עתידיים. דוג ווקרים ומאמני כושר."
+ *
+ * He is right, and it is worth being precise about why, because the
+ * geometry is not wrong. An extract is a rectangle cut out of a city, so
+ * it is full of ways that genuinely end: a service lane behind a
+ * building, a cul-de-sac, a road whose continuation was simplified away.
+ * All true, and all of them read as a road somebody forgot to finish.
+ *
+ * The exception is the frame. A road that runs off the EDGE of the
+ * extract does not read as broken at all — it reads as the city
+ * continuing, which is the property this world has been chasing since the
+ * plaza was thrown away. So the rule is not "remove short roads", it is
+ * "remove ends that stop where nothing is", and where the edge of the
+ * frame is counts as somewhere.
+ *
+ * ---------------------------------------------------------------------
+ * AND WHAT GOES THERE INSTEAD
+ * ---------------------------------------------------------------------
+ * Amit's own answer, and it is a product decision rather than a visual
+ * one: green, and room for businesses that are not shopfronts. A dog
+ * walker and a fitness trainer do not have a doorway, and a city of
+ * nothing but shopfronts has nowhere to put them. The reclaimed ground
+ * comes back as `GREEN`, which the world already knows how to draw, and
+ * `reclaimed` is returned separately so a caller can treat those areas as
+ * sites rather than as scenery.
+ */
+export interface PrunedGeo {
+  geo: WorldGeo;
+  /** The lawns that replaced the removed stubs. */
+  reclaimed: GeoArea[];
+  /** How many ends were trimmed, for a tool that wants to report it. */
+  trimmed: number;
+}
+
+export interface PruneOptions {
+  /**
+   * How near the frame's edge an end may be and still count as leaving.
+   *
+   * Generous on purpose: an extract is clipped by a bounding box, and a
+   * way's last vertex before the cut can be tens of metres inside it.
+   * Too small and every road out of the city is treated as a stub and
+   * deleted, which removes the roads that matter most.
+   */
+  edgeMetres?: number;
+  /** A trimmed end longer than this is a real street, and is kept. */
+  maxStubMetres?: number;
+}
+
+export function pruneDeadEnds(geo: WorldGeo, opts: PruneOptions = {}): PrunedGeo {
+  const edgeMetres = opts.edgeMetres ?? 40;
+  const maxStubMetres = opts.maxStubMetres ?? 140;
+
+  const plan = planWorld(geo);
+  const edge = metresToWorld(geo.bounds, edgeMetres);
+  const snap = metresToWorld(geo.bounds, 1.2);
+  const key = (p: NormalizedPoint) => `${Math.round(p.u / snap)}:${Math.round(p.v / snap)}`;
+
+  /* How many way-ends and crossings meet at each point. */
+  const degree = new Map<string, number>();
+  const bump = (p: NormalizedPoint) => degree.set(key(p), (degree.get(key(p)) ?? 0) + 1);
+  for (const way of plan.ways) for (const p of way.points) bump(p);
+
+  const atFrame = (p: NormalizedPoint) =>
+    p.u <= edge || p.u >= 1 - edge || p.v <= edge || p.v >= 1 - edge;
+
+  const keptWays: GeoWay[] = [];
+  const reclaimed: GeoArea[] = [];
+  let trimmed = 0;
+
+  /*
+   * AN ISLAND IS A ROAD NOBODY CAN REACH AT ALL.
+   *
+   * The trimming below walks in from an end to the first junction, which
+   * handles a spur off a street. It does nothing for a way that touches
+   * NOTHING — and that is the worst case, because every metre of it is
+   * unreachable: a vehicle could only drive it by being placed on it.
+   *
+   * Measured by distance to the other ways rather than by shared
+   * vertices, because two roads that visibly meet on screen very often
+   * do not share a point in an extract that has been simplified or
+   * reprojected. Eight metres is about a carriageway: closer than that
+   * and they are touching, whatever the file says.
+   */
+  const touchMetres = metresToWorld(geo.bounds, 8);
+  const isIsland = plan.ways.map((way, i) => {
+    let nearest = Infinity;
+    for (let j = 0; j < plan.ways.length; j++) {
+      if (j === i) continue;
+      for (const p of way.points) {
+        const on = nearestOnPolyline(plan.ways[j]!.points, p);
+        if (on && on.distance < nearest) nearest = on.distance;
+      }
+    }
+    return nearest > touchMetres;
+  });
+
+  for (let i = 0; i < plan.ways.length; i++) {
+    const world = plan.ways[i]!;
+    const source = geo.ways[i]!;
+
+    /*
+     * An island that also never leaves the frame is unreachable, whatever
+     * its length — so it goes whole, and the ground it stood on becomes
+     * lawn. One that runs off the edge is a road into the rest of the
+     * city and is kept even though nothing in this rectangle connects to
+     * it.
+     */
+    if (isIsland[i] && !world.points.some(atFrame)) {
+      reclaimed.push(lawnOver(geo, source.points, source.widthMetres, `${source.id}_lawn`));
+      trimmed++;
+      continue;
+    }
+    /* Which of its own vertices are junctions with something else. */
+    const junction = world.points.map((p) => (degree.get(key(p)) ?? 0) > 1);
+
+    let first = 0;
+    let last = world.points.length - 1;
+
+    /*
+     * Walk in from each end to the first junction. Everything before it
+     * is a piece of road nobody can reach except by driving up it and
+     * back, which is the thing that looks unfinished.
+     */
+    const stubLength = (from: number, to: number) => {
+      let t = 0;
+      const step = from < to ? 1 : -1;
+      for (let k = from; k !== to; k += step) {
+        const a = world.points[k]!;
+        const b = world.points[k + step]!;
+        t += Math.hypot(b.u - a.u, b.v - a.v);
+      }
+      return worldToMetres(geo.bounds, t);
+    };
+
+    if (!atFrame(world.points[0]!) && !junction[0]) {
+      let k = 1;
+      while (k < last && !junction[k] && !atFrame(world.points[k]!)) k++;
+      if (stubLength(0, k) <= maxStubMetres) {
+        reclaimed.push(lawnOver(geo, source.points.slice(0, k + 1), source.widthMetres, `${source.id}_lawn_a`));
+        first = k;
+        trimmed++;
+      }
+    }
+    if (!atFrame(world.points[last]!) && !junction[last]) {
+      let k = last - 1;
+      while (k > first && !junction[k] && !atFrame(world.points[k]!)) k--;
+      if (stubLength(last, k) <= maxStubMetres) {
+        reclaimed.push(lawnOver(geo, source.points.slice(k), source.widthMetres, `${source.id}_lawn_b`));
+        last = k;
+        trimmed++;
+      }
+    }
+
+    /*
+     * A way trimmed to nothing is dropped entirely. Keeping a
+     * single-point way would leave `geoViolations` complaining about a
+     * road with fewer than two points — which is the correct complaint
+     * about the wrong thing.
+     */
+    if (last - first >= 1) {
+      keptWays.push({ ...source, points: source.points.slice(first, last + 1) });
+    } else {
+      trimmed++;
+    }
+  }
+
+  return {
+    geo: { ...geo, ways: keptWays, areas: [...geo.areas, ...reclaimed] },
+    reclaimed,
+    trimmed,
+  };
+}
+
+/**
+ * A lawn shaped like the road it replaces, and a little wider.
+ *
+ * Wider because the road had pavements either side and they are being
+ * reclaimed too; a lawn exactly the carriageway's width leaves two strips
+ * of nothing down the sides of a park.
+ */
+function lawnOver(
+  geo: WorldGeo,
+  points: readonly GeoPoint[],
+  widthMetres: number,
+  id: string
+): GeoArea {
+  const bounds = geo.bounds;
+  const world = points.map((p) => projectToWorld(bounds, p));
+  const half = metresToWorld(bounds, (widthMetres + 7) / 2);
+
+  const left: NormalizedPoint[] = [];
+  const right: NormalizedPoint[] = [];
+  for (let i = 0; i < world.length; i++) {
+    const a = world[Math.max(0, i - 1)]!;
+    const b = world[Math.min(world.length - 1, i + 1)]!;
+    const du = b.u - a.u;
+    const dv = b.v - a.v;
+    const len = Math.hypot(du, dv) || 1;
+    const n = { u: -dv / len, v: du / len };
+    const p = world[i]!;
+    left.push({ u: p.u + n.u * half, v: p.v + n.v * half });
+    right.push({ u: p.u - n.u * half, v: p.v - n.v * half });
+  }
+  const ring = [...left, ...right.reverse()];
+  return { id, kind: "GREEN", ring: ring.map((p) => unprojectFromWorld(bounds, p)) };
+}

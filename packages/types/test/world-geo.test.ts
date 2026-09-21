@@ -25,6 +25,7 @@ import {
   planWorld,
   plotSpotsFromGeo,
   projectToWorld,
+  pruneDeadEnds,
   ringArea,
   ringCentroid,
   roadSamplesFromGeo,
@@ -487,5 +488,90 @@ describe("where a real business stands", () => {
   it("says nothing about the building behind it", () => {
     const f = frontageNear(plan, spine.points[2]!)!;
     expect(Object.keys(f).sort()).toEqual(["at", "facing", "movedMetres", "wayId"]);
+  });
+});
+
+describe("roads that stop in the middle of the city", () => {
+  /*
+   * Amit: *"שים לב שיש כבישים חתוכים באמצע המפה, אפשר לוותר עליהם ולשים
+   * שם מדשאות ועסקים שלנו עתידיים."*
+   *
+   * The geometry is not wrong — an extract is a rectangle cut out of a
+   * city and is full of ways that genuinely end. It still reads as a road
+   * somebody forgot to finish, and the exception is the frame: a road
+   * running off the EDGE reads as the city continuing, which is the
+   * property this world has been chasing since the plaza.
+   */
+  it("removes a lane that dead-ends inside the frame", () => {
+    expect(fixture.ways.some((w) => w.id === "w_lane")).toBe(true);
+    const { geo: cleaned, trimmed } = pruneDeadEnds(fixture);
+    expect(trimmed).toBeGreaterThan(0);
+    const lane = cleaned.ways.find((w) => w.id === "w_lane");
+    // Either gone, or trimmed back to the junction it actually meets.
+    if (lane) expect(lane.points.length).toBeLessThan(3);
+  });
+
+  it("puts a lawn where the road was", () => {
+    const { reclaimed } = pruneDeadEnds(fixture);
+    expect(reclaimed.length).toBeGreaterThan(0);
+    for (const area of reclaimed) {
+      expect(area.kind).toBe("GREEN");
+      expect(area.ring.length).toBeGreaterThanOrEqual(4);
+    }
+  });
+
+  /*
+   * THE ONE THAT WOULD HAVE DELETED THE CITY.
+   *
+   * Every road out of a neighbourhood ends at the bounding box, and those
+   * are the roads that matter most — the spine included. A rule written
+   * as "remove ways that end at nothing" without the frame exception
+   * removes them all, and the symptom is a city with no way in or out.
+   */
+  it("keeps every road that leaves the frame", () => {
+    const { geo: cleaned } = pruneDeadEnds(fixture);
+    const spine = cleaned.ways.find((w) => w.id === "w_spine");
+    expect(spine).toBeDefined();
+    expect(spine!.points.length).toBe(fixture.ways.find((w) => w.id === "w_spine")!.points.length);
+    const cross = cleaned.ways.find((w) => w.id === "w_cross");
+    expect(cross!.points.length).toBe(fixture.ways.find((w) => w.id === "w_cross")!.points.length);
+  });
+
+  it("leaves an extract that has no stubs alone", () => {
+    const { geo: once } = pruneDeadEnds(fixture);
+    const { geo: twice, trimmed } = pruneDeadEnds(once);
+    expect(trimmed).toBe(0);
+    expect(twice.ways.length).toBe(once.ways.length);
+  });
+
+  it("still passes every check an extract has to pass", () => {
+    const { geo: cleaned } = pruneDeadEnds(fixture);
+    expect(geoViolations(cleaned)).toEqual([]);
+    // And the city still has somewhere to put its shops.
+    expect(plotSpotsFromGeo(planWorld(cleaned)).length).toBeGreaterThanOrEqual(11);
+  });
+
+  /*
+   * `maxStubMetres` governs TRIMMING a spur back to its junction. It does
+   * not save an island: a way that touches nothing is unreachable at any
+   * length, because a vehicle could only drive it by being placed on it.
+   * The fixture's service lane is exactly that, which is why lowering the
+   * stub limit does not keep it.
+   */
+  it("keeps a long spur that is attached, and drops an island whatever its length", () => {
+    const attached = pruneDeadEnds(fixture, { maxStubMetres: 5 });
+    expect(attached.geo.ways.some((w) => w.id === "w_lane")).toBe(false);
+    // Every way that touches the network survives a tiny stub limit.
+    for (const id of ["w_spine", "w_cross", "w_row_0", "w_col_1"]) {
+      expect(attached.geo.ways.some((w) => w.id === id)).toBe(true);
+    }
+  });
+
+  it("reclaims the island as one lawn the shape of the road", () => {
+    const { reclaimed } = pruneDeadEnds(fixture);
+    const lawn = reclaimed.find((a) => a.id.startsWith("w_lane"));
+    expect(lawn).toBeDefined();
+    // A ribbon: two sides of a three-point way, so six corners.
+    expect(lawn!.ring.length).toBe(6);
   });
 });

@@ -3,13 +3,16 @@ import { Animated, Easing, StyleSheet, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 
 import {
+  alongRoute,
   assignmentRoute,
   bobAt,
   CUSTOMER_POINT,
+  depthScale,
   leanAt,
   vehicleHeight,
   type DepartmentCode,
   type Gait,
+  type NormalizedPoint,
 } from "@pro-now/types";
 
 import { palette } from "../../theme";
@@ -104,6 +107,33 @@ export interface RouteLayerProps {
   vehicleAssetId?: string;
   sources?: WorldAssetSources;
   animate?: boolean;
+  /**
+   * THE ROAD, WHEN THERE IS A ROAD.
+   *
+   * -------------------------------------------------------------------
+   * WHAT THIS REPLACES, AND WHY IT IS A DIFFERENT KIND OF THING
+   * -------------------------------------------------------------------
+   * `assignmentRoute` bends a curve between a shop and a customer and
+   * then nudges it towards a carriageway that was measured off a
+   * painting. It is three legs and two constants, and it is as close to a
+   * road as a drawing can get when there is no road.
+   *
+   * Amit has made the same complaint about it more than once — *"הדמויות
+   * זזות ונוסעות לא טוב ומציאותי על הכביש"*, *"חייב שהכלי רכב יסעו כמו
+   * שצריך על הכביש"* — and every answer so far has been a better curve.
+   *
+   * On a real extract there is a street network, and a route stops being
+   * a shape to tune and becomes a path to find: `routeAlongRoads` runs
+   * Dijkstra over the junctions and the van turns left because the
+   * turning is there. Given here, it is used instead of the curve; the
+   * gait, the depth, the easing and the bob are unchanged, because those
+   * were never the part that was wrong.
+   *
+   * It carries no time on it. See `world-routing.ts` — the distance is
+   * along drawn geometry with no traffic and no one-way streets in it,
+   * and `progress` still comes from the server's own ETA.
+   */
+  path?: readonly NormalizedPoint[] | null;
 }
 
 export function RouteLayer({
@@ -115,6 +145,7 @@ export function RouteLayer({
   vehicleAssetId = "courier_scooter",
   sources = EMPTY_ASSET_SOURCES,
   animate = true,
+  path = null,
 }: RouteLayerProps) {
   // `width`/`height` are the WORLD's size in points.
   const basis = sizeBasis ?? width;
@@ -144,7 +175,31 @@ export function RouteLayer({
    * updating, which is precisely what this file exists to avoid.
    */
   const table = useMemo(() => {
-    const route = assignmentRoute(department, 160);
+    /*
+     * Resampled at even DISTANCE, not at even point index — a real
+     * route's points are junctions and are nowhere near evenly spaced,
+     * so stepping by index makes a van crawl down a long straight and
+     * then leap across four turns in a row. `alongRoute` measures.
+     */
+    const route =
+      path && path.length >= 2
+        ? (() => {
+            const asRoute = { path: [...path], drive: [...path], metres: 0 };
+            let previous = alongRoute(asRoute, 0).at;
+            return Array.from({ length: 160 }, (_, i) => {
+              const at = alongRoute(asRoute, i / 159).at;
+              /*
+               * The same three fields the curve produces, computed the
+               * same way — depth from `v` alone, and facing from the
+               * direction of travel, so a van turning a corner turns
+               * round rather than sliding sideways.
+               */
+              const sample = { at, scale: depthScale(at.v), facingLeft: at.u < previous.u };
+              previous = at;
+              return sample;
+            });
+          })()
+        : assignmentRoute(department, 160);
     const steps = route.map((_, i) => i / (route.length - 1));
 
     /*
@@ -179,7 +234,7 @@ export function RouteLayer({
       .join(" ");
 
     return { route, steps, travelled, d };
-  }, [department, width, height]);
+  }, [department, width, height, path]);
 
   const { route, steps, travelled, d } = table;
 

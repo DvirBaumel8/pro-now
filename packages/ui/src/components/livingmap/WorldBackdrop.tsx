@@ -1,12 +1,12 @@
 import React, { useEffect, useRef } from "react";
 import { Animated, Easing, StyleSheet, View } from "react-native";
 
-import { type WorldGeo, geoAspect, worldBox, worldZoomFor } from "@pro-now/types";
+import { type WorldGeo, SHOT_METRES, geoAspect, worldBox, worldZoomFor } from "@pro-now/types";
 
 import { palette } from "../../theme";
 import { AssetSlot, EMPTY_ASSET_SOURCES, type WorldAssetSources } from "./AssetSlot";
 import { DistrictLayer } from "./DistrictLayer";
-import { GeoPlate } from "./GeoPlate";
+import { WorldGround } from "./WorldGround";
 import { WorldLife } from "./WorldLife";
 
 /**
@@ -349,7 +349,21 @@ export function WorldBackdrop({
             transform: travelTransform,
           }}
         >
-          <GeoPlate geo={geo} width={worldW} height={worldH} />
+          {/*
+            THE SAME GROUND THE STROLL SCREEN STANDS ON — the painted
+            city in the blocks, the real road corridor laid over it in
+            stone, and the roads that stopped in the middle of the map
+            reclaimed as lawn. See `WorldGround`, which is where that
+            decision lives once.
+          */}
+          <WorldGround
+            width={worldW}
+            height={worldH}
+            sources={sources}
+            geo={geo}
+            metresAcross={SHOT_METRES.ROUTE}
+            animate={animate}
+          />
         </Animated.View>
       ) : null}
       {!geo && hasArt ? (

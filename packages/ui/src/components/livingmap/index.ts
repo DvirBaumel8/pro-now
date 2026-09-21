@@ -20,3 +20,4 @@ export * from "./ScrimBand";
 export * from "./ErrandLayer";
 export * from "./GeoPlate";
 export * from "./PaintedGround";
+export * from "./WorldGround";

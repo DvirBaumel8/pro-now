@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import {
@@ -12,6 +12,14 @@ import {
   type JobState,
   type ProfessionalSummaryView,
   type WorldGeo,
+  buildRoadGraph,
+  CUSTOMER_POINT,
+  DISTRICT_SITES,
+  frontageNear,
+  planWorld,
+  plotSpotsFromGeo,
+  pruneDeadEnds,
+  routeAlongRoads,
 } from "@pro-now/types";
 
 import { formatCompletedJobs, formatEta, formatProNowRating } from "../format";
@@ -163,6 +171,34 @@ export function TrackingBody({
   const assigned = status !== "SEARCHING" && status !== "DRAFT" && status !== "OFFERING";
 
   /*
+   * ---------------------------------------------------------------------
+   * THE ROAD THE PROFESSIONAL ACTUALLY TAKES
+   * ---------------------------------------------------------------------
+   * Found once per extract and per trade rather than per frame: this
+   * screen re-renders at least once a second from its own ETA clock,
+   * forever, while somebody watches, and Dijkstra over a few thousand
+   * junctions is not a per-frame job. `RouteLayer` has the same note
+   * about its own sample table and for the same reason.
+   *
+   * The trade's shopfront is a stand-in for where the professional set
+   * off from; the day the server sends a real origin it goes through
+   * `frontageNear` and nothing else here changes.
+   */
+  const roadPath = useMemo(() => {
+    if (!geo) return null;
+    const cleaned = pruneDeadEnds(geo).geo;
+    const plan = planWorld(cleaned);
+    const spots = plotSpotsFromGeo(plan);
+    if (spots.length === 0) return null;
+    const i = DISTRICT_SITES.findIndex((d) => d.department === departmentCode);
+    const from = spots[(i < 0 ? 0 : i) % spots.length]!;
+    const to = frontageNear(plan, CUSTOMER_POINT);
+    if (!to) return null;
+    const route = routeAlongRoads(buildRoadGraph(plan), from, to.at);
+    return route ? route.path : null;
+  }, [geo, departmentCode]);
+
+  /*
    * With no signals from the caller the screen assumes nothing is wrong —
    * but it assumes it by running the SAME function, with a promise that has
    * not yet passed, rather than by hard-coding a happy phase. A default
@@ -308,6 +344,13 @@ export function TrackingBody({
               departmentCode={departmentCode}
               animate={animate}
               /*
+               * The same ground the stroll screen stands on. Two screens
+               * showing two different cities with the same street names
+               * is the drift `art-delivery.test` exists to stop, arrived
+               * at from the other direction — so the extract goes to both.
+               */
+              geo={geo}
+              /*
                * THE CAMERA FOLLOWS THEM.
                *
                * A fixed shot with a vehicle crossing it is a map with a dot
@@ -355,6 +398,16 @@ export function TrackingBody({
                   vehicleAssetId={vehicleAssetId}
                   sources={worldSources}
                   animate={animate}
+                  /*
+                   * THE ROAD, WHEN THERE IS A ROAD.
+                   *
+                   * Amit has made this complaint more than once —
+                   * *"חייב שכלי הרכב יסעו כמו שצריך על הכביש"* — and
+                   * every previous answer was a better curve. On a real
+                   * extract the van turns left because the junction is
+                   * there. See `routeAlongRoads`.
+                   */
+                  path={roadPath}
                 />
               )}
             </WorldBackdrop>

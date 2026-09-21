@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 
 import {
   avatarById,
@@ -9,7 +9,6 @@ import {
   geoAspect,
   groundDisclosureHe,
   geoZoomFor,
-  groundMaterials,
   metresToWorld,
   planWorld,
   plotSpotsFromGeo,
@@ -38,8 +37,7 @@ import { ErrandLayer } from "../components/livingmap/ErrandLayer";
 import { ScrimBand } from "../components/livingmap/ScrimBand";
 import { SteerPad } from "../components/livingmap/SteerPad";
 import { Walker } from "../components/livingmap/Walker";
-import { GeoPlate } from "../components/livingmap/GeoPlate";
-import { PaintedGround } from "../components/livingmap/PaintedGround";
+import { WorldGround } from "../components/livingmap/WorldGround";
 import { WorldViewport } from "../components/livingmap/WorldViewport";
 import { palette, radii, spacing, type } from "../theme";
 import { depthChanged, nearestDistrict } from "./stroll";
@@ -147,7 +145,7 @@ export function StrollBody({
    * is present. Nothing is drawn if neither exists — an empty street is
    * more honest than an invented one.
    */
-  const ground = sources["world_neighbourhood"] ?? sources["shared_ground_street"];
+
 
   const u = useRef(new Animated.Value(WALK_START.u)).current;
   const v = useRef(new Animated.Value(WALK_START.v)).current;
@@ -196,41 +194,8 @@ export function StrollBody({
     () => (plan ? plotSpotsFromGeo(plan) : null),
     [plan]
   );
-  /*
-   * ---------------------------------------------------------------------
-   * WHICH GROUND IS UNDERFOOT
-   * ---------------------------------------------------------------------
-   * Three states, in order of how good they are, and the build takes the
-   * best one it actually has.
-   *
-   *   1. MATERIAL tiles — seamless stone with nothing recognisable in it,
-   *      scattered with props in code. No repetition the eye can find and
-   *      no painted road to fight the real one.
-   *   2. The scene plate, tiled. Beautiful, and it repeats, and its
-   *      painted road argues with the carved one.
-   *   3. No artwork: the drawn city, which is honest and is a diagram.
-   *
-   * Amit's *"איפה העולם הקסום שבנינו?"* is why 3 is last rather than
-   * first, and ChatGPT's material kit is why 1 exists at all.
-   */
-  const groundLayer = useMemo(() => {
-    const mats = groundMaterials((id) => Boolean(sources[id]));
-    const pave = mats.length > 0 ? (sources[mats[0]!] as { uri: string } | undefined) ?? null : null;
-    if (ground) {
-      /*
-       * The painted city is the ground, and the stone — when we have it —
-       * is laid along the real road corridor on top, where it covers the
-       * plate's own painted road exactly where the real one runs.
-       */
-      return { sources: [ground], material: false, tileMetres: undefined, pave };
-    }
-    if (mats.length > 0) {
-      // No painting at all: the material is the whole ground, and the
-      // props are what make it a city rather than a quarry.
-      return { sources: mats.map((id) => sources[id]!), material: true, tileMetres: 14, pave: null };
-    }
-    return null;
-  }, [ground, sources]);
+  /* Which ground is underfoot is `WorldGround`'s decision now. */
+
 
   const shopWidth = useMemo(
     () => (geo ? metresToWorld(geo.bounds, REAL_METRES.shopFrontage) : undefined),
@@ -441,45 +406,14 @@ export function StrollBody({
               carved through it — so the blocks between the roads are the
               artwork, and only the streets come from OpenStreetMap.
             */}
-            {geo && groundLayer ? (
-              <>
-                <PaintedGround
-                  source={groundLayer.sources}
-                  bounds={geo.bounds}
-                  width={world.width}
-                  height={world.height}
-                  tileMetres={groundLayer.tileMetres}
-                />
-                <View style={StyleSheet.absoluteFill}>
-                  <GeoPlate
-                    geo={geo}
-                    width={world.width}
-                    height={world.height}
-                    metresAcross={metresAcross}
-                    paintedGround
-                    /*
-                     * A MATERIAL HAS NOTHING IN IT, WHICH IS THE POINT.
-                     *
-                     * Over the scene plate the props stay off — it has
-                     * better palms than anything drawn here. Over stone
-                     * they are the city: trees, lamps and their light,
-                     * scattered from the geometry rather than painted
-                     * into a tile that then repeats.
-                     */
-                    drawProps={groundLayer.material}
-                    paveSource={groundLayer.pave}
-                  />
-                </View>
-              </>
-            ) : geo ? (
-              <GeoPlate geo={geo} width={world.width} height={world.height} metresAcross={metresAcross} />
-            ) : ground ? (
-              <Image
-                source={ground}
-                style={{ width: world.width, height: world.height }}
-                resizeMode="cover"
-              />
-            ) : null}
+            <WorldGround
+              width={world.width}
+              height={world.height}
+              sources={sources}
+              geo={geo}
+              metresAcross={metresAcross}
+              animate={animate}
+            />
 
             {/*
               * FURTHER DOWN THE STREET THAN THE WALKER — drawn first, so
