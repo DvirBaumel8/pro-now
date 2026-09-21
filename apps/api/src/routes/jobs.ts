@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { createJobSchema } from "@pro-now/validation";
 import { triggerDispatch } from "../domain/dispatch/dispatch-service";
-import { assertTransition } from "../domain/job/transitions";
+import { assertTransition, nextAfterArrival } from "../domain/job/transitions";
 
 /**
  * See /docs/06-API-SPEC.md and /docs/05-DATABASE.md §Job creation
@@ -97,15 +97,33 @@ export default async function jobsRoutes(app: FastifyInstance) {
   ] as const) {
     app.post(path, { onRequest: app.requireAuth }, async (req, reply) => {
       const { id } = req.params as { id: string };
-      const job = await app.prisma.job.findUnique({ where: { id } });
+      const job = await app.prisma.job.findUnique({ where: { id }, include: { service: true } });
       if (!job) return reply.status(404).send({ code: "JOB_NOT_FOUND", message: "Job not found" });
 
-      assertTransition(job.status, nextState, "PROFESSIONAL");
-      await app.prisma.job.update({ where: { id }, data: { status: nextState } });
+      /*
+       * STARTING IS TWO DIFFERENT MOVES, AND THIS ROW DECIDED ONLY ONE.
+       *
+       * `/start` sent every job straight to IN_PROGRESS. For a VISIT_QUOTE
+       * service that skips DIAGNOSIS entirely — the state where the
+       * professional looks at the problem and writes a quote — so the job
+       * jumped past the step where the price is agreed and landed in
+       * "working" before the customer had approved anything.
+       *
+       * `nextAfterArrival` has encoded the right answer since the state
+       * machine was written (/docs/07-JOB-STATE-MACHINE.md); this route
+       * simply never asked it.
+       */
+      const target =
+        nextState === "IN_PROGRESS"
+          ? nextAfterArrival(job.service.priceModel === "VISIT_QUOTE")
+          : nextState;
+
+      assertTransition(job.status, target, "PROFESSIONAL");
+      await app.prisma.job.update({ where: { id }, data: { status: target } });
       await app.prisma.jobEvent.create({
         data: { jobId: id, type, actor: "PROFESSIONAL", actorId: req.user!.userId, metadata: {} },
       });
-      return reply.send({ ok: true, status: nextState });
+      return reply.send({ ok: true, status: target });
     });
   }
 }

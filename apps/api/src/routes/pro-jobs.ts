@@ -1,0 +1,117 @@
+import type { FastifyInstance } from "fastify";
+import type { ProJobDetailView } from "@pro-now/types";
+
+/**
+ * GET /v1/pro/jobs/:id — the assigned job, as the professional sees it.
+ *
+ * ---------------------------------------------------------------------
+ * WHY THIS HAD TO EXIST
+ * ---------------------------------------------------------------------
+ * The professional's job screens had nowhere to get their facts from.
+ * `GET /v1/jobs/:id` does not expand the address, the customer or the
+ * service, so the screens showed "מלצ׳ט 19, תל אביב" and "ETA: 8 דקות" —
+ * the same street and the same eight minutes to every professional on
+ * every job — and the quote screen pre-filled "החלפת סיפון ₪220" whatever
+ * the trade was. This is the same hole `/v1/jobs/:id/match` was dug for on
+ * the customer's side, on the other side of the job.
+ *
+ * ---------------------------------------------------------------------
+ * THE ADDRESS IS RELEASED HERE, AND ONLY HERE
+ * ---------------------------------------------------------------------
+ * /docs/12-PRIVACY.md: before assignment the professional sees a coarse
+ * area label; after it, the full address. So this endpoint refuses anyone
+ * who is not the assigned professional — not to be tidy, but because the
+ * precise home address of a customer is the thing this route hands out.
+ */
+export default async function proJobsRoutes(app: FastifyInstance) {
+  app.get("/v1/pro/jobs/:id", { onRequest: app.requireAuth }, async (req, reply) => {
+    const { id: jobId } = req.params as { id: string };
+
+    const professional = await app.prisma.professionalProfile.findUnique({
+      where: { userId: req.user!.userId },
+    });
+    if (!professional) {
+      return reply.status(404).send({ code: "PROFESSIONAL_NOT_FOUND", message: "No professional profile" });
+    }
+
+    const job = await app.prisma.job.findUnique({
+      where: { id: jobId },
+      include: {
+        service: true,
+        address: true,
+        customer: true,
+        offers: { where: { status: "ACCEPTED" }, orderBy: { offeredAt: "desc" }, take: 1 },
+        quotes: { orderBy: { version: "desc" } },
+      },
+    });
+    if (!job) return reply.status(404).send({ code: "JOB_NOT_FOUND", message: "Job not found" });
+
+    /*
+     * The gate. Anyone else asking is asking for somebody's home address.
+     * 404 rather than 403, so the endpoint does not confirm that a job
+     * with this id exists to someone who has no business knowing.
+     */
+    if (job.assignedProfessionalId !== professional.id) {
+      return reply.status(404).send({ code: "JOB_NOT_FOUND", message: "Job not found" });
+    }
+
+    const acceptedOffer = job.offers[0];
+    const professionalService = await app.prisma.professionalService.findFirst({
+      where: { professionalId: professional.id, serviceId: job.serviceId },
+    });
+
+    /*
+     * PAYOUT, AND WHEN IT IS HONESTLY UNKNOWABLE.
+     *
+     * A FIXED job's payout is the configured price. A VISIT_QUOTE job's is
+     * the visit fee until a quote is approved, and the total after — so
+     * before that it is an estimate and says so. HOURLY and DISTANCE_TIME
+     * depend on what happens, and null is the only true answer
+     * (/CLAUDE.md §3, transparent provider payout: shown "whenever the
+     * amount is knowable", which means silent when it is not).
+     */
+    const approvedQuote = job.quotes.find((q) => q.id === job.approvedQuoteId);
+    const base = professionalService?.basePriceMinorUnits ?? null;
+    const knowable = job.service.priceModel === "FIXED" || job.service.priceModel === "VISIT_QUOTE";
+    const payoutMinorUnits = approvedQuote?.totalMinorUnits ?? (knowable ? base : null);
+    const payoutIsEstimate =
+      approvedQuote === undefined && job.service.priceModel === "VISIT_QUOTE";
+
+    const pendingQuote = job.quotes.find((q) => q.status === "PENDING_APPROVAL") ?? null;
+
+    const etaSeconds = acceptedOffer?.etaSecondsSnapshot ?? null;
+
+    const result: ProJobDetailView = {
+      jobId: job.id,
+      status: job.status,
+      serviceId: job.serviceId,
+      serviceNameHe: job.service.nameHe,
+      priceModel: job.service.priceModel,
+      addressHe: job.address?.formatted ?? "",
+      /*
+       * Floor, entrance and door code have no column yet. Null rather than
+       * an empty string dressed as an answer — the screen omits the line.
+       */
+      accessNoteHe: null,
+      /*
+       * The customer's own name when they gave one. `fullName` is
+       * optional on CustomerProfile — plenty of people never fill it in —
+       * and an empty string is the honest answer, which the screen renders
+       * as an initial rather than as a made-up name.
+       */
+      customerNameHe: job.customer?.fullName ?? "",
+      descriptionHe: job.description ?? null,
+      /*
+       * The ETA snapshot taken when the offer was made, and never
+       * recomputed here. A professional who is already driving has a
+       * better estimate than we do.
+       */
+      routeEtaMinutes: etaSeconds === null ? null : Math.round(etaSeconds / 60),
+      payoutMinorUnits,
+      payoutIsEstimate,
+      pendingQuote,
+    };
+
+    return reply.send(result);
+  });
+}

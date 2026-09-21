@@ -43,7 +43,7 @@ export function OfferScreen({ route, navigation }: Props) {
         if (cancelled) return;
         if (!result) {
           // No live offer any more — the server has already moved on.
-          navigation.replace("Online");
+          navigation.replace("Offline");
           return;
         }
         setOffer(result);
@@ -63,11 +63,11 @@ export function OfferScreen({ route, navigation }: Props) {
     try {
       const result = await api.acceptOffer(offer?.offerId ?? offerId);
       // Navigate with the jobId the SERVER returned, never a local guess.
-      navigation.replace("Navigation", { jobId: result.jobId });
+      navigation.replace("Job", { jobId: result.jobId });
     } catch {
       // OFFER_NO_LONGER_AVAILABLE, an expiry, or a network error — return to
-      // Online rather than stranding the professional on a dead offer.
-      navigation.replace("Online");
+      // the shift screen rather than stranding them on a dead offer.
+      navigation.replace("Offline");
     } finally {
       setResponding(false);
     }
@@ -81,7 +81,7 @@ export function OfferScreen({ route, navigation }: Props) {
       // A failed skip is not worth blocking on; the offer expires anyway.
     } finally {
       setResponding(false);
-      navigation.replace("Online");
+      navigation.replace("Offline");
     }
   }, [navigation, offer, offerId]);
 

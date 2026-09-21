@@ -1,6 +1,8 @@
 import Constants from "expo-constants";
 import type {
   OfferCardView,
+  ProJobDetailView,
+  ProServiceEligibilityView,
   ProfessionalVerificationView,
   ProPresenceState,
   QuoteView,
@@ -57,4 +59,17 @@ export const api = {
   complete: (jobId: string) => request<{ ok: boolean }>(`/v1/jobs/${jobId}/complete`, { method: "POST" }),
   getEarnings: () => request<{ netMinorUnits: number; currency: string; jobCount: number }>("/v1/pro/earnings"),
   getVerification: () => request<{ professional: ProfessionalVerificationView }>("/v1/pro/verification"),
+  /*
+   * Which services this professional may go online for, decided by the
+   * server. The app used to list two hard-coded ids with switches beside
+   * them, for every professional in the marketplace.
+   */
+  getServices: () => request<{ services: ProServiceEligibilityView[] }>("/v1/pro/services"),
+  /*
+   * The assigned job, with the full address — released only because it IS
+   * assigned (/docs/12-PRIVACY.md). Before this existed the job screens
+   * showed the same Tel Aviv street to every professional on every job.
+   */
+  getProJob: (jobId: string) => request<ProJobDetailView>(`/v1/pro/jobs/${jobId}`),
+  depart: (jobId: string) => request<{ ok: boolean }>(`/v1/jobs/${jobId}/en-route`, { method: "POST" }),
 };

@@ -14,6 +14,8 @@ import jobsRoutes from "./routes/jobs";
 import matchRoutes from "./routes/match";
 import offersRoutes from "./routes/offers";
 import proRoutes from "./routes/pro";
+import proJobsRoutes from "./routes/pro-jobs";
+import proServicesRoutes from "./routes/pro-services";
 import quotesRoutes from "./routes/quotes";
 import reviewsRoutes from "./routes/reviews";
 import { registerJobSocket } from "./realtime/job-socket";
@@ -44,6 +46,8 @@ export async function buildServer() {
   await app.register(matchRoutes);
   await app.register(offersRoutes);
   await app.register(proRoutes);
+  await app.register(proJobsRoutes);
+  await app.register(proServicesRoutes);
   await app.register(quotesRoutes);
   await app.register(reviewsRoutes);
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { assertTransition, isTransitionAllowed, InvalidJobTransitionError } from "../src/domain/job/transitions";
+import { assertTransition, isTransitionAllowed, nextAfterArrival, InvalidJobTransitionError } from "../src/domain/job/transitions";
 
 describe("job state machine — /docs/07-JOB-STATE-MACHINE.md", () => {
   it("allows the full happy-path visit+quote flow", () => {
@@ -45,5 +45,36 @@ describe("job state machine — /docs/07-JOB-STATE-MACHINE.md", () => {
   it("never allows a transition out of a terminal state", () => {
     expect(isTransitionAllowed("CLOSED", "IN_PROGRESS")).toBe(false);
     expect(isTransitionAllowed("CANCELLED", "SEARCHING")).toBe(false);
+  });
+});
+
+/**
+ * The step between arriving and working.
+ *
+ * `nextAfterArrival` has encoded this since the state machine was written
+ * and the route that starts a job never asked it: `/v1/jobs/:id/start`
+ * sent every job straight to IN_PROGRESS. For a VISIT_QUOTE service that
+ * skips DIAGNOSIS — the state where the professional looks at the problem
+ * and writes a price — so the job landed in "working" before the customer
+ * had approved anything, and the quote step had no state to live in.
+ */
+describe("nextAfterArrival", () => {
+  it("sends a quoted service to diagnosis, not to work", () => {
+    expect(nextAfterArrival(true)).toBe("DIAGNOSIS");
+  });
+
+  it("lets a priced service start immediately", () => {
+    // A fixed-price haircut has nothing to diagnose. Forcing it through
+    // DIAGNOSIS would make the professional press a button that means
+    // nothing, which is how people learn to press buttons that do.
+    expect(nextAfterArrival(false)).toBe("IN_PROGRESS");
+  });
+
+  it("returns a state that is actually reachable from PRO_ARRIVED", () => {
+    // The two functions are written apart; this is what makes them agree.
+    for (const requiresDiagnosis of [true, false]) {
+      const target = nextAfterArrival(requiresDiagnosis);
+      expect(() => assertTransition("PRO_ARRIVED", target, "PROFESSIONAL")).not.toThrow();
+    }
   });
 });

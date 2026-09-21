@@ -191,6 +191,77 @@ export interface ProfessionalVerificationView {
   updatedAt: string;
 }
 
+/**
+ * The assigned job, as the PROFESSIONAL sees it.
+ *
+ * ---------------------------------------------------------------------
+ * WHY IT IS A SEPARATE VIEW FROM THE CUSTOMER'S
+ * ---------------------------------------------------------------------
+ * The full address is here, and it is here only because the job is
+ * assigned. Before assignment the professional gets a coarse area label
+ * and nothing more (/docs/12-PRIVACY.md), which is why this cannot be the
+ * same payload as the offer card with a few extra fields bolted on: the
+ * two differ precisely in what they are allowed to contain, and a shared
+ * type would make that difference a runtime decision instead of a
+ * structural one.
+ *
+ * Every field that might not be knowable is nullable and stays null. The
+ * screen this feeds used to show "מלצ׳ט 19, תל אביב" and "ETA: 8 דקות" to
+ * every professional on every job.
+ */
+export interface ProJobDetailView {
+  jobId: string;
+  status: JobState;
+  serviceId: string;
+  serviceNameHe: string;
+  priceModel: PriceModel;
+  /** Released because the job is assigned. Never before. */
+  addressHe: string;
+  /** Floor, entrance, door code — the difference between arriving and finding. */
+  accessNoteHe: string | null;
+  customerNameHe: string;
+  descriptionHe: string | null;
+  /** From the route provider when there is one; null rather than a guess. */
+  routeEtaMinutes: number | null;
+  /**
+   * Expected payout. Null when it genuinely depends on the outcome — a
+   * VISIT_QUOTE job before the quote exists, for instance. A plausible
+   * placeholder here would be a number the professional plans around.
+   */
+  payoutMinorUnits: number | null;
+  payoutIsEstimate: boolean;
+  /** The quote currently awaiting the customer, when there is one. */
+  pendingQuote: QuoteView | null;
+}
+
+/**
+ * One service a professional has applied for, and whether they may take
+ * calls on it right now.
+ *
+ * The server decides — /CLAUDE.md §3, "Server is authoritative for
+ * eligibility" — and it reports the NAMED requirement rather than a bare
+ * boolean, because "you are not eligible" is not actionable and "your
+ * insurance expired" is. A greyed-out row with no reason is how somebody
+ * loses a day of work without knowing they could have fixed it in ten
+ * minutes.
+ */
+export interface ProServiceEligibilityView {
+  serviceId: string;
+  nameHe: string;
+  /** Dispatch-eligible for THIS service, right now. All three gates passed. */
+  eligible: boolean;
+  /** The account-level gate: verificationStatus is APPROVED. */
+  accountApproved: boolean;
+  /** This professional's application for this service was approved. */
+  serviceApproved: boolean;
+  /** Mandatory requirements with nothing on file at all. */
+  missing: string[];
+  /** Requirements whose credential has passed its expiry. */
+  expired: string[];
+  /** Requirements whose credential is on file but not yet VERIFIED. */
+  unverified: string[];
+}
+
 // ---------------------------------------------------------------------
 // Errors
 // ---------------------------------------------------------------------
