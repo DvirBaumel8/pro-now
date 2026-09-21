@@ -1,5 +1,5 @@
 import React from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import {
   depthOrder,
@@ -14,6 +14,26 @@ import {
 
 import { AssetSlot, EMPTY_ASSET_SOURCES, type WorldAssetSources } from "./AssetSlot";
 import { HAIR_PACK_V0 } from "./hairPack";
+import { radii, spacing, type as typeScale } from "../../theme";
+
+/**
+ * The narrowest a shopfront may be drawn and still be a shopfront.
+ *
+ * Under this the artwork is a smudge — its sign unreadable, its doorway
+ * a pixel — and a smudge of a building is worse than an honest marker,
+ * because it still costs the memory and still cannot be recognised.
+ * Measured rather than guessed: the delivered fronts stop resolving a
+ * doorway at about this width on a 3x phone.
+ *
+ * 46 first, which was the width at which a front is COMFORTABLE — and at
+ * walking zoom a sixteen-metre shop is 42 points, so the whole street
+ * turned into name badges on the one screen that is about walking past
+ * shops. The threshold is the point where the artwork stops saying
+ * anything, not the point where it stops being generous.
+ */
+const LEGIBLE_DISTRICT_WIDTH = 30;
+const MARKER_W = 104;
+const MARKER_H = 34;
 
 /**
  * THE NEIGHBOURHOOD'S OWN TRADES.
@@ -222,6 +242,54 @@ export function DistrictLayer({
            */
           if (!sources[district.venueAssetId]) return null;
 
+          /*
+           * ---------------------------------------------------------------
+           * TOO FAR AWAY TO BE A BUILDING, AND STILL NEEDED
+           * ---------------------------------------------------------------
+           * Pulled back to the whole neighbourhood, a sixteen-metre
+           * shopfront is nine points wide: a smudge, and then nothing.
+           * Which breaks the exact thing the zoom-out was built for —
+           * Amit: *"שיהיה אפשרות להגדיל את המפה ולראות מרחוק... שאדע לאן
+           * יש לי ללכת, לראות את החנויות מרחוק."*
+           *
+           * ChatGPT called this before it happened: *"ככל שעולים,
+           * החזיתות יכולות בהדרגה לעבור מ-world object לייצוג סמלי/מוקטן.
+           * לא צריך לראות מספרה תלת-ממדית בגובה 16 מטר כשמסתכלים על 2
+           * ק"מ של עיר."*
+           *
+           * So below the width at which the artwork is still legible, the
+           * shopfront becomes a marker of a fixed size — a dot and the
+           * trade's name. It is the same thing at both scales: a trade
+           * standing in this street. What changes is only whether you are
+           * close enough to see the building it is in.
+           */
+          if (w < LEGIBLE_DISTRICT_WIDTH) {
+            return (
+              <Pressable
+                key={site.department}
+                onPress={onSelect ? () => onSelect(site.department) : undefined}
+                accessibilityRole={onSelect ? "button" : undefined}
+                accessibilityLabel={district.labelHe}
+                style={[
+                  styles.marker,
+                  {
+                    left: at.u * width - MARKER_W / 2,
+                    top: at.v * height - MARKER_H,
+                    opacity: dimmed ? 0.45 : 1,
+                  },
+                ]}
+              >
+                <View style={styles.markerPill}>
+                  <View style={styles.markerDot} />
+                  <Text style={styles.markerText} numberOfLines={1}>
+                    {district.labelHe}
+                  </Text>
+                </View>
+                <View style={styles.markerStem} />
+              </Pressable>
+            );
+          }
+
           return (
             <View
               key={site.department}
@@ -340,6 +408,23 @@ export function DistrictLayer({
 }
 
 const styles = StyleSheet.create({
+  marker: { position: "absolute", width: MARKER_W, alignItems: "center" },
+  markerPill: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: spacing.sm,
+    height: 24,
+    borderRadius: radii.pill,
+    backgroundColor: "rgba(20,16,32,0.88)",
+    borderWidth: 1,
+    borderColor: "rgba(247,243,250,0.18)",
+    maxWidth: MARKER_W,
+  },
+  markerText: { ...typeScale.caption, fontSize: 11, color: "#F7F3FA", writingDirection: "rtl" },
+  markerDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#FFC46B" },
+  /* The line down to the ground, so the pill is standing somewhere. */
+  markerStem: { width: 1, height: 8, backgroundColor: "rgba(247,243,250,0.45)" },
   district: { position: "absolute", alignItems: "center" },
   /*
    * Quiet, not hidden: the rest of the neighbourhood stays visible while

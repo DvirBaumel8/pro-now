@@ -215,15 +215,21 @@ export function StrollBody({
    */
   const groundLayer = useMemo(() => {
     const mats = groundMaterials((id) => Boolean(sources[id]));
-    if (mats.length > 0) {
-      return {
-        sources: mats.map((id) => sources[id]!),
-        material: true,
-        // A paving tile is a few metres of ground, not a neighbourhood.
-        tileMetres: 14,
-      };
+    const pave = mats.length > 0 ? (sources[mats[0]!] as { uri: string } | undefined) ?? null : null;
+    if (ground) {
+      /*
+       * The painted city is the ground, and the stone — when we have it —
+       * is laid along the real road corridor on top, where it covers the
+       * plate's own painted road exactly where the real one runs.
+       */
+      return { sources: [ground], material: false, tileMetres: undefined, pave };
     }
-    return ground ? { sources: [ground], material: false, tileMetres: undefined } : null;
+    if (mats.length > 0) {
+      // No painting at all: the material is the whole ground, and the
+      // props are what make it a city rather than a quarry.
+      return { sources: mats.map((id) => sources[id]!), material: true, tileMetres: 14, pave: null };
+    }
+    return null;
   }, [ground, sources]);
 
   const shopWidth = useMemo(
@@ -239,9 +245,33 @@ export function StrollBody({
    * `SHOT_METRES`: on a real map the camera is told how much STREET to
    * show, and it shows the same amount however large the extract is.
    */
+  /*
+   * ---------------------------------------------------------------------
+   * HOW FAR BACK YOU ARE STANDING, IN METRES
+   * ---------------------------------------------------------------------
+   * Amit, weeks ago, and it has been open since:
+   *
+   *     "שיהיה אפשרות להגדיל את המפה ולראות מרחוק יותר ולא רק זום כזה,
+   *      שאדע לאן יש לי ללכת, לראות את הפארקים, את החנויות מרחוק."
+   *
+   * On the painted plate that was a hard request — the plate is one
+   * picture of about a hundred metres of street, so pulling back reveals
+   * the edge of the artwork rather than more city. On a real extract it
+   * is the natural thing the screen does, and it is one number: how many
+   * metres are in the frame.
+   *
+   * And it is the same number the camera's HEIGHT comes from, which is
+   * what makes the whole thing one gesture rather than two modes —
+   * ChatGPT's *"אותו עולם, מצלמה אחת שמשנה pitch לפי zoom"*. Close in you
+   * are standing in the street and the ground is tilted into the world's
+   * own 3/4; pulled back it flattens to a plan and you are reading a map
+   * of where to go. There is no cut, because there is nothing to cut
+   * between.
+   */
+  const [metresAcross, setMetresAcross] = useState<number>(SHOT_METRES.EXPLORE);
   const lens = useMemo(
-    () => (geo ? geoZoomFor("EXPLORE", geo.bounds) : worldZoomFor("EXPLORE")),
-    [geo]
+    () => (geo ? geoZoomFor("EXPLORE", geo.bounds) * (SHOT_METRES.EXPLORE / metresAcross) : worldZoomFor("EXPLORE")),
+    [geo, metresAcross]
   );
   /*
    * And "near enough to open the shop" is metres too, for the same reason.
@@ -425,7 +455,7 @@ export function StrollBody({
                     geo={geo}
                     width={world.width}
                     height={world.height}
-                    metresAcross={SHOT_METRES.EXPLORE}
+                    metresAcross={metresAcross}
                     paintedGround
                     /*
                      * A MATERIAL HAS NOTHING IN IT, WHICH IS THE POINT.
@@ -437,16 +467,12 @@ export function StrollBody({
                      * into a tile that then repeats.
                      */
                     drawProps={groundLayer.material}
+                    paveSource={groundLayer.pave}
                   />
                 </View>
               </>
             ) : geo ? (
-              <GeoPlate
-                geo={geo}
-                width={world.width}
-                height={world.height}
-                metresAcross={SHOT_METRES.EXPLORE}
-              />
+              <GeoPlate geo={geo} width={world.width} height={world.height} metresAcross={metresAcross} />
             ) : ground ? (
               <Image
                 source={ground}
@@ -587,6 +613,36 @@ export function StrollBody({
         </View>
       ) : null}
 
+      {/*
+        NEAR AND FAR, AS TWO TAPS.
+        Only on a real extract: the painted plate is one picture of a
+        street, so pulling back off it reveals the edge of the artwork
+        rather than more city — which is the thing that made this request
+        hard to answer for so long.
+      */}
+      {geo ? (
+        <View style={styles.zoomWrap} pointerEvents="box-none">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="להתקרב לרחוב"
+            style={styles.zoomKey}
+            disabled={metresAcross <= NEAREST_METRES}
+            onPress={() => setMetresAcross((m) => Math.max(NEAREST_METRES, m / ZOOM_STEP))}
+          >
+            <Text style={[styles.zoomText, metresAcross <= NEAREST_METRES && styles.zoomOff]}>+</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="להתרחק ולראות את השכונה"
+            style={styles.zoomKey}
+            disabled={metresAcross >= FURTHEST_METRES}
+            onPress={() => setMetresAcross((m) => Math.min(FURTHEST_METRES, m * ZOOM_STEP))}
+          >
+            <Text style={[styles.zoomText, metresAcross >= FURTHEST_METRES && styles.zoomOff]}>−</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
       {canWalk ? (
         <View style={styles.steerWrap} pointerEvents="box-none">
           <SteerPad onHeading={setHeading} onGait={setGait} />
@@ -649,6 +705,20 @@ const ERRAND_LINES = [
   "ריח של מאפייה מהפינה",
 ];
 
+/**
+ * THE NEAR AND FAR ENDS OF THE ZOOM, IN METRES OF STREET.
+ *
+ * 55 is about a shopfront and the pavement in front of it — near enough
+ * to read a sign and to feel like standing there. 700 is past the point
+ * where the ground has flattened to a plan (`PLAN_METRES`), so the far
+ * end of the gesture genuinely is a map rather than a nearly-flat 3/4,
+ * which would be the worst of both.
+ */
+const NEAREST_METRES = 55;
+const FURTHEST_METRES = 700;
+/** A third of a stop per tap: four taps from the street to the plan. */
+const ZOOM_STEP = 1.55;
+
 const styles = StyleSheet.create({
   screen: { overflow: "hidden", backgroundColor: "#0B0918" },
   /*
@@ -697,6 +767,33 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     backgroundColor: "rgba(16,12,22,0.74)",
   },
+  /*
+   * ABOVE THE STEER PAD AND CLEAR OF THE BACK BUTTON.
+   *
+   * The right edge is the only side with nothing on it: the steer pad
+   * owns the bottom left, the back button the top right, and the demo
+   * controls the top left. Stacked rather than side by side, because two
+   * 44pt targets in a row at the right edge would sit under the thumb
+   * that is already holding the phone.
+   */
+  zoomWrap: {
+    position: "absolute",
+    right: spacing.md,
+    bottom: spacing.xxl * 2,
+    gap: spacing.sm,
+  },
+  zoomKey: {
+    width: 44,
+    height: 44,
+    borderRadius: radii.pill,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(26,22,38,0.78)",
+    borderWidth: 1,
+    borderColor: "rgba(247,243,250,0.16)",
+  },
+  zoomText: { ...type.h2, color: "#F7F3FA" },
+  zoomOff: { opacity: 0.3 },
   hereText: { ...type.bodyStrong, color: palette.nightText, writingDirection: "rtl" },
   found: {
     position: "absolute",

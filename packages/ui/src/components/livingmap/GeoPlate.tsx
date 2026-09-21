@@ -1,6 +1,16 @@
 import React, { useEffect, useMemo, useRef } from "react";
 import { Animated, Easing, StyleSheet, Text, View } from "react-native";
-import Svg, { Circle, Defs, G, LinearGradient, Path, Rect, Stop } from "react-native-svg";
+import Svg, {
+  Circle,
+  Defs,
+  G,
+  Image as SvgImage,
+  LinearGradient,
+  Path,
+  Pattern,
+  Rect,
+  Stop,
+} from "react-native-svg";
 
 import {
   type NormalizedPoint,
@@ -8,6 +18,7 @@ import {
   type WorldPlan,
   geoWidthMetres,
   groundProject,
+  metresToWorld,
   groundScale,
   pitchForMetres,
   planWorld,
@@ -151,6 +162,32 @@ export interface GeoPlateProps {
    */
   drawProps?: boolean;
   /**
+   * A STONE PAVEMENT TO LAY ALONG THE REAL ROADS.
+   *
+   * -------------------------------------------------------------------
+   * THE COMPOSITE THAT ENDS THE ARGUMENT
+   * -------------------------------------------------------------------
+   * Two grounds, each good at the half the other is bad at. The painted
+   * plate is a city with light and depth in it and it has a road drawn
+   * through it that fights the real one. A material tile is correct,
+   * seamless and empty — a city with no buildings, which is the version
+   * Amit rejected as *"המסך הכהה הזה"*.
+   *
+   * Neither has to win. The painted plate goes down as the ground, so
+   * the blocks between the streets are that city; the real road corridor
+   * is then laid over it in stone, which covers the painted road exactly
+   * where the real one runs. What is left of the plate's own road reads
+   * as a courtyard or a back lane, which is what those spaces are.
+   *
+   * Given as an SVG pattern rather than an image layer so it follows the
+   * road's own stroke — the pavement is the road's shape, and anything
+   * that has to be masked into that shape separately will one day be
+   * masked slightly wrong.
+   */
+  paveSource?: { uri: string } | null;
+  /** How much real ground one repeat of `paveSource` covers. */
+  paveMetres?: number;
+  /**
    * The city's own furniture: trees, lamps, lit windows, crossings.
    *
    * On by default, and it is not decoration in the dismissible sense.
@@ -254,6 +291,8 @@ export function GeoPlate({
   paintedGround = false,
   animate = true,
   drawProps,
+  paveSource = null,
+  paveMetres = 14,
 }: GeoPlateProps) {
   /*
    * PROPS FOLLOW THE GROUND, NOT THE MODE.
@@ -283,6 +322,8 @@ export function GeoPlate({
    */
   const S = 1000;
   const sy = S / plan.aspect;
+  /* One repeat of the paving, in the plate's own user space. */
+  const paveTile = Math.max(8, metresToWorld(geo.bounds, paveMetres) * S);
 
   /*
    * EVERY DRAWN POINT GOES THROUGH THE SAME GROUND PLANE.
@@ -387,9 +428,59 @@ export function GeoPlate({
             <Stop offset="0" stopColor={livingPalette.nightTop} />
             <Stop offset="1" stopColor={livingPalette.nightBottom} />
           </LinearGradient>
+          {paveSource ? (
+            <Pattern
+              id="geoPave"
+              patternUnits="userSpaceOnUse"
+              width={paveTile}
+              height={paveTile}
+            >
+              <SvgImage
+                href={paveSource}
+                x={0}
+                y={0}
+                width={paveTile}
+                height={paveTile}
+                preserveAspectRatio="xMidYMid slice"
+              />
+              {/*
+                WASHED TO THE PAINTING'S OWN PAVEMENT, NOT TO DUSK.
+
+                0.42 first, which is the right amount of night for stone
+                on its own and far too little for stone laid over a lit
+                painting: the pavements came out brighter than the city
+                and the streets read as pale ribbons crossing it. The
+                target is not "dark", it is "the same value as the
+                pavement the plate already draws", so the real corridor
+                disappears into the city instead of being laid on it.
+              */}
+              <Rect
+                x={0}
+                y={0}
+                width={paveTile}
+                height={paveTile}
+                fill={livingPalette.nightBottom}
+                opacity={0.66}
+              />
+            </Pattern>
+          ) : null}
         </Defs>
 
         {paintedGround ? null : <Rect x={0} y={0} width={S} height={sy} fill="url(#geoNight)" />}
+
+        {/*
+          NIGHT, OVER A MATERIAL THAT DOES NOT HAVE ANY.
+
+          The scene plate is a painting of a city at night and brings its
+          own light. A material tile is just stone: laid down raw it
+          reads as noon, which is the exact mood Amit rejected. So over a
+          material the ground is washed down to dusk here, and the lamp
+          pools above punch back through it — which is also the right way
+          round physically. The lamps make the light; the file does not.
+        */}
+        {paintedGround && props ? (
+          <Rect x={0} y={0} width={S} height={sy} fill={livingPalette.nightTop} opacity={0.62} />
+        ) : null}
 
         {(paintedGround ? [] : water).map((d, i) => (
           <Path key={`w${i}`} d={d} fill={livingPalette.solarPanel} opacity={0.85} />
@@ -448,9 +539,9 @@ export function GeoPlate({
                   key={`pw${r.id}`}
                   d={r.d}
                   fill="none"
-                  stroke={ROAD_INK.pavement}
+                  stroke={paveSource ? "url(#geoPave)" : ROAD_INK.pavement}
                   strokeWidth={kerb(r.halfWidth)}
-                  opacity={0.55}
+                  opacity={paveSource ? 1 : 0.55}
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 />
@@ -619,15 +710,29 @@ export function GeoPlate({
               );
             })}
 
+            {/*
+              A LAMP IS A POST WITH A LIT HEAD ON IT. The dot on its own
+              read as a pin; the post is what says the light is three
+              metres up and standing on this pavement.
+            */}
             {(props ? dressing.lamps : []).map((l, i) => (
-              <Circle
-                key={`lp${i}`}
-                cx={l.at.u * S}
-                cy={l.at.v * sy}
-                r={Math.max(1.1, l.r * S * 0.12)}
-                fill={livingPalette.lampGlow}
-                opacity={0.85}
-              />
+              <G key={`lp${i}`}>
+                <Rect
+                  x={l.at.u * S - Math.max(0.5, l.r * S * 0.025)}
+                  y={(l.at.v - l.r * 0.42) * sy}
+                  width={Math.max(1, l.r * S * 0.05)}
+                  height={Math.max(2, l.r * 0.42 * sy)}
+                  fill={livingPalette.lamp}
+                  opacity={0.9}
+                />
+                <Circle
+                  cx={l.at.u * S}
+                  cy={(l.at.v - l.r * 0.42) * sy}
+                  r={Math.max(1.2, l.r * S * 0.1)}
+                  fill={livingPalette.lampGlow}
+                  opacity={0.95}
+                />
+              </G>
             ))}
 
             {/* Lit windows. Four amber squares turn a footprint into a
@@ -786,38 +891,50 @@ export function GeoPlate({
               painting the layer that moves is the lamplight.
             */}
           {(props ? dressing.trees : []).map((t, i) => (
-            <G key={`tr${i}`}>
-              {/*
-                A CANOPY IS A DARK MASS WITH A LIT TOP, NOT A GREEN DOT.
-                The first version drew a flat mid-green circle and the
-                street filled with what looked like markers. The
-                painting's trees are almost black in the shade with one
-                lit edge where the lamp reaches them — so: shadow,
-                dark body, one small highlight off-centre.
-              */}
-              <Circle
-                cx={t.at.u * S}
-                cy={t.at.v * sy + t.r * sy * 0.45}
-                r={t.r * S * 0.75}
-                fill="#0B0917"
-                opacity={0.5}
-              />
-              <Circle
-                cx={t.at.u * S}
-                cy={t.at.v * sy}
-                r={t.r * S}
-                fill={t.tone === 2 ? livingPalette.foliage : livingPalette.foliageDark}
-                opacity={0.92}
-              />
-              <Circle
-                cx={t.at.u * S - t.r * S * 0.3}
-                cy={t.at.v * sy - t.r * sy * 0.34}
-                r={t.r * S * 0.36}
-                fill={livingPalette.foliageLight}
-                opacity={t.tone === 0 ? 0.3 : 0.5}
-              />
-            </G>
-          ))}
+              <G key={`tr${i}`}>
+                {/*
+                  A CANOPY IS SEVERAL MASSES, NOT A DISC.
+
+                  Two versions before this one. A flat mid-green circle
+                  filled the street with what looked like map markers;
+                  darkening it made them look like holes. A tree reads as
+                  a tree because its outline is lumpy and because one
+                  side of it is catching the light from the lamp it is
+                  standing next to — so: a soft shadow on the ground,
+                  five lobes of the same dark green, and a warm rim on
+                  the lobes that face the light.
+                */}
+                <Circle
+                  cx={t.at.u * S}
+                  cy={t.at.v * sy + t.r * sy * 0.5}
+                  r={t.r * S * 0.85}
+                  fill="#0B0917"
+                  opacity={0.45}
+                />
+                {t.lobes.map((l, k) => (
+                  <Circle
+                    key={`lb${k}`}
+                    cx={(t.at.u + l.du * t.r) * S}
+                    cy={(t.at.v + l.dv * t.r) * sy}
+                    r={l.r * t.r * S}
+                    fill={t.tone === 2 ? livingPalette.foliage : livingPalette.foliageDark}
+                    opacity={0.95}
+                  />
+                ))}
+                {t.lobes.map((l, k) =>
+                  l.lit > 0.25 ? (
+                    <Circle
+                      key={`lt${k}`}
+                      cx={(t.at.u + l.du * t.r * 1.05) * S}
+                      cy={(t.at.v + l.dv * t.r * 1.05 - t.r * 0.12) * sy}
+                      r={l.r * t.r * S * 0.62}
+                      fill={livingPalette.foliageLight}
+                      opacity={0.14 + l.lit * 0.3}
+                    />
+                  ) : null
+                )}
+              </G>
+            ))}
           </Svg>
         </Animated.View>
       ) : null}

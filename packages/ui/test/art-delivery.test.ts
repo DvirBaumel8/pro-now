@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 import { readdirSync } from "node:fs";
 import path from "node:path";
 
-import { AVATARS, WORLD_DISTRICTS, type DepartmentCode } from "@pro-now/types";
+import {
+  AVATARS,
+  GROUND_MATERIAL_IDS,
+  WORLD_DISTRICTS,
+  type DepartmentCode,
+} from "@pro-now/types";
 
 /**
  * WHAT THE WORLD ASKS FOR, AND WHAT HAS ARRIVED.
@@ -62,6 +67,13 @@ function requestedIds(): Set<string> {
   }
   // The ground, and the four things that travel along it.
   ids.add("world_neighbourhood");
+  /*
+   * And the ground as a MATERIAL, which is a different thing from the
+   * plate and is asked for by `groundMaterials` rather than by a
+   * district — so it was invisible to this check and the four tiles
+   * looked like files nobody draws. See `GROUND_MATERIAL_IDS`.
+   */
+  for (const id of GROUND_MATERIAL_IDS) ids.add(id);
   ids.add("courier_scooter");
   ids.add("moving_van");
   ids.add("tow_truck");

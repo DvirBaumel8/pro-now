@@ -64,5 +64,9 @@ export const worldSources: WorldAssetSources = {
   shared_ground_street: require("../../assets/world/shared_ground_street.webp"),
   tow_truck: require("../../assets/world/tow_truck.webp"),
   welcome_hero: require("../../assets/world/welcome_hero.webp"),
+  world_ground_mat_1: require("../../assets/world/world_ground_mat_1.webp"),
+  world_ground_mat_2: require("../../assets/world/world_ground_mat_2.webp"),
+  world_ground_mat_3: require("../../assets/world/world_ground_mat_3.webp"),
+  world_ground_mat_4: require("../../assets/world/world_ground_mat_4.webp"),
   world_neighbourhood: require("../../assets/world/world_neighbourhood.webp"),
 };

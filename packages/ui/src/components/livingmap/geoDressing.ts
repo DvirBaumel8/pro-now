@@ -64,6 +64,19 @@ export interface Tree {
   r: number;
   /** Which of the three greens. */
   tone: 0 | 1 | 2;
+  /**
+   * The lobes of the canopy, as offsets and radii in units of `r`.
+   *
+   * A tree drawn as one circle is a green coin, and eleven of them down a
+   * street read as markers somebody dropped on the map rather than as
+   * planting. A canopy is several masses at slightly different heights
+   * catching light differently — five blobs is enough for the eye at any
+   * zoom this world reaches, and it is still five nodes.
+   *
+   * Generated once, from the tree's own seed, so a tree does not change
+   * shape when the camera moves.
+   */
+  lobes: ReadonlyArray<{ du: number; dv: number; r: number; lit: number }>;
 }
 
 export interface Lamp {
@@ -224,7 +237,22 @@ export function dressGeo(plan: WorldPlan, opts: DressingOptions = {}): GeoDressi
          * result was a green dotted line down both kerbs.
          */
         if (j < 0.34) continue;
+        const lobes = [];
+        for (let k = 0; k < 5; k++) {
+          const a = hash01(way.id, Math.round(d * 1e4) + side * 97 + k * 13);
+          const b = hash01(way.id, Math.round(d * 1e4) + side * 131 + k * 29);
+          const ang = (k / 5) * Math.PI * 2 + a * 0.8;
+          const reach = k === 0 ? 0 : 0.42 + b * 0.24;
+          lobes.push({
+            du: Math.cos(ang) * reach,
+            dv: Math.sin(ang) * reach * 0.8,
+            r: k === 0 ? 0.78 : 0.44 + a * 0.22,
+            // Lobes on the upper-left catch the lamplight.
+            lit: Math.max(0, -Math.cos(ang - 0.9)),
+          });
+        }
         trees.push({
+          lobes,
           at: { u: at.u + n.u * offset * side, v: at.v + n.v * offset * side },
           /*
            * 1.5 to 2.6 metres of canopy, not 2.1 to 3.7. The larger

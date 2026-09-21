@@ -38,6 +38,15 @@ import { type GeoBounds, metresToWorld } from "@pro-now/types";
  */
 export const TILE_METRES = 108;
 
+/**
+ * The most images this will lay down.
+ *
+ * Not a hard refusal — see `tileW` below, which grows the tile instead of
+ * giving up. 260 is about what a phone lays out without dropping the
+ * frame the camera is mid-move on.
+ */
+const MAX_TILES = 260;
+
 export interface PaintedGroundProps {
   /**
    * One plate, or a set of seamless material tiles.
@@ -84,7 +93,24 @@ export function PaintedGround({
   );
 
   const tiles = useMemo(() => {
-    const tileW = Math.max(1, metresToWorld(bounds, tileMetres) * width);
+    /*
+     * THE TILE GROWS RATHER THAN THE CITY GOING BARE.
+     *
+     * A fourteen-metre paving tile across a 620m extract is two thousand
+     * images, and the first version answered that by returning NOTHING —
+     * so the ground went black at exactly the zoom where the material
+     * was supposed to be visible. A cap that produces an empty screen is
+     * not a cap, it is a bug with a comment on it.
+     *
+     * So the tile is enlarged until the count fits. The texture gets
+     * coarser on a big extract, which is the correct trade: at that zoom
+     * you are reading a street plan, and paving grain is not what you
+     * are reading.
+     */
+    const asked = Math.max(1, metresToWorld(bounds, tileMetres) * width);
+    const area = Math.max(1, width * height);
+    const smallest = Math.sqrt(area / MAX_TILES);
+    const tileW = Math.max(asked, smallest);
     /*
      * SQUARE TILES IN POINTS, NOT IN WORLD UNITS.
      *
@@ -105,8 +131,6 @@ export function PaintedGround({
       flipY: boolean;
       variant: number;
     }> = [];
-    // A hard cap, because a 4km extract at 108m a tile is 1,369 images.
-    if (cols * rows > 400) return { tileW, out };
     /*
      * MIRRORING ALONE LEAVES AN AXIS OF SYMMETRY, AND THE EYE FINDS IT
      * IMMEDIATELY.
@@ -124,9 +148,18 @@ export function PaintedGround({
       for (let c = 0; c < wide; c++) {
         out.push({
           key: `${r}_${c}`,
-          left: c * tileW + shift,
-          top: r * tileW,
-          size: tileW,
+          /*
+           * WHOLE POINTS.
+           *
+           * A tile laid at x = 103.7 is resampled, and the resampling
+           * darkens its first column by a fraction — which is invisible
+           * on one tile and a faint grid across the whole city on two
+           * hundred. Rounding costs a sub-point overlap and removes the
+           * lines entirely.
+           */
+          left: Math.round(c * tileW + shift),
+          top: Math.round(r * tileW),
+          size: Math.ceil(tileW) + 1,
           flipX: (c + r) % 2 === 1,
           flipY: r % 3 === 1,
           /*
