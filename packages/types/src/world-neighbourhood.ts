@@ -189,6 +189,100 @@ export interface Street {
  * which makes it the part of the world you find rather than the part you
  * are shown.
  */
+/**
+ * THE ROAD THAT IS ACTUALLY PAINTED ON THE PLATE.
+ *
+ * ---------------------------------------------------------------------
+ * WHY THIS IS SEPARATE FROM `STREETS`
+ * ---------------------------------------------------------------------
+ * `STREETS` below is an idealised layout: four roads meeting in the
+ * middle of the world, written before the plate existed and kept because
+ * the SHAPE of it — a spine with branches you cannot see the end of — is
+ * what makes the neighbourhood feel larger than the screen.
+ *
+ * It is not where a car can go. `main` runs straight down u≈0.5, and
+ * u≈0.5 is where the shops are: six of the eleven measured shopfronts sit
+ * within a few hundredths of it, because the middle of this plate is a
+ * pedestrian square, not a carriageway. Every vehicle in the world drove
+ * that line, which is why a courier's scooter hung in mid-air over the
+ * gym's awning and a tow truck crossed the flowerbeds. Amit, twice:
+ * *"כל המכוניות והבניינים והנסיעה מבולגנת."*
+ *
+ * So the traffic gets its own line, and it is MEASURED rather than
+ * designed — `tools/design-preview/measure-road.mjs` reads the plate by
+ * the complement of the pavement test (asphalt and its white paint are
+ * neutral; paving is warm stone under sodium light) and returns the
+ * middle of the widest continuous run of it in each band. The numbers
+ * below are that tool's output for the delivered plate, at twelve
+ * samples, with the carriageway's width at each point in the comment.
+ *
+ * It runs down the right-hand side of the world and leaves at the
+ * bottom-right corner, which is where the artwork puts it.
+ *
+ * If the plate is ever redrawn, re-run the tool. Do not hand-edit these:
+ * a vehicle's whole claim to belong in the world is that it is on the
+ * road that was painted, and a number nudged by eye is the beginning of
+ * the same fault this replaced.
+ */
+export interface RoadSample {
+  /** The middle of the carriageway at this depth. */
+  readonly u: number;
+  readonly v: number;
+  /** How wide the carriageway is here, as a fraction of the world. */
+  readonly width: number;
+}
+
+/** The measured carriageway, middle and width, front to back. */
+export const ROAD_SAMPLES: readonly RoadSample[] = [
+  { u: 0.743, v: 0.042, width: 0.09 },
+  { u: 0.758, v: 0.125, width: 0.09 },
+  { u: 0.782, v: 0.208, width: 0.11 },
+  { u: 0.804, v: 0.292, width: 0.11 },
+  { u: 0.831, v: 0.375, width: 0.09 },
+  { u: 0.853, v: 0.458, width: 0.16 },
+  { u: 0.862, v: 0.542, width: 0.11 },
+  { u: 0.862, v: 0.625, width: 0.19 },
+  { u: 0.872, v: 0.708, width: 0.14 },
+  { u: 0.91, v: 0.792, width: 0.14 },
+  { u: 0.94, v: 0.875, width: 0.06 },
+  { u: 0.959, v: 0.958, width: 0.09 },
+];
+
+/** The line a vehicle drives along. */
+export const CARRIAGEWAY: readonly NormalizedPoint[] = ROAD_SAMPLES.map(({ u, v }) => ({ u, v }));
+
+/**
+ * How far the carriageway reaches sideways at a given depth, and where its
+ * middle is — interpolated between the measured samples.
+ *
+ * Used to prove that nothing is standing in the road. A building placed
+ * by a different measurement, on a different definition of ground, is
+ * exactly how a shopfront ended up on a zebra crossing, so the two
+ * measurements are made to argue with each other in a test rather than
+ * agreeing quietly on screen.
+ */
+export function roadAt(v: number): { u: number; halfWidth: number } {
+  const pts = ROAD_SAMPLES;
+  if (v <= pts[0]!.v) return { u: pts[0]!.u, halfWidth: pts[0]!.width / 2 };
+  const last = pts.at(-1)!;
+  if (v >= last.v) return { u: last.u, halfWidth: last.width / 2 };
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1]!;
+    const b = pts[i]!;
+    if (v <= b.v) {
+      const f = b.v === a.v ? 0 : (v - a.v) / (b.v - a.v);
+      return { u: a.u + (b.u - a.u) * f, halfWidth: (a.width + (b.width - a.width) * f) / 2 };
+    }
+  }
+  return { u: last.u, halfWidth: last.width / 2 };
+}
+
+/**
+ * The carriageway as a `Street`, so everything that already knows how to
+ * walk a street can drive it without learning a second shape.
+ */
+export const ROAD: Street = { id: "main", labelHe: "הכביש", path: CARRIAGEWAY };
+
 export const STREETS: readonly Street[] = [
   {
     id: "main",
@@ -292,66 +386,109 @@ export const DISTRICT_SITES: readonly DistrictSite[] = [
  */
 export const PLATE_SPOTS: readonly NormalizedPoint[] = [
   /*
-   * MEASURED AS BOXES, NOT AS POINTS — AND THAT CHANGED EVERY NUMBER.
+   * MEASURED AS BOXES, NOT AS POINTS — AND THEN MEASURED AGAINST THE
+   * RIGHT QUESTION.
    *
-   * The previous set came out of the same script, and every one of the
-   * eleven passed the plate's own contract check. Six of them still looked
-   * wrong on screen, and drawing the shopfront rectangles onto the plate
-   * showed why in one glance: the FOOTINGS were on clean pavement and the
-   * BUILDINGS were sitting across flowerbeds, over the kerb, and in one
-   * case squarely on a zebra crossing.
+   * There have been three sets of these numbers and each one was produced
+   * by the same script, so it is worth being precise about what changed,
+   * because twice the script was confidently answering a slightly
+   * different question from the one being asked.
    *
-   * A shopfront is 0.15 of the world wide and rises from its footing, so
-   * it covers about 140x105 plate pixels. The erosion was eleven. Scoring
-   * the actual footprint gave the old set these marks:
+   * The FIRST set scored the footing — the doorstep — and every one of
+   * the eleven passed. Six still looked wrong on screen, because a
+   * shopfront is 0.15 of the world wide and RISES from its footing: the
+   * doorsteps were on clean paving and the buildings were standing across
+   * flowerbeds, over the kerb, and in one case on a zebra crossing.
    *
-   *     שיער           4% clear ground   (standing inside a planter)
-   *     שיפוצים       10%
-   *     תיקונים       15%
-   *     חיות          18%                (on the road)
-   *     מחשבים        22%
-   *     ...
+   * The SECOND set fixed that. It eroded by the building's own footprint
+   * rather than by a token margin, and the marks it gave the first set
+   * were brutal — שיער on 4% clear ground, חיות on 18% and in the road.
+   * Its own best eleven scored worst 41%, median 63%: better everywhere,
+   * and still not good. The comment here concluded that the plate could
+   * hold four shopfronts and that the next plate needed to be drawn
+   * differently. That conclusion was wrong, and this is how:
    *
-   * The set below is the best eleven the same measurement can find, worst
-   * 41% and median 63%. Better everywhere, and still not good — because
-   * the limit is not the script.
+   * The THIRD set — these — changed nothing about the erosion and one
+   * thing about what counts as ground. The test was lum > 95: bright
+   * enough to be lit stone rather than tarmac. `measure-pavement.mjs` had
+   * already discovered, when the same test was tried for where a PERSON
+   * may stand, that brightness is the wrong question on this plate: the
+   * paving in shadow at the sides is darker than 95 and is still paving,
+   * while THE ZEBRA CROSSINGS ARE BRIGHTER THAN IT AND ARE STILL ROAD.
+   * That tool switched to warmth — paving is warm stone under sodium
+   * light, asphalt and its white paint are neutral — and this one was
+   * left behind, so the two tools disagreed about where the ground was
+   * and the one that places the buildings was the one that was wrong.
    *
-   * ---------------------------------------------------------------------
-   * WHAT THE PLATE CAN ACTUALLY HOLD
-   * ---------------------------------------------------------------------
-   * FOUR shopfronts, cleanly. The promenade is a beautiful aerial of a
-   * park walk — planters, palms, benches, bollards, lamp posts — and it
-   * has almost no unbroken paving wide enough to stand a building on.
-   * At 0.17 wide there are four clean slots on the whole image; shrinking
-   * the shops to 0.09 finds ten, all of them still compromised.
+   * It was rejecting most of the real pavement and accepting the road.
+   * With the same erosion and the pavement tool's own test:
    *
-   * So the next plate is not a nicer drawing of this one. It needs ELEVEN
-   * clear paved stretches, each at least 15% of the width by 11% of the
-   * height, with the clutter between them rather than on them. That is a
-   * sentence for the brief, and it is the whole reason this comment counts
-   * the failures instead of quietly listing eleven coordinates.
+   *     standable ground   0.2%  ->  13.6% of the plate
+   *     separated slots    7     ->  15
+   *     worst placement    36%   ->  86% clear
+   *
+   * So the plate holds eleven shopfronts after all, comfortably, and the
+   * paragraph that used to stand here asking for a different drawing has
+   * been deleted rather than softened: it was a brief written from a
+   * measurement bug. The one thing it got right is kept below.
+   *
+   * Every one of these is now checked against the carriageway as well —
+   * see `CARRIAGEWAY` and `plate-ground.test.ts`. The worst overlap is a
+   * corner touching a kerb at 9%; the spot this set replaces was 90% road,
+   * which is to say it was a shop parked on the zebra crossing.
    *
    * ---------------------------------------------------------------------
    * AND NONE OF THEM MAY BE NEARER THE VIEWER THAN THE CUSTOMER
    * ---------------------------------------------------------------------
-   * The first run of the new measurement put a shop at v = 0.922, which is
-   * in front of `CUSTOMER_POINT` at 0.9. A professional leaving that shop
-   * drives AWAY from the eye to reach the person waiting, so the van
-   * shrinks as it arrives — and `assignment-route.test.ts` failed on
-   * exactly that, one assertion, before anybody looked at a screenshot.
-   * The cap is in the measurement now: nothing past v = 0.86.
+   * An earlier run put a shop at v = 0.922, which is in front of
+   * `CUSTOMER_POINT` at 0.9. A professional leaving that shop drives AWAY
+   * from the eye to reach the person waiting, so the van shrinks as it
+   * arrives — and `assignment-route.test.ts` failed on exactly that, one
+   * assertion, before anybody looked at a screenshot. The cap is in the
+   * measurement: nothing past v = 0.86.
    */
-  { u: 0.344, v: 0.854 }, //  97% clear
-  { u: 0.879, v: 0.806 }, //  45%
-  { u: 0.363, v: 0.786 }, //  36%
-  { u: 0.539, v: 0.675 }, //  80%
-  { u: 0.41, v: 0.56 }, //  99%
-  { u: 0.327, v: 0.478 }, //  55%
-  { u: 0.505, v: 0.45 }, //  93%
-  { u: 0.541, v: 0.331 }, //  97%
-  { u: 0.582, v: 0.263 }, //  41%
-  { u: 0.283, v: 0.23 }, //  63%
-  { u: 0.48, v: 0.101 }, //  51%
+  { u: 0.339, v: 0.853 }, // 100% clear
+  { u: 0.126, v: 0.792 }, //  89%
+  { u: 0.508, v: 0.665 }, // 100%
+  { u: 0.731, v: 0.567 }, //  90%
+  { u: 0.292, v: 0.562 }, // 100%
+  { u: 0.517, v: 0.438 }, // 100%
+  { u: 0.279, v: 0.425 }, // 100%
+  { u: 0.574, v: 0.257 }, //  89%
+  { u: 0.359, v: 0.211 }, // 100%
+  { u: 0.874, v: 0.125 }, //  86%
+  { u: 0.122, v: 0.102 }, //  88%
+];
+
+/**
+ * THE SPOTS NO TRADE OWNS.
+ *
+ * ---------------------------------------------------------------------
+ * WHY A SECOND LIST
+ * ---------------------------------------------------------------------
+ * There are eleven trades and `PLATE_SPOTS` has eleven entries, one each,
+ * so every piece of standable ground in the world belonged to somebody.
+ * That was fine while a trade had one shop. It stopped being fine the
+ * moment three plumbers were online at once, because `venueSlots` then
+ * had nowhere to put the second and third except on another trade's
+ * pavement — and the other trade's building was already standing on it.
+ *
+ * On screen that was a barbershop and a plumber's shop drawn 76% on top
+ * of each other, and, where a venue took its own trade's spot, the
+ * district's building and the venue's building in exactly the same place:
+ * two identical shopfronts at 100% overlap, which does not read as two
+ * businesses at all, it reads as the art failing.
+ *
+ * The plate has fifteen separated slots and the trades use eleven, so
+ * these are the other four, kept for exactly this: a trade with more than
+ * one professional online spreads onto ground nobody else is standing on.
+ * They are the same measurement, from the same run — see `PLATE_SPOTS`
+ * for what that measurement finally got right.
+ */
+export const OVERFLOW_SPOTS: readonly NormalizedPoint[] = [
+  { u: 0.721, v: 0.793 }, //  82% clear
+  { u: 0.125, v: 0.248 }, //  84%
+  { u: 0.732, v: 0.406 }, //  67%
 ];
 
 /** The measured spot a trade stands on, by its position in the table. */
@@ -448,10 +585,30 @@ export function venueSlots(department: DepartmentCode, count: number): Normalize
    * promise against this plate.
    */
   const home = plateSpotFor(department);
-  const ordered = [...PLATE_SPOTS].sort(
-    (a, b) =>
-      (a.u - home.u) ** 2 + (a.v - home.v) ** 2 - ((b.u - home.u) ** 2 + (b.v - home.v) ** 2)
-  );
+  /*
+   * ITS OWN SPOT FIRST, THEN THE GROUND NOBODY OWNS, THEN THE REST.
+   *
+   * This sorted all of `PLATE_SPOTS` by distance and took the nearest —
+   * and every entry in `PLATE_SPOTS` is some other trade's front door,
+   * with that trade's building already standing on it. So the second
+   * plumber online was placed on the barber's pavement, inside the
+   * barber's shop: 76% overlap, two buildings in one place, which reads
+   * as the artwork failing rather than as a street.
+   *
+   * `OVERFLOW_SPOTS` is the measured ground no trade owns, so it comes
+   * first after the trade's own. Only when a trade has more professionals
+   * online than the world has spare pavement does this fall through to
+   * other trades' spots, which is the same graceful degradation the
+   * relaxing separation below provides — worse than ideal, never a
+   * dropped professional.
+   */
+  const byDistance = (a: NormalizedPoint, b: NormalizedPoint) =>
+    (a.u - home.u) ** 2 + (a.v - home.v) ** 2 - ((b.u - home.u) ** 2 + (b.v - home.v) ** 2);
+  const ordered = [
+    home,
+    ...[...OVERFLOW_SPOTS].sort(byDistance),
+    ...[...PLATE_SPOTS].filter((p) => p !== home).sort(byDistance),
+  ];
 
   /*
    * NEAREST IS NOT ENOUGH — THEY HAVE TO BE FAR ENOUGH APART.

@@ -955,7 +955,11 @@ export function LivingMapScene({
               sizeBasis={width}
               sources={worldSources}
               activeDepartment={(departmentCode as never) ?? null}
-
+              /*
+               * Once this trade's own professionals are standing on the
+               * street, they are the street — see `venuesDrawn`.
+               */
+              venuesDrawn={venues.length > 0}
             />
 
             {/*

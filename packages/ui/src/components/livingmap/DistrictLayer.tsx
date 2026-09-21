@@ -64,6 +64,27 @@ export interface DistrictLayerProps {
   sources?: WorldAssetSources;
   /** Which trade the customer is looking at, if any. The others go quiet. */
   activeDepartment?: DepartmentCode | null;
+  /**
+   * Whether the active trade's own professionals are being drawn as shops
+   * by `VenueLayer`, in which case this layer must not draw its district
+   * building as well.
+   *
+   * THE SAME SHOP TWICE, IN THE SAME PLACE.
+   *
+   * A district is one building standing for a whole trade; a venue is one
+   * building standing for one professional. They are placed from the same
+   * measured pavement, and the first venue of a trade takes that trade's
+   * own spot — so both layers drew `district_home.webp` at exactly the
+   * same point, at exactly the same size. Two identical shopfronts at
+   * 100% overlap does not read as two businesses; it reads as the artwork
+   * failing to load properly, which is roughly the opposite of the point.
+   *
+   * Once there are real professionals to show, THEY are the street for
+   * that trade and the stand-in steps aside. Every other trade keeps its
+   * district building, which is what makes the rest of the neighbourhood
+   * continue to exist around them.
+   */
+  venuesDrawn?: boolean;
   onSelect?: (department: DepartmentCode) => void;
   /**
    * Draw only the districts standing within this band of depth.
@@ -124,6 +145,7 @@ export function DistrictLayer({
   sizeBasis,
   sources = EMPTY_ASSET_SOURCES,
   activeDepartment = null,
+  venuesDrawn = false,
   onSelect,
   vRange,
 }: DistrictLayerProps) {
@@ -137,6 +159,8 @@ export function DistrictLayer({
       {/* Furthest first, so a near shop covers a far one rather than
           growing a hole in its roof. */}
       {[...DISTRICT_SITES]
+        // The trade whose professionals are on screen is drawn by them.
+        .filter((site) => !(venuesDrawn && site.department === activeDepartment))
         .map((site) => ({ site, at: districtCentre(site.department) }))
         .filter(({ at }) => !vRange || (at.v >= vRange.min && at.v < vRange.max))
         .sort((a, b) => depthOrder(a.at.v) - depthOrder(b.at.v))

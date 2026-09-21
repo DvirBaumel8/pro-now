@@ -8,6 +8,7 @@ import {
   nextBeatMs,
   depthScale,
   alongStreet,
+  ROAD,
   STREETS,
   bobAt,
   leanAt,
@@ -85,6 +86,25 @@ import { AssetSlot, EMPTY_ASSET_SOURCES, type WorldAssetSources } from "./AssetS
  * model and only the main one lines up with the road actually painted on
  * this plate; a van driving down "רחוב השוק" was a van driving through a
  * row of balconies.
+ *
+ * ---------------------------------------------------------------------
+ * AND THE MAIN STREET DID NOT LINE UP EITHER
+ * ---------------------------------------------------------------------
+ * That paragraph was half right, and the half it got wrong is the one
+ * that was on screen. `STREETS[0]` runs straight down u≈0.5 — and u≈0.5
+ * is where the SHOPS are, because the middle of this plate is a
+ * pedestrian square. Six of the eleven measured shopfronts sit within a
+ * few hundredths of that line. So the scooter rode up the square and
+ * through the front of the gym, hovering over its awning; the tow truck
+ * crossed the flowerbeds. Twice reported, as *"כל המכוניות והבניינים
+ * והנסיעה מבולגנת"*, and twice looked for in the wrong place, because
+ * the note above said the main street was the one that fitted.
+ *
+ * `CARRIAGEWAY` is where the road actually is: measured off the plate by
+ * `tools/design-preview/measure-road.mjs` rather than designed, running
+ * down the right-hand side and leaving at the bottom-right corner. The
+ * traffic drives that, and `street` on a moment is kept only because the
+ * ambient moments still index a line to sit beside.
  */
 const MOMENT_ASSET: Readonly<
   Record<WorldMoment, { assetId: string; widthRatio: number; street: number; at?: number; gait?: Gait }>
@@ -206,7 +226,7 @@ export function WorldLife({
     const driver = new Animated.Value(0);
     const startSpec = MOMENT_ASSET[decision.start];
     const travelling = isSignificant(decision.start);
-    const road = STREETS[startSpec.street % STREETS.length]!;
+    const road = ROAD;
     const duration = travelling
       ? travelMs(startSpec.gait ?? "DRIVE", pathLength(road.path))
       : MOMENT_SPEC[decision.start].durationMs;
@@ -307,7 +327,16 @@ export function WorldLife({
          * which end it enters from, so two couriers on one street are not
          * the same animation twice.
          */
-        const street = STREETS[spec.street % STREETS.length]!;
+        /*
+         * Vehicles take the measured road; the still moments do not.
+         *
+         * A window lighting up and a cat appearing are things that happen
+         * BESIDE the traffic — "a light comes on in a shop, not in
+         * mid-air", and not in the middle of the carriageway either. They
+         * keep the square's own spine, which is the line the shops stand
+         * along, and it is the one thing `STREETS` is still right about.
+         */
+        const street = significant ? ROAD : STREETS[spec.street % STREETS.length]!;
         const path = Array.from({ length: STREET_SAMPLES }, (_, i) => {
           const t = i / (STREET_SAMPLES - 1);
           const at = alongStreet(street, p.reversed ? 1 - t : t);

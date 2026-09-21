@@ -79,12 +79,32 @@ lum = 0.2126*r + 0.7152*g + 0.0722*b
 mx = a.max(axis=2); mn = a.min(axis=2)
 sat = np.where(mx > 0, (mx - mn) / np.maximum(mx, 1), 0)
 
-# What a building can stand on: bright enough to be lit stone rather than
-# tarmac or shadow, and not green. Foliage is the thing most likely to be
-# mistaken for pavement by brightness alone, and a shop in a flowerbed is
-# as wrong as a shop in a road.
+# WHAT A BUILDING CAN STAND ON — BY WARMTH, NOT BY BRIGHTNESS.
+#
+# This was lum > 95 & sat < 0.42 & ~green, and the note beside it said a
+# shop in a road is as wrong as a shop in a flowerbed. It was right about
+# that and wrong about how to tell. measure-pavement.mjs had already
+# found out why, when the same brightness test was tried there for where a
+# PERSON may stand: the pavement in shadow on both sides is darker than
+# 95 and is still pavement, while THE ZEBRA CROSSINGS ARE BRIGHTER THAN IT
+# AND ARE STILL ROAD. That tool switched to colour and this one did not,
+# so the two disagreed about where the ground was — and the one that
+# places the buildings was the one that was wrong.
+#
+# What it cost: the shopfront at u=0.879, v=0.806 stands on the painted
+# crossing, in the middle of the carriageway, one of the eleven this
+# script produced. The comment on PLATE_SPOTS says that fault was fixed
+# when the footprint erosion went in. It was not; it was only made
+# rarer, because the erosion asks whether every pixel of the box is
+# "pavement" and the crossing answered yes.
+#
+# So the test is the pavement tool's, word for word: paving is warm stone
+# under sodium light, asphalt is neutral grey-blue and so is the white
+# paint on it. Foliage is still caught by the green rule. The luma floor
+# stays, low, only to keep a figure or a building out of deep shadow.
 green = (g > r + 6) & (g > b + 6)
-pavement = (lum > 95) & (sat < 0.42) & (~green)
+pavement = ((r - b) > 26) & (~green) & (lum > 40)
+_ = sat
 
 # Erode by THE BUILDING, not by a token margin.
 #
