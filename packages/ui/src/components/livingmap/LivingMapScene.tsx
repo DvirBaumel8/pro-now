@@ -472,18 +472,40 @@ export function LivingMapScene({
     onOpenProfile?.(id);
   }, [journeyMs, onOpenProfile]);
 
+  /*
+   * ONE LENS FOR THE WHOLE SEARCH, AND THE CAMERA MOVES INSTEAD.
+   *
+   * Amit, twice: *"הפלואו קופץ לא טוב"* and *"גם באיתור המסך קופץ."*
+   *
+   * This was four different shots inside about eight seconds — WIDE while
+   * searching, DISTRICT as candidates appear, VENUE on the reveal, ROUTE
+   * once accepted — and a change of shot changes the world's LAYOUT size,
+   * which lands in a single frame. Four cuts, on the screen somebody
+   * stares at while waiting for a stranger to accept.
+   *
+   * Trying to ease the cut is written up in `WorldViewport` and does not
+   * work; easing the layout while the camera's edge clamp is computed for
+   * the other size exposes the page behind the world. The fix is to stop
+   * cutting: the search, the candidates and the reveal all hold DISTRICT
+   * and the camera TRAVELS between them, which is already a 1200ms ease
+   * and already the thing the sweep was built to do.
+   *
+   * Nothing is lost by it. Arriving at the chosen shop was never really
+   * the lens — it is the focus landing on that shop, the shop lifting to
+   * `chosenVenue` size and every neighbour dimming, all of which still
+   * happen and all of which read louder than a change of zoom. The one
+   * remaining change of lens is the wait, where the customer starts
+   * walking and the story has genuinely moved on; a cut there is a cut on
+   * purpose.
+   */
   const shot: CameraShot =
     restingAt !== null
       ? restingAt
       : journeyBeat !== null
       ? shotForBeat(journeyBeat)
-      : phase === "SEARCHING"
-        ? "WIDE"
-        : phase === "CANDIDATES_FOUND"
-          ? "DISTRICT"
-          : phase === "MATCH_REVEAL"
-            ? "VENUE"
-            : "ROUTE";
+      : phase === "SEARCHING" || phase === "CANDIDATES_FOUND" || phase === "MATCH_REVEAL"
+        ? "DISTRICT"
+        : "ROUTE";
 
   /*
    * ---------------------------------------------------------------------
