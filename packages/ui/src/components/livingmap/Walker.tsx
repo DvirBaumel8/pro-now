@@ -4,6 +4,7 @@ import { Animated, Image, StyleSheet, View } from "react-native";
 import {
   bobAt,
   clampWalkable,
+  walkStep,
   depthScale,
   facingFor,
   GAITS,
@@ -217,7 +218,17 @@ export function Walker({
         return;
       }
 
-      const next = clampWalkable(stepFrom(at.current, h, dt, GAITS[gait].speed));
+      /*
+       * ON THE PAVEMENT, NOT JUST INSIDE THE RECTANGLE.
+       *
+       * `clampWalkable` alone let the figure stand in a flowerbed, on a
+       * bench, or in the middle of the road — the box covers almost the
+       * whole plate. `walkStep` adds the plate's own reading of where
+       * stone is, and refuses the step rather than sliding, so hitting a
+       * kerb reads as reaching something rather than as the animation
+       * failing.
+       */
+      const next = walkStep(at.current, stepFrom(at.current, h, dt, GAITS[gait].speed));
       /*
        * Distance is measured from what actually moved, not from the time
        * elapsed. Walking into the edge of the world stops the figure; if

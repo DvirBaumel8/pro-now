@@ -152,6 +152,145 @@ export function clampWalkable(at: NormalizedPoint): NormalizedPoint {
   };
 }
 
+/**
+ * The whole step rule: inside the world AND on the pavement.
+ *
+ * Two tests rather than one because they answer different questions. The
+ * rectangle is about the EDGE OF THE PLATE — walk past it and the camera
+ * clamps, so the figure slides off the side of the screen. The pavement
+ * map is about the GROUND — walk off it and the figure is standing in a
+ * hedge. Callers want both, always, so they are composed here rather than
+ * left to be remembered at each call site.
+ */
+export function walkStep(from: NormalizedPoint, to: NormalizedPoint): NormalizedPoint {
+  return stepOnPavement(clampWalkable(from), clampWalkable(to));
+}
+
+
+/**
+ * ---------------------------------------------------------------------
+ * WHERE THE PAVEMENT ACTUALLY IS
+ * ---------------------------------------------------------------------
+ * `WALKABLE` above is a rectangle covering almost the whole plate, which
+ * meant the customer's figure could stand in a flowerbed, on a bench, in
+ * the middle of the road or halfway up a palm tree, and nothing stopped
+ * it. Amit asked to *"באמת לטייל בין המקצועות"*, and walking through a
+ * planter is the exact moment a street stops being a street.
+ *
+ * This is the plate's own answer, measured by
+ * `tools/design-preview/measure-pavement.mjs`: warm stone under sodium
+ * light, not green, not in deep shadow — so asphalt and white road paint
+ * both fail it whatever their brightness, and the flowerbeds fail it on
+ * colour. Then eroded by a person's own footprint, so nobody ends up with
+ * one foot over a kerb.
+ *
+ * 32 x 56 because a person is roughly 3% of the world wide: a cell about
+ * that size is as fine as the question can be answered, and a per-pixel
+ * mask would be a megabyte and a walk that caught on every kerbstone.
+ *
+ * ---------------------------------------------------------------------
+ * IT BELONGS TO THIS DRAWING
+ * ---------------------------------------------------------------------
+ * Like `PLATE_SPOTS`, these numbers are a reading of one image. A new
+ * plate needs them re-measured, which is one command — and far better
+ * than the alternative, which is a figure wading through a hedge on the
+ * day the artwork changes.
+ */
+export const PAVEMENT_COLS = 32;
+export const PAVEMENT_ROWS = 56;
+
+const PAVEMENT: readonly string[] = [
+  "11101100111111010100110001100000",
+  "01110000100111111111110001100000",
+  "01101111111111111111100001110000",
+  "11111000111100011111100001011100",
+  "11111111111111111100010001111110",
+  "00111111111101110000000001111110",
+  "00011111111111110000000000111100",
+  "00000111111111110000000000111111",
+  "00000011111111111011010000111110",
+  "00011101111111111000000000011100",
+  "11011110111111111110000000011111",
+  "11011111111111111110111000001100",
+  "11111100011111111111001000011000",
+  "00111100000001111111110000001000",
+  "11111000100001111100100000001000",
+  "00110111000000111000010100001111",
+  "00110111100111110000000100001111",
+  "01111111010110011000001100001111",
+  "00111111111110011100011000001011",
+  "00011110011101111111111000011101",
+  "10111111010100111111111100001101",
+  "10111111111111111111111100000011",
+  "10111111111111111111111110000011",
+  "01000111111111111111100000000011",
+  "00010111111111111111001000000011",
+  "01011110011111111111111010000001",
+  "00111111111111111001111110000001",
+  "00011111111111111101111111000001",
+  "00011111111111110011111111000001",
+  "00011111111111111000011101000000",
+  "00011111111111111111011111000000",
+  "00111111111111111111111111000001",
+  "11111100011111111111111110000011",
+  "11111000011111111111111100000001",
+  "11111000111111111111111100000000",
+  "11111110111011111111111100000001",
+  "00110001111001111111110100000011",
+  "01001011100111111110000110000011",
+  "00001111101111111100001110000011",
+  "00111111001111111110001110000011",
+  "00111111001111111111111110000010",
+  "00111111111111111111111110000011",
+  "01111111111111111111111011000001",
+  "11111111111111111111011111000001",
+  "00111111111111101011110111110011",
+  "11101001111111101111100011100001",
+  "00010001111111110111100111000000",
+  "00000110111111111111001111100000",
+  "00000111111111111111001111100000",
+  "00000111100011111111111110000000",
+  "00001111100011111111111110000000",
+  "00011100100000111111110011010000",
+  "00111110101000111111001010000000",
+  "00001110000000111111101011111000",
+  "00000011110011111111111100001000",
+  "00000011110001111111111000000000",
+];
+
+/**
+ * Whether a person may stand here.
+ *
+ * Outside the plate is not walkable, which the rectangle already handled
+ * and which stays true: the two tests are AND-ed by the caller, so the
+ * coarse bounds still keep the figure away from the edge of the world.
+ */
+export function onPavement(at: NormalizedPoint): boolean {
+  const col = Math.floor(at.u * PAVEMENT_COLS);
+  const row = Math.floor(at.v * PAVEMENT_ROWS);
+  if (col < 0 || col >= PAVEMENT_COLS || row < 0 || row >= PAVEMENT_ROWS) return false;
+  return PAVEMENT[row]![col] === "1";
+}
+
+/**
+ * THE STEP THAT WOULD LEAVE THE PAVEMENT DOES NOT HAPPEN.
+ *
+ * Deliberately not "slide along the edge": a figure that keeps moving
+ * while pressed against a hedge reads as broken, and a figure that simply
+ * stops reads as a person who has reached something. The axes are tried
+ * separately so walking diagonally into a kerb still carries you ALONG
+ * it, which is what a person does and what makes a narrow pavement
+ * usable rather than a corridor of dead ends.
+ */
+export function stepOnPavement(from: NormalizedPoint, to: NormalizedPoint): NormalizedPoint {
+  if (onPavement(to)) return to;
+  const alongU = { u: to.u, v: from.v };
+  if (onPavement(alongU)) return alongU;
+  const alongV = { u: from.u, v: to.v };
+  if (onPavement(alongV)) return alongV;
+  return from;
+}
+
 /** Everything wrong with the steering model, as a test rather than prose. */
 export function steeringViolations(): string[] {
   const out: string[] = [];
