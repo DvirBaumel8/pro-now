@@ -1403,3 +1403,107 @@ tallest thing the HUD ever holds.
 Still blocked on a machine that can reach `binaries.prisma.sh`:
 `prisma generate` → `migrate resolve --applied 0_init` → `migrate deploy` →
 `db:seed`.
+
+## 16. The city stands on a real street plan (2026-09-21)
+
+Amit: *"אני רוצה לחבר מפה אמיתית שונראה איך העולם שלנו והקוד שלנו יושב
+עליה, אולי יהיה יותר קל לשים את החנויות והדמויות על מפה אמיתית."*
+
+### 16.1 What is real is the geometry, not the imagery
+
+The obvious build is a tile layer with markers on it, and his own earlier
+question ruled it out: *"ורק הצורה של המפה תהיה אמיתית?"* — the SHAPE.
+A tile is a photograph of somebody else's city, and the moment one is on
+screen our shopfronts are stickers on it.
+
+So an OSM extract is fetched once (`tools/design-preview/fetch-geo.mjs`),
+checked (`npm run verify:geo`), dated, attributed and committed, and
+`world-geo.ts` projects it into the `{u,v}` every venue, route, walker
+and camera already speaks. Swapping what `{u,v}` MEANS moves the whole
+city at once, which is what the last month of putting every position into
+one coordinate system bought.
+
+**No maps vendor was chosen** (`/CLAUDE.md §4`). `MapsRoutingProvider`
+remains the seam for geocoding and route ETAs, which is what a vendor is
+actually for. Drawing a place needs geometry, and geometry is a file.
+
+### 16.2 What the geometry bought
+
+- **The shops place themselves.** `plotSpotsFromGeo` finds plots that
+  front a road, stands each shopfront a pavement's width off the kerb and
+  faces it at the traffic. `PLATE_SPOTS` took three rounds of bitmap
+  erosion and two of them answered the wrong question.
+- **Sizes became true.** A real extract has metres in it, so a shopfront
+  is 16m and a person 1.7m rather than fractions chosen by eye. A camera
+  shot is a number of METRES across the frame (`SHOT_METRES`), so the
+  same walk looks the same on a 620m extract and a 4km one.
+- **Routes are found, not drawn.** `world-routing.ts` builds a graph from
+  the ways, joins streets that cross without sharing a vertex, leaves
+  footways out, and runs Dijkstra. `roadRouteAt` answers in metres, so a
+  layer can later be given a speed without touching navigation.
+- **Dead ends become parks.** Amit: *"יש כבישים חתוכים באמצע המפה."*
+  `pruneDeadEnds` trims a spur to its first junction and drops an island
+  whole, keeping anything that leaves the frame — a road running off the
+  edge reads as the city continuing. And the reclaimed ground is where
+  the trades with no door stand: `tradeGround` puts a dog walker and a
+  trainer in a park rather than in a shop doorway.
+
+### 16.3 The honesty half, which is not optional
+
+On an invented street the ambient crowd is atmosphere. On a real one
+every figure is a claim about an address. `geo-truth.ts` gives each
+plotted position a provenance and refuses `DECOR` on a real surface.
+
+ChatGPT's rule, taken verbatim and made checkable: **motion without
+agency is ambience, motion with agency is an entity.** Light may move,
+leaves may move, a shadow may breathe; anything that travels A to B on
+purpose needs a source of truth. It cut the one concession this file had
+— a distant unbranded car — and was right: in a product whose promise is
+that somebody is on their way to you, a moving vehicle is the one shape a
+customer reads as an arrival.
+
+A route carries **metres and never minutes**. The graph says where
+movement can be shown; the server says when the professional arrives.
+
+### 16.4 The ground, after four wrong answers
+
+1. Drawn from polygons. Correct, and a diagram. Amit: *"אני לא יכול עם
+   המסך הכהה הזה. איפה העולם הקסום שבנינו?"*
+2. The painted plate tiled. Magical, and it repeats — the same palm every
+   hundred metres, which is invisible at walking distance and is the
+   whole screen at the wide shot.
+3. Material tiles generated here (`make-ground-material.py`, seamless on
+   a torus with a seam measure that refuses a bad tile). No repeat, and
+   close up a drawing rather than a painting.
+4. **Both, chosen by how far back the camera is standing.** Under 190
+   metres across you are in the painting; past it you are in the drawn
+   city. `metresAcrossAt` derives that number from the lens, after an
+   hour in which two screens ASSERTED one zoom while their viewport used
+   another and the whole fix did nothing.
+
+And the parks ended in a deletion. Four attempts to make a drawn park
+stand next to a painted street failed; the answer was that
+`pruneDeadEnds` removes a road and does not have to add anything. Over
+the painting the reclaimed ground shows the plate's own city.
+
+### 16.5 Built, tested, and deliberately not wired
+
+`world-camera.ts` — ChatGPT's soft heading-follow bearing, with the
+invariant that bearing rotates the world and never the sprites. Rotating
+the viewport needs `overflow: hidden`, and a clipped window no longer
+covers the screen: the walk screen came back as a band of city with black
+above and below. The clamp has to know the bearing, which is a per-frame
+quantity Animated cannot express — the same wall the animated zoom hit.
+The attempt is written down in that file so it is not repeated.
+
+### 16.6 State
+
+**887 tests pass.** Lint and typecheck clean across every workspace
+except `apps/api` (unchanged `prisma generate` blocker, §12.5). Both
+mobile bundles and the admin build are green. `verify:screens`,
+`verify:game` and `verify:geo` clean; `verify:a11y` is 18 screens, 0
+defects, 0 unreachable.
+
+Still blocked on art that cannot be generated from a script: two
+shopfronts (רכב, שיער) in two angles each, and two angles per vehicle.
+A silhouette difference is a draughtsman's decision, not a script's.
