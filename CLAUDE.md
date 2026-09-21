@@ -125,27 +125,33 @@ blocks the epic's stated acceptance criteria.
 See `/docs/EPIC-0-REPORT.md` for the as-built state, contradictions found
 between source documents, and the recommended next epic.
 
-**Read `§15` in that report first**, then `§12`, `§11` and `§10` —
-together they are the current truth about what has actually been
-installed, compiled, linted, bundled, rendered and executed. They supersede
-the older `§7`/`§8`.
+**Read `§17` in that report first**, then `§16` and `§15` — together they
+are the current truth about what has actually been installed, compiled,
+linted, bundled, rendered and executed. They supersede the older
+`§7`/`§8`.
 
-`§15` is the one to read before touching either mobile app: it records the
-night the shipped apps stopped carrying their own Epic-0 screens, the nine
-places those screens were claiming things the server had never said, and
-the three endpoints that had to exist before a customer could request
-anybody at all.
+`§17` records the move out of the build container onto a developer
+machine, which is where the Prisma blocker ended and where three defects
+the ungenerated client had been hiding became visible. `§15` is still the
+one to read before touching either mobile app.
 
-Short version: lint is clean across 10 workspaces, 761 unit tests pass, the
-admin build and both mobile bundles are green, the **baseline migration
+Short version: **typecheck is clean across all 10 workspaces** — the first
+time in this project's history — lint is clean, 892 unit tests pass, the
+admin build is green, and `verify:domain`, `verify:geo`, `verify:a11y`,
+`verify:screens` and `verify:game` all pass. The **baseline migration
 exists** (`apps/api/prisma/migrations/0_init`, derived from the schema by
-`npm run db:ddl`) and is verified against a real PostgreSQL 16 + PostGIS 3.4
-in both directions (`npm run db:verify` — 1411/1411), and the `SELECT ...
-FOR UPDATE` row lock is proven **against those real tables** (`npm run
-verify:rowlock` — 7/7, with a control).
+`npm run db:ddl`) and was verified against a real PostgreSQL 16 + PostGIS
+3.4 in both directions (`npm run db:verify` — 1411/1411), with the
+`SELECT ... FOR UPDATE` row lock proven against those real tables
+(`npm run verify:rowlock` — 7/7, with a control).
 
-Prisma's engine host (`binaries.prisma.sh`) is blocked by organization
-egress policy in this container, for every Prisma version 5.x–8.x. That is
-permanent here and is why the migration is hand-authored rather than
-generated. `prisma generate` still has to run on a machine that can reach
-that host before `apps/api` will typecheck or boot — see §12.5.
+`prisma generate` is a required setup step, not an optional one: nothing
+in `apps/api` compiles until it has run. The old note here said the
+Prisma engine host was blocked permanently — that was true of the build
+container and of nowhere else, and the wording outlived the container.
+Two other container assumptions outlived it the same way, a hard-coded
+browser path and a hard-coded port, both since removed (§17.3).
+
+The database checks (`db:verify`, `verify:rowlock`) are the two gates that
+cannot run without PostgreSQL. Anyone re-verifying on a fresh machine
+should treat them as unmeasured until they have one.

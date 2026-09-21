@@ -4,9 +4,9 @@ import { PanResponder, StyleSheet, Text, View } from "react-native";
 import type { Heading } from "@pro-now/types";
 
 import { type } from "../../theme";
-import { gaitFor, headingFrom, intensityFrom } from "./steerPad";
+import { gaitFor, headingFrom, intensityFrom } from "./steerMath";
 
-export { headingFrom, intensityFrom, gaitFor, DEADZONE, RUN_AT } from "./steerPad";
+export { headingFrom, intensityFrom, gaitFor, DEADZONE, RUN_AT } from "./steerMath";
 
 /**
  * THE CONTROL THAT WALKS YOU DOWN THE STREET.

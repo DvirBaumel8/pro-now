@@ -1,4 +1,4 @@
-import { chromium } from 'playwright';
+import { launchChromium } from './browser.mjs';
 
 /**
  * WALK EVERY SCREEN AND REPORT WHAT IS WRONG WITH IT.
@@ -21,7 +21,7 @@ import { chromium } from 'playwright';
  * being looked at for other things. It is exactly the kind of fault a
  * person stops seeing and a measurement never does.
  */
-const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
+const b = await launchChromium();
 const p = await b.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
 const errors = [];
 p.on('pageerror', (e) => errors.push(String(e)));

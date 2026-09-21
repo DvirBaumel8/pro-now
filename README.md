@@ -6,10 +6,10 @@ request a trusted, verified professional to come **now**. See
 `/CLAUDE.md` for the engineering contract and `/docs/00-VISION.md` onward
 for the full product/engineering specification this repo implements.
 
-**Start here:** `/docs/EPIC-0-REPORT.md` — read **§10** first, then **§9**.
-Together they are the honest record of what has actually been installed,
-compiled, linted, bundled, rendered and executed. They supersede the older
-§7/§8, which describe a session that could not run anything.
+**Start here:** `/docs/EPIC-0-REPORT.md` — read **§17** first, then **§16**
+and **§15**. Together they are the honest record of what has actually been
+installed, compiled, linted, bundled, rendered and executed. They supersede
+the older §7/§8, which describe a session that could not run anything.
 
 ## Repository layout
 
@@ -38,41 +38,48 @@ compiled, linted, bundled, rendered and executed. They supersede the older
 
 ## Verification status
 
+Measured on a developer machine (macOS 13, Node 24) on 2026-09-21, after
+the repository moved out of the build container — see EPIC-0-REPORT §17.
+
 | Check | Command | Result |
 |---|---|---|
 | Install | `npm install` | **PASS** |
+| Prisma client | `npm run db:generate -w apps/api` | **PASS — v5.22.0** |
+| Typecheck (10 workspaces) | `npm run typecheck` | **CLEAN — all 10** |
 | Lint (10 workspaces) | `npm run lint` | **CLEAN** |
-| Unit tests | `npm test` | **PASS — 146** |
+| Unit tests | `npm test` | **PASS — 892** |
 | Domain logic | `npm run verify:domain` | **PASS — 28/28** |
-| Row lock vs. real Postgres | `npm run verify:rowlock` | **PASS — 7/7** |
+| Geometry | `npm run verify:geo` | **PASS** |
+| Accessibility | `npm run verify:a11y` | **PASS — 18 screens, 0 defects** |
+| Screen sweep | `npm run verify:screens` | **PASS** |
+| Play layer | `npm run verify:game` | **PASS** |
 | Admin build | `next build` | **PASS — 7 pages** |
-| Mobile bundles | `expo export` | **PASS — both apps** |
-| Typecheck | `tsc --noEmit` | **9 of 10 workspaces clean** |
 
-### 🔴 One blocker: Prisma engines
+Not re-measured on this machine, and therefore not claimed: the mobile
+bundles (`expo export`), and everything that needs a database —
+`npm run db:verify` and `npm run verify:rowlock`. There is no PostgreSQL
+on this machine yet; see **Setup**.
 
-`binaries.prisma.sh` returns **403** through the verification environment's
-egress proxy. Prisma downloads its schema and query engines from that host,
-so **`prisma generate`, `prisma migrate` and `prisma db seed` have never
-run**. Consequences:
+### The Prisma blocker is gone
 
-- `apps/api` has exactly 7 typecheck errors, all tracing to `PrismaClient`
-  being the ungenerated `any` stub. They should disappear on `generate`
-  (and new ones will appear where `pro`/`tx` stop being `any`).
-- The API server does not boot.
-- **The schema changes in EPIC-0-REPORT §10.6 have no migration yet.** Per
-  `CLAUDE.md §6` they are *implemented in code / DB unverified*, not done.
+`binaries.prisma.sh` returned **403** through the build container's egress
+proxy, for every Prisma version 5.x–8.x, which is why `prisma generate`
+had never run and `apps/api` carried 7 typecheck errors from an
+ungenerated `PrismaClient` stub. That was a property of that container.
+Off it, `prisma generate` completes in 200ms.
 
-Ways to unblock, in order of preference: allow `binaries.prisma.sh` on
-HTTPS/443; run the Prisma steps from a machine without that egress rule; or
-point `PRISMA_ENGINES_MIRROR` at an approved internal mirror.
+Generating the client replaced those 7 errors with 4 real ones, each a
+defect the `any` stub had been hiding. All four are fixed (EPIC-0-REPORT
+§17.2); one of them — a pending quote looked up by a status string nothing
+ever writes — was silently wrong at runtime, not merely untyped.
 
 ## Setup
 
 ```bash
 npm install
-cp .env.example .env            # fill in local values
-docker compose up -d            # postgres+postgis on 5432, redis on 6379
+npm run db:generate -w apps/api  # Prisma client; nothing in apps/api compiles without it
+cp .env.example .env             # fill in local values
+docker compose up -d             # postgres+postgis on 5432, redis on 6379
 
 npm run db:migrate --workspace=apps/api
 npm run db:seed    --workspace=apps/api
@@ -81,6 +88,28 @@ npm run dev:api        # Fastify API on :4000
 npm run dev:admin      # Next.js admin on :3000
 npm run dev:customer   # Expo customer app
 npm run dev:pro        # Expo professional app
+```
+
+### The visual harness
+
+`tools/design-preview` renders the real `packages/ui` components in a
+browser. The checks that drive it (`verify:a11y`, `verify:screens`,
+`verify:game`, and the geo shots) navigate to **127.0.0.1:4421**, so the
+server has to be up first — the port is pinned in `vite.config.ts` so the
+two cannot drift apart:
+
+```bash
+npm run preview:design         # serves 127.0.0.1:4421
+npm run verify:a11y            # in a second shell
+```
+
+They drive Chromium through Playwright. `npx playwright install chromium`
+is the normal way to get one; where Playwright has no build for the host
+(it dropped macOS 13, for instance), point `PW_CHROMIUM` at an existing
+Chromium-based browser instead:
+
+```bash
+export PW_CHROMIUM="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 ```
 
 ## Quality gates

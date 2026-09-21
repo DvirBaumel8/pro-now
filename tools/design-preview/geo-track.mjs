@@ -1,5 +1,5 @@
-import { chromium } from 'playwright';
-const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
+import { launchChromium } from './browser.mjs';
+const b = await launchChromium();
 const p = await b.newPage({ viewport:{width:390,height:844}, deviceScaleFactor:2, isMobile:true, hasTouch:true });
 const click = async (t) => { await p.locator(`text=${t}`).first().click({timeout:8000}); await p.waitForTimeout(800); };
 const shot = (n) => p.screenshot({path:`/tmp/claude-0/shots/${n}.png`});

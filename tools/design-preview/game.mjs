@@ -15,9 +15,9 @@
  * Checking them together is the only check that means anything, because
  * three out of four is a screen that looks right and does nothing.
  */
-import { chromium } from 'playwright';
+import { launchChromium } from './browser.mjs';
 
-const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
+const b = await launchChromium();
 const p = await b.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
 const errors = [];
 p.on('pageerror', (e) => errors.push(String(e).slice(0, 160)));

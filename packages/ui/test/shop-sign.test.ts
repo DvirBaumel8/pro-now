@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { SIGN_MIN_WIDTH, signAccent, signFontSize } from "../src/components/livingmap/shopSign";
+import { SIGN_MIN_WIDTH, signAccent, signFontSize } from "../src/components/livingmap/signStyle";
 
 describe("a shop's sign tells you whose shop it is", () => {
   it("gives the same professional the same colour every time", () => {

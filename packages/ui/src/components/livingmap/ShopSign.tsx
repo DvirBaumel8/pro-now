@@ -2,9 +2,9 @@ import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { palette, radii, spacing, type } from "../../theme";
-import { SIGN_MIN_WIDTH, signFontSize } from "./shopSign";
+import { SIGN_MIN_WIDTH, signFontSize } from "./signStyle";
 
-export { SIGN_MIN_WIDTH, signAccent } from "./shopSign";
+export { SIGN_MIN_WIDTH, signAccent } from "./signStyle";
 
 /**
  * THE NAME OVER THE DOOR.

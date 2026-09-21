@@ -1507,3 +1507,103 @@ defects, 0 unreachable.
 Still blocked on art that cannot be generated from a script: two
 shopfronts (רכב, שיער) in two angles each, and two angles per vehicle.
 A silhouette difference is a draughtsman's decision, not a script's.
+
+## 17. The night the container stopped being the world (2026-09-21)
+
+Amit: *"הבנתי שעשיתי טעות וצריך לעבוד פה איתך בקוד."*
+
+Everything above this line was built inside a container. The repository
+was exported — 125 commits as a git bundle, the tree as a tarball — and
+restored onto a developer machine. The tarball matched the bundle's HEAD
+exactly, so nothing uncommitted was in flight.
+
+### 17.1 The blocker was a property of the container
+
+`binaries.prisma.sh` returned 403 through that container's egress proxy,
+for every Prisma version tried, and §12.5 wrote that down as permanent.
+It was permanent *there*. On a machine with ordinary egress,
+`prisma generate` finished in 200ms and produced client v5.22.0.
+
+That is worth stating plainly because the note had hardened into a fact
+about the project. It was a fact about one host.
+
+### 17.2 What the generated client found
+
+For months `PrismaClient` was an `any` stub, and `any` does not argue.
+Generating it turned 7 stub-shaped errors into 4 real ones. Three were
+defects:
+
+- **`pro-jobs.ts` looked for a quote status nothing writes.** The pending
+  quote was fetched with `status === "PENDING_APPROVAL"`. The schema
+  knows `SENT | APPROVED | DECLINED | SUPERSEDED`, `quotes.ts` writes
+  `SENT`, and the string `PENDING_APPROVAL` appears exactly once in the
+  repository — in that comparison. So `pendingQuote` was **always null**:
+  a professional who had sent a quote was told by the server that there
+  was none. This was never a type error; it was a runtime lie that the
+  `any` stub let through, and it is the one defect here that a user would
+  have felt.
+- **The same row was being returned as a `QuoteView` without being one.**
+  No `lineItems` (they were not even included in the query) and a `Date`
+  where the contract says an ISO string. The row is now mapped, and the
+  query includes its line items.
+- **`dispatch-service.ts` indexed `pro.locations[0]` unguarded.** An
+  eligible candidate always has a fresh location — an absent one makes
+  `locationAgeSeconds` infinite and fails the freshness rule — but the
+  shortlist was a list of professionals and the ETA step re-derived the
+  position by index. It is now a `flatMap` carrying `{ pro, latestLocation }`,
+  so the shortlist is a list of professionals *with a position* and the
+  next stage has nothing to trust.
+
+The fourth was `structuredAnswers` reaching a `Json?` column as a
+validated `Record<string, unknown>`, which is a cast, not a defect.
+
+**Typecheck is now clean across all 10 workspaces — the first time in
+this project's history.**
+
+### 17.3 Three things that only worked in the container
+
+- **Two modules whose names differed only in case.** `ContactShadow.tsx`
+  beside `contactShadow.ts`, and the same for `SteerPad` and `ShopSign` —
+  a component re-exporting its own pure logic. On a case-sensitive
+  filesystem those are two modules. On macOS they are one, and all three
+  apps failed to compile. The logic halves are now `shadowGeometry.ts`,
+  `steerMath.ts` and `signStyle.ts`. Nothing about the split was wrong;
+  the names were.
+- **A browser path baked into eleven scripts.** Every harness script
+  launched `/opt/pw-browsers/chromium` by absolute path. They now go
+  through `tools/design-preview/browser.mjs`, which lets Playwright
+  resolve its own download and accepts `PW_CHROMIUM` for a host
+  Playwright has no build for — macOS 13, as it turns out.
+- **A port passed by hand.** The harness navigates to 4421;
+  `npm run preview:design` served Vite's default. The port is pinned in
+  `vite.config.ts` now, bound to IPv4 because some scripts ask for
+  `localhost` and some for `127.0.0.1`, and a v6-only bind answers one
+  of them.
+
+None of these were visible from inside the container, and none of them
+are interesting. They are recorded because each one cost time to
+rediscover and each one would have cost it again.
+
+### 17.4 State
+
+892 unit tests pass. Typecheck and lint clean across all 10 workspaces.
+`verify:domain` 28/28, `verify:geo` clean, `verify:a11y` 18 screens with
+0 defects and 0 unreachable, `verify:screens` and `verify:game` clean,
+the admin build green at 7 pages.
+
+**Not measured here, and therefore not claimed:** the mobile bundles
+(`expo export`), `db:verify` and `verify:rowlock`. The last two need
+PostgreSQL 16 + PostGIS, and this machine has no database, no Docker and
+no Redis yet. Their previous results (1411/1411 and 7/7) were real, and
+they were measured against a database that no longer exists. Re-running
+them is the first thing to do once there is one.
+
+`verify:silhouettes` needs numpy, which the system Python does not have.
+
+### 17.5 Where the history lives
+
+`github.com/nivamit1210-sketch/pro-now` exists and is **121 commits
+behind**. The two histories part at `47f74ef` (§10); since then GitHub
+received two README commits that are not in this history, and this
+history received everything else. The `github-synced` tag at `aee6799`
+marks the last sync and is no longer close to true.

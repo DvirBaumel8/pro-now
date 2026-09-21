@@ -1,5 +1,5 @@
-import { chromium } from 'playwright';
-const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
+import { launchChromium } from './browser.mjs';
+const b = await launchChromium();
 const p = await b.newPage({ viewport:{width:390,height:844}, deviceScaleFactor:2, isMobile:true, hasTouch:true });
 p.on('console', m => { if (m.type()==='error') console.log('CONSOLE ERR:', m.text().slice(0,200)); });
 p.on('pageerror', e => console.log('PAGE ERR:', String(e).slice(0,300)));

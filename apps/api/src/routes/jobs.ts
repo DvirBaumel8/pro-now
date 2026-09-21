@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import type { Prisma } from "@prisma/client";
 import { createJobSchema } from "@pro-now/validation";
 import { triggerDispatch } from "../domain/dispatch/dispatch-service";
 import { assertTransition, nextAfterArrival } from "../domain/job/transitions";
@@ -42,7 +43,8 @@ export default async function jobsRoutes(app: FastifyInstance) {
         serviceId: service.id,
         addressId: address.id,
         description: body.description,
-        structuredAnswers: body.structuredAnswers,
+        // Validated as `Record<string, unknown>`; the column is `Json?`.
+        structuredAnswers: body.structuredAnswers as Prisma.InputJsonValue,
         idempotencyKey,
         status: "DRAFT",
       },

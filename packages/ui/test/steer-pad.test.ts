@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { RUN_AT, gaitFor, headingFrom, intensityFrom } from "../src/components/livingmap/steerPad";
+import { RUN_AT, gaitFor, headingFrom, intensityFrom } from "../src/components/livingmap/steerMath";
 
 const R = 58;
 

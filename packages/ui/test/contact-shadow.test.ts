@@ -7,7 +7,7 @@ import {
   liftFromBob,
   SHADOW,
   shadowFor,
-} from "../src/components/livingmap/contactShadow";
+} from "../src/components/livingmap/shadowGeometry";
 
 describe("the contact shadow", () => {
   it("has no violations of its own model", () => {

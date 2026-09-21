@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import type { ProJobDetailView } from "@pro-now/types";
+import type { ProJobDetailView, QuoteView } from "@pro-now/types";
 
 /**
  * GET /v1/pro/jobs/:id — the assigned job, as the professional sees it.
@@ -41,7 +41,7 @@ export default async function proJobsRoutes(app: FastifyInstance) {
         address: true,
         customer: true,
         offers: { where: { status: "ACCEPTED" }, orderBy: { offeredAt: "desc" }, take: 1 },
-        quotes: { orderBy: { version: "desc" } },
+        quotes: { orderBy: { version: "desc" }, include: { lineItems: true } },
       },
     });
     if (!job) return reply.status(404).send({ code: "JOB_NOT_FOUND", message: "Job not found" });
@@ -77,7 +77,37 @@ export default async function proJobsRoutes(app: FastifyInstance) {
     const payoutIsEstimate =
       approvedQuote === undefined && job.service.priceModel === "VISIT_QUOTE";
 
-    const pendingQuote = job.quotes.find((q) => q.status === "PENDING_APPROVAL") ?? null;
+    /*
+     * "SENT" is the only status a quote waiting on the customer can hold
+     * (/docs/05-DATABASE.md §Quote versioning — SENT | APPROVED |
+     * DECLINED | SUPERSEDED). This looked for "PENDING_APPROVAL", which
+     * nothing in the codebase ever writes, so a professional who had a
+     * quote out was always told there was none.
+     *
+     * The row is mapped rather than passed through: `QuoteView.createdAt`
+     * is an ISO string and the line items are the part the screen shows.
+     */
+    const sentQuote = job.quotes.find((q) => q.status === "SENT");
+    const pendingQuote: QuoteView | null = sentQuote
+      ? {
+          id: sentQuote.id,
+          jobId: sentQuote.jobId,
+          version: sentQuote.version,
+          versionHash: sentQuote.versionHash,
+          status: sentQuote.status,
+          totalMinorUnits: sentQuote.totalMinorUnits,
+          notes: sentQuote.notes,
+          createdAt: sentQuote.createdAt.toISOString(),
+          lineItems: sentQuote.lineItems.map((li) => ({
+            id: li.id,
+            quoteId: li.quoteId,
+            description: li.description,
+            quantity: li.quantity,
+            unitPriceMinorUnits: li.unitPriceMinorUnits,
+            kind: li.kind,
+          })),
+        }
+      : null;
 
     const etaSeconds = acceptedOffer?.etaSecondsSnapshot ?? null;
 

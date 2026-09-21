@@ -1,4 +1,4 @@
-import { chromium } from 'playwright';
+import { launchChromium } from './browser.mjs';
 
 /**
  * Accessibility audit of the running prototype.
@@ -43,7 +43,7 @@ function parseRGB(s) {
   return { rgb: [+m[1], +m[2], +m[3]], a: m[4] === undefined ? 1 : +m[4] };
 }
 
-const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
+const b = await launchChromium();
 const p = await b.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
 await p.goto('http://localhost:4421/', { waitUntil: 'networkidle' });
 await p.waitForTimeout(2200);

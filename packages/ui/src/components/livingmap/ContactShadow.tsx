@@ -1,9 +1,9 @@
 import React from "react";
 import { View } from "react-native";
 
-import { shadowFor } from "./contactShadow";
+import { shadowFor } from "./shadowGeometry";
 
-export { shadowFor, liftFromBob, SHADOW } from "./contactShadow";
+export { shadowFor, liftFromBob, SHADOW } from "./shadowGeometry";
 
 /**
  * The ellipse itself. See `contactShadow.ts` for why it exists in code

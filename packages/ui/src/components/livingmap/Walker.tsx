@@ -18,7 +18,7 @@ import {
 } from "@pro-now/types";
 
 import { EMPTY_ASSET_SOURCES, type WorldAssetSources } from "./AssetSlot";
-import { SHADOW } from "./contactShadow";
+import { SHADOW } from "./shadowGeometry";
 
 /**
  * THE CUSTOMER, IN THE STREET.

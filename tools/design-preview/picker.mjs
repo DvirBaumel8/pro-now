@@ -6,9 +6,9 @@
  * the screen. Screenshots of the middle of a movement are the only way to
  * check timing that a unit test cannot see.
  */
-import { chromium } from 'playwright';
+import { launchChromium } from './browser.mjs';
 
-const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
+const b = await launchChromium();
 const p = await b.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
 p.on('pageerror', (e) => console.log('PAGE ERR:', String(e).slice(0, 200)));
 

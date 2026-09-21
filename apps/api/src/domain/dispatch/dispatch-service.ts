@@ -67,7 +67,7 @@ export async function triggerDispatch(
   const evaluatedAt = new Date(now);
   const serviceRequirements = job.service.requirements;
 
-  const eligible = nearbyProfessionals.filter((pro) => {
+  const eligible = nearbyProfessionals.flatMap((pro) => {
     const latestLocation = pro.locations[0];
     const locationAgeSeconds = latestLocation
       ? (now - latestLocation.receivedAt.getTime()) / 1000
@@ -99,7 +99,14 @@ export async function triggerDispatch(
       },
       { locationFreshnessThresholdSeconds }
     );
-    return result.eligible;
+    /*
+     * An eligible candidate necessarily HAS a fresh location — an absent
+     * one makes `locationAgeSeconds` infinite and fails the freshness
+     * rule above. The pair is carried forward rather than re-indexed at
+     * the ETA step, so the shortlist is a list of professionals WITH a
+     * position rather than a list the next stage has to trust.
+     */
+    return result.eligible && latestLocation ? [{ pro, latestLocation }] : [];
   });
 
   if (eligible.length === 0) {
@@ -112,14 +119,17 @@ export async function triggerDispatch(
   // Step 3 — real ETA for the shortlist only.
   const etas = await maps.getEtaBatch(
     { lat: job.address.lat, lng: job.address.lng },
-    eligible.map((pro) => ({ id: pro.id, location: { lat: pro.locations[0].lat, lng: pro.locations[0].lng } }))
+    eligible.map(({ pro, latestLocation }) => ({
+      id: pro.id,
+      location: { lat: latestLocation.lat, lng: latestLocation.lng },
+    }))
   );
   const etaByProId = new Map(etas.map((e) => [e.originId, e]));
   const maxEta = Math.max(...etas.map((e) => e.etaSeconds), 1);
 
   // Step 4 — scoring.
   const ranked = rankCandidates(
-    eligible.map((pro) => ({
+    eligible.map(({ pro }) => ({
       professionalId: pro.id,
       etaSeconds: etaByProId.get(pro.id)?.etaSeconds ?? maxEta,
       maxEtaSecondsInShortlist: maxEta,
