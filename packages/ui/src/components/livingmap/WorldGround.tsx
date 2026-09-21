@@ -27,16 +27,34 @@ import { PaintedGround } from "./PaintedGround";
  * So the decision lives here once, and both screens ask for "the ground".
  */
 
-/**
- * How much street may be in frame before the plate starts repeating
- * visibly.
+/*
+ * THERE IS NO LONGER A DISTANCE AT WHICH WE STOP BEING OUR CITY.
  *
- * The plate covers `TILE_METRES` — about 108 — so at 150 metres across
- * you see one and a half copies and the repeat is off screen. At two
- * hundred you see two, which is where the eye starts pairing them. That
- * is the number, and it is a property of the tile rather than a taste.
+ * A `PLATE_MAX_METRES = 190` used to live here: under it the painting,
+ * over it the material with the city drawn on top. The argument was that
+ * the plate repeats, and that the repeat is the first thing the eye finds
+ * on a wide shot — cited against Amit's *"כרגע הכל נראה לא טוב."*
+ *
+ * That complaint had a different cause. The living map was ASSERTING
+ * `SHOT_METRES.EXPLORE` to the ground while its viewport was at another
+ * zoom entirely, so the ground was tilting for a distance nobody was
+ * standing at (fixed with `metresAcrossAt`). The cutoff was built on a
+ * misread, and it is what put the tracking screen — the one somebody
+ * watches for twenty minutes, at ROUTE's 280 metres — permanently on the
+ * far side of it.
+ *
+ * Side by side the answer is not close. The painting tiled across a wide
+ * shot is a lamp-lit city with a visible block rhythm, which is what a
+ * city looks like from above. The material with the drawn city on it is a
+ * dark violet diagram, and Amit has now said three times that the dark is
+ * the one thing he cannot have: *"אני לא יכול עם המסך הכהה הזה. איפה
+ * העולם הקסום שבנינו?"*
+ *
+ * So the rule is no longer a distance. The painting is the ground
+ * whenever there is a painting; the material is what a build without one
+ * stands on. That is a deletion rather than a retuned number, which is
+ * the only kind of fix this particular question has ever accepted.
  */
-const PLATE_MAX_METRES = 190;
 
 export interface WorldGroundProps {
   /** The world box, in points. */
@@ -83,45 +101,34 @@ export function WorldGround({
 
     /*
      * ---------------------------------------------------------------
-     * WHICH GROUND, AND THE ANSWER IS BOTH — BY HOW FAR BACK YOU STAND
+     * WHICH GROUND: THE PAINTING, IF THIS BUILD HAS ONE
      * ---------------------------------------------------------------
-     * Four rounds to arrive at this, and each ground was right about
-     * half of it.
+     * Five rounds to arrive at one line.
      *
      * The PAINTED PLATE is a city nothing drawn from polygons will ever
-     * catch. It also repeats: tiled across a real extract, the same palm
-     * and the same bench land every hundred metres in a grid. At walking
-     * distance that costs nothing — about one and a half copies are on
-     * screen and no repeat is visible — and at the wide shot the grid is
-     * the first thing the eye finds. Amit, on exactly that shot: *"כרגע
-     * הכל נראה לא טוב."*
+     * catch: warm, planted, lamp-lit, and already full of the palms and
+     * benches and awnings the drawn version keeps failing to invent. It
+     * repeats — tiled across a real extract the same bench lands every
+     * hundred metres — and for a while that repeat was treated as
+     * disqualifying past a certain distance.
      *
-     * The MATERIAL has no repeat and no painted road to fight the real
-     * one, and it makes our shopfronts the brightest thing on screen
-     * rather than one more lit object among a hundred painted ones. It
-     * is also, close up, a drawing rather than a painting.
+     * It is not. A block rhythm on a wide shot is what a city has. The
+     * ground it was being swapped for is a violet diagram, and a
+     * beautiful thing with a visible grid beats an ugly thing without
+     * one every time somebody is asked.
      *
-     * So the ground follows the camera. Standing in the street you get
-     * the painting, which is where its quality is spent and where its
-     * repeat is off screen. Pulled back to read the neighbourhood you
-     * get the material, which is where the repeat would become the
-     * subject and where the drawn city — blocks, lit windows, planting —
-     * is what a map wants anyway.
-     *
-     * The switch happens at a zoom step, which is a tap rather than a
-     * gesture, so it reads as the view changing rather than as the
-     * ground flickering.
+     * The MATERIAL keeps its job, which is the build with no artwork:
+     * no repeat, no painted street to fight the real one, and the drawn
+     * city — blocks, lit windows, planting — on top of it so the screen
+     * is still a place. It is honest and it is a drawing, and it is what
+     * you get when nobody has painted anything yet.
      */
-    const far = (metresAcross ?? 0) > PLATE_MAX_METRES;
-    if (plate && !far) {
-      return { tiles: [plate], material: false, tileMetres: undefined, pave, grass };
-    }
+    if (plate) return { tiles: [plate], material: false, tileMetres: undefined, pave, grass };
     if (mats.length > 0) {
       return { tiles: mats.map((id) => sources[id]!), material: true, tileMetres: 14, pave: null, grass };
     }
-    if (plate) return { tiles: [plate], material: false, tileMetres: undefined, pave, grass };
     return null;
-  }, [plate, sources, metresAcross]);
+  }, [plate, sources]);
 
   if (!cleaned) {
     /*

@@ -5,6 +5,7 @@ import {
   assessArrival,
   jobProgressHe,
   routeAt,
+  alongRoute,
   worldZoomFor,
   routeProgress,
   type ArrivalSignals,
@@ -14,7 +15,6 @@ import {
   type WorldGeo,
   buildRoadGraph,
   CUSTOMER_POINT,
-  DISTRICT_SITES,
   frontageNear,
   planWorld,
   plotSpotsFromGeo,
@@ -190,12 +190,43 @@ export function TrackingBody({
     const plan = planWorld(cleaned);
     const spots = plotSpotsFromGeo(plan);
     if (spots.length === 0) return null;
-    const i = DISTRICT_SITES.findIndex((d) => d.department === departmentCode);
-    const from = spots[(i < 0 ? 0 : i) % spots.length]!;
     const to = frontageNear(plan, CUSTOMER_POINT);
     if (!to) return null;
-    const route = routeAlongRoads(buildRoadGraph(plan), from, to.at);
-    return route ? { path: route.path, metres: route.metres } : null;
+
+    /*
+     * A STAND-IN ORIGIN STILL HAS TO BE A JOURNEY AWAY.
+     *
+     * This used to index the plot list by the department's position in
+     * `DISTRICT_SITES` — the same "somewhere in the city" rule the
+     * shopfronts use. On the real extract that happened to land the
+     * plumber four doors down from the customer, so the route the
+     * router found was twenty-five metres long: at ROUTE's 280 metres
+     * across it drew as an eighteen-pixel stub, which is why the
+     * tracking screen looked like it had no route and no vehicle on it.
+     * The path was there. It was the size of a doorstep.
+     *
+     * Until the server sends a real origin there is nothing to be
+     * faithful to, so the one property worth choosing for is the one
+     * this screen exists to show: that somebody is coming from
+     * somewhere. The origin is the plot FURTHEST from the customer that
+     * the road graph can actually reach — furthest by the roads, not by
+     * the crow, because a plot across a river is not far, it is
+     * unreachable.
+     *
+     * The day the server sends a real origin this whole block becomes
+     * `frontageNear(plan, origin)` and nothing else here changes.
+     */
+    const graph = buildRoadGraph(plan);
+    const byDistance = [...spots].sort(
+      (a, b) =>
+        Math.hypot(b.u - CUSTOMER_POINT.u, b.v - CUSTOMER_POINT.v) -
+        Math.hypot(a.u - CUSTOMER_POINT.u, a.v - CUSTOMER_POINT.v)
+    );
+    for (const from of byDistance) {
+      const route = routeAlongRoads(graph, from, to.at);
+      if (route && route.metres > 0) return { path: route.path, metres: route.metres };
+    }
+    return null;
   }, [geo, departmentCode]);
 
   /*
@@ -359,10 +390,31 @@ export function TrackingBody({
                * both the camera and the vehicle read the same `progress`,
                * they cannot drift apart.
                */
+              /*
+               * AND IT FOLLOWS THE ROUTE THE VAN IS ACTUALLY DRIVING.
+               *
+               * This read `routeAt(...)` — the synthetic arc from
+               * `assignment-route` — while the vehicle below was given
+               * `roadPath`, the Dijkstra path over the real street graph.
+               * Two different routes, so the camera sat over one stretch
+               * of city while the professional drove another, and on the
+               * real extract the result was a tracking screen with no
+               * vehicle and no route line visible on it at all: both were
+               * in frame's worth of city away.
+               *
+               * It is the same failure as the asserted lens, one screen
+               * along — a position stated in one place and derived in
+               * another. So when there is a road path, the camera reads
+               * the SAME path, at the same `progress`, and the two cannot
+               * come apart. Without one it falls back to the arc, which is
+               * what every build with no extract still shows.
+               */
               focus={
                 tripProgress === null
                   ? null
-                  : routeAt((departmentCode as never) ?? "HOME_URGENT", tripProgress).at
+                  : roadPath
+                    ? alongRoute({ path: roadPath.path, drive: roadPath.path, metres: roadPath.metres }, tripProgress).at
+                    : routeAt((departmentCode as never) ?? "HOME_URGENT", tripProgress).at
               }
               /*
                * WIDE ENOUGH TO BE A JOURNEY.

@@ -469,7 +469,9 @@ const styles = StyleSheet.create({
     borderColor: "rgba(247,243,250,0.18)",
     maxWidth: MARKER_W,
   },
-  markerText: { ...typeScale.caption, fontSize: 11, color: "#F7F3FA", writingDirection: "rtl" },
+  /* The design system's smallest size. It used to be 11, one point under
+     the scale, which is the kind of number that is nobody's decision. */
+  markerText: { ...typeScale.micro, color: "#F7F3FA", writingDirection: "rtl" },
   markerDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#FFC46B" },
   /* The line down to the ground, so the pill is standing somewhere. */
   markerStem: { width: 1, height: 8, backgroundColor: "rgba(247,243,250,0.45)" },

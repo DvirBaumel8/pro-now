@@ -384,13 +384,70 @@ export function RouteLayer({
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       <Svg width={width} height={height}>
-        {/* The route, drawn once and quietly: it is context, not the
-            subject. The subject is the person moving along it. */}
-        <Path d={d} stroke={palette.signal300} strokeWidth={2.5} strokeDasharray="7 9" fill="none" opacity={0.5} />
+        {/*
+          THE ROUTE, LEGIBLE OVER A LIT CITY.
+
+          One 2.5pt dash at half opacity in `signal300`. Against the old
+          dark grid that was a quiet line; over the painted neighbourhood,
+          where the pavement under it is the brightest thing on screen, it
+          was not a quiet line, it was an invisible one. The tracking shot
+          had a professional standing on a street with no indication of
+          where he had come from or where he was going, which is most of
+          what this screen is for.
+
+          The fix is the one the streets themselves already use: a DARK
+          casing under a LIGHT dash. The casing gives the line its own
+          local contrast so it does not depend on what it is crossing, and
+          the dash stays the same warm signal colour it has always been.
+          Still quiet — the moving figure is the subject — but present.
+        */}
+        <Path
+          d={d}
+          stroke="#161228"
+          strokeWidth={6.5}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+          opacity={0.38}
+        />
+        <Path
+          d={d}
+          stroke={palette.signal300}
+          strokeWidth={2.5}
+          strokeDasharray="7 9"
+          strokeLinecap="round"
+          fill="none"
+          opacity={0.9}
+        />
+        {/*
+          AND THE END OF IT IS A PLACE, NOT A DOT.
+
+          A 7pt disc in the body text colour is a dot on a diagram; on a
+          painted street it is a dropped pebble. Where the professional is
+          going is the second most important thing on this screen, so it
+          gets the same casing treatment and a ring, which reads as a
+          destination at any distance the ROUTE shot reaches.
+        */}
         <Circle
           cx={CUSTOMER_POINT.u * width}
           cy={CUSTOMER_POINT.v * height}
-          r={7}
+          r={11}
+          fill="#161228"
+          opacity={0.45}
+        />
+        <Circle
+          cx={CUSTOMER_POINT.u * width}
+          cy={CUSTOMER_POINT.v * height}
+          r={7.5}
+          fill="none"
+          stroke={palette.signal300}
+          strokeWidth={2.5}
+          opacity={0.95}
+        />
+        <Circle
+          cx={CUSTOMER_POINT.u * width}
+          cy={CUSTOMER_POINT.v * height}
+          r={3}
           fill={palette.nightText}
           opacity={0.95}
         />

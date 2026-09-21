@@ -18,5 +18,10 @@ await p.waitForTimeout(7000);
 try { await click('כן, מתאים לי'); } catch {}
 await p.waitForTimeout(1800);
 try { await click('מפה אמיתית'); } catch { console.log('no ground switch here'); }
-await p.waitForTimeout(2200); await shot('T1-track-real');
+await p.waitForTimeout(1600);
+// From the living map into the tracking screen.
+for (const label of ['לעקוב אחרי דוגמה','לעקוב אחרי','פרטי העבודה']) {
+  try { await click(label); break; } catch {}
+}
+await p.waitForTimeout(2600); await shot('T1-track-real');
 await b.close(); console.log('done');

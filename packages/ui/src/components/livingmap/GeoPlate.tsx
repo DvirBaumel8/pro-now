@@ -380,6 +380,7 @@ export function GeoPlate({
    */
   const detailedTrees = (metresAcross ?? 0) <= 220;
 
+
   /*
    * EVERY DRAWN POINT GOES THROUGH THE SAME GROUND PLANE.
    *
@@ -425,6 +426,32 @@ export function GeoPlate({
   const dressing = useMemo(
     () => (dressed ? projectDressing(dressGeo(plan), pitch) : null),
     [plan, pitch, dressed]
+  );
+
+  /*
+   * WHAT IS LEFT OF PLANTING WHEN YOU STAND BACK.
+   *
+   * Amit, on the wide shot: *"הפארקים עדיין במבט רחוק לא טובים."*
+   *
+   * At two hundred and eighty metres across a four-metre canopy is about
+   * five points wide, and there are three hundred of them. Drawn as a
+   * disc each — with a dark contact shadow under each — the screen got a
+   * fine green speckle over the pavements, the roads and the roofs
+   * alike. It reads as mould on the city, and it is worst in the parks,
+   * because that is where the discs are densest and where they cover the
+   * one shape that was supposed to be legible.
+   *
+   * The fix is not a better disc. At this size there is no drawing that
+   * five points can carry, so what has to change is HOW MANY things are
+   * being asked to carry it: a park is one mass, not ninety dots, and a
+   * street tree at this distance is nothing at all. So past the detail
+   * distance only the park planting is drawn, without shadows, and the
+   * kerbside trees are simply not there — which is also what they look
+   * like from a helicopter.
+   */
+  const drawnTrees = useMemo(
+    () => (detailedTrees ? (dressing?.trees ?? []) : (dressing?.trees ?? []).filter((t) => t.inPark)),
+    [detailedTrees, dressing]
   );
 
   /*
@@ -1100,15 +1127,22 @@ export function GeoPlate({
             in the middle of it were the last thing on that screen that
             looked drawn.
           */}
-          {(props ? dressing.trees : []).map((t, i) => (
+          {(props ? drawnTrees : []).map((t, i) => (
               <G key={`tr${i}`}>
-                <Circle
-                  cx={t.at.u * S}
-                  cy={t.at.v * sy + t.r * sy * 0.5}
-                  r={t.r * S * 0.85}
-                  fill="#0B0917"
-                  opacity={0.45}
-                />
+                {/*
+                  A CONTACT SHADOW IS A CLOSE-UP DEVICE. Far away it is a
+                  dark dot under a light dot, and two dots at five points
+                  apart are one muddy dot.
+                */}
+                {detailedTrees ? (
+                  <Circle
+                    cx={t.at.u * S}
+                    cy={t.at.v * sy + t.r * sy * 0.5}
+                    r={t.r * S * 0.85}
+                    fill="#0B0917"
+                    opacity={0.45}
+                  />
+                ) : null}
                 {detailedTrees ? (
                   <>
                     {/*
@@ -1145,14 +1179,27 @@ export function GeoPlate({
                     )}
                   </>
                 ) : (
-                  /* Three points across. One disc is the whole tree. */
-                  <Circle
-                    cx={t.at.u * S}
-                    cy={t.at.v * sy}
-                    r={t.r * S}
-                    fill={t.tone === 2 ? livingPalette.foliage : livingPalette.foliageDark}
-                    opacity={0.95}
-                  />
+                  /*
+                    PARK PLANTING, MERGED INTO ITS OWN MASS.
+
+                    The lobes are still drawn — they are what gives the
+                    canopy a lumpy edge — but bigger, darker and soft, so
+                    that neighbouring trees in a park OVERLAP into one
+                    continuous body of green instead of staying ninety
+                    separate circles. That body is the thing the eye is
+                    meant to find from up here; an individual tree in it
+                    is not, and was never going to be.
+                  */
+                  t.lobes.map((l, k) => (
+                    <Circle
+                      key={`fm${k}`}
+                      cx={(t.at.u + l.du * t.r * 0.8) * S}
+                      cy={(t.at.v + l.dv * t.r * 0.8) * sy}
+                      r={l.r * t.r * S * 1.35}
+                      fill={t.tone === 2 ? livingPalette.foliage : livingPalette.foliageDark}
+                      opacity={0.5}
+                    />
+                  ))
                 )}
               </G>
             ))}
@@ -1268,8 +1315,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     textAlign: "center",
-    ...type.caption,
-    fontSize: 11,
+    ...type.micro,
     letterSpacing: 2,
     color: "rgba(232,114,76,0.28)",
     writingDirection: "rtl",
