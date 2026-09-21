@@ -45,6 +45,40 @@ Everywhere one of these matters, the codebase exposes an interface + a
 labeled sandbox adapter + an `app_config`/roadmap TODO — never a guessed
 answer.
 
+### The one that is blocking a real complaint, with the numbers
+
+Amit, on the artifact: *"איפה כל הדברים של כל המקצועות? למה אין, ולא קיים
+בקטלוג?"* He is right that it feels thin, and "which services to add" is
+on the list above — each one needs a pricing model, a typical duration,
+the credentials it mandates, and a judgement about whether it belongs in
+a NOW marketplace at all. None of that is an engineering answer.
+
+What IS an engineering answer is the shape of the problem, so the decision
+takes a minute instead of an evening. 47 services today, and the imbalance
+is the whole story:
+
+| Front door | Services |
+| --- | --- |
+| לבית | 25 |
+| ניקיון | 4 |
+| רכב | 4 |
+| חיות | 4 |
+| ביוטי ושיער | 3 |
+| בריאות וכושר | 3 |
+| הובלות ומשלוחים | 2 |
+| מחשבים וסלולר | 2 |
+
+Half the catalogue is behind one door. A customer who taps "מחשבים
+וסלולר" sees two rows and closes the app; a customer who taps "לבית" sees
+a wall. Both are the same decision not yet made.
+
+Adding one is a single entry in `packages/types/src/pilot-catalog.ts` —
+name, pricing model, typical minutes, required credentials — and the home
+grid, the category page, the sentence matcher and the professional's
+eligibility list all pick it up, because they are all derived from that
+one file. `content-completeness.test.ts` refuses a half-written entry, so
+a service cannot be added without the fields that make it work.
+
 ## MVP success — two levels
 **Technical:** stable end-to-end loop, safe atomic assignment, payment
 integrity, trust gating, recovery from every edge case in
