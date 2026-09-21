@@ -65,9 +65,10 @@ the repository moved out of the build container — see EPIC-0-REPORT §17.
 | Schema vs. real database | `npm run db:verify` | **PASS — 1411/1411** |
 | Row lock vs. real Postgres | `npm run verify:rowlock` | **PASS — 7/7, with a control** |
 | API boot | `npm run dev:api` | **PASS — /health 200, catalogue served from the database** |
+| Mobile bundles | `expo export --platform ios` | **PASS — both apps** |
+| Admin + gallery in a browser | manual | **PASS — 0 console errors** |
 
-Not re-measured on this machine, and therefore not claimed: the mobile
-bundles (`expo export`).
+Every gate in this table has now been run on one machine.
 
 ### The Prisma blocker is gone
 

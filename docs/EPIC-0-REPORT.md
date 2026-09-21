@@ -1591,8 +1591,8 @@ rediscover and each one would have cost it again.
 0 defects and 0 unreachable, `verify:screens` and `verify:game` clean,
 the admin build green at 7 pages.
 
-**Not measured here, and therefore not claimed:** the mobile bundles
-(`expo export`).
+**Mobile bundles:** `expo export --platform ios` is green for both apps
+(§18.4).
 
 ### 17.5 Where the history lives
 
@@ -1666,3 +1666,22 @@ department renders as "Wellness" among four Hebrew names, because
 and the catalogue itself has English in that cell. A Hebrew-first product
 showing one English department is a copy decision, not a bug, and
 `/CLAUDE.md §4` says this codebase does not invent those.
+
+
+### 18.4 Everything, on one machine
+
+The last unmeasured gate closed: `expo export --platform ios` produces a
+Hermes bundle for both apps. Nothing in the verification table is
+inherited from another environment any more.
+
+The two browser surfaces were also opened and read rather than assumed.
+`tools/design-preview` renders the Living Map at night — the lit street,
+the ETA card, the honesty banner that says out loud that there is no
+server behind it — and the admin shell serves its four pages. **Zero
+console errors on any of them.**
+
+The admin's Live Map is still a labelled integration point ("wire to
+MapsRoutingProvider + a live-location subscription, Epic 7/12") rather
+than a map, which is what `/CLAUDE.md §3` requires of a screen with no
+real supply behind it yet. It is not a gap in this session's work; it is
+the next epic, announcing itself.
