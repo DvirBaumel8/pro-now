@@ -41,6 +41,20 @@ function requestedIds(): Set<string> {
     ids.add(d.venueAssetId);
     ids.add(d.characterWorldAssetId);
     ids.add(d.characterPortraitAssetId);
+    /*
+     * THE VARIANTS, WHICH THIS TEST MISSED ON ITS FIRST RUN.
+     *
+     * A district can hold several shopfronts so that two salons on one
+     * street are not the same drawing twice — Amit: *"שכל אחת תהיה מובדלת
+     * מהשניה בעיצוב אחר."* Leaving them out meant `district_nails` looked
+     * like a delivered file nobody drew, and I nearly deleted it. It is
+     * BEAUTY's second salon.
+     *
+     * Which is the test being wrong in exactly the way it exists to
+     * catch: an asset the world genuinely asks for, invisible to the
+     * check that asks what the world wants.
+     */
+    for (const variant of d.venueVariantAssetIds ?? []) ids.add(variant);
   }
   for (const a of AVATARS) {
     ids.add(a.portraitAssetId);
@@ -90,9 +104,6 @@ describe("the art the world asks for", () => {
       "welcome_hero",
       "hair_barbershop_hero",
       "shared_ground_street",
-      // BEAUTY is drawn by the hair salon; the nail bar was delivered
-      // before the eleven trades were settled and nothing reaches it.
-      "district_nails",
     ]);
     const wanted = requestedIds();
     const orphans = deliveredIds().filter((id) => !wanted.has(id) && !LEGACY.has(id));
