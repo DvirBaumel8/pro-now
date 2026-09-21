@@ -5,6 +5,8 @@ import Svg, { Circle, Path } from "react-native-svg";
 import {
   alongRoute,
   assignmentRoute,
+  curvatureBetween,
+  vehiclePose,
   bobAt,
   CUSTOMER_POINT,
   depthScale,
@@ -134,6 +136,39 @@ export interface RouteLayerProps {
    * and `progress` still comes from the server's own ETA.
    */
   path?: readonly NormalizedPoint[] | null;
+  /**
+   * How long the drawn path is, in metres.
+   *
+   * Only used to turn curvature into 1/metres so a corner leans the same
+   * on every phone. It is a DRAWN length and never a duration — see
+   * `CRUISE_MS`.
+   */
+  pathMetres?: number;
+}
+
+/** Radians to degrees, because the transform wants degrees. */
+const DEGREES = 180 / Math.PI;
+
+/**
+ * The speed a corner is taken at, for the purposes of leaning.
+ *
+ * The layer does not know a real speed — `progress` comes from the
+ * server's ETA and the drawn distance is not a journey — so the lean is
+ * computed at a plausible town speed rather than invented from a
+ * duration. Nine metres a second is about thirty kilometres an hour.
+ *
+ * It is deliberately a CONSTANT and not derived from the ETA: dividing a
+ * drawn length by a promised time produces a speed, and a speed shown
+ * back to a customer is an invented ETA wearing a different hat.
+ */
+const CRUISE_MS = 9;
+
+/** A unit vector from one point to the next. */
+function unit(a: NormalizedPoint, b: NormalizedPoint): NormalizedPoint {
+  const du = b.u - a.u;
+  const dv = b.v - a.v;
+  const len = Math.hypot(du, dv) || 1;
+  return { u: du / len, v: dv / len };
 }
 
 export function RouteLayer({
@@ -146,7 +181,9 @@ export function RouteLayer({
   sources = EMPTY_ASSET_SOURCES,
   animate = true,
   path = null,
+  pathMetres = 0,
 }: RouteLayerProps) {
+  const routeMetres = pathMetres;
   // `width`/`height` are the WORLD's size in points.
   const basis = sizeBasis ?? width;
   void basis;
@@ -233,10 +270,35 @@ export function RouteLayer({
       )
       .join(" ");
 
-    return { route, steps, travelled, d };
-  }, [department, width, height, path]);
+    /*
+     * HOW HARD EACH SAMPLE IS TURNING.
+     *
+     * Computed here with everything else that depends only on the route,
+     * for the reason the whole table exists: this screen re-renders once
+     * a second from its own ETA clock, and a curvature pass per render
+     * is 160 more things to do every second for a number that has not
+     * changed.
+     *
+     * `travelled` is in world units with the depth weighting in it, so
+     * it is turned into metres against the route's own length — a
+     * curvature is 1/metres and a curvature in 1/world-units would lean
+     * a van twice as hard on a taller phone.
+     */
+    const totalWorld = travelled.at(-1) ?? 0;
+    const metres = totalWorld > 0 ? routeMetres / totalWorld : 0;
+    const cornerLean = route.map((_, i) => {
+      if (i === 0 || i >= route.length - 1) return 0;
+      const before = unit(route[i - 1]!.at, route[i]!.at);
+      const after = unit(route[i]!.at, route[i + 1]!.at);
+      const run = (travelled[i + 1]! - travelled[i - 1]!) * metres;
+      const curve = curvatureBetween(before, after, run);
+      return vehiclePose({ distance: 0, speed: CRUISE_MS, heading: after }, 0, curve).lean;
+    });
 
-  const { route, steps, travelled, d } = table;
+    return { route, steps, travelled, d, cornerLean };
+  }, [department, width, height, path, routeMetres]);
+
+  const { route, steps, travelled, d, cornerLean } = table;
 
   /*
    * THE VEHICLE EASES TO THE NEW PROGRESS; IT DOES NOT JUMP TO IT.
@@ -396,7 +458,22 @@ export function RouteLayer({
                 // Leaning into the walk. Zero for anything on wheels.
                 rotate: driver.interpolate({
                   inputRange: steps,
-                  outputRange: travelled.map((d) => `${leanAt(gait, d, facing).toFixed(2)}deg`),
+                  /*
+                   * THE STRIDE'S LEAN, PLUS THE BODY ROLL OF A CORNER.
+                   *
+                   * `leanAt` is the cyclic half — a walk rocks, a van
+                   * does not. `cornerLean` is the other kind: it is zero
+                   * on a straight road and at a crawl, and it comes from
+                   * the curvature of the path the router found. See
+                   * `vehicle-motion.ts`; ChatGPT's line was *"רכב לא
+                   * עושה אנימציה, הוא מגיב לכוחות"*, and the difference
+                   * is that this one is silent when nothing is
+                   * happening.
+                   */
+                  outputRange: travelled.map(
+                    (d, i) =>
+                      `${(leanAt(gait, d, facing) + cornerLean[i]! * DEGREES).toFixed(2)}deg`
+                  ),
                 }),
               },
               // Turned to face the way it is going, not mirrored art.

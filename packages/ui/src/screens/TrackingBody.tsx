@@ -195,7 +195,7 @@ export function TrackingBody({
     const to = frontageNear(plan, CUSTOMER_POINT);
     if (!to) return null;
     const route = routeAlongRoads(buildRoadGraph(plan), from, to.at);
-    return route ? route.path : null;
+    return route ? { path: route.path, metres: route.metres } : null;
   }, [geo, departmentCode]);
 
   /*
@@ -407,7 +407,8 @@ export function TrackingBody({
                    * extract the van turns left because the junction is
                    * there. See `routeAlongRoads`.
                    */
-                  path={roadPath}
+                  path={roadPath?.path ?? null}
+                  pathMetres={roadPath?.metres ?? 0}
                 />
               )}
             </WorldBackdrop>

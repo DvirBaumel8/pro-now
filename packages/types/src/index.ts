@@ -38,3 +38,4 @@ export * from "./world-geo";
 export * from "./geo-truth";
 export * from "./world-camera";
 export * from "./world-routing";
+export * from "./vehicle-motion";
