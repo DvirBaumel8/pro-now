@@ -1254,9 +1254,25 @@ minutes; `RouteLayer` still had the O(n²) cumulative-distance map that
 sixty times a second; and the match sheet's fold-away had never played a
 single frame.
 
-### 15.6 State
+### 15.6 Both apps still bundle
 
-711 tests pass. Lint and typecheck are clean across every workspace except
+Worth stating because the night added two native dependencies
+(`expo-av` for the microphone, `@react-native-async-storage/async-storage`
+for the avatar) and moved every screen onto `packages/ui`, which is the
+kind of change that compiles and then fails in Metro.
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Customer bundle | `expo export --platform ios` | PASS — 2.95 MB |
+| Professional bundle | `expo export --platform ios` | PASS — 2.86 MB |
+| Admin build | `next build` | PASS |
+
+The customer bundle grew from 1.81 MB because it now carries the world
+layer it was always supposed to render.
+
+### 15.7 State
+
+720 tests pass. Lint and typecheck are clean across every workspace except
 `apps/api`, which still fails on the documented `prisma generate` blocker
 (§12.5) — unchanged and unrelated.
 
