@@ -99,11 +99,35 @@ export function ScreenTransition({
   }
   const shape = playing.current.shape;
 
+  /**
+   * The measured width, in points. Zero until the first layout — see the
+   * hold in the effect below, which is what stops the slide starting
+   * against a width nobody has measured yet.
+   */
+  const [width, setWidth] = useState(0);
+
   useEffect(() => {
     if (!animate) {
       v.setValue(1);
       return;
     }
+    /*
+     * HOLD UNTIL THE WIDTH IS KNOWN.
+     *
+     * `from` is `shape.fromX * width`, and `width` starts at 0 and is
+     * filled in by `onLayout` — which on react-native-web is a
+     * ResizeObserver callback that cannot fire before the first paint. So
+     * on the first transition after this component mounts, the move began
+     * with an output range of [0, 0]: the incoming screen sat exactly in
+     * place and started fading, and a frame or two later the real width
+     * arrived, the range became [-86, 0], and the screen JUMPED sideways
+     * by most of that and then slid back in.
+     *
+     * Invisible on every later transition, because the component is not
+     * remounted and the width persists — which is why it survived. It
+     * comes back on rotation.
+     */
+    if (width === 0) return;
     v.setValue(0);
     const a = Animated.timing(v, {
       toValue: 1,
@@ -119,7 +143,7 @@ export function ScreenTransition({
      * objects chosen once per move — so it changes exactly when
      * `transitionKey` does and never mid-flight.
      */
-  }, [transitionKey, animate, v, shape]);
+  }, [transitionKey, animate, v, shape, width]);
 
   /*
    * ---------------------------------------------------------------------
@@ -142,7 +166,6 @@ export function ScreenTransition({
    * measured layout. The move still reads the same on a small phone and
    * a large one — it is the same fraction, worked out one step earlier.
    */
-  const [width, setWidth] = useState(0);
   const from = shape.fromX * width;
 
   return (

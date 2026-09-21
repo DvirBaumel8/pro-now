@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { StyleSheet, View } from "react-native";
 
 import {
@@ -139,8 +139,21 @@ export function SearchingBody({
    * busy — the empty orbit over a lit city is the true picture of "still
    * looking".
    */
-  const state: LivingMapState =
-    living ?? { phase: "SEARCHING", theme, adapter: DEMO_WORLD, candidates: [], journey: null };
+  /*
+   * MEMOISED, BECAUSE THE SCENE IS MEMOISED ON IT.
+   *
+   * A fresh object with a fresh `candidates: []` on every render defeats
+   * `LivingMapScene`'s own memoisation, which exists specifically to stop
+   * `venues`, `availability` and `sweep` recomputing — and those feed the
+   * walker's destination and the camera's tour. Only the gallery reaches
+   * this path (the app always supplies `living`), which is exactly why it
+   * would have gone unnoticed: the place we review would stutter and the
+   * place we ship would not.
+   */
+  const state: LivingMapState = useMemo(
+    () => living ?? { phase: "SEARCHING", theme, adapter: DEMO_WORLD, candidates: [], journey: null },
+    [living, theme]
+  );
 
   return (
     <View style={[styles.screen, { width, height }]}>

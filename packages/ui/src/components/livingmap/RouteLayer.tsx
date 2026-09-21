@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useMemo } from "react";
 import { Animated, Easing, StyleSheet, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 
@@ -7,7 +7,6 @@ import {
   bobAt,
   CUSTOMER_POINT,
   leanAt,
-  pathLength,
   WORLD_SIZE,
   type DepartmentCode,
   type Gait,
@@ -116,8 +115,64 @@ export function RouteLayer({
    * a sine read at three points per cycle and interpolated linearly is a
    * wobble, not a step.
    */
-  const route = assignmentRoute(department, 160);
-  const steps = route.map((_, i) => i / (route.length - 1));
+  /*
+   * THE WHOLE TABLE, BUILT ONCE PER TRIP.
+   *
+   * Everything below — the route, the step table, the cumulative
+   * distances, the SVG path and the five interpolation output arrays —
+   * depends only on the trade and the size of the world. None of it
+   * changes while a professional drives down the street, and all of it was
+   * being rebuilt on every render.
+   *
+   * That mattered because this screen re-renders at least once a second
+   * from its own ETA clock, forever, while somebody watches. 160 samples
+   * meant 160 `alongStreet` and `depthScale` calls, five 160-entry output
+   * arrays, 320 `bobAt`/`leanAt` evaluations, 160 `toFixed` strings, a
+   * 160-segment path string — and five fresh interpolation nodes that had
+   * to be detached from and reattached to the native view. On a mid-range
+   * Android that is a dropped frame once a second: the scooter's own
+   * smooth native-driven motion hitching in time with the ETA text
+   * updating, which is precisely what this file exists to avoid.
+   */
+  const table = useMemo(() => {
+    const route = assignmentRoute(department, 160);
+    const steps = route.map((_, i) => i / (route.length - 1));
+
+    /*
+     * A RUNNING TOTAL, NOT A SLICE PER SAMPLE.
+     *
+     * This was `route.map((_, i) => pathLength(route.slice(0, i + 1)))` —
+     * for 160 samples, 160 array copies, 160 maps and 12,720 `Math.hypot`
+     * calls to compute a number each step already knows from the one
+     * before it. `WorldLife` was fixed for exactly this and the same line
+     * was left standing here.
+     *
+     * `dv` carries the same 0.6 weighting the rest of the world uses, and
+     * it has to: the gait is a function of distance, so a different
+     * weighting here would drift the stride against the position.
+     */
+    const travelled: number[] = [];
+    let run = 0;
+    for (let i = 0; i < route.length; i += 1) {
+      if (i > 0) {
+        const a = route[i - 1]!.at;
+        const b = route[i]!.at;
+        run += Math.hypot(b.u - a.u, (b.v - a.v) * 0.6);
+      }
+      travelled.push(run);
+    }
+
+    const d = route
+      .map(
+        (s, i) =>
+          `${i === 0 ? "M" : "L"}${(s.at.u * width).toFixed(1)} ${(s.at.v * height).toFixed(1)}`
+      )
+      .join(" ");
+
+    return { route, steps, travelled, d };
+  }, [department, width, height]);
+
+  const { route, steps, travelled, d } = table;
 
   /*
    * THE VEHICLE EASES TO THE NEW PROGRESS; IT DOES NOT JUMP TO IT.
@@ -183,13 +238,6 @@ export function RouteLayer({
    * a fact about the trade rather than a choice about the animation.
    */
   const gait: Gait = vehicleAssetId === "dog_walker" ? "WALK" : vehicleAssetId === "courier_scooter" ? "RIDE" : "HAUL";
-  const travelled = route.map((_, i) => pathLength(route.slice(0, i + 1).map((r) => r.at)));
-
-  // The road already travelled, so the customer can see the shape of the
-  // trip rather than only its current point.
-  const d = route
-    .map((s, i) => `${i === 0 ? "M" : "L"}${(s.at.u * width).toFixed(1)} ${(s.at.v * height).toFixed(1)}`)
-    .join(" ");
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">

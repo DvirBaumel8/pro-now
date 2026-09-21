@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Image, Pressable, StyleSheet, Text, View } from "react-native";
 
 import {
@@ -154,6 +154,20 @@ export function StrollBody({
    */
   const [depth, setDepth] = useState<number>(WALK_START.v);
 
+  /*
+   * A MIRROR OF `found`, SO THE CHECK CAN HAPPEN OUTSIDE THE UPDATER.
+   *
+   * This used to read `was.found` inside `setFound` and call
+   * `setLastFoundHe` from in there. A `useState` updater must be pure:
+   * React is explicitly allowed to run it more than once, and does — on
+   * every update under StrictMode, and again whenever it re-bases an
+   * interrupted render. The visible failure is an announcement naming an
+   * errand that was then discarded, or no announcement for one that was
+   * collected.
+   */
+  const foundRef = useRef(found);
+  foundRef.current = found;
+
   const remember = useCallback(
     (at: NormalizedPoint) => {
       walkedTo.current = at;
@@ -164,18 +178,38 @@ export function StrollBody({
        * Reached anything? `reachedNow` is pure and `discover` is
        * idempotent, so standing still on top of something counts once.
        */
-      setFound((was) => {
-        const hit = reachedNow(at, errands, was.found);
-        if (hit.length === 0) return was;
-        const line = errands.find((e) => e.id === hit[0])?.foundHe ?? null;
-        if (line) setLastFoundHe(line);
-        return hit.reduce((acc, id) => discover(acc, id), was);
-      });
+      const hit = reachedNow(at, errands, foundRef.current.found);
+      if (hit.length === 0) return;
+      const line = errands.find((e) => e.id === hit[0])?.foundHe ?? null;
+      if (line) setLastFoundHe(line);
+      setFound((was) => hit.reduce((acc, id) => discover(acc, id), was));
     },
     [errands]
   );
 
+  /*
+   * THE LINE GOES AWAY.
+   *
+   * It never did. There was no timer and no other write to it anywhere in
+   * the file, so "חתול יצא מתחת לספסל" appeared over the city and stayed
+   * there for the rest of the session — until the customer happened to
+   * reach another errand, at which point it swapped for a second sentence
+   * that also never left. The equivalent state in `LivingMapScene` is
+   * cleared when the phase changes; this screen has no phase.
+   *
+   * The timer restarts on a new line rather than the old one clearing the
+   * new one, which is what the cleanup is for.
+   */
+  useEffect(() => {
+    if (!lastFoundHe) return;
+    const t = setTimeout(() => setLastFoundHe(null), 2500);
+    return () => clearTimeout(t);
+  }, [lastFoundHe]);
+
   const label = nearest ? WORLD_DISTRICTS[nearest].labelHe : null;
+
+  /** One pair, kept. See the note at the `follow` prop below. */
+  const followPair = useMemo(() => (canWalk ? { u, v } : null), [canWalk, u, v]);
 
   return (
     <View style={[styles.screen, { width, height }]}>
@@ -191,7 +225,16 @@ export function StrollBody({
          * around rather than be stuck at one view.
          */
         explorable={!canWalk}
-        follow={canWalk ? { u, v } : null}
+        /*
+         * MEMOISED, LIKE THE SCENE'S.
+         *
+         * A fresh `{ u, v }` literal here is in `followTransform`'s
+         * dependency list, so every re-render of this screen threw away
+         * and rebuilt the two interpolation nodes that position the entire
+         * neighbourhood. `LivingMapScene` memoises exactly this and
+         * explains why; this screen was missed.
+         */
+        follow={followPair}
         animate={animate}
       >
         {(world) => (

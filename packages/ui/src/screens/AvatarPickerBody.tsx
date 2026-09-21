@@ -105,7 +105,28 @@ function AvatarCell({
   children: React.ReactNode;
 }) {
   const rise = useRef(new Animated.Value(animate ? 0 : 1)).current;
-  const pose = useRef(new Animated.Value(0)).current;
+  /*
+   * THE POSE IS THE QUANTITY, NOT A 0→1 REMAP OF IT.
+   *
+   * These were one value springing 0→1 with the target baked into the
+   * interpolation's output range — and the value was reset to 0 on every
+   * change of the choice, while 0 always meant the NEUTRAL pose.
+   *
+   * So tapping a second avatar made the first one do this, in order:
+   * React renders with the new output range while the value is still 1, so
+   * it snaps from 1.06 to 0.94; the effect then sets the value to 0, which
+   * snaps it back to 1.0 at full brightness; only then does the spring
+   * carry it down to 0.94 and 0.55. The newly-picked tile does the mirror.
+   * A visible double-hop, with both tiles flashing bright and full-size on
+   * the way, on the second screen a customer ever sees and the one whose
+   * entire content is this single choice.
+   *
+   * Springing the real numbers instead means a re-target mid-flight is a
+   * redirect rather than a reset: a spring resumes from wherever the value
+   * actually is.
+   */
+  const cellScale = useRef(new Animated.Value(1)).current;
+  const cellOpacity = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     if (!animate) {
@@ -125,38 +146,31 @@ function AvatarCell({
 
   const target = poseFor(picked, anyPicked);
   useEffect(() => {
-    const anim = Animated.spring(pose, {
-      toValue: 1,
-      // Enough give to feel like a thing moving, not enough to wobble:
-      // twelve wobbling tiles is a screen nobody can read.
-      damping: 18,
-      stiffness: 220,
-      mass: 0.9,
-      useNativeDriver: true,
-    });
-    pose.setValue(0);
     if (!animate) {
-      pose.setValue(1);
+      cellScale.setValue(target.scale);
+      cellOpacity.setValue(target.opacity);
       return;
     }
+    // Enough give to feel like a thing moving, not enough to wobble:
+    // twelve wobbling tiles is a screen nobody can read.
+    const spring = { damping: 18, stiffness: 220, mass: 0.9, useNativeDriver: true } as const;
+    const anim = Animated.parallel([
+      Animated.spring(cellScale, { ...spring, toValue: target.scale }),
+      Animated.spring(cellOpacity, { ...spring, toValue: target.opacity }),
+    ]);
     anim.start();
     return () => anim.stop();
-  }, [animate, pose, picked, anyPicked]);
-
-  const scale = pose.interpolate({ inputRange: [0, 1], outputRange: [1, target.scale] });
+  }, [animate, cellScale, cellOpacity, target.scale, target.opacity]);
 
   return (
     <Animated.View
       style={{
-        opacity: Animated.multiply(
-          rise,
-          pose.interpolate({ inputRange: [0, 1], outputRange: [1, target.opacity] })
-        ),
+        opacity: Animated.multiply(rise, cellOpacity),
         transform: [
           // Arriving from slightly below, which reads as being set down
           // rather than as fading in.
           { translateY: rise.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) },
-          { scale },
+          { scale: cellScale },
         ],
       }}
     >

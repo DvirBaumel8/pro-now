@@ -193,23 +193,48 @@ export function WorldBackdrop({
       camV.setValue(next.v);
       return;
     }
+    /*
+     * A CURVE THAT SURVIVES BEING INTERRUPTED.
+     *
+     * This was `Easing.inOut(Easing.cubic)`, which has zero velocity at
+     * both ends — fine for a move that runs to completion, wrong for a
+     * value that is continuously re-targeted. On the tracking screen the
+     * focus changes as the professional advances, and every change
+     * restarted the ease from a standstill: the camera crept, paused,
+     * crept, paused, once a second, for the whole trip. On the one screen
+     * somebody watches for twenty minutes.
+     *
+     * `Easing.out` starts at full speed, so a re-target mid-flight reads
+     * as a redirect rather than as a fresh start.
+     */
     const move = Animated.parallel([
       Animated.timing(camU, {
         toValue: next.u,
         duration: 1400,
-        easing: Easing.inOut(Easing.cubic),
+        easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
       Animated.timing(camV, {
         toValue: next.v,
         duration: 1400,
-        easing: Easing.inOut(Easing.cubic),
+        easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
     ]);
     move.start();
     return () => move.stop();
-  }, [animate, camU, camV, focus]);
+    /*
+     * THE SCALARS, NOT THE OBJECT.
+     *
+     * `focus` on the tracking screen is `routeAt(department, progress).at`,
+     * and `routeAt` rebuilds a 48-element route on every call — so `.at` is
+     * a brand-new object on every render, and the screen re-renders at
+     * least once a second from its own ETA clock. Depending on the object
+     * meant this stopped and restarted the move every second even when the
+     * route had quantised to the SAME sample: the camera was being told to
+     * re-ease towards a point it was already approaching.
+     */
+  }, [animate, camU, camV, focus?.u, focus?.v]);
 
   /*
    * THE PLATE IS THE WHOLE NEIGHBOURHOOD, NOT ONE SCREEN OF IT.

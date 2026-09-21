@@ -137,6 +137,15 @@ export function Walker({
   const lean = useRef(new Animated.Value(0)).current;
 
   const [facing, setFacing] = useState<1 | -1>(1);
+  /**
+   * Whether the figure is actually taking steps right now.
+   *
+   * Not the same as "has somewhere to go": on the search tour the
+   * destination stays set for the whole phase while the figure arrives,
+   * waits, and sets off again. The settle below needs the first question,
+   * not the second.
+   */
+  const [moving, setMoving] = useState(false);
 
   /*
    * THE WALK.
@@ -159,6 +168,7 @@ export function Walker({
 
   useEffect(() => {
     if ((!heading && !target) || !animate || !source) return;
+    setMoving(true);
 
     let frame = 0;
     let last = Date.now();
@@ -177,6 +187,11 @@ export function Walker({
        */
       const h: Heading = heading ?? headingToward(at.current, target!);
       if (!h) {
+        /*
+         * ARRIVED. The loop ends here, and saying so is what lets the
+         * settle below run — see the note on `moving`.
+         */
+        setMoving(false);
         onSettled?.(at.current);
         return;
       }
@@ -225,6 +240,15 @@ export function Walker({
   }, [heading]);
 
   /*
+   * Letting go is stopping, immediately — the loop's own cleanup does not
+   * run for a steered figure until the next render, and a figure that
+   * keeps its stride for a frame after the thumb lifts reads as lag.
+   */
+  useEffect(() => {
+    if (!heading && !target) setMoving(false);
+  }, [heading, target]);
+
+  /*
    * STANDING STILL IS NOT MID-STRIDE.
    *
    * Releasing the pad leaves the figure wherever the last frame put it —
@@ -233,14 +257,29 @@ export function Walker({
    * the animation being paused.
    */
   useEffect(() => {
-    if (heading || target) return;
+    /*
+     * GATED ON MOVING, NOT ON HAVING A DESTINATION.
+     *
+     * This used to be `if (heading || target) return`, and `target` is the
+     * search sweep's focus, which stays non-null for the whole search. So
+     * the settle never ran while the figure walked the camera's tour: it
+     * reached a shop, the loop ended, and it stood there for the two
+     * seconds of the stop with one foot off the ground and the body tilted
+     * at whatever angle the last frame happened to produce — `bobAt` and
+     * `leanAt` are continuous in distance, so the stopping pose is
+     * arbitrary rather than neutral.
+     *
+     * It read as a paused video, which is the exact thing the note above
+     * says this must never look like, four times a search.
+     */
+    if (moving) return;
     const settle = Animated.parallel([
       Animated.timing(bob, { toValue: 0, duration: 180, useNativeDriver: true }),
       Animated.timing(lean, { toValue: 0, duration: 180, useNativeDriver: true }),
     ]);
     settle.start();
     return () => settle.stop();
-  }, [bob, heading, lean, target]);
+  }, [bob, lean, moving]);
 
   if (!source) return null;
 

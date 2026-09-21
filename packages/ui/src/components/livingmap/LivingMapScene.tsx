@@ -32,6 +32,7 @@ import {
   reachedNow,
   type Gait,
   type AvatarChoice,
+  type LivingMapPhase,
 } from "@pro-now/types";
 
 import { palette, radii, spacing, tabular, type } from "../../theme";
@@ -193,6 +194,22 @@ const SWEEP_TICK_MS = 200;
  */
 const VENUE_CARD_TOP_CLEARANCE = 132;
 
+/**
+ * The phases that mean "we are taking you somewhere", in order.
+ *
+ * Used only to turn a phase into a number the viewport can compare, so a
+ * hand-dragged world is released when the story moves on and not when the
+ * search sweep nudges the focus. Order is arbitrary and must only be
+ * stable — two phases sharing an index would mean a transition between
+ * them did not release the drag.
+ */
+const RECENTRE_ON: readonly LivingMapPhase[] = [
+  "SEARCHING",
+  "CANDIDATES_FOUND",
+  "MATCH_REVEAL",
+  "ASSIGNED_ROUTE",
+];
+
 export function LivingMapScene({
   state,
   etaMinutes,
@@ -308,6 +325,23 @@ export function LivingMapScene({
    * two can never disagree about where we are in the move.
    */
   const [journeyMs, setJourneyMs] = useState<number | null>(null);
+
+  /**
+   * Whether the match sheet is on screen, which outlasts the phase.
+   *
+   * True the moment MATCH_REVEAL begins and false only after the fold-away
+   * has had its `foundToReveal` to play. See the mount below.
+   */
+  const [sheetMounted, setSheetMounted] = useState(false);
+  useEffect(() => {
+    if (phase === "MATCH_REVEAL") {
+      setSheetMounted(true);
+      return;
+    }
+    if (!sheetMounted) return;
+    const t = setTimeout(() => setSheetMounted(false), LIVING_MAP_TIMING.foundToReveal);
+    return () => clearTimeout(t);
+  }, [phase, sheetMounted]);
   const travellingTo = useRef<string | null>(null);
 
   /** Bumped once per journey, and the only thing the clock effect watches. */
@@ -474,6 +508,21 @@ export function LivingMapScene({
   /** One driver per transition, so each phase can be reasoned about alone. */
   const found = useRef(new Animated.Value(0)).current;
   const reveal = useRef(new Animated.Value(0)).current;
+  /**
+   * The match sheet's own rise and fall.
+   *
+   * It used to ride on `reveal`, which is driven to 1 for MATCH_REVEAL and
+   * ASSIGNED_ROUTE alike — and the sheet was mounted only while the phase
+   * was MATCH_REVEAL. So on confirm the phase flipped, the sheet unmounted
+   * in the same commit, and the `translateY: [180, 0]` fold-away never
+   * played a single frame: it vanished instantly at exactly the moment the
+   * file's own header promises *"the sheet folds away and the world takes
+   * the stage"*.
+   *
+   * Its own value, driven down before the unmount, gives it the exit it
+   * was written for.
+   */
+  const sheet = useRef(new Animated.Value(0)).current;
   const route = useRef(new Animated.Value(0)).current;
   const pulse = useRef(new Animated.Value(0)).current;
 
@@ -489,11 +538,12 @@ export function LivingMapScene({
     const seq = Animated.parallel([
       to(found, phase === "SEARCHING" ? 0 : 1, LIVING_MAP_TIMING.searchingToFound),
       to(reveal, phase === "MATCH_REVEAL" || phase === "ASSIGNED_ROUTE" ? 1 : 0, LIVING_MAP_TIMING.foundToReveal),
+      to(sheet, phase === "MATCH_REVEAL" ? 1 : 0, LIVING_MAP_TIMING.foundToReveal),
       to(route, phase === "ASSIGNED_ROUTE" ? 1 : 0, LIVING_MAP_TIMING.revealToRoute),
     ]);
     seq.start();
     return () => seq.stop();
-  }, [phase, animate, found, reveal, route]);
+  }, [phase, animate, found, reveal, route, sheet]);
 
   useEffect(() => {
     if (!animate || phase !== "SEARCHING") {
@@ -618,8 +668,25 @@ export function LivingMapScene({
    * press, and nothing is claimed — the tour is the search being shown,
    * and it was already on screen.
    */
-  const autoTo =
-    canWalk && phase === "SEARCHING" && animate && venues.length > 0 ? sweep.camera.focus : null;
+  /*
+   * STABLE BY VALUE, NOT BY IDENTITY.
+   *
+   * `sweepFrame` returns a fresh `{ u, v }` literal every call and the
+   * sweep clock ticks five times a second, so this was a new object at
+   * 5 Hz even while the figure was walking to the SAME shop. `autoTo` is
+   * in the walk loop's dependency array, so the rAF loop was torn down and
+   * rebuilt five times a second — and every teardown fires `onSettled`.
+   *
+   * Memoising on the numbers means the loop is built once per destination,
+   * which is what "walk to that shop" was always supposed to mean.
+   */
+  const autoU = sweep.camera.focus?.u ?? null;
+  const autoV = sweep.camera.focus?.v ?? null;
+  const walking = canWalk && phase === "SEARCHING" && animate && venues.length > 0;
+  const autoTo = useMemo(
+    () => (walking && autoU !== null && autoV !== null ? { u: autoU, v: autoV } : null),
+    [walking, autoU, autoV]
+  );
 
   // Taking the thumb off, and being taken off the street, are the same
   // thing to the figure: it stops. Without this a phase change mid-step
@@ -631,13 +698,33 @@ export function LivingMapScene({
   const rememberWalk = useCallback(
     (at: NormalizedPoint) => {
       walkedTo.current = at;
+
+      /*
+       * THE GAME BELONGS TO THE WAIT, AND THIS WAS SPENDING IT EARLY.
+       *
+       * Everywhere else the scene is careful about this — `WorldStage`
+       * only gets `onFound` in ASSIGNED_ROUTE, `ErrandLayer` only mounts
+       * when `mayWalk` — and this callback had no gate at all.
+       *
+       * So during the SEARCH, while the figure walks the camera's tour of
+       * the shops, it crossed errand positions and collected them. Nothing
+       * was on screen: the markers were not drawn and the found line was
+       * hidden. But `onFound` fired, and when the customer finally reached
+       * the wait — the part Amit designed as the game, *"יש 20 דקות עד
+       * שהוא מגיע, ב-20 דקות האלה אני רוצה שיהיה משחק"* — the drawer
+       * greeted them with "מצאת 4 מתוך 8" for four things they never saw,
+       * and those four were gone from the street they were about to
+       * explore. Half the game spent before it started.
+       */
+      if (phase !== "ASSIGNED_ROUTE") return;
+
       const hit = reachedNow(at, errands, discoveries?.found ?? []);
       if (hit.length === 0) return;
       const line = errands.find((e) => e.id === hit[0])?.foundHe ?? null;
       if (line) setLastFoundHe(line);
       for (const id of hit) onFound?.(id);
     },
-    [discoveries?.found, errands, onFound]
+    [phase, discoveries?.found, errands, onFound]
   );
 
   /*
@@ -733,6 +820,20 @@ export function LivingMapScene({
          * They are contradictory gestures — see `WorldViewport.follow`.
          */
         follow={mayWalk || autoTo ? followPair : null}
+        /*
+         * THE CAMERA TAKES THE WORLD BACK WHEN THE STORY MOVES ON.
+         *
+         * A drag used to be permanent: `dragged` was set and never
+         * cleared, so one sideways look and the camera was dead for the
+         * rest of the session — the journey's pull-back-and-push-in ran
+         * with the world sitting exactly where a thumb had left it.
+         *
+         * The phase and the journey are the two moments that mean "we are
+         * taking you somewhere". The sweep's focus is deliberately NOT one
+         * of them: it moves five times a second, and honouring it would
+         * snatch the world back from under somebody's hand.
+         */
+        recentreKey={RECENTRE_ON.indexOf(phase) + (journeyMs === null ? 0 : 100)}
         animate={animate}
       >
         {(world) => (
@@ -1038,14 +1139,22 @@ export function LivingMapScene({
         * below the world, is the composition Amit and ChatGPT both signed
         * off on — and it is the thing that empties the centre.
         */}
-      {chosen && phase === "MATCH_REVEAL" ? (
+      {/*
+        * MOUNTED THROUGH THE EXIT, NOT ONLY THROUGH THE PHASE.
+        *
+        * `sheetMounted` lags the phase by the fold-away's own duration, so
+        * the sheet is still on screen while it folds. Unmounting on the
+        * phase change — which is what this did — meant the exit animation
+        * was written, tested and never once seen.
+        */}
+      {chosen && sheetMounted ? (
         <MatchSheet
           candidate={chosen}
           etaMinutes={etaMinutes}
           arrivalClockHe={arrivalClockHe}
           onAccept={onAccept}
           onAnother={onAnother}
-          progress={reveal}
+          progress={sheet}
         />
       ) : null}
 

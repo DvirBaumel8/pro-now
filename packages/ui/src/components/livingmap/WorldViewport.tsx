@@ -89,6 +89,28 @@ export interface WorldViewportProps {
     visibleTop: number;
   }) => React.ReactNode;
   onDragStart?: () => void;
+  /**
+   * BUMP THIS WHEN THE STORY MOVES ON.
+   *
+   * A hand-dragged world stays where it was put — that is the rule, and it
+   * is right. What was missing was the other half of it: `dragged` was set
+   * by the pan responder and NEVER cleared, by anything, anywhere. One
+   * sideways drag and the camera was dead for the rest of the session.
+   *
+   * What that looked like: a customer without a walking figure drags the
+   * street to look around, then taps a shop. The journey runs, the phase
+   * changes, every camera shot is computed — and the world does not move a
+   * pixel. The pull-back-and-push-in Amit asked for ("רוצה שיקח אותי בזום
+   * אווט לבית העסק הרצוי ואז זום אין") silently did nothing, permanently,
+   * after one drag, and there was no way back short of leaving the screen.
+   *
+   * So the host changes this number whenever the camera is being given a
+   * genuinely new intent — a phase change, a journey starting — and the
+   * drag is released. Not on every focus change: the sweep moves the focus
+   * five times a second, and honouring that would snatch the world back
+   * from under somebody's thumb.
+   */
+  recentreKey?: number;
 }
 
 export function WorldViewport({
@@ -102,6 +124,7 @@ export function WorldViewport({
   animate = true,
   children,
   onDragStart,
+  recentreKey = 0,
 }: WorldViewportProps) {
   /*
    * The world box takes the PLATE's aspect, not the phone's. See
@@ -127,14 +150,62 @@ export function WorldViewport({
     [height, width, worldH, worldSized, worldW]
   );
 
-  const [dragged, setDragged] = useState<{ x: number; y: number } | null>(null);
+  /*
+   * Read as numbers so the effect below can depend on the VALUES rather
+   * than on the object — see the long note at the end of that effect.
+   */
+  const focusU = focus?.u ?? null;
+  const focusV = focus?.v ?? null;
+
+  /*
+   * DRAGGING WITHOUT RE-RENDERING THE NEIGHBOURHOOD.
+   *
+   * This used to be `useState`, written by `onPanResponderMove` — sixty
+   * times a second. That is viewport state, so `children(world)` was
+   * re-invoked and `WorldStage`, `WorldLife`, `DistrictLayer`,
+   * `VenueLayer`, `ErrandLayer` and `Walker` all re-rendered, none of them
+   * memoised. `WorldLife` alone rebuilt a 160-sample path per vehicle on
+   * every one of those renders, along with five interpolation nodes that
+   * had to be detached from and reattached to the native view.
+   *
+   * So panning the world stuttered, and the traffic driving down the
+   * street stuttered with it — on the exact gesture the world exists to
+   * invite (*"רוצה שיטיילו ברחובות"*).
+   *
+   * The position is an Animated pair now, written by the responder and
+   * read by the transform, so a drag re-renders nothing at all. `dragging`
+   * is still state, because the transform has to CHOOSE this pair over the
+   * travel interpolation — but it changes once when a drag begins rather
+   * than sixty times while it continues.
+   */
+  const dragX = useRef(new Animated.Value(0)).current;
+  const dragY = useRef(new Animated.Value(0)).current;
+  const dragAt = useRef({ x: 0, y: 0 });
+  const [dragging, setDragging] = useState(false);
   const travel = useRef(new Animated.Value(1)).current;
   const from = useRef(offsetFor(focus));
   const to = useRef(offsetFor(focus));
 
+  /*
+   * The story moved on, so the camera takes the world back. See
+   * `recentreKey` — the drag holds until something means to move us.
+   */
+  useEffect(() => {
+    setDragging(false);
+  }, [recentreKey]);
+
+  /*
+   * Following overrides dragging by construction (see `transform`), so a
+   * drag left behind when the camera picks somebody up would come back the
+   * moment they were put down. Released here rather than left to rot.
+   */
+  useEffect(() => {
+    if (follow) setDragging(false);
+  }, [follow]);
+
   useEffect(() => {
     // A hand-dragged world stays where it was put.
-    if (dragged) return;
+    if (dragging) return;
     const next = offsetFor(focus);
     if (next.x === to.current.x && next.y === to.current.y) return;
     from.current = to.current;
@@ -163,7 +234,28 @@ export function WorldViewport({
     });
     anim.start();
     return () => anim.stop();
-  }, [animate, dragged, focus, offsetFor, travel]);
+    /*
+     * THE SCALARS, NOT THE OBJECT — AND WHY IT MATTERED SO MUCH.
+     *
+     * `focus` is `sweep.camera.focus`, and `sweepFrame` returns a fresh
+     * `{ u, v }` literal every time it is called — five times a second
+     * during the whole search. Depending on the object meant this effect
+     * re-ran at 5 Hz, and React runs the PREVIOUS cleanup before the new
+     * body: `anim.stop()` fired first, then the equality guard above
+     * returned early and started nothing.
+     *
+     * So the camera lunged about a sixth of the way towards the next
+     * shop, stopped dead, sat frozen for the rest of the two-second stop,
+     * and then snapped the remaining five-sixths in one frame when the
+     * sweep moved on. The camera tour the entire SEARCHING phase is built
+     * around played as a stutter-and-snap loop — which is the exact thing
+     * the sweep was written to fix ("אני חייב שבזמן חיפוש במפה תהיה
+     * תזוזה בין מספרות").
+     *
+     * The u and v are constant within a stop, so on the scalars the
+     * effect runs once per move and the 1200ms ease plays out whole.
+     */
+  }, [animate, dragging, focusU, focusV, offsetFor, travel]);
 
   const startAt = useRef({ x: 0, y: 0 });
   const responder = useMemo(
@@ -174,17 +266,23 @@ export function WorldViewport({
         onStartShouldSetPanResponder: () => false,
         onMoveShouldSetPanResponder: (_e, g) => explorable && !follow && Math.hypot(g.dx, g.dy) > 12,
         onPanResponderGrant: () => {
-          startAt.current = dragged ?? to.current;
+          startAt.current = dragAt.current.x === 0 && dragAt.current.y === 0 ? to.current : dragAt.current;
+          dragX.setValue(startAt.current.x);
+          dragY.setValue(startAt.current.y);
+          // One render per drag, not one per move: the transform has to
+          // switch to reading the pair, and that is all this is for.
+          setDragging(true);
           onDragStart?.();
         },
         onPanResponderMove: (_e, g) => {
-          setDragged({
-            x: Math.min(0, Math.max(width - worldW, startAt.current.x + g.dx)),
-            y: Math.min(0, Math.max(height - worldH, startAt.current.y + g.dy)),
-          });
+          const x = Math.min(0, Math.max(width - worldW, startAt.current.x + g.dx));
+          const y = Math.min(0, Math.max(height - worldH, startAt.current.y + g.dy));
+          dragAt.current = { x, y };
+          dragX.setValue(x);
+          dragY.setValue(y);
         },
       }),
-    [dragged, explorable, follow, height, onDragStart, width, worldH, worldW]
+    [dragX, dragY, explorable, follow, height, onDragStart, width, worldH, worldW]
   );
 
   /*
@@ -218,8 +316,8 @@ export function WorldViewport({
 
   const transform = followTransform
     ? followTransform
-    : dragged
-    ? [{ translateX: dragged.x }, { translateY: dragged.y }]
+    : dragging
+    ? [{ translateX: dragX }, { translateY: dragY }]
     : [
         {
           translateX: travel.interpolate({ inputRange: [0, 1], outputRange: [from.current.x, to.current.x] }),
@@ -258,10 +356,19 @@ export function WorldViewport({
         {children({
           width: worldW,
           height: worldH,
-          // The plate's offset is negative when it is slid left, so the
-          // world coordinate at the screen's left edge is its negation.
-          visibleLeft: -(dragged?.x ?? to.current.x),
-          visibleTop: -(dragged?.y ?? to.current.y),
+          /*
+           * The plate's offset is negative when it is slid left, so the
+           * world coordinate at the screen's left edge is its negation.
+           *
+           * Read from the drag's own ref rather than from state, since the
+           * drag no longer re-renders — which means this value is the one
+           * from the START of the current drag rather than a live reading.
+           * That is the same staleness the plain-number version had
+           * between renders, and the two callers use it only to decide
+           * which quarter of the world to draw.
+           */
+          visibleLeft: -(dragging ? dragAt.current.x : to.current.x),
+          visibleTop: -(dragging ? dragAt.current.y : to.current.y),
         })}
       </Animated.View>
     </View>

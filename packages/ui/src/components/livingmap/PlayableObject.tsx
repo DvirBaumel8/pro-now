@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 import { Animated, Easing, Pressable, StyleSheet } from "react-native";
 
 import type { ResolvedPlacement, WorldInteraction } from "@pro-now/types";
@@ -54,19 +54,34 @@ export function PlayableObject({
 }: PlayableObjectProps) {
   const play = useRef(new Animated.Value(0)).current;
   const running = useRef(false);
+  /*
+   * The composite currently playing, so it can be stopped if this object
+   * goes away mid-shake.
+   *
+   * It does go away: when the phase leaves ASSIGNED_ROUTE the stage drops
+   * `onFound` and every PlayableObject unmounts back into a plain
+   * AssetSlot. A shake in flight at that moment kept a frame callback
+   * alive against a view that no longer existed.
+   */
+  const current = useRef<Animated.CompositeAnimation | null>(null);
 
   const run = useCallback(() => {
     onFound(interaction.discoveryId);
     if (!animate || running.current) return;
     running.current = true;
     play.setValue(0);
-    Animated.sequence([
+    const anim = Animated.sequence([
       Animated.timing(play, { toValue: 1, duration: 420, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
       Animated.timing(play, { toValue: 0, duration: 520, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-    ]).start(() => {
+    ]);
+    current.current = anim;
+    anim.start(() => {
       running.current = false;
+      current.current = null;
     });
   }, [animate, interaction.discoveryId, onFound, play]);
+
+  useEffect(() => () => current.current?.stop(), []);
 
   /*
    * One shape of motion per animation, and each is a small piece of

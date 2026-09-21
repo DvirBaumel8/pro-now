@@ -223,8 +223,21 @@ export function WorldLife({
       easing: travelling ? Easing.linear : Easing.inOut(Easing.quad),
       useNativeDriver: true,
     });
+
     running.current.push(anim);
-    anim.start();
+    /*
+     * REMOVED WHEN IT ENDS, NOT ONLY WHEN THE SCREEN DOES.
+     *
+     * The list was only ever cleared on unmount, so a finished animation
+     * stayed in it. The street starts one every few seconds and a customer
+     * watches this screen for the length of a trip, so a twenty-minute
+     * wait retained several hundred dead composites. Invisible, and a leak
+     * on the screen that stays open longest.
+     */
+    anim.start(() => {
+      const i = running.current.indexOf(anim);
+      if (i >= 0) running.current.splice(i, 1);
+    });
 
     const next = [
       ...kept,

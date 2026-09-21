@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useId } from "react";
 import { StyleSheet, View } from "react-native";
 import Svg, { Defs, Ellipse, RadialGradient, Stop } from "react-native-svg";
 
@@ -56,7 +56,21 @@ export function Glow({
   spread = 0.85,
 }: GlowProps) {
   const rgb = RGB[color];
-  const id = `glow-${color}-${Math.round(width)}-${Math.round(height)}-${Math.round(originY * 100)}`;
+  /*
+   * A GRADIENT ID NOBODY ELSE CAN CLAIM.
+   *
+   * These were literals. On react-native-web every SVG lands in one
+   * document, so two instances of this component define the same id and
+   * `url(#id)` resolves to whichever was inserted first — then, when that
+   * one unmounts, the survivor's fill silently resolves to nothing and the
+   * element renders transparent.
+   *
+   * No current pair of call sites collides, which is what makes it worth
+   * fixing now rather than after: it is one shared component away from a
+   * scrim that disappears and leaves white HUD text on sunlit pavement.
+   */
+  const unique = useId().replace(/[^a-zA-Z0-9]/g, "");
+  const id = `glow-${unique}`;
   const peak = Math.min(intensity, 0.2);
 
   return (

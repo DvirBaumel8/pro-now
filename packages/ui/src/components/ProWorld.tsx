@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useId } from "react";
 import { Animated, Easing, StyleSheet, View } from "react-native";
 import Svg, { Circle, Defs, Ellipse, G, Path, RadialGradient, Rect, Stop } from "react-native-svg";
 
@@ -149,6 +149,13 @@ const TREES = [
 ];
 
 export function ProWorld({ width, height, active = true }: ProWorldProps) {
+  /*
+   * A GRADIENT ID NOBODY ELSE CAN CLAIM. On react-native-web every SVG
+   * lands in one document, so two instances of this component defining
+   * `proSky` would collide and the second one's sky would resolve to
+   * nothing once the first unmounted.
+   */
+  const unique = useId().replace(/[^a-zA-Z0-9]/g, "");
   const cx = width / 2;
   const cy = height * 0.52;
   const tw = Math.max(32, Math.round(width / 9.5));
@@ -223,17 +230,17 @@ export function ProWorld({ width, height, active = true }: ProWorldProps) {
       >
         <Svg width={width} height={height}>
           <Defs>
-            <RadialGradient id="proSky" cx="50%" cy="30%" r="80%">
+            <RadialGradient id={`proSky-${unique}`} cx="50%" cy="30%" r="80%">
               <Stop offset="0%" stopColor={W.skyTop} stopOpacity={1} />
               <Stop offset="100%" stopColor={W.skyBottom} stopOpacity={1} />
             </RadialGradient>
-            <RadialGradient id="landmarkGlow" cx="50%" cy="50%" r="50%">
+            <RadialGradient id={`landmarkGlow-${unique}`} cx="50%" cy="50%" r="50%">
               <Stop offset="0%" stopColor={W.landmark} stopOpacity={0.3} />
               <Stop offset="100%" stopColor={W.landmark} stopOpacity={0} />
             </RadialGradient>
           </Defs>
 
-          <Rect width={width} height={height} fill="url(#proSky)" />
+          <Rect width={width} height={height} fill={`url(#proSky-${unique})`} />
 
           {/* The ground: two overlapping discs, so the island has an edge. */}
           <Ellipse cx={cx} cy={cy + th * 2.2} rx={tw * 5.4} ry={th * 5.4} fill={W.grassDeep} />
@@ -249,7 +256,7 @@ export function ProWorld({ width, height, active = true }: ProWorldProps) {
             opacity={0.95}
           />
 
-          <Circle cx={centre.x} cy={centre.y} r={tw * 2.6} fill="url(#landmarkGlow)" />
+          <Circle cx={centre.x} cy={centre.y} r={tw * 2.6} fill={`url(#landmarkGlow-${unique})`} />
 
           {painted.map((lot, i) => {
             const p = project(lot.gx, lot.gy);

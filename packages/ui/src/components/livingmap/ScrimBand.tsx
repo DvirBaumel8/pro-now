@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useId } from "react";
 import { StyleSheet, View } from "react-native";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 
@@ -38,7 +38,21 @@ export interface ScrimBandProps {
 
 export function ScrimBand({ width, height, edge, strength = 0.72 }: ScrimBandProps) {
   if (width <= 0 || height <= 0) return null;
-  const id = `scrim-${edge}`;
+  /*
+   * A GRADIENT ID NOBODY ELSE CAN CLAIM.
+   *
+   * These were literals. On react-native-web every SVG lands in one
+   * document, so two instances of this component define the same id and
+   * `url(#id)` resolves to whichever was inserted first — then, when that
+   * one unmounts, the survivor's fill silently resolves to nothing and the
+   * element renders transparent.
+   *
+   * No current pair of call sites collides, which is what makes it worth
+   * fixing now rather than after: it is one shared component away from a
+   * scrim that disappears and leaves white HUD text on sunlit pavement.
+   */
+  const unique = useId().replace(/[^a-zA-Z0-9]/g, "");
+  const id = `scrim-${edge}-${unique}`;
 
   return (
     <View
