@@ -172,6 +172,9 @@ export function StrollBody({
    */
   const [depth, setDepth] = useState<number>(WALK_START.v);
 
+  /** Whether they have actually walked. Hides the instruction — see below. */
+  const [moved, setMoved] = useState(false);
+
   /*
    * A MIRROR OF `found`, SO THE CHECK CAN HAPPEN OUTSIDE THE UPDATER.
    *
@@ -190,6 +193,18 @@ export function StrollBody({
     (at: NormalizedPoint) => {
       walkedTo.current = at;
       setNearest(nearestDistrict(at));
+      /*
+       * THE INSTRUCTION GOES AWAY ONCE IT HAS BEEN FOLLOWED.
+       *
+       * "טיילו בין העסקים · געו בעסק" is a two-line card sitting over a
+       * shopfront at the top of the street. It is worth reading once and
+       * it is in the way for the rest of the walk — and ChatGPT and Amit
+       * both signed off on the same composition rule: small HUD at the
+       * top, sheet at the bottom, centre completely clear.
+       */
+      if (!moved && Math.hypot(at.u - WALK_START.u, (at.v - WALK_START.v) * 0.6) > 0.05) {
+        setMoved(true);
+      }
       setDepth((was) => (depthChanged(was, at.v) ? at.v : was));
 
       /*
@@ -202,7 +217,7 @@ export function StrollBody({
       if (line) setLastFoundHe(line);
       setFound((was) => hit.reduce((acc, id) => discover(acc, id), was));
     },
-    [errands]
+    [errands, moved]
   );
 
   /*
@@ -364,11 +379,13 @@ export function StrollBody({
 
       <View style={[styles.hud, { top: spacing.md + BACK_BUTTON_CLEARANCE }]} pointerEvents="none">
         <Text style={styles.title}>הרחוב של PRO NOW</Text>
-        <Text style={styles.sub}>
-          {canWalk
-            ? "טיילו בין העסקים · געו בעסק כדי לראות מה יש בו"
-            : "געו בעסק כדי לראות מה יש בו"}
-        </Text>
+        {moved ? null : (
+          <Text style={styles.sub}>
+            {canWalk
+              ? "טיילו בין העסקים · געו בעסק כדי לראות מה יש בו"
+              : "געו בעסק כדי לראות מה יש בו"}
+          </Text>
+        )}
       </View>
 
       {/*
@@ -381,7 +398,7 @@ export function StrollBody({
         * nobody has to play.
         */}
       {lastFoundHe ? (
-        <View style={[styles.found, { bottom: height * 0.36 }]} pointerEvents="none">
+        <View style={styles.found} pointerEvents="none">
           <Text style={styles.foundText}>{lastFoundHe}</Text>
         </View>
       ) : null}
@@ -392,7 +409,7 @@ export function StrollBody({
         * door is a question only the server gets to answer.
         */}
       {label ? (
-        <View style={[styles.here, { bottom: height * 0.28 }]} pointerEvents="none">
+        <View style={styles.here} pointerEvents="none">
           <Text style={styles.hereText}>{label}</Text>
         </View>
       ) : null}
@@ -487,9 +504,21 @@ const styles = StyleSheet.create({
     writingDirection: "rtl",
     marginTop: spacing.xs,
   },
+  /*
+   * KEEP THE CENTRE EMPTY.
+   *
+   * These two sat at 28% and 36% of the height — the middle third of the
+   * screen, over the street, which is the one thing the agreed
+   * composition says must stay clear: small HUD at the top, sheet at the
+   * bottom, centre completely open. They belong on the bottom row with
+   * the steer pad, and on the far side of it so the thumb never covers
+   * the name of the place it just reached.
+   */
   here: {
     position: "absolute",
-    alignSelf: "center",
+    right: spacing.lg,
+    bottom: spacing.xl * 2 + spacing.xs,
+    maxWidth: "52%",
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.md,
     borderRadius: radii.pill,
@@ -498,7 +527,9 @@ const styles = StyleSheet.create({
   hereText: { ...type.bodyStrong, color: palette.nightText, writingDirection: "rtl" },
   found: {
     position: "absolute",
-    alignSelf: "center",
+    right: spacing.lg,
+    bottom: spacing.xl * 2 + spacing.xl,
+    maxWidth: "62%",
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.md,
     borderRadius: radii.pill,
