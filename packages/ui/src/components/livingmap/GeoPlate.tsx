@@ -788,7 +788,9 @@ export function GeoPlate({
                   opacity={0.55}
                 />
                 <Path d={toPath(b.foot, S, sy, true)} fill={ROAD_INK.wall} />
-                <Path d={toPath(b.roof, S, sy, true)} fill={ROAD_INK.plotRoof} />
+                {/* See `Block.tone`: one number per block, so the city
+                    has texture rather than two hundred identical roofs. */}
+                <Path d={toPath(b.roof, S, sy, true)} fill={roofTone(b.tone)} />
                 <Path
                   d={toPath(b.roof, S, sy, true)}
                   fill="none"
@@ -1237,6 +1239,22 @@ function splitByDepth(
     out.push({ key: `${out.length}`, points: run, scale: groundScale((current + 0.5) / BANDS, pitch) });
   }
   return out.length > 0 ? out : [{ key: "flat", points: [...points], scale: 1 }];
+}
+
+/**
+ * A roof's own colour, from its block's tone.
+ *
+ * Four steps rather than a continuous blend: a continuous one produces
+ * two hundred roofs that are all almost the same, which is the problem
+ * it was meant to solve. Mostly the cool default, one in five warmer,
+ * one in eight darker — about what a street of buildings looks like from
+ * above at night.
+ */
+function roofTone(tone: number): string {
+  if (tone > 0.82) return "#3A3050";
+  if (tone > 0.6) return "#322A4A";
+  if (tone < 0.14) return "#221D38";
+  return ROAD_INK.plotRoof;
 }
 
 /** The pavement either side of a carriageway, in world units. */

@@ -118,6 +118,17 @@ export interface Block {
   /** Storeys, so the windows can be stacked rather than scattered. */
   storeys: number;
   /**
+   * How this block's roof is toned, 0..1.
+   *
+   * A city where every roof is the same colour is a chart. Real ones
+   * vary by age, material and what is stored up there, and from above
+   * that variation is most of the texture — so one number per block,
+   * seeded from its id, warms or cools its roof a little. It is the same
+   * trick the paving material uses on its flagstones and for the same
+   * reason: the eye reads a surface by its variation, not by its hue.
+   */
+  tone: number;
+  /**
    * WHAT SAYS ISRAEL BEFORE ANY STREET DOES.
    *
    * `livingPalette` has had `solarTank`, `solarPanel` and `acUnit` in it
@@ -482,7 +493,15 @@ export function dressGeo(plan: WorldPlan, opts: DressingOptions = {}): GeoDressi
         });
       }
     }
-    blocks.push({ id: plot.id, foot: plot.ring, roof: roofRing, rise, storeys, roofThings });
+    blocks.push({
+      id: plot.id,
+      foot: plot.ring,
+      roof: roofRing,
+      rise,
+      storeys,
+      roofThings,
+      tone: hash01(plot.id, 3),
+    });
 
     if (windows.length >= maxWindows) continue;
     /*
