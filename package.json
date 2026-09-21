@@ -26,6 +26,8 @@
     "db:ddl": "python3 tools/prisma-ddl/generate.py apps/api/prisma/migrations/0_init/migration.sql",
     "db:verify": "python3 tools/prisma-ddl/verify.py",
     "verify:a11y": "node tools/design-preview/audit.mjs",
+    "verify:screens": "node tools/design-preview/sweep.mjs",
+    "verify:game": "node tools/design-preview/game.mjs",
     "verify:type-scale": "node scripts/check-type-scale.mjs"
   },
   "devDependencies": {

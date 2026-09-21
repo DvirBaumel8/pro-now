@@ -1270,7 +1270,30 @@ kind of change that compiles and then fails in Metro.
 The customer bundle grew from 1.81 MB because it now carries the world
 layer it was always supposed to render.
 
-### 15.7 State
+### 15.7 The checks that run in a browser
+
+Three of them now, because the defects they catch are invisible to a unit
+test and to a screenshot:
+
+| Command | What it fails on |
+| --- | --- |
+| `npm run verify:screens` | a screen that throws, a screen with no way back, a control too small for a thumb, a dead end |
+| `npm run verify:game` | the wait is not a game: no figure, no arrows, arrows during the SEARCH, or holding one moves nothing |
+| `npm run verify:a11y` | contrast and labelling |
+
+`verify:game` earned its place the hour it was written: it found that
+holding an arrow moved the figure three pixels and stopped, which is
+Amit's headline feature quietly not working, and which every other check
+in the project was happy with.
+
+Two of its own measurements were wrong before the product was. Watching
+the FIGURE reported no movement while it was plainly walking, because the
+camera follows the walker. Watching the STREET reported the same thing for
+the opposite reason, because the camera clamps at the edge of the plate.
+Both are recorded in the file: the question is not whether one thing
+moved, it is whether anything did.
+
+### 15.8 State
 
 720 tests pass. Lint and typecheck are clean across every workspace except
 `apps/api`, which still fails on the documented `prisma generate` blocker
