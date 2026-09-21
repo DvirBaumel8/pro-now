@@ -2895,7 +2895,18 @@ const styles = StyleSheet.create({
     zIndex: 5,
     top: spacing.xl * 2,
     left: spacing.md,
-    paddingVertical: 6,
+    /*
+     * 44 POINTS, BECAUSE THE SWEEP SAID SO.
+     *
+     * `paddingVertical: 6` made this 36 points tall, and the screen sweep
+     * reported it as too small to hit on five different screens. It is a
+     * gallery-only control, which is exactly why it was easy to leave —
+     * but Amit taps it on a phone, and a control that misses is a control
+     * that looks broken. 44 is the floor the sweep enforces for every
+     * other target in the product.
+     */
+    minHeight: 44,
+    justifyContent: "center",
     paddingHorizontal: spacing.md,
     borderRadius: radii.pill,
     backgroundColor: "rgba(46,38,64,0.92)",
