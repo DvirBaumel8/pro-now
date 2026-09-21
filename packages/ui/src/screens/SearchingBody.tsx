@@ -8,6 +8,7 @@ import {
   type LivingMapState,
   type PlayDrawerActionId,
   type WorldTheme,
+  type WorldGeo,
 } from "@pro-now/types";
 
 import { BackButton, BACK_BUTTON_CLEARANCE } from "../components/BackButton";
@@ -41,6 +42,15 @@ import { LivingMapScene } from "../components/livingmap/LivingMapScene";
  */
 
 export interface SearchingBodyProps {
+  /**
+   * A real street plan for the dispatch screen.
+   *
+   * This is the screen somebody watches while they wait, so it was the
+   * worst one to leave on the painted plate while the stroll screen
+   * stood on real streets.
+   */
+  geo?: WorldGeo | null;
+
   serviceNameHe: string;
   theme?: WorldTheme;
   /** The whole Living Map state. Built by the app from real dispatch data. */
@@ -110,6 +120,7 @@ export interface SearchingBodyProps {
 }
 
 export function SearchingBody({
+  geo = null,
   serviceNameHe,
   theme = "HOME",
   living,
@@ -166,6 +177,7 @@ export function SearchingBody({
         />
       ) : null}
       <LivingMapScene
+        geo={geo}
         onOpenProfile={onOpenProfile}
         profileOpen={profileOpen}
         avatar={avatar}

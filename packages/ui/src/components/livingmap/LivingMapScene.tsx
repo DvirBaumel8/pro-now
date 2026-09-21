@@ -35,11 +35,16 @@ import {
   type Gait,
   type AvatarChoice,
   type LivingMapPhase,
+  type WorldGeo,
+  SHOT_METRES,
+  geoAspect,
+  groundDisclosureHe,
 } from "@pro-now/types";
 
 import { palette, radii, spacing, tabular, type } from "../../theme";
 import { DemoCity } from "./DemoCity";
 import { HAIR_PACK_V0, HAIR_SCENE } from "./hairPack";
+import { WorldGround } from "./WorldGround";
 import { WorldStage } from "./WorldStage";
 import { WorldViewport } from "./WorldViewport";
 import type { WorldAssetSources } from "./AssetSlot";
@@ -97,6 +102,14 @@ import { Walker } from "./Walker";
  */
 
 export interface LivingMapSceneProps {
+  /**
+   * A real street plan to put the dispatch on.
+   *
+   * This is the screen somebody actually watches — the search, the
+   * match, the journey — so it was the worst one to leave on the painted
+   * plate while the stroll screen stood on real streets.
+   */
+  geo?: WorldGeo | null;
   state: LivingMapState;
   /** Already formatted by the caller from a real ETA. Null when unknown. */
   etaMinutes: number | null;
@@ -213,6 +226,7 @@ const RECENTRE_ON: readonly LivingMapPhase[] = [
 ];
 
 export function LivingMapScene({
+  geo = null,
   state,
   etaMinutes,
   arrivalClockHe,
@@ -244,6 +258,20 @@ export function LivingMapScene({
    * position over invented streets. A silent console warning is worth more
    * than a comment nobody reads, and it fires the moment a fixture drifts.
    */
+  /*
+   * THE PLATE'S OWN PLACEMENT COMES OUT WHEN A REAL PLAN GOES IN.
+   *
+   * `HAIR_SCENE` places `world_neighbourhood` as its ground. Drawn on
+   * top of `WorldGround`, that is the painted city laid over the painted
+   * city with the real streets in between — two cities and one of them
+   * upside down. Filtered rather than conditioned inside the scene,
+   * because the scene is a frozen constant and should stay one.
+   */
+  const sceneWithoutGround = useMemo(
+    () => (geo ? HAIR_SCENE.filter((p) => p.key !== "ground") : HAIR_SCENE),
+    [geo]
+  );
+
   const violations = livingMapViolations(state);
   if (violations.length > 0 && typeof console !== "undefined") {
     console.warn("[LivingMap] refusing to vouch for this scene:", violations);
@@ -914,7 +942,8 @@ export function LivingMapScene({
          * plate is one screen, and blowing it up to travel across would
          * crop into the tarmac rather than reveal anything.
          */
-        worldSized={Boolean(worldSources?.["world_neighbourhood"])}
+        worldSized={Boolean(geo) || Boolean(worldSources?.["world_neighbourhood"])}
+        groundAspect={geo ? geoAspect(geo.bounds) : undefined}
         explorable={Boolean(worldSources)}
         /*
          * Following replaces the drag while there is somebody to follow.
@@ -940,6 +969,29 @@ export function LivingMapScene({
         {(world) => (
           <>
             {/*
+              THE REAL STREET PLAN, UNDER THE DISPATCH SCREEN TOO.
+
+              This is the screen somebody actually watches — the search,
+              the match, the journey — so it was the worst one to leave
+              on the old plate while the stroll screen stood on real
+              streets. Two screens showing two different cities with the
+              same street names is the drift `art-delivery.test` exists
+              to stop, arrived at from a third direction.
+
+              The plate's own placement is filtered out below when this
+              is drawn, or the city would be laid over itself.
+            */}
+            {geo ? (
+              <WorldGround
+                width={world.width}
+                height={world.height}
+                sources={worldSources ?? undefined}
+                geo={geo}
+                metresAcross={SHOT_METRES.EXPLORE}
+                animate={animate}
+              />
+            ) : null}
+            {/*
               * THE SWAP, AS ONE CONDITION. `DemoCity` is the flat SVG world
               * that was rejected; it stays only so the screen is not a
               * black rectangle before the art lands. The moment real assets
@@ -948,7 +1000,7 @@ export function LivingMapScene({
             {worldSources ? (
               <WorldStage
                 manifest={HAIR_PACK_V0}
-                placements={HAIR_SCENE}
+                placements={sceneWithoutGround}
                 box={{
                   width: world.width,
                   height: world.height,
@@ -1393,7 +1445,7 @@ export function LivingMapScene({
           pointerEvents="none"
         >
           <Text style={styles.demoNote}>
-            תצוגת העיר היא המחשה · המפה האמיתית תיכנס עם ספק המפות
+            {groundDisclosureHe({ realStreets: Boolean(geo?.real) })}
           </Text>
         </View>
       ) : null}

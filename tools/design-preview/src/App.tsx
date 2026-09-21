@@ -1609,6 +1609,7 @@ const go = useCallback((r: CustomerRoute) => {
 
         return (
           <SearchingBody
+            geo={geo}
             worldSources={art}
             departmentCode={departmentCodeByServiceId[route.serviceId]}
             serviceNameHe={page?.nameHe ?? ""}
