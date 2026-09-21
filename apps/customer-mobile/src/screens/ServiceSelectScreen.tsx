@@ -3,7 +3,13 @@ import { useWindowDimensions, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 
 import { CUSTOMER_CATEGORIES, customerCategoryById } from "@pro-now/types";
-import { CategoryBody, catalogCategoryServices, customerDarkTheme } from "@pro-now/ui";
+import {
+  CategoryBody,
+  catalogCategoryServices,
+  catalogMatchRules,
+  customerDarkTheme,
+  matchServicesByText,
+} from "@pro-now/ui";
 
 import type { CustomerStackParamList } from "../navigation/types";
 import { api } from "../api/client";
@@ -100,14 +106,32 @@ export function ServiceSelectScreen({ navigation, route }: Props) {
         }}
         onDescribe={(textHe) => {
           /*
-           * Their own words, carried forward rather than resolved here.
-           * The sentence matcher lives with the catalogue and the next
-           * screen already takes a description; picking a service for them
-           * at this point would be a guess made in a component.
+           * WHAT THEY TYPED, ROUTED BY WHAT THEY TYPED.
+           *
+           * This used to send them to `services[0]` — the first row in the
+           * category — which is a guess wearing the shape of a decision.
+           * Somebody who types "הדוד לא מחמם" in "לבית" would have arrived
+           * at a blocked drain, because that is what happens to be first.
+           *
+           * `matchServicesByText` is the same matcher the home screen's
+           * own text field uses, so one sentence gets one answer wherever
+           * it is typed. Restricted to this category's services, because
+           * the customer already said which door they came through and
+           * routing them out of it would be the app second-guessing them.
+           *
+           * No match is a real outcome, and the fallback is honest about
+           * being one: the first row, with their words carried through, so
+           * the next screen shows what they wrote even if we could not
+           * place it. A marketplace whose front door is "say what you
+           * need" must not lose the words when it does not understand
+           * them.
            */
+          const here = new Set(services.map((s) => s.id));
+          const hit = matchServicesByText(textHe, catalogMatchRules).find((m) => here.has(m.serviceId));
+          const serviceId = hit?.serviceId ?? services[0]?.id ?? "";
           navigation.navigate("RequestDetails", {
-            serviceId: services[0]?.id ?? "",
-            serviceName: category.labelHe,
+            serviceId,
+            serviceName: services.find((s) => s.id === serviceId)?.nameHe ?? category.labelHe,
             describedHe: textHe,
           });
         }}

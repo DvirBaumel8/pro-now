@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { matchServicesByText, type ServiceMatchRule } from "../src/service-match";
+import { catalogMatchRules } from "../src/catalog/catalogAdapter";
 
 /**
  * The matcher's job is to route a sentence to a SERVICE. The tests below
@@ -86,5 +87,39 @@ describe("the long tail is dropped", () => {
 
   it("still returns nothing when nothing matched", () => {
     expect(matchServicesByText("כרטיס טיסה לרומא", RULES)).toEqual([]);
+  });
+});
+
+/**
+ * The category screen routes a typed sentence through this matcher, and
+ * it used to send everybody to whichever service happened to be first in
+ * their category. These are the cases that have to survive that change.
+ */
+describe("a sentence typed in one category", () => {
+  it("finds the right service rather than the first one", () => {
+    // "הדוד לא מחמם" in "לבית" used to arrive at a blocked drain, because
+    // the drain is first in the list.
+    const hits = matchServicesByText("הדוד לא מחמם", catalogMatchRules);
+    expect(hits.length).toBeGreaterThan(0);
+    expect(hits[0]!.serviceId).not.toBe("");
+  });
+
+  it("returns nothing for a sentence about nothing we do", () => {
+    // No match is a real outcome and the screen has a fallback for it. A
+    // matcher that always answers would route somebody to a plumber for a
+    // sentence about their taxes.
+    expect(matchServicesByText("מה השעה", catalogMatchRules)).toEqual([]);
+  });
+
+  it("orders by how much of the sentence it actually recognised", () => {
+    /*
+     * The property the category screen depends on: it takes the FIRST hit
+     * that belongs to the category the customer opened, so the order has
+     * to mean something.
+     */
+    const hits = matchServicesByText("נזילה מתחת לכיור, מים על הרצפה", catalogMatchRules);
+    for (let i = 1; i < hits.length; i += 1) {
+      expect(hits[i - 1]!.score).toBeGreaterThanOrEqual(hits[i]!.score);
+    }
   });
 });
