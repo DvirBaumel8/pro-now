@@ -90,14 +90,37 @@ export function reachedNow(
  */
 export function errandsBetween(spots: readonly NormalizedPoint[], lines: readonly string[]): Errand[] {
   const out: Errand[] = [];
+
+  /*
+   * A MIDPOINT IS A CANDIDATE, NOT A PLACEMENT.
+   *
+   * This used to take every consecutive pair's midpoint and stop. It
+   * worked while the shops were spread evenly, and broke the moment they
+   * were re-measured onto tighter ground: two adjacent pairs had midpoints
+   * a hundredth apart, so there were two things to find in one place —
+   * which `errandViolations` calls one thing, correctly, and the test
+   * caught before anybody walked the street.
+   *
+   * It also never checked the shops themselves. A midpoint between two
+   * shops that are nearly in line lands ON the shop between them, and a
+   * thing you find by walking into a doorway is not a thing you find in
+   * the street.
+   *
+   * So each midpoint has to earn its place: clear of every errand already
+   * placed, and clear of every shopfront. Fewer errands than lines is a
+   * fine outcome — a street with three things to find and four written
+   * for it is better than a street with two in the same spot.
+   */
+  const clearOfShops = (at: NormalizedPoint) =>
+    spots.every((s) => !withinReach(at, { id: "", at: s, foundHe: "" }, REACH_RADIUS * 0.8));
+  const clearOfOthers = (at: NormalizedPoint) => out.every((e) => !withinReach(at, e));
+
   for (let i = 0; i + 1 < spots.length && out.length < lines.length; i += 1) {
     const a = spots[i]!;
     const b = spots[i + 1]!;
-    out.push({
-      id: `errand_${out.length + 1}`,
-      at: { u: (a.u + b.u) / 2, v: (a.v + b.v) / 2 },
-      foundHe: lines[out.length]!,
-    });
+    const at = { u: (a.u + b.u) / 2, v: (a.v + b.v) / 2 };
+    if (!clearOfShops(at) || !clearOfOthers(at)) continue;
+    out.push({ id: `errand_${out.length + 1}`, at, foundHe: lines[out.length]! });
   }
   return out;
 }

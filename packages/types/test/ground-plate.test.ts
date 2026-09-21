@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
+import { CUSTOMER_POINT } from "../src/assignment-route";
+import { PLATE_SPOTS, WORLD_SIZE } from "../src/world-neighbourhood";
 import {
+  FOOTPRINT,
   GROUND_RULES,
   groundPlateViolations,
   PLATE_RATIO,
@@ -53,5 +56,44 @@ describe("what the ground has to be", () => {
     expect(reachable({ u: WALKABLE.minU, v: WALKABLE.minV })).toBe(true);
     expect(reachable({ u: WALKABLE.minU - 0.01, v: 0.5 })).toBe(false);
     expect(reachable({ u: 0.5, v: WALKABLE.maxV + 0.01 })).toBe(false);
+  });
+});
+
+/**
+ * The footprint rules, which exist because the point rules passed while
+ * six of eleven buildings stood in flowerbeds and on a zebra crossing.
+ */
+describe("what a shopfront needs under it", () => {
+  it("asks for a box, not a pixel", () => {
+    // If this ever becomes zero the contract has quietly gone back to
+    // testing the doorstep.
+    expect(FOOTPRINT.width).toBeGreaterThan(0.05);
+    expect(FOOTPRINT.aspect).toBeGreaterThan(0);
+  });
+
+  it("is stricter about the base than about the body", () => {
+    // A lamp post in front of a shop is fine. A flowerbed under it is not.
+    expect(FOOTPRINT.baseClear).toBeGreaterThan(FOOTPRINT.bodyClear);
+  });
+
+  it("does not demand perfection, because perfection returned nothing", () => {
+    // 100% clear found zero usable slots on a real plate. A test nothing
+    // can pass is not a test of the world.
+    expect(FOOTPRINT.bodyClear).toBeLessThan(1);
+  });
+
+  it("keeps every shop behind the customer", () => {
+    expect(FOOTPRINT.maxV).toBeLessThan(CUSTOMER_POINT.v);
+    for (const s of PLATE_SPOTS) {
+      expect(s.v, `a shop at v=${s.v} stands in front of the customer`).toBeLessThanOrEqual(
+        FOOTPRINT.maxV
+      );
+    }
+  });
+
+  it("agrees with the size the world actually draws", () => {
+    // Two numbers for one building is how the measurement and the render
+    // came apart in the first place.
+    expect(FOOTPRINT.width).toBeCloseTo(WORLD_SIZE.venue, 5);
   });
 });

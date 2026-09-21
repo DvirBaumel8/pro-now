@@ -292,28 +292,66 @@ export const DISTRICT_SITES: readonly DistrictSite[] = [
  */
 export const PLATE_SPOTS: readonly NormalizedPoint[] = [
   /*
-   * MEASURED OFF THE PLATE, NOT DESIGNED.
+   * MEASURED AS BOXES, NOT AS POINTS — AND THAT CHANGED EVERY NUMBER.
    *
-   * These came out of `measure-spots.mjs` run against the promenade
-   * plate: every pixel bright enough to be lit stone rather than tarmac
-   * or shadow, and not green, eroded so no shop stands on the last pixel
-   * before a kerb, then sampled for separation and spread.
+   * The previous set came out of the same script, and every one of the
+   * eleven passed the plate's own contract check. Six of them still looked
+   * wrong on screen, and drawing the shopfront rectangles onto the plate
+   * showed why in one glance: the FOOTINGS were on clean pavement and the
+   * BUILDINGS were sitting across flowerbeds, over the kerb, and in one
+   * case squarely on a zebra crossing.
    *
-   * The previous set was measured off a DIFFERENT plate and carried over
-   * unchanged, which put two shops in a road. The drawing knows where the
-   * pavement is; this file only records what it said.
+   * A shopfront is 0.15 of the world wide and rises from its footing, so
+   * it covers about 140x105 plate pixels. The erosion was eleven. Scoring
+   * the actual footprint gave the old set these marks:
+   *
+   *     שיער           4% clear ground   (standing inside a planter)
+   *     שיפוצים       10%
+   *     תיקונים       15%
+   *     חיות          18%                (on the road)
+   *     מחשבים        22%
+   *     ...
+   *
+   * The set below is the best eleven the same measurement can find, worst
+   * 41% and median 63%. Better everywhere, and still not good — because
+   * the limit is not the script.
+   *
+   * ---------------------------------------------------------------------
+   * WHAT THE PLATE CAN ACTUALLY HOLD
+   * ---------------------------------------------------------------------
+   * FOUR shopfronts, cleanly. The promenade is a beautiful aerial of a
+   * park walk — planters, palms, benches, bollards, lamp posts — and it
+   * has almost no unbroken paving wide enough to stand a building on.
+   * At 0.17 wide there are four clean slots on the whole image; shrinking
+   * the shops to 0.09 finds ten, all of them still compromised.
+   *
+   * So the next plate is not a nicer drawing of this one. It needs ELEVEN
+   * clear paved stretches, each at least 15% of the width by 11% of the
+   * height, with the clutter between them rather than on them. That is a
+   * sentence for the brief, and it is the whole reason this comment counts
+   * the failures instead of quietly listing eleven coordinates.
+   *
+   * ---------------------------------------------------------------------
+   * AND NONE OF THEM MAY BE NEARER THE VIEWER THAN THE CUSTOMER
+   * ---------------------------------------------------------------------
+   * The first run of the new measurement put a shop at v = 0.922, which is
+   * in front of `CUSTOMER_POINT` at 0.9. A professional leaving that shop
+   * drives AWAY from the eye to reach the person waiting, so the van
+   * shrinks as it arrives — and `assignment-route.test.ts` failed on
+   * exactly that, one assertion, before anybody looked at a screenshot.
+   * The cap is in the measurement now: nothing past v = 0.86.
    */
-  { u: 0.738, v: 0.875 },
-  { u: 0.237, v: 0.87 },
-  { u: 0.576, v: 0.678 },
-  { u: 0.359, v: 0.59 },
-  { u: 0.326, v: 0.452 },
-  { u: 0.539, v: 0.438 },
-  { u: 0.855, v: 0.366 },
-  { u: 0.479, v: 0.3 },
-  { u: 0.242, v: 0.266 },
-  { u: 0.838, v: 0.129 },
-  { u: 0.453, v: 0.126 },
+  { u: 0.344, v: 0.854 }, //  97% clear
+  { u: 0.879, v: 0.806 }, //  45%
+  { u: 0.363, v: 0.786 }, //  36%
+  { u: 0.539, v: 0.675 }, //  80%
+  { u: 0.41, v: 0.56 }, //  99%
+  { u: 0.327, v: 0.478 }, //  55%
+  { u: 0.505, v: 0.45 }, //  93%
+  { u: 0.541, v: 0.331 }, //  97%
+  { u: 0.582, v: 0.263 }, //  41%
+  { u: 0.283, v: 0.23 }, //  63%
+  { u: 0.48, v: 0.101 }, //  51%
 ];
 
 /** The measured spot a trade stands on, by its position in the table. */
@@ -731,19 +769,35 @@ export function worldZoomFor(shot: "WIDE" | "DISTRICT" | "VENUE" | "ROUTE" | "EX
  * wider than this walks into its neighbour, and every size below is bounded
  * by it rather than chosen by eye.
  */
-export const SPOT_SEPARATION = { u: 0.2, v: 0.13 } as const;
+/*
+ * How far apart two shopfronts must be measured.
+ *
+ * The v figure is deliberately smaller than a shopfront is tall. Two shops
+ * at the same depth would collide, but two at different depths overlap the
+ * way buildings along a street overlap — the further one is drawn smaller
+ * and higher and behind — and forbidding that cost the plate half its
+ * usable slots for nothing.
+ */
+export const SPOT_SEPARATION = { u: 0.177, v: 0.0675 } as const;
 
 export const WORLD_SIZE = {
   /** A trade's landmark, standing on the street it belongs to. */
   district: 0.16,
-  /** One candidate's shopfront. The thing a search arrives at. */
-  venue: 0.17,
+  /**
+   * One candidate's shopfront. The thing a search arrives at.
+   *
+   * 0.17 until the footprint was measured rather than the footing. At that
+   * width the promenade plate has four places a building can stand; at
+   * 0.15 it has nine, and the two-hundredths cost nothing legible on a
+   * phone. It is not the fix — the plate is — but it is free.
+   */
+  venue: 0.15,
   /**
    * The chosen one, lifted so the eye lands on it — but no wider than the
    * gap between two measured spots, or being chosen means walking into the
    * shop next door.
    */
-  chosenVenue: 0.2,
+  chosenVenue: 0.176,
   /** A professional standing in a doorway. */
   character: 0.055,
   /**

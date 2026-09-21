@@ -107,6 +107,51 @@ export function reachable(at: NormalizedPoint): boolean {
   );
 }
 
+/**
+ * THE GROUND A SHOPFRONT NEEDS, AS A BOX.
+ *
+ * The plate contract used to be a list of POINTS: eleven footings, each on
+ * something a building could stand on. Every footing passed, and six of
+ * the eleven buildings were still sitting across flowerbeds, over a kerb,
+ * and in one case on a zebra crossing — because a shopfront is not a
+ * point. It is `WORLD_SIZE.venue` wide and rises from its footing, so what
+ * it actually needs is a rectangle of clear ground ABOVE that point.
+ *
+ * Stated here so the brief for the next plate is a measurement rather than
+ * a request to "leave room for the shops".
+ */
+export const FOOTPRINT = {
+  /** As a fraction of the plate's width. Matches WORLD_SIZE.venue. */
+  width: 0.15,
+  /** A shopfront is about three quarters as tall as it is wide. */
+  aspect: 0.75,
+  /**
+   * How much of that box has to be clear.
+   *
+   * Not all of it: a promenade has lamp posts and benches, and a shopfront
+   * drawn with transparency sits behind one perfectly well. Demanding 100%
+   * returned zero usable slots on a real plate, which is a test that has
+   * stopped being about the world.
+   */
+  bodyClear: 0.82,
+  /**
+   * How much of the BASE strip has to be clear — the band where the
+   * building meets the ground, which is what the eye reads as "standing
+   * on". This is the strict one.
+   */
+  baseClear: 0.96,
+  /** The base strip, as a fraction of the box's height. */
+  baseBand: 0.25,
+  /**
+   * Nothing may stand nearer the viewer than the customer.
+   *
+   * A shop in front of `CUSTOMER_POINT` means the professional who leaves
+   * it drives AWAY from the eye to reach the person waiting, so the van
+   * shrinks as it arrives.
+   */
+  maxV: 0.86,
+} as const;
+
 /** Everything wrong with the plate's requirements, as a test. */
 export function groundPlateViolations(): string[] {
   const out: string[] = [];
@@ -119,6 +164,23 @@ export function groundPlateViolations(): string[] {
     if (!reachable(at)) {
       out.push(`${department} stands at ${at.u.toFixed(2)},${at.v.toFixed(2)}, outside the walkable area`);
     }
+  }
+
+  /*
+   * Nothing in front of the customer. See FOOTPRINT.maxV — this is the
+   * rule the route's own test discovered the hard way, recorded here so a
+   * future plate is measured against it rather than rediscovering it.
+   */
+  for (const { department, at } of requiredFootings()) {
+    if (at.v > FOOTPRINT.maxV) {
+      out.push(
+        `${department} stands at v=${at.v.toFixed(2)}, nearer the viewer than the customer — a journey to them travels backwards`
+      );
+    }
+  }
+
+  if (FOOTPRINT.baseClear <= FOOTPRINT.bodyClear) {
+    out.push("the base of a building may not be allowed to be dirtier than its body");
   }
 
   // The honesty rule is not optional and must not be quietly relaxed.
