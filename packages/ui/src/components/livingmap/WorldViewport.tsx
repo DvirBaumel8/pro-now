@@ -52,6 +52,16 @@ export interface WorldViewportProps {
    * a point would only crop into it — see WorldBackdrop for the same guard.
    */
   worldSized?: boolean;
+  /**
+   * The ground's own width-over-height.
+   *
+   * Left out, the painted plate's. A real street plan has a different
+   * shape and the box has to take it, for the identical reason the box
+   * takes the plate's rather than the phone's: a coordinate in this world
+   * is a fraction of the ground, so a box shaped like anything else makes
+   * `v` mean two different things on two devices. See `worldBox`.
+   */
+  groundAspect?: number;
   /** Lets the person drag the world around. */
   explorable?: boolean;
   /**
@@ -140,6 +150,7 @@ export function WorldViewport({
   focus = null,
   zoom = 1,
   worldSized = true,
+  groundAspect,
   explorable = false,
   follow = null,
   animate = true,
@@ -153,7 +164,7 @@ export function WorldViewport({
    * which put every measured coordinate somewhere slightly different on
    * every device.
    */
-  const box = worldBox(width, height, zoom, worldSized);
+  const box = worldBox(width, height, zoom, worldSized, groundAspect);
   const worldW = box.width;
   const worldH = box.height;
 

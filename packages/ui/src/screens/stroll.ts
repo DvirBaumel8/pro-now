@@ -1,4 +1,4 @@
-import { districtCentre, WORLD_DISTRICTS, type DepartmentCode, type NormalizedPoint } from "@pro-now/types";
+import { groundSpotFor, WORLD_DISTRICTS, type DepartmentCode, type NormalizedPoint } from "@pro-now/types";
 
 /**
  * WHICH TRADE THE WALKER IS STANDING BY.
@@ -35,11 +35,27 @@ export const NEAR = 0.16;
  */
 export const DEPTH_WEIGHT = 0.6;
 
-export function nearestDistrict(at: NormalizedPoint, near = NEAR): DepartmentCode | null {
+/**
+ * `spots` is the ground the shops are standing on, when it is not the
+ * painted plate — real building plots from a real extract, in the same
+ * order `DistrictLayer` draws them.
+ *
+ * Passing them matters more than it looks. This function decides which
+ * trade is underfoot, which decides which shopfront lights up and which
+ * one opens when the customer taps. Left reading `districtCentre` while
+ * the LAYER read real plots, the world would have lit the plumber and
+ * opened the barber — the class of bug that is invisible in a screenshot
+ * and obvious the moment somebody walks.
+ */
+export function nearestDistrict(
+  at: NormalizedPoint,
+  near = NEAR,
+  spots: readonly NormalizedPoint[] | null = null
+): DepartmentCode | null {
   let best: DepartmentCode | null = null;
   let bestD = near;
   for (const code of Object.keys(WORLD_DISTRICTS) as DepartmentCode[]) {
-    const spot = districtCentre(code);
+    const spot = groundSpotFor(spots, code);
     if (!spot) continue;
     const d = Math.hypot(spot.u - at.u, (spot.v - at.v) * DEPTH_WEIGHT);
     if (d < bestD) {

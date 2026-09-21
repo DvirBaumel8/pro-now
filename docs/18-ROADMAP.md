@@ -132,6 +132,63 @@ because it is labelled an illustration and its positions are invented
 server and must be true, and "approximate area" has to be a deliberate,
 designed answer rather than a blurred marker.
 
+### And then it was built without the vendor (2026-09-21, same day)
+
+Amit, an hour later: *"אני רוצה לחבר מפה אמיתית שונראה איך העולם שלנו
+והקוד שלנו יושב עליה אולי יהיה יותר קל לשים את החנויות והדמויות על מפה
+אמיתית"* — and *"ואני רוצה שאתה תעשה הכל!!!!"*
+
+The answer above still stands for every word of it EXCEPT the assumption
+in the first sentence, which was mine and not his: that a real map means a
+tile vendor. Re-read his own earlier question and the specification is in
+it — *"ורק הצורה של המפה תהיה אמיתית"*. The SHAPE. Not the pictures.
+
+So what is real is the GEOMETRY, and geometry is a file:
+
+- `packages/types/src/world-geo.ts` — an extract (real ways, areas and
+  bounds) plus a Web-Mercator projection into the `{u,v}` every venue,
+  route, walker and camera in this codebase already speaks. Swapping what
+  `{u,v}` MEANS moves the entire city at once; that is what the last month
+  of putting every position into one coordinate system bought.
+- `packages/ui/.../GeoPlate.tsx` — the extract drawn in `livingPalette`.
+  Our night, our asphalt, our lane markings, on real street centrelines.
+- `tools/design-preview/fetch-geo.mjs` — Overpass → extract, run once,
+  committed, dated, attributed. `npm run verify:geo <file>` is the gate.
+
+Three things this buys that a tile layer does not:
+
+1. **No vendor decision** (/CLAUDE.md §4). A tile URL in a config file is
+   that decision taken quietly; an ODbL extract is not. The vendor table
+   above stays open, and `MapsRoutingProvider` is still the seam for the
+   thing a vendor is actually needed for — geocoding and route ETAs.
+2. **The shops place themselves.** `plotSpotsFromGeo` finds real building
+   plots that front a real street, stands each shopfront a pavement's
+   width off the kerb and faces it at the road. `PLATE_SPOTS` took three
+   rounds of bitmap erosion and two of those rounds answered the wrong
+   question. This is exactly the *"יותר קל לשים את החנויות"* Amit guessed
+   at, and he was right.
+3. **Sizes become true.** A real extract has metres in it, so a shopfront
+   is 16m and a person is 1.7m rather than fractions chosen by eye — and a
+   camera shot is a number of METRES across the frame (`SHOT_METRES`)
+   rather than a fraction of whatever the ground happens to be.
+
+The §3 consequence in the paragraph above is not softened by any of this
+and is the other half of the change: `packages/types/src/geo-truth.ts`
+gives every plotted position a provenance, refuses `DECOR` on a real
+surface, refuses a NAME on a real surface without a server behind it, and
+rewrites the city's disclosure line — on real streets it says *"הרחובות
+אמיתיים · העסקים בתצוגה הם המחשה ולא כתובות"* rather than promising a maps
+provider that has become unnecessary. `WorldBackdrop` drops its ambient
+traffic and its district signage the moment an extract is present. A real
+map costs the world its invented crowd; that is the price and it is paid.
+
+**What is still open**: the vendor question above, unchanged, for
+geocoding and route ETAs. And the extract itself — every OSM host is
+refused by this container's egress proxy (organization policy), so the
+fetch runs on Amit's machine. A synthetic fixture (`real: false`,
+watermarked, refused by `plotViolations` as a place) proves everything
+downstream of it offline.
+
 ## MVP success — two levels
 **Technical:** stable end-to-end loop, safe atomic assignment, payment
 integrity, trust gating, recovery from every edge case in

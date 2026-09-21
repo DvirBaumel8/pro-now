@@ -105,11 +105,21 @@ export const PLATE_ASPECT = 948 / 1659;
  * `worldSized: false` is the old one-screen fallback for the hero plates,
  * which are composed for a single frame and have no coordinates in them.
  */
+/**
+ * `aspect` is the ground's own width-over-height, and it defaults to the
+ * painted plate's because for two years that is the only ground there was.
+ * A real street plan has its own shape — see `geoAspect` — and handing it
+ * in here is the entire mechanism by which our city can stand on a real
+ * one: every coordinate in this file is a fraction of this box, so change
+ * the box's shape and eleven shopfronts, four streets, a route and a
+ * camera all move onto the new ground without being told.
+ */
 export function worldBox(
   viewportWidth: number,
   viewportHeight: number,
   zoom: number,
-  plateShaped = true
+  plateShaped = true,
+  aspect: number = PLATE_ASPECT
 ): { width: number; height: number } {
   if (!plateShaped) {
     return { width: viewportWidth * zoom, height: viewportHeight * zoom };
@@ -134,8 +144,8 @@ export function worldBox(
    * every coordinate is a fraction of this box.
    */
   const asked = viewportWidth * WORLD_EXTENT.width * zoom;
-  const width = Math.max(asked, minCoverWidth(viewportWidth, viewportHeight));
-  return { width, height: width / PLATE_ASPECT };
+  const width = Math.max(asked, minCoverWidth(viewportWidth, viewportHeight, aspect));
+  return { width, height: width / aspect };
 }
 
 /**
@@ -144,8 +154,12 @@ export function worldBox(
  * Wide enough for the viewport, and tall enough too — which for a plate
  * taller than the phone means the width implied by the height.
  */
-export function minCoverWidth(viewportWidth: number, viewportHeight: number): number {
-  return Math.max(viewportWidth, viewportHeight * PLATE_ASPECT);
+export function minCoverWidth(
+  viewportWidth: number,
+  viewportHeight: number,
+  aspect: number = PLATE_ASPECT
+): number {
+  return Math.max(viewportWidth, viewportHeight * aspect);
 }
 
 /**
@@ -154,8 +168,12 @@ export function minCoverWidth(viewportWidth: number, viewportHeight: number): nu
  * Useful to callers that want to know whether a shot they asked for was
  * raised — the camera cannot go wider than this, whatever the table says.
  */
-export function minCoverZoom(viewportWidth: number, viewportHeight: number): number {
-  return minCoverWidth(viewportWidth, viewportHeight) / (viewportWidth * WORLD_EXTENT.width);
+export function minCoverZoom(
+  viewportWidth: number,
+  viewportHeight: number,
+  aspect: number = PLATE_ASPECT
+): number {
+  return minCoverWidth(viewportWidth, viewportHeight, aspect) / (viewportWidth * WORLD_EXTENT.width);
 }
 
 /** How much of the world one screen shows, per axis. */
@@ -490,6 +508,38 @@ export const OVERFLOW_SPOTS: readonly NormalizedPoint[] = [
   { u: 0.125, v: 0.248 }, //  84%
   { u: 0.732, v: 0.406 }, //  67%
 ];
+
+/**
+ * The spot a trade stands on, on whatever ground is underfoot.
+ *
+ * ---------------------------------------------------------------------
+ * WHY THIS IS A FUNCTION AND NOT `spots[i]` AT EACH CALL SITE
+ * ---------------------------------------------------------------------
+ * There are three places that have to agree about where a trade's shop is:
+ * the layer that DRAWS it, the test that decides which trade is UNDERFOOT,
+ * and the errands scattered BETWEEN them. The first version of the real-map
+ * change indexed the spot list by loop position at two of those three, and
+ * the two loops were not the same loop — `DistrictLayer` filters out the
+ * active trade before mapping, so hiding one shop shifted every shop after
+ * it onto its neighbour's plot, while `nearestDistrict` walked
+ * `WORLD_DISTRICTS` in object-key order and never shifted at all.
+ *
+ * On screen that is the world lighting up the plumber and opening the
+ * barber, and it only appears once somebody walks — which is to say it
+ * would not have appeared in any screenshot taken of it.
+ *
+ * So the department names its own index, once, here. `plateSpotFor` is the
+ * same function with the painted plate's list baked in, kept because most
+ * of the codebase has no idea a second kind of ground exists.
+ */
+export function groundSpotFor(
+  spots: readonly NormalizedPoint[] | null | undefined,
+  department: DepartmentCode
+): NormalizedPoint {
+  if (!spots || spots.length === 0) return plateSpotFor(department);
+  const i = DISTRICT_SITES.findIndex((d) => d.department === department);
+  return spots[(i < 0 ? 0 : i) % spots.length]!;
+}
 
 /** The measured spot a trade stands on, by its position in the table. */
 export function plateSpotFor(department: DepartmentCode): NormalizedPoint {

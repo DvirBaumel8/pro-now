@@ -58,6 +58,11 @@ import { SHADOW } from "./contactShadow";
  * looks like anything it has not been told.
  */
 export interface WalkerProps {
+  /**
+   * A shopfront's width as a fraction of the world, when it is not the
+   * painted plate's 0.16. Everything alive is measured against it.
+   */
+  districtWidth?: number;
   /** The chosen avatar's world figure, or null for "not chosen / no art". */
   assetId: string | null;
   /**
@@ -137,6 +142,7 @@ export function Walker({
   autoTo = null,
   gait = STEER_GAIT,
   animate = true,
+  districtWidth,
   onSettled,
 }: WalkerProps) {
   const figureSource = assetId ? sources[assetId] : undefined;
@@ -332,7 +338,17 @@ export function Walker({
    * Depth still applies on top: walking up the street makes it smaller,
    * exactly as it does for everything else.
    */
-  const venueWidth = width * WORLD_SIZE.district;
+  /*
+   * ONE RULER, AND IT IS THE SHOPFRONT'S.
+   *
+   * `WORLD_SIZE.district` is a fraction of the painted plate, so on a real
+   * street plan it is a shopfront a hundred metres wide and a customer
+   * thirty-nine metres tall. `districtWidth` is the same quantity measured
+   * in metres when the ground has metres — see `REAL_METRES` — and it
+   * arrives from the same place `DistrictLayer` gets it, which is the only
+   * reason the two cannot drift apart again.
+   */
+  const venueWidth = width * (districtWidth ?? WORLD_SIZE.district);
   const baseH =
     venueWidth * WORLD_SIZE.personOfVenue * WORLD_SIZE.avatarOfPerson * Math.max(0, heightRatio);
 

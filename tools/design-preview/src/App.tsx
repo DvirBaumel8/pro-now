@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Animated, Easing, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 
 import { CARD_REST, customerCategoryById, categoryForDepartment, liveAreaLineHe, DEMO_WORLD, type CandidatePresence, type LivingMapPhase, type LivingMapState, themeForDepartment } from "@pro-now/types";
-import { discover, emptyDiscoveries, type DiscoveryState } from "@pro-now/types";
+import { discover, emptyDiscoveries, type DiscoveryState, type WorldGeo } from "@pro-now/types";
 import { AVATARS, screenKey, travelAssetFor, type AvatarChoice } from "@pro-now/types";
 import { matchServicesByText } from "@pro-now/ui";
 import { canSaveSession, clearSession, loadSession, saveSession, savedAgoHe } from "./session";
@@ -30,6 +30,7 @@ const proWorldSources: WorldAssetSources = worldSources.world_neighbourhood
   ? { world_neighbourhood: worldSources.world_neighbourhood }
   : {};
 import { standInWorldSources } from "./standInAvatars";
+import fixtureGeo from "../geo/fixture_grid.json";
 
 import { ActiveJobCapsule, AddressPickerBody, AppHeader, AvatarPickerBody, IntroBody, customerDarkTheme, FocusSheet, ScreenTransition, ArrivalVerifyBody, CallsListBody, CAPSULE_HEIGHT, ChatBody, ConnectionBanner, CategoryBody, CustomerHomeBody, CustomerProfileBody, customerTheme, DescribeFaultBody, JobCompleteBody, lex, MatchConfirmBody, NavGlyph, Persona, PhoneAuthBody, ProEarningsBody, ProJobBody, ProJobSettledBody, ProOfferBody, ProOnlineBody, ProPricingBody, ProProfileBody, ProShiftBody, proTheme, ProVerificationBody, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, StrollBody, Sheet, spacing, tint, TrackingBody, type as t, WelcomeBody } from "@pro-now/ui";
 import type { JobMediaItem, LiveLocationState, MarkName, NavGlyphName, ProPricingRow } from "@pro-now/ui";
@@ -404,6 +405,28 @@ export function App() {
   const [standIn, setStandIn] = useState(false);
   const art = standIn ? standInWorldSources : worldSources;
 
+  /**
+   * THE GROUND, SWITCHABLE, SO THE TWO CAN BE COMPARED.
+   *
+   * Amit: *"אני רוצה לחבר מפה אמיתית שונראה איך העולם שלנו והקוד שלנו
+   * יושב עליה."* The word doing the work there is *ונראה* — see. Not
+   * "replace the plate with a map", but show me our city standing on a
+   * real one so I can judge whether it sits.
+   *
+   * A switch is therefore the deliverable, not a migration. Flip it and
+   * the same walker, the same trades and the same camera are on real
+   * street geometry; flip it back and they are on the painting. Anything
+   * that only works on one of the two grounds shows up in one tap.
+   *
+   * The extract shipped here is a FIXTURE — `real: false`, watermarked on
+   * the artwork, and refused by `plotViolations` as a real place. Amit's
+   * own neighbourhood arrives by running `fetch-geo.mjs` on a machine
+   * whose network is allowed to reach OpenStreetMap; this container's is
+   * not, and that is policy rather than a fault.
+   */
+  const [realMap, setRealMap] = useState(false);
+  const geo = realMap ? (fixtureGeo as unknown as WorldGeo) : null;
+
   const avatarArtReady = AVATARS.some((a) => art[a.portraitAssetId]);
 
   /** Sides this device has already signed in on. See `session.ts`. */
@@ -613,6 +636,9 @@ export function App() {
             }}
             avatar={avatar}
             art={art}
+            geo={geo}
+            realMap={realMap}
+            onToggleRealMap={() => setRealMap((r) => !r)}
             standIn={standIn}
             onToggleStandIn={() => {
               const next = !standIn;
@@ -785,6 +811,9 @@ function CustomerApp({
   art,
   standIn,
   onToggleStandIn,
+  geo,
+  realMap,
+  onToggleRealMap,
 }: {
   width: number;
   height: number;
@@ -804,6 +833,9 @@ function CustomerApp({
   /** Whether the walking figures are currently borrowed. */
   standIn: boolean;
   onToggleStandIn: () => void;
+  geo: WorldGeo | null;
+  realMap: boolean;
+  onToggleRealMap: () => void;
 }) {
   const snapshot = useLiveSnapshot();
   /**
@@ -1332,6 +1364,7 @@ const go = useCallback((r: CustomerRoute) => {
           <StrollBody
             avatar={avatar}
             sources={art}
+            geo={geo}
             onOpenDepartment={(department) => {
               const category = categoryForDepartment(department);
               if (category) go({ name: "category", categoryId: category.id });
@@ -1714,6 +1747,7 @@ const go = useCallback((r: CustomerRoute) => {
       case "tracking":
         return (
           <TrackingBody
+            geo={geo}
             status={
               route.stage === "assigned"
                 ? "PRO_ASSIGNED"
@@ -1825,6 +1859,7 @@ const go = useCallback((r: CustomerRoute) => {
         return (
           <View style={{ width, height: bodyH }}>
             <TrackingBody
+              geo={geo}
               // He is in the room and diagnosing; the price is what he
               // came out of the diagnosis with.
               status="DIAGNOSIS"
@@ -1994,9 +2029,30 @@ const go = useCallback((r: CustomerRoute) => {
       </Pressable>
     ) : null;
 
+  /*
+   * THE GROUND SWITCH.
+   *
+   * Under the walking control rather than beside it: they are both
+   * gallery-only, they are both about the same screen, and two pills on
+   * one row at 390 points wide would have collided with the header's own
+   * trailing control the first time the label grew a word.
+   */
+  const groundSwitch =
+    tab === "home" && GROUND_SCREENS.includes(route.name) ? (
+      <Pressable
+        onPress={onToggleRealMap}
+        accessibilityRole="button"
+        accessibilityLabel="החלפה בין המפה המצוירת לבין תוכנית רחובות אמיתית"
+        style={styles.groundSwitch}
+      >
+        <Text style={styles.standInText}>{realMap ? "▪ מפה אמיתית" : "▸ מפה אמיתית"}</Text>
+      </Pressable>
+    ) : null;
+
   return (
     <View style={{ width, height }}>
       {walkingDemo}
+      {groundSwitch}
       <AppHeader
         width={width}
         greetingHe="שלום"
@@ -2888,6 +2944,16 @@ function ProApp({
  */
 const WALKABLE_SCREENS = ["stroll", "living"];
 
+/*
+ * THE GROUND SWITCH REACHES FURTHER THAN THE WALKING ONE.
+ *
+ * Walking only makes sense where there is somebody to walk. A real street
+ * plan matters most on the screen Amit watches for twenty minutes — the
+ * one where the question is "where are they" — so tracking is in the list
+ * even though nobody strolls on it.
+ */
+const GROUND_SCREENS = ["stroll", "living", "tracking"];
+
 const DEMO_H = 60;
 
 function DemoBar({
@@ -3091,6 +3157,18 @@ const styles = StyleSheet.create({
      * that looks broken. 44 is the floor the sweep enforces for every
      * other target in the product.
      */
+    minHeight: 44,
+    justifyContent: "center",
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.pill,
+    backgroundColor: "rgba(46,38,64,0.92)",
+    alignItems: "center",
+  },
+  groundSwitch: {
+    position: "absolute",
+    zIndex: 5,
+    top: spacing.xl * 2 + 52,
+    left: spacing.md,
     minHeight: 44,
     justifyContent: "center",
     paddingHorizontal: spacing.md,

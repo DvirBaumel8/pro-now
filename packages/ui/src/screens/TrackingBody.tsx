@@ -11,6 +11,7 @@ import {
   type EtaView,
   type JobState,
   type ProfessionalSummaryView,
+  type WorldGeo,
 } from "@pro-now/types";
 
 import { formatCompletedJobs, formatEta, formatProNowRating } from "../format";
@@ -64,6 +65,23 @@ import { ShieldCheckMark, StarMark } from "../components/marks";
 const colors = customerDarkTheme.colors;
 
 export interface TrackingBodyProps {
+  /**
+   * A REAL STREET PLAN FOR THE MAP BAND.
+   *
+   * This is the screen Visual System v1 §11 actually allows a map on —
+   * an assignment exists and both sides need the location to execute —
+   * so it is the screen where a real street plan is worth the most and
+   * costs the most.
+   *
+   * Worth the most, because the customer is asking one question ("where
+   * are they") that only real geography answers. Costs the most, because
+   * a figure drawn on a real street is a claim about a real address, and
+   * this screen is exactly where a decorative one would once have been
+   * acceptable. Nothing is plotted on it that the server did not say —
+   * see `geo-truth.ts`, and note that nothing is plotted on it at all
+   * until the route comes from a route and not from a drawing.
+   */
+  geo?: WorldGeo | null;
   status: JobState;
   serviceNameHe: string;
   professional: ProfessionalSummaryView;
@@ -115,6 +133,7 @@ export interface TrackingBodyProps {
 }
 
 export function TrackingBody({
+  geo = null,
   status,
   serviceNameHe,
   professional,
@@ -341,7 +360,7 @@ export function TrackingBody({
             </WorldBackdrop>
           </>
         ) : (
-          <RealMapSurface assigned={assigned} width={width} height={mapH} tone="dark" />
+          <RealMapSurface assigned={assigned} width={width} height={mapH} tone="dark" geo={geo} />
         )}
       </View>
 

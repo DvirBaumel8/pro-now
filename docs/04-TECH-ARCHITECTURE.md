@@ -13,9 +13,34 @@
 | Realtime | WebSockets (push is fallback/wakeup only) |
 | Object storage | S3-compatible |
 | Push | FCM + APNs |
-| Maps / address / ETA | Google Maps Platform (Places Autocomplete, Routes/Route Matrix) behind a `MapsRoutingProvider` interface |
+| Maps / address / ETA | vendor TBD (see `/docs/18-ROADMAP.md`) behind a `MapsRoutingProvider` interface — needed for geocoding and route ETAs only |
+| Map DRAWING | no vendor. Real OSM geometry, fetched once and committed (`world-geo.ts`, `GeoPlate.tsx`) and drawn in our own palette — see below |
 | Monitoring | Sentry + structured logs + metrics |
 | Analytics | provider-abstracted (PostHog/Amplitude candidate, vendor TBD) |
+
+### Two different problems that both say "maps"
+
+Worth separating, because conflating them is what made the maps vendor
+look like a blocker for a year.
+
+**Drawing a place.** Needs street geometry and nothing else. Geometry is
+an ODbL file from OpenStreetMap, fetched once by
+`tools/design-preview/fetch-geo.mjs`, checked by `npm run verify:geo`,
+committed and dated. `packages/types/src/world-geo.ts` projects it into
+the `{u,v}` the whole world already uses; `GeoPlate.tsx` draws it in
+`livingPalette`. No account, no token, no per-load bill, and the artwork
+stays ours — which is the point, because a tile is a photograph of
+somebody else's city and our shopfronts would be stickers on it.
+
+**Knowing where something is.** Geocoding an address, and an ETA that
+came from a real route rather than a straight line. That is
+`MapsRoutingProvider`, it needs a vendor, and the vendor is still a §4
+human decision.
+
+The second one is also where `/CLAUDE.md §3` bites hardest: once the
+streets are real, every drawn position is a claim about somewhere. See
+`packages/types/src/geo-truth.ts`, which refuses invented positions on a
+real surface rather than trusting a reviewer to notice them.
 | Payments | `PaymentProvider` interface; vendor selected after Israel/business/legal validation (Stripe Connect is a candidate, not a decision) |
 | Identity/KYC | `IdentityVerificationProvider` interface; vendor TBD |
 | External reputation | `ExternalReputationProvider` interface; official Google APIs candidate, no scraping ever |

@@ -1,11 +1,12 @@
 import React, { useEffect, useRef } from "react";
 import { Animated, Easing, StyleSheet, View } from "react-native";
 
-import { worldBox, worldZoomFor } from "@pro-now/types";
+import { type WorldGeo, geoAspect, worldBox, worldZoomFor } from "@pro-now/types";
 
 import { palette } from "../../theme";
 import { AssetSlot, EMPTY_ASSET_SOURCES, type WorldAssetSources } from "./AssetSlot";
 import { DistrictLayer } from "./DistrictLayer";
+import { GeoPlate } from "./GeoPlate";
 import { WorldLife } from "./WorldLife";
 
 /**
@@ -99,6 +100,37 @@ export interface WorldBackdropProps {
    * התמונה עם הזום אין הזה?"*
    */
   zoom?: number;
+  /**
+   * A REAL STREET PLAN TO STAND ON, INSTEAD OF THE PAINTING.
+   *
+   * -------------------------------------------------------------------
+   * WHAT SWITCHING THIS ON ACTUALLY DOES
+   * -------------------------------------------------------------------
+   * Amit: *"אני רוצה לחבר מפה אמיתית שונראה איך העולם שלנו והקוד שלנו
+   * יושב עליה."* This is that seam, and it is one prop because the whole
+   * design of the world was aimed at making it one prop: everything in
+   * here is placed in `{u,v}`, so swapping what `{u,v}` MEANS moves the
+   * entire city at once.
+   *
+   * Three things change when it is present, and the third is the one that
+   * matters:
+   *
+   *   1. The ground is `GeoPlate` — real ways and plots, our ink.
+   *   2. The world box takes the extract's aspect instead of the plate's,
+   *      so the projection is not stretched. Same rule as `PLATE_ASPECT`,
+   *      same reason.
+   *   3. THE AMBIENT LIFE GOES OUT. `WorldLife` and `DistrictLayer` are
+   *      invention — a courier nobody dispatched, eleven shopfronts no
+   *      business rents — and on an invented street that is atmosphere,
+   *      while on a real one it is a claim about an address. `geo-truth.ts`
+   *      is the written-down version of this and the tests are there; the
+   *      enforcement is here, where the components actually mount.
+   *
+   * Point 3 is why this is not simply a nicer backdrop. A real map costs
+   * the world its crowd, and the honest response is fewer figures rather
+   * than the same figures somewhere real.
+   */
+  geo?: WorldGeo | null;
 }
 
 export function WorldBackdrop({
@@ -111,6 +143,7 @@ export function WorldBackdrop({
   departmentCode = null,
   focus = null,
   zoom,
+  geo = null,
   children,
 }: WorldBackdropProps) {
   const assetId = sources[groundAssetId] ? groundAssetId : fallbackGroundAssetId;
@@ -120,7 +153,13 @@ export function WorldBackdrop({
    * of it than fits. A hero plate is a single picture: blowing it up and
    * sliding it would crop into it rather than reveal anything.
    */
-  const isWorldPlate = assetId === "world_neighbourhood";
+  /*
+   * A real extract is a world in the same sense the neighbourhood plate
+   * is: larger than the viewport, with corners you have not turned. So it
+   * takes the world-plate path — clamped camera, 2.4 screens across —
+   * rather than the single-picture path the hero plates use.
+   */
+  const isWorldPlate = geo !== null || assetId === "world_neighbourhood";
 
   /*
    * Fit the neighbourhood by default; the fallback single-street plate is
@@ -259,7 +298,7 @@ export function WorldBackdrop({
    */
   // Same rule as the live world: the box is the plate's shape, so a
   // measured coordinate is a plate pixel. See `worldBox`.
-  const wb = worldBox(width, height, lens, isWorldPlate);
+  const wb = worldBox(width, height, lens, isWorldPlate, geo ? geoAspect(geo.bounds) : undefined);
   const worldW = wb.width;
   const worldH = wb.height;
 
@@ -299,7 +338,21 @@ export function WorldBackdrop({
 
   return (
     <View style={[StyleSheet.absoluteFill, styles.night]} pointerEvents="none">
-      {hasArt ? (
+      {geo ? (
+        <Animated.View
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            width: worldW,
+            height: worldH,
+            transform: travelTransform,
+          }}
+        >
+          <GeoPlate geo={geo} width={worldW} height={worldH} />
+        </Animated.View>
+      ) : null}
+      {!geo && hasArt ? (
         <Animated.View
           style={{
             position: "absolute",
@@ -378,7 +431,12 @@ export function WorldBackdrop({
           * middle of the road. A layout laid over the wrong map is not a
           * layout.
           */}
-        {isWorldPlate ? (
+        {/*
+          * AND NOT ON A REAL STREET. See `geo` above: a district marker is
+          * a shopfront with a trade name on it, standing on whatever plot
+          * is underneath — which on a real extract is somebody's building.
+          */}
+        {isWorldPlate && !geo ? (
           <DistrictLayer
             width={worldW}
             height={worldH}
@@ -388,6 +446,8 @@ export function WorldBackdrop({
           />
         ) : null}
 
+        {/* Ambient traffic is invention, and invention stays off real roads. */}
+        {geo ? null : (
         <WorldLife
           width={worldW}
           height={worldH}
@@ -396,6 +456,7 @@ export function WorldBackdrop({
           animate={animate}
           departmentCode={departmentCode}
         />
+        )}
 
         {/* In the world, not over it. See `children` above. */}
         {children?.({ width: worldW, height: worldH })}

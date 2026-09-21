@@ -1,0 +1,739 @@
+import type { NormalizedPoint } from "./virtual-venue";
+import type { RoadSample } from "./world-neighbourhood";
+
+/**
+ * THE REAL MAP UNDER OUR WORLD.
+ *
+ * ---------------------------------------------------------------------
+ * WHAT AMIT ASKED FOR, AND WHY IT IS NOT "ADD GOOGLE MAPS"
+ * ---------------------------------------------------------------------
+ *     "אני רוצה לחבר מפה אמיתית שונראה איך העולם שלנו והקוד שלנו יושב
+ *      עליה אולי יהיה יותר קל לשים את החנויות והדמויות על מפה אמיתית"
+ *
+ * and, the time before:
+ *
+ *     "במקום בתים אמיתיים יהיו את המבנים והדמויות שלנו? ורק הצורה של
+ *      המפה תהיה אמיתית?"
+ *
+ * That second sentence is the specification, and it rules out the obvious
+ * implementation. He does not want a photograph of a city with our icons
+ * floating over it — he wants OUR city, standing on a REAL STREET PLAN.
+ * Tiles are the wrong material for that: a tile is a picture of somebody
+ * else's buildings, and the moment one is on screen our shopfronts are
+ * stickers on it.
+ *
+ * So what is real here is the GEOMETRY, not the imagery. Road centrelines,
+ * carriageway widths, parks, water, and the building plots that front the
+ * streets — the shape of a place. We draw it ourselves, in the world's own
+ * palette, and our shops stand on its real plots.
+ *
+ * That has three consequences worth stating, because each one is a thing
+ * that used to be hard and stops being hard:
+ *
+ *   1. NO VENDOR DECISION. `/CLAUDE.md §4` lists the maps vendor as a human
+ *      decision this codebase must not invent, and a tile URL in a config
+ *      file is exactly that decision made quietly. Geometry has no such
+ *      problem: an extract is a file, and the file is attributed.
+ *
+ *   2. THE SHOPS PLACE THEMSELVES. `PLATE_SPOTS` are eleven numbers
+ *      measured off a painting with a pixel script, and they are wrong the
+ *      day the painting changes. A real plot that fronts a real street is
+ *      a place a shop can stand by construction — `plotSpotsFromGeo` below
+ *      computes them instead of measuring them. This is precisely the
+ *      "יותר קל לשים את החנויות" Amit guessed at, and he guessed right.
+ *
+ *   3. SIZES BECOME TRUE. On the painted plate a person is `personHeight`,
+ *      a fraction of the world width chosen by eye. On a real extract the
+ *      world has METRES in it, so a 1.7m person and a 4.8m van are drawn at
+ *      1.7m and 4.8m. Amit has asked for correct proportions more than once
+ *      and every answer so far has been a better guess; this is the first
+ *      one that is not a guess.
+ *
+ * ---------------------------------------------------------------------
+ * AND THE ONE THING THAT GETS HARDER
+ * ---------------------------------------------------------------------
+ * `/CLAUDE.md §3`: never fabricate availability, demand or an ETA. On an
+ * invented street that rule is about copy. On a real street it is about
+ * every drawn position, because a figure standing on a real corner is a
+ * claim that somebody is on that corner. See `geo-truth.ts`, which is the
+ * other half of this change and is not optional.
+ *
+ * ---------------------------------------------------------------------
+ * COORDINATES
+ * ---------------------------------------------------------------------
+ * Nothing downstream learns about latitude. A `WorldGeo` carries a bounding
+ * box, and `projectToWorld` turns a real coordinate into the same
+ * `{u, v} ∈ [0,1]²` every venue, route, walker and camera in this codebase
+ * already speaks. The projection is Web Mercator, so shapes are locally
+ * correct and a right angle in the world is a right angle on screen.
+ */
+
+export interface GeoPoint {
+  lat: number;
+  lng: number;
+}
+
+/** A bounding box, in the order every extract tool in the world writes it. */
+export interface GeoBounds {
+  south: number;
+  west: number;
+  north: number;
+  east: number;
+}
+
+/**
+ * What a road is, coarsely, because we draw four widths and not forty.
+ *
+ * OSM has dozens of `highway=` values. They collapse to these because the
+ * only questions the world asks are "how wide do I draw it", "may a vehicle
+ * drive it" and "is this the spine of the place".
+ */
+export type GeoWayKind = "ARTERIAL" | "STREET" | "SERVICE" | "PATH";
+
+export interface GeoWay {
+  id: string;
+  kind: GeoWayKind;
+  /** Carriageway width in metres — kerb to kerb, not including pavement. */
+  widthMetres: number;
+  nameHe?: string;
+  points: readonly GeoPoint[];
+}
+
+export type GeoAreaKind = "WATER" | "GREEN" | "PLOT" | "SQUARE";
+
+export interface GeoArea {
+  id: string;
+  kind: GeoAreaKind;
+  /** Closed ring. The first point is not repeated at the end. */
+  ring: readonly GeoPoint[];
+}
+
+export interface WorldGeo {
+  id: string;
+  nameHe: string;
+  /**
+   * WHETHER THIS IS A PLACE.
+   *
+   * A fixture that exercises the renderer is not a neighbourhood, and the
+   * difference matters at exactly one moment: when a figure is drawn on it
+   * and somebody reads a street off the screen. `false` is carried all the
+   * way to the surface, where it is watermarked — see `RealMapSurface`.
+   */
+  real: boolean;
+  /** Required for a real extract. ODbL is not a formality. */
+  attribution: string;
+  /** Where the extract came from, so it can be refetched and checked. */
+  source: string;
+  /** ISO timestamp. Street plans change; an undated extract cannot age. */
+  fetchedAt: string;
+  bounds: GeoBounds;
+  ways: readonly GeoWay[];
+  areas: readonly GeoArea[];
+}
+
+/* ------------------------------------------------------------------ */
+/* PROJECTION                                                          */
+/* ------------------------------------------------------------------ */
+
+const DEG = Math.PI / 180;
+
+/** Web Mercator's y, in radians of the projected plane. */
+export function mercatorY(lat: number): number {
+  const clamped = Math.max(-85.05112878, Math.min(85.05112878, lat));
+  return Math.log(Math.tan(Math.PI / 4 + (clamped * DEG) / 2));
+}
+
+/** The inverse, so a tapped point on our world can name a real place. */
+export function inverseMercatorY(y: number): number {
+  return (2 * Math.atan(Math.exp(y)) - Math.PI / 2) / DEG;
+}
+
+/**
+ * The extract's own aspect ratio — the `PLATE_ASPECT` of a real place.
+ *
+ * Width over height, measured on the projected plane rather than in
+ * degrees, because a degree of longitude is shorter than a degree of
+ * latitude everywhere except the equator and Tel Aviv is not on it. Getting
+ * this wrong stretches the whole city by 20% and every road meets every
+ * other road at the wrong angle.
+ */
+export function geoAspect(bounds: GeoBounds): number {
+  const dx = bounds.east - bounds.west;
+  const dy = (mercatorY(bounds.north) - mercatorY(bounds.south)) / DEG;
+  if (dy === 0) return 1;
+  return dx / dy;
+}
+
+/**
+ * Metres across the box, on the same earth the projection uses.
+ *
+ * ---------------------------------------------------------------------
+ * WHY BOTH OF THESE ARE WRITTEN IN MERCATOR AND NOT IN DEGREES
+ * ---------------------------------------------------------------------
+ * The obvious pair is `Δlng · 111320 · cos φ` for width and `Δlat · 110574`
+ * for height, and those two constants are both right — on the WGS84
+ * ellipsoid, where a degree of latitude is 0.67% longer than the sphere
+ * says. `projectToWorld` is spherical Mercator, so mixing the ellipsoid's
+ * constants into the metres made the drawn aspect and the measured one
+ * disagree by exactly that 0.67%, and a test caught it.
+ *
+ * 0.67% of a 620m neighbourhood is four metres, which is a lane. More to
+ * the point it is the SIGN of a fault rather than its size: it means the
+ * picture is being drawn on one earth and measured on another, and the two
+ * numbers that have to agree for `metresToWorld` to be correct on both
+ * axes were arrived at independently. So both are spherical, like the
+ * projection, and they agree by construction.
+ *
+ * In Mercator the ground distance of a step in the projected y is
+ * `R · Δy · cos φ`, which is why the same cosine appears in both.
+ */
+const EARTH_R = 6378137;
+
+export function geoWidthMetres(bounds: GeoBounds): number {
+  const midLat = (bounds.north + bounds.south) / 2;
+  return EARTH_R * (bounds.east - bounds.west) * DEG * Math.cos(midLat * DEG);
+}
+
+/** Metres top to bottom, on that same sphere. */
+export function geoHeightMetres(bounds: GeoBounds): number {
+  const midLat = (bounds.north + bounds.south) / 2;
+  return EARTH_R * (mercatorY(bounds.north) - mercatorY(bounds.south)) * Math.cos(midLat * DEG);
+}
+
+/** A real coordinate, in the `{u,v}` the rest of this codebase speaks. */
+export function projectToWorld(bounds: GeoBounds, p: GeoPoint): NormalizedPoint {
+  const dx = bounds.east - bounds.west;
+  const yN = mercatorY(bounds.north);
+  const yS = mercatorY(bounds.south);
+  const dy = yN - yS;
+  return {
+    u: dx === 0 ? 0.5 : (p.lng - bounds.west) / dx,
+    v: dy === 0 ? 0.5 : (yN - mercatorY(p.lat)) / dy,
+  };
+}
+
+/** And back, for the day a tap on our world has to become an address. */
+export function unprojectFromWorld(bounds: GeoBounds, n: NormalizedPoint): GeoPoint {
+  const yN = mercatorY(bounds.north);
+  const yS = mercatorY(bounds.south);
+  return {
+    lng: bounds.west + n.u * (bounds.east - bounds.west),
+    lat: inverseMercatorY(yN - n.v * (yN - yS)),
+  };
+}
+
+/**
+ * Metres, as a fraction of the world's width.
+ *
+ * The one number that makes proportions true rather than chosen. Mercator
+ * is conformal, so at the scale of one neighbourhood this same scalar is
+ * correct on both axes of the drawn picture — which is only true because
+ * the world box is built at `geoAspect`. Draw the box at the phone's aspect
+ * instead and this number is a lie on one axis, which is the identical
+ * mistake `PLATE_ASPECT` exists to prevent.
+ */
+export function metresToWorld(bounds: GeoBounds, metres: number): number {
+  const w = geoWidthMetres(bounds);
+  return w === 0 ? 0 : metres / w;
+}
+
+export function worldToMetres(bounds: GeoBounds, world: number): number {
+  return world * geoWidthMetres(bounds);
+}
+
+/* ------------------------------------------------------------------ */
+/* GEOMETRY IN WORLD SPACE                                             */
+/* ------------------------------------------------------------------ */
+
+export interface WorldWay {
+  id: string;
+  kind: GeoWayKind;
+  nameHe?: string;
+  points: readonly NormalizedPoint[];
+  /** Half the carriageway, in world units, ready to draw a kerb with. */
+  halfWidth: number;
+}
+
+export function wayInWorld(bounds: GeoBounds, way: GeoWay): WorldWay {
+  return {
+    id: way.id,
+    kind: way.kind,
+    nameHe: way.nameHe,
+    points: way.points.map((p) => projectToWorld(bounds, p)),
+    halfWidth: metresToWorld(bounds, way.widthMetres) / 2,
+  };
+}
+
+export interface WorldArea {
+  id: string;
+  kind: GeoAreaKind;
+  ring: readonly NormalizedPoint[];
+}
+
+export function areaInWorld(bounds: GeoBounds, area: GeoArea): WorldArea {
+  return { id: area.id, kind: area.kind, ring: area.ring.map((p) => projectToWorld(bounds, p)) };
+}
+
+/** Everything projected once, because projecting per frame is a jank budget. */
+export interface WorldPlan {
+  geo: WorldGeo;
+  ways: readonly WorldWay[];
+  areas: readonly WorldArea[];
+  /** The world's shape, to be used exactly where `PLATE_ASPECT` is used. */
+  aspect: number;
+  widthMetres: number;
+}
+
+export function planWorld(geo: WorldGeo): WorldPlan {
+  return {
+    geo,
+    ways: geo.ways.map((w) => wayInWorld(geo.bounds, w)),
+    areas: geo.areas.map((a) => areaInWorld(geo.bounds, a)),
+    aspect: geoAspect(geo.bounds),
+    widthMetres: geoWidthMetres(geo.bounds),
+  };
+}
+
+/** Ring area, signed — negative is clockwise. Used for centroids and sizes. */
+export function ringArea(ring: readonly NormalizedPoint[]): number {
+  let a = 0;
+  for (let i = 0; i < ring.length; i++) {
+    const p = ring[i]!;
+    const q = ring[(i + 1) % ring.length]!;
+    a += p.u * q.v - q.u * p.v;
+  }
+  return a / 2;
+}
+
+export function ringCentroid(ring: readonly NormalizedPoint[]): NormalizedPoint {
+  const a = ringArea(ring);
+  if (a === 0) {
+    // A degenerate ring still has to answer, or one bad plot in an extract
+    // takes the whole city down with a NaN.
+    const n = ring.length || 1;
+    return {
+      u: ring.reduce((s, p) => s + p.u, 0) / n,
+      v: ring.reduce((s, p) => s + p.v, 0) / n,
+    };
+  }
+  let u = 0;
+  let v = 0;
+  for (let i = 0; i < ring.length; i++) {
+    const p = ring[i]!;
+    const q = ring[(i + 1) % ring.length]!;
+    const cross = p.u * q.v - q.u * p.v;
+    u += (p.u + q.u) * cross;
+    v += (p.v + q.v) * cross;
+  }
+  return { u: u / (6 * a), v: v / (6 * a) };
+}
+
+export interface NearestOnWay {
+  /** The closest point on the centreline. */
+  at: NormalizedPoint;
+  /** Distance from the query point to it, in world units. */
+  distance: number;
+  /** The centreline's direction there, unit length. */
+  heading: NormalizedPoint;
+  /** Which side of the way the query point is on. */
+  side: -1 | 1;
+}
+
+/** Closest point on a polyline, with enough about it to face a shop. */
+export function nearestOnPolyline(
+  points: readonly NormalizedPoint[],
+  q: NormalizedPoint
+): NearestOnWay | null {
+  if (points.length === 0) return null;
+  if (points.length === 1) {
+    return {
+      at: points[0]!,
+      distance: Math.hypot(q.u - points[0]!.u, q.v - points[0]!.v),
+      heading: { u: 1, v: 0 },
+      side: 1,
+    };
+  }
+  let best: NearestOnWay | null = null;
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1]!;
+    const b = points[i]!;
+    const du = b.u - a.u;
+    const dv = b.v - a.v;
+    const len2 = du * du + dv * dv;
+    const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, ((q.u - a.u) * du + (q.v - a.v) * dv) / len2));
+    const at = { u: a.u + du * t, v: a.v + dv * t };
+    const d = Math.hypot(q.u - at.u, q.v - at.v);
+    if (!best || d < best.distance) {
+      const len = Math.sqrt(len2) || 1;
+      const heading = { u: du / len, v: dv / len };
+      // Cross product of the heading with the offset: sign is the side.
+      const cross = heading.u * (q.v - at.v) - heading.v * (q.u - at.u);
+      best = { at, distance: d, heading, side: cross >= 0 ? 1 : -1 };
+    }
+  }
+  return best;
+}
+
+/** The nearest carriageway of any kind, across the whole plan. */
+export function nearestWay(plan: WorldPlan, q: NormalizedPoint): { way: WorldWay; on: NearestOnWay } | null {
+  let best: { way: WorldWay; on: NearestOnWay } | null = null;
+  for (const way of plan.ways) {
+    const on = nearestOnPolyline(way.points, q);
+    if (!on) continue;
+    if (!best || on.distance < best.on.distance) best = { way, on };
+  }
+  return best;
+}
+
+/** Is this point inside the carriageway of any road? */
+export function inCarriageway(plan: WorldPlan, q: NormalizedPoint): boolean {
+  const near = nearestWay(plan, q);
+  return near !== null && near.on.distance <= near.way.halfWidth;
+}
+
+export function pointInRing(ring: readonly NormalizedPoint[], q: NormalizedPoint): boolean {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const a = ring[i]!;
+    const b = ring[j]!;
+    const straddles = a.v > q.v !== b.v > q.v;
+    if (straddles && q.u < ((b.u - a.u) * (q.v - a.v)) / (b.v - a.v) + a.u) inside = !inside;
+  }
+  return inside;
+}
+
+/* ------------------------------------------------------------------ */
+/* THE ROAD A VEHICLE DRIVES                                           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The spine of the place, as `ROAD_SAMPLES` — the same twelve-ish rows the
+ * painted plate produces, so nothing that already drives learns a new shape.
+ *
+ * "The spine" is the longest ARTERIAL, falling back to the longest STREET.
+ * Amit's complaint that started this — *"שיסעו כמו שצריך בכביש"* — was about
+ * vehicles wandering off a hand-measured centreline. A real centreline
+ * cannot be wandered off, because it is where the road is.
+ */
+export function spineOf(plan: WorldPlan): WorldWay | null {
+  const length = (w: WorldWay) => {
+    let t = 0;
+    for (let i = 1; i < w.points.length; i++) {
+      t += Math.hypot(w.points[i]!.u - w.points[i - 1]!.u, w.points[i]!.v - w.points[i - 1]!.v);
+    }
+    return t;
+  };
+  const arterials = plan.ways.filter((w) => w.kind === "ARTERIAL");
+  const pool = arterials.length > 0 ? arterials : plan.ways.filter((w) => w.kind === "STREET");
+  if (pool.length === 0) return null;
+  return pool.reduce((a, b) => (length(b) > length(a) ? b : a));
+}
+
+/**
+ * Resampled front-to-back, because `roadAt(v)` looks a road up BY DEPTH and
+ * therefore needs one row per depth, sorted, with no two rows at the same v.
+ *
+ * A real street that doubles back on itself would give two carriageway
+ * positions at one v, and `roadAt` can only return one. Rather than silently
+ * taking whichever came last, the doubled section is dropped: the sample
+ * kept at each depth is the one nearest the previous row, which follows the
+ * street a driver is actually on instead of teleporting across a hairpin.
+ */
+export function roadSamplesFromGeo(plan: WorldPlan, rows = 12): RoadSample[] {
+  const spine = spineOf(plan);
+  if (!spine || spine.points.length < 2) return [];
+
+  const widthWorld = spine.halfWidth * 2;
+  const vs = spine.points.map((p) => p.v);
+  const top = Math.max(0, Math.min(...vs));
+  const bottom = Math.min(1, Math.max(...vs));
+  if (bottom - top < 1e-6) return [];
+
+  const out: RoadSample[] = [];
+  let previousU: number | null = null;
+  for (let i = 0; i < rows; i++) {
+    const v = top + ((bottom - top) * i) / (rows - 1);
+    // Every crossing of this depth, so a hairpin offers both and we choose.
+    const candidates: number[] = [];
+    for (let k = 1; k < spine.points.length; k++) {
+      const a = spine.points[k - 1]!;
+      const b = spine.points[k]!;
+      if (a.v === b.v) continue;
+      const t = (v - a.v) / (b.v - a.v);
+      if (t < 0 || t > 1) continue;
+      candidates.push(a.u + (b.u - a.u) * t);
+    }
+    if (candidates.length === 0) continue;
+    const anchor = previousU;
+    const u: number =
+      anchor === null
+        ? candidates[0]!
+        : candidates.reduce((best, c) => (Math.abs(c - anchor) < Math.abs(best - anchor) ? c : best));
+    previousU = u;
+    out.push({ u, v, width: widthWorld });
+  }
+  return out;
+}
+
+/* ------------------------------------------------------------------ */
+/* WHERE A SHOP STANDS                                                 */
+/* ------------------------------------------------------------------ */
+
+export interface PlotSpot extends NormalizedPoint {
+  /** The plot it stands on. */
+  plotId: string;
+  /** The road it fronts. */
+  wayId: string;
+  /** Metres from the kerb to the doorstep. */
+  setbackMetres: number;
+  /**
+   * Which way the shopfront faces, as a unit vector pointing at the road.
+   *
+   * A shopfront drawn facing away from the street is the single most
+   * obvious thing wrong with a city, and on the painted plate it was
+   * unfixable because the painting decided. Here it is arithmetic.
+   */
+  facing: NormalizedPoint;
+  /** Plot footprint in square metres — a kiosk should not get a warehouse. */
+  areaMetres: number;
+}
+
+export interface PlotSpotOptions {
+  /** How far apart two shopfronts must be, in world units. */
+  separation?: number;
+  /** Nothing nearer the viewer than the customer. */
+  maxV?: number;
+  /** A plot further than this from any road is not a shopfront site. */
+  maxSetbackMetres?: number;
+  /** Below this the plot is a shed. */
+  minAreaMetres?: number;
+}
+
+/**
+ * Real plots that front a real street, ready for a shopfront.
+ *
+ * This is the function Amit was reaching for. The painted-plate version of
+ * it is `measure-spots.mjs`, three hundred lines of integral images eroding
+ * a bitmap to find somewhere flat, and it was wrong twice — once because it
+ * scored the doorstep instead of the building, once because it thought a
+ * zebra crossing was pavement. Neither mistake is expressible here: a plot
+ * is a plot because a surveyor said so, and a road is a road for the same
+ * reason.
+ *
+ * Ordered by frontage quality — biggest plots nearest a road first — so
+ * taking the first eleven gives the eleven best addresses in the extract
+ * rather than the eleven that happen to come first in the file.
+ */
+export function plotSpotsFromGeo(plan: WorldPlan, opts: PlotSpotOptions = {}): PlotSpot[] {
+  const separation = opts.separation ?? 0.06;
+  const maxV = opts.maxV ?? 0.86;
+  const maxSetback = opts.maxSetbackMetres ?? 45;
+  const minArea = opts.minAreaMetres ?? 40;
+
+  const scored: Array<PlotSpot & { score: number }> = [];
+
+  for (const area of plan.areas) {
+    if (area.kind !== "PLOT") continue;
+    if (area.ring.length < 3) continue;
+
+    const centre = ringCentroid(area.ring);
+    const areaMetres = Math.abs(ringArea(area.ring)) * plan.widthMetres * (plan.widthMetres / plan.aspect);
+    if (areaMetres < minArea) continue;
+
+    const near = nearestWay(plan, centre);
+    if (!near) continue;
+
+    const setbackMetres = worldToMetres(plan.geo.bounds, near.on.distance - near.way.halfWidth);
+    if (setbackMetres < 0) continue; // the centroid is IN the road: bad extract, not a site
+    if (setbackMetres > maxSetback) continue;
+
+    // The doorstep: on the plot's side of the road, one pavement's width
+    // clear of the kerb. Not the centroid, which is inside the building.
+    const toRoadU = near.on.at.u - centre.u;
+    const toRoadV = near.on.at.v - centre.v;
+    const len = Math.hypot(toRoadU, toRoadV) || 1;
+    const facing = { u: toRoadU / len, v: toRoadV / len };
+    const kerbGap = metresToWorld(plan.geo.bounds, 2.5);
+    const stand = near.way.halfWidth + kerbGap;
+    const spot: NormalizedPoint = {
+      u: near.on.at.u - facing.u * stand,
+      v: near.on.at.v - facing.v * stand,
+    };
+
+    if (spot.v > maxV || spot.v < 0 || spot.u < 0 || spot.u > 1) continue;
+    if (inCarriageway(plan, spot)) continue;
+
+    scored.push({
+      ...spot,
+      plotId: area.id,
+      wayId: near.way.id,
+      setbackMetres,
+      facing,
+      areaMetres,
+      // A big plot right on a main road is a better address than a big
+      // plot down an alley, and both beat a cupboard on a main road.
+      score: Math.sqrt(areaMetres) / (1 + setbackMetres) * (near.way.kind === "ARTERIAL" ? 1.35 : 1),
+    });
+  }
+
+  scored.sort((a, b) => b.score - a.score);
+
+  const kept: PlotSpot[] = [];
+  for (const s of scored) {
+    if (kept.some((k) => Math.hypot(k.u - s.u, k.v - s.v) < separation)) continue;
+    const { score: _score, ...spot } = s;
+    void _score;
+    kept.push(spot);
+  }
+  return kept;
+}
+
+/* ------------------------------------------------------------------ */
+/* WHAT MAKES AN EXTRACT USABLE                                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Everything wrong with an extract, as a list rather than a crash.
+ *
+ * An extract arrives from a script run on somebody else's machine against
+ * a server this container cannot reach, which is the exact profile of an
+ * input that shows up broken six months from now with no one around who
+ * remembers the shape. So it is checked, loudly, at the seam.
+ */
+export function geoViolations(geo: WorldGeo): string[] {
+  const out: string[] = [];
+  const b = geo.bounds;
+
+  if (!(b.north > b.south)) out.push("the bounding box has no height");
+  if (!(b.east > b.west)) out.push("the bounding box has no width");
+  if (Math.abs(b.north) > 85 || Math.abs(b.south) > 85) out.push("the bounding box leaves Mercator");
+
+  const widthM = geoWidthMetres(b);
+  const heightM = geoHeightMetres(b);
+  // A neighbourhood, not a country. Above about 4km the road network is
+  // too dense to draw as shapes and too coarse to walk.
+  if (widthM > 4000 || heightM > 4000) out.push(`the extract is ${Math.round(Math.max(widthM, heightM))}m across, which is a city and not a neighbourhood`);
+  if (widthM < 200 || heightM < 200) out.push("the extract is smaller than a block");
+
+  if (geo.ways.length === 0) out.push("there are no roads in the extract");
+  if (geo.ways.some((w) => w.points.length < 2)) out.push("a road has fewer than two points");
+  if (geo.ways.some((w) => !(w.widthMetres > 0))) out.push("a road has no width");
+  if (geo.areas.some((a) => a.ring.length < 3)) out.push("an area has fewer than three points");
+
+  const plan = planWorld(geo);
+  if (spineOf(plan) === null) out.push("the extract has no street a vehicle could drive");
+
+  /*
+   * The aspect computed from the projection and the aspect computed from
+   * the metres must agree, because `metresToWorld` uses the first to make
+   * the second true on both axes. They agree by construction today — see
+   * `geoWidthMetres` for the version where they did not — so this is a
+   * guard against a future edit that changes one of the three and not the
+   * others, which is the only way this can come apart.
+   */
+  const drawn = geoAspect(b);
+  const measured = widthM / heightM;
+  if (Math.abs(drawn - measured) / drawn > 0.005) {
+    out.push("the projected aspect and the measured one disagree, so metres are wrong on one axis");
+  }
+
+  if (geo.real) {
+    if (!geo.attribution.trim()) out.push("a real extract with no attribution may not be drawn");
+    if (!geo.source.trim()) out.push("a real extract must say where it came from");
+    if (Number.isNaN(Date.parse(geo.fetchedAt))) out.push("a real extract must be dated");
+  }
+
+  return out;
+}
+
+/* ------------------------------------------------------------------ */
+/* HOW CLOSE THE CAMERA STANDS, WHEN THE WORLD HAS METRES IN IT        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * THE SCALE MISMATCH, AND THE ONLY HONEST WAY OUT OF IT.
+ *
+ * ---------------------------------------------------------------------
+ * WHAT THE FIRST SCREENSHOT SHOWED
+ * ---------------------------------------------------------------------
+ * Our city dropped onto a real 620m extract and every shopfront was a
+ * hundred metres wide. Nothing was misplaced — `WORLD_SIZE.district` is
+ * 0.16 of the world, and 0.16 of 620m is 99m. It looked exactly like the
+ * bug Amit named months ago about the vehicles: *"הכל בגודל לא נכון."*
+ *
+ * The cause is that the painted plate is not a neighbourhood at all. It is
+ * a picture of about a hundred metres of street, drawn as if it were the
+ * whole world, and every size in `WORLD_SIZE` is a fraction of THAT. Those
+ * numbers are right for the painting and meaningless against metres.
+ *
+ * ---------------------------------------------------------------------
+ * THE TWO WAYS OUT, AND WHY THIS ONE
+ * ---------------------------------------------------------------------
+ * Either fetch a 150m extract so the art's scale happens to fit, or draw
+ * things at their real size and move the camera in. The first is choosing
+ * the world to flatter the drawing, and it puts a ceiling on the place —
+ * a 150m extract has four streets in it and Amit's whole complaint about
+ * the plaza was that you could see all of it.
+ *
+ * So: sizes in metres, and a shot is a NUMBER OF METRES ACROSS THE FRAME
+ * rather than a fraction of whatever the world happens to be. A shopfront
+ * is sixteen metres wide on a 620m extract and on a 4km one; walking past
+ * three of them takes as long as walking past three real ones. That is the
+ * thing a real map is actually for.
+ */
+export const SHOT_METRES = {
+  /** The whole place, from above. */
+  WIDE: 460,
+  /** A trade's corner of it. */
+  DISTRICT: 190,
+  /** One shopfront, filling the frame. */
+  VENUE: 75,
+  /** A journey, both ends visible. */
+  ROUTE: 280,
+  /**
+   * Walking. Close enough to read a sign, wide enough to see a junction.
+   *
+   * Three numbers before this one. 115 put a 16m shopfront at 14% of the
+   * screen — correct, and too small to be what the screen is about. 90
+   * made the shopfront read and lost the city: at a street's width plus
+   * its buildings there is no junction in frame, so the world stopped
+   * looking like a place and started looking like a corridor, which is
+   * the exact complaint that killed the plaza.
+   *
+   * 150 holds both. A shopfront is a tenth of the screen — big enough to
+   * recognise, small enough that three of them and a crossroads fit — and
+   * there is always a turning in view that has not been taken.
+   */
+  EXPLORE: 150,
+} as const;
+
+export type GeoShot = keyof typeof SHOT_METRES;
+
+/**
+ * The zoom that puts `SHOT_METRES[shot]` across the viewport.
+ *
+ * Inverted straight out of `worldBox`: a world drawn `WORLD_EXTENT.width *
+ * zoom` viewports wide shows `widthMetres / (WORLD_EXTENT.width * zoom)`
+ * metres at a time. No camera code changes — the camera has always taken a
+ * zoom, and this is just the first time anybody could say what one means.
+ */
+export function geoZoomFor(shot: GeoShot, bounds: GeoBounds, extentWidth = 2.4): number {
+  const metres = SHOT_METRES[shot];
+  if (metres <= 0) return 1;
+  return geoWidthMetres(bounds) / (extentWidth * metres);
+}
+
+/**
+ * The sizes the world's own objects have, in metres.
+ *
+ * Deliberately few, and deliberately boring. A shopfront is sixteen metres
+ * because high-street frontages are twelve to twenty; a person is 1.7m
+ * because people are. The point of this table is that there is nothing to
+ * argue about in it, which is the opposite of the table it replaces.
+ */
+export const REAL_METRES = {
+  shopFrontage: 16,
+  personHeight: 1.7,
+  /** How near a shop you must be for it to count as underfoot. */
+  reach: 14,
+} as const;

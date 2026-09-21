@@ -6,6 +6,13 @@ import {
   discover,
   emptyDiscoveries,
   errandsBetween,
+  geoAspect,
+  groundDisclosureHe,
+  geoZoomFor,
+  metresToWorld,
+  planWorld,
+  plotSpotsFromGeo,
+  REAL_METRES,
   PLATE_SPOTS,
   reachedNow,
   gaitForAvatar,
@@ -19,6 +26,7 @@ import {
   type Gait,
   type Heading,
   type NormalizedPoint,
+  type WorldGeo,
 } from "@pro-now/types";
 
 import { BackButton, BACK_BUTTON_CLEARANCE } from "../components/BackButton";
@@ -28,6 +36,7 @@ import { ErrandLayer } from "../components/livingmap/ErrandLayer";
 import { ScrimBand } from "../components/livingmap/ScrimBand";
 import { SteerPad } from "../components/livingmap/SteerPad";
 import { Walker } from "../components/livingmap/Walker";
+import { GeoPlate } from "../components/livingmap/GeoPlate";
 import { WorldViewport } from "../components/livingmap/WorldViewport";
 import { palette, radii, spacing, type } from "../theme";
 import { depthChanged, nearestDistrict } from "./stroll";
@@ -71,6 +80,22 @@ export interface StrollBodyProps {
   /** The figure the customer walks as. Null renders nothing and says so. */
   avatar?: AvatarChoice;
   sources?: WorldAssetSources;
+  /**
+   * A REAL STREET PLAN TO WALK, INSTEAD OF THE PAINTED ONE.
+   *
+   * Amit: *"אני רוצה לחבר מפה אמיתית שונראה איך העולם שלנו והקוד שלנו
+   * יושב עליה."* This screen is the answer to the second half of that
+   * sentence — it is the one place a person walks the world themselves,
+   * so it is where you find out whether our city sits on a real street
+   * plan or merely hovers over one.
+   *
+   * Everything the walker does is unchanged. The figure still moves in
+   * `{u,v}`, still gets its size from depth, still opens a trade by
+   * standing near it. What changes underneath is what `{u,v}` MEANS, and
+   * that is the whole point of having spent the last month putting every
+   * position in this world into one coordinate system.
+   */
+  geo?: WorldGeo | null;
   /** Tapping a trade's building opens that trade. */
   onOpenDepartment?: (department: DepartmentCode) => void;
   onBack?: () => void;
@@ -84,6 +109,7 @@ export interface StrollBodyProps {
 export function StrollBody({
   avatar = null,
   sources = EMPTY_ASSET_SOURCES,
+  geo = null,
   onOpenDepartment,
   onBack,
   onChooseAvatar,
@@ -143,7 +169,61 @@ export function StrollBody({
    * than trusted, because a line of text is exactly where a claim sneaks
    * in — see `errandViolations`.
    */
-  const errands = useMemo(() => errandsBetween(PLATE_SPOTS, ERRAND_LINES), []);
+  /*
+   * ---------------------------------------------------------------------
+   * WHERE THE SHOPS STAND, ON WHICHEVER GROUND IS UNDERFOOT
+   * ---------------------------------------------------------------------
+   * `PLATE_SPOTS` are eleven coordinates measured off the painting with a
+   * bitmap script. They are correct for that painting and meaningless for
+   * any other ground, so on a real extract the shops come from real
+   * building plots instead — `plotSpotsFromGeo`, which finds plots that
+   * front a road, stands each shopfront a pavement's width off the kerb
+   * and faces it at the street.
+   *
+   * This is the part Amit predicted: *"אולי יהיה יותר קל לשים את החנויות
+   * והדמויות על מפה אמיתית."* It is much easier. The plate needed three
+   * rounds of measurement, two of which answered the wrong question; a
+   * plot needs none, because somebody already surveyed it.
+   *
+   * And a shopfront becomes SIXTEEN METRES wide rather than a fraction
+   * chosen by eye, which is the first true size in this world.
+   */
+  const plan = useMemo(() => (geo ? planWorld(geo) : null), [geo]);
+  const spots = useMemo(
+    () => (plan ? plotSpotsFromGeo(plan) : null),
+    [plan]
+  );
+  const shopWidth = useMemo(
+    () => (geo ? metresToWorld(geo.bounds, REAL_METRES.shopFrontage) : undefined),
+    [geo]
+  );
+  /*
+   * A SHOT IS A NUMBER OF METRES, NOT A FRACTION OF THE WORLD.
+   *
+   * `worldZoomFor("EXPLORE")` is a fraction of whatever the ground happens
+   * to be, which on a painting of one street is a sensible walking
+   * distance and on a 620m extract is the view from a helicopter. See
+   * `SHOT_METRES`: on a real map the camera is told how much STREET to
+   * show, and it shows the same amount however large the extract is.
+   */
+  const lens = useMemo(
+    () => (geo ? geoZoomFor("EXPLORE", geo.bounds) : worldZoomFor("EXPLORE")),
+    [geo]
+  );
+  /*
+   * And "near enough to open the shop" is metres too, for the same reason.
+   * `NEAR` is 0.16 of the world: fourteen metres on the painting, a
+   * hundred on a real extract, which would have lit up three trades at
+   * once from the middle of a junction.
+   */
+  const reach = useMemo(
+    () => (geo ? metresToWorld(geo.bounds, REAL_METRES.reach) : undefined),
+    [geo]
+  );
+  const errands = useMemo(
+    () => errandsBetween(spots && spots.length > 0 ? spots : PLATE_SPOTS, ERRAND_LINES),
+    [spots]
+  );
   const [found, setFound] = useState(() => emptyDiscoveries(errands.map((e) => e.id)));
   const [lastFoundHe, setLastFoundHe] = useState<string | null>(null);
 
@@ -193,7 +273,7 @@ export function StrollBody({
   const remember = useCallback(
     (at: NormalizedPoint) => {
       walkedTo.current = at;
-      setNearest(nearestDistrict(at));
+      setNearest(nearestDistrict(at, reach, spots));
       /*
        * THE INSTRUCTION GOES AWAY ONCE IT HAS BEEN FOLLOWED.
        *
@@ -250,8 +330,9 @@ export function StrollBody({
       <WorldViewport
         width={width}
         height={height}
-        zoom={worldZoomFor("EXPLORE")}
-        worldSized={Boolean(sources["world_neighbourhood"])}
+        zoom={lens}
+        worldSized={Boolean(geo) || Boolean(sources["world_neighbourhood"])}
+        groundAspect={geo ? geoAspect(geo.bounds) : undefined}
         /*
          * Dragging is allowed only when there is nobody to follow. They
          * are contradictory gestures — see `WorldViewport.follow` — and
@@ -287,7 +368,9 @@ export function StrollBody({
               * second viewport for the ground is how the two ended up
               * disagreeing last time.
               */}
-            {ground ? (
+            {geo ? (
+              <GeoPlate geo={geo} width={world.width} height={world.height} />
+            ) : ground ? (
               <Image
                 source={ground}
                 style={{ width: world.width, height: world.height }}
@@ -305,6 +388,8 @@ export function StrollBody({
               height={world.height}
               sizeBasis={width}
               sources={sources}
+              spots={spots}
+              districtWidth={shopWidth}
               vRange={canWalk ? { min: 0, max: depth } : undefined}
               /*
                * The trade underfoot is lit and the rest go quiet — which
@@ -331,6 +416,7 @@ export function StrollBody({
                 assetId={walkAssetId}
                 fallbackAssetId={walkFallbackId}
                 heightRatio={heightRatio}
+                districtWidth={shopWidth}
                 sources={sources}
                 width={world.width}
                 height={world.height}
@@ -362,6 +448,8 @@ export function StrollBody({
                 height={world.height}
                 sizeBasis={width}
                 sources={sources}
+                spots={spots}
+                districtWidth={shopWidth}
                 vRange={{ min: depth, max: 1.01 }}
                 activeDepartment={nearest}
                 onSelect={onOpenDepartment}
@@ -458,7 +546,7 @@ export function StrollBody({
 
       <View style={styles.note} pointerEvents="none">
         <Text style={styles.noteText}>
-          תצוגת העיר היא המחשה · מי זמין עכשיו נבדק רק כששולחים בקשה
+          {groundDisclosureHe({ realStreets: Boolean(geo?.real), showsSupply: true })}
         </Text>
       </View>
     </View>

@@ -5,9 +5,10 @@ import {
   depthOrder,
   depthScale,
   DISTRICT_SITES,
-  districtCentre,
+  groundSpotFor,
   WORLD_DISTRICTS,
   type DepartmentCode,
+  type NormalizedPoint,
   WORLD_SIZE,
 } from "@pro-now/types";
 
@@ -85,6 +86,30 @@ export interface DistrictLayerProps {
    * continue to exist around them.
    */
   venuesDrawn?: boolean;
+  /**
+   * WHERE A SHOP MAY STAND, WHEN IT IS NOT THE PAINTED PLATE.
+   *
+   * Left out, the eleven spots measured off the artwork by
+   * `measure-spots.mjs`. Supplied, real building plots that front a real
+   * street — see `plotSpotsFromGeo`. Amit guessed this would be the easy
+   * part of a real map and he was right: a plot is somewhere a shop can
+   * stand because a surveyor said so, where the plate's spots took three
+   * attempts and a bitmap erosion to find.
+   *
+   * The i-th trade takes the i-th spot, so the ordering of `DISTRICT_SITES`
+   * still decides which trade is where and only the ground changes.
+   */
+  spots?: readonly NormalizedPoint[] | null;
+  /**
+   * How wide a shopfront is, as a fraction of the world.
+   *
+   * `WORLD_SIZE.district` is a number chosen by eye against a painting,
+   * which is the only thing it could have been. On a real extract the
+   * world has metres in it, so this arrives as `metresToWorld(bounds, 16)`
+   * and a shopfront is sixteen metres of frontage — the first size in this
+   * world that is true rather than pleasing.
+   */
+  districtWidth?: number;
   onSelect?: (department: DepartmentCode) => void;
   /**
    * Draw only the districts standing within this band of depth.
@@ -148,6 +173,8 @@ export function DistrictLayer({
   venuesDrawn = false,
   onSelect,
   vRange,
+  spots = null,
+  districtWidth,
 }: DistrictLayerProps) {
   // `width` is the WORLD's width in points; a district's size is a share of
   // it. `sizeBasis` survives only for the callers that have not moved yet.
@@ -161,14 +188,20 @@ export function DistrictLayer({
       {[...DISTRICT_SITES]
         // The trade whose professionals are on screen is drawn by them.
         .filter((site) => !(venuesDrawn && site.department === activeDepartment))
-        .map((site) => ({ site, at: districtCentre(site.department) }))
+        /*
+         * `groundSpotFor`, never the loop index — this list is FILTERED
+         * above, so an index here is the position among the shops that
+         * happen to be drawn rather than the trade's own. See
+         * `groundSpotFor` for what that cost.
+         */
+        .map((site) => ({ site, at: groundSpotFor(spots, site.department) }))
         .filter(({ at }) => !vRange || (at.v >= vRange.min && at.v < vRange.max))
         .sort((a, b) => depthOrder(a.at.v) - depthOrder(b.at.v))
         .map(({ site, at }) => {
           const district = WORLD_DISTRICTS[site.department];
           const scale = depthScale(at.v);
           const shape = shapeOf(district.venueAssetId);
-          const w = width * WORLD_SIZE.district * scale;
+          const w = width * (districtWidth ?? WORLD_SIZE.district) * scale;
           const faceShape = shapeOf(district.characterWorldAssetId);
           const h = w * shape.ratio;
           const dimmed = activeDepartment !== null && activeDepartment !== site.department;
