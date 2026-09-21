@@ -260,6 +260,15 @@ export interface ProJobDetailView {
   accessNoteHe: string | null;
   customerNameHe: string;
   descriptionHe: string | null;
+  /**
+   * The intake answers, keyed by question id.
+   *
+   * The questions themselves are in the catalogue, which both apps have,
+   * so pairing them is the client's job — the server holding a second
+   * copy of the wording is how the two come to disagree about what was
+   * asked.
+   */
+  structuredAnswers: Record<string, unknown> | null;
   /** From the route provider when there is one; null rather than a guess. */
   routeEtaMinutes: number | null;
   /**

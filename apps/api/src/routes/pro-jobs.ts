@@ -102,6 +102,20 @@ export default async function proJobsRoutes(app: FastifyInstance) {
       customerNameHe: job.customer?.fullName ?? "",
       descriptionHe: job.description ?? null,
       /*
+       * WHAT THE CUSTOMER ANSWERED, KEYED BY QUESTION.
+       *
+       * The intake exists so a professional arrives knowing where the
+       * water is standing and which floor to climb. It was being collected
+       * and then dropped between two screens on the customer's side; now
+       * it is stored, and this is the only reason storing it is worth
+       * anything.
+       *
+       * Passed through rather than rendered: the QUESTIONS live in the
+       * catalogue, which the app has, and pairing them here would mean the
+       * server holding a second copy of the wording.
+       */
+      structuredAnswers: (job.structuredAnswers as Record<string, unknown> | null) ?? null,
+      /*
        * The ETA snapshot taken when the offer was made, and never
        * recomputed here. A professional who is already driving has a
        * better estimate than we do.

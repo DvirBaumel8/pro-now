@@ -1,3 +1,5 @@
+import type { IntakeAnswer } from "@pro-now/types";
+
 /** Screen map — mirrors /docs/02-UX-FLOWS.md §Customer screens (C04-C15). */
 export type CustomerStackParamList = {
   /**
@@ -29,7 +31,18 @@ export type CustomerStackParamList = {
    * screen, because a job without a real address cannot be dispatched and
    * the address is the last thing the customer supplies.
    */
-  Address: { serviceId: string; serviceName: string; describedHe?: string };
+  /**
+   * `intakeAnswers` travels because the job is created on the address
+   * screen, and the answers are collected two screens earlier. They were
+   * simply dropped: the customer answered "where is the water standing?"
+   * and the professional arrived knowing nothing but a sentence.
+   */
+  Address: {
+    serviceId: string;
+    serviceName: string;
+    describedHe?: string;
+    intakeAnswers?: IntakeAnswer[];
+  };
   Searching: { jobId: string };
   /*
    * C09 had its own screen until the reveal moved into the living map,

@@ -2,7 +2,12 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, useWindowDimensions, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 
-import type { ProJobDetailView } from "@pro-now/types";
+import {
+  buildIntakeBrief,
+  pilotIntakeByService,
+  type IntakeAnswer,
+  type ProJobDetailView,
+} from "@pro-now/types";
 import { ProJobBody, catalogHomeServices, proTheme, type MarkName } from "@pro-now/ui";
 
 import type { ProStackParamList } from "../navigation/types";
@@ -88,6 +93,24 @@ export function ProJobScreen({ route, navigation }: Props) {
     }
   }, [job, navigation]);
 
+  /**
+   * WHAT THE CUSTOMER ACTUALLY TOLD US, AS LINES.
+   *
+   * `buildIntakeBrief` is the same pure function the offer card renders
+   * from, so what the professional reads on the job cannot drift from what
+   * they read before accepting it. An unanswered question is dropped here
+   * rather than travelling as an empty row.
+   */
+  const symptomsHe = useMemo(() => {
+    if (!job?.structuredAnswers) return [];
+    const answers = Object.values(job.structuredAnswers).filter(
+      (a): a is IntakeAnswer => typeof a === "object" && a !== null && "questionId" in a
+    );
+    return buildIntakeBrief(pilotIntakeByService[job.serviceId], answers).map(
+      (l) => `${l.promptHe}: ${l.answerHe}`
+    );
+  }, [job]);
+
   const mark = useMemo(
     () => catalogHomeServices.find((s) => s.id === job?.serviceId)?.mark ?? ("handyman" as MarkName),
     [job]
@@ -163,7 +186,7 @@ export function ProJobScreen({ route, navigation }: Props) {
         distanceHe={null}
         customerNameHe={job.customerNameHe}
         customerSeed={job.jobId}
-        symptomsHe={[]}
+        symptomsHe={symptomsHe}
         descriptionHe={job.descriptionHe}
         media={[]}
         payoutMinorUnits={job.payoutMinorUnits}

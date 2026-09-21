@@ -89,8 +89,18 @@ export function RequestDetailsScreen({ route, navigation }: Props) {
       serviceId,
       serviceName: page?.nameHe ?? serviceName,
       describedHe: text,
+      /*
+       * THE ANSWERS TRAVEL, BECAUSE THE WHOLE POINT IS THAT THEY DO.
+       *
+       * This screen asks what the service needs to know — where the water
+       * is standing, which floor, whether the power is out in the whole
+       * flat — and then handed the next screen a sentence and dropped
+       * them. The professional arrived knowing nothing the customer had
+       * taken the trouble to say.
+       */
+      intakeAnswers: answers,
     });
-  }, [navigation, serviceId, serviceName, page, text]);
+  }, [navigation, serviceId, serviceName, page, text, answers]);
 
   return (
     <View style={{ flex: 1, backgroundColor: customerDarkTheme.colors.bg }}>

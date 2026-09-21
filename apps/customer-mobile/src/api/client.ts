@@ -118,7 +118,16 @@ export const api = {
       method: "POST",
       body: JSON.stringify(input),
     }),
-  createJob: (input: { serviceId: string; addressId: string; description?: string }, idempotencyKey: string) =>
+  createJob: (
+    input: {
+      serviceId: string;
+      addressId: string;
+      description?: string;
+      /** The intake answers, keyed by question id. See AddressScreen. */
+      structuredAnswers?: Record<string, unknown>;
+    },
+    idempotencyKey: string
+  ) =>
     request<{ job: JobView; dispatch: DispatchResultView }>("/v1/jobs", { method: "POST", headers: { "Idempotency-Key": idempotencyKey }, body: JSON.stringify(input) }),
   getJob: (id: string) => request<{ job: JobView }>(`/v1/jobs/${id}`),
   /*
