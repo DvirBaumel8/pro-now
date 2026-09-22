@@ -4,6 +4,8 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import {
   assessArrival,
   jobProgressHe,
+  WORLD_DISTRICTS,
+  type DepartmentCode,
   routeAt,
   alongRoute,
   worldZoomFor,
@@ -254,6 +256,20 @@ export function TrackingBody({
   // The first word of the name, the way somebody in your kitchen is
   // referred to once they are in it.
   const progressHe = jobProgressHe(status, professional.displayName.split(/\s+/)[0] ?? null);
+  /*
+   * WORK IS A STATE, SO IT DRIVES THE PICTURE.
+   *
+   * Taken from `status` rather than from a prop somebody sets, because
+   * that is what makes it honest: the server says a professional is at
+   * this address doing the work, and the screen draws that. It stops the
+   * moment the state does.
+   *
+   * DIAGNOSIS counts. He is looking rather than fixing, and from outside
+   * the door both are "he is in there, busy" — which is all the figure
+   * claims.
+   */
+  const atWork =
+    status === "DIAGNOSIS" || status === "IN_PROGRESS" || status === "WAITING_QUOTE_APPROVAL";
 
   const hasArrived =
     status === "PRO_ARRIVED" ||
@@ -410,12 +426,27 @@ export function TrackingBody({
                * come apart. Without one it falls back to the arc, which is
                * what every build with no extract still shows.
                */
+              /*
+               * THE CAMERA GOES WHERE THE STORY IS.
+               *
+               * It followed the route, which is right while somebody is
+               * driving and wrong the moment they arrive: at progress 1
+               * it parked over a stretch of road and the visit happened
+               * off the bottom of the frame. Amit: *"חייב פה יותר תנועה
+               * וחיים בזמן העבודה."* Some of that life WAS being drawn —
+               * at a point the camera was not pointed at.
+               *
+               * Once the visit begins it holds on the customer's own
+               * door, which is the only place anything is happening.
+               */
               focus={
-                tripProgress === null
-                  ? null
-                  : roadPath
-                    ? alongRoute({ path: roadPath.path, drive: roadPath.path, metres: roadPath.metres }, tripProgress).at
-                    : routeAt((departmentCode as never) ?? "HOME_URGENT", tripProgress).at
+                atWork
+                  ? CUSTOMER_POINT
+                  : tripProgress === null
+                    ? null
+                    : roadPath
+                      ? alongRoute({ path: roadPath.path, drive: roadPath.path, metres: roadPath.metres }, tripProgress).at
+                      : routeAt((departmentCode as never) ?? "HOME_URGENT", tripProgress).at
               }
               /*
                * WIDE ENOUGH TO BE A JOURNEY.
@@ -462,6 +493,29 @@ export function TrackingBody({
                    */
                   path={roadPath?.path ?? null}
                   pathMetres={roadPath?.metres ?? 0}
+                  /*
+                   * WORK IS A STATE, SO IT DRIVES THE PICTURE.
+                   *
+                   * Amit: *"חייב פה יותר תנועה וחיים בזמן העבודה."* Once
+                   * the van has parked, the one thing the customer is
+                   * waiting on — somebody in their flat, working — was
+                   * not on the screen at all.
+                   *
+                   * Taken from `status` rather than from a prop somebody
+                   * sets, because that is what makes it honest: the
+                   * server says a professional is at this address doing
+                   * the work, and this draws that. It stops the moment
+                   * the state does.
+                   *
+                   * DIAGNOSIS counts. He is looking rather than fixing,
+                   * and from the pavement outside both are "he is in
+                   * there, busy" — which is all the figure claims.
+                   */
+                  atWork={atWork}
+                  workerAssetId={
+                    WORLD_DISTRICTS[(departmentCode as DepartmentCode) ?? "HOME_URGENT"]
+                      ?.characterWorldAssetId
+                  }
                 />
               )}
             </WorldBackdrop>

@@ -108,6 +108,36 @@ export interface RouteLayerProps {
   progress: number | null;
   /** Which asset is travelling. A courier's scooter, a mover's van. */
   vehicleAssetId?: string;
+  /**
+   * ---------------------------------------------------------------------
+   * THE WORK ITSELF, WHICH THIS SCREEN USED TO SLEEP THROUGH
+   * ---------------------------------------------------------------------
+   * Amit: *"אני חייב משהו שירוץ בזמן העבודה ולא חלון מת, חייב פה יותר
+   * תנועה וחיים בזמן העבודה... אנימציות של הבעל מקצוע עובדות בעסק
+   * שבנינו."*
+   *
+   * Once the van has arrived, `progress` is 1 and it parks. The street
+   * keeps its ambient traffic, and the one thing the customer is actually
+   * waiting on — a person in their flat, working — is not on the screen
+   * at all. So the busiest half of a job is the stillest picture in the
+   * product.
+   *
+   * THIS IS NOT AN INVENTION, and the distinction is the only reason it
+   * is allowed. Everywhere else in this world, motion without a fact
+   * behind it is forbidden. Here the fact is the job's own state: the
+   * server says IN_PROGRESS, which means a professional is at that
+   * address doing the work. Drawing somebody working is a rendering of a
+   * state the server asserts, exactly as the van moving is a rendering of
+   * an ETA it asserts.
+   *
+   * What it must not do is claim DETAIL it does not have. It shows a
+   * figure and a light, not a specific task: no sparks from a specific
+   * tool, no progress bar, no "he is now testing the seal". The state
+   * says that work is happening and nothing about what.
+   */
+  atWork?: boolean;
+  /** The figure to draw working — the trade's own, from `WORLD_DISTRICTS`. */
+  workerAssetId?: string;
   sources?: WorldAssetSources;
   animate?: boolean;
   /**
@@ -179,6 +209,8 @@ export function RouteLayer({
   department,
   progress,
   vehicleAssetId = "courier_scooter",
+  atWork = false,
+  workerAssetId,
   sources = EMPTY_ASSET_SOURCES,
   animate = true,
   path = null,
@@ -382,6 +414,48 @@ export function RouteLayer({
         ? "RIDE"
         : "HAUL";
 
+  /*
+   * THE WORKING LOOP.
+   *
+   * One slow dip and rise, two and a half seconds a cycle. Somebody
+   * crouching to a task and straightening up again — not a walk's bob,
+   * which is three times faster and reads as bouncing, and not a jitter,
+   * which reads as a broken sprite.
+   *
+   * It does not start until there is work: an idle loop running behind
+   * every other phase is a frame callback nobody asked for, on the one
+   * screen that stays open for an hour.
+   */
+  const workBeat = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!atWork || !animate) {
+      workBeat.setValue(0);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(workBeat, {
+          toValue: 1,
+          duration: 1250,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(workBeat, {
+          toValue: 0,
+          duration: 1250,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [atWork, animate, workBeat]);
+
+  const workerSource = workerAssetId ? sources[workerAssetId] : undefined;
+  const workerW = w * 0.62;
+  const workerH = workerW * 1.9;
+
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       <Svg width={width} height={height}>
@@ -453,6 +527,106 @@ export function RouteLayer({
           opacity={0.95}
         />
       </Svg>
+
+      {/* ----------------------------------------------------------------
+          SOMEBODY IS IN THERE, WORKING.
+
+          Amit: *"חייב פה יותר תנועה וחיים בזמן העבודה... אנימציות של
+          הבעל מקצוע עובדות בעסק שבנינו."*
+
+          A warm patch of light at the door, and the trade's own figure
+          over it, dipping and straightening on a two-and-a-half second
+          cycle. The light is drawn rather than loaded — the same reason
+          the shop windows are: light is a gradient, not a picture.
+
+          The figure is the one from `WORLD_DISTRICTS` for this trade, so
+          a plumber's job shows a plumber. If that art has not arrived
+          the glow still shows: a lit window with nobody visible in it is
+          honest, and better than a grey rectangle standing in for a
+          person.
+          ---------------------------------------------------------------- */}
+      {atWork ? (
+        <>
+          <Animated.View
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              left: CUSTOMER_POINT.u * width - workerW * 0.9,
+              top: CUSTOMER_POINT.v * height - workerW * 0.55,
+              width: workerW * 1.8,
+              height: workerW * 1.1,
+              borderRadius: 999,
+              backgroundColor: palette.sun500,
+              opacity: workBeat.interpolate({ inputRange: [0, 1], outputRange: [0.1, 0.17] }),
+            }}
+          />
+
+          {workerSource ? (
+            <>
+              {/* On the ground, under the figure, and not inheriting its dip. */}
+              <View
+                pointerEvents="none"
+                style={{
+                  position: "absolute",
+                  left: CUSTOMER_POINT.u * width - (workerW * SHADOW.widthRatio) / 2,
+                  top: CUSTOMER_POINT.v * height - (workerW * SHADOW.widthRatio * SHADOW.flatness) / 2,
+                  width: workerW * SHADOW.widthRatio,
+                  height: workerW * SHADOW.widthRatio * SHADOW.flatness,
+                  borderRadius: 999,
+                  backgroundColor: `rgba(14,10,20,${SHADOW.opacity})`,
+                }}
+              />
+              <Animated.View
+                pointerEvents="none"
+                style={{
+                  position: "absolute",
+                  left: CUSTOMER_POINT.u * width - workerW / 2,
+                  // The feet on the ground point, not the middle of the box.
+                  top: CUSTOMER_POINT.v * height - workerH,
+                  width: workerW,
+                  height: workerH,
+                  transform: [
+                    {
+                      // A dip, not a bob: down into the work and back up.
+                      translateY: workBeat.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0, workerH * 0.06],
+                      }),
+                    },
+                  ],
+                }}
+              >
+                <AssetSlot
+                  placement={{
+                    key: "at-work",
+                    assetId: workerAssetId!,
+                    item: {
+                      id: workerAssetId!,
+                      file: "",
+                      intrinsicWidth: 1,
+                      intrinsicHeight: 1,
+                      anchor: { x: 0.5, y: 1 },
+                      role: "CHARACTER",
+                      theme: "SHARED",
+                      defaultWidthRatio: 0.05,
+                      critical: false,
+                    },
+                    layer: "WORLD_OBJECT",
+                    left: 0,
+                    top: 0,
+                    width: workerW,
+                    height: workerH,
+                    depthOrder: 0,
+                  }}
+                  sources={sources}
+                  quiet
+                  pending="none"
+                />
+              </Animated.View>
+            </>
+          ) : null}
+        </>
+      ) : null}
 
       {/*
         * THE SHADOW UNDER THE ONE FIGURE THE CUSTOMER IS WATCHING.
