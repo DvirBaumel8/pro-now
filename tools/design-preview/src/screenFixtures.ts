@@ -203,10 +203,27 @@ export const profileWorkPhotos = [
  * screen would correctly show nothing and there would be nothing to
  * review. These are the numbers a sample of fourteen jobs would produce.
  *
- * ₪624 against a middle half of ₪480–₪690 lands WITHIN, which is the
- * ordinary case and therefore the one worth designing against.
+ * The customer is shown something in ONE case — a quote above what the
+ * work usually costs here — so that is the fixture worth having. ₪624
+ * against a middle half of ₪310–₪480 is ABOVE, and the screen turns it
+ * into a question with a way to ask it.
  */
 export const priceContextFixture = {
+  available: true as const,
+  sampleSize: 14,
+  lowMinorUnits: 31000,
+  typicalMinorUnits: 39000,
+  highMinorUnits: 48000,
+  band: "ABOVE" as const,
+};
+
+/**
+ * The ordinary case: the quote sits where these jobs usually sit. The
+ * screen shows NOTHING — no tick, no "good price", no reassurance badge.
+ * Kept as a fixture precisely because the absence is the design, and an
+ * absence nobody looks at is an absence nobody notices breaking.
+ */
+export const priceContextUsualFixture = {
   available: true as const,
   sampleSize: 14,
   lowMinorUnits: 48000,

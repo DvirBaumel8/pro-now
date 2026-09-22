@@ -140,10 +140,26 @@ forbids scraping and no price data has been licensed. Telling an Israeli
 consumer a price is below market without a basis is a legal exposure as
 well as a lie.
 
-Also worth recording because it is the goal behind the request and the
-comparison does not achieve it on its own: *"מחיר נח לכל כיס עם מקצוענים
-מקסימום"* is a supply-and-price-level strategy. Transparency is the part
-that can be built without inventing a business rule.
+**Narrowed the same day, on Amit's second note:** *"אם זה עושה בעיות אז
+אל. אני לא מחפש להיות הכי זול, מחפש להיות מהיר, הוגן, חדשני."*
+
+The legal exposure was already handled by construction — no claim about
+"the market", only what was paid here, silent below the minimum. What
+was left was the FRAMING, and he is right about it: cheap-or-expensive
+makes the product a price-comparison site.
+
+So the engine still measures all three positions (ops will want them)
+and the customer sees exactly one: a quote above what the work usually
+costs, put as a question with the professional's own explanation one tap
+away. Below and within show nothing at all — "מחיר טוב!" pushes
+professionals downward, which is the opposite of wanting the best of
+them, and it encourages choosing plumbing on price. `shouldPromptAboutPrice`
+is where that line is kept, and tests assert each of the three silences.
+
+Also worth recording, because it is the goal behind the original request
+and no screen achieves it: *"מחיר נח לכל כיס עם מקצוענים מקסימום"* is a
+supply-and-price-level strategy. Fairness is the part that can be built
+without inventing a business rule.
 
 ### TBD — does an approved quote replace the visit fee or add to it?
 

@@ -52,6 +52,29 @@
 
 import type { PrismaClient } from "@prisma/client";
 
+/**
+ * ---------------------------------------------------------------------
+ * WHAT THIS IS FOR, AFTER THE SECOND ROUND
+ * ---------------------------------------------------------------------
+ * The first version answered "is this cheap or expensive". Amit:
+ *
+ *   "אם זה עושה בעיות אז אל. אני לא מחפש להיות הכי זול, מחפש להיות
+ *    מהיר, הוגן, חדשני."
+ *
+ * He is right and the change is narrow. Telling somebody their quote is
+ * CHEAPER than usual is price-shopping — it serves nothing but choosing
+ * on price, on work where that is the wrong instinct, and it quietly
+ * pushes professionals downward, which is the opposite of the product
+ * that wants the best of them.
+ *
+ * So the engine still measures all three positions, because the truth is
+ * the truth and ops will want it. What the CUSTOMER is shown is one
+ * thing only: a quote well above what this work usually costs, offered
+ * as a question rather than a verdict. That is the fairness guardrail;
+ * it is not a comparison feature, and `shouldPromptAboutPrice` is where
+ * that line is kept so a later screen cannot quietly cross it.
+ */
+
 /** Below this, a "range" is one or two people's opinions, not a market. */
 export const MIN_SAMPLE = 8;
 
@@ -172,4 +195,21 @@ export async function loadPaidTotals(
     select: { totalMinorUnits: true },
   });
   return rows.map((r) => r.totalMinorUnits);
+}
+
+/**
+ * Whether the CUSTOMER should be told anything at all.
+ *
+ * True only for a quote above the usual range. Deliberately not a
+ * parameter, not a flag, and not configurable: "below" and "within" are
+ * measured and never shown, because the product is not competing on
+ * being the cheapest (`מהיר, הוגן, חדשני`) and a screen that says "good
+ * price!" is doing exactly that.
+ *
+ * The prompt that follows must be a QUESTION. A job at 2am, with parts,
+ * in a flat with no shut-off valve costs more for reasons the quote's
+ * own line items explain, and the customer already has a way to ask.
+ */
+export function shouldPromptAboutPrice(context: PriceContext): boolean {
+  return context.available && context.band === "ABOVE";
 }

@@ -117,24 +117,6 @@ export type QuotePriceContext =
       band: "BELOW" | "WITHIN" | "ABOVE";
     };
 
-/**
- * WHAT THE BAND IS ALLOWED TO SAY.
- *
- * Not "יקר" and not "זול". Above the usual range is not a verdict on a
- * professional — a job at 2am, with parts, in a flat with no shut-off
- * valve, costs more for reasons the line items above this box explain —
- * and "זול" invites somebody to choose on price alone for work where
- * that is exactly the wrong instinct.
- *
- * So it reports POSITION and lets the customer draw the conclusion, which
- * is also the only thing the data actually supports.
- */
-const BAND_HE: Record<"BELOW" | "WITHIN" | "ABOVE", string> = {
-  BELOW: "נמוך מהרגיל לעבודה הזו",
-  WITHIN: "בטווח הרגיל לעבודה הזו",
-  ABOVE: "גבוה מהרגיל לעבודה הזו",
-};
-
 const KIND_LABEL_HE: Record<string, string> = {
   LABOR: "עבודה",
   MATERIALS: "חומרים",
@@ -188,28 +170,49 @@ export function QuoteApprovalBody({
         </View>
 
         {/* ----------------------------------------------------------------
-            WHERE THIS SITS AGAINST WHAT PEOPLE PAID.
+            A FAIRNESS GUARDRAIL, NOT A PRICE COMPARISON.
 
-            Directly under the total, because it is a fact about the
-            total and anywhere else it becomes a footnote.
+            Amit: *"אני לא מחפש להיות הכי זול, מחפש להיות מהיר, הוגן,
+            חדשני."*
 
-            The sample size is not optional and is not small print: a
-            range with no count behind it is a claim pretending to be
-            data, and the customer cannot weigh "בטווח הרגיל" without
-            knowing whether that means nine jobs or nine hundred.
+            So this appears in ONE case: a quote above what this work
+            usually costs here. A quote in the usual range shows nothing,
+            and a cheap one shows nothing either — "good price!" is a
+            price-comparison site talking, it pushes professionals
+            downward, and choosing plumbing on price is the wrong
+            instinct to encourage.
+
+            It is a QUESTION and it hands over the way to ask it. There
+            are good reasons a job costs more — the hour, the parts, the
+            flat with no shut-off valve — and every one of them is in the
+            line items directly above. The customer is not told they are
+            being overcharged; they are told what to ask.
+
+            The sample size is not small print. A statement about what
+            work "usually" costs, with no count behind it, is a claim
+            pretending to be data.
             ---------------------------------------------------------------- */}
-        {priceContext?.available ? (
+        {priceContext?.available && priceContext.band === "ABOVE" ? (
           <Surface colors={colors} level={1} style={styles.context}>
-            <Text style={styles.contextBand}>{BAND_HE[priceContext.band]}</Text>
-            <Text style={styles.contextRange} numberOfLines={1}>
-              רוב העבודות האלה יצאו בין{" "}
-              {formatMoney(money(priceContext.lowMinorUnits, "ILS"))} ל־
-              {formatMoney(money(priceContext.highMinorUnits, "ILS"))}
+            <Text style={styles.contextBand}>שווה לשאול על המחיר</Text>
+            <Text style={styles.contextRange} numberOfLines={2}>
+              רוב העבודות האלה כאן יצאו עד{" "}
+              {formatMoney(money(priceContext.highMinorUnits, "ILS"))} · לפי{" "}
+              {priceContext.sampleSize} עבודות באותו שירות
             </Text>
             <Text style={styles.contextNote}>
-              לפי {priceContext.sampleSize} עבודות שבוצעו ב־PRO NOW באותו שירות. לא השוואה לשוק
-              כולו — רק למה שבאמת שולם כאן.
+              יכולות להיות לזה סיבות טובות — שעה, חלפים, מורכבות. הפירוט למעלה, והמקצוען יסביר.
             </Text>
+            {onAskQuestion ? (
+              <Pressable
+                onPress={onAskQuestion}
+                accessibilityRole="button"
+                accessibilityLabel="שאלה למקצוען על המחיר"
+                style={({ pressed }) => [styles.contextAsk, pressed && { opacity: 0.85 }]}
+              >
+                <Text style={styles.contextAskLabel}>שאלו את המקצוען</Text>
+              </Pressable>
+            ) : null}
           </Surface>
         ) : null}
 
@@ -373,6 +376,16 @@ const styles = StyleSheet.create({
    * only figure on it the customer is being asked to agree to.
    */
   context: { marginTop: spacing.lg, gap: 4 },
+  contextAsk: {
+    minHeight: 44,
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: radii.md,
+    borderWidth: 1.5,
+    borderColor: colors.action,
+    marginTop: spacing.md,
+  },
+  contextAskLabel: { ...type.bodyStrong, color: colors.action },
   contextBand: { ...type.bodyStrong, color: colors.textPrimary, writingDirection: "rtl", textAlign: "right" },
   contextRange: {
     ...type.body,

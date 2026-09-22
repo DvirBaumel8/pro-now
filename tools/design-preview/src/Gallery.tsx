@@ -28,6 +28,7 @@ import {
   proServices,
   priceContextFixture,
   priceContextTooEarlyFixture,
+  priceContextUsualFixture,
   quoteFixture,
   receiptLines,
   serviceDetailElectric,
@@ -391,7 +392,7 @@ export function Gallery() {
           />
         </Frame>
 
-        <Frame caption="C11 · השוואה למה ששולם · טווח + גודל המדגם" height={860}>
+        <Frame caption="C11 · מעל הרגיל · שאלה, לא פסק דין" height={860}>
           <QuoteApprovalBody
             quote={quoteFixture}
             serviceNameHe="תיקון נזילה בברז"
@@ -403,13 +404,28 @@ export function Gallery() {
         </Frame>
 
         {/*
-          * The state a marketplace is in before it has a history, shown
-          * beside the other so the quiet version gets reviewed too. The
-          * box is simply absent — there is no "טוען" and no "אין מספיק
-          * נתונים" badge, because a customer looking at a bill does not
-          * need to be told what the platform does not know.
+          * THE TWO SILENCES, BOTH DELIBERATE, BOTH REVIEWED HERE.
+          *
+          * A quote in the usual range says nothing — no tick, no "מחיר
+          * טוב". Amit: *"אני לא מחפש להיות הכי זול."* And a marketplace
+          * with no history says nothing either: a customer looking at a
+          * bill does not need to be told what the platform does not know.
+          *
+          * An absence nobody looks at is an absence nobody notices
+          * breaking, which is why both have a frame.
           */}
-        <Frame caption="C11 · אין עדיין מספיק עבודות · השוואה לא מוצגת כלל" height={860}>
+        <Frame caption="C11 · בטווח הרגיל · המסך שותק בכוונה" height={860}>
+          <QuoteApprovalBody
+            quote={quoteFixture}
+            serviceNameHe="תיקון נזילה בברז"
+            professionalDisplayName={matchFixture.professional.displayName}
+            priceContext={priceContextUsualFixture}
+            width={PHONE_W}
+            height={860}
+          />
+        </Frame>
+
+        <Frame caption="C11 · אין עדיין מספיק עבודות · שותק גם כאן" height={860}>
           <QuoteApprovalBody
             quote={quoteFixture}
             serviceNameHe="תיקון נזילה בברז"

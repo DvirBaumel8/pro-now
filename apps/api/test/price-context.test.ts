@@ -3,6 +3,7 @@ import {
   MIN_SAMPLE,
   percentile,
   priceContextFor,
+  shouldPromptAboutPrice,
 } from "../src/domain/pricing/price-context";
 
 /** A sample of `n` values from ₪100 upwards, in whole shekels. */
@@ -127,5 +128,46 @@ describe("percentile", () => {
 
   it("refuses an empty sample instead of inventing a number", () => {
     expect(() => percentile([], 0.5)).toThrow();
+  });
+});
+
+describe("what the customer is actually shown — fair, not cheapest", () => {
+  /*
+   * Amit: *"אני לא מחפש להיות הכי זול, מחפש להיות מהיר, הוגן, חדשני."*
+   *
+   * The engine measures all three positions because the truth is the
+   * truth and ops will want it. Only ONE of them reaches the customer.
+   * These tests exist so a later screen cannot quietly widen that.
+   */
+  const paid = run(20, 100, 10); // ₪100 … ₪290
+  const at = (shekels: number) => priceContextFor({ amountMinorUnits: shekels * 100, paid });
+
+  it("prompts on a quote above what the work usually costs", () => {
+    const above = at(280);
+    expect(above.available && above.band).toBe("ABOVE");
+    expect(shouldPromptAboutPrice(above)).toBe(true);
+  });
+
+  it("says NOTHING about a cheap quote", () => {
+    /*
+     * The whole point. "מחיר טוב!" is a price-comparison site talking:
+     * it pushes professionals downward, and it encourages choosing
+     * plumbing on price, which is the wrong instinct on work that has to
+     * be done once and done right.
+     */
+    const below = at(110);
+    expect(below.available && below.band).toBe("BELOW");
+    expect(shouldPromptAboutPrice(below)).toBe(false);
+  });
+
+  it("says nothing about an ordinary quote either", () => {
+    // No tick, no reassurance badge. Silence is the design.
+    const within = at(195);
+    expect(within.available && within.band).toBe("WITHIN");
+    expect(shouldPromptAboutPrice(within)).toBe(false);
+  });
+
+  it("says nothing before there are enough real jobs", () => {
+    expect(shouldPromptAboutPrice(priceContextFor({ amountMinorUnits: 999999, paid: run(3) }))).toBe(false);
   });
 });
