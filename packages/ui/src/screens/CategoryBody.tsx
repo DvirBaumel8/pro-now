@@ -129,6 +129,69 @@ export function CategoryBody({
           <Text style={styles.question}>מה צריך?</Text>
         </View>
 
+        {/*
+          * ABOVE THE LIST, NOT BELOW IT.
+          *
+          * This box sat after every service row, at the bottom of a screen
+          * that scrolls. Amit: *"שורות החיפוש תמיד צריכות להיות בלמעלה של
+          * התפריטים ולא בתחתית המסך אם רוצים לספר מה הבעיה ולאתר אותה."*
+          *
+          * He is right, and the reason is sharper than placement. The
+          * person who needs this box is by definition the person who did
+          * NOT find their problem in the list — and putting it last made
+          * them scroll past every row that failed them to reach it. The
+          * customers least well served by our taxonomy were the ones made
+          * to work hardest.
+          *
+          * It is also the faster path for everyone else: typing "אין חשמל
+          * במטבח" and being matched beats reading nine rows to decide
+          * which of them is nearest to it.
+          */}
+        {onDescribe ? (
+          <View style={styles.other}>
+            {/*
+              * "משהו אחר?" was right when this sat at the bottom, after
+              * the list had already had its turn. At the top it would be
+              * asking somebody what else they wanted before offering them
+              * anything. It leads now, which is what it does.
+              */}
+            <Text style={styles.otherLabel}>ספרו לנו במילים שלכם</Text>
+            <View style={styles.otherRow}>
+              <TextInput
+                value={typed}
+                onChangeText={setTyped}
+                placeholder={`תארו במילים שלכם — ${district.labelHe}`}
+                placeholderTextColor="rgba(247,243,250,0.45)"
+                style={styles.otherInput}
+                textAlign="right"
+                multiline
+                accessibilityLabel="תיאור חופשי של מה שצריך"
+                onSubmitEditing={() => canSend && onDescribe(typed.trim())}
+                returnKeyType="send"
+              />
+              <Pressable
+                onPress={() => canSend && onDescribe(typed.trim())}
+                disabled={!canSend}
+                accessibilityRole="button"
+                accessibilityLabel="שליחת התיאור"
+                style={({ pressed }) => [
+                  styles.otherSend,
+                  !canSend ? styles.otherSendOff : null,
+                  pressed ? styles.pressed : null,
+                ]}
+              >
+                <Text style={styles.otherSendText}>שליחה</Text>
+              </Pressable>
+            </View>
+            {/* Says what happens next, because a text box with no stated
+                consequence is a suggestion box. */}
+            <Text style={styles.otherHint}>
+              נמצא את המקצוען המתאים לפי מה שכתבתם — או בחרו מהרשימה למטה.
+            </Text>
+          </View>
+        ) : null}
+
+
         <View style={styles.list}>
           {services.map((s) => (
             <Pressable
@@ -187,50 +250,16 @@ export function CategoryBody({
           * something we do not have a row for, which is information worth
           * having even when it does not match anything.
           */}
-        {onDescribe ? (
-          <View style={styles.other}>
-            <Text style={styles.otherLabel}>משהו אחר?</Text>
-            <View style={styles.otherRow}>
-              <TextInput
-                value={typed}
-                onChangeText={setTyped}
-                placeholder={`תארו במילים שלכם — ${district.labelHe}`}
-                placeholderTextColor="rgba(247,243,250,0.45)"
-                style={styles.otherInput}
-                textAlign="right"
-                multiline
-                accessibilityLabel="תיאור חופשי של מה שצריך"
-                onSubmitEditing={() => canSend && onDescribe(typed.trim())}
-                returnKeyType="send"
-              />
-              <Pressable
-                onPress={() => canSend && onDescribe(typed.trim())}
-                disabled={!canSend}
-                accessibilityRole="button"
-                accessibilityLabel="שליחת התיאור"
-                style={({ pressed }) => [
-                  styles.otherSend,
-                  !canSend ? styles.otherSendOff : null,
-                  pressed ? styles.pressed : null,
-                ]}
-              >
-                <Text style={styles.otherSendText}>שליחה</Text>
-              </Pressable>
-            </View>
-            {/* Says what happens next, because a text box with no stated
-                consequence is a suggestion box. */}
-            <Text style={styles.otherHint}>
-              נמצא את המקצוען המתאים לפי מה שכתבתם.
-            </Text>
-          </View>
-        ) : null}
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  other: { marginTop: spacing.xl, gap: spacing.sm },
+  // Was `marginTop`, when this block was the last thing on the screen.
+  // Leading instead, it needs the space BELOW it — between itself and the
+  // list it is an alternative to.
+  other: { marginBottom: spacing.xl, gap: spacing.sm },
   otherLabel: { ...type.captionStrong, color: colors.textSecondary, textAlign: "right", writingDirection: "rtl" },
   otherRow: { flexDirection: "row-reverse", alignItems: "flex-end", gap: spacing.sm },
   otherInput: {
