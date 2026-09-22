@@ -343,10 +343,23 @@ writeFileSync(
    * against whatever the host decided the document's base is.
    *
    * Served from a plain folder the two forms are identical, which is why
-   * this survived: every local check passed. Published for review, the
-   * page rendered and not one piece of artwork loaded — a street with no
-   * street in it, which is what Amit was looking at when he said it
-   * *"נראה לא אמיתי מבחינת ויזואל"*.
+   * nobody had reason to prefer one.
+   *
+   * IT WAS CHANGED FOR A REASON THAT TURNED OUT TO BE WRONG, and the
+   * correction belongs here rather than in a commit nobody will reread.
+   * A published review build rendered with no artwork at all, and a bare
+   * relative path resolved against an unknown base was the obvious
+   * suspect. A probe artifact then loaded the same image three ways —
+   * `world/x.webp` from HTML, `./world/x.webp` from HTML, and
+   * `world/x.webp` built in JavaScript at runtime — and all three
+   * loaded. The base is the frame root and both spellings reach it.
+   *
+   * So this is not a fix for anything. It is kept only because an
+   * explicit relative path is the honest spelling for a file fetched at
+   * runtime from a page whose base the code does not control, and
+   * because vite's own `base: "./"` says the same thing about every URL
+   * it emits itself. The missing artwork has another cause and is not
+   * this.
    */
   HEAD_GALLERY + ids.map((id) => `  ${id}: { uri: "./world/${id}.webp" },`).join("\n") + "\n};\n"
 );
