@@ -101,34 +101,57 @@ export function WorldGround({
 
     /*
      * ---------------------------------------------------------------
-     * WHICH GROUND: THE PAINTING, IF THIS BUILD HAS ONE
+     * WHICH GROUND — AND THE ANSWER CHANGED WHEN HE WAS ASKED
      * ---------------------------------------------------------------
-     * Five rounds to arrive at one line.
-     *
      * The PAINTED PLATE is a city nothing drawn from polygons will ever
-     * catch: warm, planted, lamp-lit, and already full of the palms and
-     * benches and awnings the drawn version keeps failing to invent. It
-     * repeats — tiled across a real extract the same bench lands every
-     * hundred metres — and for a while that repeat was treated as
-     * disqualifying past a certain distance.
+     * catch: warm, planted, lamp-lit, full of palms and benches and
+     * awnings. Over the invented world it is exactly right and nothing
+     * below touches that.
      *
-     * It is not. A block rhythm on a wide shot is what a city has. The
-     * ground it was being swapped for is a violet diagram, and a
-     * beautiful thing with a visible grid beats an ugly thing without
-     * one every time somebody is asked.
+     * It was also being TILED across a real street extract, on the
+     * argument that "a block rhythm on a wide shot is what a city has"
+     * and that a beautiful thing with a visible grid beats an ugly thing
+     * without one "every time somebody is asked".
      *
-     * The MATERIAL keeps its job, which is the build with no artwork:
-     * no repeat, no painted street to fight the real one, and the drawn
-     * city — blocks, lit windows, planting — on top of it so the screen
-     * is still a place. It is honest and it is a drawing, and it is what
-     * you get when nobody has painted anything yet.
+     * Somebody was asked. Amit, on the real map:
+     *
+     *   "המפה האמיתית לא נראית אמיתית בשום צורה, הכבישים לא מחוברים,
+     *    בתים על בתים, פארקים על כבישים, הכל לא נראה טוב."
+     *
+     * And he is describing the mechanism exactly, not just disliking it.
+     * The plate is not a ground texture — it is a SCENE, with buildings
+     * and planters and a road painted into it. Repeat a scene across a
+     * real street grid and you get buildings in the middle of junctions,
+     * a park lying across a carriageway, and the plate's own painted
+     * road cutting the real one at every tile seam. "בתים על בתים" is
+     * literally what tiling a picture of houses does.
+     *
+     * So a real extract takes the MATERIAL: ground and nothing else, at
+     * 14 metres a tile, with no painted street to fight the real one and
+     * no building that was never surveyed. The drawn city goes on top of
+     * it, where the streets actually are. That is what the material was
+     * built for, and the note below always said so — it was simply never
+     * reached, because the plate was checked first.
+     *
+     * The painted plate keeps the invented world, which is the place it
+     * is a picture of.
      */
-    if (plate) return { tiles: [plate], material: false, tileMetres: undefined, pave, grass };
+    const onRealStreets = cleaned !== null;
+
+    if (!onRealStreets && plate) {
+      return { tiles: [plate], material: false, tileMetres: undefined, pave, grass };
+    }
     if (mats.length > 0) {
       return { tiles: mats.map((id) => sources[id]!), material: true, tileMetres: 14, pave: null, grass };
     }
+    /*
+     * A real extract and no ground material delivered. The plate is
+     * still better than a blank screen, and the repeat is the lesser
+     * fault when the alternative is nothing at all.
+     */
+    if (plate) return { tiles: [plate], material: false, tileMetres: undefined, pave, grass };
     return null;
-  }, [plate, sources]);
+  }, [cleaned, plate, sources]);
 
   if (!cleaned) {
     /*
