@@ -185,6 +185,19 @@ export function ScreenTransition({
           }),
           transform: [
             { translateX: v.interpolate({ inputRange: [0, 1], outputRange: [from, 0] }) },
+            /*
+             * DEPTH, NOT JUST DIRECTION.
+             *
+             * Amit: *"המעבר עמוד נראה אותו דבר, לא שמים לב מה קורה."* A
+             * slide alone is a weak signal when both screens are the same
+             * dark world with a panel over it: the shapes barely move
+             * against each other and the eye reads a flicker. Arriving
+             * slightly small and settling reads as coming toward you,
+             * which is the difference between "something changed" and
+             * "you went somewhere". A transform, so it stays off the JS
+             * thread with the slide.
+             */
+            { scale: v.interpolate({ inputRange: [0, 1], outputRange: [shape.fromScale, 1] }) },
           ],
         },
       ]}

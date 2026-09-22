@@ -60,6 +60,23 @@ export interface TransitionShape {
   readonly durationMs: number;
   /** Opacity at the start. A lateral move leans on the fade, not the slide. */
   readonly fromOpacity: number;
+  /**
+   * Scale at the start, settling to 1.
+   *
+   * Amit: *"המעבר עמוד נראה אותו דבר, לא שמים לב מה קורה."*
+   *
+   * A slide alone is a weak signal when both screens are the same dark
+   * world with a panel over it — the shapes barely move relative to each
+   * other, so the eye reads a flicker rather than a move. Arriving
+   * slightly small and settling reads as DEPTH: the screen comes toward
+   * you going forward and recedes coming back, which is the difference
+   * between "something changed" and "you went somewhere".
+   *
+   * A transform, like the slide, so it still runs off the JS thread.
+   * Small on purpose — a big zoom is a slideshow effect and dates a
+   * product faster than a slow transition does.
+   */
+  readonly fromScale: number;
 }
 
 /**
@@ -71,9 +88,25 @@ export interface TransitionShape {
  * first thing that dates a product.
  */
 export const TRANSITIONS: Readonly<Record<NavDirection, TransitionShape>> = {
-  forward: { fromX: -0.22, durationMs: 260, fromOpacity: 0 },
-  back: { fromX: 0.22, durationMs: 260, fromOpacity: 0 },
-  lateral: { fromX: -0.06, durationMs: 190, fromOpacity: 0.25 },
+  /*
+   * The travel went from 0.22 to 0.34 of the width at the same time the
+   * scale arrived, and for the same reason: at 0.22 on a 390pt phone the
+   * new screen entered 86 points out, which on a screen whose top half is
+   * the same neighbourhood either side of the move is simply not enough
+   * to see. A third of the width, arriving 6% small, is a move.
+   *
+   * Forward comes from the LEFT because the app is Hebrew and that is the
+   * direction the eye already travels; back mirrors it exactly, or a
+   * return does not undo the move that got you there.
+   */
+  forward: { fromX: -0.34, durationMs: 260, fromOpacity: 0, fromScale: 0.94 },
+  back: { fromX: 0.34, durationMs: 260, fromOpacity: 0, fromScale: 0.94 },
+  /*
+   * A sibling barely moves and does not change depth at all: nothing was
+   * entered, so nothing should appear to come closer. It leans on the
+   * fade, which is what makes a tab read as a tab rather than as a step.
+   */
+  lateral: { fromX: -0.06, durationMs: 190, fromOpacity: 0.25, fromScale: 1 },
 };
 
 /**
@@ -208,6 +241,20 @@ export function navigationViolations(): string[] {
 
   // A sibling move must be visibly smaller than a real one, or the three
   // directions collapse back into one animation.
+  /*
+   * A screen must not arrive so small that the move reads as a zoom, and
+   * must not arrive larger than it settles — that is a shrink, which
+   * reads as leaving rather than arriving.
+   */
+  for (const [name, shape] of Object.entries(TRANSITIONS)) {
+    if (shape.fromScale > 1) out.push(`${name} arrives larger than it settles`);
+    if (shape.fromScale < 0.88) out.push(`${name} arrives too small at ${shape.fromScale}`);
+  }
+  // A sibling is not a step into anything, so it must not gain depth.
+  if (TRANSITIONS.lateral.fromScale !== 1) {
+    out.push("a lateral move must not change depth");
+  }
+
   if (Math.abs(TRANSITIONS.lateral.fromX) >= Math.abs(TRANSITIONS.forward.fromX)) {
     out.push("a lateral move must travel less than a forward one");
   }
