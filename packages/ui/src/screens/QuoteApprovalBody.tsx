@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { formatMoney, money, type QuoteView } from "@pro-now/types";
@@ -139,6 +139,24 @@ export function QuoteApprovalBody({
   height = 780,
 }: QuoteApprovalBodyProps) {
   const decided = quote.status === "APPROVED" || quote.status === "DECLINED";
+
+  /**
+   * The largest single line on the quote.
+   *
+   * Read off the quote, never computed against the range: this is "the
+   * biggest thing you are paying for", not "the reason it is expensive".
+   * The second would be an opinion about somebody's work and would also
+   * be wrong as often as not — a quote can be high because everything on
+   * it is slightly high.
+   */
+  const biggestLine = useMemo(() => {
+    let best: { description: string; total: number } | null = null;
+    for (const li of quote.lineItems) {
+      const total = li.quantity * li.unitPriceMinorUnits;
+      if (!best || total > best.total) best = { description: li.description, total };
+    }
+    return best;
+  }, [quote.lineItems]);
   const stale = quote.status === "SUPERSEDED" || supersededByVersion !== null;
   const actionable = !decided && !stale;
 
@@ -200,8 +218,38 @@ export function QuoteApprovalBody({
               {formatMoney(money(priceContext.highMinorUnits, "ILS"))} · לפי{" "}
               {priceContext.sampleSize} עבודות באותו שירות
             </Text>
+            {/*
+              * ---------------------------------------------------------
+              * AND WHAT IS ACTUALLY DRIVING IT
+              * ---------------------------------------------------------
+              * Amit: *"למה יצא יותר יקר מהממוצע שלנו? איפה ההסבר למה?"*
+              * and then, harder: *"נראה כאילו עובדים על הלקוח ככה."*
+              *
+              * That second sentence is the real failure. The box was
+              * written to be a question rather than a verdict, and a
+              * question with nothing to answer it is just an accusation
+              * with a gentler verb. "This costs more than usual" and
+              * then silence leaves exactly one conclusion available.
+              *
+              * The answer was already on the screen and nobody was
+              * pointed at it: the quote's own line items, six inches
+              * above this box. The single largest one is almost always
+              * the difference — a part, a second hour, an after-hours
+              * call-out — so it is named here, with its amount.
+              *
+              * It says WHAT the biggest item is, not that the item
+              * justifies the price. The first is a fact read off the
+              * quote; the second is an opinion about somebody's work,
+              * and this screen does not get to have one.
+              */}
+            {biggestLine ? (
+              <Text style={styles.contextWhy} numberOfLines={2}>
+                הפריט הגדול בהצעה: {biggestLine.description} ·{" "}
+                {formatMoney(money(biggestLine.total, "ILS"))}
+              </Text>
+            ) : null}
             <Text style={styles.contextNote}>
-              יכולות להיות לזה סיבות טובות — שעה, חלפים, מורכבות. הפירוט למעלה, והמקצוען יסביר.
+              יכולות להיות לזה סיבות טובות — שעה, חלפים, מורכבות. הפירוט המלא למעלה, והמקצוען יסביר.
             </Text>
             {onAskQuestion ? (
               <Pressable
@@ -393,6 +441,13 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     writingDirection: "rtl",
     textAlign: "right",
+  },
+  contextWhy: {
+    ...type.caption,
+    color: colors.textPrimary,
+    writingDirection: "rtl",
+    textAlign: "right",
+    marginTop: 2,
   },
   contextNote: {
     ...type.meta,
