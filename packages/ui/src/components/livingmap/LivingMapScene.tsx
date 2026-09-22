@@ -15,7 +15,7 @@ import {
   shotForBeat,
   worldZoomFor,
   sweepFrame,
-  VISIT_MS,
+  nextSweepBoundary,
   districtFor,
   layOutVenues,
   searchingDetailHe,
@@ -552,7 +552,7 @@ export function LivingMapScene({
    * THE SWEEP CLOCK WAKES ON THE BEAT, NOT ON A GRID.
    *
    * This was `setInterval(200)`, and the camera is the only thing that
-   * reads it — `sweepFrame` returns a new stop once per VISIT_MS, which
+   * reads it — `sweepFrame` returns a new stop once per visit, which
    * is 2.6 seconds. So twelve of every thirteen ticks produced an
    * identical frame and re-rendered this scene for nothing, on the one
    * screen that is live while dispatch runs.
@@ -584,13 +584,20 @@ export function LivingMapScene({
     const step = () => {
       const elapsed = Date.now() - startedAt;
       setSweepMs(elapsed);
-      const untilNextStop = VISIT_MS - (elapsed % VISIT_MS);
+      /*
+       * The boundary is looked up, not divided out. Visits are no longer
+       * all the same length — the travel half of each one now depends on
+       * how far the camera has to come (see `search-sweep.ts`) — so a
+       * clock that still woke every VISIT_MS would drift further out of
+       * step with the frame on every stop.
+       */
+      const untilNextStop = Math.max(16, nextSweepBoundary(venues, elapsed) - elapsed);
       timer = setTimeout(step, untilNextStop + SWEEP_BOUNDARY_GRACE_MS);
     };
 
     step();
     return () => clearTimeout(timer);
-  }, [animate, phase]);
+  }, [animate, phase, venues]);
 
   const sweep = useMemo(
     () => sweepFrame({ venues, elapsedMs: sweepMs, reducedMotion: !animate }),
@@ -943,6 +950,13 @@ export function LivingMapScene({
         width={width}
         height={height}
         focus={camera.focus}
+        /*
+         * The move this camera state asked for. During the search that is
+         * the distance-derived travel of the current hop; everywhere else
+         * the camera states carry no duration and the viewport keeps its
+         * own default.
+         */
+        travelMs={camera.durationMs}
         /*
          * THE SHOT DECIDES HOW MUCH WORLD IS SHOWN, NOT camera.zoom.
          *

@@ -47,6 +47,16 @@ export interface WorldViewportProps {
   /** 1 shows one screen of the world. Larger is closer in. */
   zoom?: number;
   /**
+   * How long this particular move should take.
+   *
+   * It used to be a hard-coded 1200ms here, while `sweepFrame` computed a
+   * `camera.durationMs` that nothing ever read — so a number worked out
+   * for the camera to move by was discarded on the way to the camera, and
+   * every hop took the same time however far it was. See
+   * `search-sweep.ts` for the measurement that made that visible.
+   */
+  travelMs?: number;
+  /**
    * False when the plate is a single fitted image rather than the whole
    * neighbourhood. The world is then exactly one screen, and travelling to
    * a point would only crop into it — see WorldBackdrop for the same guard.
@@ -148,6 +158,7 @@ export function WorldViewport({
   width,
   height,
   focus = null,
+  travelMs,
   zoom = 1,
   worldSized = true,
   groundAspect,
@@ -260,7 +271,7 @@ export function WorldViewport({
  */
     const anim = Animated.timing(travel, {
       toValue: 1,
-      duration: 1200,
+      duration: travelMs ?? 1200,
       easing: Easing.inOut(Easing.cubic),
       useNativeDriver: true,
     });
@@ -287,7 +298,7 @@ export function WorldViewport({
      * The u and v are constant within a stop, so on the scalars the
      * effect runs once per move and the 1200ms ease plays out whole.
      */
-  }, [animate, dragging, focusU, focusV, offsetFor, travel]);
+  }, [animate, dragging, focusU, focusV, offsetFor, travel, travelMs]);
 
   const startAt = useRef({ x: 0, y: 0 });
   const responder = useMemo(
@@ -378,7 +389,8 @@ export function WorldViewport({
    *
    * The cheaper fix is the one that removes the jumps rather than
    * smoothing them: the SEARCH holds one shot and moves only its focus,
-   * which is already animated over 1200ms. See `sweepFrame`. Four cuts
+   * which is already animated over the move's own duration. See
+   * `sweepFrame`. Four cuts
    * become none, and the one remaining change of lens is at the moment
    * the story moves on, where a cut is a cut on purpose.
    */
