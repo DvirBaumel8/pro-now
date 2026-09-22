@@ -332,7 +332,23 @@ export const worldSources: WorldAssetSources = {
 
 writeFileSync(
   path.join(ROOT, "tools/design-preview/src/worldSources.ts"),
-  HEAD_GALLERY + ids.map((id) => `  ${id}: { uri: "world/${id}.webp" },`).join("\n") + "\n};\n"
+  /*
+   * `./world/...`, NOT `world/...`.
+   *
+   * Vite is configured with `base: "./"` precisely so the built page
+   * works when it is served from a sub-path rather than a root — and
+   * every URL vite emits itself honours that. These do not: they are
+   * written into a TypeScript literal and handed to an <img> at runtime,
+   * so nothing rewrites them and a bare `world/x.webp` is resolved
+   * against whatever the host decided the document's base is.
+   *
+   * Served from a plain folder the two forms are identical, which is why
+   * this survived: every local check passed. Published for review, the
+   * page rendered and not one piece of artwork loaded — a street with no
+   * street in it, which is what Amit was looking at when he said it
+   * *"נראה לא אמיתי מבחינת ויזואל"*.
+   */
+  HEAD_GALLERY + ids.map((id) => `  ${id}: { uri: "./world/${id}.webp" },`).join("\n") + "\n};\n"
 );
 writeFileSync(
   path.join(ROOT, "apps/customer-mobile/src/world/worldSources.ts"),
