@@ -154,6 +154,69 @@ export interface WorldViewportProps {
   recentreKey?: number;
 }
 
+/**
+ * How long the lens takes to move. Close to the camera's own travel, so a
+ * phase change that moves BOTH the focus and the lens reads as one
+ * gesture rather than as two things happening to the same picture.
+ */
+const ZOOM_MS = 520;
+
+/**
+ * The zoom actually being drawn, easing towards the one that was asked
+ * for.
+ *
+ * State, and deliberately so: the box, every child's position and the
+ * edge clamp are all derived from this number, and they stay in
+ * agreement only if they are all rebuilt from the same value. An
+ * `Animated.Value` would move the picture without moving the clamp,
+ * which is the exact failure recorded in `WorldViewport`.
+ *
+ * It snaps rather than eases on the first value, on a width change, and
+ * whenever the world is not animating — an opening shot is not a move,
+ * and a device rotation is not one either.
+ */
+function useEasedZoom(target: number, enabled: boolean): number {
+  const [shown, setShown] = useState(target);
+  const fromRef = useRef(target);
+  const startedAt = useRef(0);
+  const frame = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Read by the ease without making it re-run on its own output. */
+  const shownRef = useRef(shown);
+  shownRef.current = shown;
+
+  useEffect(() => {
+    if (!enabled) {
+      setShown(target);
+      return;
+    }
+    fromRef.current = shownRef.current;
+    startedAt.current = Date.now();
+
+    const step = () => {
+      const t = Math.min(1, (Date.now() - startedAt.current) / ZOOM_MS);
+      // The same ease the focus travels on, so the two halves of a camera
+      // move do not arrive on different curves.
+      const eased = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+      const next = fromRef.current + (target - fromRef.current) * eased;
+      // Landing exactly on the target matters: `zooming` is a comparison
+      // against it, and a lens that stopped a thousandth short would
+      // leave the offset permanently snapping instead of gliding.
+      setShown(t >= 1 ? target : next);
+      if (t < 1) frame.current = setTimeout(step, 16);
+    };
+
+    step();
+    return () => {
+      if (frame.current) clearTimeout(frame.current);
+    };
+    // `shown` is read through `shownRef` rather than listed here: it is
+    // this effect's own output, and depending on it would restart the
+    // ease on every frame of itself.
+  }, [target, enabled]);
+
+  return shown;
+}
+
 export function WorldViewport({
   width,
   height,
@@ -170,12 +233,45 @@ export function WorldViewport({
   recentreKey = 0,
 }: WorldViewportProps) {
   /*
+   * ---------------------------------------------------------------------
+   * THE LENS MOVES NOW, AND THIS IS THE ATTEMPT THAT WORKED
+   * ---------------------------------------------------------------------
+   * Amit, twice: *"הפלואו קופץ לא טוב"*, *"גם באיתור המסך קופץ."* And
+   * then: *"זוויות מצלמה משתנות ואיכותיות יותר"* — which is impossible
+   * while a change of lens is a cut.
+   *
+   * THE ATTEMPT THAT FAILED, AND WHY THIS ONE IS DIFFERENT. The note
+   * further down records it: let the layout jump to the new size and
+   * carry the picture with a compensating transform. That put a dark band
+   * down the side of the screen, because `offsetFor` CLAMPS the camera to
+   * the plate's edges and the clamp was being computed for the new layout
+   * size while the picture was still the old one. Size and clamp
+   * disagreed, so near an edge the world sat at an offset that only
+   * covered the screen once it finished growing.
+   *
+   * This moves the ZOOM ITSELF through intermediate values instead. The
+   * box, every child's position and the clamp are all derived from it, so
+   * they cannot disagree at any point in the transition — not because a
+   * correction keeps them in step but because there is only one number.
+   * It is the "one clock, clamp recomputed per frame" the old note asked
+   * for, done by stepping the input rather than by out-thinking Animated.
+   *
+   * THE COST, STATED PLAINLY: this re-renders the world while the lens
+   * moves, which is the thing the drag rewrite went to such lengths to
+   * avoid. It is bounded and it is not the same case — a drag is
+   * unbounded and continuous, and this is about a dozen frames that end.
+   * A drag still re-renders nothing.
+   */
+  const zoomShown = useEasedZoom(zoom, animate && worldSized);
+  const zooming = zoomShown !== zoom;
+
+  /*
    * The world box takes the PLATE's aspect, not the phone's. See
    * `worldBox` — a box shaped like the screen centre-crops the artwork,
    * which put every measured coordinate somewhere slightly different on
    * every device.
    */
-  const box = worldBox(width, height, zoom, worldSized, groundAspect);
+  const box = worldBox(width, height, zoomShown, worldSized, groundAspect);
   const worldW = box.width;
   const worldH = box.height;
 
@@ -251,6 +347,26 @@ export function WorldViewport({
     if (dragging) return;
     const next = offsetFor(focus);
     if (next.x === to.current.x && next.y === to.current.y) return;
+    /*
+     * WHILE THE LENS IS MOVING, THE OFFSET IS NOT ANIMATED — IT IS READ.
+     *
+     * The world's size changes on every frame of a zoom, so `offsetFor`
+     * returns a new (correctly clamped) offset on every frame too.
+     * Starting a 1200ms glide towards each of those would be a dozen
+     * animations chasing each other, and the picture would lag behind
+     * its own size.
+     *
+     * Snapping is not a jump here: the offset being snapped to is the
+     * one belonging to the size being drawn this frame, and the eye
+     * reads the two together as one smooth move. This is where the
+     * "recomputed per frame" half of the old note actually happens.
+     */
+    if (zooming) {
+      from.current = next;
+      to.current = next;
+      travel.setValue(1);
+      return;
+    }
     from.current = to.current;
     to.current = next;
     travel.setValue(0);
@@ -298,7 +414,7 @@ export function WorldViewport({
      * The u and v are constant within a stop, so on the scalars the
      * effect runs once per move and the 1200ms ease plays out whole.
      */
-  }, [animate, dragging, focusU, focusV, offsetFor, travel, travelMs]);
+  }, [animate, dragging, focusU, focusV, offsetFor, travel, travelMs, zooming]);
 
   const startAt = useRef({ x: 0, y: 0 });
   const responder = useMemo(
@@ -387,17 +503,33 @@ export function WorldViewport({
    * Animated has no min/max, so that is a real piece of work rather than
    * a transform.
    *
-   * The cheaper fix is the one that removes the jumps rather than
-   * smoothing them: the SEARCH holds one shot and moves only its focus,
-   * which is already animated over the move's own duration. See
-   * `sweepFrame`. Four cuts
-   * become none, and the one remaining change of lens is at the moment
-   * the story moves on, where a cut is a cut on purpose.
+   * ---------------------------------------------------------------------
+   * AND THAT IS WHAT `useEasedZoom` DOES — BY STEPPING THE INPUT
+   * ---------------------------------------------------------------------
+   * The zoom itself moves through intermediate values, so the box, every
+   * child and the clamp are all rebuilt from ONE number and cannot
+   * disagree. No correction, no compensating transform, nothing to keep
+   * in step.
+   *
+   * With one exception, which cost a second attempt and is the reason
+   * this branch exists. `offsetFor` was being applied from an EFFECT,
+   * which runs after the render that changed the size — so for one frame
+   * the picture was drawn at the new size while still holding the old
+   * offset. At three pixels it is not a dark band, it is a hairline of
+   * background down one edge, and `verify:game` reported it exactly:
+   * "plate at -207..387 in a 390px screen".
+   *
+   * So while the lens is moving the offset is a plain number computed
+   * during THIS render, from the same `worldW` the box was just built
+   * with. The animated pair takes over the moment the lens settles.
    */
+  const snapped = offsetFor(focus);
   const transform = followTransform
     ? followTransform
     : dragging
     ? [{ translateX: dragX }, { translateY: dragY }]
+    : zooming
+    ? [{ translateX: snapped.x }, { translateY: snapped.y }]
     : [
         {
           translateX: travel.interpolate({ inputRange: [0, 1], outputRange: [from.current.x, to.current.x] }),

@@ -1,4 +1,6 @@
-import type { CameraState, VirtualVenue } from "./virtual-venue";
+import { depthScale, venueSlots } from "./world-neighbourhood";
+import type { DepartmentCode } from "./world-districts";
+import type { CameraState, VenueKind, VirtualVenue } from "./virtual-venue";
 
 /**
  * THE SEARCH SWEEP — the camera walking the street, looking.
@@ -125,6 +127,106 @@ export function travelMsFor(distance: number): number {
  */
 export const SWEEP_ZOOM = 1.28;
 
+/**
+ * ---------------------------------------------------------------------
+ * EVERY STOP WAS FRAMED IDENTICALLY, AND `SWEEP_ZOOM` WAS NEVER READ
+ * ---------------------------------------------------------------------
+ * Amit: *"זוויות מצלמה משתנות ואיכותיות יותר."*
+ *
+ * The scene does not use `camera.zoom` at all — `worldZoomFor(shot)` is
+ * what decides how much world is on screen, and the shot is "DISTRICT"
+ * at every stop. So the search was eight shots from the same distance in
+ * a row, which is the other half of why it read as a value being
+ * interpolated rather than as somebody looking.
+ *
+ * (The constant above is the second number in this file that was
+ * computed and thrown away, after `durationMs`. It is kept because
+ * `CameraState.zoom` is part of a shared type, and it is no longer the
+ * thing that decides anything. `worldZoomFor` is.)
+ *
+ * WHAT THE VARIATION IS ALLOWED TO COME FROM. Where the shop STANDS, and
+ * nothing else. A lens chosen by rating, distance or likelihood would be
+ * a ranking expressed as cinematography, at a moment when nothing has
+ * been ranked — the same rule `sweepOrder` already lives by.
+ *
+ * Depth is a physical fact and it is the right source: the world draws a
+ * shop at the far end of the street at 0.74 of size and one at the near
+ * end at 1.18 (`depthScale`). A camera operator pushes in on the distant
+ * one so it fills the frame properly, and pulls back on the near one so
+ * it is not crowding the lens. That is a camera being operated, and it
+ * makes the subject read at a consistent size while the DISTANCE varies,
+ * which is the correct way round.
+ *
+ * Only part of the correction is applied. Fully normalising would swing
+ * the lens by nearly a third between neighbouring stops and turn a search
+ * into a zoom demonstration.
+ */
+const FRAMING_CORRECTION = 0.6;
+/** The middle of `depthScale`'s range, so the mid-street shop is unchanged. */
+const FRAMING_PIVOT = 0.96;
+
+/**
+ * How much tighter or wider this stop is framed, as a multiplier on the
+ * shot's own lens. 1 is the shot exactly as it is elsewhere.
+ */
+export function framingFor(v: number): number {
+  const drawnAt = depthScale(v);
+  return 1 + FRAMING_CORRECTION * (FRAMING_PIVOT / drawnAt - 1);
+}
+
+/**
+ * ---------------------------------------------------------------------
+ * THE SWEEP HAD NOBODY TO TOUR, AND SO IT NEVER RAN
+ * ---------------------------------------------------------------------
+ * Everything above was written to walk the camera past the CANDIDATES
+ * while dispatch checks them. Measured in a browser, the camera did not
+ * move at all during a search — its offset sat on the world's centre for
+ * the whole phase.
+ *
+ * The reason is a second decision, made elsewhere and correctly:
+ * **nobody is named during the search.** `GET /v1/jobs/:id` returns a
+ * status, not a roster, so the scene is handed an empty candidate list
+ * in SEARCHING on purpose — naming people before assignment is exactly
+ * the fabrication /CLAUDE.md §3 forbids.
+ *
+ * Two right decisions that cannot both hold: there are no candidate
+ * venues to tour, so the tour of candidate venues was dead code on the
+ * one screen it exists for.
+ *
+ * What Amit asked for survives the contradiction intact:
+ *
+ *   "אני חייב שבזמן חיפוש במפה לבעל מקצוע תהיה תזוזה בין מספרות... עד
+ *    שמוצא", and "הרדאר שלנו עובר בלי כפתור לחיצות, עם הדמות בין
+ *    הרחובות ומחפש איש מקצוע."
+ *
+ * Between SHOPS and through STREETS — the neighbourhood, which is
+ * scenery. A camera moving along a street claims nothing about who is in
+ * it; it is the same street whether five professionals are online or
+ * none, and it is there before anybody is asked.
+ *
+ * So the search tours the street, and `streetTour` is deliberately
+ * separate from `layOutVenues` rather than a flag on it. The frame it
+ * produces names nobody — `sweepFrame` returns a null `candidateId` for
+ * an anonymous tour, so no caller can mistake a pavement spot for a
+ * person even by accident.
+ */
+export function streetTour(
+  department: DepartmentCode,
+  kind: VenueKind = "HOME",
+  stops = 5
+): VirtualVenue[] {
+  return venueSlots(department, Math.max(2, stops)).map((worldAnchor, i) => ({
+    // Not a candidate id and not shaped like one. Nothing downstream
+    // reads it — `sweepFrame` blanks it — and if anything ever does, it
+    // should be obvious on sight that it is a place and not a person.
+    candidateId: `street:${department}:${i}`,
+    kind,
+    worldAnchor,
+    scale: depthScale(worldAnchor.v),
+    state: "ELIGIBLE" as const,
+  }));
+}
+
 export interface SweepStop {
   /** The venue being looked at. */
   candidateId: string;
@@ -237,6 +339,12 @@ export interface SweepFrame {
   candidateId: string | null;
   /** True while travelling, false while resting on a venue. */
   travelling: boolean;
+  /**
+   * Multiplier on the shot's lens for this stop — see `framingFor`. The
+   * scene applies it; 1 means "the DISTRICT shot, unchanged", which is
+   * what a still or reduced-motion frame gets.
+   */
+  framing: number;
 }
 
 /**
@@ -255,11 +363,23 @@ export function sweepFrame(args: {
   elapsedMs: number;
   /** Reduced motion: the camera holds a wide, still shot. */
   reducedMotion?: boolean;
+  /**
+   * The venues are places, not people — a `streetTour`. The camera still
+   * moves; the frame names nobody. Set for the whole SEARCHING phase,
+   * where there are no candidates to name and naming one would be a
+   * claim the server has not made.
+   */
+  anonymous?: boolean;
 }): SweepFrame {
   const stops = sweepOrder(args.venues);
 
   if (stops.length === 0 || args.reducedMotion) {
-    return { camera: { shot: "WIDE", focus: { u: 0.5, v: 0.5 }, zoom: 1 }, candidateId: null, travelling: false };
+    return {
+      camera: { shot: "WIDE", focus: { u: 0.5, v: 0.5 }, zoom: 1 },
+      candidateId: null,
+      travelling: false,
+      framing: 1,
+    };
   }
 
   const byId = new Map(args.venues.map((v) => [v.candidateId, v]));
@@ -291,8 +411,9 @@ export function sweepFrame(args: {
       // to move by was quietly discarded on the way to the camera.
       durationMs: stop.travelMs,
     },
-    candidateId: stop.candidateId,
+    candidateId: args.anonymous ? null : stop.candidateId,
     travelling: within - stop.startsAt < stop.travelMs,
+    framing: framingFor(venue.worldAnchor.v),
   };
 }
 

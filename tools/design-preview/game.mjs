@@ -48,6 +48,66 @@ if (!(await tile.count())) problems.push('no avatar tile to choose');
 else { await tile.click(); await p.waitForTimeout(400); await click('זו אני/אני זה'); }
 await p.waitForTimeout(1200);
 
+/*
+ * ---------------------------------------------------------------------
+ * THE LENS MOVES, AND IT NEVER SHOWS THE EDGE OF THE WORLD
+ * ---------------------------------------------------------------------
+ * The search frames each shop differently now (`framingFor`), which was
+ * only possible once a change of lens stopped being a cut. An earlier
+ * attempt at that put a dark band down the side of the screen — the
+ * camera's edge clamp was computed for the new layout size while the
+ * picture was still the old one — and it was found by eye, within a
+ * minute, which is not a way to find things twice.
+ *
+ * Two claims, sampled ACROSS a search rather than at one moment:
+ *
+ *   the world is drawn at more than one size (the lens actually moves),
+ *   and at no sample does the plate fail to cover the screen.
+ *
+ * The second is the one that matters. A world narrower than the viewport,
+ * or offset past its own edge, is the hole — and it is checked at every
+ * frame sampled rather than in the settled shot, because the settled shot
+ * is exactly where the old fault did NOT show.
+ */
+await p.goto('http://127.0.0.1:4421/?phase=SEARCHING&service=svc-leak', { waitUntil: 'networkidle' });
+await p.waitForTimeout(1500);
+
+const plate = async () =>
+  p.evaluate(() => {
+    // The world layer: the widest positioned element under the scene that
+    // is larger than the viewport is the plate the camera moves.
+    let best = null;
+    for (const el of document.querySelectorAll('div')) {
+      const r = el.getBoundingClientRect();
+      if (r.width <= window.innerWidth) continue;
+      if (!best || r.width > best.width) best = { width: r.width, height: r.height, left: r.left, top: r.top };
+    }
+    return best ? { ...best, vw: window.innerWidth, vh: window.innerHeight } : null;
+  });
+
+const seen = [];
+for (let i = 0; i < 14; i += 1) {
+  const m = await plate();
+  if (m) {
+    seen.push(Math.round(m.width));
+    // Covers the screen: the plate starts at or before the left edge and
+    // ends at or after the right one. A pixel of tolerance for rounding.
+    if (m.left > 1 || m.left + m.width < m.vw - 1) {
+      problems.push(
+        `the world left a gap during the search — plate at ${Math.round(m.left)}..${Math.round(m.left + m.width)} in a ${m.vw}px screen`
+      );
+      break;
+    }
+  }
+  await p.waitForTimeout(420);
+}
+if (seen.length > 3) {
+  const sizes = new Set(seen);
+  if (sizes.size < 2) {
+    problems.push(`the lens never moved during the search — the world stayed ${seen[0]}px wide at every sample`);
+  }
+}
+
 /**
  * Straight to the wait. The demo cycle walks the phases on a timer, so
  * the route is reached by asking for it rather than by waiting for it —

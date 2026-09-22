@@ -15,6 +15,7 @@ import {
   shotForBeat,
   worldZoomFor,
   sweepFrame,
+  streetTour,
   nextSweepBoundary,
   districtFor,
   layOutVenues,
@@ -35,6 +36,7 @@ import {
   reachedNow,
   type Gait,
   type AvatarChoice,
+  type DepartmentCode,
   type LivingMapPhase,
   type WorldGeo,
   metresAcrossAt,
@@ -572,6 +574,39 @@ export function LivingMapScene({
    * previous visit ends, and the scene re-renders once per stop instead
    * of thirteen times.
    */
+  /*
+   * ---------------------------------------------------------------------
+   * WHAT THE CAMERA TOURS DURING A SEARCH
+   * ---------------------------------------------------------------------
+   * Not the candidates: there are none. The scene is handed an empty
+   * list in SEARCHING on purpose — the server returns a status, not a
+   * roster, and naming somebody before assignment is the fabrication
+   * /CLAUDE.md §3 forbids. Measured in a browser, that left the camera
+   * sitting on the world's centre for the entire phase, so the sweep —
+   * the whole reason the search screen is not a spinner — never ran.
+   *
+   * So it tours the STREET. The shopfronts are scenery: the same street
+   * whether five professionals are online or none, standing there before
+   * anybody is asked. The camera moving along it claims nothing, and
+   * `sweepFrame` blanks the id so no caller can mistake a pavement spot
+   * for a person. See `streetTour`.
+   */
+  const touring = phase === "SEARCHING" && venues.length === 0;
+  const sweepVenues = useMemo(
+    () =>
+      touring
+        ? streetTour(
+            // The scene takes the code as a plain string (it renders
+            // whatever the catalogue names); the district table answers
+            // for anything it does not know, which is the same fallback
+            // `districtFor` uses a few lines up.
+            (departmentCode as DepartmentCode | undefined) ?? "HOME_URGENT",
+            theme === "HAIR" ? "HAIR" : "HOME"
+          )
+        : venues,
+    [touring, departmentCode, theme, venues]
+  );
+
   const [sweepMs, setSweepMs] = useState(0);
   useEffect(() => {
     if (phase !== "SEARCHING" || !animate) {
@@ -591,27 +626,27 @@ export function LivingMapScene({
        * clock that still woke every VISIT_MS would drift further out of
        * step with the frame on every stop.
        */
-      const untilNextStop = Math.max(16, nextSweepBoundary(venues, elapsed) - elapsed);
+      const untilNextStop = Math.max(16, nextSweepBoundary(sweepVenues, elapsed) - elapsed);
       timer = setTimeout(step, untilNextStop + SWEEP_BOUNDARY_GRACE_MS);
     };
 
     step();
     return () => clearTimeout(timer);
-  }, [animate, phase, venues]);
+  }, [animate, phase, sweepVenues]);
 
   const sweep = useMemo(
-    () => sweepFrame({ venues, elapsedMs: sweepMs, reducedMotion: !animate }),
-    [animate, sweepMs, venues]
+    () => sweepFrame({ venues: sweepVenues, elapsedMs: sweepMs, reducedMotion: !animate, anonymous: touring }),
+    [animate, sweepMs, sweepVenues, touring]
   );
 
   const camera = useMemo(
     () =>
       journeyBeat !== null
         ? cameraFor({ shot, venues, chosenCandidateId: travellingTo.current ?? chosen?.candidateId ?? null })
-        : phase === "SEARCHING" && venues.length > 0 && animate
+        : phase === "SEARCHING" && sweepVenues.length > 0 && animate
           ? sweep.camera
           : cameraFor({ shot, venues, chosenCandidateId: chosen?.candidateId ?? null }),
-    [animate, chosen?.candidateId, journeyBeat, phase, shot, sweep.camera, venues]
+    [animate, chosen?.candidateId, journeyBeat, phase, shot, sweep.camera, sweepVenues, venues]
   );
 
   /** One driver per transition, so each phase can be reasoned about alone. */
@@ -807,7 +842,37 @@ export function LivingMapScene({
    * the ground, and the two disagreed — see `metresAcrossAt`. One
    * expression, read by both.
    */
-  const lens = worldZoomFor(mayWalk ? (wide ? "WIDE" : "EXPLORE") : camera.shot);
+  const shotLens = worldZoomFor(mayWalk ? (wide ? "WIDE" : "EXPLORE") : camera.shot);
+
+  /*
+   * ---------------------------------------------------------------------
+   * A DIFFERENT FRAMING FOR EACH SHOP, WHICH NEEDED THE LENS TO MOVE
+   * ---------------------------------------------------------------------
+   * Amit: *"זוויות מצלמה משתנות ואיכותיות יותר."* Every stop was the
+   * DISTRICT shot at exactly the same lens, because the shot decides the
+   * lens and the sweep never changes shot — eight identical framings in
+   * a row.
+   *
+   * This was written once and TAKEN BACK OUT before it shipped, because
+   * a change of lens used to be a cut: the world is laid out at a size
+   * derived from `zoom`, so a new lens landed in one frame. Applying the
+   * framing would have put eight cuts into one search — the fault Amit
+   * had already reported twice (*"הפלואו קופץ לא טוב"*, *"גם באיתור
+   * המסך קופץ"*), which holding one shot for the whole sweep had fixed.
+   *
+   * So the lens was made to move first (`useEasedZoom` in
+   * `WorldViewport`), and only then was this put back. It is derived
+   * from how far up the street the shop stands: a distant one is drawn
+   * at 0.74 of size so the camera pushes in on it, a near one at 1.18 so
+   * it pulls back. Where the shop STANDS and nothing about the person —
+   * a lens chosen by rating would be a ranking expressed as
+   * cinematography. See `framingFor`.
+   *
+   * Only while searching. Elsewhere the shot is the frame, and a scaled
+   * lens would be a second opinion about it.
+   */
+  const lens =
+    phase === "SEARCHING" && animate && !mayWalk ? shotLens * sweep.framing : shotLens;
 
 
   /*
