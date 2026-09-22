@@ -25,6 +25,7 @@
     "verify:rowlock": "tsx scripts/verify-row-lock.ts",
     "verify:journey": "npm run db:seed:dev && node scripts/verify-journey.mjs",
     "verify:navigation": "node scripts/verify-navigation.mjs",
+    "art:brief": "node scripts/art-brief.mjs",
     "preview:design": "npm run dev -w @pro-now/design-preview",
     "preview:build": "npm run build -w @pro-now/design-preview",
     "db:ddl": "python3 tools/prisma-ddl/generate.py apps/api/prisma/migrations/0_init/migration.sql",
