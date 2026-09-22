@@ -31,10 +31,21 @@ import { SectionHeader, Surface } from "../components/surfaces";
 
 const colors = proTheme.colors;
 
+/**
+ * What stands where the take-home number goes when there is not one yet.
+ *
+ * Not "₪0.00" and not an empty space: the first is wrong and the second
+ * looks like a rendering fault. A professional reading this wants to know
+ * that the money is counted and the split is not settled, which is
+ * exactly what has happened.
+ */
+const PENDING_NET_HE = "בחישוב";
+
 export interface EarningDay {
   /** "א׳", "ב׳" … — one short label per bar. */
   labelHe: string;
-  netMinorUnits: number;
+  /** Null for a day with no settled net — an empty bar, not a zero one. */
+  netMinorUnits: number | null;
   jobs: number;
   /** Marks today, so the bar chart has an anchor. */
   isToday?: boolean;
@@ -48,12 +59,24 @@ export interface EarningJob {
   grossMinorUnits: number;
   /** Everything taken off, itemised. Never a single "fees" lump. */
   deductions: { labelHe: string; minorUnits: number }[];
-  netMinorUnits: number;
+  /**
+   * Null when the platform's commission has not been set, so what the
+   * professional is owed is not yet computable — see `/CLAUDE.md §4` and
+   * the ledger in `capture-payment.ts`, which writes the charge alone in
+   * that case.
+   *
+   * It was a plain number, and the only value available to pass for an
+   * unknown was 0 — which renders as ₪0.00 and tells somebody who worked
+   * all week that they earned nothing. That is a worse falsehood than the
+   * nullable type costs to carry, and it lands on the screen this file's
+   * own header calls the whole relationship.
+   */
+  netMinorUnits: number | null;
 }
 
 export interface ProEarningsBodyProps {
-  /** Net for the current period. */
-  periodNetMinorUnits: number;
+  /** Net for the current period, or null while the split is unsettled. */
+  periodNetMinorUnits: number | null;
   periodGrossMinorUnits: number;
   periodJobCount: number;
   periodLabelHe: string;
@@ -82,8 +105,15 @@ export function ProEarningsBody({
   width = 390,
   height = 780,
 }: ProEarningsBodyProps) {
-  const taken = periodGrossMinorUnits - periodNetMinorUnits;
-  const max = Math.max(1, ...days.map((d) => d.netMinorUnits));
+  /*
+   * "נוכה" is a SUBTRACTION of two recorded facts, not a percentage
+   * applied — the same rule `/v1/pro/earnings` states. With no net there
+   * is nothing to subtract, and the line is omitted rather than shown as
+   * a deduction of zero, which would read as "we took nothing" on a week
+   * where the answer is not in yet.
+   */
+  const taken = periodNetMinorUnits === null ? null : periodGrossMinorUnits - periodNetMinorUnits;
+  const max = Math.max(1, ...days.map((d) => d.netMinorUnits ?? 0));
 
   return (
     <View style={[styles.screen, { width, height }]}>
@@ -92,8 +122,16 @@ export function ProEarningsBody({
           <BackButton onPress={onBack} tone={"light"} placement="absolute" />
 
           <Text style={styles.period}>{periodLabelHe}</Text>
-          <Text style={styles.net}>{formatMoney(money(periodNetMinorUnits, "ILS"))}</Text>
-          <Text style={styles.netLabel}>נטו · אחרי כל הניכויים</Text>
+          <Text style={styles.net}>
+            {periodNetMinorUnits === null
+              ? PENDING_NET_HE
+              : formatMoney(money(periodNetMinorUnits, "ILS"))}
+          </Text>
+          <Text style={styles.netLabel}>
+            {periodNetMinorUnits === null
+              ? "הסכומים נרשמו · חלוקת העמלה טרם נקבעה"
+              : "נטו · אחרי כל הניכויים"}
+          </Text>
 
           {/* Gross beside net. Showing only take-home hides the commission
               behind a friendly number. */}
@@ -101,8 +139,12 @@ export function ProEarningsBody({
             <Text style={styles.grossText}>
               ברוטו {formatMoney(money(periodGrossMinorUnits, "ILS"))}
             </Text>
-            <Text style={styles.grossDot}>·</Text>
-            <Text style={styles.grossText}>נוכה {formatMoney(money(taken, "ILS"))}</Text>
+            {taken === null ? null : (
+              <>
+                <Text style={styles.grossDot}>·</Text>
+                <Text style={styles.grossText}>נוכה {formatMoney(money(taken, "ILS"))}</Text>
+              </>
+            )}
             <Text style={styles.grossDot}>·</Text>
             <Text style={styles.grossText}>
               {periodJobCount === 1 ? "עבודה אחת" : `${periodJobCount} עבודות`}
@@ -116,11 +158,15 @@ export function ProEarningsBody({
           <Surface colors={colors} level={1} dark>
             <View style={styles.chart}>
               {days.map((d) => {
-                const h = Math.max(4, Math.round((d.netMinorUnits / max) * 96));
+                // A day with no settled net is a stub, not a bar: the same
+                // height a zero day gets, because "nothing yet" and
+                // "nothing earned" should not be told apart by eye when
+                // only one of them is a fact.
+                const h = Math.max(4, Math.round(((d.netMinorUnits ?? 0) / max) * 96));
                 return (
                   <View key={d.labelHe} style={styles.barCol}>
                     <Text style={styles.barValue} numberOfLines={1}>
-                      {d.netMinorUnits > 0 ? Math.round(d.netMinorUnits / 100) : ""}
+                      {(d.netMinorUnits ?? 0) > 0 ? Math.round((d.netMinorUnits ?? 0) / 100) : ""}
                     </Text>
                     <Svg width={22} height={100}>
                       <Rect
@@ -182,7 +228,11 @@ export function ProEarningsBody({
                         {j.whenHe}
                       </Text>
                     </View>
-                    <Text style={styles.jobNet}>{formatMoney(money(j.netMinorUnits, "ILS"))}</Text>
+                    <Text style={styles.jobNet}>
+                      {j.netMinorUnits === null
+                        ? PENDING_NET_HE
+                        : formatMoney(money(j.netMinorUnits, "ILS"))}
+                    </Text>
                   </View>
 
                   {/* Every deduction named. Never a single "fees" lump. */}

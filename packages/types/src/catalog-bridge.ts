@@ -187,6 +187,27 @@ export function serviceIdsByCode(catalog: {
   return map;
 }
 
+/**
+ * The bridge, read backwards.
+ *
+ * The server speaks database codes — a job comes back as
+ * `HOME_PLUMB_LEAK` — and everything the customer-facing layer knows
+ * about a service is keyed by the pilot catalogue's id. Its Hebrew
+ * description, its symptoms, its photo prompt and its MARK all live
+ * there, so a screen that has only the server's answer cannot draw the
+ * right icon beside it without this.
+ *
+ * Built once from the forward map rather than written twice: two lists
+ * that have to agree eventually stop agreeing.
+ */
+const DATABASE_TO_PILOT: Readonly<Record<string, string>> = Object.fromEntries(
+  Object.entries(PILOT_TO_DATABASE_SERVICE_CODE).map(([pilotId, code]) => [code, pilotId])
+);
+
+export function pilotServiceIdForDatabaseCode(databaseCode: string): string | null {
+  return DATABASE_TO_PILOT[databaseCode] ?? null;
+}
+
 export function coverage(allPilotServiceIds: readonly string[]): {
   mapped: number;
   unmapped: number;

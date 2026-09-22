@@ -5,6 +5,7 @@ import {
   databaseCodeForPilotService,
   coverage,
   pilotServiceById,
+  pilotServiceIdForDatabaseCode,
 } from "@pro-now/types";
 import { services as databaseServices } from "../prisma/seed-data/services";
 
@@ -94,5 +95,27 @@ describe("catalog bridge — packages/types/src/catalog-bridge.ts", () => {
     // Not an assertion about the right number — a record of the current
     // one, so that a change in it is visible in a diff.
     expect(c.mapped).toBeGreaterThan(0);
+  });
+});
+
+describe("the bridge read backwards", () => {
+  it("finds the pilot service behind a database code", () => {
+    // A job comes back from the server as HOME_PLUMB_LEAK, and every
+    // customer-facing fact about it — its mark, its symptoms, its photo
+    // prompt — is keyed by svc-leak.
+    expect(pilotServiceIdForDatabaseCode("HOME_PLUMB_LEAK")).toBe("svc-leak");
+  });
+
+  it("knows nothing about a code that is not mapped", () => {
+    expect(pilotServiceIdForDatabaseCode("BEAUTY_LASH")).toBeNull();
+    expect(pilotServiceIdForDatabaseCode("")).toBeNull();
+  });
+
+  it("round-trips every mapping in both directions", () => {
+    // Two lists that have to agree eventually stop agreeing, so the
+    // reverse map is built from the forward one and this proves it.
+    for (const [pilotId, code] of Object.entries(PILOT_TO_DATABASE_SERVICE_CODE)) {
+      expect(pilotServiceIdForDatabaseCode(code), code).toBe(pilotId);
+    }
   });
 });

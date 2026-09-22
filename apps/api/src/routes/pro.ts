@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import { earningsFor } from "../domain/payments/earnings";
 import { startShiftSchema, locationPingSchema } from "@pro-now/validation";
 import { assertPresenceTransition, canEndShift } from "../domain/job/pro-presence-transitions";
 import type { OfferCardView, ProPresenceState } from "@pro-now/types";
@@ -112,11 +113,24 @@ export default async function proRoutes(app: FastifyInstance) {
     const grossMinorUnits =
       charges.length === 0 ? null : charges.reduce((sum, e) => sum + e.amountMinorUnits, 0);
 
+    /*
+     * The four lifetime numbers stay, because `verify:journey` and the
+     * old client read them and a professional's running total is a real
+     * thing to want. What is new is the BREAKDOWN beside them: a week of
+     * days and a list of jobs, each with every deduction named.
+     *
+     * `ProEarningsBody` was designed for exactly that shape and the
+     * shipped screen has never rendered it, because this endpoint could
+     * not feed it. The ledger has held the shape since §21.
+     */
+    const breakdown = await earningsFor(app.prisma, professional.id);
+
     return reply.send({
       netMinorUnits,
       grossMinorUnits,
       currency: "ILS",
       jobCount: payable.length,
+      breakdown,
     });
   });
 

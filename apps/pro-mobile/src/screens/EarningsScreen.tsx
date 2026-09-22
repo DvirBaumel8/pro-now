@@ -1,53 +1,105 @@
-import React, { useEffect, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Text, View, useWindowDimensions } from "react-native";
+import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 
-import { formatMoney, money } from "@pro-now/types";
-import { proTheme, radii, spacing, type as t } from "@pro-now/ui";
+import { pilotServiceById, pilotServiceIdForDatabaseCode } from "@pro-now/types";
+import {
+  ProEarningsBody,
+  proTheme,
+  spacing,
+  type as t,
+  type EarningDay,
+  type EarningJob,
+  type MarkName,
+} from "@pro-now/ui";
 
 import { api } from "../api/client";
+import type { ProStackParamList } from "../navigation/types";
 
-interface Earnings {
-  netMinorUnits: number;
-  grossMinorUnits: number | null;
-  jobCount: number;
-}
+type Props = NativeStackScreenProps<ProStackParamList, "Earnings">;
 
 /**
- * P22 — what was earned, and nothing else.
+ * P22 — what was earned, and every deduction named.
  *
  * ---------------------------------------------------------------------
- * WHAT IT SHOWED
+ * THE SCREEN THE GALLERY AUDITS AND THE PHONE DID NOT SHOW
  * ---------------------------------------------------------------------
- *     נטו השבוע    money(net ?? 168000)
- *     ברוטו        ₪2,100
- *     עמלת פלטפורמה −₪420
- *     שעות Online  17:20
- *     נטו לשעה     ₪97/שעה
+ * `ProEarningsBody` has existed in `packages/ui` throughout: designed,
+ * covered by the type-scale check, and walked every run by
+ * `verify:a11y` as `pro-earnings`. This screen rendered its own layout
+ * from tokens instead, so the audited screen and the shipped screen were
+ * different code and only one of them was ever measured. §15 records the
+ * same split being closed on the customer side; this is the professional
+ * half of it.
  *
- * Only the first had any connection to the server, and even that fell
- * back to ₪1,680 when the request failed — so a professional with no
- * earnings and no network saw a comfortable number.
- *
- * The commission line is the worst of them. ₪420 on ₪2,100 is twenty per
- * cent, shown to every professional, when the commission percentage is an
- * open business decision (/CLAUDE.md §4). The app was announcing a rate
- * nobody had set, and the professionals reading it would have planned
- * around it.
+ * (The version before that is worth remembering, because the shared body
+ * exists to make it impossible: `נטו השבוע ₪1,680` when the request
+ * failed, and `עמלת פלטפורמה −₪420` — a flat twenty per cent shown to
+ * every professional when the commission is an open business decision.)
  *
  * ---------------------------------------------------------------------
- * NEVER HIDE DEDUCTIONS — AND NEVER INVENT THEM
+ * WHAT THIS FILE DOES AND DOES NOT DECIDE
  * ---------------------------------------------------------------------
- * /docs/02-UX-FLOWS.md is right that gross, fees and net must all be
- * visible. The way to honour that is to show all three when the ledger
- * has them and to show none of them when it does not — a subtraction of
- * two recorded facts, never a percentage applied to one.
+ * It translates and nothing else. The money, the deductions and the days
+ * come from `/v1/pro/earnings`, which derives them from `ledger_entries`
+ * and never from a percentage. What is done here is the part that is
+ * genuinely the client's: a weekday letter for a date, and the right mark
+ * beside a service.
  *
- * The hours and the per-hour rate are gone entirely: nothing records
- * online time yet, and a rate is a division, so a made-up denominator
- * produces a made-up wage.
+ * A null net is carried through as null. The body renders "בחישוב" for
+ * it, because ₪0.00 would tell somebody who worked all week that they
+ * earned nothing.
  */
-export function EarningsScreen() {
-  const [data, setData] = useState<Earnings | null>(null);
+
+/** Sunday-first, matching the Hebrew week the bar chart is drawn for. */
+const WEEKDAY_HE = ["א׳", "ב׳", "ג׳", "ד׳", "ה׳", "ו׳", "ש׳"] as const;
+
+/**
+ * The icon beside a job.
+ *
+ * The server answers in database service codes; every customer-facing
+ * fact about a service, the mark included, is keyed by the pilot
+ * catalogue's id. `handyman` is the fallback because it is the catalogue's
+ * own word for unspecified work, not because it is a safe-looking
+ * default — a wrong-but-plausible icon is worse than a generic one.
+ */
+function markFor(databaseCode: string): MarkName {
+  const pilotId = pilotServiceIdForDatabaseCode(databaseCode);
+  const mark = pilotId ? pilotServiceById[pilotId]?.mark : undefined;
+  return (mark as MarkName | undefined) ?? "handyman";
+}
+
+function whenHe(iso: string, now: Date): string {
+  const at = new Date(iso);
+  const time = at.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+  const sameDay = at.toDateString() === now.toDateString();
+  if (sameDay) return `היום · ${time}`;
+  const yesterday = new Date(now.getTime() - 86_400_000);
+  if (at.toDateString() === yesterday.toDateString()) return `אתמול · ${time}`;
+  return `${WEEKDAY_HE[at.getDay()]} · ${time}`;
+}
+
+interface Breakdown {
+  currency: string;
+  periodGrossMinorUnits: number;
+  periodNetMinorUnits: number | null;
+  periodJobCount: number;
+  days: { dateISO: string; netMinorUnits: number | null; jobs: number }[];
+  jobs: {
+    jobId: string;
+    serviceCode: string;
+    serviceNameHe: string;
+    completedAt: string;
+    grossMinorUnits: number;
+    deductions: { code: string; labelHe: string; minorUnits: number }[];
+    netMinorUnits: number | null;
+  }[];
+  awaitingCommissionDecision: boolean;
+}
+
+export function EarningsScreen({ navigation }: Props) {
+  const { width, height } = useWindowDimensions();
+  const [breakdown, setBreakdown] = useState<Breakdown | null>(null);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
@@ -55,10 +107,15 @@ export function EarningsScreen() {
     api
       .getEarnings()
       .then((res) => {
-        if (alive) setData(res);
+        if (!alive) return;
+        const b = (res as { breakdown?: Breakdown }).breakdown;
+        if (b) setBreakdown(b);
+        else setFailed(true);
       })
       .catch(() => {
-        // Not zero, and certainly not ₪1,680. Unknown says unknown.
+        // Unknown says unknown. The screen this replaced fell back to
+        // ₪1,680, so a professional with no earnings and no network saw a
+        // comfortable number.
         if (alive) setFailed(true);
       });
     return () => {
@@ -66,73 +123,89 @@ export function EarningsScreen() {
     };
   }, []);
 
-  const takenMinorUnits =
-    data && data.grossMinorUnits !== null ? data.grossMinorUnits - data.netMinorUnits : null;
+  const now = useMemo(() => new Date(), []);
+
+  const days: EarningDay[] = useMemo(
+    () =>
+      (breakdown?.days ?? []).map((d) => {
+        const date = new Date(d.dateISO);
+        return {
+          labelHe: WEEKDAY_HE[date.getDay()] ?? "",
+          netMinorUnits: d.netMinorUnits,
+          jobs: d.jobs,
+          isToday: date.toDateString() === now.toDateString(),
+        };
+      }),
+    [breakdown, now]
+  );
+
+  const jobs: EarningJob[] = useMemo(
+    () =>
+      (breakdown?.jobs ?? []).map((j) => ({
+        id: j.jobId,
+        serviceNameHe: j.serviceNameHe,
+        mark: markFor(j.serviceCode),
+        whenHe: whenHe(j.completedAt, now),
+        grossMinorUnits: j.grossMinorUnits,
+        deductions: j.deductions.map((d) => ({ labelHe: d.labelHe, minorUnits: d.minorUnits })),
+        netMinorUnits: j.netMinorUnits,
+      })),
+    [breakdown, now]
+  );
+
+  if (failed) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: proTheme.colors.bg,
+          alignItems: "center",
+          justifyContent: "center",
+          padding: spacing.xl,
+        }}
+      >
+        <Text style={{ ...t.body, color: proTheme.colors.textSecondary, textAlign: "center" }}>
+          לא הצלחנו לטעון את ההכנסות כרגע. הסכומים שמורים בשרת ולא אבדו.
+        </Text>
+      </View>
+    );
+  }
+
+  if (!breakdown) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: proTheme.colors.bg,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <ActivityIndicator color={proTheme.colors.trust} />
+      </View>
+    );
+  }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>הכנסות</Text>
-
-      <View style={styles.summaryCard}>
-        <Text style={styles.summaryLabel}>נטו · סך הכול</Text>
-        <Text style={styles.summaryValue}>
-          {data ? formatMoney(money(data.netMinorUnits, "ILS")) : failed ? "—" : "…"}
-        </Text>
-        {data ? (
-          <Text style={styles.summarySub}>
-            {data.jobCount === 0 ? "עדיין אין עבודות שהוסדרו" : `${data.jobCount} עבודות`}
-          </Text>
-        ) : failed ? (
-          <Text style={styles.summarySub}>לא הצלחנו לטעון את הנתונים</Text>
-        ) : null}
-      </View>
-
-      {/*
-        * The breakdown, only when the ledger has one. Showing "ברוטו —"
-        * and "עמלה —" would be three empty rows implying that a deduction
-        * happened and we are not saying how much.
-        */}
-      {data && data.grossMinorUnits !== null && takenMinorUnits !== null ? (
-        <>
-          <View style={styles.row}>
-            <Text style={styles.value}>{formatMoney(money(data.grossMinorUnits, "ILS"))}</Text>
-            <Text style={styles.label}>ברוטו</Text>
-          </View>
-          <View style={styles.row}>
-            <Text style={styles.value}>−{formatMoney(money(takenMinorUnits, "ILS"))}</Text>
-            <Text style={styles.label}>נוכה</Text>
-          </View>
-        </>
-      ) : data ? (
-        <Text style={styles.note}>
-          פירוט ברוטו ועמלה יופיע כאן ברגע שיהיו חיובים מוסדרים.
-        </Text>
-      ) : null}
-    </View>
+    <ProEarningsBody
+      width={width}
+      height={height}
+      periodLabelHe="שבעת הימים האחרונים"
+      periodNetMinorUnits={breakdown.periodNetMinorUnits}
+      periodGrossMinorUnits={breakdown.periodGrossMinorUnits}
+      periodJobCount={breakdown.periodJobCount}
+      days={days}
+      jobs={jobs}
+      /*
+       * Nothing schedules a payout yet — the Payout table exists and no
+       * code writes to it. Null hides the line rather than promising a
+       * date, which is the one thing on this screen a professional would
+       * plan their month around.
+       */
+      nextPayoutHe={null}
+      nextPayoutMinorUnits={null}
+      onOpenJob={(id) => navigation.navigate("Job", { jobId: id })}
+      onBack={() => navigation.goBack()}
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: proTheme.colors.bg, padding: spacing.lg },
-  title: { ...t.h1, color: proTheme.colors.textPrimary, textAlign: "right", marginBottom: spacing.lg },
-  summaryCard: {
-    backgroundColor: proTheme.colors.surface,
-    borderRadius: radii.lg,
-    padding: spacing.xl,
-    alignItems: "flex-end",
-    marginBottom: spacing.lg,
-  },
-  summaryLabel: { ...t.caption, color: proTheme.colors.textSecondary },
-  summaryValue: { ...t.h1, color: proTheme.colors.textPrimary, marginTop: 4 },
-  summarySub: { ...t.caption, color: proTheme.colors.textSecondary, marginTop: 4 },
-  row: {
-    flexDirection: "row-reverse",
-    justifyContent: "space-between",
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: proTheme.colors.border,
-  },
-  label: { ...t.body, color: proTheme.colors.textSecondary },
-  value: { ...t.body, color: proTheme.colors.textPrimary },
-  note: { ...t.caption, color: proTheme.colors.textSecondary, textAlign: "right" },
-});

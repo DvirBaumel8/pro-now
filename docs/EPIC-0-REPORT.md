@@ -2166,3 +2166,80 @@ question.
 The mechanism is complete and the seam is one adapter wide.
 
 **1002 tests. db:verify 1437/1437. verify:journey passes end to end.**
+
+## 24. The screen the gallery audits and the phone did not show (2026-09-22)
+
+Amit: *"לעבוד על צד המקצוען שיהיה מעבר חלק, תצוגה חלקה, הכל איכותי ועל
+סמך העיצוב שלנו."*
+
+### 24.1 First, measuring what was actually wrong
+
+"Every button clickable, transitions between pages" turned out to be
+largely true, and saying so needed a check rather than an opinion.
+`verify:navigation` reads both React Navigation stacks statically and
+reports four faults: a navigate to a screen nothing is called, a
+registered screen nothing reaches, a screen registered but absent from the
+param list, one declared but never registered. It runs inside `lint`.
+
+Both of its first findings were its own blind spots — a `replace("Online")`
+quoted inside a comment as a bug already fixed, and an `AvatarPicker`
+reached through a ternary the regex could not see. Comments are stripped
+now and the whole first argument is read. **17 screens, 29 navigations,
+every one of them lands.** 126 pressables across both apps and the design
+system, none with an empty handler, no TODOs.
+
+So the feeling that the professional's side is unfinished was not about
+dead buttons. It was about this:
+
+### 24.2 Two screens, one of them measured
+
+`ProEarningsBody` has been in `packages/ui` throughout — designed, under
+the type-scale check, walked every run by `verify:a11y` as
+`pro-earnings`, clean. `EarningsScreen` in the shipped app rendered its
+own layout from tokens instead.
+
+**The gallery audited one earnings screen and the professional's phone
+showed a different one.** §15 records the same split being closed on the
+customer side; this is the professional half of it, still open.
+
+### 24.3 Why it could not simply be swapped
+
+`ProEarningsBody` asks for a week of days and a list of jobs, each job
+with **every deduction named**, because of the argument in its own
+header — that a professional's relationship with a marketplace is mostly
+this screen, and a platform showing only take-home is hiding its
+commission behind a friendly number.
+
+`/v1/pro/earnings` returned four lifetime numbers. It could not feed it.
+
+`earnings.ts` derives the shape from `ledger_entries`, which have held it
+since §21: gross per job from CUSTOMER_CHARGE, each deduction under its
+own name — an entry type nobody has translated keeps its code rather than
+being folded into a vague label — and the payable as the net.
+
+### 24.4 Unknown is not zero, all the way to the pixel
+
+With no commission configured a captured payment writes CUSTOMER_CHARGE
+alone, so the professional's share is not computable and §4 forbids
+guessing it. `netMinorUnits` is nullable in the domain, in the API, in
+`EarningJob`, in `EarningDay` and in the period header.
+
+Carrying a nullable type that far is a cost, and the alternative was
+passing 0 — which renders as ₪0.00 and tells somebody who worked all week
+that they earned nothing. The body renders **בחישוב** instead, and the
+subtitle says the amounts are recorded and the split is not yet set. The
+"נוכה" line is omitted rather than showing a deduction of zero, which
+would read as "we took nothing" on a week whose answer is not in.
+
+Against the live database: 11 jobs, ₪4,070 gross, ₪943.50 net from the
+three that ran while a commission was configured, and the rest reading
+בחישוב.
+
+### 24.5 One more thing the bridge had to do
+
+Marks are keyed by the pilot catalogue's ids and the server answers in
+database codes, so `pilotServiceIdForDatabaseCode` reads the bridge
+backwards — built from the forward map rather than written twice, because
+two lists that must agree eventually stop agreeing.
+
+**1024 tests. Typecheck, lint, a11y, screens, navigation all clean.**
