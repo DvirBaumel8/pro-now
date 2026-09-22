@@ -201,7 +201,38 @@ export function PhoneAuthBody({
 const styles = StyleSheet.create({
   screen: { overflow: "hidden", borderRadius: radii.xl, justifyContent: "space-between" },
 
-  body: { paddingHorizontal: spacing.xl, paddingTop: spacing.xxl * 2, alignItems: "flex-end" },
+  /*
+   * ---------------------------------------------------------------------
+   * THE SCREEN WAS TWO THIRDS EMPTY
+   * ---------------------------------------------------------------------
+   * Amit, on the code screen: *"לא מובן ככ למעלה."*
+   *
+   * A fixed top padding put the whole form — a headline, a line of
+   * explanation, one box and a hint — in the top third of the phone, with
+   * roughly five hundred points of blank ivory beneath it and the button
+   * pinned far below that. Nothing in the gap, and nothing to tell the
+   * eye the two halves belong together.
+   *
+   * It is also the only place in the product that does this. Every other
+   * screen either fills its space with the world or is a list that runs
+   * to the bottom of it. These two are the first thing a new customer
+   * sees after the welcome screen, and they read as a page that failed to
+   * finish loading.
+   *
+   * `flex: 1` with the content centred gives the form the room it
+   * actually occupies rather than a number somebody guessed, and it is
+   * the same shape on a small phone and a large one. The minimum top
+   * padding keeps it clear of the back control on short screens, where
+   * centring alone would slide it under.
+   */
+  body: {
+    flex: 1,
+    justifyContent: "center",
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xxl,
+    paddingBottom: spacing.xl,
+    alignItems: "flex-end",
+  },
   title: { ...type.h1, writingDirection: "rtl", textAlign: "right" },
   why: {
     ...type.body,

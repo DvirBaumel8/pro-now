@@ -1365,7 +1365,30 @@ const go = useCallback((r: CustomerRoute) => {
           ? route.categoryId
           : route.name === "service" || route.name === "describe" || route.name === "living" || route.name === "matchconfirm"
             ? route.serviceId
-            : null;
+            /*
+             * THE VISIT'S STAGES ARE SEPARATE SCREENS. The living map's
+             * phases are not, and the difference is real rather than
+             * taste.
+             *
+             * Amit: *"המסכים חייבים להתחלף כל לחיצת כפתור, כל פעולה, גם
+             * ללקוח וגם למקצוען"*, and about this stretch in particular:
+             * *"אין שום תחלופה במסך."*
+             *
+             * The four living-map phases are ONE scene changing shape
+             * while the customer stands still — searching, found,
+             * revealed, en route — and cutting them into page loads is
+             * the exact fault that scene was built to fix.
+             *
+             * A tracking stage is the opposite: something happened. He
+             * arrived; he finished looking; a price came; you approved
+             * it. Each is a different set of facts and a different next
+             * move, and arriving at one deserves the same slide as
+             * arriving anywhere else. It also means each opens at the
+             * top rather than inheriting the last one's scroll.
+             */
+            : route.name === "tracking"
+              ? route.stage
+              : null;
     return {
       key: screenKey({ side: "customer", name, subject }),
       screen: { side: "customer" as const, name },
