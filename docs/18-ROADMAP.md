@@ -64,29 +64,38 @@ database id and the customer app sends the pilot catalogue's id, so **no
 job the customer app has ever tried to create could have succeeded**. The
 wiring was there; the two halves spoke different languages.
 
-`catalog-bridge.ts` maps the sixteen that are plainly the same trade and
-refuses the rest by name rather than substituting one. So today:
+**Resolved for the ACTIVE set, 2026-09-22.** The first framing of this
+was wrong and worth correcting: it counted all 47 customer-facing services
+against 25 database rows and called the gap 31. But the catalogue already
+distinguishes the three cases, deliberately —
 
-| | |
-|---|---|
-| Services the customer can see | 47 |
-| Services that can actually be ordered | **16** |
-| Visible but not dispatchable | 31 |
+| `activationStatus` | Count | Meaning |
+|---|---|---|
+| `ACTIVE` | 17 | offered now |
+| `PILOT` | 26 | modelled, switch off — correct to be absent |
+| `INACTIVE` | 4 | gas, a doctor, a vet — a legal decision is pending |
 
-Three ways out, and the choice is a business one:
+— so the real defect was nine services that said ACTIVE while the server
+had never heard of them. Those nine are in the seed now, carried from the
+catalogue with their own price models and durations. Nothing was invented,
+and `catalog-bridge.test.ts` now fails if any ACTIVE service is ever again
+unorderable, or if a mapping is ever added for an INACTIVE one.
 
-1. **Grow the database to the pilot catalogue.** The customer catalogue
-   becomes the truth and `/docs/09b` is superseded. Thirty-one new
-   services need a price model, a trust tier and a credential policy each
-   — and two of them, `svc-doctor` and `svc-vet`, carry licensing and
-   duty-of-care questions that are outside this codebase entirely.
-2. **Shrink the customer catalogue to the database.** The screens stop
-   offering what cannot be delivered. Honest immediately, and throws away
-   work already drawn.
-3. **Ship the sixteen and label the rest.** The bridge already supports
-   it: a service with no mapping says so instead of failing.
+**Still open**, and still a business decision: whether the 26 `PILOT`
+services should be opened, one at a time or as a set. Each needs a
+professional supply before it is worth switching on, which is the sizing
+argument `pilot-catalog.ts` makes for itself. Doctor and vet stay
+INACTIVE until there is a legal answer, and the codebase should keep
+refusing to guess one.
 
-Until this is decided the bridge is the seam, and nothing is invented.
+**Also still open, and larger:** `ServiceRequirement` is empty for every
+service in the database. The catalogue states `requiredCredentials` per
+service — a pest control licence, enhanced identity for a locksmith — and
+nothing has ever carried them into the table that dispatch reads. The
+credential-eligibility engine, twenty-seven tests of it, is checking every
+candidate against an empty list. Which credentials are mandatory is named
+in §4 as a decision this codebase must not invent; the catalogue has
+already recorded an answer, so the work is to carry it, not to make it.
 
 ### TBD — how long a customer waits before being told nobody is coming
 

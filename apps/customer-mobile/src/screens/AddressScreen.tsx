@@ -7,6 +7,11 @@ import { AddressPickerBody, customerDarkTheme, type LiveLocationState, type Save
 
 import type { CustomerStackParamList } from "../navigation/types";
 import { api } from "../api/client";
+import {
+  resolveServiceId,
+  ServiceNotOpenError,
+  ServiceCatalogueMismatchError,
+} from "../api/serviceResolver";
 
 type Props = NativeStackScreenProps<CustomerStackParamList, "Address">;
 
@@ -153,10 +158,20 @@ export function AddressScreen({ route, navigation }: Props) {
            * professionals to one door. Derived from what the request IS,
            * so the same request is the same key.
            */
-          const key = `job_${serviceId}_${addressId}`;
+          /*
+           * The catalogue the screens are built from and the catalogue the
+           * server dispatches from are two different tables with two sets
+           * of ids. `serviceId` here is the first kind — `svc-leak` — and
+           * `POST /v1/jobs` wants the second. Posting one as the other is
+           * what this screen did, so every request it has ever sent was
+           * refused with SERVICE_NOT_FOUND.
+           */
+          const dispatchServiceId = await resolveServiceId(serviceId);
+
+          const key = `job_${dispatchServiceId}_${addressId}`;
           const { job } = await api.createJob(
             {
-              serviceId,
+              serviceId: dispatchServiceId,
               addressId,
               description: describedHe?.trim() || undefined,
               /*
@@ -174,8 +189,24 @@ export function AddressScreen({ route, navigation }: Props) {
           );
           navigation.replace("Searching", { jobId: job.id });
         } catch (err) {
-          const message = err instanceof Error ? err.message : "שגיאה לא צפויה";
-          Alert.alert("לא הצלחנו לשלוח את הבקשה", message);
+          /*
+           * A trade the platform has not opened is not an error the
+           * customer caused, and it is not "something went wrong" either.
+           * It has its own sentence, and no "try again" — trying again
+           * will not open it.
+           */
+          if (err instanceof ServiceNotOpenError) {
+            Alert.alert("השירות הזה עדיין לא זמין", err.reasonHe);
+          } else if (err instanceof ServiceCatalogueMismatchError) {
+            // Ours, not theirs. Say so plainly rather than blaming the area.
+            Alert.alert(
+              "לא הצלחנו לשלוח את הבקשה",
+              "יש אי-התאמה בין הקטלוג לשרת. זו תקלה אצלנו, לא אצלך."
+            );
+          } else {
+            const message = err instanceof Error ? err.message : "שגיאה לא צפויה";
+            Alert.alert("לא הצלחנו לשלוח את הבקשה", message);
+          }
         } finally {
           setSending(false);
         }

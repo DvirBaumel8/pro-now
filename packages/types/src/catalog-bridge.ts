@@ -80,6 +80,22 @@ export const PILOT_TO_DATABASE_SERVICE_CODE: Readonly<Record<string, string>> = 
   // Makeup at home is one service in both.
   "svc-makeup": "BEAUTY_MAKEUP",
 
+  /*
+   * Carried into the database on 2026-09-22, codes and all, so these are
+   * identity mappings rather than translations. They were the nine
+   * services the customer catalogue called ACTIVE while the server had
+   * never heard of them.
+   */
+  "svc-tap": "PLUMB_FIXTURE",
+  "svc-lock": "LOCK_LOCKOUT",
+  "svc-cylinder": "LOCK_CYLINDER",
+  "svc-ac": "HVAC_REPAIR",
+  "svc-fridge": "APPL_FRIDGE",
+  "svc-washer": "APPL_WASHER",
+  "svc-clean-reno": "CLEAN_RENOVATION",
+  "svc-pest": "PEST_CONTROL",
+  "svc-hands": "ASSIST_HANDS",
+
   // The database calls it a home technician for computers, network and
   // Wi-Fi; the pilot calls it a computer technician. Same visit.
   "svc-computer": "TECH_HOME",
@@ -99,13 +115,6 @@ export const PILOT_SERVICES_NOT_IN_DATABASE: readonly string[] = [
    * somebody decides whether the customer picks.
    */
   "svc-haircut",
-  "svc-tap",
-  "svc-lock",
-  "svc-cylinder",
-  "svc-ac",
-  "svc-fridge",
-  "svc-washer",
-  "svc-pest",
   "svc-paint",
   "svc-furniture",
   "svc-tv",
@@ -120,8 +129,6 @@ export const PILOT_SERVICES_NOT_IN_DATABASE: readonly string[] = [
   "svc-solar",
   "svc-gas",
   "svc-tutor",
-  "svc-hands",
-  "svc-clean-reno",
   "svc-pet-sit",
   "svc-pet-groom",
 
@@ -154,6 +161,30 @@ export function databaseCodeForPilotService(pilotServiceId: string): BridgeResul
     databaseCode: null,
     reasonHe: "השירות הזה עדיין לא פתוח להזמנה — הוא קיים בקטלוג ולא במערכת השיגור.",
   };
+}
+
+/**
+ * The server's catalogue, flattened to code -> database id.
+ *
+ * The response nests department -> category -> service, and a caller that
+ * walks only the first category of each department resolves half the
+ * catalogue to nothing — which a customer reads as "there are no
+ * locksmiths in your area" rather than as a bug.
+ */
+export function serviceIdsByCode(catalog: {
+  departments: ReadonlyArray<{
+    categories: ReadonlyArray<{ services: ReadonlyArray<{ id: string; code: string }> }>;
+  }>;
+}): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const department of catalog.departments) {
+    for (const category of department.categories) {
+      for (const service of category.services) {
+        map.set(service.code, service.id);
+      }
+    }
+  }
+  return map;
 }
 
 export function coverage(allPilotServiceIds: readonly string[]): {

@@ -58,6 +58,36 @@ describe("catalog bridge — packages/types/src/catalog-bridge.ts", () => {
     expect(databaseCodeForPilotService("svc-leak").databaseCode).toBe("HOME_PLUMB_LEAK");
   });
 
+  it("every service the customer catalogue calls ACTIVE can actually be ordered", () => {
+    /*
+     * THE INVARIANT THIS WHOLE FILE EXISTS FOR.
+     *
+     * `activationStatus: "ACTIVE"` is the catalogue saying "we offer this,
+     * now". Nine services said it while the services table had never heard
+     * of them, so the screen offered a trade and the server answered
+     * SERVICE_NOT_FOUND — the customer's request failing at the one moment
+     * the product is supposed to be keeping its promise.
+     *
+     * A service can be PILOT or INACTIVE and absent. It cannot be ACTIVE
+     * and absent.
+     */
+    const unorderable = Object.values(pilotServiceById)
+      .filter((s) => s.activationStatus === "ACTIVE")
+      .filter((s) => !PILOT_TO_DATABASE_SERVICE_CODE[s.id])
+      .map((s) => `${s.id} (${s.nameHe})`);
+
+    expect(unorderable, "ACTIVE in the catalogue, absent from dispatch").toEqual([]);
+  });
+
+  it("never maps a service the catalogue has switched off", () => {
+    // The mirror of the rule above: INACTIVE means a decision is pending
+    // (gas, a doctor, a vet), and a mapping would quietly ship it.
+    for (const pilotId of Object.keys(PILOT_TO_DATABASE_SERVICE_CODE)) {
+      const svc = pilotServiceById[pilotId];
+      expect(svc?.activationStatus, pilotId).not.toBe("INACTIVE");
+    }
+  });
+
   it("reports how much of the customer's catalogue can be ordered", () => {
     const c = coverage(pilotIds);
     expect(c.mapped + c.unmapped).toBe(c.total);

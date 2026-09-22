@@ -68,6 +68,25 @@ export const categories: SeedCategory[] = [
   { code: "MOBILE_AUTO", departmentCode: "AUTO", nameHe: "שירות רכב נייד", nameEn: "Mobile Auto Service" },
   { code: "TECH_SUPPORT", departmentCode: "TECH", nameHe: "תמיכה טכנית", nameEn: "Tech Support" },
   { code: "SMALL_MOVING", departmentCode: "MOVING", nameHe: "הובלה קטנה", nameEn: "Small Moving" },
+
+  /*
+   * ADDED 2026-09-22 — carried from `packages/types/pilot-catalog.ts`.
+   *
+   * Nine services were marked ACTIVE in the customer catalogue — the file
+   * that calls itself "the actual services PRO NOW opens with" — and had
+   * no row here at all. The screens offered them, the server had never
+   * heard of them, and every request for one would have been refused with
+   * SERVICE_NOT_FOUND. These are the categories they need.
+   *
+   * Nothing here is invented. Department, category, Hebrew name, price
+   * model and typical duration all come from that catalogue, which
+   * records them deliberately and defers what it must — gas is INACTIVE
+   * there and is absent here, for the same legal reason.
+   */
+  { code: "LOCKSMITH", departmentCode: "HOME_REPAIRS", nameHe: "מנעולנות", nameEn: "Locksmith" },
+  { code: "CLIMATE", departmentCode: "HOME_REPAIRS", nameHe: "מיזוג", nameEn: "Climate" },
+  { code: "APPLIANCE", departmentCode: "HOME_REPAIRS", nameHe: "מוצרי חשמל", nameEn: "Appliances" },
+  { code: "PEST", departmentCode: "CLEANING", nameHe: "הדברה", nameEn: "Pest control" },
 ];
 
 export const services: SeedService[] = [
@@ -96,6 +115,32 @@ export const services: SeedService[] = [
   { code: "MOVING_SMALL", categoryCode: "SMALL_MOVING", nameHe: "פריט בודד/הובלה קטנה", nameEn: "Single item / small move", priceModel: "DISTANCE_TIME", durationMinMinutes: null, durationMaxMinutes: null, trustTier: "C", launchStatus: "VALIDATE", notes: "Capacity/vehicle matching" },
   { code: "BEAUTY_LASH", categoryCode: "LASHES", nameHe: "טיפול ריסים עד הבית", nameEn: "Lash treatment, at home", priceModel: "FIXED", durationMinMinutes: 60, durationMaxMinutes: 120, trustTier: "C", launchStatus: "VALIDATE", notes: "" },
   { code: "FIT_PERSONAL", categoryCode: "FITNESS", nameHe: "אימון אישי בבית/בפארק", nameEn: "Personal training, at home/park", priceModel: "FIXED", durationMinMinutes: 45, durationMaxMinutes: 60, trustTier: "B", launchStatus: "VALIDATE", notes: "" },
+
+  /*
+   * The nine ACTIVE services the customer catalogue offered and this
+   * table did not have. See the note above the categories.
+   *
+   * `trustTier` is the A-E scale of the master product bible §26.7 (A
+   * low-risk · B home-entry · C licensed trade · D vulnerable-person · E
+   * regulated), derived from each service's `trustProfile` in the
+   * catalogue. Nothing reads it — `routes/catalog.ts` echoes it and no
+   * decision depends on it.
+   *
+   * What DOES decide eligibility is `ServiceRequirement`, and no service
+   * in this table has one. The catalogue states `requiredCredentials` per
+   * service and nothing has ever carried them here, so the credential
+   * engine — twenty-seven tests of it — has been checking every candidate
+   * against an empty list. That is its own change and not this one.
+   */
+  { code: "PLUMB_FIXTURE", categoryCode: "PLUMBING", nameHe: "החלפת ברז או מיכל הדחה", nameEn: "Tap or cistern replacement", priceModel: "FIXED", durationMinMinutes: 30, durationMaxMinutes: 75, trustTier: "B", launchStatus: "PILOT_CANDIDATE", notes: "From pilot-catalog svc-tap" },
+  { code: "LOCK_LOCKOUT", categoryCode: "LOCKSMITH", nameHe: "ננעלתי בחוץ", nameEn: "Locked out", priceModel: "VISIT_QUOTE", durationMinMinutes: 15, durationMaxMinutes: 45, trustTier: "B", launchStatus: "PILOT_CANDIDATE", notes: "From pilot-catalog svc-lock. ENHANCED trust: the one job whose whole purpose is opening a door for someone who cannot prove, at that moment, that the door is theirs" },
+  { code: "LOCK_CYLINDER", categoryCode: "LOCKSMITH", nameHe: "החלפת צילינדר או מנעול", nameEn: "Cylinder or lock replacement", priceModel: "FIXED", durationMinMinutes: 20, durationMaxMinutes: 50, trustTier: "B", launchStatus: "PILOT_CANDIDATE", notes: "From pilot-catalog svc-cylinder" },
+  { code: "HVAC_REPAIR", categoryCode: "CLIMATE", nameHe: "מזגן לא מקרר או מטפטף", nameEn: "Air conditioner not cooling or leaking", priceModel: "VISIT_QUOTE", durationMinMinutes: 45, durationMaxMinutes: 100, trustTier: "B", launchStatus: "PILOT_CANDIDATE", notes: "From pilot-catalog svc-ac" },
+  { code: "APPL_FRIDGE", categoryCode: "APPLIANCE", nameHe: "מקרר או מקפיא", nameEn: "Fridge or freezer", priceModel: "VISIT_QUOTE", durationMinMinutes: 40, durationMaxMinutes: 90, trustTier: "B", launchStatus: "PILOT_CANDIDATE", notes: "From pilot-catalog svc-fridge" },
+  { code: "APPL_WASHER", categoryCode: "APPLIANCE", nameHe: "מכונת כביסה או מייבש", nameEn: "Washing machine or dryer", priceModel: "VISIT_QUOTE", durationMinMinutes: 40, durationMaxMinutes: 90, trustTier: "B", launchStatus: "PILOT_CANDIDATE", notes: "From pilot-catalog svc-washer" },
+  { code: "CLEAN_RENOVATION", categoryCode: "CLEAN", nameHe: "ניקיון אחרי שיפוץ", nameEn: "Post-renovation cleaning", priceModel: "VISIT_QUOTE", durationMinMinutes: 180, durationMaxMinutes: 420, trustTier: "B", launchStatus: "PILOT_CANDIDATE", notes: "From pilot-catalog svc-clean-reno" },
+  { code: "PEST_CONTROL", categoryCode: "PEST", nameHe: "הדברה", nameEn: "Pest control", priceModel: "FIXED", durationMinMinutes: 45, durationMaxMinutes: 90, trustTier: "C", launchStatus: "PILOT_CANDIDATE", notes: "From pilot-catalog svc-pest. LICENSE_REQUIRED, which is why this is tier C and not B" },
+  { code: "ASSIST_HANDS", categoryCode: "HANDYMAN", nameHe: "זוג ידיים לעזרה", nameEn: "An extra pair of hands", priceModel: "HOURLY", durationMinMinutes: 60, durationMaxMinutes: 180, trustTier: "B", launchStatus: "PILOT_CANDIDATE", notes: "From pilot-catalog svc-hands" },
 ];
 
 /** Pilot market this seed activates for local/dev/staging demos only. */
