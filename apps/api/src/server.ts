@@ -4,6 +4,7 @@ import Fastify from "fastify";
 import websocketPlugin from "@fastify/websocket";
 import { loadEnv } from "@pro-now/config";
 
+import corsPlugin from "./plugins/cors";
 import prismaPlugin from "./plugins/prisma";
 import redisPlugin from "./plugins/redis";
 import providersPlugin from "./plugins/providers";
@@ -56,6 +57,7 @@ export async function buildServer() {
   const app = Fastify({ logger: true });
   app.decorate("config", config);
 
+  await app.register(corsPlugin);
   await app.register(websocketPlugin);
   await app.register(prismaPlugin);
   await app.register(redisPlugin);

@@ -50,6 +50,44 @@ Everywhere one of these matters, the codebase exposes an interface + a
 labeled sandbox adapter + an `app_config`/roadmap TODO — never a guessed
 answer.
 
+### TBD — which catalogue is the product's service list (asked 2026-09-22)
+
+There are two, and they do not know about each other.
+
+`packages/types/pilot-catalog.ts` is what the customer sees: **47
+services**, with keywords, symptoms, photo prompts and matching modes.
+Every screen is built from it. The `services` table is what the server
+dispatches: **25 rows**, seeded from `/docs/09b-SERVICE-CATALOG.md`.
+
+They share neither ids nor codes. `POST /v1/jobs` looks a service up by
+database id and the customer app sends the pilot catalogue's id, so **no
+job the customer app has ever tried to create could have succeeded**. The
+wiring was there; the two halves spoke different languages.
+
+`catalog-bridge.ts` maps the sixteen that are plainly the same trade and
+refuses the rest by name rather than substituting one. So today:
+
+| | |
+|---|---|
+| Services the customer can see | 47 |
+| Services that can actually be ordered | **16** |
+| Visible but not dispatchable | 31 |
+
+Three ways out, and the choice is a business one:
+
+1. **Grow the database to the pilot catalogue.** The customer catalogue
+   becomes the truth and `/docs/09b` is superseded. Thirty-one new
+   services need a price model, a trust tier and a credential policy each
+   — and two of them, `svc-doctor` and `svc-vet`, carry licensing and
+   duty-of-care questions that are outside this codebase entirely.
+2. **Shrink the customer catalogue to the database.** The screens stop
+   offering what cannot be delivered. Honest immediately, and throws away
+   work already drawn.
+3. **Ship the sixteen and label the rest.** The bridge already supports
+   it: a service with no mapping says so instead of failing.
+
+Until this is decided the bridge is the seam, and nothing is invented.
+
 ### TBD — how long a customer waits before being told nobody is coming
 
 `DISPATCH_SEARCH_DEADLINE_SECONDS`, added 2026-09-22 with the offer-expiry

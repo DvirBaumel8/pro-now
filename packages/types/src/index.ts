@@ -39,3 +39,4 @@ export * from "./geo-truth";
 export * from "./world-camera";
 export * from "./world-routing";
 export * from "./vehicle-motion";
+export * from "./catalog-bridge";
