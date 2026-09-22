@@ -107,6 +107,13 @@ export const CUSTOMER_DEPTH: Readonly<Record<string, number>> = {
   arrival: 8,
   quote: 9,
   complete: 10,
+  /*
+   * The last screen of a job, and one step deeper than the receipt so
+   * the move onto it reads as going forward rather than sideways. From
+   * here the only way is home, which is a long way back and animates as
+   * one — correct, because that is what it is.
+   */
+  closed: 11,
 };
 
 /** The professional's side has its own journey, with its own depths. */

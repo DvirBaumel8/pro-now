@@ -51,7 +51,7 @@ const proWorldSources: WorldAssetSources = Object.fromEntries(
 import { standInWorldSources } from "./standInAvatars";
 import fixtureGeo from "../geo/fixture_grid.json";
 
-import { ActiveJobCapsule, AddressPickerBody, AppHeader, AvatarPickerBody, IntroBody, customerDarkTheme, FocusSheet, ScreenTransition, ArrivalVerifyBody, CallsListBody, CAPSULE_HEIGHT, ChatBody, ConnectionBanner, CategoryBody, CustomerHomeBody, CustomerProfileBody, customerTheme, DescribeFaultBody, JobCompleteBody, lex, MatchConfirmBody, NavGlyph, Persona, PhoneAuthBody, ProEarningsBody, ProJobBody, ProJobSettledBody, ProOfferBody, ProOnlineBody, ProPricingBody, ProProfileBody, ProShiftBody, proTheme, ProVerificationBody, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, StrollBody, Sheet, spacing, tint, TrackingBody, type as t, WelcomeBody } from "@pro-now/ui";
+import { ActiveJobCapsule, AddressPickerBody, AppHeader, AvatarPickerBody, IntroBody, customerDarkTheme, FocusSheet, ScreenTransition, ArrivalVerifyBody, CallsListBody, CAPSULE_HEIGHT, ChatBody, ConnectionBanner, CategoryBody, CustomerHomeBody, CustomerProfileBody, customerTheme, DescribeFaultBody, JobClosedBody, JobCompleteBody, lex, MatchConfirmBody, NavGlyph, Persona, PhoneAuthBody, ProEarningsBody, ProJobBody, ProJobSettledBody, ProOfferBody, ProOnlineBody, ProPricingBody, ProProfileBody, ProShiftBody, proTheme, ProVerificationBody, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, StrollBody, Sheet, spacing, tint, TrackingBody, type as t, WelcomeBody } from "@pro-now/ui";
 import type { JobMediaItem, LiveLocationState, MarkName, NavGlyphName, ProPricingRow } from "@pro-now/ui";
 import type { AuthStage, ChatMessage, ConnectionState } from "@pro-now/ui";
 import { buildIntakeBrief, pilotIntakeByService, pilotServiceById, readAvailability } from "@pro-now/types";
@@ -250,7 +250,18 @@ type CustomerRoute =
   /** The minute before the knock. See ArrivalVerifyBody. */
   | { name: "arrival" }
   | { name: "quote" }
-  | { name: "complete" };
+  | { name: "complete" }
+  /*
+   * THE LAST SCREEN OF A JOB.
+   *
+   * Amit: *"חייב עוד מסך כלשהו אחרי המסך של החשבונית לפני שחוזרים
+   * לתפריט."* Sending a review went straight to `home` — a stranger came
+   * to your flat, did work, took money, you rated them, and the app put
+   * you back at a grid of categories as though none of it had happened.
+   * The professional has had `ProJobSettledBody` closing the same job for
+   * months.
+   */
+  | { name: "closed"; ratingGiven: number | null };
 
 /**
  * DEEP LINK TO ONE LIVING MAP PHASE — `?phase=SEARCHING`, `CANDIDATES_FOUND`,
@@ -2073,9 +2084,36 @@ const go = useCallback((r: CustomerRoute) => {
             receiptLines={receiptLines}
             totalChargedMinorUnits={44500}
             paymentMethodLabelHe="ויזה · 4417"
-            onSubmitReview={() => go({ name: "home" })}
+            // The rating travels with the navigation, so the closing
+            // screen can speak about what they actually left rather than
+            // thanking somebody for a review they may have skipped.
+            onSubmitReview={(rating) => go({ name: "closed", ratingGiven: rating })}
             onDownloadInvoice={() => setSheet("payment")}
             onBack={() => go({ name: "home" })}
+            width={width}
+            height={bodyH}
+          />
+        );
+      case "closed":
+        return (
+          <JobClosedBody
+            serviceNameHe={trackedService.nameHe}
+            mark={trackedService.mark}
+            professionalDisplayName={matchFixture.professional.displayName}
+            whenHe="היום, 14:20 · 55 דקות"
+            totalChargedMinorUnits={44500}
+            /*
+             * False, and it is the default for a reason: no payment
+             * provider has been chosen (/CLAUDE.md §4), so the money has
+             * not moved. The amount is real — it is the quote that was
+             * approved — and only the tense is in question. A caller who
+             * forgets this understates, which is recoverable.
+             */
+            paymentCaptured={false}
+            ratingGiven={route.ratingGiven}
+            onDone={() => go({ name: "home" })}
+            onOpenReceipt={() => setSheet("payment")}
+            onGetHelp={() => setSheet("safety")}
             width={width}
             height={bodyH}
           />

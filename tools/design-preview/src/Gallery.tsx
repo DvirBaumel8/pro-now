@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet, ScrollView, useWindowDimensions } from "react-native";
 
-import { CustomerHomeBody, CustomerProfileBody, customerTheme, JobCompleteBody, MatchCard, MatchCardSkeleton, OfferCard, OfferCardSkeleton, Persona, PersonaStack, ProJobBody, ProOfferBody, ProOnlineBody, ProProfileBody, ProShiftBody, proTheme, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, spacing, TrackingBody, type as t } from "@pro-now/ui";
+import { CustomerHomeBody, CustomerProfileBody, customerTheme, JobClosedBody, JobCompleteBody, MatchCard, MatchCardSkeleton, OfferCard, OfferCardSkeleton, Persona, PersonaStack, ProJobBody, ProOfferBody, ProOnlineBody, ProProfileBody, ProShiftBody, proTheme, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, spacing, TrackingBody, type as t } from "@pro-now/ui";
 
 import {
   FROZEN_NOW_MS,
@@ -280,6 +280,46 @@ export function Gallery() {
             professional={matchNewProFixture.professional}
             eta={matchNewProFixture.eta}
             priceLineHe="מחיר קבוע ₪450"
+            width={PHONE_W}
+            height={PHONE_H}
+          />
+        </Frame>
+      </Section>
+
+      <Section
+        title="סגירת קריאה"
+        subtitle="C14 · אחרי החשבונית ולפני התפריט. אמית: ״חייב עוד מסך כלשהו אחרי המסך של החשבונית לפני שחוזרים לתפריט.״ למקצוען יש את זה מזמן; ללקוח לא היה."
+      >
+        <Frame dark caption="C14 · נסגרה · עם דירוג שנשאר">
+          <JobClosedBody
+            serviceNameHe="תיקון נזילה בברז"
+            mark="plumbing"
+            professionalDisplayName={matchFixture.professional.displayName}
+            whenHe="היום, 14:20 · 55 דקות"
+            totalChargedMinorUnits={44500}
+            ratingGiven={5}
+            onDone={noop}
+            onOpenReceipt={noop}
+            onGetHelp={noop}
+            width={PHONE_W}
+            height={PHONE_H}
+          />
+        </Frame>
+
+        {/* Skipping the rating is a real answer and gets its own words —
+            a screen that thanked somebody for a review they chose not to
+            leave would be talking to the wrong person. */}
+        <Frame dark caption="C14 · נסגרה · בלי דירוג, וזה בסדר">
+          <JobClosedBody
+            serviceNameHe="תיקון נזילה בברז"
+            mark="plumbing"
+            professionalDisplayName={matchFixture.professional.displayName}
+            whenHe="היום, 14:20 · 55 דקות"
+            totalChargedMinorUnits={44500}
+            ratingGiven={null}
+            onDone={noop}
+            onOpenReceipt={noop}
+            onGetHelp={noop}
             width={PHONE_W}
             height={PHONE_H}
           />

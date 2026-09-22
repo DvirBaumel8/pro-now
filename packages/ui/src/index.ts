@@ -39,6 +39,7 @@ export * from "./screens/ProPricingBody";
 export * from "./screens/ProProfileBody";
 export * from "./screens/QuoteApprovalBody";
 export * from "./screens/JobCompleteBody";
+export * from "./screens/JobClosedBody";
 export * from "./screens/ProOfferBody";
 export * from "./screens/CustomerProfileBody";
 export * from "./screens/AddressPickerBody";
