@@ -19,6 +19,7 @@ import {
 
 import { EMPTY_ASSET_SOURCES, type WorldAssetSources } from "./AssetSlot";
 import { SHADOW } from "./shadowGeometry";
+import { palette } from "../../theme";
 
 /**
  * THE CUSTOMER, IN THE STREET.
@@ -368,6 +369,9 @@ export function Walker({
   const figureW = asMarker ? boxH * MARKER_ASPECT : baseH * FIGURE_ASPECT;
   const shadowW = figureW * SHADOW.widthRatio;
   const shadowH = shadowW * SHADOW.flatness;
+  // Wider than the shadow, so it reads as a ring AROUND the figure's
+  // footing rather than as an outline of the shadow itself.
+  const ringW = shadowW * 1.5;
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
@@ -414,6 +418,60 @@ export function Walker({
           ],
         }}
       />
+
+      {/*
+        * ---------------------------------------------------------------------
+        * A RING ON THE GROUND, SO YOU CAN FIND YOURSELF
+        * ---------------------------------------------------------------------
+        * Amit: *"האווטאר ככ קטן שאני בקושי מרגיש ומוצא אותו."*
+        *
+        * He is right that it is hard to find and wrong about the remedy, and
+        * the distinction matters. The figure is not too small: a person is
+        * 0.42 of a shopfront's width and the avatar 1.15 of a person, one
+        * ruler measured against the buildings, and the note on
+        * `personOfVenue` records that before that ruler the customer stood
+        * 2.75 times the height of the professional beside him. Growing the
+        * figure to make it findable buys that back.
+        *
+        * What was missing is the thing every game has and this did not: a
+        * mark that says WHICH ONE IS YOU. It is drawn on the ground rather
+        * than floating over the head, so it belongs to the street instead of
+        * hovering above it as a label, and it sits under the shadow's own
+        * ellipse so contact still reads first.
+        *
+        * Not on the abstract stand-in. `asMarker` is what is drawn where
+        * there is no avatar art at all, and a ring around a dot is a
+        * target rather than a person. Both call sites of this component
+        * ARE the customer's own figure — there is no second walker in the
+        * world — so nothing else needs to opt out.
+        */}
+      {!asMarker ? (
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            width: ringW,
+            height: ringW * SHADOW.flatness,
+            borderRadius: 999,
+            borderWidth: 2,
+            // Mint: the world's own live colour, and not coral, which
+            // this product reserves for things you press.
+            borderColor: palette.trust300,
+            transform: [
+              { translateX: Animated.subtract(Animated.multiply(u, width), ringW / 2) },
+              {
+                translateY: Animated.subtract(
+                  Animated.multiply(v, height),
+                  (ringW * SHADOW.flatness) / 2
+                ),
+              },
+              { scale },
+            ],
+          }}
+        />
+      ) : null}
 
       <Animated.View
         style={{

@@ -872,8 +872,39 @@ export function LivingMapScene({
    * Only while searching. Elsewhere the shot is the frame, and a scaled
    * lens would be a second opinion about it.
    */
+  /*
+   * ---------------------------------------------------------------------
+   * AND IT LEANS IN WHILE YOU ARE STANDING STILL
+   * ---------------------------------------------------------------------
+   * Amit: *"האווטאר ככ קטן שאני בקושי מרגיש ומוצא אותו... הוא קטנציק
+   * ביחס, לא עובד."*
+   *
+   * The SIZE is not the fault and must not be the fix. A person is 0.42
+   * of a shopfront's width and the avatar is 1.15 of a person — one
+   * ruler, measured against the buildings, and the note on
+   * `personOfVenue` records what it cost to get there: before it, the
+   * customer stood 2.75 times the height of the professional in the
+   * doorway beside him, taller than a two-storey shop. Enlarging the
+   * figure to make it findable would buy exactly that back.
+   *
+   * It is the LENS. `EXPLORE` is deliberately wide and the reason is
+   * real: a close camera on a moving figure turns every step into a
+   * large movement of the whole picture, so you cannot see where you are
+   * going and you arrive at shops instead of approaching them. But that
+   * argument is about the camera while it TRAVELS, and it was being
+   * applied to the camera while it stands still as well.
+   *
+   * So it leans in when the pad is idle — close enough to find yourself
+   * and read the shop you are standing outside — and pulls back the
+   * moment you start walking, which is when the width is worth something.
+   * Possible at all only because a change of lens stopped being a cut
+   * today; see `useEasedZoom` in `WorldViewport`.
+   */
+  const leaningIn = mayWalk && !wide && heading === null;
   const lens =
-    phase === "SEARCHING" && animate && !mayWalk ? shotLens * sweep.framing : shotLens;
+    phase === "SEARCHING" && animate && !mayWalk
+      ? shotLens * sweep.framing
+      : shotLens * (leaningIn ? 1.34 : 1);
 
 
   /*
