@@ -512,13 +512,44 @@ export function VenueLayer({
                * overflowed, and no further: it stays attached to its own
                * building rather than jumping to the middle.
                */
-              <View
+              <Pressable
+                /*
+                 * ---------------------------------------------------------
+                 * THE CARD TAKES THE TAP TOO
+                 * ---------------------------------------------------------
+                 * Amit, on the card itself: *"למה אי אפשר ללחוץ על הבן אדם
+                 * ולראות את כל הפרטים שלו? אני רוצה שכאילו מכניס אותנו
+                 * לחנות שלו בזום, ואז נפתח הכרטיס של הבן אדם."*
+                 *
+                 * That is built and it works: tapping a shop starts the
+                 * journey, the camera travels into it, holds, and the full
+                 * profile opens. What he was tapping was this card — the
+                 * thing with a person's NAME on it, floating over the shop
+                 * — and it was `pointerEvents="none"`, so every tap went
+                 * through it to the pavement.
+                 *
+                 * The reason for that was real and narrow: a card is wide,
+                 * it hangs over its neighbours, and a swallowed tap would
+                 * open the wrong shop. So it does not take taps in
+                 * general — it takes them for ITS OWN venue, the one
+                 * underneath it, which is the only thing it was ever
+                 * labelling. `muted` and `dimmed` still refuse: nothing is
+                 * tappable while we are still asking, and the street's
+                 * attention is somewhere else when another shop is open.
+                 */
+                onPress={muted || dimmed ? undefined : () => onSelect?.(venue.candidateId)}
+                disabled={muted || dimmed}
+                accessibilityRole={muted || dimmed ? "text" : "button"}
+                accessibilityLabel={
+                  muted || dimmed
+                    ? undefined
+                    : `${candidate.displayNameHe} · ${candidate.professionHe} · לפרטים`
+                }
                 style={[
                   styles.card,
                   cardBelow ? styles.cardBelow : styles.cardAbove,
                   { transform: [{ translateX: cardShift }] },
                 ]}
-                pointerEvents="none"
               >
                 <Text style={styles.name} numberOfLines={1}>
                   {candidate.displayNameHe}
@@ -534,7 +565,19 @@ export function VenueLayer({
                     {waitingById.get(venue.candidateId)!.labelHe}
                   </Text>
                 ) : null}
-              </View>
+                {/*
+                  * SAYS SO, RATHER THAN WAITING TO BE DISCOVERED.
+                  *
+                  * A card that is tappable and does not look it is the
+                  * same as one that is not. One quiet line, only when
+                  * there is somewhere to go.
+                  */}
+                {muted || dimmed ? null : (
+                  <Text style={styles.open} numberOfLines={1}>
+                    לכניסה לחנות ›
+                  </Text>
+                )}
+              </Pressable>
             ) : null}
           </Animated.View>
         );
@@ -554,6 +597,15 @@ const styles = StyleSheet.create({
    * it names, and it lands on pavement rather than on a window.
    */
   signSlot: { position: "absolute", top: "100%", marginTop: 2, alignItems: "center" },
+  // Coral, because this one IS an action — the note beside `free` is the
+  // rule and this is the exception it was reserving the colour for.
+  open: {
+    ...type.micro,
+    color: palette.signal300,
+    textAlign: "center",
+    writingDirection: "rtl",
+    marginTop: 3,
+  },
   card: {
     position: "absolute",
     minWidth: 150,

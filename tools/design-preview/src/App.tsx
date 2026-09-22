@@ -974,6 +974,7 @@ function CustomerApp({
    * picture of a choice rather than a choice.
    */
   const [openVenue, setOpenVenue] = useState<string | null>(null);
+
   /*
    * Seeded from the last review session, so a reload lands where you were
    * with what you typed still in the boxes. See `session.ts` for the line
@@ -1390,6 +1391,41 @@ const go = useCallback((r: CustomerRoute) => {
    * shape. Feeding them in would cut a continuous journey into four page
    * loads, which is the exact fault the whole thing was built to fix.
    */
+  /**
+   * The professional behind the shop that was just opened.
+   *
+   * The sheet showed `matchFixture.professional` whatever you tapped, so
+   * being driven into "דוגמה ט׳"'s shop opened a card headed "דוגמה א׳".
+   * Caught in a screenshot of the exact journey Amit asked about.
+   *
+   * The demo candidates have no reputation of their own and that is
+   * deliberate (`demoCandidatesFor`): a derived candidate nobody has
+   * hired shows "חדש ב-PRO NOW" rather than a borrowed 4.86. So the
+   * fixture's numbers are dropped along with its name — taking the name
+   * from one person and the rating from another would be worse than the
+   * bug being fixed.
+   */
+  const openVenueProfessional = useMemo(() => {
+    const base = matchFixture.professional;
+    const index = openVenue?.match(/^demo-cand-(\d+)$/)?.[1];
+    if (index === undefined) return base;
+    const serviceId = route.name === "living" ? route.serviceId : null;
+    if (!serviceId) return base;
+    const candidate = demoCandidatesFor(serviceId, 3)[Number(index)];
+    if (!candidate) return base;
+    return {
+      ...base,
+      id: candidate.seed,
+      displayName: candidate.displayNameHe,
+      proNowCompletedJobs: candidate.completedJobs ?? 0,
+      proNowRatingAverage: candidate.ratingAverage,
+      proNowRatingCount: candidate.ratingCount ?? 0,
+      // Somebody else's Google rating is not this person's. Absent is the
+      // honest value and the profile is built to show nothing for it.
+      externalReputation: null,
+    };
+  }, [openVenue, route]);
+
   const screenNow = useMemo(() => {
     // Off the home tab, the tab IS the screen: the calls list and the card
     // are siblings of home, not steps into it.
@@ -2336,7 +2372,20 @@ const go = useCallback((r: CustomerRoute) => {
         scrimOpacity={CARD_REST.scrimOpacity}
       >
         <ProProfileBody
-          professional={matchFixture.professional}
+          /*
+           * THE PERSON WHOSE SHOP WAS OPENED, NOT ALWAYS THE MATCHED ONE.
+           *
+           * This was `matchFixture.professional` regardless of which shop
+           * the customer had just been driven into — so tapping "דוגמה ט׳"
+           * opened a profile headed "דוגמה א׳". Caught in a screenshot of
+           * the very journey Amit asked about: the camera takes you into
+           * somebody's shop, the card rises, and it is a different person.
+           *
+           * The street's candidates carry their own names (`demo-cand-N`
+           * above), so the sheet takes the one that was opened and falls
+           * back to the match only when the id is not one of theirs.
+           */
+          professional={openVenueProfessional}
           services={profileServices}
           reviews={profileReviews}
           workPhotoSubjects={profileWorkPhotos}
