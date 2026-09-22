@@ -283,6 +283,36 @@ const run = async () => {
     ? ok("the customer reviews the job")
     : bad("the customer reviews the job", `${review.status} ${review.text.slice(0, 200)}`);
 
+  /*
+   * AND THE REVIEW BECOMES A FACT ABOUT THEM.
+   *
+   * This is the end of the chain the whole ordering was chosen for.
+   * dispatch-service.ts scored every candidate on a hard-written 4.8
+   * because reviews were unreachable, and reviews were unreachable
+   * because payment did not exist. A second request now shows the rating
+   * on the match card — real, with its count beside it, from work that
+   * actually happened.
+   */
+  const second = await call("POST", "/v1/jobs", {
+    token: custToken,
+    idem: "rated-" + Date.now(),
+    body: { serviceId: svcId, addressId: addrId, description: "עוד נזילה", structuredAnswers: {} },
+  });
+  const secondJobId = second.json?.job?.id;
+  if (second.json?.dispatch?.status === "OFFER_SENT" && secondJobId) {
+    const offer2 = await call("GET", "/v1/pro/offers/current", { token: proToken });
+    await call("POST", `/v1/offers/${offer2.json?.offerId}/accept`, { token: proToken, idem: "acc2-" + Date.now() });
+    const m = await call("GET", `/v1/jobs/${secondJobId}/match`, { token: custToken });
+    const avg = m.json?.professional?.proNowRatingAverage;
+    const count = m.json?.professional?.proNowRatingCount;
+    typeof avg === "number" && count > 0
+      ? ok("the rating the customer sees comes from real reviews", `${avg.toFixed(2)} from ${count}`)
+      : bad("the rating the customer sees comes from real reviews", JSON.stringify(m.json?.professional ?? m.text.slice(0, 120)));
+    await call("POST", `/v1/jobs/${secondJobId}/cancel`, { token: custToken });
+  } else {
+    bad("a second job reaches the same professional", JSON.stringify(second.json?.dispatch));
+  }
+
   const badBody = await call("POST", `/v1/jobs/${jobId}/reviews`, { token: custToken, idem: "bad-" + Date.now(), body: { nonsense: true } });
   badBody.status === 400 && badBody.json?.code === "VALIDATION_FAILED"
     ? ok("a malformed body is a 400, not a 500")

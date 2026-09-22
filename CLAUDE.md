@@ -125,7 +125,7 @@ blocks the epic's stated acceptance criteria.
 See `/docs/EPIC-0-REPORT.md` for the as-built state, contradictions found
 between source documents, and the recommended next epic.
 
-**Read `§21` in that report first**, then `§20`, `§19` and `§15` —
+**Read `§22` in that report first**, then `§21`, `§20` and `§15` —
 together they are the current truth about what has actually been
 installed, compiled, linted, bundled, rendered and executed. They
 supersede the older `§7`/`§8`.
@@ -143,7 +143,7 @@ completion — and is the fastest way to learn whether the parts are still
 connected to each other. It needs `npm run dev:pulse` running beside it.
 
 Short version: **typecheck is clean across all 10 workspaces** — the first
-time in this project's history — lint is clean, 944 unit tests pass, the
+time in this project's history — lint is clean, 971 unit tests pass, the
 admin build is green, and `verify:domain`, `verify:geo`, `verify:a11y`,
 `verify:screens` and `verify:game` all pass. The **baseline migration
 exists** (`apps/api/prisma/migrations/0_init`, derived from the schema by

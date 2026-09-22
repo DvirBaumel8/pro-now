@@ -3,6 +3,11 @@ import type { Prisma } from "@prisma/client";
 import { createJobSchema } from "@pro-now/validation";
 import { triggerDispatch } from "../domain/dispatch/dispatch-service";
 import { capturePaymentForJob } from "../domain/payments/capture-payment";
+import {
+  advancePresence,
+  releaseAfterCompletion,
+  releaseAfterCancellation,
+} from "../domain/job/advance-presence";
 import { assertTransition, nextAfterArrival } from "../domain/job/transitions";
 
 /**
@@ -151,14 +156,33 @@ export default async function jobsRoutes(app: FastifyInstance) {
     await app.prisma.jobEvent.create({
       data: { jobId: id, type: "JOB_CANCELLED", actor: "CUSTOMER", actorId: req.user!.userId, metadata: {} },
     });
+
+    /*
+     * Whoever was committed to this job is not any more. Without this a
+     * cancelled job left its professional stranded mid-machine — EN_ROUTE
+     * to somewhere nobody is waiting — and invisible to dispatch for the
+     * rest of their shift, punished for a cancellation that was not
+     * theirs.
+     */
+    await releaseAfterCancellation(app.prisma, job.assignedProfessionalId);
+
     return reply.send({ ok: true });
   });
 
-  for (const [path, type, nextState] of [
-    ["/v1/jobs/:id/en-route", "PRO_EN_ROUTE_REQUESTED", "PRO_EN_ROUTE"],
-    ["/v1/jobs/:id/arrive", "PRO_ARRIVED_REQUESTED", "PRO_ARRIVED"],
-    ["/v1/jobs/:id/start", "SERVICE_STARTED", "IN_PROGRESS"],
-    ["/v1/jobs/:id/complete", "SERVICE_COMPLETION_REQUESTED", "COMPLETION_PENDING"],
+  for (const [path, type, nextState, presenceStep] of [
+    /*
+     * The fourth column is the PROFESSIONAL'S step, and it was missing.
+     *
+     * These routes moved the job and never the person. Dispatch only
+     * considers professionals who are AVAILABLE, and nothing ever moved
+     * anybody off ASSIGNED — so a professional who accepted one job never
+     * received another until they ended their shift. See
+     * `advance-presence.ts`.
+     */
+    ["/v1/jobs/:id/en-route", "PRO_EN_ROUTE_REQUESTED", "PRO_EN_ROUTE", "EN_ROUTE"],
+    ["/v1/jobs/:id/arrive", "PRO_ARRIVED_REQUESTED", "PRO_ARRIVED", "ARRIVED"],
+    ["/v1/jobs/:id/start", "SERVICE_STARTED", "IN_PROGRESS", "SERVICING"],
+    ["/v1/jobs/:id/complete", "SERVICE_COMPLETION_REQUESTED", "COMPLETION_PENDING", "RELEASE"],
   ] as const) {
     app.post(path, { onRequest: app.requireAuth }, async (req, reply) => {
       const { id } = req.params as { id: string };
@@ -188,7 +212,16 @@ export default async function jobsRoutes(app: FastifyInstance) {
       await app.prisma.jobEvent.create({
         data: { jobId: id, type, actor: "PROFESSIONAL", actorId: req.user!.userId, metadata: {} },
       });
-      return reply.send({ ok: true, status: target });
+
+      // The person moves with the job. A professional whose presence
+      // cannot legally make this step is left where they are rather than
+      // forced — see advancePresence.
+      const presence =
+        presenceStep === "RELEASE"
+          ? await releaseAfterCompletion(app.prisma, job.assignedProfessionalId)
+          : await advancePresence(app.prisma, job.assignedProfessionalId, presenceStep);
+
+      return reply.send({ ok: true, status: target, presenceState: presence.to ?? undefined });
     });
   }
 }

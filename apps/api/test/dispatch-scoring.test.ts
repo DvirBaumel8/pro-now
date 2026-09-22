@@ -63,3 +63,96 @@ describe("dispatch scoring — /docs/08-DISPATCH-ENGINE.md §Scoring", () => {
     expect(result.score).toBe(0);
   });
 });
+
+describe("a professional with no history — /CLAUDE.md §3, never fabricate a trust score", () => {
+  const near = {
+    etaSeconds: 300,
+    maxEtaSecondsInShortlist: 600,
+    serviceFitScore: 1,
+    cancellationPenalty: 0,
+    recentAssignmentPenalty: 0,
+  };
+
+  const unrated = {
+    professionalId: "first_shift",
+    ...near,
+    ratingAverage: null,
+    acceptanceRate: null,
+    completionRate: null,
+  };
+
+  it("does not treat an unrated professional as worthless", () => {
+    /*
+     * Scoring a missing rating as zero makes a professional's first shift
+     * their last: no jobs, so no reviews; no reviews, so no jobs. The
+     * score must come from what IS known — their ETA and their fit.
+     */
+    const { score } = scoreCandidate(unrated);
+    expect(score).toBeGreaterThan(0);
+  });
+
+  it("does not let an unrated professional outrank a well-reviewed one", () => {
+    // Otherwise a stranger beats four years of five-star work, which is a
+    // promise to the customer that nobody made.
+    const ranked = rankCandidates([
+      unrated,
+      {
+        professionalId: "five_stars",
+        ...near,
+        ratingAverage: 5,
+        acceptanceRate: 1,
+        completionRate: 1,
+      },
+    ]);
+    expect(ranked[0]!.professionalId).toBe("five_stars");
+  });
+
+  it("ranks an unrated professional ABOVE one with a poor record", () => {
+    // A bad record is worse than no record. This is the half that makes
+    // the rating worth collecting at all.
+    const ranked = rankCandidates([
+      {
+        professionalId: "poor_record",
+        ...near,
+        ratingAverage: 1.5,
+        acceptanceRate: 0.2,
+        completionRate: 0.4,
+      },
+      unrated,
+    ]);
+    expect(ranked[0]!.professionalId).toBe("first_shift");
+  });
+
+  it("is unchanged from the old arithmetic when everything is known", () => {
+    /*
+     * The renormalisation must be a no-op for a complete candidate, or
+     * every ranking in the product shifts silently on the day this landed.
+     * Weights sum to 1, so dividing by the applied weight divides by 1.
+     */
+    const complete = {
+      professionalId: "complete",
+      etaSeconds: 300,
+      maxEtaSecondsInShortlist: 600,
+      serviceFitScore: 1,
+      ratingAverage: 4,
+      acceptanceRate: 0.8,
+      completionRate: 0.9,
+      cancellationPenalty: 0,
+      recentAssignmentPenalty: 0,
+    };
+    const byHand =
+      0.5 * 0.4 + // eta: 1 - 300/600
+      1 * 0.25 + // fit
+      (4 / 5) * 0.15 + // rating
+      0.8 * 0.1 + // acceptance
+      0.9 * 0.1; // completion
+    expect(scoreCandidate(complete).score).toBeCloseTo(byHand, 10);
+  });
+
+  it("still applies penalties to a professional with no history", () => {
+    // Not knowing their rating is not a shield. A cancellation penalty is
+    // a record of something that did happen.
+    const { score } = scoreCandidate({ ...unrated, cancellationPenalty: 1 });
+    expect(score).toBe(0);
+  });
+});

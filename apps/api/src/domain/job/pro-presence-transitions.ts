@@ -30,6 +30,32 @@ const TRANSITIONS: Record<ProPresenceState, ProPresenceState[]> = {
   ENDING_SHIFT: ["OFFLINE"],
 };
 
+/**
+ * A CANCELLATION IS NOT A STEP ALONG THE MACHINE.
+ *
+ * The job machine lets a job be cancelled from PRO_ASSIGNED,
+ * PRO_EN_ROUTE, PRO_ARRIVED, WAITING_QUOTE_APPROVAL and IN_PROGRESS. The
+ * presence machine above has no edge out of any of those except forward —
+ * so a job cancelled after assignment left its professional stranded
+ * mid-machine and invisible to dispatch for the rest of their shift,
+ * punished for a cancellation that was not theirs.
+ *
+ * The first fix attempted was to walk them forward through the remaining
+ * steps. That is worse than the bug: it writes ARRIVED for somebody who
+ * never arrived, and SERVICING for work never done, into the record a
+ * support agent reads back.
+ *
+ * So cancellation is its own edge, named as such. `TRANSITIONS` stays
+ * strict — there is no ordinary way to un-arrive — and this is the one
+ * documented exception. /docs/07-JOB-STATE-MACHINE.md records it.
+ */
+export function presenceAfterCancellation(
+  from: ProPresenceState
+): ProPresenceState | null {
+  if (from === "AVAILABLE") return null; // nothing to release
+  return COMMITTED_STATES.includes(from) ? "AVAILABLE" : null;
+}
+
 // States considered "committed to an active job" — ending a shift from
 // here is blocked except via an explicit support path.
 export const COMMITTED_STATES: ProPresenceState[] = [

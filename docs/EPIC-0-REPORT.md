@@ -1990,3 +1990,88 @@ row lock — which was always the guarantee — simply takes over.
 **944 tests. Typecheck and lint clean, db:verify 1411/1411,
 verify:rowlock 7/7, verify:domain 28/28, verify:journey passes every step
 from sign-in to CLOSED.**
+
+## 22. A fabricated trust score, and one job per shift (2026-09-22)
+
+### 22.1 The number the engine was ranking on
+
+`dispatch-service.ts` handed the scoring engine three constants for every
+candidate on every job: `ratingAverage: 4.8`, `acceptanceRate: 0.9`,
+`completionRate: 0.95`. A fabricated trust score inside the engine that
+decides who is sent to somebody's home — the thing `/CLAUDE.md §3` forbids
+by name — with a comment beside it admitting it was a placeholder "until
+reviews aggregate is wired".
+
+It could not be removed earlier. Reviews were unreachable until payment
+existed, and payment did not exist until §21. That is the whole reason
+this order was chosen.
+
+`professional-record.ts` counts them from rows now, in four aggregate
+queries rather than three per candidate, and carefully:
+
+- a SENT offer is not counted against anybody — it is a question nobody
+  has answered yet, and counting it would penalise a professional for the
+  thirty seconds they are given to decide;
+- a REVOKED offer is not counted either: it means somebody else accepted
+  first, which is a fact about the race and not about this professional.
+
+### 22.2 What score does somebody with no history get?
+
+Null, and the scoring engine leaves the component out of the numerator
+AND the denominator rather than guessing at it.
+
+The three obvious alternatives are each a decision about a livelihood.
+**Zero** makes a professional's first shift their last — no jobs, so no
+reviews; no reviews, so no jobs. **Full marks** puts a stranger above
+four years of five-star work, which is a promise to the customer nobody
+made. **The market average** is quieter and is still a number assembled
+from other people's work and attached to this one.
+
+Leaving it out says the true thing. A professional with a genuinely poor
+record still ranks below an unrated one — a bad record is worse than no
+record — and a great one still ranks above, which is what a rating is
+for. When every component is known and the weights sum to 1, the
+arithmetic is exactly what it replaced, and a test pins that.
+
+### 22.3 One job per shift, forever
+
+The presence machine is complete and tested: AVAILABLE → OFFER_RECEIVED →
+RESERVED → ASSIGNED → EN_ROUTE → ARRIVED → SERVICING → COMPLETING →
+AVAILABLE. **Six of those edges had never been crossed by anything.**
+
+`atomic-accept.ts` set ASSIGNED and that was the last word. The job routes
+moved the job and never the person. Dispatch only considers AVAILABLE
+professionals, so **a professional who accepted one job never received
+another** until they ended their shift and started a new one. On a
+platform whose promise is that somebody comes now, the supply side
+emptied itself one accept at a time, and the only visible symptom was
+jobs finding nobody.
+
+They are released at `/complete`, when they say the work is done — not
+when the customer confirms it. The confirmation may take hours or never
+come and the payment needs nothing from them; holding them out of the
+market until somebody else taps something would charge them for another
+person's inaction, worst of all to whoever is fastest.
+
+### 22.4 Cancellation is its own edge
+
+The job machine allows a cancellation from PRO_ASSIGNED onward. The
+presence machine had no edge out of those states except forward, so a
+customer changing their mind in the first minute stranded the
+professional for the shift.
+
+The first fix walked them forward through the steps the job would now
+never take. That is worse than the bug: it writes ARRIVED for somebody
+who never arrived into the record a support agent reads back. Cancellation
+releases directly to AVAILABLE from any committed state now, as a named
+exception — `presenceAfterCancellation()` — with the forward edges left
+strict, because there is no such thing as un-arriving. ENDING_SHIFT is
+not released: a cancelled job is not a reason to put somebody back to
+work. `/docs/07` records the addition.
+
+### 22.5 State
+
+**971 tests.** `verify:journey` now requests a SECOND job after the first
+closes, and it reaches the same professional — which is the proof that
+the release works — and reads back a rating the customer can see: **5.00
+from 9 reviews**, from work that actually happened.

@@ -3,6 +3,7 @@ import type { JobState, MapsRoutingProvider } from "@pro-now/types";
 import { evaluateServiceCredentials } from "./credential-eligibility";
 import { evaluateEligibility } from "./eligibility";
 import { rankCandidates, DEFAULT_SCORING_WEIGHTS, type ScoringWeights } from "./scoring";
+import { recordsFor } from "./professional-record";
 import { isTransitionAllowed } from "../job/transitions";
 
 /**
@@ -181,19 +182,34 @@ export async function triggerDispatch(
   const etaByProId = new Map(etas.map((e) => [e.originId, e]));
   const maxEta = Math.max(...etas.map((e) => e.etaSeconds), 1);
 
-  // Step 4 — scoring.
+  // Step 4 — scoring, on what is actually known about each candidate.
+  //
+  // This block used to pass 4.8, 0.9 and 0.95 for everybody — a
+  // fabricated trust score inside the engine that decides who is sent to
+  // a home, which /CLAUDE.md §3 forbids outright. It could not be removed
+  // before reviews existed, and reviews could not exist before payment.
+  // Now they are counted, and a professional with no history is scored on
+  // their ETA and their fit rather than on a flattering guess.
+  const records = await recordsFor(
+    prisma,
+    eligible.map(({ pro }) => pro.id)
+  );
+
   const ranked = rankCandidates(
-    eligible.map(({ pro }) => ({
-      professionalId: pro.id,
-      etaSeconds: etaByProId.get(pro.id)?.etaSeconds ?? maxEta,
-      maxEtaSecondsInShortlist: maxEta,
-      serviceFitScore: 1,
-      ratingAverage: 4.8, // placeholder until reviews aggregate is wired (Epic 11)
-      acceptanceRate: 0.9,
-      completionRate: 0.95,
-      cancellationPenalty: 0,
-      recentAssignmentPenalty: 0,
-    })),
+    eligible.map(({ pro }) => {
+      const record = records.get(pro.id);
+      return {
+        professionalId: pro.id,
+        etaSeconds: etaByProId.get(pro.id)?.etaSeconds ?? maxEta,
+        maxEtaSecondsInShortlist: maxEta,
+        serviceFitScore: 1,
+        ratingAverage: record?.ratingAverage ?? null,
+        acceptanceRate: record?.acceptanceRate ?? null,
+        completionRate: record?.completionRate ?? null,
+        cancellationPenalty: 0,
+        recentAssignmentPenalty: 0,
+      };
+    }),
     scoringWeights
   );
 

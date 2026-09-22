@@ -73,6 +73,29 @@ COMPLETING
 ENDING_SHIFT
   → OFFLINE
 ```
+
+### Cancellation is its own edge (added 2026-09-22)
+
+The job machine allows a cancellation from `PRO_ASSIGNED`,
+`PRO_EN_ROUTE`, `PRO_ARRIVED`, `WAITING_QUOTE_APPROVAL` and
+`IN_PROGRESS`. The presence machine above has no edge out of any of the
+matching states except forward — so a job cancelled after assignment left
+its professional stranded mid-machine and, because dispatch only
+considers `AVAILABLE` professionals, invisible for the rest of their
+shift. Punished for a cancellation that was not theirs.
+
+The forward edges are correct as written: there is no such thing as
+un-arriving, and walking somebody forward through steps that never
+happened would write `ARRIVED` for a visit nobody made into the record a
+support agent reads back.
+
+So a cancellation releases directly to `AVAILABLE` from any committed
+state, as a named exception rather than an ordinary transition —
+`presenceAfterCancellation()` in
+`apps/api/src/domain/job/pro-presence-transitions.ts`. `ENDING_SHIFT` is
+not released: a cancelled job is not a reason to put somebody back to
+work.
+
 A professional may end shift only when not committed to an active job,
 except via an explicit emergency/support path. `WORKING → AVAILABLE`
 without passing through `COMPLETED`/`CANCELLED` is impossible by
