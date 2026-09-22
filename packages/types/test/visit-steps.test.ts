@@ -4,19 +4,36 @@ import { visitStepIndex, visitStepsHe } from "../src/job-scene";
 import type { JobState } from "../src/job-state";
 
 describe("the shape of a visit", () => {
-  it("says nothing before the professional has arrived", () => {
+  it("says nothing until somebody has accepted", () => {
     /*
-     * The journey owns the screen until the knock — a countdown, a map,
-     * "בדרך אליך". A visit tracker beside that would answer a question
-     * nobody is asking yet.
+     * There is no job to show the shape of yet. A tracker during the
+     * search would draw four steps of a thing that may never happen, on
+     * the one screen that must not imply supply it does not have.
      */
-    for (const s of ["DRAFT", "SEARCHING", "OFFERED", "ASSIGNED", "EN_ROUTE"] as JobState[]) {
+    for (const s of ["DRAFT", "SEARCHING", "OFFERED"] as JobState[]) {
       expect(visitStepsHe(s), s).toBeNull();
     }
   });
 
+  it("starts the moment somebody is on their way", () => {
+    // Amit: "תעבוד על... הזמן שהטכנאי בדרך ועד שהוא מגיע." The countdown
+    // says how long; it does not say what this is the first of.
+    for (const s of ["PRO_ASSIGNED", "PRO_EN_ROUTE"] as JobState[]) {
+      const steps = visitStepsHe(s)!;
+      expect(steps[0]!.state, s).toBe("NOW");
+      expect(steps[0]!.labelHe).toBe("בדרך");
+    }
+  });
+
+  it("keeps assigned and en route as one step", () => {
+    // The difference is whether a van has pulled out, which the person
+    // waiting cannot see — a mark that moved for it would be reporting
+    // something that did not change for them.
+    expect(visitStepIndex("PRO_ASSIGNED")).toBe(visitStepIndex("PRO_EN_ROUTE"));
+  });
+
   it("marks exactly one step as the current one", () => {
-    for (const s of ["PRO_ARRIVED", "DIAGNOSIS", "WAITING_QUOTE_APPROVAL", "IN_PROGRESS", "COMPLETION_PENDING"] as JobState[]) {
+    for (const s of ["PRO_ASSIGNED", "PRO_EN_ROUTE", "PRO_ARRIVED", "DIAGNOSIS", "WAITING_QUOTE_APPROVAL", "IN_PROGRESS", "COMPLETION_PENDING"] as JobState[]) {
       const steps = visitStepsHe(s)!;
       expect(steps.filter((x) => x.state === "NOW"), s).toHaveLength(1);
     }
@@ -25,7 +42,7 @@ describe("the shape of a visit", () => {
   it("moves the mark forward at every state, and never backwards", () => {
     // The whole point: something on screen changes each time something
     // real happens, and only then.
-    const order: JobState[] = ["DIAGNOSIS", "WAITING_QUOTE_APPROVAL", "IN_PROGRESS", "COMPLETION_PENDING"];
+    const order: JobState[] = ["PRO_EN_ROUTE", "DIAGNOSIS", "WAITING_QUOTE_APPROVAL", "IN_PROGRESS", "COMPLETION_PENDING"];
     const seen = order.map((s) => visitStepIndex(s)!);
     expect(seen).toEqual([...seen].sort((a, b) => a - b));
     expect(new Set(seen).size).toBe(order.length);

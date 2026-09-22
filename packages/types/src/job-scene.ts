@@ -186,27 +186,50 @@ export interface VisitStep {
   state: "DONE" | "NOW" | "AHEAD";
 }
 
-/** The four steps, in order. Fixed: a visit does not reorder itself. */
-const VISIT_STEPS_HE = ["בדיקה", "הצעת מחיר", "העבודה", "סיום ותשלום"] as const;
+/**
+ * The five steps, in order. Fixed: a job does not reorder itself.
+ *
+ * "בדרך" was added after the first version shipped with four. Amit:
+ * *"תעבוד על המעברים ועל הזמן שהטכנאי בדרך ועד שהוא מגיע."*
+ *
+ * The tracker began at the knock, on the reasoning that the journey owns
+ * the screen until then — a countdown, a map, somebody moving towards
+ * you. That is true about ATTENTION and it was the wrong conclusion. The
+ * countdown says how long; it does not say what this is the first of. A
+ * person watching a stranger drive toward their flat wants the shape of
+ * the whole thing, and the journey is the part of it they are in.
+ */
+const VISIT_STEPS_HE = ["בדרך", "בדיקה", "הצעת מחיר", "העבודה", "סיום ותשלום"] as const;
 
 /**
  * Which step a job state sits in, or null before the visit has begun.
  *
- * Null matters: before the professional arrives the journey owns the
- * screen — a countdown, a map, "בדרך אליך" — and a visit tracker beside
- * it would be answering a question nobody is asking yet.
+ * Null matters, and it now means something narrower: before anybody has
+ * ACCEPTED there is no job to show the shape of. A tracker during the
+ * search would be drawing four steps of a thing that may never happen,
+ * on the one screen in the product that must not imply supply it does
+ * not have (/CLAUDE.md §3).
  */
 export function visitStepIndex(status: JobState): number | null {
   switch (status) {
+    /*
+     * Somebody has accepted and is coming. Assigned and en route are one
+     * step because they are one thing to the person waiting: the
+     * difference is whether a van has pulled out, which is not their
+     * business and would move the mark for something they cannot see.
+     */
+    case "PRO_ASSIGNED":
+    case "PRO_EN_ROUTE":
+      return 0;
     case "PRO_ARRIVED":
     case "DIAGNOSIS":
-      return 0;
-    case "WAITING_QUOTE_APPROVAL":
       return 1;
-    case "IN_PROGRESS":
+    case "WAITING_QUOTE_APPROVAL":
       return 2;
-    case "COMPLETION_PENDING":
+    case "IN_PROGRESS":
       return 3;
+    case "COMPLETION_PENDING":
+      return 4;
     /*
      * The work is over and the money has moved. The last step reads as
      * done rather than current — a tracker still pointing at "סיום
