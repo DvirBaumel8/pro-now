@@ -2243,3 +2243,48 @@ backwards — built from the forward map rather than written twice, because
 two lists that must agree eventually stop agreeing.
 
 **1024 tests. Typecheck, lint, a11y, screens, navigation all clean.**
+
+## 25. The price nobody could set (2026-09-22)
+
+`settle()` refuses to charge a job whose professional has no configured
+price, and it is right to: `ProfessionalService` says plainly that "nulls
+mean 'not configured', never 'free'".
+
+**Nothing in the product could set one.** `/v1/pro/services` was GET only.
+`ProPricingBody` — the screen designed for exactly this, with its own
+careful note that the platform's cut is "NULL until somebody decides it…
+a prop rather than a constant so that there is nowhere to put a default" —
+was rendered in the prototype and nowhere else. The only writer of
+`basePriceMinorUnits` in the entire repository was the development seed.
+
+So the payment chain built in §21 worked end to end for six demonstration
+professionals and dead-ended for every real one. They would accept a job,
+drive to it, do the work, and the settlement would answer
+NO_CONFIGURED_PRICE — after it was finished.
+
+`PATCH /v1/pro/services/:serviceId/pricing` closes it, and the shape of
+the validation is the interesting part: **the server has almost no opinion
+here on purpose.** No default, no suggested range, no floor or ceiling,
+no warning that a number looks low. Prices are the professional's own
+commercial decision (§4), so ₪5 and ₪5,000 are equally acceptable and
+neither is the platform's business.
+
+What IS checked is structure:
+
+- **which fields the price model gives meaning to.** An hourly minimum on
+  a fixed-price haircut is REFUSED rather than ignored — silently
+  dropping it means the professional types it, sees it accepted, is never
+  charged it, and finds out on an invoice.
+- money is a whole, non-negative number of agorot.
+- nobody prices a service they do not offer.
+
+Clearing a field back to null is allowed and is not zero. A professional
+who withdraws a price must not have the platform charging nothing on
+their behalf.
+
+The response carries `chargeable`, which is the question `settle()` will
+ask later, answered on the screen where the price is set rather than
+discovered after the work.
+
+**1010 tests.** `verify:journey` sets a price and is refused a meaningless
+field before it walks the job.

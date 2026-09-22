@@ -30,6 +30,13 @@ import {
  * or still unverified — the same evaluation dispatch itself runs, so what
  * the professional reads is what the dispatcher will decide.
  */
+import {
+  validatePricing,
+  isChargeable,
+  type PricingInput,
+} from "../domain/pricing/professional-pricing";
+import type { PriceModel } from "../domain/payments/settlement";
+
 export default async function proServicesRoutes(app: FastifyInstance) {
   app.get("/v1/pro/services", { onRequest: app.requireAuth }, async (req, reply) => {
     const professional = await app.prisma.professionalProfile.findUnique({
@@ -89,4 +96,78 @@ export default async function proServicesRoutes(app: FastifyInstance) {
       }),
     });
   });
+  /**
+   * The professional sets their own price for a service they offer.
+   *
+   * Until this existed, nothing in the product could write
+   * `basePriceMinorUnits` except the development seed — so a real
+   * professional finished a job and the settlement answered
+   * NO_CONFIGURED_PRICE. The payment chain worked for six demonstration
+   * people and dead-ended for everybody else.
+   *
+   * The server has almost no opinion here on purpose. No default, no
+   * suggested range, no floor, no "that looks low": prices are the
+   * professional's own commercial decision (/CLAUDE.md §4 and
+   * `ProfessionalService`). What is checked is structure — which fields
+   * this service's price model gives meaning to, and that money is a
+   * whole, non-negative number of agorot.
+   */
+  app.patch("/v1/pro/services/:serviceId/pricing", { onRequest: app.requireAuth }, async (req, reply) => {
+    const { serviceId } = req.params as { serviceId: string };
+    const body = (req.body ?? {}) as PricingInput;
+
+    const professional = await app.prisma.professionalProfile.findUnique({
+      where: { userId: req.user!.userId },
+    });
+    if (!professional) {
+      return reply.status(404).send({ code: "PROFESSIONAL_NOT_FOUND", message: "No professional profile" });
+    }
+
+    const professionalService = await app.prisma.professionalService.findUnique({
+      where: { professionalId_serviceId: { professionalId: professional.id, serviceId } },
+      include: { service: true },
+    });
+    if (!professionalService) {
+      // They do not offer this service. 404 rather than 403 for the same
+      // reason as elsewhere: the endpoint does not confirm what exists.
+      return reply.status(404).send({
+        code: "SERVICE_NOT_OFFERED",
+        message: "This service is not on your list",
+      });
+    }
+
+    const validation = validatePricing(
+      professionalService.service.priceModel as PriceModel,
+      body
+    );
+    if (!validation.ok) {
+      return reply.status(400).send({
+        code: "VALIDATION_FAILED",
+        message: "Request body failed validation",
+        fields: validation.errors.map((e) => ({ path: e.field, message: e.messageHe })),
+      });
+    }
+
+    const updated = await app.prisma.professionalService.update({
+      where: { professionalId_serviceId: { professionalId: professional.id, serviceId } },
+      data: validation.value,
+    });
+
+    return reply.send({
+      ok: true,
+      serviceId,
+      priceModel: professionalService.service.priceModel,
+      basePriceMinorUnits: updated.basePriceMinorUnits,
+      minimumBillableMinutes: updated.minimumBillableMinutes,
+      perKmMinorUnits: updated.perKmMinorUnits,
+      minimumFareMinorUnits: updated.minimumFareMinorUnits,
+      /*
+       * Whether a job on this service can be charged at all, answered
+       * here rather than discovered at settlement. A professional whose
+       * price is half-set should be told on the screen where they set it.
+       */
+      chargeable: isChargeable(professionalService.service.priceModel as PriceModel, validation.value),
+    });
+  });
+
 }

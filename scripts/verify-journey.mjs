@@ -147,6 +147,31 @@ const run = async () => {
     ? ok("the customer learns who is coming", `${match.json?.professional?.displayName ?? "?"} · ETA ${match.json?.eta?.etaSeconds ?? "?"}s`)
     : bad("the customer learns who is coming", `${match.status} ${match.text.slice(0, 120)}`);
 
+  /*
+   * THE PRICE IS THE PROFESSIONAL'S OWN, AND THEY CAN SET IT.
+   *
+   * Until `PATCH /v1/pro/services/:id/pricing` existed, nothing in the
+   * product could write `basePriceMinorUnits` except the development
+   * seed — so settlement answered NO_CONFIGURED_PRICE for every real
+   * professional, after the work was already done.
+   */
+  line("\n== THE PRICE ==");
+  const svcPricing = await call("PATCH", `/v1/pro/services/${svcId}/pricing`, {
+    token: proToken,
+    body: { basePriceMinorUnits: 15000 },
+  });
+  svcPricing.status === 200 && svcPricing.json?.chargeable === true
+    ? ok("the professional sets their own visit fee", `₪${(svcPricing.json.basePriceMinorUnits / 100).toFixed(2)}`)
+    : bad("the professional sets their own visit fee", `${svcPricing.status} ${svcPricing.text.slice(0, 160)}`);
+
+  const wrongField = await call("PATCH", `/v1/pro/services/${svcId}/pricing`, {
+    token: proToken,
+    body: { basePriceMinorUnits: 15000, minimumBillableMinutes: 120 },
+  });
+  wrongField.status === 400
+    ? ok("a field this price model has no meaning for is refused, not dropped")
+    : bad("a field this price model has no meaning for is refused, not dropped", `${wrongField.status}`);
+
   line("\n== THE JOB RUNS ==");
   for (const [label, path] of [
     ["professional sets off", `/v1/jobs/${jobId}/en-route`],
