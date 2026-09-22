@@ -1272,7 +1272,7 @@ layer it was always supposed to render.
 
 ### 15.7 The checks that run in a browser
 
-Three of them now, because the defects they catch are invisible to a unit
+Four of them now, because the defects they catch are invisible to a unit
 test and to a screenshot:
 
 | Command | What it fails on |
@@ -1280,6 +1280,7 @@ test and to a screenshot:
 | `npm run verify:screens` | a screen that throws, a screen with no way back, a control too small for a thumb, a dead end |
 | `npm run verify:game` | the wait is not a game: no figure, no arrows, arrows during the SEARCH, or holding one moves nothing |
 | `npm run verify:a11y` | contrast and labelling |
+| `npm run verify:handover` | a quote written on one side that does not arrive on the other |
 
 `verify:game` earned its place the hour it was written: it found that
 holding an arrow moved the figure three pixels and stopped, which is

@@ -563,6 +563,14 @@ export function App() {
    * something. The two sides were telling different stories about the
    * same quote.
    */
+  /**
+   * A request from the professional's side to show the customer their
+   * waiting quote — see `onSeeAsCustomer`. One-shot: CustomerApp clears
+   * it once it has navigated, so a later visit to that side does not
+   * re-open a quote somebody already answered.
+   */
+  const [openQuoteOnce, setOpenQuoteOnce] = useState(false);
+
   const [pendingQuote, setPendingQuote] = useState<{
     sentAtMs: number;
     draft: { lines: { id: string; description: string; quantity: number; unitPriceMinorUnits: number; kind: string }[]; notesHe: string } | null;
@@ -746,6 +754,8 @@ export function App() {
             onBackOut={backOut}
             onSendRequest={setLiveRequest}
             pendingQuote={pendingQuote}
+            openQuoteOnce={openQuoteOnce}
+            onQuoteOpened={() => setOpenQuoteOnce(false)}
             onQuoteDecision={(d) => {
               setQuoteDecision(d);
               setPendingQuote(null);
@@ -790,6 +800,17 @@ export function App() {
               setPendingQuote({ sentAtMs: Date.now(), draft });
             }}
             onQuoteSeen={() => setQuoteDecision(null)}
+            /*
+             * Crosses to the customer and asks for the quote. The shell
+             * owns the side, so it is the only place that can do both —
+             * and `openQuote` is a one-shot flag rather than a route,
+             * because CustomerApp owns its own routing and the shell
+             * must not reach into it.
+             */
+            onSeeAsCustomer={() => {
+              setOpenQuoteOnce(true);
+              switchTo("customer");
+            }}
           />
         )}
         </ScreenTransition>
@@ -927,6 +948,8 @@ function CustomerApp({
   onBackOut,
   onSendRequest,
   pendingQuote,
+  openQuoteOnce,
+  onQuoteOpened,
   onQuoteDecision,
   avatar,
   art,
@@ -951,6 +974,15 @@ function CustomerApp({
     sentAtMs: number;
     draft: { lines: { id: string; description: string; quantity: number; unitPriceMinorUnits: number; kind: string }[]; notesHe: string } | null;
   } | null;
+  /**
+   * Set when the professional asked, from their own side, to see this
+   * quote as the customer — the review control on their demo row. It is
+   * a request rather than a route: this component owns its routing, and
+   * the shell must not reach into it.
+   */
+  openQuoteOnce: boolean;
+  /** Cleared as soon as we have acted on it, so it fires exactly once. */
+  onQuoteOpened: () => void;
   onQuoteDecision: (d: "APPROVED" | "DECLINED") => void;
   /**
    * Who the customer walks the street as. Owned above, because the picker
@@ -1352,6 +1384,26 @@ const go = useCallback((r: CustomerRoute) => {
    * a navigation, and leaving it out of the history is what made the back
    * gesture fall out of the app.
    */
+  /*
+   * THE OTHER SIDE ASKED FOR THIS SCREEN.
+   *
+   * Amit: *"איך אני מאשר כרגע את הקריאה מצד הלקוח לראות שזה עובד?"* The
+   * answer was already in the app — the customer gets a capsule saying a
+   * quote is waiting — but finding it meant knowing to press "לקוח" and
+   * then noticing a strip above the tab bar. So the professional's demo
+   * row now crosses over and lands here directly.
+   *
+   * It runs through `go`, not `setRoute`, so the move is a real
+   * navigation: it animates, it moves the tab, and back returns to
+   * wherever the customer actually was.
+   */
+  useEffect(() => {
+    if (!openQuoteOnce) return;
+    onQuoteOpened();
+    if (!pendingQuote) return;
+    go({ name: "quote" });
+  }, [openQuoteOnce, onQuoteOpened, pendingQuote, go]);
+
   const goTab = useCallback((t: CustomerTab) => {
     backStack.current = [...backStack.current, { route: hereRef.current, tab: tabRef.current }].slice(-40);
     setTab(t);
@@ -2596,6 +2648,7 @@ function ProApp({
   sentQuoteNotes,
   onSendQuote,
   onQuoteSeen,
+  onSeeAsCustomer,
 }: {
   /**
    * The professional's city is the customer's city.
@@ -2631,6 +2684,13 @@ function ProApp({
   sentQuoteNotes: string;
   onSendQuote: (draft: { lines: { id: string; description: string; quantity: number; unitPriceMinorUnits: number; kind: string }[]; notesHe: string }) => void;
   onQuoteSeen: () => void;
+  /**
+   * Review-only: cross to the customer's side and open the quote that is
+   * waiting there. A real professional has no button that answers as
+   * their own customer, which is why this lives on the demo row and says
+   * "הדגמה" before it says anything else.
+   */
+  onSeeAsCustomer?: () => void;
 }) {
   const [tab, setTab] = useState<ProTab>("shift");
   const [presence, setPresence] = useState<ProPresenceState>("OFFLINE");
@@ -2774,7 +2834,28 @@ function ProApp({
     offerAt === null &&
     job === null &&
     settled === null;
-  const bodyH = height - BAR - (showDemo ? DEMO_H : 0);
+
+  /*
+   * ---------------------------------------------------------------------
+   * AND ONE FOR THE MOMENT THE BALL IS IN THE OTHER COURT
+   * ---------------------------------------------------------------------
+   * Amit, with a quote sent and the job waiting: *"איך אני מאשר כרגע את
+   * הקריאה מצד הלקוח לראות שזה עובד?"*
+   *
+   * The mechanism was already there — the customer gets a capsule
+   * reading "הצעת מחיר ממתינה לאישורך" that opens the quote — and
+   * reaching it meant knowing to press "לקוח" in the tab bar and then
+   * finding the capsule. For somebody testing both sides of a handover,
+   * that is two guesses at a moment when the screen says "waiting" and
+   * offers nothing.
+   *
+   * So the same demo row that hands the professional a sample call now
+   * also hands them the other side of this one. It is a review control
+   * and says so, like every other control in this row: a real
+   * professional has no button that answers as their customer.
+   */
+  const showHandover = job === "WAITING_QUOTE_APPROVAL" && settled === null;
+  const bodyH = height - BAR - (showDemo || showHandover ? DEMO_H : 0);
 
   useEffect(() => {
     if (offerAt === null) return;
@@ -3323,6 +3404,15 @@ function ProApp({
             height={height}
           />
         </RiseIn>
+      ) : null}
+
+      {showHandover ? (
+        <DemoBar
+          dark
+          label="מעבר לצד הלקוח כדי לאשר את ההצעה"
+          onPress={() => onSeeAsCustomer?.()}
+          width={width}
+        />
       ) : null}
 
       {showDemo ? (

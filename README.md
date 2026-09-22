@@ -55,12 +55,13 @@ the repository moved out of the build container — see EPIC-0-REPORT §17.
 | Prisma client | `npm run db:generate -w apps/api` | **PASS — v5.22.0** |
 | Typecheck (10 workspaces) | `npm run typecheck` | **CLEAN — all 10** |
 | Lint (10 workspaces) | `npm run lint` | **CLEAN** |
-| Unit tests | `npm test` | **PASS — 1010** |
+| Unit tests | `npm test` | **PASS — 1066** |
 | Domain logic | `npm run verify:domain` | **PASS — 28/28** |
 | Geometry | `npm run verify:geo` | **PASS** |
-| Accessibility | `npm run verify:a11y` | **PASS — 18 screens, 0 defects** |
+| Accessibility | `npm run verify:a11y` | **PASS — 19 screens, 0 defects** |
 | Screen sweep | `npm run verify:screens` | **PASS** |
 | Play layer | `npm run verify:game` | **PASS** |
+| Quote handover, both sides | `npm run verify:handover` | **PASS — written quote survives the crossing** |
 | Admin build | `next build` | **PASS — 7 pages** |
 | Schema vs. real database | `npm run db:verify` | **PASS — 1411/1411** |
 | Row lock vs. real Postgres | `npm run verify:rowlock` | **PASS — 7/7, with a control** |
@@ -120,7 +121,7 @@ npm run dev:pro        # Expo professional app
 
 `tools/design-preview` renders the real `packages/ui` components in a
 browser. The checks that drive it (`verify:a11y`, `verify:screens`,
-`verify:game`, and the geo shots) navigate to **127.0.0.1:4421**, so the
+`verify:game`, `verify:handover`, and the geo shots) navigate to **127.0.0.1:4421**, so the
 server has to be up first — the port is pinned in `vite.config.ts` so the
 two cannot drift apart:
 
