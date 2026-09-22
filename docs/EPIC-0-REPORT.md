@@ -1685,3 +1685,121 @@ MapsRoutingProvider + a live-location subscription, Epic 7/12") rather
 than a map, which is what `/CLAUDE.md §3` requires of a screen with no
 real supply behind it yet. It is not a gap in this session's work; it is
 the next epic, announcing itself.
+
+## 19. The first time anyone walked the whole thing (2026-09-22)
+
+Amit: *"חיבור נתונים אמיתי שאוכל כבר לנסות לראות איך זה עובד."*
+
+Every part was green. Typecheck, lint, 892 tests, the schema verified
+against a real database in both directions, the row lock proven against
+real tables. What had never happened was the WHOLE: one customer, one
+professional, one job, over HTTP, from "I need somebody" to "they
+finished".
+
+The first attempt failed at six steps. One was the database having no
+people in it. Five were defects that every other gate had passed over,
+because a unit test asks whether a rule is right and none of them asks
+whether the rules are connected to each other.
+
+### 19.1 Nobody to dispatch to
+
+`seed.ts` seeds the catalogue, which is real. It does not seed people,
+and without people a request reaches `NO_ELIGIBLE_CANDIDATES` correctly
+and every screen after it is unreachable.
+
+`prisma/seed-dev.ts` adds six demonstration professionals around central
+Tel Aviv. It refuses to run unless NODE_ENV is local **and** DATABASE_URL
+points at this machine — both, because inserting professionals who are
+AVAILABLE with a current position is fabricated supply anywhere else, and
+§3 forbids that outright.
+
+Their positions age out after ninety seconds exactly as a real one would.
+`npm run dev:pulse` keeps them current the way a phone does — by
+reporting a new position on a timer — rather than by raising the
+threshold and quietly disabling the rule being tested.
+
+### 19.2 The offer nobody answered
+
+`dispatch-service.ts` has described its own pipeline as "sequential offer
+-> atomic accept -> fallback" since it was written. The fallback covered
+the professional who taps SKIP. The professional who taps **nothing** —
+the common case, because phones are in pockets — had nothing at all.
+
+An unanswered offer stranded three things permanently: the offer, still
+`SENT` past its own expiry; the **professional**, still `OFFER_RECEIVED`,
+which is not `AVAILABLE` and therefore invisible to every future dispatch
+— one missed offer removed them from the market for good; and the **job**,
+still `OFFERING`, with a customer watching a screen that said somebody was
+coming.
+
+That last one is this product's founding complaint, arriving through the
+front door.
+
+`offer-expiry.ts` expires the offer, returns the professional through the
+edge the presence machine already labelled `skip/expire`, and asks the
+next candidate. It does not move the job: `/docs/07` has no
+`OFFERING -> SEARCHING` edge and is right not to — OFFERING means "we are
+making offers", so a second offer needs no announcement. When the ranked
+list is exhausted it keeps looking rather than giving up, because a market
+that is empty at 14:03 is not empty at 14:04; only past the search
+deadline does it cancel the job and say so.
+
+Three smaller things fell out of the same walk:
+
+- **The fallback was a boomerang.** Re-dispatch excluded nobody, so a
+  professional who skipped was returned to AVAILABLE, was still the
+  highest-scoring candidate, and was handed the same job a millisecond
+  later. Dispatch now excludes everyone already asked about that job.
+- **Dispatch wrote job status directly**, bypassing the state machine, so
+  a re-dispatch dragged an OFFERING job back to SEARCHING — a state the
+  machine has no edge to. The job then refused every later transition.
+- **A job that found nobody on its first pass was dead forever**, left in
+  SEARCHING with a MATCH_FAILED event and no retry. The sweep picks those
+  up too. One such job, stranded by an earlier run, came back to life the
+  first time the sweeper started.
+
+### 19.3 Three ways the server answered wrongly
+
+- **`accept` required Redis.** The lock's own comment says it is "a
+  latency optimization, not the safety mechanism" — the row lock is the
+  guarantee, and `verify:rowlock` proves it 7/7. The implementation
+  disagreed: with Redis down, ioredis exhausted twenty retries and threw,
+  and the single irreplaceable moment in this product answered 500. A
+  Redis that will not answer is now stepped over, loudly. A Redis that
+  answers *"somebody else holds this"* still refuses — that is a real race.
+
+- **The error handler had never run.** It sat at the bottom of
+  `server.ts`, after the route registrations, and every route is a plugin
+  with its own encapsulation context. Fastify resolves the handler from
+  the context a route was registered into, so nothing the routes threw
+  ever reached it. Every error response this API has ever sent came from
+  Fastify's default serializer — which is why none carried a `requestId`,
+  and why a 500's message was never masked. Moving it above the routes was
+  the entire fix.
+
+- **A malformed body was a 500 with the validator pasted into it.** A
+  `ZodError` carries no `statusCode`, so a missing field was reported as
+  the server breaking, with zod's `issues` array serialized into the
+  message. It is a 400 now, with field paths and nothing else.
+
+  Recognising it took one more turn: zod ships a CJS build and an ESM
+  build, the schemas throw the class from one and `server.ts` imported the
+  class from the other, so `instanceof` was false for an error that was
+  unmistakably a ZodError. It is matched by shape.
+
+### 19.4 What the walk says now
+
+`npm run verify:journey` runs it: sign-in, catalogue, address, request,
+dispatch, offer, accept, the address released only after the accept, the
+intake answers arriving with it, en-route, arrival, diagnosis, a ₪370
+quote with its line items, approval, completion. **Every step passes.**
+
+It stops at `COMPLETION_PENDING`, and that is not a failure. Everything
+past it — COMPLETED, PAYMENT_*, REVIEW_PENDING — is EPIC 10, and
+`reviews.ts` correctly refuses a review before payment. The payment
+marketplace provider is one of the decisions §4 forbids this codebase from
+inventing; what can be built without that decision is the sandbox adapter
+path, and that is the next epic rather than a gap in this one.
+
+902 tests. Typecheck and lint clean. `db:verify` 1411/1411,
+`verify:rowlock` 7/7.

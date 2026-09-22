@@ -7,6 +7,10 @@ import type { ProPresenceState } from "@pro-now/types";
  * through COMPLETING — there is no edge that skips it.
  */
 export class InvalidPresenceTransitionError extends Error {
+  /** A refused transition is a conflict, not a crash — see InvalidJobTransitionError. */
+  readonly statusCode = 409;
+  readonly code = "INVALID_PRESENCE_TRANSITION";
+
   constructor(public readonly from: ProPresenceState, public readonly to: ProPresenceState) {
     super(`Invalid professional presence transition: ${from} -> ${to}`);
   }

@@ -50,6 +50,20 @@ Everywhere one of these matters, the codebase exposes an interface + a
 labeled sandbox adapter + an `app_config`/roadmap TODO — never a guessed
 answer.
 
+### TBD — how long a customer waits before being told nobody is coming
+
+`DISPATCH_SEARCH_DEADLINE_SECONDS`, added 2026-09-22 with the offer-expiry
+fallback, currently defaults to **300 seconds**. Until then the server
+keeps walking down the ranked list and re-checking the market; after it,
+the job is cancelled by SYSTEM with `NO_PROFESSIONAL_AVAILABLE` and the
+customer is told the truth.
+
+Five minutes is a starting point, not an answer. It is the moment this
+product either keeps a promise or breaks one, it interacts with the
+support SLA (also TBD), and it is plainly a business call rather than an
+engineering one — so it is a number in config, recorded here, and not a
+decision the codebase claims to have made.
+
 ### The one that is blocking a real complaint, with the numbers
 
 Amit, on the artifact: *"איפה כל הדברים של כל המקצועות? למה אין, ולא קיים

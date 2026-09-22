@@ -8,6 +8,17 @@ import type { JobState, JobActor } from "@pro-now/types";
  */
 
 export class InvalidJobTransitionError extends Error {
+  /*
+   * A refused transition is a CONFLICT, not a crash. The server's error
+   * handler reads `statusCode`/`code` off the error and defaults to 500,
+   * and its comment claimed the domain errors carry them — they did not,
+   * so asking for a quote on a job that was still searching came back as
+   * "Internal Server Error" with the reason swallowed. It is a rule the
+   * caller broke, it names itself, and the caller can act on it.
+   */
+  readonly statusCode = 409;
+  readonly code = "INVALID_JOB_TRANSITION";
+
   constructor(public readonly from: JobState, public readonly to: JobState) {
     super(`Invalid job transition: ${from} -> ${to}`);
   }

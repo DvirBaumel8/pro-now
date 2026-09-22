@@ -125,18 +125,25 @@ blocks the epic's stated acceptance criteria.
 See `/docs/EPIC-0-REPORT.md` for the as-built state, contradictions found
 between source documents, and the recommended next epic.
 
-**Read `§18` in that report first**, then `§17`, `§16` and `§15` —
+**Read `§19` in that report first**, then `§18`, `§17` and `§15` —
 together they are the current truth about what has actually been
 installed, compiled, linted, bundled, rendered and executed. They
 supersede the older `§7`/`§8`.
 
-`§17` records the move out of the build container onto a developer
-machine, which is where the Prisma blocker ended and where three defects
-the ungenerated client had been hiding became visible. `§15` is still the
-one to read before touching either mobile app.
+`§19` records the first end-to-end walk of the product, which found the
+dispatch fallback that was described but never built, the professional
+stranded out of the market by one unanswered offer, and the error handler
+that had never executed. `§18` records the database and the server's first
+boot; `§17` the move out of the build container. `§15` is still the one to
+read before touching either mobile app.
+
+`npm run verify:journey` walks the whole product against a running server
+— sign-in, catalogue, request, dispatch, accept, arrival, quote, approval,
+completion — and is the fastest way to learn whether the parts are still
+connected to each other. It needs `npm run dev:pulse` running beside it.
 
 Short version: **typecheck is clean across all 10 workspaces** — the first
-time in this project's history — lint is clean, 892 unit tests pass, the
+time in this project's history — lint is clean, 902 unit tests pass, the
 admin build is green, and `verify:domain`, `verify:geo`, `verify:a11y`,
 `verify:screens` and `verify:game` all pass. The **baseline migration
 exists** (`apps/api/prisma/migrations/0_init`, derived from the schema by

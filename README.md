@@ -6,8 +6,8 @@ request a trusted, verified professional to come **now**. See
 `/CLAUDE.md` for the engineering contract and `/docs/00-VISION.md` onward
 for the full product/engineering specification this repo implements.
 
-**Start here:** `/docs/EPIC-0-REPORT.md` — read **§18** first, then **§17**
-and **§16**. Together they are the honest record of what has actually been
+**Start here:** `/docs/EPIC-0-REPORT.md` — read **§19** first, then **§18**
+and **§17**. Together they are the honest record of what has actually been
 installed, compiled, linted, bundled, rendered and executed. They supersede
 the older §7/§8, which describe a session that could not run anything.
 
@@ -55,7 +55,7 @@ the repository moved out of the build container — see EPIC-0-REPORT §17.
 | Prisma client | `npm run db:generate -w apps/api` | **PASS — v5.22.0** |
 | Typecheck (10 workspaces) | `npm run typecheck` | **CLEAN — all 10** |
 | Lint (10 workspaces) | `npm run lint` | **CLEAN** |
-| Unit tests | `npm test` | **PASS — 892** |
+| Unit tests | `npm test` | **PASS — 902** |
 | Domain logic | `npm run verify:domain` | **PASS — 28/28** |
 | Geometry | `npm run verify:geo` | **PASS** |
 | Accessibility | `npm run verify:a11y` | **PASS — 18 screens, 0 defects** |
@@ -66,6 +66,7 @@ the repository moved out of the build container — see EPIC-0-REPORT §17.
 | Row lock vs. real Postgres | `npm run verify:rowlock` | **PASS — 7/7, with a control** |
 | API boot | `npm run dev:api` | **PASS — /health 200, catalogue served from the database** |
 | Mobile bundles | `expo export --platform ios` | **PASS — both apps** |
+| Whole journey over HTTP | `npm run verify:journey` | **PASS — every step** |
 | Admin + gallery in a browser | manual | **PASS — 0 console errors** |
 
 Every gate in this table has now been run on one machine.
@@ -100,6 +101,13 @@ docker compose up -d             # or any PostgreSQL 16 + PostGIS 3.4
 
 npm run db:migrate:deploy --workspace=apps/api   # applies 0_init
 npm run db:seed           --workspace=apps/api   # 9 departments, 15 categories, 25 services
+
+# Local only: six demonstration professionals to dispatch to, and the
+# heartbeat that keeps their positions current the way a phone would.
+# Both refuse to run against anything but a local database.
+npm run db:seed:dev
+npm run dev:pulse &
+npm run verify:journey                           # the whole product, end to end
 
 npm run dev:api        # Fastify API on :4000
 npm run dev:admin      # Next.js admin on :3000

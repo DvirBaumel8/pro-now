@@ -1,8 +1,9 @@
 import type { PrismaClient } from "@prisma/client";
-import type { MapsRoutingProvider } from "@pro-now/types";
+import type { JobState, MapsRoutingProvider } from "@pro-now/types";
 import { evaluateServiceCredentials } from "./credential-eligibility";
 import { evaluateEligibility } from "./eligibility";
 import { rankCandidates, DEFAULT_SCORING_WEIGHTS, type ScoringWeights } from "./scoring";
+import { isTransitionAllowed } from "../job/transitions";
 
 /**
  * Simplified synchronous dispatch trigger for this delivery — see
@@ -16,7 +17,13 @@ import { rankCandidates, DEFAULT_SCORING_WEIGHTS, type ScoringWeights } from "./
 const GEO_PREFILTER_DEGREES = 0.15; // ~ generous bounding box; real PostGIS ST_DWithin narrows further in SQL
 
 export interface DispatchOutcome {
-  status: "OFFER_SENT" | "NO_ELIGIBLE_CANDIDATES";
+  /**
+   * `EXHAUSTED` is not the same as `NO_ELIGIBLE_CANDIDATES`. The first
+   * means everybody who could do this job has already been asked and has
+   * skipped or timed out; the second means nobody could do it right now.
+   * A caller deciding whether to keep waiting needs to tell them apart.
+   */
+  status: "OFFER_SENT" | "NO_ELIGIBLE_CANDIDATES" | "EXHAUSTED";
   offerId?: string;
   professionalId?: string;
   candidatesConsidered: number;
@@ -36,15 +43,42 @@ export async function triggerDispatch(
     include: { address: true, service: { include: { requirements: true } } },
   });
 
-  await prisma.job.update({ where: { id: jobId }, data: { status: "SEARCHING" } });
-  await prisma.jobEvent.create({
-    data: { jobId, type: "MATCHING_STARTED", actor: "SYSTEM", metadata: {} },
+  /*
+   * The job moves to SEARCHING only if the machine allows it from where it
+   * is. This used to be an unconditional write, which meant a re-dispatch
+   * (a skip, or an offer that timed out) dragged an OFFERING job back to
+   * SEARCHING — an edge /docs/07-JOB-STATE-MACHINE.md does not have. The
+   * job then refused every later transition, because the machine was being
+   * asked to leave a state the job should never have been in.
+   *
+   * OFFERING already means "we are making offers". A second offer does not
+   * need a second announcement.
+   */
+  if (isTransitionAllowed(job.status as JobState, "SEARCHING")) {
+    await prisma.job.update({ where: { id: jobId }, data: { status: "SEARCHING" } });
+    await prisma.jobEvent.create({
+      data: { jobId, type: "MATCHING_STARTED", actor: "SYSTEM", metadata: {} },
+    });
+  }
+
+  /*
+   * Everybody who has already been asked about THIS job. Without this the
+   * fallback is a boomerang: a professional skips, is returned to
+   * AVAILABLE, is still the nearest and highest-scoring candidate, and is
+   * handed the same job again a millisecond later. The offer is meant to
+   * walk down the ranked list, not bounce off the top of it.
+   */
+  const alreadyAsked = await prisma.dispatchOffer.findMany({
+    where: { jobId },
+    select: { professionalId: true },
   });
+  const askedIds = new Set(alreadyAsked.map((o) => o.professionalId));
 
   // Step 1 — coarse geographic pre-filter (bounding box here; PostGIS
   // ST_DWithin in the real query builder against professional_locations).
   const nearbyProfessionals = await prisma.professionalProfile.findMany({
     where: {
+      id: askedIds.size > 0 ? { notIn: [...askedIds] } : undefined,
       presenceState: "AVAILABLE",
       services: { some: { serviceId: job.serviceId, status: "APPROVED" } },
       locations: {
@@ -110,10 +144,30 @@ export async function triggerDispatch(
   });
 
   if (eligible.length === 0) {
+    /*
+     * Nobody left to ask, and whether that is a dead end depends on why.
+     * If this job has already been offered to someone, the ranked list has
+     * been walked to its end — the caller should stop. If it has not, the
+     * market is simply empty at this instant, and a professional coming
+     * online in thirty seconds changes the answer.
+     */
+    const exhausted = askedIds.size > 0;
     await prisma.jobEvent.create({
-      data: { jobId, type: "MATCH_FAILED", actor: "SYSTEM", metadata: { reason: "NO_ELIGIBLE_CANDIDATES" } },
+      data: {
+        jobId,
+        type: "MATCH_FAILED",
+        actor: "SYSTEM",
+        metadata: {
+          reason: exhausted ? "EXHAUSTED" : "NO_ELIGIBLE_CANDIDATES",
+          alreadyAsked: askedIds.size,
+        },
+      },
     });
-    return { status: "NO_ELIGIBLE_CANDIDATES", candidatesConsidered: nearbyProfessionals.length, candidatesEligible: 0 };
+    return {
+      status: exhausted ? "EXHAUSTED" : "NO_ELIGIBLE_CANDIDATES",
+      candidatesConsidered: nearbyProfessionals.length,
+      candidatesEligible: 0,
+    };
   }
 
   // Step 3 — real ETA for the shortlist only.

@@ -27,6 +27,14 @@ export const envSchema = z.object({
   GOOGLE_MAPS_API_KEY: z.string().optional(),
 
   DISPATCH_OFFER_TIMEOUT_SECONDS: z.coerce.number().int().positive().default(30),
+  /**
+   * How long the server keeps looking before telling the customer that
+   * nobody is available. Unlike the offer timeout, this one is a promise
+   * to a person rather than a property of the engine, and it is recorded
+   * as unconfirmed in /docs/18-ROADMAP.md §Open decisions. The default is
+   * a starting point.
+   */
+  DISPATCH_SEARCH_DEADLINE_SECONDS: z.coerce.number().int().positive().default(300),
   DISPATCH_GEO_PREFILTER_KM: z.coerce.number().positive().default(8),
   LOCATION_FRESHNESS_THRESHOLD_SECONDS: z.coerce.number().int().positive().default(90),
 });

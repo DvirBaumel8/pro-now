@@ -19,7 +19,16 @@ export default async function offersRoutes(app: FastifyInstance) {
     }
 
     try {
-      const result = await acceptOffer({ prisma: app.prisma, redis: app.redis }, id, professional.id, requestId);
+      const result = await acceptOffer(
+        {
+          prisma: app.prisma,
+          redis: app.redis,
+          log: (message, err) => app.log.warn({ err, offerId: id }, message),
+        },
+        id,
+        professional.id,
+        requestId
+      );
       return reply.send({ ok: true, ...result });
     } catch (err) {
       if (err instanceof OfferNoLongerAvailableError) {

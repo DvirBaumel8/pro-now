@@ -27,20 +27,55 @@ export class OfferNoLongerAvailableError extends Error {
 
 const JOB_LOCK_TTL_MS = 5000;
 
-async function withJobLock<T>(redis: Redis, jobId: string, fn: () => Promise<T>): Promise<T> {
+/**
+ * The lock is an optimization, so its absence is not a failure.
+ *
+ * The paragraph above says it plainly — the row lock is the source of
+ * correctness and Redis only saves two requests from both opening a
+ * transaction that would serialize anyway. The implementation did not
+ * agree: with Redis unreachable, `redis.set` exhausted ioredis's twenty
+ * retries and threw, and a professional tapping ACCEPT got "Internal
+ * Server Error". An optimization had become a hard dependency, and the
+ * one irreplaceable moment in this product — the accept — was the thing
+ * it took down.
+ *
+ * So a Redis that will not answer is stepped over, loudly. What is NOT
+ * stepped over is a Redis that answers "somebody else holds this": that
+ * is a real race and still refuses the accept.
+ */
+async function withJobLock<T>(
+  redis: Redis,
+  jobId: string,
+  log: ((message: string, err: unknown) => void) | undefined,
+  fn: () => Promise<T>
+): Promise<T> {
   const lockKey = `pronow:lock:job:${jobId}`;
   const token = Math.random().toString(36).slice(2);
-  const acquired = await redis.set(lockKey, token, "PX", JOB_LOCK_TTL_MS, "NX");
-  if (!acquired) {
-    throw new OfferNoLongerAvailableError(jobId);
+
+  let held = false;
+  try {
+    const acquired = await redis.set(lockKey, token, "PX", JOB_LOCK_TTL_MS, "NX");
+    if (!acquired) {
+      // Redis answered, and the answer was no. Another accept is in flight.
+      throw new OfferNoLongerAvailableError(jobId);
+    }
+    held = true;
+  } catch (err) {
+    if (err instanceof OfferNoLongerAvailableError) throw err;
+    log?.("job lock unavailable — proceeding on the database row lock alone", err);
   }
+
   try {
     return await fn();
   } finally {
-    // Only release if we still own it (best-effort; TTL is the real backstop).
-    const current = await redis.get(lockKey);
-    if (current === token) {
-      await redis.del(lockKey);
+    if (held) {
+      try {
+        // Only release if we still own it (best-effort; TTL is the real backstop).
+        const current = await redis.get(lockKey);
+        if (current === token) await redis.del(lockKey);
+      } catch (err) {
+        log?.("job lock release failed — the TTL will clear it", err);
+      }
     }
   }
 }
@@ -48,16 +83,23 @@ async function withJobLock<T>(redis: Redis, jobId: string, fn: () => Promise<T>)
 export interface AcceptOfferDeps {
   prisma: PrismaClient;
   redis: Redis;
+  /**
+   * Optional, so the domain does not depend on a logger — but a lock that
+   * was skipped must not be skipped silently. Losing the fast path costs
+   * latency under contention, and an operator should be able to see that
+   * it happened.
+   */
+  log?: (message: string, err: unknown) => void;
 }
 
 export async function acceptOffer(deps: AcceptOfferDeps, offerId: string, professionalId: string, requestId: string) {
-  const { prisma, redis } = deps;
+  const { prisma, redis, log } = deps;
 
   const offer = await prisma.dispatchOffer.findUnique({ where: { id: offerId } });
   if (!offer) throw new OfferNoLongerAvailableError(offerId);
   if (offer.professionalId !== professionalId) throw new OfferNoLongerAvailableError(offerId);
 
-  return withJobLock(redis, offer.jobId, async () => {
+  return withJobLock(redis, offer.jobId, log, async () => {
     return prisma.$transaction(async (tx) => {
       // Row-lock the job so a concurrent transaction (should the Redis lock
       // ever be bypassed, e.g. in a Redis outage) still cannot double-assign.
