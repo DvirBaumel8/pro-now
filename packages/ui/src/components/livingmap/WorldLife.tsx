@@ -21,6 +21,7 @@ import {
 } from "@pro-now/types";
 
 import { AssetSlot, EMPTY_ASSET_SOURCES, type WorldAssetSources } from "./AssetSlot";
+import { livingPalette as P } from "./palette";
 import { SHADOW } from "./shadowGeometry";
 import { HAIR_PACK_V0 } from "./hairPack";
 
@@ -121,7 +122,18 @@ function shapeOf(assetId: string): number {
  * ambient moments still index a line to sit beside.
  */
 const MOMENT_ASSET: Readonly<
-  Record<WorldMoment, { assetId: string; widthRatio: number; street: number; at?: number; gait?: Gait }>
+  Record<
+    WorldMoment,
+    {
+      assetId: string;
+      widthRatio: number;
+      street: number;
+      at?: number;
+      gait?: Gait;
+      /** Rendered by this file rather than loaded. See WINDOW_LIGHT. */
+      drawn?: boolean;
+    }
+  >
 > = {
   COURIER_PASS: { assetId: "courier_scooter", widthRatio: 0.11, street: 0, gait: "RIDE" },
   MOVER_PASS: { assetId: "moving_van", widthRatio: 0.15, street: 0, gait: "HAUL" },
@@ -129,7 +141,21 @@ const MOMENT_ASSET: Readonly<
   DOG_WALK: { assetId: "dog_walker", widthRatio: 0.06, street: 0, gait: "WALK" },
   // `at` is a point along the street: a light comes on in a shop, not in
   // mid-air.
-  WINDOW_LIGHT: { assetId: "amb_window_light", widthRatio: 0.07, street: 0, at: 0.3 },
+  /*
+   * DRAWN, NOT LOADED.
+   *
+   * `amb_window_light` has been on the missing-art list since the world
+   * was built, and it should never have been on it. A cat is a drawing
+   * and a bird is a drawing; a light coming on is a GRADIENT, and asking
+   * a draughtsman for one is asking them to hand-paint something the
+   * renderer can make exactly, at any size, in any of the palette's
+   * colours.
+   *
+   * So this moment is marked `drawn` and renders as warm light instead of
+   * waiting for a file. `amb_birds` and `amb_cat` keep waiting, because
+   * they are figures and a script cannot invent a convincing animal.
+   */
+  WINDOW_LIGHT: { assetId: "amb_window_light", widthRatio: 0.07, street: 0, at: 0.3, drawn: true },
   BIRDS: { assetId: "amb_birds", widthRatio: 0.12, street: 0, at: 0.5 },
   CAT_APPEAR: { assetId: "amb_cat", widthRatio: 0.03, street: 0, at: 0.7 },
 };
@@ -317,10 +343,11 @@ export function WorldLife({
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       {playing.map((p) => {
         const spec = MOMENT_ASSET[p.moment];
-        // Nothing is drawn for a moment whose art has not arrived. An
+        // Nothing is loaded for a moment whose art has not arrived. An
         // invisible courier is better than a grey rectangle sliding down
-        // the road pretending to be one.
-        if (!sources[spec.assetId]) return null;
+        // the road pretending to be one — but a moment this file DRAWS
+        // has nothing to wait for.
+        if (!spec.drawn && !sources[spec.assetId]) return null;
 
         const significant = isSignificant(p.moment);
         /*
@@ -520,6 +547,11 @@ export function WorldLife({
          * So it repeats the position and the depth scale and takes neither
          * the bob nor the rotation.
          */
+        /*
+         * Light casts none. The ellipse goes under things that stand on
+         * the ground; a window lighting up is not standing anywhere.
+         */
+        const castsShadow = !spec.drawn;
         const shadowW = w * SHADOW.widthRatio;
         const shadowH = shadowW * SHADOW.flatness;
 
@@ -564,25 +596,69 @@ export function WorldLife({
 
         return (
           <React.Fragment key={`${p.moment}-${p.startedAt}`}>
-            <Animated.View
-              pointerEvents="none"
-              style={[
-                {
-                  position: "absolute",
-                  left: 0,
-                  top: 0,
-                  width: shadowW,
-                  height: shadowH,
-                  borderRadius: 999,
-                  backgroundColor: "rgba(14,10,20,1)",
-                },
-                shadowStyle,
-              ]}
-            />
+            {castsShadow ? (
+              <Animated.View
+                pointerEvents="none"
+                style={[
+                  {
+                    position: "absolute",
+                    left: 0,
+                    top: 0,
+                    width: shadowW,
+                    height: shadowH,
+                    borderRadius: 999,
+                    backgroundColor: "rgba(14,10,20,1)",
+                  },
+                  shadowStyle,
+                ]}
+              />
+            ) : null}
 
           <Animated.View
             style={[{ position: "absolute", left: 0, top: 0, width: w, height: base }, travelStyle]}
           >
+            {spec.drawn ? (
+              /*
+               * A WINDOW COMING ON.
+               *
+               * Two circles of the palette's own window amber: a small
+               * bright core where the glass is, and a wide soft halo for
+               * the light spilling onto the street around it. No border,
+               * no frame, no shape that claims to be a building — the
+               * shopfronts are somebody's drawing and this is only the
+               * light in one of them.
+               *
+               * The fade in and out is the opacity the still moments
+               * already have, which is exactly the right curve for this:
+               * a light comes on, stays, and goes off.
+               */
+              <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+                <View
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    top: 0,
+                    width: w,
+                    height: base,
+                    borderRadius: 999,
+                    backgroundColor: P.lampGlow,
+                    opacity: 0.16,
+                  }}
+                />
+                <View
+                  style={{
+                    position: "absolute",
+                    left: w * 0.3,
+                    top: base * 0.3,
+                    width: w * 0.4,
+                    height: base * 0.4,
+                    borderRadius: 999,
+                    backgroundColor: P.window,
+                    opacity: 0.7,
+                  }}
+                />
+              </View>
+            ) : (
             <AssetSlot
               placement={{
                 key: p.moment,
@@ -609,6 +685,7 @@ export function WorldLife({
               quiet
               pending="none"
             />
+            )}
           </Animated.View>
           </React.Fragment>
         );
