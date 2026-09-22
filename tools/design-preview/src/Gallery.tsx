@@ -34,6 +34,7 @@ import {
   serviceDetailElectric,
   serviceDetailLeak,
 } from "./screenFixtures";
+import { worldSources } from "./worldSources";
 
 /**
  * Developer-only gallery.
@@ -231,6 +232,18 @@ export function Gallery() {
 
         <Frame caption="C10 · מעקב — התקדמות, ETA, יצירת קשר ממוסכת">
           <TrackingBody
+            /*
+             * THE NEIGHBOURHOOD, NOT THE OLD GRID.
+             *
+             * Without `worldSources` this screen falls back to an
+             * abstract dark grid with a dotted curve across it — the
+             * thing `TrackingBody`'s own comment says was replaced
+             * because it was the only screen still happening somewhere
+             * other than our streets. Amit, looking at exactly that:
+             * *"מה מבינים מהמסך הזה של המסלול הכחול עם הכתום... לא טוב."*
+             * He was reviewing a fallback nobody meant him to see.
+             */
+            worldSources={worldSources}
             status="PRO_EN_ROUTE"
             serviceNameHe="תיקון נזילה בברז"
             professional={matchFixture.professional}
@@ -251,6 +264,18 @@ export function Gallery() {
           */}
         <Frame caption="C10 · בודק את התקלה — הצעד הראשון מתוך ארבעה">
           <TrackingBody
+            /*
+             * THE NEIGHBOURHOOD, NOT THE OLD GRID.
+             *
+             * Without `worldSources` this screen falls back to an
+             * abstract dark grid with a dotted curve across it — the
+             * thing `TrackingBody`'s own comment says was replaced
+             * because it was the only screen still happening somewhere
+             * other than our streets. Amit, looking at exactly that:
+             * *"מה מבינים מהמסך הזה של המסלול הכחול עם הכתום... לא טוב."*
+             * He was reviewing a fallback nobody meant him to see.
+             */
+            worldSources={worldSources}
             status="DIAGNOSIS"
             serviceNameHe="תיקון נזילה בברז"
             professional={matchFixture.professional}
@@ -263,6 +288,18 @@ export function Gallery() {
 
         <Frame caption="C10 · הצעת המחיר מחכה — הסימון זז צעד אחד">
           <TrackingBody
+            /*
+             * THE NEIGHBOURHOOD, NOT THE OLD GRID.
+             *
+             * Without `worldSources` this screen falls back to an
+             * abstract dark grid with a dotted curve across it — the
+             * thing `TrackingBody`'s own comment says was replaced
+             * because it was the only screen still happening somewhere
+             * other than our streets. Amit, looking at exactly that:
+             * *"מה מבינים מהמסך הזה של המסלול הכחול עם הכתום... לא טוב."*
+             * He was reviewing a fallback nobody meant him to see.
+             */
+            worldSources={worldSources}
             status="WAITING_QUOTE_APPROVAL"
             serviceNameHe="תיקון נזילה בברז"
             professional={matchFixture.professional}
@@ -275,6 +312,18 @@ export function Gallery() {
 
         <Frame caption="C10 · הגיע ומתחיל לעבוד — ETA משוער מסומן ככזה">
           <TrackingBody
+            /*
+             * THE NEIGHBOURHOOD, NOT THE OLD GRID.
+             *
+             * Without `worldSources` this screen falls back to an
+             * abstract dark grid with a dotted curve across it — the
+             * thing `TrackingBody`'s own comment says was replaced
+             * because it was the only screen still happening somewhere
+             * other than our streets. Amit, looking at exactly that:
+             * *"מה מבינים מהמסך הזה של המסלול הכחול עם הכתום... לא טוב."*
+             * He was reviewing a fallback nobody meant him to see.
+             */
+            worldSources={worldSources}
             status="IN_PROGRESS"
             serviceNameHe="התקנת מזגן"
             professional={matchNewProFixture.professional}
