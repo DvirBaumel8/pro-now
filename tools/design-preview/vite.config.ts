@@ -15,11 +15,15 @@ export default defineConfig({
    * shots) navigates to localhost:4421. That port was being passed on the
    * command line by hand, so `npm run preview:design` served 5173 and
    * every one of those scripts failed to connect. Pinned here so the
-   * server and the scripts cannot drift apart again. The host is pinned to
-   * IPv4 because some of those scripts ask for 127.0.0.1 and some for
-   * localhost, and a v6-only bind answers only one of them.
+   * server and the scripts cannot drift apart again.
+   *
+   * `host: true` binds every interface, for two reasons. A v6-only bind
+   * answers `localhost` and not `127.0.0.1`, and the scripts in here ask
+   * for both. And the gallery is read on a phone over the LAN — that is
+   * how the design work is actually reviewed, and pinning this to
+   * 127.0.0.1 silently cut it off.
    */
-  server: { host: "127.0.0.1", port: 4421, strictPort: true },
+  server: { host: true, port: 4421, strictPort: true },
   plugins: [react()],
   resolve: {
     alias: [
