@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Easing, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Animated, Easing, Linking, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 
 import { CARD_REST, customerCategoryById, categoryForDepartment, liveAreaLineHe, DEMO_WORLD, type CandidatePresence, type LivingMapPhase, type LivingMapState, themeForDepartment } from "@pro-now/types";
 import {
@@ -54,8 +54,8 @@ import fixtureGeo from "../geo/fixture_grid.json";
 import { ActiveJobCapsule, AddressPickerBody, AppHeader, AvatarPickerBody, IntroBody, customerDarkTheme, FocusSheet, ScreenTransition, ArrivalVerifyBody, CallsListBody, CAPSULE_HEIGHT, ChatBody, ConnectionBanner, CategoryBody, CustomerHomeBody, CustomerProfileBody, customerTheme, DescribeFaultBody, JobClosedBody, JobCompleteBody, lex, MatchConfirmBody, NavGlyph, Persona, PhoneAuthBody, ProEarningsBody, ProJobBody, ProJobSettledBody, ProOfferBody, ProOnlineBody, ProPricingBody, ProProfileBody, ProServicesBody, ProShiftBody, proTheme, ProVerificationBody, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, StrollBody, Sheet, spacing, tint, TrackingBody, type as t, WelcomeBody } from "@pro-now/ui";
 import type { JobMediaItem, LiveLocationState, MarkName, NavGlyphName, ProPricingRow } from "@pro-now/ui";
 import type { AuthStage, ChatMessage, ConnectionState } from "@pro-now/ui";
-import { buildIntakeBrief, pilotIntakeByService, pilotServiceById, readAvailability } from "@pro-now/types";
-import type { IntakeAnswer, IntakeBriefLine, OfferCardView, PriceModel } from "@pro-now/types";
+import { canHandOffToMaps, mapsHandoffUrl, buildIntakeBrief, pilotIntakeByService, pilotServiceById, readAvailability } from "@pro-now/types";
+import type { IntakeAnswer, IntakeBriefLine, MapsPlatform, OfferCardView, PriceModel } from "@pro-now/types";
 import type { JobState, ProPresenceState } from "@pro-now/types";
 
 import { installBackGesture, pushBackEntry, setBackHandler } from "./backGesture";
@@ -3266,11 +3266,39 @@ function ProApp({
         <Text style={styles.sheetBodyDark}>
           רחוב הברזל 12, רמת אביב · קומה 3, דירה 9 · קוד כניסה 1408
         </Text>
-        <Pressable style={styles.sheetPrimary} onPress={() => setProSheet(null)}>
+        {/*
+          * IT OPENS MAPS NOW.
+          *
+          * Amit: *"איפה הכתובת נפתחת במפות עם זמן מוערך לנסיעה?"* This
+          * button said "פתיחה באפליקציית הניווט" and closed the sheet,
+          * under a note explaining that the maps VENDOR is an open
+          * decision. The note is true and it was excusing the wrong
+          * thing: computing routes needs a vendor, handing an address to
+          * the app somebody already has needs a link. A professional
+          * standing beside their van looking at an address they cannot
+          * open was being told the app cannot do what every app does.
+          *
+          * The drive time they then see is their maps app's, computed by
+          * it and presented by it — which is also why this is allowed to
+          * exist while `MapsRoutingProvider` is still undecided. We are
+          * not claiming a number; we are handing over an address.
+          */}
+        <Pressable
+          style={styles.sheetPrimary}
+          onPress={() => {
+            const address = "רחוב הברזל 12, רמת אביב, תל אביב";
+            if (!canHandOffToMaps(address)) return;
+            const platform: MapsPlatform =
+              Platform.OS === "android" ? "android" : Platform.OS === "ios" ? "ios" : "web";
+            void Linking.openURL(mapsHandoffUrl(address, platform));
+            setProSheet(null);
+          }}
+        >
           <Text style={styles.sheetPrimaryText}>פתיחה באפליקציית הניווט</Text>
         </Pressable>
         <Text style={styles.sheetNoteDark}>
-          ספק המפות עדיין לא נבחר — החלטה עסקית פתוחה — אז כאן אין ניווט אמיתי.
+          זמן הנסיעה שיוצג שם הוא של אפליקציית הניווט שלך. PRO NOW לא מחשב מסלולים — ספק המפות עוד
+          לא נבחר — אז המספר הזה שלה, לא שלנו.
         </Text>
       </Sheet>
 

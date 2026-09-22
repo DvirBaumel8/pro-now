@@ -16,6 +16,7 @@ export * from "./job-scene";
 export * from "./world-assets";
 export * from "./world-play";
 export * from "./virtual-venue";
+export * from "./maps-handoff";
 export * from "./search-sweep";
 export * from "./customer-categories";
 export * from "./world-neighbourhood";
