@@ -327,14 +327,26 @@ export const STREETS: readonly Street[] = [
     path: [
       { u: 0.51, v: 0.58 },
       { u: 0.76, v: 0.6 },
-      { u: 0.88, v: 0.72 },
+      /*
+       * STOPS AT THE KERB, NOT IN THE ROAD.
+       *
+       * This ended at u 0.88, and the carriageway at that depth runs
+       * from 0.805 to 0.945 — so the market street finished in the
+       * middle of the tarmac. It did not matter while these spines only
+       * POSITIONED things; it matters now that people walk them, and
+       * `lanes.test.ts` measures every point of every street against
+       * `roadAt` rather than trusting the numbers to look sensible.
+       */
+      { u: 0.79, v: 0.72 },
     ],
   },
   {
     id: "back",
     labelHe: "הסמטה",
     path: [
-      { u: 0.86, v: 0.7 },
+      // Begins on the pavement for the same reason: 0.86 at this depth
+      // was inside a carriageway running 0.799 to 0.944.
+      { u: 0.78, v: 0.7 },
       { u: 0.84, v: 0.9 },
       { u: 0.66, v: 0.96 },
     ],

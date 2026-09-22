@@ -11,6 +11,7 @@ import {
   ROAD,
   STREETS,
   bobAt,
+  laneForGait,
   leanAt,
   pathLength,
   travelMs,
@@ -266,9 +267,23 @@ export function WorldLife({
     const driver = new Animated.Value(0);
     const startSpec = MOMENT_ASSET[decision.start];
     const travelling = isSignificant(decision.start);
-    const road = ROAD;
+    const startGait: Gait = startSpec.gait ?? "DRIVE";
+    /*
+     * THE LENGTH OF THE PATH ACTUALLY TAKEN.
+     *
+     * This measured `ROAD` for everything, and the dog walker now takes
+     * the pavement — a different path, a different length. `travelMs`
+     * turns a distance into a time at the gait's own speed, so measuring
+     * one path and walking another is exactly the "walking versus being
+     * dragged" fault `world-motion.ts` is built to avoid: the figure
+     * would cover the pavement at road speed.
+     */
+    const lane =
+      laneForGait(startGait) === "ROAD"
+        ? ROAD
+        : STREETS[startSpec.street % STREETS.length]!;
     const duration = travelling
-      ? travelMs(startSpec.gait ?? "DRIVE", pathLength(road.path))
+      ? travelMs(startGait, pathLength(lane.path))
       : MOMENT_SPEC[decision.start].durationMs;
 
     /*
@@ -375,6 +390,7 @@ export function WorldLife({
          * aspect ratio, and the size that is set is the HEIGHT, from the
          * one ruler everything alive shares. See `VEHICLE_OF_PERSON`.
          */
+        const gait: Gait = spec.gait ?? "DRIVE";
         const ratio = shapeOf(spec.assetId);
         const base = significant
           ? vehicleHeight(width, spec.assetId)
@@ -404,7 +420,16 @@ export function WorldLife({
          * keep the square's own spine, which is the line the shops stand
          * along, and it is the one thing `STREETS` is still right about.
          */
-        const street = significant ? ROAD : STREETS[spec.street % STREETS.length]!;
+        /*
+         * THE ROAD IS FOR THINGS WITH WHEELS.
+         *
+         * This was `significant ? ROAD : ...`, and the dog walker is a
+         * significant moment — so a person with a dog walked down the
+         * middle of the carriageway. Derived from the gait now, so a
+         * walking thing cannot be given the road. See `laneForGait`.
+         */
+        const street =
+          laneForGait(gait) === "ROAD" ? ROAD : STREETS[spec.street % STREETS.length]!;
         const path = Array.from({ length: STREET_SAMPLES }, (_, i) => {
           const t = i / (STREET_SAMPLES - 1);
           const at = alongStreet(street, p.reversed ? 1 - t : t);
@@ -422,7 +447,6 @@ export function WorldLife({
          * points the position is sampled at. They cannot drift apart,
          * because they are readings of the same journey.
          */
-        const gait: Gait = spec.gait ?? "DRIVE";
         const facing: 1 | -1 = p.reversed ? -1 : 1;
         /*
          * MEASURED ONCE, CUMULATIVELY.

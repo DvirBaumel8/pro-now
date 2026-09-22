@@ -47,6 +47,37 @@
 /** What kind of thing is moving. Decides its gait and its speed. */
 export type Gait = "WALK" | "RUN" | "RIDE" | "DRIVE" | "HAUL";
 
+/**
+ * ---------------------------------------------------------------------
+ * WHERE A THING MOVES, DECIDED BY HOW IT MOVES
+ * ---------------------------------------------------------------------
+ * Every moving thing in the world took the carriageway — including the
+ * DOG WALKER. A person with a dog was walking down the middle of the
+ * road, past the zebra crossings, for as long as the street has existed.
+ *
+ * `roadAt` exists to prove that no BUILDING stands in the road, because a
+ * shopfront on a crossing is obvious once seen. Nobody had asked the
+ * question the other way round.
+ *
+ * So the lane is derived from the gait rather than listed beside each
+ * moment. A table would be a second thing to keep in step, and the first
+ * time somebody added a pedestrian they would copy the row above it — the
+ * row that says ROAD. Derived, a walking thing cannot be put in the road
+ * at all.
+ *
+ * It also puts street life where the camera is. The carriageway runs up
+ * the far right of the plate (u 0.74 → 0.96) while the shops stand along
+ * the streets, so with the search camera down among the shopfronts the
+ * traffic was measured driving off-screen in three samples out of four.
+ * A courier belongs on the road and stays there; a person belongs on the
+ * pavement, which is where there is anybody to see them.
+ */
+export type Lane = "ROAD" | "PAVEMENT";
+
+export function laneForGait(gait: Gait): Lane {
+  return gait === "WALK" || gait === "RUN" ? "PAVEMENT" : "ROAD";
+}
+
 export interface GaitSpec {
   /**
    * How many rise-and-falls per unit of world distance.
