@@ -51,7 +51,7 @@ const proWorldSources: WorldAssetSources = Object.fromEntries(
 import { standInWorldSources } from "./standInAvatars";
 import fixtureGeo from "../geo/fixture_grid.json";
 
-import { ActiveJobCapsule, AddressPickerBody, AppHeader, AvatarPickerBody, IntroBody, customerDarkTheme, FocusSheet, ScreenTransition, ArrivalVerifyBody, CallsListBody, CAPSULE_HEIGHT, ChatBody, ConnectionBanner, CategoryBody, CustomerHomeBody, CustomerProfileBody, customerTheme, DescribeFaultBody, JobClosedBody, JobCompleteBody, lex, MatchConfirmBody, NavGlyph, Persona, PhoneAuthBody, ProEarningsBody, ProJobBody, ProJobSettledBody, ProOfferBody, ProOnlineBody, ProPricingBody, ProProfileBody, ProShiftBody, proTheme, ProVerificationBody, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, StrollBody, Sheet, spacing, tint, TrackingBody, type as t, WelcomeBody } from "@pro-now/ui";
+import { ActiveJobCapsule, AddressPickerBody, AppHeader, AvatarPickerBody, IntroBody, customerDarkTheme, FocusSheet, ScreenTransition, ArrivalVerifyBody, CallsListBody, CAPSULE_HEIGHT, ChatBody, ConnectionBanner, CategoryBody, CustomerHomeBody, CustomerProfileBody, customerTheme, DescribeFaultBody, JobClosedBody, JobCompleteBody, lex, MatchConfirmBody, NavGlyph, Persona, PhoneAuthBody, ProEarningsBody, ProJobBody, ProJobSettledBody, ProOfferBody, ProOnlineBody, ProPricingBody, ProProfileBody, ProServicesBody, ProShiftBody, proTheme, ProVerificationBody, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, StrollBody, Sheet, spacing, tint, TrackingBody, type as t, WelcomeBody } from "@pro-now/ui";
 import type { JobMediaItem, LiveLocationState, MarkName, NavGlyphName, ProPricingRow } from "@pro-now/ui";
 import type { AuthStage, ChatMessage, ConnectionState } from "@pro-now/ui";
 import { buildIntakeBrief, pilotIntakeByService, pilotServiceById, readAvailability } from "@pro-now/types";
@@ -2567,6 +2567,25 @@ function ProApp({
   const [proChat, setProChat] = useState<ChatMessage[]>(chatSeed);
   const [proView, setProView] = useState<null | "chat" | "presence" | "pricing">(null);
 
+  /**
+   * WHICH SERVICES ARE ARMED FOR THIS SHIFT.
+   *
+   * Amit: *"איך אני מוריד ומעלה אפשרויות?"* The sheet that answered that
+   * question said "אפשר לכבות ולהדליק שירותים בכל רגע" and carried no
+   * control at all.
+   *
+   * Held here rather than inside the sheet, because arming a service is
+   * not a property of a sheet — it is what the shift screen's chips
+   * report and what dispatch would read. A toggle that changed only the
+   * sheet would be the same dead control with a nicer surface.
+   *
+   * Starts as everything the professional is ELIGIBLE for: somebody who
+   * has gone to the trouble of being approved for a service wants it on.
+   */
+  const [armed, setArmed] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(proServices.map((s) => [s.id, s.enabled && !s.blockedReasonHe]))
+  );
+
   /*
    * ---------------------------------------------------------------------
    * THE PROFESSIONAL SIDE HAD NO HISTORY AT ALL
@@ -3037,12 +3056,24 @@ function ProApp({
           id: s.id,
           nameHe: s.nameHe,
           mark: s.mark,
-          live: s.enabled && !s.blockedReasonHe,
+          // Eligible AND armed. Either one alone is not "taking calls".
+          live: s.enabled && !s.blockedReasonHe && (armed[s.id] ?? true),
         }))}
         nowMs={shiftNow}
         onToggleOnline={toggle}
         onOpenEarnings={() => goProTab("earnings")}
-        onManageServices={() => goPro("presence")}
+        /*
+         * STRAIGHT TO THE SERVICES, NOT TO A SCREEN THAT HAS THEM.
+         *
+         * This opened the presence screen, which has its own "ניהול"
+         * that opens the services sheet — so the link sitting beside
+         * "שירותים במשמרת" took two hops to reach the services, and the
+         * first hop landed somewhere about location and shift state.
+         * Amit: *"איך אני מוריד ומעלה אפשרויות?"* He pressed the label
+         * that promised it and did not arrive.
+         */
+        onManageServices={() => setProSheet("services")}
+        onOpenPresence={() => goPro("presence")}
         /*
          * THE PLATE, AND NOTHING ELSE — because that is what the
          * professional's app ships.
@@ -3231,13 +3262,26 @@ function ProApp({
         width={width}
         height={height}
       >
-        <Text style={styles.sheetBodyDark}>
-          אפשר לכבות ולהדליק שירותים בכל רגע. שירות חסום לא נפתח מכאן — הוא נפתח כשהמסמך שפג
-          מתחדש, כי ההסמכה נבדקת מול כל שירות בנפרד ולא מול החשבון.
-        </Text>
-        <Pressable style={styles.sheetPrimary} onPress={() => setProSheet(null)}>
-          <Text style={styles.sheetPrimaryText}>חידוש רישיון חשמלאי</Text>
-        </Pressable>
+        {/*
+          * This said "אפשר לכבות ולהדליק שירותים בכל רגע" and gave no way
+          * to do either. Amit went looking for the control and concluded
+          * the screen was broken, which is the right conclusion: an app
+          * that describes a capability it does not offer is worse than
+          * one that stays quiet about it.
+          */}
+        <ProServicesBody
+          rows={proServices.map((s) => ({
+            id: s.id,
+            nameHe: s.nameHe,
+            mark: s.mark,
+            eligible: s.enabled && !s.blockedReasonHe,
+            live: armed[s.id] ?? true,
+            blockedReasonHe: s.blockedReasonHe,
+          }))}
+          onToggle={(id, next) => setArmed((a) => ({ ...a, [id]: next }))}
+          width={width - spacing.xl * 2}
+          height={Math.round(height * 0.5)}
+        />
       </Sheet>
 
       <TabBar

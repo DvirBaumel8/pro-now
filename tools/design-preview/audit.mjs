@@ -441,7 +441,15 @@ await visit('describe', CUST, [HOME_DOOR, 'פתיחת סתימה', 'בקשת ב�
 await visit('calls', CUST, [async () => p.getByLabel('תפריט').first().click()]);
 await visit('card', CUST, [async () => p.getByLabel(/החשבון שלי/).first().click()]);
 await visit('pro-shift-offline', PRO, []);
-await visit('pro-presence', PRO, ['ניהול']);
+/*
+ * "ניהול" was one link beside the service list that opened the PRESENCE
+ * screen, so this step audited a screen about location under a label
+ * about services — and once the services got their own sheet, this step
+ * started auditing the sheet while still calling it pro-presence.
+ * Each door is named for where it goes now.
+ */
+await visit('pro-services', PRO, ['שירותים']);
+await visit('pro-presence', PRO, ['מיקום']);
 await visit('pro-shift-online', PRO, ['התחלת משמרת']);
 await visit('pro-earnings', PRO, ['כמה הרווחתי']);
 await visit('pro-verify', PRO, ['המסמכים שלי']);

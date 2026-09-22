@@ -32,6 +32,7 @@ export * from "./screens/TrackingBody";
 export * from "./screens/ProOnlineBody";
 export * from "./screens/ArrivalVerifyBody";
 export * from "./screens/MatchConfirmBody";
+export * from "./screens/ProServicesBody";
 export * from "./screens/ProShiftBody";
 export * from "./screens/ProJobSettledBody";
 export * from "./screens/ServiceDetailBody";

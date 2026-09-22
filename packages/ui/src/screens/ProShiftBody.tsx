@@ -105,6 +105,15 @@ export interface ProShiftBodyProps {
    * not fixed on a phone at all.
    */
   onOpenPricing?: () => void;
+  /**
+   * The map-forward presence screen — where am I, and am I on shift.
+   *
+   * A separate door from "שירותים", which is about which work you are
+   * taking. "ניהול" used to mean this one while sitting beside the
+   * service list, which is how a professional looking for the service
+   * switches ended up somewhere about location.
+   */
+  onOpenPresence?: () => void;
   width?: number;
   height?: number;
   /**
@@ -129,6 +138,7 @@ export function ProShiftBody({
   onOpenEarnings,
   onManageServices,
   onOpenPricing,
+  onOpenPresence,
   width = 390,
   height = 780,
   worldSources,
@@ -363,10 +373,35 @@ export function ProShiftBody({
         )}
 
         {/* --- Services armed for this shift --- */}
+        {/* ----------------------------------------------------------------
+            THREE DOORS, EACH SAYING WHERE IT GOES.
+
+            Amit: *"איך מנהלים את העמוד הזה? איך אני מוריד ומעלה
+            אפשרויות?"*
+
+            There was one link here, "ניהול", sitting beside "שירותים
+            במשמרת" — and it opened the PRESENCE screen, which is about
+            location and shift state. From there a second "ניהול" reached
+            the services. So the link that looked like the answer was two
+            hops from it and the first hop went somewhere else entirely.
+
+            A label next to a list of services promises that list. These
+            say which one they mean.
+            ---------------------------------------------------------------- */}
         <View style={styles.servicesHead}>
           <Pressable onPress={onManageServices} accessibilityRole="button" style={styles.manageHit}>
-            <Text style={styles.manage}>ניהול</Text>
+            <Text style={styles.manage}>שירותים</Text>
           </Pressable>
+          {onOpenPresence ? (
+            <Pressable
+              onPress={onOpenPresence}
+              accessibilityRole="button"
+              accessibilityLabel="מיקום ומצב המשמרת"
+              style={styles.manageHit}
+            >
+              <Text style={styles.manage}>מיקום</Text>
+            </Pressable>
+          ) : null}
           {onOpenPricing ? (
             <Pressable
               onPress={onOpenPricing}

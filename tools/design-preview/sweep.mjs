@@ -226,7 +226,43 @@ await inspect('10-living-route', { needsBack: false });
 await tryClick('מקצוען', 1400);
 await inspect('11-pro-shift', { needsBack: false });
 await tryClick('הבנתי, בוא נתחיל', 900);
-await tryClick('ניהול', 1200); await inspect('12-pro-presence');
+/*
+ * "ניהול" now opens the services sheet directly — it used to open the
+ * presence screen, from which a SECOND "ניהול" reached the services, so
+ * the link beside "שירותים במשמרת" took two hops to reach the services.
+ *
+ * A sheet covers the tab bar, which is what a sheet is for. The walk has
+ * to close it, or every step after this one is clicking on a scrim —
+ * which is exactly what the three "tab not tappable" failures were.
+ */
+/*
+ * "שירותים" opens the service switches; "מיקום" opens the presence
+ * screen. They used to be one link called "ניהול" that went to the
+ * second while sitting beside the first — which is how a professional
+ * looking for the service switches ended up on a screen about location.
+ */
+await tryClick('שירותים', 1200);
+await inspect('12-pro-services', { needsBack: false });
+/*
+ * CLOSED, AND CHECKED THAT IT CLOSED.
+ *
+ * A sheet covers the tab bar, which is what a sheet is for — so a walk
+ * that opens one and carries on is clicking a scrim from then on. That
+ * was three "tab not tappable" failures in a row, none of which was
+ * about a tab.
+ *
+ * The switches are the tell: while any is on the page the sheet is
+ * still up. Asserting it rather than sleeping means a future change to
+ * the close control fails HERE, loudly, instead of as four unrelated
+ * failures further down.
+ */
+await p.getByRole('button', { name: 'סגירה' }).first().click({ timeout: 4000 }).catch(() => {});
+await p.waitForTimeout(700);
+if ((await p.getByRole('switch').count()) > 0) {
+  problems.push('the services sheet would not close — every step after this one is hitting its scrim');
+}
+await tryClick('מיקום', 1200);
+await inspect('12b-pro-presence');
 await tryClick('המחירים שלך', 1200); await inspect('13-pro-pricing');
 
 /*
