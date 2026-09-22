@@ -14,6 +14,7 @@ import {
   RETURN,
   shotForBeat,
   worldZoomFor,
+  roadIsMeasuredFor,
   sweepFrame,
   streetTour,
   nextSweepBoundary,
@@ -1149,7 +1150,18 @@ export function LivingMapScene({
               * marketplace rather than a traffic simulator. Nothing draws
               * until its art exists.
               */}
-            {worldSources ? (
+            {/*
+              * NOT OVER A REAL MAP.
+              *
+              * Amit: *"גם על המפה הגדולה עפים יצורים לא קשורים ולא נראה
+              * אמיתי."* With `geo` set the ground is somebody's actual
+              * neighbourhood and there is no painted road on it — the
+              * carriageway these vehicles drive is a measurement of one
+              * illustration, so over a real map they were driving through
+              * buildings. `WorldBackdrop` already refused this; the scene
+              * did not. See `roadIsMeasuredFor`.
+              */}
+            {worldSources && roadIsMeasuredFor({ realMap: geo !== null }) ? (
               <WorldLife
                 departmentCode={departmentCode}
                 width={world.width}

@@ -189,7 +189,31 @@ export function ScreenTransition({
         },
       ]}
     >
-      {children}
+      {/*
+        * ---------------------------------------------------------------------
+        * EVERY SCREEN OPENS AT THE TOP
+        * ---------------------------------------------------------------------
+        * Amit: *"גם הגלילה שרואים פרטים על ההזמנה לא נגללת למעלה, סתם
+        * נראה כאילו."*
+        *
+        * This layer is one view whose CHILDREN change, so React reuses a
+        * component instance wherever the outgoing and incoming screens are
+        * the same type — two categories, two service pages, a list and the
+        * detail rendered by the same body. The ScrollView inside is then
+        * never remounted, and it keeps the offset it had: you tap into a
+        * new screen and arrive halfway down it, looking at the middle of
+        * something you have not seen the top of.
+        *
+        * Worse than a cosmetic fault, because it is invisible from the
+        * code and looks like a rendering glitch to the person using it —
+        * "סתם נראה כאילו" is exactly right.
+        *
+        * A key on the subtree makes a navigation a remount, which is what
+        * a navigation IS. A screen's local state does not survive leaving
+        * it, and should not: anything that must outlive a screen belongs
+        * to whoever is doing the navigating, not to the view.
+        */}
+      <React.Fragment key={transitionKey}>{children}</React.Fragment>
     </Animated.View>
   );
 }

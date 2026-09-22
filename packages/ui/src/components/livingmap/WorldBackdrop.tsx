@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { Animated, Easing, StyleSheet, View } from "react-native";
 
-import { type WorldGeo, geoAspect, metresAcrossAt, worldBox, worldZoomFor } from "@pro-now/types";
+import { type WorldGeo, geoAspect, metresAcrossAt, roadIsMeasuredFor, worldBox, worldZoomFor } from "@pro-now/types";
 
 import { palette } from "../../theme";
 import { AssetSlot, EMPTY_ASSET_SOURCES, type WorldAssetSources } from "./AssetSlot";
@@ -463,8 +463,17 @@ export function WorldBackdrop({
           />
         ) : null}
 
-        {/* Ambient traffic is invention, and invention stays off real roads. */}
-        {geo ? null : (
+        {/*
+          * Ambient traffic is invention. It stays off real roads — and off
+          * any painting that is not the one the road was measured on.
+          *
+          * This screen can be given a different ground (`welcome_hero`),
+          * and the traffic kept driving at the old plate's coordinates:
+          * a scooter across a café terrace, because the terrace is where
+          * the other picture's road used to be. Amit: *"עפים בלי קשר
+          * קטנוע משאית... נראה לא אמיתי."* See `roadIsMeasuredFor`.
+          */}
+        {!roadIsMeasuredFor({ groundAssetId: assetId, realMap: geo !== null }) ? null : (
         <WorldLife
           width={worldW}
           height={worldH}

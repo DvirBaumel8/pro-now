@@ -266,6 +266,44 @@ export const ROAD_SAMPLES: readonly RoadSample[] = [
   { u: 0.959, v: 0.958, width: 0.09 },
 ];
 
+/**
+ * ---------------------------------------------------------------------
+ * THE ONE PICTURE THESE COORDINATES MEAN ANYTHING ON
+ * ---------------------------------------------------------------------
+ * `ROAD_SAMPLES` were measured against a specific painting. They are not
+ * a road in the abstract: they are where the tarmac is in
+ * `world_neighbourhood.webp`, to three decimal places.
+ *
+ * That was forgotten in two places, and Amit found both:
+ *
+ *   "עדיין במסך הכניסה עפים בלי קשר קטנוע משאית, לא מבין את זה, נראה לא
+ *    אמיתי" — the welcome screen paints `welcome_hero`, a DIFFERENT
+ *    picture with its own street in its own place, and ran the traffic
+ *    over it at the old picture's coordinates. A scooter drove across a
+ *    café terrace because the terrace is where the other painting's road
+ *    used to be.
+ *
+ *   "גם על המפה הגדולה עפים יצורים לא קשורים ולא נראה אמיתי" — with the
+ *    real map on, there is no painted road at all, and the vans drove
+ *    over somebody's actual neighbourhood.
+ *
+ * So the rule has a name and one home. Ambient traffic may run only on
+ * the plate its road was measured against: not on another painting, and
+ * never on a real map, where invented traffic would be a claim about a
+ * real street.
+ */
+export const ROAD_PLATE_ASSET_ID = "world_neighbourhood";
+
+/** Whether `ROAD` describes the ground currently being drawn. */
+export function roadIsMeasuredFor(args: {
+  groundAssetId?: string | null;
+  /** A real map. There is no painted road on one. */
+  realMap?: boolean;
+}): boolean {
+  if (args.realMap) return false;
+  return (args.groundAssetId ?? ROAD_PLATE_ASSET_ID) === ROAD_PLATE_ASSET_ID;
+}
+
 /** The line a vehicle drives along. */
 export const CARRIAGEWAY: readonly NormalizedPoint[] = ROAD_SAMPLES.map(({ u, v }) => ({ u, v }));
 

@@ -156,3 +156,78 @@ export function jobProgressHe(status: JobState, firstNameHe?: string | null): st
       return null;
   }
 }
+
+/**
+ * ---------------------------------------------------------------------
+ * THE SHAPE OF A VISIT, WITH A MARK WHERE YOU ARE IN IT
+ * ---------------------------------------------------------------------
+ * Amit: *"בשלב שהמקצוען התחיל לבדוק ועד להצעת מחיר אין שום דבר בזמן
+ * העבודה, אין שום תחלופה במסך."*
+ *
+ * `jobProgressHe` answers "what is happening" in one sentence, and it was
+ * the only thing on the screen that moved. Between a professional
+ * arriving and a price appearing, minutes pass with one unchanging line
+ * of text — so a person standing in their kitchen has no way to tell the
+ * app is still alive, let alone how much of this is left.
+ *
+ * A sentence says where you are. It does not say where that IS. Four
+ * steps with one of them marked says both, and it changes at every
+ * transition — so the screen visibly moves each time something real
+ * happens, and never in between.
+ *
+ * WHAT IT DELIBERATELY DOES NOT DO. No times, no percentage, no bar
+ * filling up. How long a diagnosis takes is not knowable from a state
+ * and inventing it is the same fabrication as an invented ETA
+ * (/CLAUDE.md §3). A step is either behind you, the one you are in, or
+ * ahead — three honest answers, and no fourth one pretending to measure.
+ */
+export interface VisitStep {
+  labelHe: string;
+  state: "DONE" | "NOW" | "AHEAD";
+}
+
+/** The four steps, in order. Fixed: a visit does not reorder itself. */
+const VISIT_STEPS_HE = ["בדיקה", "הצעת מחיר", "העבודה", "סיום ותשלום"] as const;
+
+/**
+ * Which step a job state sits in, or null before the visit has begun.
+ *
+ * Null matters: before the professional arrives the journey owns the
+ * screen — a countdown, a map, "בדרך אליך" — and a visit tracker beside
+ * it would be answering a question nobody is asking yet.
+ */
+export function visitStepIndex(status: JobState): number | null {
+  switch (status) {
+    case "PRO_ARRIVED":
+    case "DIAGNOSIS":
+      return 0;
+    case "WAITING_QUOTE_APPROVAL":
+      return 1;
+    case "IN_PROGRESS":
+      return 2;
+    case "COMPLETION_PENDING":
+      return 3;
+    /*
+     * The work is over and the money has moved. The last step reads as
+     * done rather than current — a tracker still pointing at "סיום
+     * ותשלום" after payment says the visit is unfinished when it is not.
+     */
+    case "COMPLETED":
+    case "PAYMENT_PENDING":
+    case "PAYMENT_CAPTURED":
+    case "REVIEW_PENDING":
+    case "CLOSED":
+      return VISIT_STEPS_HE.length;
+    default:
+      return null;
+  }
+}
+
+export function visitStepsHe(status: JobState): VisitStep[] | null {
+  const at = visitStepIndex(status);
+  if (at === null) return null;
+  return VISIT_STEPS_HE.map((labelHe, i) => ({
+    labelHe,
+    state: i < at ? "DONE" : i === at ? "NOW" : "AHEAD",
+  }));
+}

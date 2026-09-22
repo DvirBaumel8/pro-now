@@ -241,6 +241,38 @@ export function Gallery() {
           />
         </Frame>
 
+        {/*
+          * THE STRETCH AMIT SAID WAS EMPTY.
+          *
+          * *"בשלב שהמקצוען התחיל לבדוק ועד להצעת מחיר אין שום דבר בזמן
+          * העבודה, אין שום תחלופה במסך."* Between the knock and a price,
+          * minutes pass. Both ends of that stretch are here so the thing
+          * that now moves between them can actually be reviewed.
+          */}
+        <Frame caption="C10 · בודק את התקלה — הצעד הראשון מתוך ארבעה">
+          <TrackingBody
+            status="DIAGNOSIS"
+            serviceNameHe="תיקון נזילה בברז"
+            professional={matchFixture.professional}
+            eta={matchFixture.eta}
+            priceLineHe="דמי ביקור ₪179 · הצעת מחיר תישלח לאישורך"
+            width={PHONE_W}
+            height={PHONE_H}
+          />
+        </Frame>
+
+        <Frame caption="C10 · הצעת המחיר מחכה — הסימון זז צעד אחד">
+          <TrackingBody
+            status="WAITING_QUOTE_APPROVAL"
+            serviceNameHe="תיקון נזילה בברז"
+            professional={matchFixture.professional}
+            eta={matchFixture.eta}
+            priceLineHe="דמי ביקור ₪179 · הצעת מחיר תישלח לאישורך"
+            width={PHONE_W}
+            height={PHONE_H}
+          />
+        </Frame>
+
         <Frame caption="C10 · הגיע ומתחיל לעבוד — ETA משוער מסומן ככזה">
           <TrackingBody
             status="IN_PROGRESS"

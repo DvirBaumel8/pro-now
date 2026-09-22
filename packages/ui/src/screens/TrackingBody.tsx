@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import {
   assessArrival,
   jobProgressHe,
+  visitStepsHe,
   routeAt,
   alongRoute,
   worldZoomFor,
@@ -253,6 +254,7 @@ export function TrackingBody({
   // The first word of the name, the way somebody in your kitchen is
   // referred to once they are in it.
   const progressHe = jobProgressHe(status, professional.displayName.split(/\s+/)[0] ?? null);
+  const visitSteps = visitStepsHe(status);
 
   const hasArrived =
     status === "PRO_ARRIVED" ||
@@ -537,6 +539,53 @@ export function TrackingBody({
           */}
         {progressHe ? <Text style={styles.progress}>{progressHe}</Text> : null}
 
+        {/* ----------------------------------------------------------------
+            WHERE THAT SENTENCE SITS IN THE WHOLE VISIT.
+
+            Amit: *"בשלב שהמקצוען התחיל לבדוק ועד להצעת מחיר אין שום דבר
+            בזמן העבודה, אין שום תחלופה במסך."*
+
+            The sentence above was the only thing on this screen that ever
+            moved, and between the knock and a price it does not move for
+            minutes. It says where you are; it does not say where that IS.
+
+            Four steps with one marked says both, and the mark advances at
+            every real transition — so something visibly changes each time
+            something happens, and never in between. No times, no
+            percentage, no bar filling up: a step is behind you, the one
+            you are in, or ahead. See `visitStepsHe`.
+            ---------------------------------------------------------------- */}
+        {visitSteps ? (
+          <View style={styles.steps} accessibilityRole="progressbar">
+            {visitSteps.map((step, i) => (
+              <View key={step.labelHe} style={styles.step}>
+                <View style={styles.stepRow}>
+                  <View
+                    style={[
+                      styles.pip,
+                      step.state === "DONE" && styles.pipDone,
+                      step.state === "NOW" && styles.pipNow,
+                    ]}
+                  />
+                  {i < visitSteps.length - 1 ? (
+                    <View style={[styles.rail, step.state === "DONE" && styles.railDone]} />
+                  ) : null}
+                </View>
+                <Text
+                  style={[
+                    styles.stepLabel,
+                    step.state === "NOW" && styles.stepLabelNow,
+                    step.state === "AHEAD" && styles.stepLabelAhead,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {step.labelHe}
+                </Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
         <Text style={styles.service} numberOfLines={1}>
           {serviceNameHe} · {headline}
         </Text>
@@ -658,6 +707,60 @@ const styles = StyleSheet.create({
     writingDirection: "rtl",
     marginTop: spacing.md,
   },
+  /*
+   * FOUR STEPS ACROSS, RIGHT TO LEFT.
+   *
+   * `row-reverse` rather than `row`, for the same reason as everywhere
+   * else in this product: the first step belongs on the RIGHT, where a
+   * Hebrew reader starts. The rail then grows leftwards, which is the
+   * direction the visit travels.
+   */
+  steps: {
+    flexDirection: "row-reverse",
+    marginTop: spacing.lg,
+    marginBottom: spacing.xs,
+  },
+  step: { flex: 1 },
+  stepRow: { flexDirection: "row-reverse", alignItems: "center" },
+  pip: {
+    width: 9,
+    height: 9,
+    borderRadius: 999,
+    // A step still ahead has to be VISIBLE as a step. A 0.22 neutral
+    // on a near-black panel left one lonely ring saying nothing about
+    // what comes after it.
+    backgroundColor: palette.ink300,
+  },
+  pipDone: { backgroundColor: colors.trust },
+  /*
+   * The current step is a ring, not a bigger dot. A dot that grows reads
+   * as "more", and this one means "here" — and a ring survives being
+   * looked at by somebody who cannot tell the two greens apart.
+   */
+  pipNow: {
+    width: 13,
+    height: 13,
+    backgroundColor: "transparent",
+    borderWidth: 3,
+    borderColor: colors.action,
+  },
+  rail: {
+    flex: 1,
+    height: 2,
+    marginHorizontal: 4,
+    backgroundColor: palette.ink500,
+  },
+  railDone: { backgroundColor: colors.trust },
+  stepLabel: {
+    ...type.caption,
+    color: colors.textSecondary,
+    textAlign: "right",
+    writingDirection: "rtl",
+    marginTop: 6,
+  },
+  stepLabelNow: { color: colors.textPrimary, fontWeight: "700" },
+  stepLabelAhead: { opacity: 0.55 },
+
   service: {
     ...type.meta,
     color: colors.textSecondary,

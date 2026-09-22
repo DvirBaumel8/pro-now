@@ -191,6 +191,26 @@ for (const [i, cat] of ['לבית', 'ביוטי ושיער', 'ניקיון', 'ה
   await p.goBack(); await p.waitForTimeout(900);
 }
 
+/*
+ * A SCROLL CHECK WAS WRITTEN HERE AND TAKEN OUT AGAIN.
+ *
+ * Amit: *"גם הגלילה שרואים פרטים על ההזמנה לא נגללת למעלה."*
+ * `ScreenTransition` now keys its subtree, so a navigation remounts the
+ * screen and every screen opens at the top.
+ *
+ * The check that was supposed to prove it scrolled a category to the
+ * bottom, went back, opened another, and asked where it started — and it
+ * PASSED with the fix deliberately removed. Two readings, and neither
+ * earns a green tick: either the categories were never the broken case,
+ * or the probe was scrolling and measuring some div that is not the
+ * screen's scroller. On react-native-web the second is likely.
+ *
+ * A check that cannot fail is worse than no check, because it is read as
+ * evidence. Removed rather than left decorative. What would actually
+ * prove it is asserting that the screen's own scroller — the one
+ * `ScrollView` renders — is at zero after a navigation, which needs a
+ * handle on that element rather than a sweep over every div.
+ */
 await p.getByRole('button', { name: 'לבית' }).first().click(); await p.waitForTimeout(1100);
 await p.getByRole('button', { name: /פתיחת סתימה/ }).first().click(); await p.waitForTimeout(900);
 await inspect('06-service');
