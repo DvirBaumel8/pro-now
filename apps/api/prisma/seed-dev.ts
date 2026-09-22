@@ -47,6 +47,7 @@
 import "../src/load-env";
 
 import { PrismaClient, type PrismaClient as PrismaClientType } from "@prisma/client";
+import { credentialTypeFor } from "@pro-now/types";
 
 const prisma = new PrismaClient();
 
@@ -90,6 +91,18 @@ const DEMO_PROFESSIONALS: ReadonlyArray<{
   lat: number;
   lng: number;
   serviceCodes: readonly string[];
+  /**
+   * Set for the one professional who exists to be REFUSED. Their services
+   * are approved and their account is verified, and the documents those
+   * services require are deliberately not issued — so dispatch must
+   * consider them and then rule them out.
+   *
+   * Without somebody in this shape, a walk that asks for a licensed trade
+   * and finds nobody proves only that nobody offers it. The rule and an
+   * empty market look identical from outside, and the rule is the one
+   * carrying the promise.
+   */
+  withholdCredentials?: boolean;
 }> = [
   {
     phone: "+972500000101",
@@ -139,6 +152,16 @@ const DEMO_PROFESSIONALS: ReadonlyArray<{
     lng: 34.7856,
     serviceCodes: ["WELLNESS_MASSAGE60", "WELLNESS_MASSAGE90", "BEAUTY_HAIR_MEN"],
   },
+  {
+    phone: "+972500000107",
+    legalName: "עומר בן-חיים",
+    displayName: "עומר ב.",
+    lat: 32.0744,
+    lng: 34.7791,
+    // Pest control requires LICENSE:PEST_CONTROL. He does not have one.
+    serviceCodes: ["PEST_CONTROL"],
+    withholdCredentials: true,
+  },
 ];
 
 /**
@@ -172,7 +195,7 @@ async function seedProfessional(
   db: PrismaClientType,
   spec: (typeof DEMO_PROFESSIONALS)[number],
   now: Date
-): Promise<{ displayName: string; services: number }> {
+): Promise<{ displayName: string; services: number; credentials: number }> {
   const user = await db.user.upsert({
     where: { phone: spec.phone },
     update: {},
@@ -197,8 +220,12 @@ async function seedProfessional(
   });
 
   let approved = 0;
+  let credentials = 0;
   for (const code of spec.serviceCodes) {
-    const service = await db.service.findUnique({ where: { code } });
+    const service = await db.service.findUnique({
+      where: { code },
+      include: { requirements: true },
+    });
     if (!service) {
       console.warn(`  ! service ${code} is not in the catalogue — skipped`);
       continue;
@@ -210,6 +237,48 @@ async function seedProfessional(
       create: { professionalId: pro.id, serviceId: service.id, status: "APPROVED", ...pricing },
     });
     approved += 1;
+
+    /*
+     * THE DOCUMENTS AN APPROVED PROFESSIONAL WOULD ACTUALLY HAVE.
+     *
+     * Service requirements exist now, which means the credential engine
+     * finally has something to check — and it correctly refuses everybody
+     * in this file, because none of them had a single document on file.
+     * A professional the seed calls APPROVED and sends to a customer's
+     * home must carry what that service demands, or the seed is claiming
+     * an approval nobody granted.
+     *
+     * Only the document-shaped requirements. IDENTITY and BUSINESS are
+     * account-level and are settled by `verificationStatus: APPROVED`
+     * above, which is where the engine looks for them.
+     */
+    if (spec.withholdCredentials) continue;
+
+    for (const requirement of service.requirements) {
+      const type = credentialTypeFor(requirement.requirement);
+      if (!type) continue;
+
+      const existing = await db.professionalCredential.findFirst({
+        where: { professionalId: pro.id, serviceId: service.id, type },
+      });
+      const data = {
+        professionalId: pro.id,
+        serviceId: service.id,
+        type,
+        number: `DEMO-${requirement.requirement.replace(/[^A-Z]/g, "")}-${spec.phone.slice(-4)}`,
+        issuer: "רשות הדגמה",
+        status: "VERIFIED",
+        // A year out, so a demonstration does not quietly expire mid-week
+        // and leave somebody debugging dispatch.
+        expiresAt: new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000),
+      };
+      if (existing) {
+        await db.professionalCredential.update({ where: { id: existing.id }, data });
+      } else {
+        await db.professionalCredential.create({ data });
+      }
+      credentials += 1;
+    }
   }
 
   // One position, now. It ages out in ninety seconds exactly as a real
@@ -225,7 +294,45 @@ async function seedProfessional(
     },
   });
 
-  return { displayName: spec.displayName, services: approved };
+  return { displayName: spec.displayName, services: approved, credentials };
+}
+
+/**
+ * Put the demonstration cohort back on the shelf, out loud.
+ *
+ * The profile upsert below sets `presenceState: AVAILABLE`, and on a
+ * re-run that can catch a professional who is holding a LIVE offer or is
+ * partway through a job. Flipping them to AVAILABLE underneath it is
+ * fabricated availability — the one thing the header of this file says it
+ * will not do — and it produces exactly the symptom it deserves: the next
+ * dispatch hands their job to them again while the first offer is still
+ * open, and the accept fails against an offer that is no longer the
+ * current one.
+ *
+ * So a re-run ENDS what is open first, rather than pretending it was
+ * never there. The offers are marked EXPIRED, which is what they are
+ * about to become anyway, and the jobs behind them are left to the
+ * dispatch sweep — which will re-offer them to somebody else or, past the
+ * search deadline, tell the customer nobody is coming. Neither outcome is
+ * invented here.
+ *
+ * Only the demonstration phones. A real professional's presence is theirs.
+ */
+async function releaseDemoCohort(db: PrismaClientType): Promise<{ offers: number; busy: number }> {
+  const pros = await db.professionalProfile.findMany({
+    where: { user: { phone: { in: DEMO_PROFESSIONALS.map((p) => p.phone) } } },
+    select: { id: true, presenceState: true },
+  });
+  if (pros.length === 0) return { offers: 0, busy: 0 };
+
+  const ids = pros.map((p) => p.id);
+  const { count } = await db.dispatchOffer.updateMany({
+    where: { professionalId: { in: ids }, status: { in: ["CREATED", "SENT", "VIEWED"] } },
+    data: { status: "EXPIRED" },
+  });
+
+  const busy = pros.filter((p) => p.presenceState !== "OFFLINE" && p.presenceState !== "AVAILABLE").length;
+  return { offers: count, busy };
 }
 
 async function main(): Promise<void> {
@@ -234,9 +341,18 @@ async function main(): Promise<void> {
   console.log("Seeding DEVELOPMENT professionals — local database only.");
   const now = new Date();
 
+  const released = await releaseDemoCohort(prisma);
+  if (released.offers > 0 || released.busy > 0) {
+    console.log(
+      `  reset: ${released.offers} live offer(s) expired, ${released.busy} professional(s) were mid-flight`
+    );
+  }
+
   for (const spec of DEMO_PROFESSIONALS) {
     const result = await seedProfessional(prisma, spec, now);
-    console.log(`  ${result.displayName.padEnd(10)} ${result.services} service(s) approved`);
+    console.log(
+      `  ${result.displayName.padEnd(10)} ${result.services} service(s), ${result.credentials} credential(s)`
+    );
   }
 
   const available = await prisma.professionalProfile.count({

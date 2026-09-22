@@ -6,8 +6,8 @@ request a trusted, verified professional to come **now**. See
 `/CLAUDE.md` for the engineering contract and `/docs/00-VISION.md` onward
 for the full product/engineering specification this repo implements.
 
-**Start here:** `/docs/EPIC-0-REPORT.md` — read **§19** first, then **§18**
-and **§17**. Together they are the honest record of what has actually been
+**Start here:** `/docs/EPIC-0-REPORT.md` — read **§20** first, then **§19**
+and **§18**. Together they are the honest record of what has actually been
 installed, compiled, linted, bundled, rendered and executed. They supersede
 the older §7/§8, which describe a session that could not run anything.
 
@@ -55,7 +55,7 @@ the repository moved out of the build container — see EPIC-0-REPORT §17.
 | Prisma client | `npm run db:generate -w apps/api` | **PASS — v5.22.0** |
 | Typecheck (10 workspaces) | `npm run typecheck` | **CLEAN — all 10** |
 | Lint (10 workspaces) | `npm run lint` | **CLEAN** |
-| Unit tests | `npm test` | **PASS — 902** |
+| Unit tests | `npm test` | **PASS — 926** |
 | Domain logic | `npm run verify:domain` | **PASS — 28/28** |
 | Geometry | `npm run verify:geo` | **PASS** |
 | Accessibility | `npm run verify:a11y` | **PASS — 18 screens, 0 defects** |

@@ -1803,3 +1803,104 @@ path, and that is the next epic rather than a gap in this one.
 
 902 tests. Typecheck and lint clean. `db:verify` 1411/1411,
 `verify:rowlock` 7/7.
+
+## 20. The rule that had nothing to compare against (2026-09-22)
+
+Amit: *"מה שצריך שהכל יעבוד חלק וירוץ כמו שצריך."*
+
+### 20.1 Two catalogues, and nine services that lied
+
+The customer app had never been able to create a job. Not once.
+
+`POST /v1/jobs` looks a service up by database id. Every screen in
+`apps/customer-mobile` is built from `pilot-catalog.ts`, whose ids are
+`svc-leak`, `svc-blockage`, `svc-gas`, and `AddressScreen` posted that id
+straight through. `svc-leak` is not a row in the services table and never
+has been. The wiring was complete and correct in both halves; they spoke
+different languages, and the far end answered SERVICE_NOT_FOUND.
+
+The first framing of the gap was wrong and the correction is worth
+keeping. Counting 47 customer-facing services against 25 database rows and
+calling the difference 31 ignores what the catalogue says about itself: 17
+`ACTIVE`, 26 `PILOT` — modelled so the taxonomy is ready, switched off so
+the pilot is not diluted — and 4 `INACTIVE`, which is gas, a doctor and a
+vet, held back because the licence question is a legal decision this
+codebase must not invent.
+
+A PILOT service being absent from dispatch is the product working. The
+defect was narrower: **nine services said ACTIVE while the server had
+never heard of them.** A tap on מזגן, on הדברה, on ננעלתי בחוץ reached
+nothing.
+
+Those nine are seeded now, with four categories to hold them, carried
+from the catalogue with its own price models, durations and trust
+profiles. `catalog-bridge.ts` is the seam between the two vocabularies and
+its test fails if an ACTIVE service is ever unorderable again, or if a
+mapping is ever added for an INACTIVE one.
+
+`serviceResolver.ts` makes the translation before the app orders, and
+keeps the two failures apart: a trade the platform has not opened gets its
+own sentence and no "try again" (trying again will not open it), while a
+bridge entry the server does not know is reported as ours rather than as
+"not available in your area". It never substitutes — the customer who
+tapped מזגן does not get a plumber.
+
+### 20.2 The credential engine had been saying yes to everybody
+
+`credential-eligibility.ts` replaced a one-line check that had three
+defects, each of which would have sent an insufficiently-verified stranger
+into a home. It has twenty-seven tests.
+
+It reads `ServiceRequirement` rows. **There were none.** Not one service
+had ever had one, so every call evaluated an empty list — and an empty
+list of mandatory requirements is satisfied by anybody. The engine was
+correct and inert. A professional with no licence at all was
+dispatch-eligible for pest control.
+
+The answer was not missing, only uncarried: `pilot-catalog.ts` records
+`requiredCredentials` per service, with its reasoning. 77 requirement rows
+across 25 services now exist, translated from the catalogue's vocabulary
+(`ELECTRICIAN_LICENSE`) into the engine's (`LICENSE:ELECTRICIAN`).
+Anything the translation cannot classify is treated as account-level,
+which is the conservative direction — a mis-classified account-level
+requirement fails to gate and is visible, while a mis-classified document
+requirement would gate on a file nobody can produce and look like a bug in
+onboarding.
+
+The first run after seeding refused the entire demonstration cohort, which
+was the rule working for the first time. They carry their documents now.
+
+### 20.3 Proving a refusal
+
+`verify:journey` gained a step that asks for a licensed trade, and it
+nearly proved nothing: the first version passed with **0 candidates
+considered**, which means nobody offers pest control — a supply gap, not a
+credential gate. The rule and an empty market look identical from outside.
+
+So the demonstration cohort gained a seventh professional who offers pest
+control and holds no pest control licence. The step now asserts
+`considered > 0`, and reads: **1 considered, 0 eligible.**
+
+### 20.4 A fixture that fabricated availability
+
+Re-running `db:seed:dev` set every demonstration professional to
+AVAILABLE, including one holding a live offer. That is fabricated
+availability — the thing the file's own header says it will not do — and
+it produced the symptom it deserved: the next dispatch handed a job to
+somebody whose first offer was still open, and the accept failed against
+an offer that was no longer current.
+
+A re-run now ENDS what is open, out loud, and leaves the jobs behind those
+offers to the dispatch sweep. Neither outcome is invented by the fixture.
+
+### 20.5 Also
+
+CORS, because the design preview reads the API from a phone on the same
+Wi-Fi and that is cross-origin: an explicit allow-list plus private
+network ranges in `local` only, never `origin: true`, with six tests
+including one that proves the local convenience does not survive into
+staging.
+
+**926 tests. Typecheck and lint clean, db:verify 1411/1411,
+verify:rowlock 7/7, verify:journey passes every step including the
+refusal.**

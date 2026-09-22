@@ -225,6 +225,58 @@ const run = async () => {
   line(`\n  final job status: ${final.json?.job?.status ?? "?"}`);
   line(`  events recorded:  ${final.json?.job?.events?.length ?? final.json?.events?.length ?? "?"}`);
 
+  /*
+   * THE REFUSAL, WHICH IS THE HARDER HALF TO PROVE.
+   *
+   * Everything above shows the product saying yes. `ServiceRequirement`
+   * rows existed nowhere until 2026-09-22, so the credential engine had
+   * been evaluating every candidate against an empty list and saying yes
+   * to everybody — and a walk that only checks the happy path cannot tell
+   * that apart from the rule working.
+   *
+   * So: ask for a trade whose licence nobody in the demonstration cohort
+   * holds. The right answer is nobody, and it has to come from the
+   * credential rule rather than from an empty market, which is why the
+   * count of candidates CONSIDERED has to be non-zero.
+   */
+  line("\n== THE REFUSAL ==");
+  const licensed = (flat.match(/"id":"([^"]+)","code":"PEST_CONTROL"/) ||
+    flat.match(/"code":"PEST_CONTROL"[^}]*?"id":"([^"]+)"/) || [])[1];
+
+  if (!licensed) {
+    bad("a licensed trade is in the catalogue", "PEST_CONTROL not found");
+  } else {
+    const gated = await call("POST", "/v1/jobs", {
+      token: custToken,
+      idem: "gate-" + Date.now(),
+      body: { serviceId: licensed, addressId: addrId, description: "ג'וקים במטבח", structuredAnswers: {} },
+    });
+    const outcome = gated.json?.dispatch;
+    /*
+     * `considered > 0` is the half that matters. A walk that finds nobody
+     * because nobody offers the trade proves only that the market is
+     * empty; the rule and an empty market look identical from outside.
+     * `db:seed:dev` therefore includes one professional who offers pest
+     * control and holds no pest control licence, so dispatch has somebody
+     * to look at and refuse.
+     */
+    outcome?.status !== "OFFER_SENT" &&
+    outcome?.candidatesEligible === 0 &&
+    outcome?.candidatesConsidered > 0
+      ? ok(
+          "an unlicensed professional is considered and refused",
+          `${outcome.candidatesConsidered} considered, 0 eligible`
+        )
+      : bad("an unlicensed professional is considered and refused", JSON.stringify(outcome));
+
+    // And the job does not silently die: the sweep picks it up and, past
+    // the search deadline, tells the customer rather than leaving them.
+    const gatedJobId = gated.json?.job?.id;
+    if (gatedJobId) {
+      await call("POST", `/v1/jobs/${gatedJobId}/cancel`, { token: custToken });
+    }
+  }
+
   line(`\n${failures === 0 ? "ALL STEPS PASSED" : failures + " STEP(S) FAILED"}\n`);
   process.exit(failures === 0 ? 0 : 1);
 };

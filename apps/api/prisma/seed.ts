@@ -8,6 +8,11 @@ import "../src/load-env";
 
 import { PrismaClient } from "@prisma/client";
 import { departments, categories, services, PILOT_MARKET_CODE } from "./seed-data/services";
+import {
+  PILOT_TO_DATABASE_SERVICE_CODE,
+  pilotServiceById,
+  requirementsForService,
+} from "@pro-now/types";
 
 const prisma = new PrismaClient();
 
@@ -90,6 +95,48 @@ async function main() {
     });
   }
   console.log(`  services: ${services.length} (pilot-active: ${services.filter(s => s.launchStatus === "PILOT_CANDIDATE").length})`);
+
+  /*
+   * WHAT EACH SERVICE REQUIRES OF THE PROFESSIONAL.
+   *
+   * `credential-eligibility.ts` reads `ServiceRequirement` rows and, until
+   * this ran, there were none — so every call evaluated an empty list, and
+   * an empty list of mandatory requirements is satisfied by anybody. The
+   * rule that says a pest controller needs a licence was correct, tested
+   * twenty-seven ways, and had nothing to compare against.
+   *
+   * The answer is not invented here. `pilot-catalog.ts` records
+   * `requiredCredentials` per service — the decision /CLAUDE.md §4 says
+   * this codebase must not make — and `catalog-bridge.ts` says which
+   * database service each of its entries is. This carries one to the
+   * other and stops.
+   *
+   * Requirements are REPLACED rather than added to, so removing a
+   * credential from the catalogue removes it here. Left additive, a
+   * requirement deleted upstream would keep gating dispatch forever with
+   * no line of code left saying why.
+   */
+  const serviceIdByCode = new Map((await prisma.service.findMany()).map((s) => [s.code, s.id]));
+  let requirementRows = 0;
+  let servicesWithRequirements = 0;
+
+  for (const [pilotServiceId, databaseCode] of Object.entries(PILOT_TO_DATABASE_SERVICE_CODE)) {
+    const serviceId = serviceIdByCode.get(databaseCode);
+    if (!serviceId) continue;
+
+    const catalogService = pilotServiceById[pilotServiceId];
+    const rows = requirementsForService(catalogService?.requiredCredentials ?? []);
+
+    await prisma.serviceRequirement.deleteMany({ where: { serviceId } });
+    if (rows.length === 0) continue;
+
+    await prisma.serviceRequirement.createMany({
+      data: rows.map((r) => ({ serviceId, requirement: r.requirement, mandatory: r.mandatory })),
+    });
+    requirementRows += rows.length;
+    servicesWithRequirements += 1;
+  }
+  console.log(`  service requirements: ${requirementRows} across ${servicesWithRequirements} service(s)`);
 
   // Seed default dispatch scoring weights into app_config — see
   // /docs/08-DISPATCH-ENGINE.md §Scoring. Admin-editable, never hard-coded
