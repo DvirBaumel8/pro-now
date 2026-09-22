@@ -2255,17 +2255,38 @@ const go = useCallback((r: CustomerRoute) => {
    * screen it is standing on. So it lives here, where the route is
    * known, rather than above the whole app where it was not.
    */
+  /*
+   * ---------------------------------------------------------------------
+   * AND ONLY WHERE THERE IS SOMEBODY TO SHOW OR HIDE
+   * ---------------------------------------------------------------------
+   * Amit: *"מה עושה הליכה הדגמה, אני לוחץ לא קורה כלום."*
+   *
+   * "stroll" and "living" was not narrow enough. The walker exists on
+   * the living map only in ASSIGNED_ROUTE — during the search, the found
+   * moment and the reveal there is no figure on the street at all — so
+   * on three of the four phases the button was real, pressed, and
+   * changed nothing anybody could see. Which is the same fault the note
+   * above describes, one level further in.
+   *
+   * AND IT SAYS WHAT PRESSING IT WILL DO. It used to start OFF, so "▸
+   * הליכה" meant "press to see a walk". It starts ON now, so the same
+   * label sat over a figure that was already there and read as a button
+   * that had failed. A toggle has to name its own state.
+   */
+  const walkable =
+    route.name === "stroll" || (route.name === "living" && route.phase === "ASSIGNED_ROUTE");
   const walkingDemo =
-    !AVATARS.some((a) => worldSources[a.worldAssetId]) &&
-    tab === "home" &&
-    WALKABLE_SCREENS.includes(route.name) ? (
+    !AVATARS.some((a) => worldSources[a.worldAssetId]) && tab === "home" && walkable ? (
       <Pressable
         onPress={onToggleStandIn}
-        accessibilityRole="button"
-        accessibilityLabel="הדגמה — הליכה עם דמויות מושאלות. הדמויות פונות למצלמה; האווטאר האמיתי ייראה מהגב."
+        accessibilityRole="switch"
+        accessibilityState={{ checked: standIn }}
+        accessibilityLabel="הדגמה — דמות מושאלת ברחוב. הדמויות פונות למצלמה; האווטאר האמיתי ייראה מהגב."
         style={styles.standIn}
       >
-        <Text style={styles.standInText}>{standIn ? "▪ הליכה (הדגמה)" : "▸ הליכה (הדגמה)"}</Text>
+        <Text style={styles.standInText}>
+          {standIn ? "▪ הדמות מוצגת (הדגמה)" : "▸ הצגת דמות (הדגמה)"}
+        </Text>
       </Pressable>
     ) : null;
 
@@ -3268,7 +3289,6 @@ function ProApp({
  * see `walkingDemo` — which is the real answer to "why is it here": it
  * is standing in for art that has not landed yet.
  */
-const WALKABLE_SCREENS = ["stroll", "living"];
 
 /*
  * THE GROUND SWITCH REACHES FURTHER THAN THE WALKING ONE.
