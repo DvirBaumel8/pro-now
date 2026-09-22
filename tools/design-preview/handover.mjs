@@ -123,6 +123,25 @@ if (crossed) {
   if ((await p.getByRole('button', { name: /אישור הצעת מחיר/ }).count()) > 0) {
     problems.push('approving the quote left the customer on the approval screen');
   }
+
+  /*
+   * AND THE PANEL BEHIND IT HAS TO KNOW.
+   *
+   * Amit, on that panel: *"איך הצעת מחיר תשלח אם הוא כבר סיים את
+   * העבודה? זה אמור להיות לפני."* Its money line used to be one fixed
+   * sentence for the whole visit, so a promise that a quote was coming
+   * stayed on screen after one had been approved. It is derived now
+   * (`visitMoneyLineHe`), and this is the state the fault was loudest
+   * in: the work is running, and the line must say the approved amount
+   * back rather than promise a quote.
+   */
+  const afterApproval = await text();
+  if (/הצעת מחיר תישלח|ההצעה תגיע/.test(afterApproval)) {
+    problems.push('the panel still promises a quote after one was approved');
+  }
+  if (!afterApproval.includes(`אישרתם ‏${AMOUNT}`)) {
+    problems.push('the panel does not say the approved amount back while the work runs');
+  }
 }
 
 /*

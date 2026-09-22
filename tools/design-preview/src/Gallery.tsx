@@ -248,7 +248,7 @@ export function Gallery() {
             serviceNameHe="תיקון נזילה בברז"
             professional={matchFixture.professional}
             eta={matchFixture.eta}
-            priceLineHe="דמי ביקור ₪179 · הצעת מחיר תישלח לאישורך"
+            money={{ visitFeeHe: "₪179" }}
             width={PHONE_W}
             height={PHONE_H}
           />
@@ -280,7 +280,7 @@ export function Gallery() {
             serviceNameHe="תיקון נזילה בברז"
             professional={matchFixture.professional}
             eta={matchFixture.eta}
-            priceLineHe="דמי ביקור ₪179 · הצעת מחיר תישלח לאישורך"
+            money={{ visitFeeHe: "₪179" }}
             width={PHONE_W}
             height={PHONE_H}
           />
@@ -295,7 +295,7 @@ export function Gallery() {
             serviceNameHe="תיקון נזילה בברז"
             professional={matchFixture.professional}
             eta={matchFixture.eta}
-            priceLineHe="דמי ביקור ₪179 · הצעת מחיר תישלח לאישורך"
+            money={{ visitFeeHe: "₪179" }}
             onConfirmCompletion={noop}
             onGetHelp={noop}
             width={PHONE_W}
@@ -321,7 +321,7 @@ export function Gallery() {
             serviceNameHe="תיקון נזילה בברז"
             professional={matchFixture.professional}
             eta={matchFixture.eta}
-            priceLineHe="דמי ביקור ₪179 · הצעת מחיר תישלח לאישורך"
+            money={{ visitFeeHe: "₪179" }}
             width={PHONE_W}
             height={PHONE_H}
           />
@@ -345,7 +345,7 @@ export function Gallery() {
             serviceNameHe="התקנת מזגן"
             professional={matchNewProFixture.professional}
             eta={matchNewProFixture.eta}
-            priceLineHe="מחיר קבוע ₪450"
+            money={{ fixedTotalHe: "₪450" }}
             width={PHONE_W}
             height={PHONE_H}
           />

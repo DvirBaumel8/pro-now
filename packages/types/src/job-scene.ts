@@ -254,3 +254,148 @@ export function visitStepsHe(status: JobState): VisitStep[] | null {
     state: i < at ? "DONE" : i === at ? "NOW" : "AHEAD",
   }));
 }
+
+/**
+ * ---------------------------------------------------------------------
+ * THE ONE LINE ABOUT MONEY, WHICH SAID THE SAME THING ALL VISIT
+ * ---------------------------------------------------------------------
+ * Amit, reading the tracking panel: *"איך הצעת מחיר תשלח אם הוא כבר סיים
+ * את העבודה? זה אמור להיות לפני."*
+ *
+ * The order in the state machine was never wrong — diagnosis, quote,
+ * approval, work, payment, and no work may start before an approval.
+ * What was wrong is that the screen carried ONE sentence, handed to it
+ * once by the caller, and kept saying it: *"דמי ביקור ₪179 · הצעת מחיר
+ * תישלח לאישורך"*. True at the knock. Still on the screen while the
+ * quote sat waiting for an answer, and still there after it had been
+ * approved and the work was underway — at which point it describes a
+ * future that has already happened, and reads as though the app has lost
+ * track of the job. He drew the right conclusion from a real fault.
+ *
+ * So the money line is DERIVED, like the step tracker beside it, and it
+ * lives here for the same reason: the sentence and the state must not be
+ * able to drift apart, and they drift the moment they live in different
+ * files.
+ *
+ * WHAT IT WILL NOT DO. It never names a number it was not given. Every
+ * amount is passed in already formatted by whoever actually knows it —
+ * the server, through the quote — and each state has a wording for
+ * having the number and a wording for not having it. That is the
+ * difference between a screen that reports and a screen that guesses
+ * (/CLAUDE.md §3), and the states where money has MOVED say nothing at
+ * all here: no payment provider has been chosen (§4), so this file is
+ * not the place that gets to claim somebody was charged.
+ */
+export interface VisitMoneyFacts {
+  /**
+   * The visit fee the customer agreed to when they asked, formatted —
+   * e.g. "₪179". Null when the service has none.
+   */
+  visitFeeHe?: string | null;
+  /** The total of a quote that is waiting for an answer, formatted. */
+  pendingTotalHe?: string | null;
+  /** The total of the quote the customer APPROVED, formatted. */
+  approvedTotalHe?: string | null;
+  /**
+   * A price agreed in full BEFORE anyone was dispatched — a FIXED
+   * service, formatted.
+   *
+   * It is not a fourth amount to add to the others: it replaces the
+   * whole conversation. On a fixed-price job there is no quote coming,
+   * so every sentence below about one waiting, arriving or being
+   * approved would be a promise about a thing that will never happen.
+   */
+  fixedTotalHe?: string | null;
+}
+
+export function visitMoneyLineHe(status: JobState, facts: VisitMoneyFacts = {}): string | null {
+  const fee = facts.visitFeeHe ?? null;
+
+  /*
+   * The price was settled before the van moved, so the only thing that
+   * changes across the visit is the tense — and the last change is the
+   * one that matters: it becomes payable when the customer agrees the
+   * work is done, not when the professional says so.
+   */
+  if (facts.fixedTotalHe) {
+    switch (status) {
+      case "PRO_ASSIGNED":
+      case "PRO_EN_ROUTE":
+      case "PRO_ARRIVED":
+      case "DIAGNOSIS":
+      case "WAITING_QUOTE_APPROVAL":
+      case "IN_PROGRESS":
+        return `מחיר קבוע ${facts.fixedTotalHe} · סוכם מראש`;
+      case "COMPLETION_PENDING":
+        return `לתשלום ${facts.fixedTotalHe} · אחרי שתאשרו שהעבודה הושלמה`;
+      default:
+        return null;
+    }
+  }
+
+  switch (status) {
+    /*
+     * Nobody has looked at anything yet, so the only honest numbers are
+     * the fee that was agreed when the call was sent and the promise
+     * that a price will come before any work does.
+     */
+    case "PRO_ASSIGNED":
+    case "PRO_EN_ROUTE":
+    case "PRO_ARRIVED":
+      return fee
+        ? `דמי ביקור ${fee} · הצעת מחיר תישלח לאישורכם לפני תחילת העבודה`
+        : "הצעת מחיר תישלח לאישורכם לפני תחילת העבודה";
+
+    /*
+     * He is looking now. The promise is the same and its TIMING is what
+     * changed, which is the whole point of a line that moves: it tells
+     * you the next thing is close rather than repeating the brochure.
+     */
+    case "DIAGNOSIS":
+      return fee
+        ? `דמי ביקור ${fee} · ההצעה תגיע בסוף הבדיקה`
+        : "ההצעה תגיע בסוף הבדיקה";
+
+    /*
+     * The ball is in the customer's court, and this is the moment the
+     * "not charged until you approve" promise has to be visible — it is
+     * worth nothing on the screens where there is nothing to approve.
+     * The visit fee is not restated: it is offset against the quote, so
+     * naming both here reads as two charges.
+     */
+    case "WAITING_QUOTE_APPROVAL":
+      return facts.pendingTotalHe
+        ? `הצעת מחיר על סך ${facts.pendingTotalHe} ממתינה לאישורכם · לא מחויב עד שתאשרו`
+        : "הצעת מחיר ממתינה לאישורכם · לא מחויב עד שתאשרו";
+
+    /*
+     * Approved, and the work is running against exactly that version.
+     * Saying the amount back is the reassurance the customer wants while
+     * somebody is in their kitchen: the price cannot move under them.
+     */
+    case "IN_PROGRESS":
+      return facts.approvedTotalHe
+        ? `אישרתם ${facts.approvedTotalHe} · זה הסכום לעבודה הזו`
+        : "העבודה מתבצעת לפי ההצעה שאישרתם";
+
+    /*
+     * He says he is done; the customer has not agreed yet. The amount is
+     * "לתשלום" and not "שולם", because nothing has been captured and
+     * because the customer's agreement is the thing standing between the
+     * two.
+     */
+    case "COMPLETION_PENDING":
+      return facts.approvedTotalHe
+        ? `לתשלום ${facts.approvedTotalHe} · אחרי שתאשרו שהעבודה הושלמה`
+        : "הסכום לתשלום ייסגר אחרי שתאשרו שהעבודה הושלמה";
+
+    /*
+     * Everything else — before a professional exists, and after the
+     * money has moved. The screens that own those moments say it
+     * themselves, and a panel still talking about a quote on either side
+     * of the visit is the fault this function was written for.
+     */
+    default:
+      return null;
+  }
+}

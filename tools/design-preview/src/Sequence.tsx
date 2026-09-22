@@ -92,7 +92,7 @@ export function CustomerSequence({ width, height }: { width: number; height: num
           serviceNameHe="תיקון נזילה בברז"
           professional={matchFixture.professional}
           eta={matchFixture.eta}
-          priceLineHe="דמי ביקור ₪179 · הצעת מחיר תישלח לאישורך"
+          money={{ visitFeeHe: "₪179" }}
           width={width}
           height={height}
         />
@@ -104,7 +104,7 @@ export function CustomerSequence({ width, height }: { width: number; height: num
           serviceNameHe="תיקון נזילה בברז"
           professional={matchFixture.professional}
           eta={matchFixture.eta}
-          priceLineHe="דמי ביקור ₪179 · הצעת מחיר תישלח לאישורך"
+          money={{ visitFeeHe: "₪179" }}
           width={width}
           height={height}
         />

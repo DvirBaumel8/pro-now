@@ -10,7 +10,7 @@ import {
   type DiscoveryState,
   type WorldGeo,
 } from "@pro-now/types";
-import { AVATARS, screenKey, travelAssetFor, type AvatarChoice } from "@pro-now/types";
+import { AVATARS, formatMoney, money, screenKey, travelAssetFor, type AvatarChoice } from "@pro-now/types";
 import { matchServicesByText } from "@pro-now/ui";
 import { canSaveSession, clearSession, loadSession, saveSession, savedAgoHe } from "./session";
 import { HAIR_DISCOVERY_IDS } from "@pro-now/ui";
@@ -51,7 +51,7 @@ const proWorldSources: WorldAssetSources = Object.fromEntries(
 import { standInWorldSources } from "./standInAvatars";
 import fixtureGeo from "../geo/fixture_grid.json";
 
-import { ActiveJobCapsule, AddressPickerBody, AppHeader, AvatarPickerBody, IntroBody, customerDarkTheme, FocusSheet, ScreenTransition, ArrivalVerifyBody, CallsListBody, CAPSULE_HEIGHT, ChatBody, ConnectionBanner, CategoryBody, CustomerHomeBody, CustomerProfileBody, customerTheme, DescribeFaultBody, JobClosedBody, JobCompleteBody, lex, MatchConfirmBody, NavGlyph, Persona, PhoneAuthBody, ProEarningsBody, ProJobBody, ProJobSettledBody, ProOfferBody, ProOnlineBody, ProPricingBody, ProProfileBody, ProQuoteBuilderBody, ProServicesBody, ProShiftBody, proTheme, ProVerificationBody, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, StrollBody, Sheet, spacing, tint, TrackingBody, type as t, WelcomeBody } from "@pro-now/ui";
+import { ActiveJobCapsule, AddressPickerBody, AppHeader, AvatarPickerBody, IntroBody, customerDarkTheme, FocusSheet, ScreenTransition, ArrivalVerifyBody, CallsListBody, CAPSULE_HEIGHT, ChatBody, ConnectionBanner, CategoryBody, CustomerHomeBody, CustomerProfileBody, customerTheme, DescribeFaultBody, JobClosedBody, JobCompleteBody, MatchConfirmBody, NavGlyph, Persona, PhoneAuthBody, ProEarningsBody, ProJobBody, ProJobSettledBody, ProOfferBody, ProOnlineBody, ProPricingBody, ProProfileBody, ProQuoteBuilderBody, ProServicesBody, ProShiftBody, proTheme, ProVerificationBody, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, StrollBody, Sheet, spacing, tint, TrackingBody, type as t, WelcomeBody } from "@pro-now/ui";
 import type { JobMediaItem, LiveLocationState, MarkName, NavGlyphName, ProPricingRow } from "@pro-now/ui";
 import type { AuthStage, ChatMessage, ConnectionState } from "@pro-now/ui";
 import { canHandOffToMaps, mapsHandoffUrl, buildIntakeBrief, pilotIntakeByService, pilotServiceById, readAvailability } from "@pro-now/types";
@@ -1024,6 +1024,8 @@ function CustomerApp({
    * picture of a choice rather than a choice.
    */
   const [openVenue, setOpenVenue] = useState<string | null>(null);
+  /** The total the customer actually approved, for the panel to say back. */
+  const [approvedTotalMinor, setApprovedTotalMinor] = useState<number | null>(null);
 
   /**
    * The professional's own lines, shaped as the quote the screen renders.
@@ -1143,6 +1145,13 @@ function CustomerApp({
       id: id ?? null,
       nameHe: page?.nameHe ?? "תיקון נזילה בברז",
       mark: (page?.mark ?? "plumbing") as MarkName,
+      /*
+       * And what was agreed about money before anybody set off. The
+       * tracking panel's one money line is derived from this and the
+       * job's state — a fixed-price service must never be told a quote
+       * is coming, because none is.
+       */
+      price: page?.price ?? null,
     };
   }, [route, lastRequestedId]);
 
@@ -2130,7 +2139,29 @@ const go = useCallback((r: CustomerRoute) => {
              * has to be able to feel before tapping.
              */
             onBack={() => go({ name: "home" })}
-            priceLineHe={`${lex.visitFee} ₪179 · ${lex.quotePending}`}
+            /*
+             * THE FACTS, NOT THE SENTENCE.
+             *
+             * This was one fixed string — "דמי ביקור ₪179 · הצעת מחיר
+             * תישלח לאישורך" — repeated through the whole visit. Amit:
+             * *"איך הצעת מחיר תשלח אם הוא כבר סיים את העבודה? זה אמור
+             * להיות לפני."* The screen now derives the line from the
+             * job's state (`visitMoneyLineHe`), and these are the only
+             * numbers it is allowed to use.
+             */
+            money={{
+              visitFeeHe:
+                trackedService.price?.priceModel === "VISIT_QUOTE" && trackedService.price.visitFeeMinorUnits
+                  ? formatMoney(money(trackedService.price.visitFeeMinorUnits, "ILS"))
+                  : null,
+              fixedTotalHe:
+                trackedService.price?.priceModel === "FIXED" && trackedService.price.fixedTotalMinorUnits
+                  ? formatMoney(money(trackedService.price.fixedTotalMinorUnits, "ILS"))
+                  : null,
+              pendingTotalHe: writtenQuote ? formatMoney(money(writtenQuote.totalMinorUnits, "ILS")) : null,
+              approvedTotalHe:
+                approvedTotalMinor !== null ? formatMoney(money(approvedTotalMinor, "ILS")) : null,
+            }}
             onCall={() => setSheet("call")}
             onMessage={() => go({ name: "chat" })}
             onSafety={() => setSheet("safety")}
@@ -2231,6 +2262,14 @@ const go = useCallback((r: CustomerRoute) => {
                 serviceNameHe={trackedService.nameHe}
                 professionalDisplayName={matchFixture.professional.displayName}
                 onApprove={() => {
+                  /*
+                   * Remembered so the tracking panel can say it back
+                   * while the work runs: "אישרתם ₪320 · זה הסכום
+                   * לעבודה הזו". The pending quote is cleared by the
+                   * shell on this same tap, so the number has to be
+                   * kept here or the screen behind it loses it.
+                   */
+                  setApprovedTotalMinor((writtenQuote ?? quoteFixture).totalMinorUnits);
                   onQuoteDecision("APPROVED");
                   // An approved price is the professional's cue to start.
                   go({ name: "tracking", stage: "working" });

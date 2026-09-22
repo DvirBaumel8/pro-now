@@ -6,6 +6,7 @@ import {
   livingMapViolations,
   sceneIsOver,
   scenePhaseForJob,
+  visitMoneyLineHe,
   DEMO_WORLD,
   type JobState,
   type LivingMapState,
@@ -101,5 +102,80 @@ describe("sceneIsOver", () => {
   it("is true exactly for the states with nothing left to watch", () => {
     const over = JOB_STATES.filter(sceneIsOver);
     expect(over).toEqual(["CLOSED", "CANCELLED", "DISPUTED"]);
+  });
+});
+
+/**
+ * THE MONEY LINE HAS TO SAY THE THING THAT IS TRUE NOW.
+ *
+ * Amit, on the tracking panel: *"איך הצעת מחיר תשלח אם הוא כבר סיים את
+ * העבודה? זה אמור להיות לפני."* The sentence was handed to the screen
+ * once and never changed, so a promise that was true at the knock was
+ * still on the screen after the quote had been approved and the work was
+ * underway.
+ */
+describe("visitMoneyLineHe", () => {
+  const fee = { visitFeeHe: "₪179" };
+
+  it("says a quote is coming only while one actually is", () => {
+    for (const s of ["PRO_ASSIGNED", "PRO_EN_ROUTE", "PRO_ARRIVED", "DIAGNOSIS"] as const) {
+      expect(visitMoneyLineHe(s, fee)).toMatch(/הצעת מחיר תישלח|ההצעה תגיע/);
+    }
+    /*
+     * The fault itself, as a test. Past this point a quote has been
+     * written, so any sentence promising a future one is describing
+     * something that has already happened.
+     */
+    for (const s of ["WAITING_QUOTE_APPROVAL", "IN_PROGRESS", "COMPLETION_PENDING"] as const) {
+      expect(visitMoneyLineHe(s, fee)).not.toMatch(/תישלח|תגיע/);
+    }
+  });
+
+  it("changes at every step of the visit", () => {
+    const seen = ["PRO_EN_ROUTE", "DIAGNOSIS", "WAITING_QUOTE_APPROVAL", "IN_PROGRESS", "COMPLETION_PENDING"]
+      .map((s) => visitMoneyLineHe(s as JobState, { ...fee, pendingTotalHe: "₪320", approvedTotalHe: "₪320" }));
+    expect(new Set(seen).size).toBe(seen.length);
+  });
+
+  it("never names an amount it was not given", () => {
+    for (const s of ["PRO_ASSIGNED", "DIAGNOSIS", "WAITING_QUOTE_APPROVAL", "IN_PROGRESS", "COMPLETION_PENDING"] as const) {
+      expect(visitMoneyLineHe(s, {})).not.toMatch(/\d/);
+    }
+  });
+
+  it("promises no charge exactly where there is something to approve", () => {
+    expect(visitMoneyLineHe("WAITING_QUOTE_APPROVAL", fee)).toContain("לא מחויב עד שתאשרו");
+    expect(visitMoneyLineHe("IN_PROGRESS", fee)).not.toContain("לא מחויב");
+  });
+
+  it("does not restate the visit fee once a quote is on the table", () => {
+    // It is offset against the quote, so naming both reads as two charges.
+    expect(visitMoneyLineHe("WAITING_QUOTE_APPROVAL", { ...fee, pendingTotalHe: "₪320" })).not.toContain("₪179");
+    expect(visitMoneyLineHe("IN_PROGRESS", { ...fee, approvedTotalHe: "₪320" })).not.toContain("₪179");
+  });
+
+  it("never claims money has moved", () => {
+    for (const s of ["COMPLETED", "PAYMENT_PENDING", "PAYMENT_CAPTURED", "CLOSED"] as const) {
+      expect(visitMoneyLineHe(s, { ...fee, approvedTotalHe: "₪320" })).toBeNull();
+    }
+    expect(visitMoneyLineHe("COMPLETION_PENDING", { approvedTotalHe: "₪320" })).toContain("לתשלום");
+  });
+
+  it("says nothing before anybody has been assigned", () => {
+    for (const s of ["DRAFT", "SEARCHING", "OFFERING", "CANCELLED"] as const) {
+      expect(visitMoneyLineHe(s, fee)).toBeNull();
+    }
+  });
+
+  it("drops the quote conversation entirely on a fixed price", () => {
+    const fixed = { fixedTotalHe: "₪450", visitFeeHe: "₪179" };
+    for (const s of ["PRO_EN_ROUTE", "PRO_ARRIVED", "IN_PROGRESS"] as const) {
+      const line = visitMoneyLineHe(s, fixed);
+      expect(line).toContain("₪450");
+      expect(line).not.toMatch(/הצעת מחיר|הצעה/);
+      // And not the visit fee either: one price was agreed, not two.
+      expect(line).not.toContain("₪179");
+    }
+    expect(visitMoneyLineHe("COMPLETION_PENDING", fixed)).toContain("לתשלום");
   });
 });

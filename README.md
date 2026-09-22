@@ -55,13 +55,13 @@ the repository moved out of the build container — see EPIC-0-REPORT §17.
 | Prisma client | `npm run db:generate -w apps/api` | **PASS — v5.22.0** |
 | Typecheck (10 workspaces) | `npm run typecheck` | **CLEAN — all 10** |
 | Lint (10 workspaces) | `npm run lint` | **CLEAN** |
-| Unit tests | `npm test` | **PASS — 1066** |
+| Unit tests | `npm test` | **PASS — 1074** |
 | Domain logic | `npm run verify:domain` | **PASS — 28/28** |
 | Geometry | `npm run verify:geo` | **PASS** |
 | Accessibility | `npm run verify:a11y` | **PASS — 19 screens, 0 defects** |
 | Screen sweep | `npm run verify:screens` | **PASS** |
 | Play layer | `npm run verify:game` | **PASS** |
-| Quote handover, both sides | `npm run verify:handover` | **PASS — written quote survives the crossing** |
+| Quote handover, both sides | `npm run verify:handover` | **PASS — written quote survives the crossing, panel says it back** |
 | Admin build | `next build` | **PASS — 7 pages** |
 | Schema vs. real database | `npm run db:verify` | **PASS — 1411/1411** |
 | Row lock vs. real Postgres | `npm run verify:rowlock` | **PASS — 7/7, with a control** |

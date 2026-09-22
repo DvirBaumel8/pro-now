@@ -4,6 +4,8 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import {
   assessArrival,
   jobProgressHe,
+  visitMoneyLineHe,
+  type VisitMoneyFacts,
   WORLD_DISTRICTS,
   type DepartmentCode,
   routeAt,
@@ -97,8 +99,22 @@ export interface TrackingBodyProps {
   serviceNameHe: string;
   professional: ProfessionalSummaryView;
   eta: EtaView | null;
-  /** Already-formatted headline price, e.g. "₪179 דמי ביקור". */
-  priceLineHe?: string | null;
+  /**
+   * WHAT IS TRUE ABOUT THE MONEY, not the sentence about it.
+   *
+   * This used to be `priceLineHe` — one finished string, handed over
+   * once and then repeated for the whole visit. Amit: *"איך הצעת מחיר
+   * תשלח אם הוא כבר סיים את העבודה? זה אמור להיות לפני."* He was reading
+   * "הצעת מחיר תישלח לאישורך" on a screen where the quote had already
+   * been approved, which is a sentence describing a future that has
+   * happened.
+   *
+   * The facts are passed and the sentence is derived from them and the
+   * status, by `visitMoneyLineHe`, so the words cannot fall out of step
+   * with the job. Everything in here is ALREADY FORMATTED by whoever
+   * knows the number — this screen never computes an amount.
+   */
+  money?: VisitMoneyFacts;
   /** "22:49" — the promise, computed by the server from a real route. */
   arrivalClockHe?: string | null;
   /**
@@ -158,7 +174,7 @@ export function TrackingBody({
   serviceNameHe,
   professional,
   eta,
-  priceLineHe,
+  money,
   arrivalClockHe = null,
   arrival,
   previousClockHe = null,
@@ -182,6 +198,11 @@ export function TrackingBody({
   const jobsLine = formatCompletedJobs(professional.proNowCompletedJobs);
   // Anything past the search means a professional is attached to this job.
   const assigned = status !== "SEARCHING" && status !== "DRAFT" && status !== "OFFERING";
+  /*
+   * Derived, not handed over. See `money` above, and `visitMoneyLineHe`
+   * in job-scene.ts for what each state is allowed to say.
+   */
+  const moneyLineHe = visitMoneyLineHe(status, money ?? {});
 
   /*
    * ---------------------------------------------------------------------
@@ -707,7 +728,7 @@ export function TrackingBody({
           <Act labelHe="בטיחות" onPress={onSafety} danger />
         </View>
 
-        {priceLineHe ? <Text style={styles.price}>{priceLineHe}</Text> : null}
+        {moneyLineHe ? <Text style={styles.price}>{moneyLineHe}</Text> : null}
         <Text style={styles.masked}>המספרים מוסתרים משני הצדדים</Text>
         </ScrollView>
       </View>
