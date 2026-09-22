@@ -12,6 +12,7 @@ import {
   STREETS,
   bobAt,
   laneForGait,
+  facingScaleX,
   walkingStreet,
   leanAt,
   pathLength,
@@ -479,6 +480,14 @@ export function WorldLife({
          * `pathLength`, which this replaces — the two must agree or the
          * gait drifts against the position it is supposed to belong to.
          */
+        /*
+         * Which way it is going, read off the path it is walking rather
+         * than off which end it started from — a street can curve, and
+         * `reversed` only ever knew about the ends.
+         */
+        const goingRight = (path[path.length - 1]?.u ?? 0) >= (path[0]?.u ?? 0);
+        const mirror = facingScaleX(spec.assetId, goingRight);
+
         const travelled: number[] = [];
         {
           let total = 0;
@@ -553,8 +562,33 @@ export function WorldLife({
                     outputRange: travelled.map((d) => `${leanAt(gait, d, facing).toFixed(2)}deg`),
                   }),
                 },
-                // Facing. Round one way or round the other.
-                { scaleX: p.reversed ? -1 : 1 },
+                /*
+                 * ---------------------------------------------------------
+                 * FACING THE WAY IT IS ACTUALLY GOING
+                 * ---------------------------------------------------------
+                 * Amit: *"המשאית סתם מרחפת נגד הכיוון ולא נראית נוסעת
+                 * בכלל."*
+                 *
+                 * This was `p.reversed ? -1 : 1` — mirror the sprite if it
+                 * entered from the far end — and it is wrong twice over.
+                 *
+                 * `reversed` says which END it started at, not which way it
+                 * is pointing on screen. And the rule assumed every sprite
+                 * is drawn facing the same way. They are not: the van and
+                 * the tow truck have their cabs on the LEFT, the courier's
+                 * scooter has its front wheel on the RIGHT, and the dog
+                 * walker faces the camera and has no side at all. One
+                 * global flip cannot be right for three different facts,
+                 * and for the van it was right in neither direction — it
+                 * drove backwards up the street and backwards down it.
+                 *
+                 * So the mirror is worked out from the path the thing is
+                 * actually travelling, against what its own art faces. A
+                 * sprite with no side is never mirrored, because flipping
+                 * a person who is looking at you does nothing except
+                 * swap which hand holds the lead.
+                 */
+                { scaleX: mirror },
               ],
               opacity: 1,
             }

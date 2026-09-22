@@ -241,3 +241,49 @@ export function worldMotionViolations(): string[] {
 
   return out;
 }
+
+
+/**
+ * ---------------------------------------------------------------------
+ * WHICH WAY A SPRITE IS DRAWN FACING, AND WHETHER TO MIRROR IT
+ * ---------------------------------------------------------------------
+ * Amit: *"המשאית סתם מרחפת נגד הכיוון ולא נראית נוסעת בכלל."*
+ *
+ * The world mirrored a vehicle when it entered from the far end of the
+ * road — `reversed ? -1 : 1` — which is wrong twice over.
+ *
+ * `reversed` says which END something started at, not which way it
+ * points on screen. And the rule assumed every sprite is drawn facing
+ * the same way. They are not, and this is a fact about the FILES rather
+ * than a style anybody chose: the removals van and the tow truck have
+ * their cabs on the left, the courier's scooter has its front wheel on
+ * the right, and the dog walker faces the camera and has no side at all.
+ *
+ * For the scooter the old rule happened to be right, which is why this
+ * survived — it is the commonest thing on the street, so it is what
+ * anybody watching sees most. The van and the tow truck drove backwards
+ * up the road AND backwards down it, in both directions, always.
+ *
+ * Absent from the table means no side. Mirroring somebody who is looking
+ * at you does nothing except swap which hand holds the lead.
+ */
+export type ArtFacing = "LEFT" | "RIGHT";
+
+export const ART_FACES: Readonly<Record<string, ArtFacing>> = {
+  moving_van: "LEFT",
+  tow_truck: "LEFT",
+  courier_scooter: "RIGHT",
+};
+
+/**
+ * 1 to draw the sprite as it is, -1 to mirror it.
+ *
+ * `goingRight` comes from the path actually being travelled rather than
+ * from which end it began at: a street can curve, and the ends never
+ * knew about the middle.
+ */
+export function facingScaleX(assetId: string, goingRight: boolean): 1 | -1 {
+  const faces = ART_FACES[assetId];
+  if (faces === undefined) return 1;
+  return goingRight === (faces === "RIGHT") ? 1 : -1;
+}
