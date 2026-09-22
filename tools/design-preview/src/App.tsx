@@ -1986,6 +1986,16 @@ const go = useCallback((r: CustomerRoute) => {
             })()}
             onGetHelp={() => setSheet("safety")}
             /*
+             * THE TAP THAT ENDS THE JOB.
+             *
+             * It goes to the receipt, which is where the money is
+             * accounted for. In the product this is
+             * `POST /v1/jobs/:id/confirm-completion` — the server
+             * settles, authorises, captures and writes the ledger, and
+             * none of it is reported by the client.
+             */
+            onConfirmCompletion={() => go({ name: "complete" })}
+            /*
              * The world, and who is coming through it. `departmentCode`
              * decides which street they come down and what they are
              * driving; the ETA the fixture carries is the one the trip

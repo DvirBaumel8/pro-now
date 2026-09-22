@@ -286,6 +286,23 @@ export function Gallery() {
           />
         </Frame>
 
+        {/* The stage Amit pressed and nothing happened: the headline asked
+            for his confirmation and no control on the screen gave it. */}
+        <Frame caption="C10 · סיים וממתין לאישור — והאישור סוף סוף על המסך">
+          <TrackingBody
+            worldSources={worldSources}
+            status="COMPLETION_PENDING"
+            serviceNameHe="תיקון נזילה בברז"
+            professional={matchFixture.professional}
+            eta={matchFixture.eta}
+            priceLineHe="דמי ביקור ₪179 · הצעת מחיר תישלח לאישורך"
+            onConfirmCompletion={noop}
+            onGetHelp={noop}
+            width={PHONE_W}
+            height={PHONE_H}
+          />
+        </Frame>
+
         <Frame caption="C10 · הצעת המחיר מחכה — הסימון זז צעד אחד">
           <TrackingBody
             /*

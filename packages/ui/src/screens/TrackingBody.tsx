@@ -113,6 +113,15 @@ export interface TrackingBodyProps {
   /** For RUNNING_LATE: the clock time we gave before it moved. */
   previousClockHe?: string | null;
   onGetHelp?: () => void;
+  /**
+   * The customer agreeing that the work is done.
+   *
+   * The most consequential tap in the product: the professional's claim
+   * becomes the customer's agreement and the money moves
+   * (/docs/09-PAYMENTS.md). Absent until a caller wires it, and the
+   * screen then shows no button rather than a dead one.
+   */
+  onConfirmCompletion?: () => void;
   onCancelJob?: () => void;
   onCall?: () => void;
   onMessage?: () => void;
@@ -154,6 +163,7 @@ export function TrackingBody({
   arrival,
   previousClockHe = null,
   onGetHelp,
+  onConfirmCompletion,
   onCancelJob,
   onCall,
   onMessage,
@@ -610,6 +620,50 @@ export function TrackingBody({
             ---------------------------------------------------------------- */}
         <VisitSteps status={status} accent={colors.action} done={colors.trust} />
 
+        {/* ----------------------------------------------------------------
+            THE ONE MOVE THAT IS THE CUSTOMER'S, AND IT WAS NOT ON THE
+            SCREEN.
+
+            Amit: *"סיום ותשלום, סתם לחצתי על הכפתור לא קרה כלום."*
+
+            At COMPLETION_PENDING this screen said "סיים — ממתין לאישור"
+            and offered no way to give it. The headline asked the customer
+            for something and the screen had no control that answered —
+            so the only buttons in reach were שיחה, הודעה and בטיחות, and
+            pressing one of those did exactly what it says, which is
+            nothing about finishing.
+
+            It is also the most consequential tap in the product: the
+            professional's claim becomes the customer's agreement, and the
+            money moves. /docs/09-PAYMENTS.md puts the charge behind THIS
+            tap rather than behind the professional's, which is the whole
+            reason the state machine has two states here instead of one.
+            So the button says what it does rather than "סיום".
+
+            And a quiet way out beside it, because "he says he is finished
+            and he is not" needs somewhere to go that is not silence.
+            ---------------------------------------------------------------- */}
+        {status === "COMPLETION_PENDING" && onConfirmCompletion ? (
+          <View style={styles.confirmBlock}>
+            <Pressable
+              onPress={onConfirmCompletion}
+              accessibilityRole="button"
+              accessibilityLabel="אישור שהעבודה הושלמה, ומעבר לתשלום"
+              style={({ pressed }) => [styles.confirmBtn, pressed && { opacity: 0.9 }]}
+            >
+              <Text style={styles.confirmLabel}>הכול תקין — אישור וסיום</Text>
+            </Pressable>
+            <Pressable
+              onPress={onGetHelp}
+              accessibilityRole="button"
+              accessibilityLabel="משהו לא תקין בעבודה"
+              style={({ pressed }) => [styles.confirmQuiet, pressed && { opacity: 0.85 }]}
+            >
+              <Text style={styles.confirmQuietLabel}>משהו לא תקין</Text>
+            </Pressable>
+          </View>
+        ) : null}
+
         <Text style={styles.service} numberOfLines={1}>
           {serviceNameHe} · {headline}
         </Text>
@@ -731,6 +785,18 @@ const styles = StyleSheet.create({
     writingDirection: "rtl",
     marginTop: spacing.md,
   },
+  confirmBlock: { marginTop: spacing.lg, gap: spacing.sm },
+  confirmBtn: {
+    minHeight: 52,
+    borderRadius: radii.lg,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.action,
+  },
+  confirmLabel: { ...type.bodyStrong, color: colors.onAction },
+  confirmQuiet: { minHeight: 44, alignItems: "center", justifyContent: "center" },
+  confirmQuietLabel: { ...type.caption, color: colors.textSecondary, writingDirection: "rtl" },
+
   service: {
     ...type.meta,
     color: colors.textSecondary,
