@@ -12,6 +12,7 @@ import {
   STREETS,
   bobAt,
   laneForGait,
+  walkingStreet,
   leanAt,
   pathLength,
   travelMs,
@@ -281,7 +282,9 @@ export function WorldLife({
     const lane =
       laneForGait(startGait) === "ROAD"
         ? ROAD
-        : STREETS[startSpec.street % STREETS.length]!;
+        : travelling
+          ? walkingStreet()
+          : STREETS[startSpec.street % STREETS.length]!;
     const duration = travelling
       ? travelMs(startGait, pathLength(lane.path))
       : MOMENT_SPEC[decision.start].durationMs;
@@ -428,8 +431,21 @@ export function WorldLife({
          * middle of the carriageway. Derived from the gait now, so a
          * walking thing cannot be given the road. See `laneForGait`.
          */
+        /*
+         * A pedestrian takes the pavement that CROSSES the frame, not the
+         * one that runs into it. See `walkingStreet`: on street 0 the dog
+         * walker covered 727 vertical pixels against 214 horizontal, which
+         * reads as bouncing on the spot rather than as walking past.
+         *
+         * Still moments keep their own street — they are standing
+         * somewhere specific, and `at` is measured along it.
+         */
         const street =
-          laneForGait(gait) === "ROAD" ? ROAD : STREETS[spec.street % STREETS.length]!;
+          laneForGait(gait) === "ROAD"
+            ? ROAD
+            : significant
+              ? walkingStreet()
+              : STREETS[spec.street % STREETS.length]!;
         const path = Array.from({ length: STREET_SAMPLES }, (_, i) => {
           const t = i / (STREET_SAMPLES - 1);
           const at = alongStreet(street, p.reversed ? 1 - t : t);

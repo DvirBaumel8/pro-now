@@ -767,6 +767,54 @@ export function depthScale(v: number): number {
   return 0.74 + Math.max(0, Math.min(1, v)) * 0.44;
 }
 
+/**
+ * ---------------------------------------------------------------------
+ * THE PAVEMENT A WALK READS BEST ON
+ * ---------------------------------------------------------------------
+ * Amit, about the dog walker: *"סתם מרחף לי פה ולא נראה כמו משהו אמיתי,
+ * סתם זז למעלה למטה."*
+ *
+ * Measured across a minute in a browser: 727 pixels of vertical travel
+ * against 214 horizontal. So he was moving — a long way — and almost
+ * entirely toward the camera, because pedestrians were put on street 0,
+ * whose spine runs 0.12 → 0.9 in v while u stays between 0.48 and 0.52.
+ *
+ * A figure walking straight down a three-quarter view shows no lateral
+ * movement at all. It grows slightly, it bobs, and nothing slides past
+ * it — which the eye reads as bouncing on the spot rather than as
+ * walking, exactly as he described. The gait was never the problem: the
+ * walk's bob is 0.03 of a figure's height, under a pixel on screen.
+ *
+ * So a pedestrian takes the pavement that crosses the frame. Chosen by
+ * measurement rather than by index, so it stays right if the streets are
+ * ever re-drawn: the one whose horizontal extent is largest against its
+ * vertical, with `v` weighted by the world's own 3/4 rule so the
+ * comparison is in SCREEN distance and not in plate coordinates.
+ *
+ * This is a rendering choice and not a claim. Which pavement a passer-by
+ * happens to be on is arbitrary — they are ambience, they carry no
+ * agency (/docs/03c §16.3) — and choosing the one where a walk looks
+ * like a walk invents nothing.
+ */
+export function walkingStreet(): Street {
+  let best = STREETS[0]!;
+  let bestRatio = -1;
+  for (const street of STREETS) {
+    const a = street.path[0]!;
+    const b = street.path[street.path.length - 1]!;
+    const across = Math.abs(b.u - a.u);
+    // The same 0.6 the gait and `pathLength` use: a step "into" the
+    // picture covers less screen than a step across it.
+    const into = Math.abs(b.v - a.v) * 0.6;
+    const ratio = across / Math.max(0.001, into);
+    if (ratio > bestRatio) {
+      bestRatio = ratio;
+      best = street;
+    }
+  }
+  return best;
+}
+
 /** Draw order. Nearer covers further. */
 export function depthOrder(v: number): number {
   return Math.round(v * 1000);
