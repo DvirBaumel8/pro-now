@@ -21,6 +21,7 @@ import {
 } from "@pro-now/types";
 
 import { AssetSlot, EMPTY_ASSET_SOURCES, type WorldAssetSources } from "./AssetSlot";
+import { SHADOW } from "./shadowGeometry";
 import { HAIR_PACK_V0 } from "./hairPack";
 
 /**
@@ -499,9 +500,87 @@ export function WorldLife({
               opacity: p.driver.interpolate({ inputRange: [0, 0.25, 0.75, 1], outputRange: [0, 1, 1, 0] }),
             };
 
+        /*
+         * THE SHADOW, AS A SIBLING.
+         *
+         * Everything that moved through this world floated. `Walker` — the
+         * customer's own figure — has had a contact shadow since it was
+         * written, and nothing else did: not the courier, not the van, not
+         * the tow truck, not the dog walker. In a 3/4 illustrated street a
+         * figure with no patch of dark under it reads as a sticker on a
+         * photograph, and the art direction says the artwork ships with no
+         * baked shadow precisely BECAUSE the engine draws one.
+         *
+         * A sibling and not a child, for two reasons the geometry module
+         * already names: it must not rise with the bob — it is on the
+         * ground while the figure is in the air, and it fades instead —
+         * and it must not lean with the stride, because tarmac does not
+         * tilt.
+         *
+         * So it repeats the position and the depth scale and takes neither
+         * the bob nor the rotation.
+         */
+        const shadowW = w * SHADOW.widthRatio;
+        const shadowH = shadowW * SHADOW.flatness;
+
+        const shadowStyle = path
+          ? {
+              transform: [
+                {
+                  translateX: p.driver.interpolate({
+                    inputRange: steps,
+                    outputRange: path.map((q) => q.u * width - shadowW / 2),
+                  }),
+                },
+                {
+                  // The GROUND point, which is the bottom of the figure's
+                  // box rather than its middle — so the ellipse sits where
+                  // the wheels are, not where the roof is.
+                  translateY: p.driver.interpolate({
+                    inputRange: steps,
+                    outputRange: path.map((q) => q.v * height - shadowH / 2),
+                  }),
+                },
+                {
+                  scale: p.driver.interpolate({
+                    inputRange: steps,
+                    outputRange: path.map((q) => q.scale),
+                  }),
+                },
+              ],
+              opacity: SHADOW.opacity,
+            }
+          : {
+              transform: [
+                { translateX: (still?.u ?? 0.5) * width - shadowW / 2 },
+                { translateY: (still?.v ?? 0.5) * height - shadowH / 2 },
+                { scale: depthScale(still?.v ?? 0.5) },
+              ],
+              opacity: p.driver.interpolate({
+                inputRange: [0, 0.25, 0.75, 1],
+                outputRange: [0, SHADOW.opacity, SHADOW.opacity, 0],
+              }),
+            };
+
         return (
+          <React.Fragment key={`${p.moment}-${p.startedAt}`}>
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                {
+                  position: "absolute",
+                  left: 0,
+                  top: 0,
+                  width: shadowW,
+                  height: shadowH,
+                  borderRadius: 999,
+                  backgroundColor: "rgba(14,10,20,1)",
+                },
+                shadowStyle,
+              ]}
+            />
+
           <Animated.View
-            key={`${p.moment}-${p.startedAt}`}
             style={[{ position: "absolute", left: 0, top: 0, width: w, height: base }, travelStyle]}
           >
             <AssetSlot
@@ -531,6 +610,7 @@ export function WorldLife({
               pending="none"
             />
           </Animated.View>
+          </React.Fragment>
         );
       })}
     </View>

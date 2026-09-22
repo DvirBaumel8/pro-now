@@ -19,6 +19,7 @@ import {
 
 import { palette } from "../../theme";
 import { AssetSlot, EMPTY_ASSET_SOURCES, type WorldAssetSources } from "./AssetSlot";
+import { SHADOW } from "./shadowGeometry";
 import { HAIR_PACK_V0 } from "./hairPack";
 
 /**
@@ -452,6 +453,58 @@ export function RouteLayer({
           opacity={0.95}
         />
       </Svg>
+
+      {/*
+        * THE SHADOW UNDER THE ONE FIGURE THE CUSTOMER IS WATCHING.
+        *
+        * This is the professional on their way, and it floated. Every
+        * other layer did too — `Walker`, the customer's own figure, was
+        * the only thing in the world with a patch of dark under it.
+        *
+        * A sibling rather than a child, so it stays on the ground while
+        * the figure bobs over it and does not lean when the figure leans.
+        * The arithmetic is the same as `Walker`'s, and the same trap: the
+        * offset is half the UNSCALED size, because a transform's scale is
+        * about the box's centre.
+        */}
+      {sources[vehicleAssetId] ? (
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            width: w * SHADOW.widthRatio,
+            height: w * SHADOW.widthRatio * SHADOW.flatness,
+            borderRadius: 999,
+            backgroundColor: "rgba(14,10,20,1)",
+            opacity: SHADOW.opacity,
+            transform: [
+              {
+                translateX: driver.interpolate({
+                  inputRange: steps,
+                  outputRange: route.map((s) => s.at.u * width - (w * SHADOW.widthRatio) / 2),
+                }),
+              },
+              {
+                // The ground point, not the middle of the figure's box.
+                translateY: driver.interpolate({
+                  inputRange: steps,
+                  outputRange: route.map(
+                    (s) => s.at.v * height - (w * SHADOW.widthRatio * SHADOW.flatness) / 2
+                  ),
+                }),
+              },
+              {
+                scale: driver.interpolate({
+                  inputRange: steps,
+                  outputRange: route.map((s) => s.scale),
+                }),
+              },
+            ],
+          }}
+        />
+      ) : null}
 
       {sources[vehicleAssetId] ? (
         <Animated.View
