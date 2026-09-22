@@ -8,6 +8,7 @@ import { elevation, proTheme, radii, scale, spacing, tabular, tint, type } from 
 import { lex } from "../lexicon";
 import { ClockMark, Mark, type MarkName, PinMark, ShieldCheckMark } from "../components/marks";
 import { Persona } from "../components/Persona";
+import { VisitSteps } from "../components/VisitSteps";
 import { ImageSlot, SectionHeader, Surface } from "../components/surfaces";
 
 /**
@@ -166,6 +167,28 @@ export function ProJobBody({
           <Text style={styles.service} numberOfLines={2}>
             {serviceNameHe}
           </Text>
+
+          {/* ----------------------------------------------------------
+              THE SAME FOUR STEPS THE CUSTOMER IS LOOKING AT.
+
+              Amit: *"המסכים חייבים להתחלף כל לחיצת כפתור, כל פעולה, גם
+              ללקוח וגם למקצוען."*
+
+              A status pill says one word about now. It does not say what
+              is left, and this side has a dead stretch of its own —
+              WAITING_QUOTE_APPROVAL, where the professional has no
+              button to press at all because the next move is the
+              customer's. A word and no button reads as a screen that has
+              stopped working.
+
+              Literally the same component, from the same function beside
+              the state machine, because the two of them are watching ONE
+              visit. A customer told the work is at step three while the
+              professional sees step two is a disagreement about a fact,
+              in a product whose whole proposition is that both sides can
+              trust what they are shown.
+              ---------------------------------------------------------- */}
+          <VisitSteps status={status} accent={colors.trust} done={colors.trust} />
 
           <View style={styles.addressRow}>
             <PinMark size={15} color={colors.textSecondary} />

@@ -60,6 +60,7 @@ export * from "./components/MatchReveal";
 export * from "./components/livingmap";
 export * from "./components/ProWorld";
 export * from "./components/ScreenTransition";
+export * from "./components/VisitSteps";
 export * from "./components/ScreenShell";
 export * from "./components/RealMapSurface";
 export * from "./components/FocusSheet";

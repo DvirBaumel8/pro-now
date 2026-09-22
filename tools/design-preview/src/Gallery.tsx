@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet, ScrollView, useWindowDimensions } from "react-native";
 
-import { CustomerHomeBody, CustomerProfileBody, customerTheme, JobCompleteBody, MatchCard, MatchCardSkeleton, OfferCard, OfferCardSkeleton, Persona, PersonaStack, ProOfferBody, ProOnlineBody, ProProfileBody, ProShiftBody, proTheme, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, spacing, TrackingBody, type as t } from "@pro-now/ui";
+import { CustomerHomeBody, CustomerProfileBody, customerTheme, JobCompleteBody, MatchCard, MatchCardSkeleton, OfferCard, OfferCardSkeleton, Persona, PersonaStack, ProJobBody, ProOfferBody, ProOnlineBody, ProProfileBody, ProShiftBody, proTheme, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, spacing, TrackingBody, type as t } from "@pro-now/ui";
 
 import {
   FROZEN_NOW_MS,
@@ -706,6 +706,60 @@ export function Gallery() {
 
         <Frame dark caption="P16 · הסכום לא ידוע מראש — נאמר, לא הומצא">
           <ProOfferBody offer={offerUnknownPayoutFixture} nowMs={FROZEN_NOW_MS + 26000} onAccept={noop} onSkip={noop} width={PHONE_W} height={PHONE_H} />
+        </Frame>
+
+        {/*
+          * THE PROFESSIONAL'S OWN JOB SCREEN, WHICH THE GALLERY HAD NEVER
+          * SHOWN AT ALL.
+          *
+          * It lives only in the flow app, reachable by accepting an offer
+          * — so the one screen a professional spends a whole visit on
+          * could not be reviewed. Both halves of the stretch Amit called
+          * empty are here: the diagnosis, and the wait for the customer's
+          * answer, where this side has no button to press because the
+          * next move is not its own.
+          */}
+        <Frame dark caption="P18 · באבחון · אותם ארבעה צעדים שהלקוח רואה">
+          <ProJobBody
+            status="DIAGNOSIS"
+            serviceNameHe="תיקון נזילה בברז"
+            mark="plumbing"
+            addressHe="רחוב הברזל 12, רמת אביב, תל אביב"
+            accessNoteHe="קומה 3, דירה 9 · קוד כניסה 1408"
+            routeEtaMinutes={9}
+            distanceHe="2.4 ק״מ"
+            customerNameHe="אמית (תצוגה)"
+            customerSeed="cust_demo_1"
+            symptomsHe={["נזילה מתחת לכיור", "התחיל אתמול"]}
+            descriptionHe="יש מים על הרצפה כל בוקר."
+            media={[]}
+            payoutMinorUnits={null}
+            payoutIsEstimate={false}
+            width={PHONE_W}
+            height={PHONE_H}
+          />
+        </Frame>
+
+        <Frame dark caption="P18 · ממתין לאישור הלקוח · אין כפתור, ויש מצב">
+          <ProJobBody
+            status="WAITING_QUOTE_APPROVAL"
+            serviceNameHe="תיקון נזילה בברז"
+            mark="plumbing"
+            addressHe="רחוב הברזל 12, רמת אביב, תל אביב"
+            accessNoteHe="קומה 3, דירה 9 · קוד כניסה 1408"
+            routeEtaMinutes={9}
+            distanceHe="2.4 ק״מ"
+            customerNameHe="אמית (תצוגה)"
+            customerSeed="cust_demo_1"
+            symptomsHe={["נזילה מתחת לכיור", "התחיל אתמול"]}
+            descriptionHe="יש מים על הרצפה כל בוקר."
+            media={[]}
+            payoutMinorUnits={null}
+            payoutIsEstimate={false}
+            waitingMinutes={3}
+            width={PHONE_W}
+            height={PHONE_H}
+          />
         </Frame>
 
         <Frame dark caption="P16 · הסתיימה · הפעולות נעלמות, לא נכשלות">
