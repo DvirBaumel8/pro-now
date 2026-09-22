@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet, ScrollView, useWindowDimensions } from "react-native";
 
-import { CustomerHomeBody, CustomerProfileBody, customerTheme, JobClosedBody, JobCompleteBody, MatchCard, MatchCardSkeleton, OfferCard, OfferCardSkeleton, Persona, PersonaStack, ProJobBody, ProOfferBody, ProOnlineBody, ProProfileBody, ProShiftBody, proTheme, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, spacing, TrackingBody, type as t } from "@pro-now/ui";
+import { CustomerHomeBody, CustomerProfileBody, customerTheme, JobClosedBody, JobCompleteBody, MatchCard, MatchCardSkeleton, OfferCard, OfferCardSkeleton, Persona, PersonaStack, ProJobBody, ProOfferBody, ProOnlineBody, ProProfileBody, ProQuoteBuilderBody, ProShiftBody, proTheme, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, spacing, TrackingBody, type as t } from "@pro-now/ui";
 
 import {
   FROZEN_NOW_MS,
@@ -826,6 +826,28 @@ export function Gallery() {
           * answer, where this side has no button to press because the
           * next move is not its own.
           */}
+        {/*
+          * THE SCREEN THAT DID NOT EXIST.
+          *
+          * Amit: *"מתחיל אבחון לא קורה כלום, לא עובר לטופס שהוא ממלא
+          * ששם הופך להצעת מחיר."* The button said "שליחת הצעת מחיר" and
+          * sent a fixture — lines written by nobody, for a job nobody had
+          * looked at — which the customer then approved.
+          */}
+        <Frame dark caption="P19 · כתיבת הצעת מחיר · השורות האלה הן מה שהלקוח יראה">
+          <ProQuoteBuilderBody
+            serviceNameHe="תיקון נזילה בברז"
+            symptomsHe={["נזילה מתחת לכיור", "התחיל אתמול"]}
+            customerTextHe="יש מים על הרצפה כל בוקר."
+            usualUpToMinorUnits={48000}
+            usualSampleSize={14}
+            onSend={noop}
+            onBack={noop}
+            width={PHONE_W}
+            height={PHONE_H}
+          />
+        </Frame>
+
         <Frame dark caption="P18 · באבחון · והוא רואה את אותו טווח שהלקוח יראה">
           <ProJobBody
             /*

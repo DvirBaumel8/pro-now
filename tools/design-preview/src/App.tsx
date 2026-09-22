@@ -51,7 +51,7 @@ const proWorldSources: WorldAssetSources = Object.fromEntries(
 import { standInWorldSources } from "./standInAvatars";
 import fixtureGeo from "../geo/fixture_grid.json";
 
-import { ActiveJobCapsule, AddressPickerBody, AppHeader, AvatarPickerBody, IntroBody, customerDarkTheme, FocusSheet, ScreenTransition, ArrivalVerifyBody, CallsListBody, CAPSULE_HEIGHT, ChatBody, ConnectionBanner, CategoryBody, CustomerHomeBody, CustomerProfileBody, customerTheme, DescribeFaultBody, JobClosedBody, JobCompleteBody, lex, MatchConfirmBody, NavGlyph, Persona, PhoneAuthBody, ProEarningsBody, ProJobBody, ProJobSettledBody, ProOfferBody, ProOnlineBody, ProPricingBody, ProProfileBody, ProServicesBody, ProShiftBody, proTheme, ProVerificationBody, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, StrollBody, Sheet, spacing, tint, TrackingBody, type as t, WelcomeBody } from "@pro-now/ui";
+import { ActiveJobCapsule, AddressPickerBody, AppHeader, AvatarPickerBody, IntroBody, customerDarkTheme, FocusSheet, ScreenTransition, ArrivalVerifyBody, CallsListBody, CAPSULE_HEIGHT, ChatBody, ConnectionBanner, CategoryBody, CustomerHomeBody, CustomerProfileBody, customerTheme, DescribeFaultBody, JobClosedBody, JobCompleteBody, lex, MatchConfirmBody, NavGlyph, Persona, PhoneAuthBody, ProEarningsBody, ProJobBody, ProJobSettledBody, ProOfferBody, ProOnlineBody, ProPricingBody, ProProfileBody, ProQuoteBuilderBody, ProServicesBody, ProShiftBody, proTheme, ProVerificationBody, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, StrollBody, Sheet, spacing, tint, TrackingBody, type as t, WelcomeBody } from "@pro-now/ui";
 import type { JobMediaItem, LiveLocationState, MarkName, NavGlyphName, ProPricingRow } from "@pro-now/ui";
 import type { AuthStage, ChatMessage, ConnectionState } from "@pro-now/ui";
 import { canHandOffToMaps, mapsHandoffUrl, buildIntakeBrief, pilotIntakeByService, pilotServiceById, readAvailability } from "@pro-now/types";
@@ -553,7 +553,20 @@ export function App() {
    * opposite direction, and it is the one place in the whole flow where the
    * product deliberately blocks one person on another.
    */
-  const [pendingQuote, setPendingQuote] = useState<{ sentAtMs: number } | null>(null);
+  /*
+   * THE QUOTE ITSELF CROSSES THE BRIDGE NOW, NOT JUST ITS TIMESTAMP.
+   *
+   * Amit: *"לפחות שהכל יהיה שקוף מול הלקוח שיופיע לו גם."* This held a
+   * `sentAtMs` and nothing else, so the customer's approval screen
+   * rendered a FIXTURE — lines written by nobody, for a job nobody had
+   * looked at — while the professional's side pretended to have sent
+   * something. The two sides were telling different stories about the
+   * same quote.
+   */
+  const [pendingQuote, setPendingQuote] = useState<{
+    sentAtMs: number;
+    draft: { lines: { id: string; description: string; quantity: number; unitPriceMinorUnits: number; kind: string }[]; notesHe: string } | null;
+  } | null>(null);
   const [quoteDecision, setQuoteDecision] = useState<"APPROVED" | "DECLINED" | null>(null);
   /**
    * The prototype notice. It covers the address row while it is up, so it
@@ -770,9 +783,9 @@ export function App() {
             onTakeRequest={() => setLiveRequest(null)}
             pendingQuote={pendingQuote}
             quoteDecision={quoteDecision}
-            onSendQuote={() => {
+            onSendQuote={(draft) => {
               setQuoteDecision(null);
-              setPendingQuote({ sentAtMs: Date.now() });
+              setPendingQuote({ sentAtMs: Date.now(), draft });
             }}
             onQuoteSeen={() => setQuoteDecision(null)}
           />
@@ -932,7 +945,10 @@ function CustomerApp({
   onBackOut: () => boolean;
   onSendRequest: (r: LiveRequest) => void;
   /** A quote the professional sent and the customer has not answered. */
-  pendingQuote: { sentAtMs: number } | null;
+  pendingQuote: {
+    sentAtMs: number;
+    draft: { lines: { id: string; description: string; quantity: number; unitPriceMinorUnits: number; kind: string }[]; notesHe: string } | null;
+  } | null;
   onQuoteDecision: (d: "APPROVED" | "DECLINED") => void;
   /**
    * Who the customer walks the street as. Owned above, because the picker
@@ -974,6 +990,40 @@ function CustomerApp({
    * picture of a choice rather than a choice.
    */
   const [openVenue, setOpenVenue] = useState<string | null>(null);
+
+  /**
+   * The professional's own lines, shaped as the quote the screen renders.
+   *
+   * The total is summed here for DISPLAY only. In the product the server
+   * builds it with `buildQuoteVersion` and binds it to a version hash
+   * that the customer approves — so if the two ever disagreed the
+   * server's would be the one that counts, and this screen has always
+   * been careful to render the total it was GIVEN rather than one it
+   * worked out. That stays true: this is the caller doing the sum, not
+   * the screen.
+   */
+  const writtenQuote = useMemo(() => {
+    const draft = pendingQuote?.draft;
+    if (!draft || draft.lines.length === 0) return null;
+    const lineItems = draft.lines.map((l, i) => ({
+      id: `w${i}`,
+      quoteId: "quote_written",
+      description: l.description,
+      quantity: l.quantity,
+      unitPriceMinorUnits: l.unitPriceMinorUnits,
+      kind: l.kind as "LABOR" | "MATERIALS" | "OTHER",
+    }));
+    return {
+      ...quoteFixture,
+      id: "quote_written",
+      lineItems,
+      notes: draft.notesHe || quoteFixture.notes,
+      totalMinorUnits: draft.lines.reduce(
+        (sum, l) => sum + Math.round(l.quantity * l.unitPriceMinorUnits),
+        0
+      ),
+    };
+  }, [pendingQuote]);
 
   /*
    * Seeded from the last review session, so a reload lands where you were
@@ -2103,7 +2153,20 @@ const go = useCallback((r: CustomerRoute) => {
               height={bodyH}
             >
               <QuoteApprovalBody
-                quote={quoteFixture}
+                /*
+                 * THE QUOTE THE PROFESSIONAL ACTUALLY WROTE.
+                 *
+                 * This rendered `quoteFixture` whatever had happened —
+                 * lines written by nobody, for a job nobody had looked
+                 * at — so the customer approved one thing while the
+                 * professional had composed another, or nothing at all.
+                 * Amit: *"שהכל יהיה שקוף מול הלקוח שיופיע לו גם."*
+                 *
+                 * The fixture stays as the fallback for a deep link
+                 * that lands here without a visit behind it, which is
+                 * how this screen is usually reviewed.
+                 */
+                quote={writtenQuote ?? quoteFixture}
                 /*
                  * Demonstration data — see `priceContextFixture`. In the
                  * product the server decides this from approved quotes
@@ -2553,10 +2616,13 @@ function ProApp({
   /** Called once the offer has been taken off the queue. */
   onTakeRequest: () => void;
   /** A quote this professional sent that the customer has not answered. */
-  pendingQuote: { sentAtMs: number } | null;
+  pendingQuote: {
+    sentAtMs: number;
+    draft: { lines: { id: string; description: string; quantity: number; unitPriceMinorUnits: number; kind: string }[]; notesHe: string } | null;
+  } | null;
   /** The customer's answer, once it arrives. */
   quoteDecision: "APPROVED" | "DECLINED" | null;
-  onSendQuote: () => void;
+  onSendQuote: (draft: { lines: { id: string; description: string; quantity: number; unitPriceMinorUnits: number; kind: string }[]; notesHe: string }) => void;
   onQuoteSeen: () => void;
 }) {
   const [tab, setTab] = useState<ProTab>("shift");
@@ -2565,7 +2631,14 @@ function ProApp({
   const [now, setNow] = useState(() => Date.now());
   const [job, setJob] = useState<JobState | null>(null);
   const [proChat, setProChat] = useState<ChatMessage[]>(chatSeed);
-  const [proView, setProView] = useState<null | "chat" | "presence" | "pricing">(null);
+  const [proView, setProView] = useState<null | "chat" | "presence" | "pricing" | "quote">(null);
+
+  /*
+   * The draft is NOT kept here. It goes straight up through
+   * `onSendQuote` to the shell, which hands it to the customer's
+   * approval screen — one copy, so the two sides cannot end up showing
+   * different quotes for the same job.
+   */
 
   /**
    * WHICH SERVICES ARE ARMED FOR THIS SHIFT.
@@ -2603,12 +2676,12 @@ function ProApp({
    * you WERE, not where you are going. That distinction is the bug the
    * customer side already paid for once.
    */
-  const proBack = useRef<{ view: null | "chat" | "presence" | "pricing"; tab: ProTab }[]>([]);
-  const proHere = useRef<{ view: null | "chat" | "presence" | "pricing"; tab: ProTab }>({
+  const proBack = useRef<{ view: null | "chat" | "presence" | "pricing" | "quote"; tab: ProTab }[]>([]);
+  const proHere = useRef<{ view: null | "chat" | "presence" | "pricing" | "quote"; tab: ProTab }>({
     view: null,
     tab: "shift",
   });
-  const goPro = useCallback((view: null | "chat" | "presence" | "pricing") => {
+  const goPro = useCallback((view: null | "chat" | "presence" | "pricing" | "quote") => {
     proBack.current = [...proBack.current, proHere.current].slice(-40);
     setProView(view);
     pushBackEntry();
@@ -2863,6 +2936,8 @@ function ProApp({
         ? "settled"
         : proView === "chat"
           ? "chat"
+          : proView === "quote"
+            ? "quote"
           : tab === "earnings" || tab === "verify" || tab === "profile"
             ? tab
             : job
@@ -2984,6 +3059,36 @@ function ProApp({
         width={width}
         height={bodyH}
       />
+    /*
+     * ABOVE THE JOB SCREEN, LIKE THE CHAT.
+     *
+     * The builder is opened FROM a job, so `job` is set the whole time
+     * it is up — and with the job screen checked first, pressing "שליחת
+     * הצעת מחיר" changed the route and rendered the same screen again.
+     * Which is the very fault being fixed, one level down.
+     */
+    ) : proView === "quote" ? (
+      <ProQuoteBuilderBody
+        serviceNameHe={takenRequest?.serviceNameHe ?? "תיקון נזילה בברז"}
+        symptomsHe={takenRequest ? takenRequest.intakeBrief.map((l) => l.answerHe) : jobSymptoms}
+        customerTextHe={takenRequest ? takenRequest.textHe.trim() || null : jobDescription}
+        /*
+         * The same range the customer will be shown on the approval
+         * screen — told here, before the quote goes out, rather than
+         * behind the professional's back.
+         */
+        usualUpToMinorUnits={48000}
+        usualSampleSize={14}
+        onSend={(draft) => {
+          // The lines go to the customer, not only "a quote was sent".
+          onSendQuote(draft);
+          advanceJob();
+          setProView(null);
+        }}
+        onBack={() => setProView(null)}
+        width={width}
+        height={bodyH}
+      />
     ) : job ? (
       <ProJobBody
         status={job}
@@ -3021,10 +3126,16 @@ function ProApp({
         payoutMinorUnits={job === "DIAGNOSIS" || job === "WAITING_QUOTE_APPROVAL" ? null : 13400}
         payoutIsEstimate={false}
         onAdvance={advanceJob}
-        onSendQuote={() => {
-          onSendQuote();
-          advanceJob();
-        }}
+        /*
+         * OPENS THE FORM RATHER THAN SENDING A FIXTURE.
+         *
+         * This used to call `onSendQuote()` and advance the job in one
+         * tap, so the quote the customer approved was lines written by
+         * nobody for a job nobody had looked at. Amit: *"מתחיל אבחון לא
+         * קורה כלום, לא עובר לטופס שהוא ממלא."* The send now happens
+         * from the form, once there is something to send.
+         */
+        onSendQuote={() => goPro("quote")}
         waitingMinutes={
           pendingQuote ? Math.floor((shiftNow - pendingQuote.sentAtMs) / 60_000) : null
         }

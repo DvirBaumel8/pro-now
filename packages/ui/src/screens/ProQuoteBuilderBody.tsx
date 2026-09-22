@@ -1,0 +1,407 @@
+import React, { useMemo, useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+
+import { formatMoney, money } from "@pro-now/types";
+
+import { proTheme, radii, spacing, tabular, tint, type } from "../theme";
+import { SectionHeader, Surface } from "../components/surfaces";
+
+/**
+ * P19 — WHERE THE PROFESSIONAL WRITES THE QUOTE.
+ *
+ * ---------------------------------------------------------------------
+ * WHY THIS EXISTS
+ * ---------------------------------------------------------------------
+ * Amit: *"מתחיל אבחון לא קורה כלום, לא עובר לטופס שהוא ממלא... הרי הוא
+ * חייב לרשום את הבעיות לפני שמשקלל הצעת מחיר, לפחות שהכל יהיה שקוף מול
+ * הלקוח שיופיע לו גם."*
+ *
+ * He is describing the hole exactly. The professional's screen had a
+ * button reading "שליחת הצעת מחיר" and no screen behind it: the quote
+ * the customer then approved was a fixture, written by nobody. Every
+ * other piece of that chain exists — the schema, the server's
+ * `buildQuoteVersion`, the version hash, the customer's approval screen
+ * — and the one place a human was supposed to type was missing.
+ *
+ * ---------------------------------------------------------------------
+ * WHAT THE SCREEN IS ALLOWED TO DECIDE, WHICH IS NOTHING
+ * ---------------------------------------------------------------------
+ * No suggested prices, no templates with amounts in them, no "similar
+ * jobs charged". What a professional charges is their own commercial
+ * decision (/CLAUDE.md §4) and a default in a box is a recommendation
+ * whatever the label says.
+ *
+ * The total shown here is ARITHMETIC, not a price the app has agreed to.
+ * The server recomputes it from the same lines and binds it to a version
+ * hash, and the customer approves that hash — so if this screen and the
+ * server ever disagreed, the server would win and the customer would see
+ * the server's number. The screen says so rather than implying its sum
+ * is the contract.
+ *
+ * ---------------------------------------------------------------------
+ * THE LINES ARE THE TRANSPARENCY
+ * ---------------------------------------------------------------------
+ * *"שהכל יהיה שקוף מול הלקוח שיופיע לו גם."* Every line typed here is
+ * shown to the customer, with its quantity and unit price, on the
+ * approval screen — that screen has always rendered them and has never
+ * had real ones to render. Which is also why the placeholder text asks
+ * for a description a customer could understand rather than a code.
+ */
+
+const colors = proTheme.colors;
+
+export type QuoteLineKind = "LABOR" | "MATERIALS" | "OTHER";
+
+export interface QuoteDraftLine {
+  id: string;
+  description: string;
+  /** Whole units. A half-hour is 0.5, and the server takes a positive number. */
+  quantity: number;
+  unitPriceMinorUnits: number;
+  kind: QuoteLineKind;
+}
+
+const KIND_HE: Record<QuoteLineKind, string> = {
+  LABOR: "עבודה",
+  MATERIALS: "חומרים",
+  OTHER: "אחר",
+};
+
+export interface ProQuoteBuilderBodyProps {
+  serviceNameHe: string;
+  /** What the customer said is wrong, so it can be quoted against. */
+  symptomsHe?: string[];
+  customerTextHe?: string | null;
+  /**
+   * The top of the usual range for this service, or null below the
+   * minimum sample. The same figure the customer will be shown, told
+   * here BEFORE the quote goes out — see `price-context.ts`.
+   */
+  usualUpToMinorUnits?: number | null;
+  usualSampleSize?: number;
+  onSend?: (draft: { lines: QuoteDraftLine[]; notesHe: string }) => void;
+  onBack?: () => void;
+  width?: number;
+  height?: number;
+}
+
+/** A blank line, so "add" never produces a row with somebody else's number in it. */
+function emptyLine(n: number): QuoteDraftLine {
+  return { id: `l${n}`, description: "", quantity: 1, unitPriceMinorUnits: 0, kind: "LABOR" };
+}
+
+export function ProQuoteBuilderBody({
+  serviceNameHe,
+  symptomsHe = [],
+  customerTextHe = null,
+  usualUpToMinorUnits = null,
+  usualSampleSize = 0,
+  onSend,
+  onBack,
+  width = 390,
+  height = 780,
+}: ProQuoteBuilderBodyProps) {
+  const [lines, setLines] = useState<QuoteDraftLine[]>([emptyLine(1)]);
+  const [notes, setNotes] = useState("");
+
+  const total = useMemo(
+    () => lines.reduce((sum, l) => sum + Math.round(l.quantity * l.unitPriceMinorUnits), 0),
+    [lines]
+  );
+
+  /*
+   * A quote with no description and no amount is not a quote. The server
+   * refuses an empty line list; this refuses to SEND one, which is the
+   * same rule said earlier and more kindly.
+   */
+  const sendable =
+    lines.length > 0 &&
+    lines.every((l) => l.description.trim().length > 0) &&
+    lines.some((l) => l.unitPriceMinorUnits > 0);
+
+  const patch = (id: string, next: Partial<QuoteDraftLine>) =>
+    setLines((cur) => cur.map((l) => (l.id === id ? { ...l, ...next } : l)));
+
+  return (
+    <View style={[styles.screen, { width, height }]}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+        <Text style={styles.title}>הצעת מחיר · {serviceNameHe}</Text>
+
+        {/* What the customer said, so the quote answers it. */}
+        {symptomsHe.length > 0 || customerTextHe ? (
+          <Surface colors={colors} level={1} dark style={styles.said}>
+            <Text style={styles.saidHead}>מה הלקוח תיאר</Text>
+            {symptomsHe.length > 0 ? (
+              <Text style={styles.saidText}>{symptomsHe.join(" · ")}</Text>
+            ) : null}
+            {customerTextHe ? <Text style={styles.saidText}>{customerTextHe}</Text> : null}
+          </Surface>
+        ) : null}
+
+        <SectionHeader title="מה צריך לעשות" colors={colors} />
+
+        {lines.map((l, i) => (
+          <Surface key={l.id} colors={colors} level={1} dark style={styles.line}>
+            <TextInput
+              value={l.description}
+              onChangeText={(t) => patch(l.id, { description: t })}
+              placeholder="מה נעשה — במילים שהלקוח יבין"
+              accessibilityLabel={`תיאור שורה ${i + 1}`}
+              placeholderTextColor={colors.textSecondary}
+              style={styles.desc}
+              textAlign="right"
+            />
+
+            <View style={styles.numbers}>
+              <View style={styles.numField}>
+                <Text style={styles.numLabel}>כמות</Text>
+                <TextInput
+                  value={String(l.quantity)}
+                  onChangeText={(t) => {
+                    const n = Number(t.replace(/[^\d.]/g, ""));
+                    patch(l.id, { quantity: Number.isFinite(n) && n > 0 ? n : 0 });
+                  }}
+                  keyboardType="decimal-pad"
+                  accessibilityLabel={`כמות בשורה ${i + 1}`}
+                  style={styles.num}
+                  textAlign="right"
+                />
+              </View>
+
+              <View style={styles.numField}>
+                <Text style={styles.numLabel}>מחיר ליחידה (₪)</Text>
+                <TextInput
+                  /*
+                   * Typed in whole shekels and held in agorot. Money is
+                   * integer minor units everywhere in this codebase
+                   * (/CLAUDE.md §3), and asking a professional to type
+                   * agorot would be asking them to do the conversion.
+                   */
+                  value={l.unitPriceMinorUnits === 0 ? "" : String(l.unitPriceMinorUnits / 100)}
+                  onChangeText={(t) => {
+                    const n = Number(t.replace(/[^\d.]/g, ""));
+                    patch(l.id, {
+                      unitPriceMinorUnits: Number.isFinite(n) && n >= 0 ? Math.round(n * 100) : 0,
+                    });
+                  }}
+                  placeholder="0"
+                  placeholderTextColor={colors.textSecondary}
+                  keyboardType="number-pad"
+                  accessibilityLabel={`מחיר ליחידה בשורה ${i + 1}`}
+                  style={styles.num}
+                  textAlign="right"
+                />
+              </View>
+            </View>
+
+            <View style={styles.kindRow}>
+              {(Object.keys(KIND_HE) as QuoteLineKind[]).map((k) => (
+                <Pressable
+                  key={k}
+                  onPress={() => patch(l.id, { kind: k })}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: l.kind === k }}
+                  accessibilityLabel={`${KIND_HE[k]} · שורה ${i + 1}`}
+                  style={[styles.kind, l.kind === k && styles.kindOn]}
+                >
+                  <Text style={[styles.kindText, l.kind === k && styles.kindTextOn]}>
+                    {KIND_HE[k]}
+                  </Text>
+                </Pressable>
+              ))}
+              {lines.length > 1 ? (
+                <Pressable
+                  onPress={() => setLines((cur) => cur.filter((x) => x.id !== l.id))}
+                  accessibilityRole="button"
+                  accessibilityLabel={`מחיקת שורה ${i + 1}`}
+                  style={styles.remove}
+                >
+                  <Text style={styles.removeText}>מחיקה</Text>
+                </Pressable>
+              ) : null}
+            </View>
+
+            <Text style={styles.lineTotal}>
+              {formatMoney(money(Math.round(l.quantity * l.unitPriceMinorUnits), "ILS"))}
+            </Text>
+          </Surface>
+        ))}
+
+        <Pressable
+          onPress={() => setLines((cur) => [...cur, emptyLine(cur.length + 1)])}
+          accessibilityRole="button"
+          accessibilityLabel="הוספת שורה להצעה"
+          style={styles.addLine}
+        >
+          <Text style={styles.addLineText}>+ שורה</Text>
+        </Pressable>
+
+        <SectionHeader title="הערה ללקוח" colors={colors} />
+        <TextInput
+          value={notes}
+          onChangeText={setNotes}
+          placeholder="למה זה מה שצריך, ומה קורה אם לא — זה מה שמונע ויכוח אחר כך"
+          accessibilityLabel="הערה ללקוח"
+          placeholderTextColor={colors.textSecondary}
+          multiline
+          style={styles.notes}
+          textAlign="right"
+        />
+
+        {usualUpToMinorUnits !== null && usualSampleSize > 0 ? (
+          <Text style={styles.usual}>
+            עבודות כאלה כאן יצאו בדרך כלל עד{" "}
+            {formatMoney(money(usualUpToMinorUnits, "ILS"))} · לפי {usualSampleSize} עבודות. הלקוח
+            רואה את זה גם.
+          </Text>
+        ) : null}
+      </ScrollView>
+
+      <View style={styles.footer}>
+        <View style={styles.totalRow}>
+          <Text style={styles.totalValue}>{formatMoney(money(total, "ILS"))}</Text>
+          <Text style={styles.totalLabel}>סה״כ להצעה</Text>
+        </View>
+        {/*
+          * The sum is arithmetic, not an agreement. The server recomputes
+          * it from the same lines and binds it to a version hash, and the
+          * customer approves the HASH — so the screen must not imply its
+          * own total is the contract.
+          */}
+        <Text style={styles.serverNote}>הסכום נקבע מהשורות בשרת, והלקוח מאשר בדיוק את הגרסה הזו.</Text>
+
+        <Pressable
+          onPress={() => (sendable ? onSend?.({ lines, notesHe: notes.trim() }) : undefined)}
+          disabled={!sendable}
+          accessibilityRole="button"
+          accessibilityLabel="שליחת הצעת המחיר ללקוח"
+          style={({ pressed }) => [styles.send, !sendable && { opacity: 0.4 }, pressed && { opacity: 0.9 }]}
+        >
+          <Text style={styles.sendText}>שליחה ללקוח</Text>
+        </Pressable>
+
+        {!sendable ? (
+          <Text style={styles.why}>צריך תיאור לכל שורה, ולפחות שורה אחת עם מחיר.</Text>
+        ) : null}
+
+        {onBack ? (
+          <Pressable onPress={onBack} accessibilityRole="button" style={styles.back}>
+            <Text style={styles.backText}>חזרה</Text>
+          </Pressable>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: { backgroundColor: colors.bg, overflow: "hidden", borderRadius: radii.xl },
+  scroll: { padding: spacing.xl, gap: spacing.md },
+  title: { ...type.h2, color: colors.textPrimary, textAlign: "right", writingDirection: "rtl" },
+
+  said: { gap: 4 },
+  saidHead: { ...type.captionStrong, color: colors.trust, textAlign: "right", writingDirection: "rtl" },
+  saidText: { ...type.caption, color: colors.textSecondary, textAlign: "right", writingDirection: "rtl" },
+
+  line: { gap: spacing.sm },
+  desc: {
+    ...type.body,
+    color: colors.textPrimary,
+    backgroundColor: colors.bg,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.md,
+    minHeight: 48,
+    writingDirection: "rtl",
+  },
+  numbers: { flexDirection: "row-reverse", gap: spacing.sm },
+  numField: { flex: 1, gap: 2 },
+  numLabel: { ...type.micro, color: colors.textSecondary, textAlign: "right", writingDirection: "rtl" },
+  num: {
+    ...type.body,
+    ...tabular,
+    color: colors.textPrimary,
+    backgroundColor: colors.bg,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.md,
+    minHeight: 48,
+  },
+  kindRow: { flexDirection: "row-reverse", alignItems: "center", gap: spacing.sm, flexWrap: "wrap" },
+  kind: {
+    minHeight: 44,
+    justifyContent: "center",
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.pill,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+  },
+  kindOn: { borderColor: colors.trust, backgroundColor: tint.trust(0.14) },
+  kindText: { ...type.caption, color: colors.textSecondary },
+  kindTextOn: { color: colors.textPrimary, fontWeight: "700" },
+  remove: { minHeight: 44, justifyContent: "center", paddingHorizontal: spacing.sm },
+  removeText: { ...type.caption, color: colors.statusDanger },
+  lineTotal: { ...type.bodyStrong, ...tabular, color: colors.textPrimary, textAlign: "right" },
+
+  addLine: {
+    minHeight: 48,
+    borderRadius: radii.lg,
+    borderWidth: 1.5,
+    borderStyle: "dashed",
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  addLineText: { ...type.bodyStrong, color: colors.trust },
+
+  notes: {
+    ...type.body,
+    color: colors.textPrimary,
+    backgroundColor: colors.surface,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
+    minHeight: 96,
+    writingDirection: "rtl",
+  },
+  usual: {
+    ...type.caption,
+    color: colors.textSecondary,
+    textAlign: "right",
+    writingDirection: "rtl",
+    lineHeight: 18,
+  },
+
+  footer: {
+    padding: spacing.xl,
+    gap: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  totalRow: { flexDirection: "row-reverse", alignItems: "baseline", justifyContent: "space-between" },
+  totalLabel: { ...type.caption, color: colors.textSecondary, writingDirection: "rtl" },
+  totalValue: { ...type.h2, ...tabular, color: colors.textPrimary },
+  serverNote: {
+    ...type.micro,
+    color: colors.textSecondary,
+    textAlign: "right",
+    writingDirection: "rtl",
+    lineHeight: 16,
+  },
+  send: {
+    minHeight: 52,
+    borderRadius: radii.lg,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.trust,
+  },
+  // Mint is light, so the label on it is ink rather than white.
+  sendText: { ...type.bodyStrong, color: colors.bg },
+  why: { ...type.caption, color: colors.textSecondary, textAlign: "center", writingDirection: "rtl" },
+  back: { minHeight: 44, alignItems: "center", justifyContent: "center" },
+  backText: { ...type.caption, color: colors.textSecondary },
+});
