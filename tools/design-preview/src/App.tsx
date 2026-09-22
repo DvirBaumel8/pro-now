@@ -2889,7 +2889,31 @@ function ProApp({
      * The subject carries the shift state now, so the two states are two
      * screens: a transition plays and each opens at the top.
      */
-    const subject = name === "shift" ? (presence === "OFFLINE" ? "offline" : "online") : null;
+    /*
+     * AND SO IS EVERY STEP OF A JOB.
+     *
+     * Amit: *"לחצתי על הגעתי, נשארתי שוב באותו מסך. חייב תחלופה
+     * ועניין."*
+     *
+     * The customer's side got this earlier today; this side still had
+     * ONE key for the whole visit. So a professional pressed the only
+     * button on the screen — "יוצא לדרך", then "הגעתי", then "מתחיל
+     * אבחון" — and each time the app changed a word and a button while
+     * the screen itself did not move at all, keeping the scroll position
+     * from the step before.
+     *
+     * Each state is its own screen now: the slide plays, it opens at the
+     * top, and the five-step tracker's mark advances. Pressing the
+     * button visibly does something, which is the least a button owes.
+     */
+    const subject =
+      name === "shift"
+        ? presence === "OFFLINE"
+          ? "offline"
+          : "online"
+        : name === "job"
+          ? job
+          : null;
     return {
       key: screenKey({ side: "pro", name, subject }),
       screen: { side: "pro" as const, name },
