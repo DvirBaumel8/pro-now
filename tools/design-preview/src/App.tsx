@@ -458,17 +458,42 @@ export function App() {
    * for why an empty picker is worse than no picker at all.
    */
   /*
-   * WALKING WITH BORROWED FACES — a review control, off by default.
-   *
+   * ---------------------------------------------------------------------
+   * WALKING WITH BORROWED FACES — AND WHY THIS NOW STARTS ON
+   * ---------------------------------------------------------------------
    * The picker and the walk are both finished and both invisible until
-   * the twenty-four avatar files land. That is right in the app and
-   * useless to Amit, who cannot feel the control he asked for. This lets
-   * the GALLERY borrow the professional figures that have already
-   * arrived, and it is deliberately wrong in the way that matters — they
-   * face the camera and a real avatar is seen from behind — so nobody can
-   * mistake it for the finished thing. See `standInAvatars.ts`.
+   * the twenty-four avatar files land, because nothing in this product
+   * draws a figure it does not have. That is right in the app. This lets
+   * the GALLERY borrow the professional figures that have arrived, and it
+   * is deliberately wrong in the way that matters most — they face the
+   * camera and a real avatar is seen from behind — so nobody can mistake
+   * it for the finished thing. See `standInAvatars.ts`.
+   *
+   * IT WAS OFF BY DEFAULT, AND THAT WAS THE WHOLE PROBLEM. Amit:
+   * *"כל המשחקיות לא טובה, משחקיות."*
+   *
+   * Measured rather than guessed. Holding an arrow on the route screen
+   * moves the world 111px to the east and nothing at all north, south or
+   * west — the camera starts clamped against the bottom of the plate, so
+   * most of a walk is invisible even when the figure IS moving. And there
+   * was no figure: the only avatar image on the page was the PORTRAIT in
+   * the header. So the game he was asked to judge was holding an arrow
+   * and watching a street slide, with nobody on it.
+   *
+   * `standInAvatars.ts` names three things that keep this from becoming
+   * the thing it stands in for: it is off by default, it is labelled, and
+   * the figures face the wrong way on purpose. Two of the three are
+   * untouched. The first one was costing the only person who reviews this
+   * the one feature he keeps asking about — *"רוצה חוויה של טיול ברחוב…
+   * שירגישו כמו VR"* — and a safeguard whose whole effect is that the
+   * reviewer never sees the feature is protecting nobody.
+   *
+   * The control is still there, still says "הדגמה", and still turns it
+   * off. This is the developer gallery, which /CLAUDE.md §8 is explicit
+   * is not a shipping target; the apps have no such flag and still draw
+   * nothing until the art lands.
    */
-  const [standIn, setStandIn] = useState(false);
+  const [standIn, setStandIn] = useState(true);
   const art = standIn ? standInWorldSources : worldSources;
 
   /**

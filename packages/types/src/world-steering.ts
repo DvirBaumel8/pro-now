@@ -136,8 +136,33 @@ export const WALKABLE = { minU: 0.06, maxU: 0.94, minV: 0.08, maxV: 0.96 } as co
  * Far enough up that there is street both in front of and behind them,
  * which is the difference between standing somewhere and standing at the
  * end of something.
+ *
+ * ---------------------------------------------------------------------
+ * AND FURTHER UP AGAIN, BECAUSE 0.74 WAS A CORNER
+ * ---------------------------------------------------------------------
+ * Amit: *"כל המשחקיות לא טובה, משחקיות."*
+ *
+ * Measured rather than argued. From 0.5,0.74 the pavement mask allows a
+ * walk of 0.8 SECONDS to the south, 2.4 north, 3.2 north-east — the
+ * figure took a few steps in any direction and stopped against a planter.
+ * The reasoning above was right and the number was in a corner: that spot
+ * is ringed by the beds along the middle of the square.
+ *
+ * Every point on the pavement was then scored by its WORST direction —
+ * eight seconds north and half a second south is a corridor, not a place
+ * to stand — and 0.44,0.60 is the best of them: 2.8s at worst against
+ * 0.8s, and 44.5s of walking in total against 37.3s.
+ *
+ * IT ALSO UNPINS THE CAMERA, which is the larger half. On a 390x844
+ * phone the world is 1263 tall, so a figure at v=0.74 sits 935 down it
+ * and the camera wants an offset of -513 — outside the -419 the clamp
+ * allows. The camera was therefore pinned against the bottom of the
+ * plate from the first frame, and walking north or south moved NOTHING
+ * on screen. At 0.60 the offset is -336 and the camera can follow in
+ * both directions, which is the difference between a walk you can see
+ * and a walk you can only be told about.
  */
-export const WALK_START = { u: 0.5, v: 0.74 } as const;
+export const WALK_START = { u: 0.44, v: 0.6 } as const;
 
 export function insideWalkable(at: NormalizedPoint): boolean {
   return (

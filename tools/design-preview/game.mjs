@@ -147,13 +147,39 @@ if (hasPad) {
    * and a half seconds, nothing walked, and that is the only reading that
    * is true from every position on the plate.
    */
+  /*
+   * THE FIGURE IN THE WORLD, NOT THE ONE IN THE HEADER.
+   *
+   * This asked for `img[src*="avatar_"]`, which matched the PORTRAIT in
+   * the header chip — a 28px circle that is on every screen of the app
+   * and has never walked anywhere. So "a figure is on screen" was being
+   * answered by a piece of navigation chrome, and the check passed for
+   * years of builds in which the customer's own figure was not drawn at
+   * all, because `avatar_NN_world_back` has never been delivered.
+   *
+   * It was caught by turning the stand-in walker ON: the portrait
+   * becomes a borrowed trade character, `avatar_` stops matching, and a
+   * check that had always passed suddenly failed on the build where the
+   * figure is MORE visible than it has ever been. Exactly backwards,
+   * which is how a check that measures the wrong thing announces itself.
+   *
+   * So it looks for a figure inside the world plate and of roughly a
+   * person's size, which is what the claim actually is.
+   */
   const scene = () =>
     p.evaluate(() => {
       const ground = document.querySelector('img[src*="world_neighbourhood"]');
-      const figure = document.querySelector('img[src*="avatar_"]');
+      const g = ground && ground.getBoundingClientRect();
+      const figure = [...document.querySelectorAll('img')]
+        .filter((i) => /avatar_\d+_world|character_\w+_world/.test(i.src))
+        .map((i) => i.getBoundingClientRect())
+        // Inside the plate, and big enough to be somebody rather than an
+        // icon: the header chip is 28px and sits above the world.
+        .filter((r) => r.height > 40 && g && r.top >= g.top - 1 && r.bottom <= g.bottom + 1)
+        .sort((a, b) => b.height - a.height)[0];
       return {
-        ground: ground ? ground.getBoundingClientRect().top : null,
-        figure: figure ? figure.getBoundingClientRect().top : null,
+        ground: g ? g.top : null,
+        figure: figure ? figure.top : null,
       };
     });
   const walkerBefore = await scene();
