@@ -2075,3 +2075,94 @@ work. `/docs/07` records the addition.
 closes, and it reaches the same professional — which is the proof that
 the release works — and reads back a rating the customer can see: **5.00
 from 9 reviews**, from work that actually happened.
+
+## 23. The reputation a professional already has (2026-09-22)
+
+Amit: *"אפשר להשתמש במשאבים פתוחים של דירוגים כמו אתרי מדרג, איזי וכו…
+ולאט לאט הוא אוסף דירוגים באפליקציה."*
+
+He was describing something the architecture had already been built for,
+and he was right to say so. `ExternalReputationProvider`,
+`ExternalReputationSource`, `ProfessionalExternalProfile` with its
+`linkStatus`, `ExternalRatingSnapshot`, and an `ExternalReputationView`
+carried "separately from PRO NOW's own rating and never merged into a
+single score" — all of it present, none of it connected to anything.
+
+### 23.1 Three fields the table did not have
+
+`/docs/10 §External reputation` specifies `data_provenance`,
+`allowed_display_fields` and `sync_status`, and the table had none of
+them. Without them a row cannot answer the three questions the rules turn
+on: where did this number come from, are we permitted to show it, and is
+it still true. A rating with no provenance and no freshness is exactly
+the "mock data shown as if it were live" that section forbids.
+
+Two migrations, and the second one is worth recording: `db:verify` caught
+`allowedDisplayFields` created nullable against a schema that declares it
+required — 1436/1437, and the one was that. NULL and `[]` are different
+answers there. "Nobody has said what this source permits" is a row nobody
+finished writing; "this source permits nothing" is a real and safe state,
+and the default.
+
+### 23.2 A link and a number are different things
+
+`external-display.ts` decides what may be rendered, and the split it
+enforces is the whole idea:
+
+A professional can always tell us where their public profile is. It is
+theirs, and a link is a fact they are entitled to state. What they cannot
+do is tell us their rating — a rating repeated by the person it flatters
+is not evidence, and placing it beside a PRO NOW rating earned through
+verified jobs would put the two on a footing they do not share.
+
+So the link is shown and the number is withheld unless **all** of:
+
+- the source has an integration enabled, which no source does yet;
+- the number came from that integration (`PROVIDER_API`), not from the
+  professional;
+- the source's terms permit displaying it, field by field — the review
+  count is its own permission, because a rating with no count invites a
+  customer to read one review as a reputation;
+- it was fetched within thirty days. "★4.9 · 127 reviews" was true when it
+  was fetched; a year later it is a claim about the past presented as a
+  claim about now.
+
+There is no `SCRAPED` provenance. The provider interface says "Never
+scrape" and so does `/docs/10`; a value that cannot be obtained
+legitimately is not given a name in the type.
+
+`routes/match.ts` was assembling that block straight from the newest
+snapshot — whatever rating was on file, however obtained, however old. It
+renders what the rules allow now.
+
+### 23.3 Claiming is not proving
+
+`/v1/pro/reputation/*` lets a professional see the sources, search the
+provider, claim a profile and disconnect it. A claim is written as
+`PENDING` and **nothing in this route can reach `LINKED`**: proving a
+profile belongs to somebody is an ownership check a provider has to
+support, and the configured provider is a sandbox that finds nothing.
+
+That is deliberate and it is said out loud to the professional, in
+Hebrew, on the link response: the rating will not appear because we have
+no official connection to that source yet — not because their profile was
+rejected. Somebody who connects a profile and sees no change on their
+card deserves to know which of those it is.
+
+Three sources are seeded — Google, מדרג, איזי — with
+`integrationEnabled: false` on every one. They are rows, not
+integrations. A professional's link is worth keeping today; turning it
+into a number on a customer's card waits on terms.
+
+### 23.4 What is now the actual blocker
+
+Not code. `/docs/10` names the candidate integration as the official
+Google business/place APIs, "subject to terms/attribution/authorization",
+and `/docs/18 §Open decisions` has carried "external Google-reputation
+implementation/terms" since before any of this was written. מדרג and איזי
+have no public API the way Google does, and their terms are their own
+question.
+
+The mechanism is complete and the seam is one adapter wide.
+
+**1002 tests. db:verify 1437/1437. verify:journey passes end to end.**

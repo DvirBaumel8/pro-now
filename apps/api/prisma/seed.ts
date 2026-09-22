@@ -138,6 +138,36 @@ async function main() {
   }
   console.log(`  service requirements: ${requirementRows} across ${servicesWithRequirements} service(s)`);
 
+  /*
+   * THE PLACES A PROFESSIONAL ALREADY HAS A REPUTATION.
+   *
+   * Rows, not integrations. `integrationEnabled` is false for every one
+   * of them and stays false until somebody has an integration that a
+   * source's terms allow — /docs/10 names official Google business/place
+   * APIs as the candidate, "subject to terms/attribution/authorization",
+   * and says **never scrape**. A source listed here can hold a
+   * professional's link today and show a number only when that sentence
+   * has an answer.
+   *
+   * They are seeded now, ahead of any integration, because a professional
+   * can already tell us where their profile is and that link is worth
+   * keeping. What it must not do is turn into a rating on a customer's
+   * card, and `external-display.ts` is what stops it.
+   */
+  const REPUTATION_SOURCES = [
+    { code: "GOOGLE", displayNameHe: "Google" },
+    { code: "MADRIG", displayNameHe: "מדרג" },
+    { code: "EASY", displayNameHe: "איזי" },
+  ];
+  for (const source of REPUTATION_SOURCES) {
+    await prisma.externalReputationSource.upsert({
+      where: { code: source.code },
+      update: { displayNameHe: source.displayNameHe },
+      create: { ...source, integrationEnabled: false },
+    });
+  }
+  console.log(`  reputation sources: ${REPUTATION_SOURCES.length} (none integrated yet)`);
+
   // Seed default dispatch scoring weights into app_config — see
   // /docs/08-DISPATCH-ENGINE.md §Scoring. Admin-editable, never hard-coded
   // into application logic.

@@ -19,6 +19,7 @@ import matchRoutes from "./routes/match";
 import offersRoutes from "./routes/offers";
 import proRoutes from "./routes/pro";
 import proJobsRoutes from "./routes/pro-jobs";
+import proReputationRoutes from "./routes/pro-reputation";
 import proServicesRoutes from "./routes/pro-services";
 import quotesRoutes from "./routes/quotes";
 import reviewsRoutes from "./routes/reviews";
@@ -128,6 +129,7 @@ export async function buildServer() {
   await app.register(offersRoutes);
   await app.register(proRoutes);
   await app.register(proJobsRoutes);
+  await app.register(proReputationRoutes);
   await app.register(proServicesRoutes);
   await app.register(quotesRoutes);
   await app.register(reviewsRoutes);

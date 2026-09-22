@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import { externalReputationDisplay } from "../domain/reputation/external-display";
 import {
   MIN_REVIEWS_FOR_RATING,
   type JobMatchView,
@@ -106,7 +107,29 @@ export default async function matchRoutes(app: FastifyInstance) {
     );
     if (linkedExternal) verifications.push("EXTERNAL_REPUTATION_LINKED");
 
+    /*
+     * The external block was assembled straight from the newest snapshot:
+     * whatever rating was on file went onto the card, however it had been
+     * obtained, whatever the source's terms said, and however old it was.
+     * `/docs/10` is specific about all three, and none of it was checked
+     * here. `external-display.ts` now decides, and this route renders
+     * what it returns.
+     */
     const externalSnapshot = linkedExternal?.snapshots?.[0];
+    const externalDisplay = linkedExternal
+      ? externalReputationDisplay({
+          linkStatus: linkedExternal.linkStatus,
+          dataProvenance: linkedExternal.dataProvenance,
+          allowedDisplayFields: linkedExternal.allowedDisplayFields,
+          sourceIntegrationEnabled: linkedExternal.source?.integrationEnabled ?? false,
+          sourceDisplayNameHe:
+            linkedExternal.source?.displayNameHe || linkedExternal.source?.code || "",
+          profileUrl: linkedExternal.profileUrl ?? null,
+          rating: externalSnapshot?.rating ?? null,
+          reviewCount: externalSnapshot?.reviewCount ?? null,
+          lastVerifiedAt: externalSnapshot?.lastVerifiedAt ?? null,
+        })
+      : null;
 
     const professional: ProfessionalSummaryView = {
       id: pro.id,
@@ -116,12 +139,12 @@ export default async function matchRoutes(app: FastifyInstance) {
       proNowCompletedJobs: completedJobs,
       proNowRatingAverage: ratingAverage,
       proNowRatingCount: ratingCount,
-      externalReputation: linkedExternal
+      externalReputation: externalDisplay
         ? {
-            source: linkedExternal.source?.code ?? "EXTERNAL",
-            ratingAverage: externalSnapshot?.rating ?? null,
-            ratingCount: externalSnapshot?.reviewCount ?? null,
-            profileUrl: linkedExternal.profileUrl ?? null,
+            source: externalDisplay.source,
+            ratingAverage: externalDisplay.ratingAverage,
+            ratingCount: externalDisplay.ratingCount,
+            profileUrl: externalDisplay.profileUrl,
           }
         : null,
     };

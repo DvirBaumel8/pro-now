@@ -706,6 +706,17 @@ model ExternalReputationSource {
   id   String @id @default(cuid())
   code String @unique // GOOGLE | OTHER
 
+  /// What the customer is shown beside the number — "Google", "מדרג".
+  /// The source is always labelled (/docs/10: "UI always labels source +
+  /// freshness"), so it cannot be left to the client to guess.
+  displayNameHe String @default("")
+
+  /// False until somebody has an integration that its terms allow. A
+  /// source that is not enabled can hold links and must never show
+  /// numbers, which is the document's "hide the block entirely" in the
+  /// form of a column.
+  integrationEnabled Boolean @default(false)
+
   profiles ProfessionalExternalProfile[]
 
   @@map("external_reputation_sources")
@@ -720,11 +731,38 @@ model ProfessionalExternalProfile {
   externalProfileId String
   profileUrl        String?
   linkStatus        String   @default("PENDING") // PENDING | LINKED | UNLINKED
+
+  // ---- The three fields /docs/10 §External reputation asks for and the
+  // ---- table did not have.
+  //
+  // Without them the row cannot answer the questions the rules turn on:
+  // where did this number come from, are we allowed to show it, and is it
+  // still true. A rating with no provenance and no freshness is exactly
+  // the "mock data shown as if it were live" the document forbids.
+
+  /// How this profile's numbers reach us.
+  /// PROVIDER_API — an official integration, under its terms.
+  /// PROFESSIONAL_DECLARED — the professional gave us the link and nothing else.
+  /// Never SCRAPED: /docs/10 says "Never scrape" and the interface repeats it.
+  dataProvenance    String   @default("PROFESSIONAL_DECLARED")
+
+  /// What the source's terms permit displaying, by name. A source that
+  /// allows a link but not a number is a real case, and the difference
+  /// has to be a fact about the row rather than a rule in somebody's head.
+  allowedDisplayFields String[] @default([])
+
+  /// NEVER_SYNCED | OK | STALE | FAILED — whether the last refresh worked.
+  syncStatus        String   @default("NEVER_SYNCED")
+  lastSyncAt        DateTime?
+  lastSyncError     String?
+
   createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   snapshots ExternalRatingSnapshot[]
 
   @@map("professional_external_profiles")
+  @@unique([professionalId, sourceId])
   @@index([professionalId])
 }
 
