@@ -1,6 +1,8 @@
 import React, { useRef, useState } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 
+import { CUSTOMER_POINT, venueSlots, WALK_START } from "@pro-now/types";
+
 import { Scrim } from "../components/Scrim";
 import { WorldBackdrop } from "../components/livingmap/WorldBackdrop";
 import { EMPTY_ASSET_SOURCES, type WorldAssetSources } from "../components/livingmap/AssetSlot";
@@ -70,6 +72,31 @@ interface Slide {
   zoom: number;
 }
 
+/*
+ * ---------------------------------------------------------------------
+ * EACH SLIDE LOOKS AT THE THING ITS SENTENCE IS ABOUT
+ * ---------------------------------------------------------------------
+ * Amit: *"גם בהסבר בהתחלה זה סתם קופץ תמונות לא רלוונטיות של מדרכות."*
+ *
+ * He is right and a screenshot settles it. The third slide says "ומזמינים
+ * עד הבית... רואים אותו בדרך, עד הדלת" — and the camera was pointed at
+ * 0.34,0.85, which on this plate is a flowerbed and a bench. The largest
+ * thing in frame was a purple tree. A sentence about somebody arriving at
+ * your door, over a picture of some paving.
+ *
+ * The coordinates were chosen for composition. They are chosen for
+ * MEANING now, and taken from the places the rest of the product already
+ * measures rather than typed in by eye:
+ *
+ *   - the quarter, wide, where the shopfronts are;
+ *   - `WALK_START`, which is literally where the customer's own figure is
+ *     put down when they walk the street — the slide that says so;
+ *   - `CUSTOMER_POINT`, which is where the customer's own door is on the
+ *     assignment route — the slide about somebody coming to it.
+ *
+ * Imported rather than copied, so a slide cannot drift away from the
+ * place it is claiming to show.
+ */
 const CUSTOMER_SLIDES: readonly Slide[] = [
   {
     titleHe: "עיר שלמה של בעלי מקצוע",
@@ -80,16 +107,28 @@ const CUSTOMER_SLIDES: readonly Slide[] = [
   {
     titleHe: "בוחרים דמות ומטיילים",
     bodyHe: "הדמות שלכם הולכת ברחוב בזמן שאנחנו מחפשים מי פנוי עכשיו באזור שלכם. אפשר גם לדלג.",
-    focus: { u: 0.42, v: 0.56 },
-    zoom: 0.62,
+    focus: WALK_START,
+    zoom: 0.72,
   },
   {
     titleHe: "ומזמינים עד הבית, עכשיו",
     bodyHe: "שולחים קריאה, ומי שפנוי ומאושר לעבודה הזאת יוצא אליכם. רואים אותו בדרך, עד הדלת.",
-    focus: { u: 0.34, v: 0.85 },
-    zoom: 0.9,
+    // The customer's own door, at the bottom of the street. The camera
+    // clamps before the plate's edge, so this reads as the end of the
+    // road rather than as the edge of a picture.
+    focus: CUSTOMER_POINT,
+    zoom: 0.95,
   },
 ];
+
+/**
+ * The first measured shopfront spot on the plate.
+ *
+ * The professional's slides are about HIS shop, so the camera is pointed
+ * at one — the same spot `venueSlots` would stand a business on, rather
+ * than a coordinate that happened to compose well.
+ */
+const SHOPFRONT = venueSlots("HOME_URGENT", 1)[0] ?? { u: 0.5, v: 0.55 };
 
 const PRO_SLIDES: readonly Slide[] = [
   {
@@ -101,14 +140,18 @@ const PRO_SLIDES: readonly Slide[] = [
   {
     titleHe: "אתה מחליט מתי אתה באוויר",
     bodyHe: "מתחילים משמרת ומפסיקים מתי שרוצים. קריאות מגיעות רק כשאתה מחובר.",
-    focus: { u: 0.42, v: 0.56 },
-    zoom: 0.62,
+    // His own front, close enough to read the sign over it. The slide is
+    // about being open for business; the picture should be the business.
+    focus: SHOPFRONT,
+    zoom: 0.78,
   },
   {
     titleHe: "רואים את העבודה לפני שמקבלים",
     bodyHe: "רק שירותים שאתה מאושר אליהם, באזור שלך — ומה שהעבודה שווה, כשהסכום ידוע מראש.",
-    focus: { u: 0.34, v: 0.85 },
-    zoom: 0.9,
+    // Where the work is: the customer's end of the street, which is the
+    // place a job actually comes from.
+    focus: CUSTOMER_POINT,
+    zoom: 0.95,
   },
 ];
 

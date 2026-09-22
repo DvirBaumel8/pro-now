@@ -37,8 +37,34 @@ export const SHADOW = {
   widthRatio: 0.66,
   /** The ellipse's height as a fraction of its own width — a flat oval. */
   flatness: 0.3,
-  /** How dark it is at full contact. */
+  /** How dark it is at full contact, across the whole stack. */
   opacity: 0.36,
+  /**
+   * ---------------------------------------------------------------------
+   * A SOFT EDGE, DRAWN RATHER THAN BLURRED
+   * ---------------------------------------------------------------------
+   * One flat ellipse has a hard rim, and a hard dark rim on warm stone
+   * does not read as a shadow — it reads as a disc the figure is standing
+   * ON. Amit has called this out from two directions: *"אין הגיון שיש
+   * קטנוע מרחף"*, and later *"סתם מרחפת... לא נראית נוסעת בכלל"*. A
+   * figure on a visible mat looks more detached from the ground than a
+   * figure with no shadow at all.
+   *
+   * The note above is right that `shadowRadius`/`elevation` are the wrong
+   * tool: they are lit from a direction and drawn differently on iOS,
+   * Android and the web, which is the disagreement this component exists
+   * to avoid. But a soft edge does not need a platform blur. Three
+   * concentric ellipses of the same ink, each wider and fainter, give a
+   * falloff that is identical everywhere and costs three views.
+   *
+   * The alphas are shares of `opacity`, so the darkest point under the
+   * figure stays exactly what it was and only the rim softens.
+   */
+  rings: [
+    { scale: 1.55, alpha: 0.22 },
+    { scale: 1.22, alpha: 0.34 },
+    { scale: 1.0, alpha: 0.44 },
+  ],
   /** How much narrower it gets at the top of a stride. */
   liftShrink: 0.22,
   /** How much fainter it gets at the top of a stride. */

@@ -630,12 +630,40 @@ export function WorldLife({
                     top: 0,
                     width: shadowW,
                     height: shadowH,
-                    borderRadius: 999,
-                    backgroundColor: "rgba(14,10,20,1)",
                   },
                   shadowStyle,
                 ]}
-              />
+              >
+                {/*
+                  * THREE ELLIPSES, NOT ONE.
+                  *
+                  * A single flat ellipse has a hard rim, and a hard dark
+                  * rim on warm stone reads as a DISC the figure is
+                  * standing on rather than as a shadow — which is why a
+                  * figure with one can look more detached from the ground
+                  * than a figure with none. Amit: *"סתם מרחפת."*
+                  *
+                  * Concentric, same ink, each wider and fainter. The
+                  * falloff is drawn rather than blurred, so it is
+                  * identical on every platform — the whole reason this
+                  * shadow is code and not a platform shadow. See `SHADOW.rings`.
+                  */}
+                {SHADOW.rings.map((ring) => (
+                  <View
+                    key={ring.scale}
+                    pointerEvents="none"
+                    style={{
+                      position: "absolute",
+                      left: (shadowW * (1 - ring.scale)) / 2,
+                      top: (shadowH * (1 - ring.scale)) / 2,
+                      width: shadowW * ring.scale,
+                      height: shadowH * ring.scale,
+                      borderRadius: 999,
+                      backgroundColor: `rgba(14,10,20,${ring.alpha})`,
+                    }}
+                  />
+                ))}
+              </Animated.View>
             ) : null}
 
           <Animated.View
