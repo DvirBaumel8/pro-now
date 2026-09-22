@@ -314,6 +314,42 @@ export function ProShiftBody({
                 </Text>
               </View>
             ) : null}
+
+            {/* ------------------------------------------------------------
+                THE AREA, WHICH USED TO VANISH AT THE MOMENT IT MATTERED.
+
+                Amit: *"האונליין לא מספיק ברור, רוצה שיהיה יותר איכותי
+                ומרשים עם יותר נתוני אונליין."*
+
+                The briefing — how many in your trade are online near you,
+                what the area has actually been asking for — was drawn
+                only while OFFLINE, as an answer to "is it worth
+                connecting". It is at least as useful once you are
+                connected: being one of two online is a different shift
+                from being one of nine, and nothing on the screen said
+                which.
+
+                Same lines, same server, same refusal to forecast. The
+                only change is that connecting no longer hides them.
+                ------------------------------------------------------------ */}
+            {lines.length > 0 ? (
+              <View style={styles.briefing}>
+                {lines.map((l) => (
+                  <View key={l.kind} style={styles.briefRow}>
+                    <View
+                      style={[
+                        styles.briefDot,
+                        { backgroundColor: l.kind === "DEMAND" ? colors.action : colors.trust },
+                      ]}
+                    />
+                    <Text style={styles.briefText}>{l.textHe}</Text>
+                  </View>
+                ))}
+                <Text style={styles.briefNote}>
+                  המספרים מגיעים מהשרת ומתארים מה קרה בפועל. אין כאן תחזית.
+                </Text>
+              </View>
+            ) : null}
           </>
         ) : (
           // -------------------------------------------------------------

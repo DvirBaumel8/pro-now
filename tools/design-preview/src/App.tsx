@@ -2872,8 +2872,29 @@ function ProApp({
                 : proView === "pricing"
                 ? "pricing"
                 : "shift";
-    return { key: screenKey({ side: "pro", name }), screen: { side: "pro" as const, name } };
-  }, [settled, proView, tab, job]);
+    /*
+     * GOING ONLINE IS A CHANGE OF SCREEN, AND WAS NOT TREATED AS ONE.
+     *
+     * Amit: *"למה נראה כאילו זה נגלל והמסך לא זז?"*
+     *
+     * The shift screen shows completely different content online and
+     * offline — a countdown and earnings against a readiness summary —
+     * but both sat under one key. So pressing the biggest button on the
+     * professional's app played no transition at all, and the scroll
+     * position carried over into content of a different height. What he
+     * saw was the page appearing to scroll under his thumb, which is
+     * exactly what happens when the content changes and the offset does
+     * not.
+     *
+     * The subject carries the shift state now, so the two states are two
+     * screens: a transition plays and each opens at the top.
+     */
+    const subject = name === "shift" ? (presence === "OFFLINE" ? "offline" : "online") : null;
+    return {
+      key: screenKey({ side: "pro", name, subject }),
+      screen: { side: "pro" as const, name },
+    };
+  }, [settled, proView, tab, job, presence]);
 
   const body = settled !== null ? (
     <ProJobSettledBody
