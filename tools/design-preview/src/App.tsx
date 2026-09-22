@@ -58,6 +58,7 @@ import { buildIntakeBrief, pilotIntakeByService, pilotServiceById, readAvailabil
 import type { IntakeAnswer, IntakeBriefLine, OfferCardView, PriceModel } from "@pro-now/types";
 import type { JobState, ProPresenceState } from "@pro-now/types";
 
+import { installBackGesture, pushBackEntry, setBackHandler } from "./backGesture";
 import { matchFixture, offerFixture } from "./fixtures";
 import {
   catalogHomeServices,
@@ -389,6 +390,51 @@ export function App() {
     saveSession({ side });
   }, [side]);
 
+  /*
+   * ONE LISTENER, IN THE ONE COMPONENT THAT IS ALWAYS MOUNTED.
+   *
+   * It used to live inside `CustomerApp`, which is unmounted the moment
+   * you switch to the professional side — so the phone's back button went
+   * from "go back one screen" to "leave the prototype" at exactly the
+   * point Amit was reviewing the professional flow. See `backGesture.ts`.
+   */
+  useEffect(() => installBackGesture(), []);
+
+  /**
+   * Switching sides is a navigation and is recorded as one.
+   *
+   * Back from the first professional screen returns to the customer side
+   * rather than out of the page — which is what the gesture means when
+   * the thing you did to get here was press a button on screen.
+   */
+  const switchTo = useCallback((s: Side) => {
+    backSide.current = sideRef.current;
+    setSide(s);
+    pushBackEntry();
+  }, []);
+  const sideRef = useRef<Side>(restored?.side ?? "customer");
+  const backSide = useRef<Side | null>(null);
+  useEffect(() => {
+    sideRef.current = side;
+  }, [side]);
+
+  /**
+   * What happens when a side has run out of screens to go back through.
+   *
+   * If the customer pressed "מקצוען" to get here, back returns them; if
+   * they opened the prototype on this side, there is genuinely nothing
+   * behind and the page is allowed to close. Returning `false` is that
+   * second answer, and it is deliberate: a web page you cannot back out
+   * of is a worse bug than the one this fixes.
+   */
+  const backOut = useCallback(() => {
+    const previous = backSide.current;
+    if (previous === null) return false;
+    backSide.current = null;
+    setSide(previous);
+    return true;
+  }, []);
+
   /**
    * The avatar, and whether the question has been answered at all.
    *
@@ -646,7 +692,8 @@ export function App() {
           <CustomerApp
             width={w}
             height={h - bannerH}
-            onSwitch={() => setSide("pro")}
+            onSwitch={() => switchTo("pro")}
+            onBackOut={backOut}
             onSendRequest={setLiveRequest}
             pendingQuote={pendingQuote}
             onQuoteDecision={(d) => {
@@ -680,7 +727,8 @@ export function App() {
             geo={geo}
             width={w}
             height={h - bannerH}
-            onSwitch={() => setSide("customer")}
+            onSwitch={() => switchTo("customer")}
+            onBackOut={backOut}
             request={liveRequest}
             onTakeRequest={() => setLiveRequest(null)}
             pendingQuote={pendingQuote}
@@ -824,6 +872,7 @@ function CustomerApp({
   width,
   height,
   onSwitch,
+  onBackOut,
   onSendRequest,
   pendingQuote,
   onQuoteDecision,
@@ -838,6 +887,12 @@ function CustomerApp({
   width: number;
   height: number;
   onSwitch: () => void;
+  /**
+   * Called when this side has no screen left behind it. Returns true if
+   * the gesture was used to leave for the other side, false to let the
+   * browser close the page. See `backGesture.ts`.
+   */
+  onBackOut: () => boolean;
   onSendRequest: (r: LiveRequest) => void;
   /** A quote the professional sent and the customer has not answered. */
   pendingQuote: { sentAtMs: number } | null;
@@ -1245,25 +1300,36 @@ const go = useCallback((r: CustomerRoute) => {
    */
   const hereRef = useRef<CustomerRoute>({ name: "home" });
   const tabRef = useRef<CustomerTab>("home");
-  const pushHistory = () => {
-    if (typeof window === "undefined") return;
-    window.history.pushState({ proNow: true }, "");
-  };
+  const pushHistory = pushBackEntry;
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const onPop = () => {
-      const previous = backStack.current.pop();
-      // Nothing behind us: home, rather than falling out of the prototype.
-      setRoute(previous?.route ?? { name: "home" });
-      // The tab comes back too. Going back from a screen opened out of the
-      // calls list used to land on the home tab, which is a different
-      // place from the one you left.
-      setTab(previous?.tab ?? "home");
-    };
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
-  }, []);
+  /*
+   * The listener itself now lives in the shell, because it has to outlive
+   * this component: switching to the professional side unmounts
+   * `CustomerApp`, and with it went the only thing listening for the
+   * phone's back button. See `backGesture.ts`.
+   *
+   * What is registered here is what "back" MEANS on the customer side,
+   * which is still this component's business and nobody else's.
+   */
+  useEffect(
+    () =>
+      setBackHandler(() => {
+        const previous = backStack.current.pop();
+        if (previous) {
+          setRoute(previous.route);
+          // The tab comes back too. Going back from a screen opened out of
+          // the calls list used to land on the home tab, which is a
+          // different place from the one you left.
+          setTab(previous.tab);
+          return true;
+        }
+        // Nothing left on this side. If we arrived here from the
+        // professional side, the gesture takes us back there; otherwise
+        // the page is allowed to go — see `backGesture.ts`.
+        return onBackOut();
+      }),
+    [onBackOut]
+  );
 
   // Keep the "where we are" refs in step with the state they mirror. This
   // does NOT push anything: `go` does the pushing, because only `go` knows
@@ -1473,7 +1539,14 @@ const go = useCallback((r: CustomerRoute) => {
             width={width}
             height={bodyH}
             onBack={() => go({ name: "home" })}
-            onRequestNow={(symptomsHe) => go({ name: "describe", serviceId: route.serviceId, symptomsHe })}
+            onRequestNow={(symptomsHe, noteHe) => {
+              // What they typed on the service page IS the description.
+              // Carrying it means the describe screen opens with their own
+              // words already in it, rather than asking the same question
+              // one screen later and throwing the first answer away.
+              if (noteHe) setFaultText((cur) => (cur ? cur : noteHe));
+              go({ name: "describe", serviceId: route.serviceId, symptomsHe });
+            }}
             onRecheck={() => go({ name: "home" })}
           />
         );
@@ -2252,6 +2325,7 @@ function ProApp({
   width,
   height,
   onSwitch,
+  onBackOut,
   request,
   onTakeRequest,
   pendingQuote,
@@ -2271,6 +2345,12 @@ function ProApp({
   width: number;
   height: number;
   onSwitch: () => void;
+  /**
+   * Called when this side has no screen left behind it. Returns true if
+   * the gesture was used to leave for the other side, false to let the
+   * browser close the page. See `backGesture.ts`.
+   */
+  onBackOut: () => boolean;
   /** A request the customer side actually made, waiting to be offered. */
   request: LiveRequest | null;
   /** Called once the offer has been taken off the queue. */
@@ -2289,6 +2369,40 @@ function ProApp({
   const [job, setJob] = useState<JobState | null>(null);
   const [proChat, setProChat] = useState<ChatMessage[]>(chatSeed);
   const [proView, setProView] = useState<null | "chat" | "presence" | "pricing">(null);
+
+  /*
+   * ---------------------------------------------------------------------
+   * THE PROFESSIONAL SIDE HAD NO HISTORY AT ALL
+   * ---------------------------------------------------------------------
+   * Amit: *"באנדרואיד רצוי שהכפתור הטבעי שלו למטרה זו גם יעבוד — כרגע
+   * זורק החוצה מהאפליקציה."*
+   *
+   * The customer side records every move so the phone's back button can
+   * undo one. This side navigates with `setProView` and `setTab`, neither
+   * of which recorded anything, so the back button had nothing to pop on
+   * any professional screen — and the one listener that might have
+   * noticed was inside `CustomerApp`, which is not even mounted here.
+   *
+   * `goPro` is the same idea as the customer's `go`: it remembers where
+   * you WERE, not where you are going. That distinction is the bug the
+   * customer side already paid for once.
+   */
+  const proBack = useRef<{ view: null | "chat" | "presence" | "pricing"; tab: ProTab }[]>([]);
+  const proHere = useRef<{ view: null | "chat" | "presence" | "pricing"; tab: ProTab }>({
+    view: null,
+    tab: "shift",
+  });
+  const goPro = useCallback((view: null | "chat" | "presence" | "pricing") => {
+    proBack.current = [...proBack.current, proHere.current].slice(-40);
+    setProView(view);
+    pushBackEntry();
+  }, []);
+  const goProTab = useCallback((next: ProTab) => {
+    proBack.current = [...proBack.current, proHere.current].slice(-40);
+    setTab(next);
+    setProView(null);
+    pushBackEntry();
+  }, []);
   /**
    * The professional's own prices, one row per applied service.
    *
@@ -2503,6 +2617,30 @@ function ProApp({
    * if the two disagree, the app animates a move to a screen it is not
    * showing. Kept adjacent for exactly that reason.
    */
+  /*
+   * Mirrors the state `goPro` records, for the same reason the customer
+   * side keeps `hereRef`: `goPro` is memoised with no dependencies so
+   * every screen can hold a handler built from it, which means it cannot
+   * close over the current view.
+   */
+  useEffect(() => {
+    proHere.current = { view: proView, tab };
+  }, [proView, tab]);
+
+  useEffect(
+    () =>
+      setBackHandler(() => {
+        const previous = proBack.current.pop();
+        if (previous) {
+          setProView(previous.view);
+          setTab(previous.tab);
+          return true;
+        }
+        return onBackOut();
+      }),
+    [onBackOut]
+  );
+
   const proScreen = useMemo(() => {
     const name =
       settled !== null
@@ -2622,7 +2760,7 @@ function ProApp({
         onWithdrawQuote={() => setProSheet("quote")}
         onNavigate={() => setProSheet("navigate")}
         onCall={() => setProSheet("call")}
-        onMessage={() => setProView("chat")}
+        onMessage={() => goPro("chat")}
         width={width}
         height={bodyH}
       />
@@ -2641,7 +2779,7 @@ function ProApp({
         services={proServices}
         onToggleOnline={toggle}
         onManageServices={() => setProSheet("services")}
-        onOpenPricing={() => setProView("pricing")}
+        onOpenPricing={() => goPro("pricing")}
         onBack={() => setProView(null)}
         width={width}
         height={bodyH}
@@ -2696,8 +2834,8 @@ function ProApp({
         }))}
         nowMs={shiftNow}
         onToggleOnline={toggle}
-        onOpenEarnings={() => setTab("earnings")}
-        onManageServices={() => setProView("presence")}
+        onOpenEarnings={() => goProTab("earnings")}
+        onManageServices={() => goPro("presence")}
         /*
          * THE PLATE, AND NOTHING ELSE — because that is what the
          * professional's app ships.
@@ -2915,10 +3053,7 @@ function ProApp({
           { key: "profile", label: "הפרופיל", mark: "person" as const },
         ]}
         active={tab}
-        onPress={(k) => {
-          setProView(null);
-          setTab(k as ProTab);
-        }}
+        onPress={(k) => goProTab(k as ProTab)}
         onSwitch={onSwitch}
         switchLabel="לקוח"
       />

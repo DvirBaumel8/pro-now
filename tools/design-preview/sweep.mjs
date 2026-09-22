@@ -210,6 +210,81 @@ await tryClick('ניהול', 1200); await inspect('12-pro-presence');
 await tryClick('המחירים שלך', 1200); await inspect('13-pro-pricing');
 
 /*
+ * THE PHONE'S OWN BACK BUTTON, ON THE SIDE THAT NEVER HAD ONE.
+ *
+ * Amit, on an Android phone: *"כפתור חזרה למסך קודם לא נמצא בכל מקום.
+ * באנדרואיד רצוי שהכפתור הטבעי שלו למטרה זו גם יעבוד — כרגע זורק החוצה
+ * מהאפליקציה."*
+ *
+ * The customer side recorded its navigations and the professional side
+ * recorded nothing, so the back gesture had no entry to pop on any
+ * professional screen and the browser left the page. A claim that this
+ * is fixed is worth nothing unless a browser presses the button, so one
+ * does: go back from the pricing screen and check we are still inside
+ * the prototype and somewhere else than we were.
+ */
+/*
+ * WHAT IS ASSERTED, AND THE WEAKER VERSION THAT PROVED NOTHING.
+ *
+ * The first attempt checked that the page was still there and showing
+ * something different. It passed with the bug deliberately put back,
+ * because the history stack is ONE stack for the whole prototype: the
+ * customer walk above had already pushed a dozen entries, so a back
+ * press on a professional screen that recorded nothing still popped one
+ * of THOSE — and landed the reviewer on the customer side. The page did
+ * not close and the screen did change, so the check said nothing was
+ * wrong while doing exactly the wrong thing.
+ *
+ * WHERE you land is the claim. Back from the professional's pricing
+ * screen belongs on the professional's own previous screen, and the
+ * header's switch button names the side you are on: "לקוח" is the way
+ * out of the professional side, so seeing it means we are still on it.
+ */
+/*
+ * PROVEN BY PUTTING THE FAULT BACK — and said plainly because this one
+ * cannot carry an automatic control the way the two at the end of this
+ * file do. Those plant their own evidence inside the page; this fault
+ * lives in a React effect that the page cannot switch off.
+ *
+ * So it was done by hand, once: with `ProApp`'s `setBackHandler`
+ * registration removed — the actual original state, where the only
+ * listener was inside the unmounted `CustomerApp` — this check reported
+ * "the back gesture did nothing on a professional screen". Two weaker
+ * versions passed before that and are recorded above, because a check
+ * that has only ever passed is not evidence of anything.
+ */
+const onProSide = () => p.getByRole('button', { name: 'לקוח' }).count().then((n) => n > 0);
+if (!(await onProSide())) {
+  problems.push('the professional side does not show its own switch button — the back check below cannot tell the sides apart');
+}
+const beforeBack = await p.evaluate(() => document.body.innerText.slice(0, 400));
+await p.goBack();
+await p.waitForTimeout(900);
+const stillHere = await p.evaluate(() => !!document.querySelector('#root')?.textContent?.trim());
+if (!stillHere) {
+  problems.push('the back gesture left the prototype from a professional screen');
+} else if (!(await onProSide())) {
+  problems.push('back from a professional screen left the professional side — that side records no history of its own');
+} else {
+  const afterBack = await p.evaluate(() => document.body.innerText.slice(0, 400));
+  if (afterBack === beforeBack) {
+    problems.push('the back gesture did nothing on a professional screen');
+  }
+}
+await inspect('13b-pro-after-back', { needsBack: false });
+
+/*
+ * The professional's four tabs, which nothing had ever opened. Tab roots,
+ * so no on-screen back is expected — the tab bar is the way out, exactly
+ * as it is on the customer's home.
+ */
+for (const [i, tabName] of ['כמה הרווחתי', 'המסמכים שלי', 'הפרופיל'].entries()) {
+  const ok = await tryClick(tabName, 1200);
+  if (!ok) { problems.push(`pro: tab "${tabName}" not tappable`); continue; }
+  await inspect(`14-pro-tab-${i}-${tabName.replace(/\s/g, '_')}`, { needsBack: false });
+}
+
+/*
  * THE CONTROL.
  *
  * A check that has never fired is a check nobody has any reason to

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import type { PriceQuoteView } from "@pro-now/types";
 
@@ -90,8 +90,21 @@ export interface ServiceDetailBodyProps {
    * retry for a state that cannot change is a small, repeatable lie.
    */
   comingSoon?: boolean;
-  /** Receives the tapped symptoms, for the job's structuredAnswers. */
-  onRequestNow?: (symptomsHe: string[]) => void;
+  /**
+   * Receives the tapped symptoms and anything typed beside them.
+   *
+   * The chips were the ONLY vocabulary this screen had, and a closed list
+   * of five cases is not a vocabulary — Amit, looking at the computer
+   * technician page: *"בתוך הקטגוריות חסרה האפשרות לטקסט חופשי."* He is
+   * right, and the chips' own note admits it: "זה מה שעוזר למקצוען להגיע
+   * מוכן". A person whose problem is the sixth thing had no way to help
+   * anybody arrive prepared.
+   *
+   * The note travels with the symptoms rather than replacing them, and
+   * lands in the describe screen's own box so nothing typed here is
+   * retyped there.
+   */
+  onRequestNow?: (symptomsHe: string[], noteHe: string) => void;
   /** Re-runs the supply query. The honest action when nobody is online. */
   onRecheck?: () => void;
   onBack?: () => void;
@@ -121,8 +134,29 @@ export function ServiceDetailBody({
   const explainer = priceExplainer(price);
   const canDispatch = !comingSoon && availableNowCount !== null && availableNowCount > 0;
   const [picked, setPicked] = useState<string[]>([]);
+  const [note, setNote] = useState("");
   const toggle = (sx: string) =>
     setPicked((cur) => (cur.includes(sx) ? cur.filter((x) => x !== sx) : [...cur, sx]));
+
+  /*
+   * WHETHER THIS SCREEN MAY ASK FOR ANYTHING AT ALL.
+   *
+   * The chips were shown on every service page including the ones that
+   * cannot be requested — the computer technician's page in Amit's
+   * screenshot says "השירות ייפתח בקרוב" and its only button is "חזרה",
+   * and above it five chips invited you to describe your problem under a
+   * note promising it "עוזר למקצוען להגיע מוכן". Nothing was collected.
+   * There is no professional and no request to attach it to.
+   *
+   * So asking is tied to there being somewhere for the answer to go. A
+   * question whose answer is discarded is worse than no question, and
+   * adding a free-text box beside those chips would have made it twice
+   * as convincing and no more true.
+   *
+   * When this service opens, `canDispatch` becomes true and the block
+   * comes back with the box in it — nothing here needs changing.
+   */
+  const mayAsk = canDispatch;
 
   return (
     <View style={[styles.screen, { width, height }]}>
@@ -170,7 +204,7 @@ export function ServiceDetailBody({
         </View>
 
         {/* ---------------- What's actually happening ---------------- */}
-        {symptomsHe.length > 0 ? (
+        {mayAsk ? (
           <View style={styles.block}>
             {/*
               * Neutral, because this page is shared by every service.
@@ -183,7 +217,7 @@ export function ServiceDetailBody({
               */}
             <SectionHeader title="מה הכי מתאים?" colors={colors} />
             <View style={styles.symptoms}>
-              {symptomsHe.map((sx) => {
+              {(mayAsk ? symptomsHe : []).map((sx) => {
                 const on = picked.includes(sx);
                 return (
                   <Pressable
@@ -206,6 +240,33 @@ export function ServiceDetailBody({
                 );
               })}
             </View>
+            {/*
+              * THE SIXTH THING.
+              *
+              * Amit: *"בתוך הקטגוריות חסרה האפשרות לטקסט חופשי."*
+              *
+              * Five chips is a vocabulary of five, and the note under them
+              * promises the professional will arrive prepared — which was
+              * a promise this screen could only keep for people whose
+              * problem was on the list. Everyone else tapped nothing, or
+              * tapped the nearest wrong one, which is worse than silence
+              * because it sends somebody with the wrong part.
+              *
+              * One line, not a paragraph: the describe screen is where
+              * there is room to write, and what is typed here is carried
+              * into that box rather than asked for twice.
+              */}
+            <TextInput
+              value={note}
+              onChangeText={setNote}
+              placeholder={
+                symptomsHe.length > 0 ? "משהו אחר? כתבו במילים שלכם" : "ספרו לנו במילים שלכם"
+              }
+              accessibilityLabel="תיאור חופשי של מה שצריך"
+              placeholderTextColor={colors.textSecondary}
+              style={styles.noteInput}
+              textAlign="right"
+            />
             <Text style={styles.symptomNote}>
               לא חובה. זה מה שעוזר למקצוען להגיע מוכן.
             </Text>
@@ -289,7 +350,7 @@ export function ServiceDetailBody({
        */}
       <View style={styles.cta}>
         <Pressable
-          onPress={canDispatch ? () => onRequestNow?.(picked) : comingSoon ? onBack : onRecheck}
+          onPress={canDispatch ? () => onRequestNow?.(picked, note.trim()) : comingSoon ? onBack : onRecheck}
           accessibilityRole="button"
           accessibilityLabel={
             canDispatch
@@ -396,6 +457,21 @@ const styles = StyleSheet.create({
     maxWidth: "100%",
   },
   symptomText: { ...type.caption, fontSize: scale.meta, color: colors.textPrimary, writingDirection: "rtl" },
+  noteInput: {
+    ...type.body,
+    color: colors.textPrimary,
+    backgroundColor: colors.surface,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.md,
+    // The same 44 the chips take, and for the same reason: it sits in the
+    // same row of touch targets and a shorter one reads as less real.
+    minHeight: 48,
+    marginTop: spacing.md,
+    writingDirection: "rtl",
+  },
+
   symptomNote: {
     ...type.caption,
     color: colors.textSecondary,
