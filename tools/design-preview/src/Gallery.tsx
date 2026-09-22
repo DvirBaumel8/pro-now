@@ -617,6 +617,14 @@ export function Gallery() {
           <ProOfferBody offer={offerEstimateFixture} nowMs={FROZEN_NOW_MS + 20000} onAccept={noop} onSkip={noop} width={PHONE_W} height={PHONE_H} />
         </Frame>
 
+        {/* Two taps on "אני לוקח" send two accepts, and the second returns
+            OFFER_NO_LONGER_AVAILABLE — indistinguishable from somebody else
+            having taken it. The professional would be told they lost the job
+            they had just won. Both actions go quiet on the first touch. */}
+        <Frame dark caption="P16 · התשובה בדרך — הפעולות שותקות">
+          <ProOfferBody offer={offerFixture} nowMs={FROZEN_NOW_MS} responding onAccept={noop} onSkip={noop} width={PHONE_W} height={PHONE_H} />
+        </Frame>
+
         <Frame dark caption="P16 · הסכום לא ידוע מראש — נאמר, לא הומצא">
           <ProOfferBody offer={offerUnknownPayoutFixture} nowMs={FROZEN_NOW_MS + 26000} onAccept={noop} onSkip={noop} width={PHONE_W} height={PHONE_H} />
         </Frame>

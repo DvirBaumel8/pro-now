@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { OfferCardView } from "@pro-now/types";
-import { OfferCard, OfferCardSkeleton, proTheme, spacing, typography } from "@pro-now/ui";
+import { OfferCardSkeleton, ProOfferBody, proTheme, spacing, typography } from "@pro-now/ui";
 
 import type { ProStackParamList } from "../navigation/types";
 import { ApiError, api } from "../api/client";
@@ -26,9 +26,25 @@ type Props = NativeStackScreenProps<ProStackParamList, "Offer">;
  *  2. On a successful accept it navigated with a literal `"demo-job"` id
  *     instead of the `jobId` the accept response returns, so the next
  *     screen would have loaded the wrong job.
+ *
+ * ---------------------------------------------------------------------
+ * AND THE SCREEN IT SHOWS
+ * ---------------------------------------------------------------------
+ * `ProOfferBody` has been in `packages/ui` throughout, and its header
+ * explains why it is not the offer card with more padding: "a card says
+ * here is some information. This screen has to say something is happening
+ * to you, right now, and it stops in thirty seconds." The map is the
+ * stage, the payout is the largest thing on the screen, the countdown is
+ * a ring readable at arm's length, and there is one affirmative action.
+ *
+ * This screen was rendering `OfferCard` inside a ScrollView with local
+ * padding — the exact thing that body was written to replace. The same
+ * split as the earnings screen (§24), on the one screen in the product
+ * where a professional has thirty seconds to decide.
  */
 export function OfferScreen({ route, navigation }: Props) {
   const { offerId } = route.params;
+  const { width, height } = useWindowDimensions();
 
   const [offer, setOffer] = useState<OfferCardView | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -59,6 +75,18 @@ export function OfferScreen({ route, navigation }: Props) {
   }, [navigation]);
 
   const handleAccept = useCallback(async () => {
+    /*
+     * The one place in this app where a second tap is dangerous. The
+     * second accept returns OFFER_NO_LONGER_AVAILABLE, which is
+     * indistinguishable from somebody else having taken it — so the
+     * professional would be told they lost the job they had just won and
+     * sent back to the shift screen while a customer waited for them.
+     *
+     * The body disables its buttons while responding; this is the same
+     * guard on the other side of the prop, because the one that matters
+     * most is worth holding twice.
+     */
+    if (responding) return;
     setResponding(true);
     try {
       const result = await api.acceptOffer(offer?.offerId ?? offerId);
@@ -98,9 +126,10 @@ export function OfferScreen({ route, navigation }: Props) {
     } finally {
       setResponding(false);
     }
-  }, [navigation, offer, offerId]);
+  }, [navigation, offer, offerId, responding]);
 
   const handleSkip = useCallback(async () => {
+    if (responding) return;
     setResponding(true);
     try {
       await api.skipOffer(offer?.offerId ?? offerId);
@@ -110,7 +139,7 @@ export function OfferScreen({ route, navigation }: Props) {
       setResponding(false);
       navigation.replace("Offline");
     }
-  }, [navigation, offer, offerId]);
+  }, [navigation, offer, offerId, responding]);
 
   if (error) {
     return (
@@ -121,14 +150,25 @@ export function OfferScreen({ route, navigation }: Props) {
     );
   }
 
+  if (!offer) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.content}>
+          <OfferCardSkeleton />
+        </View>
+      </View>
+    );
+  }
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {offer ? (
-        <OfferCard offer={offer} onAccept={handleAccept} onSkip={handleSkip} responding={responding} />
-      ) : (
-        <OfferCardSkeleton />
-      )}
-    </ScrollView>
+    <ProOfferBody
+      offer={offer}
+      responding={responding}
+      onAccept={() => void handleAccept()}
+      onSkip={() => void handleSkip()}
+      width={width}
+      height={height}
+    />
   );
 }
 

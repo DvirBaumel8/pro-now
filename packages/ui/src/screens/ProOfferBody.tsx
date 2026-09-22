@@ -45,6 +45,20 @@ export interface ProOfferBodyProps {
   nowMs?: number;
   onAccept?: () => void;
   onSkip?: () => void;
+  /**
+   * True while the answer is in flight.
+   *
+   * `OfferCard` has always had this and the full screen did not, which
+   * matters more here than on the card: two taps on "כן, אני לוקח" send
+   * two accepts, and the second comes back as OFFER_NO_LONGER_AVAILABLE
+   * — indistinguishable from somebody else having taken it. The
+   * professional would be told they lost the job they had just won,
+   * and sent back to the shift screen while a customer waited for them.
+   *
+   * So the actions go quiet the moment one is tapped, and the screen
+   * says which way it is going rather than looking inert.
+   */
+  responding?: boolean;
   width?: number;
   height?: number;
 }
@@ -55,6 +69,7 @@ export function ProOfferBody({
   nowMs = Date.now(),
   onAccept,
   onSkip,
+  responding = false,
   width = 390,
   height = 780,
 }: ProOfferBodyProps) {
@@ -238,14 +253,28 @@ export function ProOfferBody({
         ) : (
           <>
             <Pressable
-              onPress={onAccept}
+              onPress={responding ? undefined : onAccept}
+              disabled={responding}
               accessibilityRole="button"
+              accessibilityState={{ disabled: responding, busy: responding }}
               accessibilityLabel={`קבלת העבודה ${offer.serviceNameHe}`}
-              style={({ pressed }) => [styles.accept, pressed && { opacity: 0.88 }]}
+              style={({ pressed }) => [
+                styles.accept,
+                pressed && !responding && { opacity: 0.88 },
+                responding && { opacity: 0.6 },
+              ]}
             >
-              <Text style={styles.acceptLabel}>כן, אני לוקח</Text>
+              <Text style={styles.acceptLabel}>
+                {responding ? "רגע…" : "כן, אני לוקח"}
+              </Text>
             </Pressable>
-            <Pressable onPress={onSkip} accessibilityRole="button" style={styles.skip}>
+            <Pressable
+              onPress={responding ? undefined : onSkip}
+              disabled={responding}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: responding }}
+              style={[styles.skip, responding && { opacity: 0.5 }]}
+            >
               <Text style={styles.skipLabel}>לא עכשיו — העבר למקצוען אחר</Text>
             </Pressable>
           </>
