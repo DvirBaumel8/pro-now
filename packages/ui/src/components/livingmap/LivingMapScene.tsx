@@ -15,6 +15,7 @@ import {
   shotForBeat,
   worldZoomFor,
   sweepFrame,
+  VISIT_MS,
   districtFor,
   layOutVenues,
   searchingDetailHe,
@@ -192,15 +193,10 @@ export interface LivingMapSceneProps {
 }
 
 /**
- * How often the sweep clock is read.
- *
- * Not a frame rate — the camera move itself runs on the native driver and
- * does not need JS at 60Hz. This only has to be fine enough to notice when
- * one stop ends and the next begins, and coarse enough that a screen which
- * is live during dispatch is not re-rendering constantly while somebody
- * waits.
+ * A hair past the boundary, so the frame that is read belongs to the stop
+ * that has just begun rather than to the one that is ending.
  */
-const SWEEP_TICK_MS = 200;
+const SWEEP_BOUNDARY_GRACE_MS = 16;
 
 /**
  * How much of the top of this screen belongs to the headline and the back
@@ -552,6 +548,30 @@ export function LivingMapScene({
    * the camera does is decided in `search-sweep.ts` and tested there rather
    * than judged by watching the screen.
    */
+  /*
+   * THE SWEEP CLOCK WAKES ON THE BEAT, NOT ON A GRID.
+   *
+   * This was `setInterval(200)`, and the camera is the only thing that
+   * reads it — `sweepFrame` returns a new stop once per VISIT_MS, which
+   * is 2.6 seconds. So twelve of every thirteen ticks produced an
+   * identical frame and re-rendered this scene for nothing, on the one
+   * screen that is live while dispatch runs.
+   *
+   * Worse than the waste: the thirteenth tick was the one that MATTERED,
+   * and it landed up to 200ms after the stop actually changed — a
+   * different amount of late each time. `search-sweep.ts` is explicit
+   * that the point is a rhythm: "travel, settle, travel — never a
+   * constant glide… a camera that arrives somewhere, holds long enough
+   * for you to see a shop, and then moves on is somebody searching." A
+   * beat that wanders by a fifth of a second is not that rhythm, and it
+   * is exactly the kind of wrongness that is felt before it is seen.
+   *
+   * Amit: *"גם את התנועתיות של איתור המקצוען זה זז לא טוב."*
+   *
+   * One timeout, aimed at the next boundary. The move now begins when the
+   * previous visit ends, and the scene re-renders once per stop instead
+   * of thirteen times.
+   */
   const [sweepMs, setSweepMs] = useState(0);
   useEffect(() => {
     if (phase !== "SEARCHING" || !animate) {
@@ -559,8 +579,17 @@ export function LivingMapScene({
       return;
     }
     const startedAt = Date.now();
-    const id = setInterval(() => setSweepMs(Date.now() - startedAt), SWEEP_TICK_MS);
-    return () => clearInterval(id);
+    let timer: ReturnType<typeof setTimeout>;
+
+    const step = () => {
+      const elapsed = Date.now() - startedAt;
+      setSweepMs(elapsed);
+      const untilNextStop = VISIT_MS - (elapsed % VISIT_MS);
+      timer = setTimeout(step, untilNextStop + SWEEP_BOUNDARY_GRACE_MS);
+    };
+
+    step();
+    return () => clearTimeout(timer);
   }, [animate, phase]);
 
   const sweep = useMemo(

@@ -89,3 +89,50 @@ describe("search sweep", () => {
     expect(sweepFrame({ venues, elapsedMs: VISIT_MS * venues.length }).candidateId).toBe(stops[0]!.candidateId);
   });
 });
+
+describe("the beat the camera moves on", () => {
+  const venues = layOutVenues(["a", "b", "c"], "HOME");
+
+  it("changes stop exactly on the visit boundary and not before", () => {
+    /*
+     * The scene wakes its clock at these moments and nowhere else, so the
+     * boundary has to be the only place the frame changes. It used to be
+     * sampled on a 200ms grid instead, which meant every move began up to
+     * a fifth of a second late — a different amount of late each time.
+     *
+     * `search-sweep.ts` is explicit that the point is a rhythm: travel,
+     * settle, travel. A beat that wanders is not that rhythm, and Amit
+     * felt it before anybody measured it.
+     */
+    const justBefore = sweepFrame({ venues, elapsedMs: VISIT_MS - 1 });
+    const atBoundary = sweepFrame({ venues, elapsedMs: VISIT_MS });
+    const first = sweepFrame({ venues, elapsedMs: 0 });
+
+    expect(justBefore.candidateId).toBe(first.candidateId);
+    expect(atBoundary.candidateId).not.toBe(first.candidateId);
+  });
+
+  it("holds one stop for the whole visit", () => {
+    // Nothing in between should move the camera, which is what lets the
+    // scene sleep until the next boundary instead of polling.
+    const at = (ms: number) => sweepFrame({ venues, elapsedMs: ms });
+    const start = at(0);
+    for (const ms of [1, 200, 700, 1100, 1500, 2000, VISIT_MS - 1]) {
+      expect(at(ms).camera.focus, String(ms)).toEqual(start.camera.focus);
+    }
+  });
+
+  it("comes back round to the first venue after a full lap", () => {
+    const first = sweepFrame({ venues, elapsedMs: 0 });
+    const lapLater = sweepFrame({ venues, elapsedMs: VISIT_MS * venues.length });
+    expect(lapLater.candidateId).toBe(first.candidateId);
+  });
+
+  it("asks for a move no longer than the visit that contains it", () => {
+    // A travel longer than the visit would mean the camera is still
+    // moving when it is meant to be resting, and the settle — the half
+    // that makes it read as looking rather than drifting — disappears.
+    const frame = sweepFrame({ venues, elapsedMs: 0 });
+    expect(frame.camera.durationMs ?? 0).toBeLessThan(VISIT_MS);
+  });
+});
