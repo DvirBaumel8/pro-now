@@ -28,6 +28,42 @@ export class OfferNoLongerAvailableError extends Error {
 const JOB_LOCK_TTL_MS = 5000;
 
 /**
+ * How long the fast path is allowed to take before it stops being fast.
+ *
+ * Stepping over an unreachable Redis was not enough on its own. ioredis
+ * retries a request twenty times before it gives up, so with Redis down
+ * every accept sat waiting for that whole backoff BEFORE the catch below
+ * ran — seconds, on the one request in this product that is racing a
+ * thirty-second offer window. Offers expired while the optimisation was
+ * still trying to help.
+ *
+ * A lock that takes longer to acquire than the work it protects is worse
+ * than no lock. Two hundred and fifty milliseconds is far more than a
+ * healthy Redis on the same machine needs and far less than a customer
+ * would notice; past it, the row lock — which is the actual guarantee —
+ * takes over.
+ */
+const LOCK_ATTEMPT_TIMEOUT_MS = 250;
+
+class LockAttemptTimeout extends Error {}
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new LockAttemptTimeout()), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      }
+    );
+  });
+}
+
+/**
  * The lock is an optimization, so its absence is not a failure.
  *
  * The paragraph above says it plainly — the row lock is the source of
@@ -54,7 +90,10 @@ async function withJobLock<T>(
 
   let held = false;
   try {
-    const acquired = await redis.set(lockKey, token, "PX", JOB_LOCK_TTL_MS, "NX");
+    const acquired = await withTimeout(
+      redis.set(lockKey, token, "PX", JOB_LOCK_TTL_MS, "NX"),
+      LOCK_ATTEMPT_TIMEOUT_MS
+    );
     if (!acquired) {
       // Redis answered, and the answer was no. Another accept is in flight.
       throw new OfferNoLongerAvailableError(jobId);
@@ -70,9 +109,11 @@ async function withJobLock<T>(
   } finally {
     if (held) {
       try {
-        // Only release if we still own it (best-effort; TTL is the real backstop).
-        const current = await redis.get(lockKey);
-        if (current === token) await redis.del(lockKey);
+        // Only release if we still own it (best-effort; TTL is the real
+        // backstop). Time-boxed for the same reason as the acquire: a
+        // slow release would delay the response after the work is done.
+        const current = await withTimeout(redis.get(lockKey), LOCK_ATTEMPT_TIMEOUT_MS);
+        if (current === token) await withTimeout(redis.del(lockKey), LOCK_ATTEMPT_TIMEOUT_MS);
       } catch (err) {
         log?.("job lock release failed — the TTL will clear it", err);
       }

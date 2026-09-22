@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import type { Prisma } from "@prisma/client";
 import { createJobSchema } from "@pro-now/validation";
 import { triggerDispatch } from "../domain/dispatch/dispatch-service";
+import { capturePaymentForJob } from "../domain/payments/capture-payment";
 import { assertTransition, nextAfterArrival } from "../domain/job/transitions";
 
 /**
@@ -75,6 +76,68 @@ export default async function jobsRoutes(app: FastifyInstance) {
     });
     if (!job) return reply.status(404).send({ code: "JOB_NOT_FOUND", message: "Job not found" });
     return reply.send({ job });
+  });
+
+  /**
+   * The customer confirms the work is done, and the money moves.
+   *
+   * COMPLETION_PENDING is the professional's claim; COMPLETED is the
+   * customer agreeing with it. Putting the charge behind the customer's
+   * tap rather than the professional's is the whole reason the state
+   * machine has two states here instead of one, and it is why this route
+   * checks who is asking.
+   *
+   * Everything after the confirmation is the server's: settle, authorise,
+   * capture, write the ledger, open the review. None of it is reported by
+   * a client — /docs/09-PAYMENTS.md §Ledger is explicit that the server
+   * never trusts a client's "payment succeeded".
+   */
+  app.post("/v1/jobs/:id/confirm-completion", { onRequest: app.requireAuth }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const idempotencyKey = (req.headers["idempotency-key"] as string) ?? `confirm_${id}`;
+
+    const job = await app.prisma.job.findUnique({ where: { id }, include: { customer: true } });
+    if (!job) return reply.status(404).send({ code: "JOB_NOT_FOUND", message: "Job not found" });
+
+    if (job.customer.userId !== req.user!.userId) {
+      // 404 rather than 403: the endpoint does not confirm that somebody
+      // else's job exists, the same rule pro-jobs.ts applies to addresses.
+      return reply.status(404).send({ code: "JOB_NOT_FOUND", message: "Job not found" });
+    }
+
+    assertTransition(job.status, "COMPLETED", "CUSTOMER");
+    await app.prisma.job.update({ where: { id }, data: { status: "COMPLETED" } });
+    await app.prisma.jobEvent.create({
+      data: {
+        jobId: id,
+        type: "COMPLETION_CONFIRMED",
+        actor: "CUSTOMER",
+        actorId: req.user!.userId,
+        metadata: {},
+      },
+    });
+
+    const outcome = await capturePaymentForJob(
+      app.prisma,
+      app.providers.payment,
+      id,
+      idempotencyKey
+    );
+
+    if (outcome.status === "NOT_SETTLEABLE") {
+      /*
+       * The job stays COMPLETED and is not charged. 409 rather than 500:
+       * nothing crashed, the server declined to invent an amount, and the
+       * reason is in the job's events for Ops to act on.
+       */
+      return reply.status(409).send({
+        code: "NOT_SETTLEABLE",
+        message: "העבודה הושלמה, והמערכת לא יכולה לחשב סכום לחיוב ללא ניחוש. צוות התפעול יטפל.",
+        reason: outcome.reason,
+      });
+    }
+
+    return reply.send({ ok: true, ...outcome });
   });
 
   app.post("/v1/jobs/:id/cancel", { onRequest: app.requireAuth }, async (req, reply) => {

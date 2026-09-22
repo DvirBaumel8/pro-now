@@ -97,6 +97,33 @@ candidate against an empty list. Which credentials are mandatory is named
 in §4 as a decision this codebase must not invent; the catalogue has
 already recorded an answer, so the work is to carry it, not to make it.
 
+### TBD — the commission, which the ledger is now waiting on (2026-09-22)
+
+Payments and the ledger are built (§21). Every job that completes writes a
+CUSTOMER_CHARGE row, and **stops there**, because the platform fee and the
+professional's payable cannot be computed without a commission
+percentage — named in `/CLAUDE.md §4` as a decision this codebase must not
+invent. `/v1/pro/earnings` therefore shows what was charged and nothing
+payable, which is true rather than convenient.
+
+Setting `app_config["payments.commission.percent"]` to `{"percent": N}`
+completes the split from that moment on. Both states are walked by
+`verify:journey` and both pass; the fee rounds down so rounding never
+costs the professional, and fee plus payable equal the charge exactly.
+
+### TBD — does an approved quote replace the visit fee or add to it?
+
+`settlement.ts` reads it as REPLACING. `/docs/02-UX-FLOWS.md` C12 shows
+the customer a quote with its own total and asks them to approve it, and
+charging that total plus a fee agreed earlier would make the approval
+screen a lie. `pro-jobs.ts` already tells the professional their earnings
+the same way, so the two agree.
+
+The other reading — a visit fee always payable, with approved work on top
+— is a legitimate trade practice and a one-line change in each place. It
+is a pricing decision rather than a bug, and it is worth being deliberate
+about before anybody is charged under either.
+
 ### TBD — how long a customer waits before being told nobody is coming
 
 `DISPATCH_SEARCH_DEADLINE_SECONDS`, added 2026-09-22 with the offer-expiry

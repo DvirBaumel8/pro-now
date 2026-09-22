@@ -1904,3 +1904,89 @@ staging.
 **926 tests. Typecheck and lint clean, db:verify 1411/1411,
 verify:rowlock 7/7, verify:journey passes every step including the
 refusal.**
+
+## 21. The money, and the loop closing (2026-09-22)
+
+Amit: *"לא מחפש מהר, מחפש לעבוד לפי סדר שהכל יעבוד באמת."*
+
+The order argued for itself. `dispatch-service.ts:191` ranks every
+candidate on `ratingAverage: 4.8` — a fabricated trust score, in the
+engine that decides who gets sent to a home, with a comment admitting it
+is a placeholder "until reviews aggregate is wired". It cannot be fixed
+before there are reviews; reviews were unreachable because `reviews.ts`
+correctly refuses one before payment; and payment did not exist. So
+payment first, reputation next, screens last — a screen that renders an
+invented number is a screen polished twice.
+
+### 21.1 What was already right
+
+Almost all of it. `PaymentProvider` and its sandbox adapter, the
+`Payment`/`PaymentEvent`/`LedgerEntry` tables, and — most of all —
+`/v1/pro/earnings`, which already derived gross and net from the ledger
+and already refused to show a breakdown when the rows were absent,
+because a flat 20% had once been written into that screen and removed.
+
+It was correct and empty. Nothing had ever written a ledger row.
+
+### 21.2 What was missing was the bill
+
+`pricing-adapter.ts` answers what the customer sees BEFORE the job — a
+preview, deliberately not a bill. Nothing computed what is owed after.
+
+`settlement.ts` does, per archetype, and every branch either returns an
+amount or the reason it cannot:
+
+- FIXED — the configured price; null means "not configured", never free.
+- VISIT_QUOTE — the approved quote's total, which REPLACES the visit fee
+  rather than adding to it. C12 shows the customer a total and asks them
+  to approve it; charging that total plus an earlier fee would make the
+  approval screen a lie. If the intent is the other one it is one line,
+  and it is a business decision — recorded in the roadmap.
+- HOURLY — per minute of the hourly rate, floored at the minimum.
+  Rounding up to whole hours would overcharge by up to an hour on every
+  job, which is the kind of error nobody reports and everybody notices.
+  The duration is read from the job's own events, because the timer is
+  server-authoritative.
+- DISTANCE_TIME — base plus distance, floored at the minimum fare. **No
+  courier job records its distance yet, so this refuses.** Settling at
+  the base fee "for now" would undercharge silently.
+
+The commission is not invented. `splitCommission` returns null when no
+rate is configured, the ledger then holds CUSTOMER_CHARGE alone, and the
+professional's payable stays unwritten because it is unknown. The fee
+rounds DOWN so rounding never costs the professional, and the payable is
+the remainder rather than a second percentage, so the two sum to the
+charge exactly.
+
+### 21.3 The loop
+
+`POST /v1/jobs/:id/confirm-completion` — the CUSTOMER's tap, which is why
+the state machine has two states here rather than one. Then settle,
+authorise, capture, write the ledger, open the review: COMPLETION_PENDING
+→ COMPLETED → PAYMENT_PENDING → PAYMENT_CAPTURED → REVIEW_PENDING → CLOSED.
+
+**`verify:journey` now ends at CLOSED, in fourteen events.** It asserts
+the ledger's INVARIANT rather than a configuration: a charge alone with
+no payable, or a charge and a split that sums to it. Both states were
+walked; both pass.
+
+### 21.4 An optimisation that cost more than it saved
+
+The Redis job lock was made best-effort in §19 and the accept started
+working. It then started failing again, intermittently, in a way that
+looked like a race: OFFER_NO_LONGER_AVAILABLE on an offer created seconds
+earlier.
+
+ioredis retries a request twenty times before giving up. With Redis
+absent, every accept sat through that entire backoff before the catch
+ran — seconds, on the one request in this product that is racing a
+thirty-second offer window. Offers were expiring while the optimisation
+was still trying to help.
+
+The attempt is time-boxed to 250ms now. Far more than a healthy Redis on
+the same machine needs, far less than a customer notices, and past it the
+row lock — which was always the guarantee — simply takes over.
+
+**944 tests. Typecheck and lint clean, db:verify 1411/1411,
+verify:rowlock 7/7, verify:domain 28/28, verify:journey passes every step
+from sign-in to CLOSED.**

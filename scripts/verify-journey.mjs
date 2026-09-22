@@ -200,21 +200,88 @@ const run = async () => {
   });
   complete.status === 200 ? ok("job completes") : bad("job completes", `${complete.status} ${complete.text.slice(0, 160)}`);
 
+  // Before the customer confirms, a review is still premature and the
+  // server still says so. The refusal is as much a feature as the charge.
+  const early = await call("POST", `/v1/jobs/${jobId}/reviews`, {
+    token: custToken,
+    idem: "early-" + Date.now(),
+    body: { overallRating: 5, comment: "מוקדם מדי" },
+  });
+  early.status === 409
+    ? ok("a review before payment is refused")
+    : bad("a review before payment is refused", `${early.status} ${early.text.slice(0, 160)}`);
+
+  line("\n== THE MONEY ==");
   /*
-   * And here the walk stops, honestly. COMPLETION_PENDING -> COMPLETED ->
-   * PAYMENT_* -> REVIEW_PENDING is EPIC 10, and reviews.ts refuses anything
-   * earlier. Nothing is broken; the ledger is not built, because the
-   * payment marketplace provider is one of the decisions /CLAUDE.md §4
-   * forbids this codebase from inventing.
+   * Earnings are a lifetime total, so this job's effect on them is a
+   * DIFFERENCE. Asserting the total would assert that this is the only
+   * job the professional has ever done, which it is not after the second
+   * run — and the assertion would start failing for a reason that has
+   * nothing to do with the code under test.
    */
+  const before = await call("GET", "/v1/pro/earnings", { token: proToken });
+  const grossBefore = before.json?.grossMinorUnits ?? 0;
+  const netBefore = before.json?.netMinorUnits ?? 0;
+
+  const confirmed = await call("POST", `/v1/jobs/${jobId}/confirm-completion`, {
+    token: custToken,
+    idem: "confirm-" + Date.now(),
+  });
+  confirmed.status === 200 && confirmed.json?.status === "CAPTURED"
+    ? ok(
+        "the customer confirms and the payment is captured",
+        `₪${(confirmed.json.amountMinorUnits / 100).toFixed(2)} · ${confirmed.json.ledgerRows} ledger row(s)`
+      )
+    : bad("the customer confirms and the payment is captured", `${confirmed.status} ${confirmed.text.slice(0, 200)}`);
+
+  /*
+   * THE LEDGER AGREES WITH ITSELF, WHICHEVER STATE THE BUSINESS IS IN.
+   *
+   * Asserting one row would be asserting that no commission is
+   * configured, which is a fact about the environment rather than about
+   * the code. Both states are correct and they must be CONSISTENT:
+   *
+   *   no commission set → CUSTOMER_CHARGE alone, and the professional's
+   *     net is zero because what they are owed depends on a number nobody
+   *     has chosen (/CLAUDE.md §4);
+   *   commission set → charge, fee and payable, and the fee plus the
+   *     payable equal the charge exactly.
+   *
+   * A ledger that is neither is the bug this is looking for.
+   */
+  const rows = confirmed.json?.ledgerRows;
+  const after = await call("GET", "/v1/pro/earnings", { token: proToken });
+  const chargedHere = (after.json?.grossMinorUnits ?? 0) - grossBefore;
+  const payableHere = (after.json?.netMinorUnits ?? 0) - netBefore;
+  const amount = confirmed.json?.amountMinorUnits ?? 0;
+
+  if (rows === 1) {
+    chargedHere === amount && payableHere === 0
+      ? ok(
+          "no commission set, so nothing is invented",
+          `charged ₪${(chargedHere / 100).toFixed(2)}, payable left unwritten`
+        )
+      : bad("no commission set, so nothing is invented", `charged ${chargedHere}, payable ${payableHere}, amount ${amount}`);
+  } else if (rows === 3) {
+    chargedHere === amount && payableHere > 0 && payableHere < amount
+      ? ok(
+          "a commission is set, and the split adds up",
+          `₪${(chargedHere / 100).toFixed(2)} charged, ₪${(payableHere / 100).toFixed(2)} payable`
+        )
+      : bad("a commission is set, and the split adds up", `charged ${chargedHere}, payable ${payableHere}, amount ${amount}`);
+  } else {
+    bad("the ledger is either a charge alone or a charge and a split", `ledgerRows=${rows}`);
+  }
+
+  line("\n== THE REVIEW ==");
   const review = await call("POST", `/v1/jobs/${jobId}/reviews`, {
     token: custToken,
     idem: "rev-" + Date.now(),
     body: { overallRating: 5, comment: "הגיע מהר, פתר הכול" },
   });
-  review.status === 409
-    ? ok("review is correctly refused before payment", "EPIC 10 — payments, not yet built")
-    : bad("review is correctly refused before payment", `${review.status} ${review.text.slice(0, 160)}`);
+  review.status === 200
+    ? ok("the customer reviews the job")
+    : bad("the customer reviews the job", `${review.status} ${review.text.slice(0, 200)}`);
 
   const badBody = await call("POST", `/v1/jobs/${jobId}/reviews`, { token: custToken, idem: "bad-" + Date.now(), body: { nonsense: true } });
   badBody.status === 400 && badBody.json?.code === "VALIDATION_FAILED"

@@ -6,8 +6,8 @@ request a trusted, verified professional to come **now**. See
 `/CLAUDE.md` for the engineering contract and `/docs/00-VISION.md` onward
 for the full product/engineering specification this repo implements.
 
-**Start here:** `/docs/EPIC-0-REPORT.md` — read **§20** first, then **§19**
-and **§18**. Together they are the honest record of what has actually been
+**Start here:** `/docs/EPIC-0-REPORT.md` — read **§21** first, then **§20**
+and **§19**. Together they are the honest record of what has actually been
 installed, compiled, linted, bundled, rendered and executed. They supersede
 the older §7/§8, which describe a session that could not run anything.
 
@@ -55,7 +55,7 @@ the repository moved out of the build container — see EPIC-0-REPORT §17.
 | Prisma client | `npm run db:generate -w apps/api` | **PASS — v5.22.0** |
 | Typecheck (10 workspaces) | `npm run typecheck` | **CLEAN — all 10** |
 | Lint (10 workspaces) | `npm run lint` | **CLEAN** |
-| Unit tests | `npm test` | **PASS — 926** |
+| Unit tests | `npm test` | **PASS — 944** |
 | Domain logic | `npm run verify:domain` | **PASS — 28/28** |
 | Geometry | `npm run verify:geo` | **PASS** |
 | Accessibility | `npm run verify:a11y` | **PASS — 18 screens, 0 defects** |
@@ -66,7 +66,7 @@ the repository moved out of the build container — see EPIC-0-REPORT §17.
 | Row lock vs. real Postgres | `npm run verify:rowlock` | **PASS — 7/7, with a control** |
 | API boot | `npm run dev:api` | **PASS — /health 200, catalogue served from the database** |
 | Mobile bundles | `expo export --platform ios` | **PASS — both apps** |
-| Whole journey over HTTP | `npm run verify:journey` | **PASS — every step** |
+| Whole journey over HTTP | `npm run verify:journey` | **PASS — request to CLOSED** |
 | Admin + gallery in a browser | manual | **PASS — 0 console errors** |
 
 Every gate in this table has now been run on one machine.
