@@ -36,7 +36,42 @@ const tryClick = async (t, ms = 800) => { try { await click(t, ms); return true;
  * proves only that two pieces of arithmetic agree.
  */
 const scan = () => {
-    const out = { small: [], empty: 0, buttons: 0, offscreen: [] };
+    const out = { small: [], empty: 0, buttons: 0, offscreen: [], buried: [] };
+
+    /*
+     * A BOX YOU HAVE TO GO LOOKING FOR.
+     *
+     * Amit: *"גם שורות החיפוש תמיד צריכות להיות בלמעלה של התפריטים ולא
+     * בתחית המסך אם רוצים לספר מה הבעיה ולאתר אותה."*
+     *
+     * The address screen was the case. Its typing row was the fourth
+     * block down, under the location card and under however many
+     * addresses somebody had saved, and the copy on the screen said
+     * "type an address BELOW" twice — pointing at something that, for a
+     * customer with a few saved places, was off the bottom of the phone.
+     *
+     * The checked rule is the strict, measurable part of what he asked
+     * for: the FIRST place a screen lets you type must be on the screen
+     * when the screen opens. Where it sits ABOVE the fold is a judgement
+     * and stays a judgement; needing to scroll before you can see that
+     * typing is possible at all is not.
+     *
+     * Only the first one. A form's fifth field is allowed to be down the
+     * page — that is what a form is.
+     */
+    // The first input with an actual box on it. A control rendered at
+    // zero size is not a place anybody can type, and skipping those is
+    // also what lets the control at the end of this file hide the real
+    // inputs and be seen: `display: none` still matches a selector.
+    const firstInput = [...document.querySelectorAll('input:not([type="hidden"]), textarea')]
+      .find((el) => { const b = el.getBoundingClientRect(); return b.width > 0 && b.height > 0; });
+    if (firstInput) {
+      const r = firstInput.getBoundingClientRect();
+      if (r.top > window.innerHeight) {
+        const label = firstInput.getAttribute('aria-label') || firstInput.getAttribute('placeholder') || '(no label)';
+        out.buried.push(`${label} — ${Math.round(r.top - window.innerHeight)}px below the fold`);
+      }
+    }
     for (const el of document.querySelectorAll('[role="button"], button')) {
       const r = el.getBoundingClientRect();
       if (r.width === 0 || r.height === 0) continue;
@@ -95,6 +130,7 @@ async function inspect(name, { needsBack = true } = {}) {
   if (needsBack && backs === 0) problems.push(`${name}: no way back`);
   for (const s of report.small) problems.push(`${name}: target too small — ${s}`);
   for (const s of report.offscreen) problems.push(`${name}: off the edge of the phone — ${s}`);
+  for (const s of report.buried) problems.push(`${name}: you must scroll before you can type — ${s}`);
   if (report.buttons === 0) problems.push(`${name}: nothing to tap`);
   await p.screenshot({ path: `/tmp/claude-0/sweep/${name}.png` });
 }
@@ -129,6 +165,23 @@ await tryClick('דלג', 900);
 await inspect('03-avatar', { needsBack: false });
 await tryClick('דלג כרגע', 1200);
 await inspect('04-home', { needsBack: false });
+
+/*
+ * THE ADDRESS SCREEN, WHICH NOTHING HAD EVER WALKED.
+ *
+ * Reached the way a customer reaches it — the address chip at the top of
+ * the home screen — and it is worth a stop of its own: it is the one
+ * fact the whole dispatch is aimed at, and it was where the buried
+ * typing row was found.
+ */
+if (await p.getByRole('button', { name: 'שינוי כתובת' }).first().click({ timeout: 4000 }).then(() => true).catch(() => false)) {
+  await p.waitForTimeout(1000);
+  await inspect('04b-address');
+  await p.goBack();
+  await p.waitForTimeout(900);
+} else {
+  problems.push('home: the address chip is not tappable');
+}
 
 for (const [i, cat] of ['לבית', 'ביוטי ושיער', 'ניקיון', 'הובלות ומשלוחים', 'רכב', 'חיות', 'בריאות וכושר', 'מחשבים וסלולר'].entries()) {
   const ok = await p.getByRole('button', { name: cat }).first().click({ timeout: 4000 }).then(() => true).catch(() => false);
@@ -191,6 +244,35 @@ const controlCaught = await p.evaluate((scanSrc) => {
 }, scan.toString());
 if (!controlCaught) {
   problems.push('the off-screen check did not catch its own control — it is not checking anything');
+}
+
+/*
+ * The same proof for the buried-input check, which needs it just as
+ * much: it starts by asking for the first input on the page, and on a
+ * page with no input at all it returns an empty list and passes. So a
+ * box IS put below the fold, the check is asked about it, and it is
+ * taken away again.
+ */
+const buriedCaught = await p.evaluate((scanSrc) => {
+  const holder = document.createElement('div');
+  Object.assign(holder.style, { position: 'absolute', top: `${window.innerHeight + 400}px`, left: '20px', zIndex: '99999' });
+  const box = document.createElement('input');
+  box.setAttribute('aria-label', 'בקרה — התיבה הזו אמורה להיתפס');
+  holder.appendChild(box);
+  document.body.appendChild(holder);
+  // The check looks at the FIRST input on the page, so anything already
+  // there would mask the control. Hidden for the length of the test.
+  const others = [...document.querySelectorAll('input:not([type="hidden"]), textarea')].filter((el) => el !== box);
+  const was = others.map((el) => el.style.display);
+  for (const el of others) el.style.display = 'none';
+  // eslint-disable-next-line no-eval
+  const found = (0, eval)(`(${scanSrc})`)().buried.some((t) => t.includes('בקרה'));
+  others.forEach((el, i) => { el.style.display = was[i]; });
+  holder.remove();
+  return found;
+}, scan.toString());
+if (!buriedCaught) {
+  problems.push('the buried-input check did not catch its own control — it is not checking anything');
 }
 
 console.log('ERRORS:', errors.length ? errors.join('\n  ') : 'none');

@@ -210,6 +210,43 @@ export function DescribeFaultBody({
           </View>
         ) : null}
 
+        {/* ----------------------------------------------------------------
+            WORDS — and this used to be the LAST block on the screen.
+
+            The screen is titled "מה צריך?" and the box you answer it in
+            was below the voice recorder and the photo grid, 320 pixels
+            past the bottom of the phone. `verify:screens` measured it;
+            nobody had noticed it by eye because everybody testing this
+            screen already knew the box was down there.
+
+            Amit: *"שורות החיפוש תמיד צריכות להיות בלמעלה של התפריטים...
+            אם רוצים לספר מה הבעיה."*
+
+            So it sits directly under the questions now. The structured
+            answers stay first — a service that asks "which floor" gets a
+            better answer from a field than from a paragraph — and the
+            two attachment blocks move below, which costs them nothing:
+            a voice note is something you decide to add, not something
+            you fail to find.
+            ---------------------------------------------------------------- */}
+        <View style={styles.block}>
+          <SectionHeader title={intake ? "עוד משהו במילים שלך" : "במילים שלך"} colors={colors} />
+          <TextInput
+            value={text}
+            onChangeText={onChangeText}
+            placeholder={
+              intake
+                ? "כל דבר שהשאלות לא כיסו"
+                : "מתי זה התחיל, מה כבר ניסית, כל דבר שיעזור"
+            }
+            accessibilityLabel="מה צריך, במילים שלך"
+            placeholderTextColor={colors.textSecondary}
+            multiline
+            style={styles.textArea}
+            textAlign="right"
+          />
+        </View>
+
         {/* ---------------- Voice — the field that carries the most ------ */}
         <View style={styles.block}>
           <SectionHeader title="הקלטה קולית" colors={colors} />
@@ -304,25 +341,6 @@ export function DescribeFaultBody({
           </Text>
         </View>
         ) : null}
-
-        {/* ---------------- Words ---------------- */}
-        <View style={styles.block}>
-          <SectionHeader title={intake ? "עוד משהו במילים שלך" : "במילים שלך"} colors={colors} />
-          <TextInput
-            value={text}
-            onChangeText={onChangeText}
-            placeholder={
-              intake
-                ? "כל דבר שהשאלות לא כיסו"
-                : "מתי זה התחיל, מה כבר ניסית, כל דבר שיעזור"
-            }
-            accessibilityLabel="מה צריך, במילים שלך"
-            placeholderTextColor={colors.textSecondary}
-            multiline
-            style={styles.textArea}
-            textAlign="right"
-          />
-        </View>
 
         <View style={styles.block}>
           <View style={styles.privacyRow}>

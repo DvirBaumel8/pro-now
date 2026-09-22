@@ -106,6 +106,35 @@ export function AddressPickerBody({
           <Text style={styles.subtitle}>הכתובת המלאה נחשפת רק אחרי שמקצוען מקבל את הקריאה.</Text>
         </View>
 
+        {/*
+         * ---------------- Where to type it ----------------
+         *
+         * THIS BOX WAS AT THE BOTTOM AND IT IS THE POINT OF THE SCREEN.
+         *
+         * It used to be the fourth block down, under the location card and
+         * under however many saved addresses somebody had — so a person
+         * with five saved addresses had to scroll past all of them to type
+         * a sixth. The old copy admitted it in as many words: "type an
+         * address BELOW", written twice, pointing down at something off
+         * the bottom of the screen.
+         *
+         * A box you have to go looking for is a box people do not find.
+         * Where you SAY the thing goes at the top of the screen; the
+         * shortcuts to say it faster go underneath.
+         */}
+        <View style={styles.block}>
+          <SectionHeader title="הקלידו כתובת" colors={colors} />
+          <TextInput
+            value={typed}
+            onChangeText={setTyped}
+            placeholder="רחוב, מספר, עיר · קומה ודירה"
+            accessibilityLabel="כתובת חדשה"
+            placeholderTextColor={colors.textSecondary}
+            style={styles.input}
+            textAlign="right"
+          />
+        </View>
+
         {/* ---------------- Live location ---------------- */}
         <View style={styles.block}>
           <Pressable
@@ -124,9 +153,9 @@ export function AddressPickerBody({
                 {liveLocation.status === "ready"
                   ? liveLocation.coarseLabelHe
                   : liveLocation.status === "denied"
-                    ? "אין הרשאת מיקום. אפשר להפעיל בהגדרות, או פשוט להקליד כתובת למטה."
+                    ? "אין הרשאת מיקום. אפשר להפעיל בהגדרות, או פשוט להקליד כתובת למעלה."
                     : liveLocation.status === "unavailable"
-                      ? "לא הצלחנו לאתר מיקום במכשיר הזה. הקלד כתובת למטה."
+                      ? "לא הצלחנו לאתר מיקום במכשיר הזה. הקלידו כתובת למעלה."
                       : "נשתמש במיקום המכשיר"}
               </Text>
             </View>
@@ -141,7 +170,7 @@ export function AddressPickerBody({
             // A coordinate is not a door. Saying so is cheaper than sending a
             // professional to the middle of the street.
             <Text style={styles.liveNote}>
-              המיקום אותר. הוסף קומה, כניסה או מספר דירה למטה — בלי זה המקצוען מגיע לרחוב, לא לדלת.
+              המיקום אותר. הוסיפו קומה, כניסה או מספר דירה בשורה למעלה — בלי זה המקצוען מגיע לרחוב, לא לדלת.
             </Text>
           ) : null}
         </View>
@@ -188,20 +217,6 @@ export function AddressPickerBody({
             </View>
           </View>
         ) : null}
-
-        {/* ---------------- Manual ---------------- */}
-        <View style={styles.block}>
-          <SectionHeader title="כתובת אחרת" colors={colors} />
-          <TextInput
-            value={typed}
-            onChangeText={setTyped}
-            placeholder="רחוב, מספר, עיר · קומה ודירה"
-            accessibilityLabel="כתובת חדשה"
-            placeholderTextColor={colors.textSecondary}
-            style={styles.input}
-            textAlign="right"
-          />
-        </View>
 
         {/* ---------------- For someone else ---------------- */}
         <View style={styles.block}>
