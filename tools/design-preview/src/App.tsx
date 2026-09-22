@@ -782,6 +782,8 @@ export function App() {
             request={liveRequest}
             onTakeRequest={() => setLiveRequest(null)}
             pendingQuote={pendingQuote}
+            sentQuoteLines={pendingQuote?.draft?.lines ?? null}
+            sentQuoteNotes={pendingQuote?.draft?.notesHe ?? ""}
             quoteDecision={quoteDecision}
             onSendQuote={(draft) => {
               setQuoteDecision(null);
@@ -2590,6 +2592,8 @@ function ProApp({
   onTakeRequest,
   pendingQuote,
   quoteDecision,
+  sentQuoteLines,
+  sentQuoteNotes,
   onSendQuote,
   onQuoteSeen,
 }: {
@@ -2622,6 +2626,9 @@ function ProApp({
   } | null;
   /** The customer's answer, once it arrives. */
   quoteDecision: "APPROVED" | "DECLINED" | null;
+  /** The lines already sent, so an update opens them rather than a blank form. */
+  sentQuoteLines: { id: string; description: string; quantity: number; unitPriceMinorUnits: number; kind: string }[] | null;
+  sentQuoteNotes: string;
   onSendQuote: (draft: { lines: { id: string; description: string; quantity: number; unitPriceMinorUnits: number; kind: string }[]; notesHe: string }) => void;
   onQuoteSeen: () => void;
 }) {
@@ -3069,6 +3076,24 @@ function ProApp({
      */
     ) : proView === "quote" ? (
       <ProQuoteBuilderBody
+        /*
+         * The lines already sent, when there are any — so "עדכון ההצעה"
+         * opens what was sent rather than an empty form.
+         */
+        initialLines={
+          /*
+           * The bridge carries `kind` as a plain string — it crosses two
+           * components and a shell — so it is narrowed here rather than
+           * cast. An unknown kind falls to OTHER, which is the honest
+           * bucket for "we do not know what this is".
+           */
+          sentQuoteLines?.map((l) => ({
+            ...l,
+            kind:
+              l.kind === "LABOR" || l.kind === "MATERIALS" ? (l.kind as "LABOR" | "MATERIALS") : ("OTHER" as const),
+          })) ?? undefined
+        }
+        initialNotesHe={sentQuoteNotes}
         serviceNameHe={takenRequest?.serviceNameHe ?? "תיקון נזילה בברז"}
         symptomsHe={takenRequest ? takenRequest.intakeBrief.map((l) => l.answerHe) : jobSymptoms}
         customerTextHe={takenRequest ? takenRequest.textHe.trim() || null : jobDescription}
@@ -3139,7 +3164,21 @@ function ProApp({
         waitingMinutes={
           pendingQuote ? Math.floor((shiftNow - pendingQuote.sentAtMs) / 60_000) : null
         }
-        onWithdrawQuote={() => setProSheet("quote")}
+        /*
+         * "עדכון ההצעה" OPENS THE FORM, PRE-FILLED.
+         *
+         * It opened a sheet that described sending an updated quote,
+         * offered "חזרה לאבחון", and admitted underneath that the
+         * prototype had no amount editing. The same shape as the button
+         * that sent a fixture: a described capability with no control
+         * behind it. Amit: *"איפה החלק שאני מרכיב את הצעת המחיר
+         * ללקוח?"*
+         *
+         * Pre-filled with what was sent, because updating a quote means
+         * editing it — usually adding the one thing you found — and a
+         * blank form means retyping the lines that did not change.
+         */
+        onWithdrawQuote={() => goPro("quote")}
         onNavigate={() => setProSheet("navigate")}
         onCall={() => setProSheet("call")}
         onMessage={() => goPro("chat")}
@@ -3359,16 +3398,20 @@ function ProApp({
         width={width}
         height={height}
       >
+        {/*
+          * Kept only as an explanation now: the ACTION lives on the job
+          * screen and opens the form pre-filled. The note under it used
+          * to say the prototype had no amount editing, which stopped
+          * being true the moment P19 existed — a stale caveat is its own
+          * kind of lie.
+          */}
         <Text style={styles.sheetBodyDark}>
           כל עוד הלקוח לא אישר, אפשר לשלוח הצעה מעודכנת — למשל אחרי שגילית משהו נוסף באבחון.
           ההצעה הקודמת מתבטלת והלקוח מקבל את החדשה לאישור.
         </Text>
         <Pressable style={styles.sheetPrimary} onPress={() => setProSheet(null)}>
-          <Text style={styles.sheetPrimaryText}>חזרה לאבחון</Text>
+          <Text style={styles.sheetPrimaryText}>הבנתי</Text>
         </Pressable>
-        <Text style={styles.sheetNoteDark}>
-          באב־טיפוס אין עריכת סכומים — המסלול קיים, המספרים לא.
-        </Text>
       </Sheet>
 
       <Sheet

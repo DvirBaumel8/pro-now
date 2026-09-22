@@ -79,6 +79,18 @@ export interface ProQuoteBuilderBodyProps {
    */
   usualUpToMinorUnits?: number | null;
   usualSampleSize?: number;
+  /**
+   * The lines of the quote being REPLACED, when this is a new version.
+   *
+   * A professional updating a quote is editing what they already sent —
+   * usually adding one thing they found — and starting them from a blank
+   * form means retyping the four lines that have not changed. The server
+   * supersedes the previous SENT quote and the customer approves the new
+   * version's hash, so this is a new quote either way; only the typing
+   * is saved.
+   */
+  initialLines?: QuoteDraftLine[];
+  initialNotesHe?: string;
   onSend?: (draft: { lines: QuoteDraftLine[]; notesHe: string }) => void;
   onBack?: () => void;
   width?: number;
@@ -96,13 +108,17 @@ export function ProQuoteBuilderBody({
   customerTextHe = null,
   usualUpToMinorUnits = null,
   usualSampleSize = 0,
+  initialLines,
+  initialNotesHe = "",
   onSend,
   onBack,
   width = 390,
   height = 780,
 }: ProQuoteBuilderBodyProps) {
-  const [lines, setLines] = useState<QuoteDraftLine[]>([emptyLine(1)]);
-  const [notes, setNotes] = useState("");
+  const [lines, setLines] = useState<QuoteDraftLine[]>(
+    initialLines && initialLines.length > 0 ? initialLines : [emptyLine(1)]
+  );
+  const [notes, setNotes] = useState(initialNotesHe);
 
   const total = useMemo(
     () => lines.reduce((sum, l) => sum + Math.round(l.quantity * l.unitPriceMinorUnits), 0),
@@ -125,7 +141,21 @@ export function ProQuoteBuilderBody({
   return (
     <View style={[styles.screen, { width, height }]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        <Text style={styles.title}>הצעת מחיר · {serviceNameHe}</Text>
+        <Text style={styles.title}>
+          {initialLines && initialLines.length > 0 ? "עדכון הצעת מחיר" : "הצעת מחיר"} ·{" "}
+          {serviceNameHe}
+        </Text>
+        {initialLines && initialLines.length > 0 ? (
+          /*
+           * Said once, here. A new version supersedes the old one and the
+           * customer approves the new hash — so a professional editing
+           * needs to know the old numbers stop applying the moment this
+           * is sent, not that both offers are somehow live.
+           */
+          <Text style={styles.replacing}>
+            ההצעה הקודמת תתבטל והלקוח יקבל את זו לאישור.
+          </Text>
+        ) : null}
 
         {/* What the customer said, so the quote answers it. */}
         {symptomsHe.length > 0 || customerTextHe ? (
@@ -299,6 +329,12 @@ const styles = StyleSheet.create({
   scroll: { padding: spacing.xl, gap: spacing.md },
   title: { ...type.h2, color: colors.textPrimary, textAlign: "right", writingDirection: "rtl" },
 
+  replacing: {
+    ...type.caption,
+    color: colors.statusWarningText,
+    textAlign: "right",
+    writingDirection: "rtl",
+  },
   said: { gap: 4 },
   saidHead: { ...type.captionStrong, color: colors.trust, textAlign: "right", writingDirection: "rtl" },
   saidText: { ...type.caption, color: colors.textSecondary, textAlign: "right", writingDirection: "rtl" },
