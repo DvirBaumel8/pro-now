@@ -80,7 +80,31 @@ export default async function proServicesRoutes(app: FastifyInstance) {
 
         return {
           serviceId: service.id,
+          serviceCode: service.code,
           nameHe: service.nameHe,
+          /*
+           * The price, and what kind of price it is.
+           *
+           * Added with the pricing route: the screen that lets a
+           * professional set a number cannot render without knowing which
+           * boxes to show, and `priceModel` is what decides that. Without
+           * it the list could only ever be read-only.
+           */
+          priceModel: service.priceModel,
+          basePriceMinorUnits: approval?.basePriceMinorUnits ?? null,
+          minimumBillableMinutes: approval?.minimumBillableMinutes ?? null,
+          perKmMinorUnits: approval?.perKmMinorUnits ?? null,
+          minimumFareMinorUnits: approval?.minimumFareMinorUnits ?? null,
+          /*
+           * Whether a job on this service could be charged at all. A
+           * service can be dispatch-ELIGIBLE and still unchargeable, and
+           * those are different sentences: one is about documents, the
+           * other is about a number nobody has typed.
+           */
+          chargeable: isChargeable(service.priceModel as PriceModel, {
+            basePriceMinorUnits: approval?.basePriceMinorUnits ?? null,
+            perKmMinorUnits: approval?.perKmMinorUnits ?? null,
+          }),
           /** Dispatch-eligible for THIS service, right now. */
           eligible: accountOk && serviceApproved && evaluation.satisfied,
           accountApproved: accountOk,

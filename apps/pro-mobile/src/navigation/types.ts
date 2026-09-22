@@ -26,6 +26,13 @@ export type ProStackParamList = {
   Job: { jobId: string };
   /** Writing a price is its own screen, because it is not a button. */
   Quote: { jobId: string; serviceNameHe: string };
+  /**
+   * What the professional charges. Reached from the shift screen.
+   *
+   * Until this screen existed no price could be set at all, so every real
+   * professional's work was unchargeable — see `professional-pricing.ts`.
+   */
+  Pricing: undefined;
   Earnings: undefined;
   VerificationCenter: undefined;
 };

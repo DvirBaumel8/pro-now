@@ -137,6 +137,7 @@ export function OfflineHomeScreen({ navigation }: Props) {
         onToggleOnline={onToggleOnline}
         onOpenEarnings={() => navigation.navigate("Earnings")}
         onManageServices={() => navigation.navigate("VerificationCenter")}
+        onOpenPricing={() => navigation.navigate("Pricing")}
         width={width}
         height={height}
       />

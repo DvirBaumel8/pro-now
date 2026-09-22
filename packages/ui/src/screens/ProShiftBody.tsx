@@ -96,6 +96,15 @@ export interface ProShiftBodyProps {
   onToggleOnline?: () => void;
   onOpenEarnings?: () => void;
   onManageServices?: () => void;
+  /**
+   * Where the professional sets what they charge.
+   *
+   * A separate door from "ניהול", which is about documents and
+   * eligibility. The two get confused easily and they fail differently:
+   * an unset price is fixed here in ten seconds, an expired insurance is
+   * not fixed on a phone at all.
+   */
+  onOpenPricing?: () => void;
   width?: number;
   height?: number;
   /**
@@ -119,6 +128,7 @@ export function ProShiftBody({
   onToggleOnline,
   onOpenEarnings,
   onManageServices,
+  onOpenPricing,
   width = 390,
   height = 780,
   worldSources,
@@ -357,6 +367,16 @@ export function ProShiftBody({
           <Pressable onPress={onManageServices} accessibilityRole="button" style={styles.manageHit}>
             <Text style={styles.manage}>ניהול</Text>
           </Pressable>
+          {onOpenPricing ? (
+            <Pressable
+              onPress={onOpenPricing}
+              accessibilityRole="button"
+              accessibilityLabel="קביעת המחירים שלי"
+              style={styles.manageHit}
+            >
+              <Text style={styles.manage}>מחירים</Text>
+            </Pressable>
+          ) : null}
           <Text style={styles.servicesTitle}>
             שירותים במשמרת · {liveServices.length}/{services.length}
           </Text>

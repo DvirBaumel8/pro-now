@@ -126,6 +126,27 @@ export const api = {
    * server. The app used to list two hard-coded ids with switches beside
    * them, for every professional in the marketplace.
    */
+  /**
+   * The professional's own price for one service.
+   *
+   * PATCH rather than PUT: a field left out is left alone, and a field
+   * sent as null is cleared — which is not the same as zero. The server
+   * refuses a field the service's price model gives no meaning to rather
+   * than dropping it silently.
+   */
+  setServicePricing: (
+    serviceId: string,
+    pricing: {
+      basePriceMinorUnits?: number | null;
+      minimumBillableMinutes?: number | null;
+      perKmMinorUnits?: number | null;
+      minimumFareMinorUnits?: number | null;
+    }
+  ) =>
+    request<{ ok: boolean; chargeable: boolean }>(`/v1/pro/services/${serviceId}/pricing`, {
+      method: "PATCH",
+      body: JSON.stringify(pricing),
+    }),
   getServices: () => request<{ services: ProServiceEligibilityView[] }>("/v1/pro/services"),
   /*
    * The assigned job, with the full address — released only because it IS

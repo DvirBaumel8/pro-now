@@ -295,7 +295,27 @@ export interface ProJobDetailView {
  */
 export interface ProServiceEligibilityView {
   serviceId: string;
+  /** The catalogue code, so a client can find this service's own art. */
+  serviceCode: string;
   nameHe: string;
+
+  /*
+   * THE PRICE, AND WHAT KIND OF PRICE IT IS.
+   *
+   * A service can be dispatch-ELIGIBLE and still unchargeable, and those
+   * are different sentences to a professional: one is about documents,
+   * the other is about a number nobody has typed. Until the pricing
+   * screen existed only the first was ever said.
+   */
+  priceModel: PriceModel;
+  /** What they charge. Null means not configured — never "free". */
+  basePriceMinorUnits: number | null;
+  minimumBillableMinutes: number | null;
+  perKmMinorUnits: number | null;
+  minimumFareMinorUnits: number | null;
+  /** Whether a job on this service could be settled at all. */
+  chargeable: boolean;
+
   /** Dispatch-eligible for THIS service, right now. All three gates passed. */
   eligible: boolean;
   /** The account-level gate: verificationStatus is APPROVED. */

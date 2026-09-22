@@ -9,6 +9,7 @@ import { OfferScreen } from "./src/screens/OfferScreen";
 import { ProJobScreen } from "./src/screens/ProJobScreen";
 import { ProQuoteScreen } from "./src/screens/ProQuoteScreen";
 import { EarningsScreen } from "./src/screens/EarningsScreen";
+import { PricingScreen } from "./src/screens/PricingScreen";
 import { VerificationCenterScreen } from "./src/screens/VerificationCenterScreen";
 import { proTheme } from "@pro-now/ui";
 
@@ -35,6 +36,7 @@ export default function App() {
         <Stack.Screen name="Job" component={ProJobScreen} />
         <Stack.Screen name="Quote" component={ProQuoteScreen} />
         <Stack.Screen name="Earnings" component={EarningsScreen} options={{ headerShown: true, title: "" }} />
+        <Stack.Screen name="Pricing" component={PricingScreen} options={{ headerShown: true, title: "" }} />
         <Stack.Screen name="VerificationCenter" component={VerificationCenterScreen} options={{ headerShown: true, title: "" }} />
       </Stack.Navigator>
     </NavigationContainer>
