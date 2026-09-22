@@ -808,8 +808,16 @@ export function Gallery() {
           * answer, where this side has no button to press because the
           * next move is not its own.
           */}
-        <Frame dark caption="P18 · באבחון · אותם ארבעה צעדים שהלקוח רואה">
+        <Frame dark caption="P18 · באבחון · והוא רואה את אותו טווח שהלקוח יראה">
           <ProJobBody
+            /*
+             * The same figure the customer's quote screen will show, told
+             * to the professional BEFORE the quote goes out. The
+             * asymmetry was the thing that read as working somebody
+             * over, not the number.
+             */
+            usualUpToMinorUnits={48000}
+            usualSampleSize={14}
             status="DIAGNOSIS"
             serviceNameHe="תיקון נזילה בברז"
             mark="plumbing"

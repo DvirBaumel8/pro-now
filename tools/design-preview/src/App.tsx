@@ -2927,6 +2927,16 @@ function ProApp({
           takenRequest ? takenRequest.textHe.trim() || "הלקוח לא הוסיף תיאור." : jobDescription
         }
         media={takenRequest ? requestMedia(takenRequest) : jobMedia}
+        /*
+         * The same range the customer will be shown on the quote screen,
+         * told to the professional first. Demonstration figures here, as
+         * everywhere in this prototype; in the product both sides read
+         * `price-context.ts`, which refuses to speak below eight real
+         * jobs — so on a marketplace that has not opened, neither side
+         * sees anything.
+         */
+        usualUpToMinorUnits={48000}
+        usualSampleSize={14}
         payoutMinorUnits={job === "DIAGNOSIS" || job === "WAITING_QUOTE_APPROVAL" ? null : 13400}
         payoutIsEstimate={false}
         onAdvance={advanceJob}

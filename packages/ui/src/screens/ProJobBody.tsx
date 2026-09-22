@@ -67,6 +67,15 @@ export interface ProJobBodyProps {
   distanceHe: string | null;
   customerNameHe: string;
   customerSeed: string;
+  /**
+   * The top of the usual range for this service, or null when there is
+   * not enough history to say — the same answer, from the same source,
+   * that the customer's quote screen will show. See `price-context.ts`:
+   * it refuses to speak below eight real jobs, and so does this.
+   */
+  usualUpToMinorUnits?: number | null;
+  /** How many jobs that is. A range without its count is not evidence. */
+  usualSampleSize?: number;
   /** Set when the call was placed for someone else who is at the address. */
   onSiteContactNameHe?: string | null;
   /** The symptoms the customer tapped on the service page. */
@@ -129,6 +138,8 @@ export function ProJobBody({
   distanceHe,
   customerNameHe,
   customerSeed,
+  usualUpToMinorUnits = null,
+  usualSampleSize = 0,
   onSiteContactNameHe = null,
   symptomsHe,
   descriptionHe,
@@ -324,6 +335,39 @@ export function ProJobBody({
         </View>
       </ScrollView>
 
+      {/* ----------------------------------------------------------------
+          WHAT THESE JOBS USUALLY COME TO — TOLD TO THE PROFESSIONAL FIRST.
+
+          Amit, looking at the customer's quote screen: *"נראה כאילו
+          עובדים על הלקוח ככה."*
+
+          He was reading a box that tells the CUSTOMER a quote is above
+          what these jobs usually cost. Naming the biggest line item made
+          that box answerable, and it left the arrangement one-sided: the
+          platform was saying something about a professional's price, to
+          somebody else, while the professional had no idea it would be
+          said.
+
+          That is the part that reads as working somebody over — not the
+          number, the asymmetry. So the same figure, from the same source,
+          is shown here BEFORE the quote is sent. Nobody is caught out,
+          and a professional who knows can price differently or put the
+          reason in the note.
+
+          It is not a limit and not a suggestion: what somebody charges is
+          their own commercial decision (/CLAUDE.md §4), and this says
+          only what has been paid here before.
+          ---------------------------------------------------------------- */}
+      {usualUpToMinorUnits !== null && usualSampleSize > 0 && action?.kind === "quote" ? (
+        <View style={styles.usual}>
+          <Text style={styles.usualText} numberOfLines={2}>
+            עבודות כאלה כאן יצאו בדרך כלל עד{" "}
+            {formatMoney(money(usualUpToMinorUnits, "ILS"))} · לפי {usualSampleSize} עבודות.
+            הלקוח רואה את זה גם.
+          </Text>
+        </View>
+      ) : null}
+
       {/* ---------------- The one thing to do next ---------------- */}
       {action ? (
         <View style={styles.cta}>
@@ -477,6 +521,18 @@ const styles = StyleSheet.create({
   scroll: { paddingBottom: 116 },
 
   head: { paddingHorizontal: spacing.lg, paddingTop: spacing.xxl, alignItems: "flex-end" },
+  usual: {
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.md,
+  },
+  usualText: {
+    ...type.caption,
+    color: colors.textSecondary,
+    textAlign: "right",
+    writingDirection: "rtl",
+    lineHeight: 18,
+  },
+
   statusRow: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", alignSelf: "stretch" },
   statusPill: {
     flexDirection: "row-reverse",
