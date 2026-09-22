@@ -52,6 +52,7 @@ export function ImageSlot({
   colors,
   dark = false,
   overlay = false,
+  fit = "cover",
   style,
 }: {
   uri?: string | null;
@@ -63,6 +64,16 @@ export function ImageSlot({
   dark?: boolean;
   /** Darkens the bottom for text laid over the image. */
   overlay?: boolean;
+  /**
+   * How the picture meets the box. "cover" (the default) fills and crops,
+   * which is right for a photograph of a place.
+   *
+   * "contain" is for a FIGURE. The illustrated trade characters are
+   * full-length people on transparent backgrounds, and covering a square
+   * with one crops the middle of a standing body — the first screenshot
+   * of the professional's profile was a tool belt with no head on it.
+   */
+  fit?: "cover" | "contain";
   style?: StyleProp<ViewStyle>;
 }) {
   // SVG ids must be XML names: Hebrew subject text is not a legal id, and a
@@ -75,7 +86,7 @@ export function ImageSlot({
   if (uri) {
     return (
       <View style={[{ aspectRatio: ratio, borderRadius: radius, overflow: "hidden" }, style]}>
-        <Image source={{ uri }} style={StyleSheet.absoluteFill} accessibilityLabel={subject} resizeMode="cover" />
+        <Image source={{ uri }} style={StyleSheet.absoluteFill} accessibilityLabel={subject} resizeMode={fit} />
         {overlay ? <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(10,12,10,0.28)" }]} /> : null}
       </View>
     );

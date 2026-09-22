@@ -117,6 +117,12 @@ export function ProProfileBody({
                 radius={radii.lg}
                 colors={colors}
                 style={styles.portrait}
+                /*
+                 * The whole figure, not the middle of one. These are
+                 * full-length illustrated professionals, and a square
+                 * that crops to fill showed a tool belt with no head.
+                 */
+                fit="contain"
                 uri={professional.profilePhotoUrl}
               />
             ) : (

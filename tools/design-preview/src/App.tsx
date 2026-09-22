@@ -1417,6 +1417,22 @@ const go = useCallback((r: CustomerRoute) => {
       ...base,
       id: candidate.seed,
       displayName: candidate.displayNameHe,
+      /*
+       * The figure drawn for this trade, instead of a generated cartoon.
+       * Amit: *"תשתמש במה שיצרנו."* `worldSources` holds the delivered
+       * art; a trade with no figure yet falls back to `Persona`, which is
+       * the same honest "we do not have a picture of this person".
+       */
+      profilePhotoUrl: (() => {
+        // `WorldAssetSources` is typed as React Native's source union, and
+        // on web every entry is the `{ uri }` object form. Narrowed here
+        // rather than cast, so a future entry of another shape falls back
+        // to Persona instead of rendering nothing.
+        const src = candidate.photoAssetId ? worldSources[candidate.photoAssetId] : undefined;
+        return src && typeof src === "object" && "uri" in src && typeof src.uri === "string"
+          ? src.uri
+          : null;
+      })(),
       proNowCompletedJobs: candidate.completedJobs ?? 0,
       proNowRatingAverage: candidate.ratingAverage,
       proNowRatingCount: candidate.ratingCount ?? 0,

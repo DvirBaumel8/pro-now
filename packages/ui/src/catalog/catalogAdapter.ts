@@ -1,4 +1,4 @@
-import { CUSTOMER_CATEGORIES, type DepartmentCode } from "@pro-now/types";
+import { CUSTOMER_CATEGORIES, WORLD_DISTRICTS, type DepartmentCode } from "@pro-now/types";
 import type { ProPricingRow } from "../screens/ProPricingBody";
 import {
   allServices,
@@ -471,6 +471,15 @@ export const isPersonFit = (serviceId: string): boolean =>
  * into their home, and in what order.
  */
 export type DemoCandidate = {
+  /**
+   * The illustrated figure for this trade, from `WORLD_DISTRICTS`.
+   *
+   * Optional because the hand-written person-fit fixtures below predate
+   * it. Absent means the screen falls back to a generated `Persona`,
+   * which is what every demo professional used to get — Amit on seeing
+   * one: *"הפרצוף המפגר הזה. תשתמש במה שיצרנו."*
+   */
+  photoAssetId?: string;
   seed: string;
   displayNameHe: string;
   headlineHe: string;
@@ -539,11 +548,42 @@ export function demoCandidatesFor(serviceId: string, count = 3): DemoCandidate[]
   if (isPersonFit(serviceId)) return personFitCandidates.slice(0, count);
 
   const trade = categoryNameByServiceId[serviceId] ?? "בעל מקצוע";
-  const marks = ["ט׳", "י׳", "י״א", "י״ב"];
+  /*
+   * ---------------------------------------------------------------------
+   * NAMES, NOT SERIAL NUMBERS
+   * ---------------------------------------------------------------------
+   * Amit: *"די עם הדוגמא ט והפרצוף המפגר הזה. תשתמש במה שיצרנו."*
+   *
+   * These were "דוגמה ט׳", "דוגמה י׳", "דוגמה י״א" — Hebrew letters used
+   * as numerals, so the street read as Example 9, Example 10, Example 11.
+   * A person's shopfront with a serial number over the door is the exact
+   * thing that stops a world reading as a place.
+   *
+   * "(תצוגה)" STAYS on every one of them, and is not decoration. This is
+   * demonstration data standing in for real professionals, and a
+   * placeholder that has stopped announcing itself is a fabricated
+   * professional (/CLAUDE.md §3). The fix is a name instead of an index,
+   * not the removal of the label.
+   */
+  const names = ["יוסי", "מאיה", "איתי", "נועה", "רון", "שירה"];
   return Array.from({ length: count }, (_, i) => ({
     seed: `pro_${serviceId}_${i}`,
-    displayNameHe: `דוגמה ${marks[i] ?? String(i + 1)} (תצוגה)`,
+    displayNameHe: `${names[i % names.length]} (תצוגה)`,
     headlineHe: trade,
+    /*
+     * THE FIGURE WE ALREADY DREW FOR THIS TRADE.
+     *
+     * The profile fell back to `Persona`, a generated cartoon, while
+     * eleven illustrated professionals — a plumber, a hairdresser, a
+     * vet — have been sitting in the asset folder since the world was
+     * built. Amit: *"תשתמש במה שיצרנו."*
+     *
+     * Its own trade's figure, so opening a plumber's shop shows a
+     * plumber. `departmentCodeByServiceId` already knows which, and
+     * `WORLD_DISTRICTS` already names the file.
+     */
+    photoAssetId: WORLD_DISTRICTS[departmentCodeByServiceId[serviceId] ?? "HOME_URGENT"]
+      ?.characterWorldAssetId,
     specialtiesHe: [],
     // No invented reputation. The screen shows a rating row only when a
     // real one exists, and in the prototype it never does.
