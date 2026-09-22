@@ -2176,6 +2176,13 @@ const go = useCallback((r: CustomerRoute) => {
             onDone={() => go({ name: "home" })}
             onOpenReceipt={() => setSheet("payment")}
             onGetHelp={() => setSheet("safety")}
+            /*
+             * Only when there is somebody to walk as — the same condition
+             * the home screen's door uses. A street with no figure in it
+             * is a map, and the whole point of this door is that it is
+             * not one.
+             */
+            onStroll={avatar ? () => go({ name: "stroll" }) : undefined}
             width={width}
             height={bodyH}
           />

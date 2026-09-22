@@ -364,6 +364,7 @@ export function Gallery() {
             whenHe="היום, 14:20 · 55 דקות"
             totalChargedMinorUnits={44500}
             ratingGiven={5}
+            onStroll={noop}
             onDone={noop}
             onOpenReceipt={noop}
             onGetHelp={noop}

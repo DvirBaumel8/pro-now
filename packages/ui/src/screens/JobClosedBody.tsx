@@ -68,6 +68,22 @@ export interface JobClosedBodyProps {
   onDone?: () => void;
   onOpenReceipt?: () => void;
   onGetHelp?: () => void;
+  /**
+   * The door to the street, offered here and nowhere else in the job.
+   *
+   * Amit: *"שאנחנו מזמינים אותו להסתובב בעולם שלנו גם אם הוא לא צריך
+   * עבודה דחופה עכשיו לעכשיו."*
+   *
+   * This is the one moment in the product where somebody has finished
+   * with us and has no reason to open the app again for months — and it
+   * is also the moment they have just seen the world work. An invitation
+   * anywhere earlier competes with a flooded kitchen; here it competes
+   * with nothing.
+   *
+   * Absent when there is nobody to walk as. A street with no figure in
+   * it is a map, and the whole point of this door is that it is not one.
+   */
+  onStroll?: () => void;
   width?: number;
   height?: number;
 }
@@ -83,6 +99,7 @@ export function JobClosedBody({
   onDone,
   onOpenReceipt,
   onGetHelp,
+  onStroll,
   width = 390,
   height = 780,
 }: JobClosedBodyProps) {
@@ -140,6 +157,31 @@ export function JobClosedBody({
           </Text>
         )}
       </View>
+
+      {/* ----------------------------------------------------------------
+          AND THE STREET IS STILL THERE.
+
+          Amit: *"שאנחנו מזמינים אותו להסתובב בעולם שלנו גם אם הוא לא
+          צריך עבודה דחופה."*
+
+          It promises nothing and asks for nothing: no offer, no discount,
+          no "come back soon". It says the place exists and can be walked,
+          which is true, and it is the only sentence on this screen that
+          is about later rather than about what just happened.
+          ---------------------------------------------------------------- */}
+      {onStroll ? (
+        <Pressable
+          onPress={onStroll}
+          accessibilityRole="button"
+          accessibilityLabel="טיול ברחוב של PRO NOW"
+          style={({ pressed }) => [styles.stroll, pressed && { opacity: 0.9 }]}
+        >
+          <Text style={styles.strollTitle}>הרחוב פתוח גם בלי קריאה</Text>
+          <Text style={styles.strollSub} numberOfLines={2}>
+            אפשר להסתובב בעיר, לראות מי יש בה ולהיכנס לעסקים — בלי להזמין כלום.
+          </Text>
+        </Pressable>
+      ) : null}
 
       <View style={styles.footer}>
         <Pressable
@@ -237,6 +279,29 @@ const styles = StyleSheet.create({
    * it hanging on a line of its own.
    */
   reviewAlone: { marginTop: spacing.lg },
+
+  stroll: {
+    marginHorizontal: spacing.xl,
+    padding: spacing.lg,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: tint.trust(0.3),
+    backgroundColor: tint.trust(0.08),
+    gap: 2,
+  },
+  strollTitle: {
+    ...type.bodyStrong,
+    color: colors.textPrimary,
+    textAlign: "right",
+    writingDirection: "rtl",
+  },
+  strollSub: {
+    ...type.caption,
+    color: colors.textSecondary,
+    textAlign: "right",
+    writingDirection: "rtl",
+    lineHeight: 18,
+  },
 
   footer: { padding: spacing.xl, gap: spacing.md },
   cta: {
