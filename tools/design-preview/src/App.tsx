@@ -96,6 +96,7 @@ import {
   profileWorkPhotos,
   quoteFixture,
   receiptLines,
+  priceContextFixture,
 } from "./screenFixtures";
 
 /**
@@ -1982,6 +1983,13 @@ const go = useCallback((r: CustomerRoute) => {
             >
               <QuoteApprovalBody
                 quote={quoteFixture}
+                /*
+                 * Demonstration data — see `priceContextFixture`. In the
+                 * product the server decides this from approved quotes
+                 * and stays silent until there are enough of them, which
+                 * on a marketplace that has not opened means silent.
+                 */
+                priceContext={priceContextFixture}
                 serviceNameHe={trackedService.nameHe}
                 professionalDisplayName={matchFixture.professional.displayName}
                 onApprove={() => {

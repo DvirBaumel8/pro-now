@@ -26,6 +26,8 @@ import {
   profileServices,
   profileWorkPhotos,
   proServices,
+  priceContextFixture,
+  priceContextTooEarlyFixture,
   quoteFixture,
   receiptLines,
   serviceDetailElectric,
@@ -384,6 +386,35 @@ export function Gallery() {
             quote={quoteFixture}
             serviceNameHe="תיקון נזילה בברז"
             professionalDisplayName={matchFixture.professional.displayName}
+            width={PHONE_W}
+            height={860}
+          />
+        </Frame>
+
+        <Frame caption="C11 · השוואה למה ששולם · טווח + גודל המדגם" height={860}>
+          <QuoteApprovalBody
+            quote={quoteFixture}
+            serviceNameHe="תיקון נזילה בברז"
+            professionalDisplayName={matchFixture.professional.displayName}
+            priceContext={priceContextFixture}
+            width={PHONE_W}
+            height={860}
+          />
+        </Frame>
+
+        {/*
+          * The state a marketplace is in before it has a history, shown
+          * beside the other so the quiet version gets reviewed too. The
+          * box is simply absent — there is no "טוען" and no "אין מספיק
+          * נתונים" badge, because a customer looking at a bill does not
+          * need to be told what the platform does not know.
+          */}
+        <Frame caption="C11 · אין עדיין מספיק עבודות · השוואה לא מוצגת כלל" height={860}>
+          <QuoteApprovalBody
+            quote={quoteFixture}
+            serviceNameHe="תיקון נזילה בברז"
+            professionalDisplayName={matchFixture.professional.displayName}
+            priceContext={priceContextTooEarlyFixture}
             width={PHONE_W}
             height={860}
           />

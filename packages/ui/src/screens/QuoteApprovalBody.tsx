@@ -62,6 +62,26 @@ export interface QuoteApprovalBodyProps {
   professionalPhotoUrl?: string | null;
   /** Set when a newer version exists — the customer must be moved to it. */
   supersededByVersion?: number | null;
+  /**
+   * HOW THIS AMOUNT SITS AGAINST WHAT PEOPLE ACTUALLY PAID.
+   *
+   * Amit: *"אחרי שמקבלים הצעת מחיר, צריך שיהיה מחיר בהשוואה לשוק לראות
+   * אם יקר או לא יקר."*
+   *
+   * Decided by the server from approved quotes for the same service —
+   * the client is never handed other people's prices to do arithmetic
+   * on. Three states, and the screen is built for all three:
+   *
+   *   null            — there is nothing to compare (no live quote, or
+   *                     the caller does not have the answer yet)
+   *   available:false — not enough real jobs behind it yet, which is
+   *                     where a new marketplace lives for a while
+   *   available:true  — a range, always shown with its sample size
+   *
+   * There is no fourth state where a number is estimated. See
+   * `price-context.ts` for why that is a hard line and not a preference.
+   */
+  priceContext?: QuotePriceContext | null;
   onApprove?: (versionHash: string) => void;
   onDecline?: () => void;
   onAskQuestion?: () => void;
@@ -85,6 +105,36 @@ export interface QuoteApprovalBodyProps {
   height?: number;
 }
 
+/** Mirrors the server's `PriceContext`. */
+export type QuotePriceContext =
+  | { available: false; sampleSize: number; needed: number }
+  | {
+      available: true;
+      sampleSize: number;
+      lowMinorUnits: number;
+      typicalMinorUnits: number;
+      highMinorUnits: number;
+      band: "BELOW" | "WITHIN" | "ABOVE";
+    };
+
+/**
+ * WHAT THE BAND IS ALLOWED TO SAY.
+ *
+ * Not "יקר" and not "זול". Above the usual range is not a verdict on a
+ * professional — a job at 2am, with parts, in a flat with no shut-off
+ * valve, costs more for reasons the line items above this box explain —
+ * and "זול" invites somebody to choose on price alone for work where
+ * that is exactly the wrong instinct.
+ *
+ * So it reports POSITION and lets the customer draw the conclusion, which
+ * is also the only thing the data actually supports.
+ */
+const BAND_HE: Record<"BELOW" | "WITHIN" | "ABOVE", string> = {
+  BELOW: "נמוך מהרגיל לעבודה הזו",
+  WITHIN: "בטווח הרגיל לעבודה הזו",
+  ABOVE: "גבוה מהרגיל לעבודה הזו",
+};
+
 const KIND_LABEL_HE: Record<string, string> = {
   LABOR: "עבודה",
   MATERIALS: "חומרים",
@@ -97,6 +147,7 @@ export function QuoteApprovalBody({
   professionalDisplayName,
   professionalPhotoUrl = null,
   supersededByVersion = null,
+  priceContext = null,
   onApprove,
   onDecline,
   onAskQuestion,
@@ -135,6 +186,32 @@ export function QuoteApprovalBody({
           </Text>
           <Text style={styles.totalNote}>כולל מע״מ · הסכום הסופי לעבודה הזו</Text>
         </View>
+
+        {/* ----------------------------------------------------------------
+            WHERE THIS SITS AGAINST WHAT PEOPLE PAID.
+
+            Directly under the total, because it is a fact about the
+            total and anywhere else it becomes a footnote.
+
+            The sample size is not optional and is not small print: a
+            range with no count behind it is a claim pretending to be
+            data, and the customer cannot weigh "בטווח הרגיל" without
+            knowing whether that means nine jobs or nine hundred.
+            ---------------------------------------------------------------- */}
+        {priceContext?.available ? (
+          <Surface colors={colors} level={1} style={styles.context}>
+            <Text style={styles.contextBand}>{BAND_HE[priceContext.band]}</Text>
+            <Text style={styles.contextRange} numberOfLines={1}>
+              רוב העבודות האלה יצאו בין{" "}
+              {formatMoney(money(priceContext.lowMinorUnits, "ILS"))} ל־
+              {formatMoney(money(priceContext.highMinorUnits, "ILS"))}
+            </Text>
+            <Text style={styles.contextNote}>
+              לפי {priceContext.sampleSize} עבודות שבוצעו ב־PRO NOW באותו שירות. לא השוואה לשוק
+              כולו — רק למה שבאמת שולם כאן.
+            </Text>
+          </Surface>
+        ) : null}
 
         {stale ? (
           <Surface colors={colors} level={0} style={[styles.notice, { backgroundColor: tint.warning(0.14) }]}>
@@ -295,6 +372,24 @@ const styles = StyleSheet.create({
    * screen with the least doubt about which value deserves it: it is the
    * only figure on it the customer is being asked to agree to.
    */
+  context: { marginTop: spacing.lg, gap: 4 },
+  contextBand: { ...type.bodyStrong, color: colors.textPrimary, writingDirection: "rtl", textAlign: "right" },
+  contextRange: {
+    ...type.body,
+    ...tabular,
+    color: colors.textSecondary,
+    writingDirection: "rtl",
+    textAlign: "right",
+  },
+  contextNote: {
+    ...type.meta,
+    color: colors.textSecondary,
+    writingDirection: "rtl",
+    textAlign: "right",
+    lineHeight: 17,
+    marginTop: 2,
+  },
+
   total: { ...type.hero, ...tabular, color: colors.textPrimary, marginTop: spacing.lg },
   totalNote: { ...type.meta, color: colors.textSecondary, writingDirection: "rtl", marginTop: 2 },
 

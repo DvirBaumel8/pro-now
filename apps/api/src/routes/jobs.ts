@@ -9,6 +9,7 @@ import {
   releaseAfterCancellation,
 } from "../domain/job/advance-presence";
 import { assertTransition, nextAfterArrival } from "../domain/job/transitions";
+import { loadPaidTotals, priceContextFor } from "../domain/pricing/price-context";
 
 /**
  * See /docs/06-API-SPEC.md and /docs/05-DATABASE.md §Job creation
@@ -80,7 +81,32 @@ export default async function jobsRoutes(app: FastifyInstance) {
       include: { events: { orderBy: { createdAt: "asc" } }, offers: true, quotes: { include: { lineItems: true } } },
     });
     if (!job) return reply.status(404).send({ code: "JOB_NOT_FOUND", message: "Job not found" });
-    return reply.send({ job });
+
+    /*
+     * HOW THIS QUOTE SITS AGAINST WHAT PEOPLE ACTUALLY PAID.
+     *
+     * Amit: *"אחרי שמקבלים הצעת מחיר, צריך שיהיה מחיר בהשוואה לשוק לראות
+     * אם יקר או לא יקר."*
+     *
+     * Computed on the SERVER, from approved quotes for this same service,
+     * and sent as a finished judgement — the client is never handed other
+     * people's prices to do arithmetic on. /CLAUDE.md §3: the server is
+     * authoritative for the pricing result, and a range is a pricing
+     * result.
+     *
+     * Null whenever there is no live quote to judge, and `available:
+     * false` whenever there are not enough real jobs behind it. Both are
+     * ordinary answers and the screen is built to show nothing for them.
+     */
+    const liveQuote = job.quotes.find((q) => q.status === "SENT" || q.id === job.approvedQuoteId);
+    const priceContext = liveQuote
+      ? priceContextFor({
+          amountMinorUnits: liveQuote.totalMinorUnits,
+          paid: await loadPaidTotals(app.prisma, { serviceId: job.serviceId, excludeJobId: job.id }),
+        })
+      : null;
+
+    return reply.send({ job, priceContext });
   });
 
   /**

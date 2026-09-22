@@ -193,6 +193,38 @@ export const profileWorkPhotos = [
   "צנרת גלויה לאחר איטום",
 ];
 
+/**
+ * WHERE THE PREVIEW'S QUOTE SITS AGAINST WHAT WAS PAID.
+ *
+ * DEMONSTRATION DATA, and the label matters more here than anywhere else
+ * in this file. In the product this is computed by the server from
+ * approved quotes for the same service and refuses to speak below eight
+ * of them (`price-context.ts`); the real marketplace has none yet, so the
+ * screen would correctly show nothing and there would be nothing to
+ * review. These are the numbers a sample of fourteen jobs would produce.
+ *
+ * ₪624 against a middle half of ₪480–₪690 lands WITHIN, which is the
+ * ordinary case and therefore the one worth designing against.
+ */
+export const priceContextFixture = {
+  available: true as const,
+  sampleSize: 14,
+  lowMinorUnits: 48000,
+  typicalMinorUnits: 56500,
+  highMinorUnits: 69000,
+  band: "WITHIN" as const,
+};
+
+/**
+ * The state a new marketplace is actually in, which the gallery shows
+ * beside the other one so the quiet version is reviewed too.
+ */
+export const priceContextTooEarlyFixture = {
+  available: false as const,
+  sampleSize: 3,
+  needed: 8,
+};
+
 /** C11 — a VISIT_QUOTE job that produced a real itemised quote. */
 export const quoteFixture: QuoteView = {
   id: "quote_preview_1",

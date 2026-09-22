@@ -111,6 +111,40 @@ completes the split from that moment on. Both states are walked by
 `verify:journey` and both pass; the fee rounds down so rounding never
 costs the professional, and fee plus payable equal the charge exactly.
 
+### TBD — what counts as "the market" in the price comparison (2026-09-22)
+
+Amit: *"אחרי שמקבלים הצעת מחיר, צריך שיהיה מחיר בהשוואה לשוק לראות אם יקר
+או לא יקר. המטרה שלנו לתת מחיר נח לכל כיס עם מקצוענים מקסימום."*
+
+Built: `apps/api/src/domain/pricing/price-context.ts` compares a quote
+against the middle half of what was actually paid for the SAME service in
+PRO NOW, and returns nothing at all below `MIN_SAMPLE` (8). The screen
+shows a range, the band, and always the sample size.
+
+Three choices in it are business decisions, not engineering ones, and
+they are currently defensible defaults rather than answers:
+
+- **The window** — `SAMPLE_WINDOW_DAYS = 90`. Trades freshness against
+  sample size, and is the sort of thing a regulator asks about.
+- **The minimum sample** — 8. Chosen so a "range" is not one or two
+  people's opinions. The legal exposure of being wrong here is
+  asymmetric: an under-confident silence costs nothing.
+- **Geography** — currently none, because the pilot is one area. The
+  moment there are two, "what people paid" has to mean "near you" or the
+  comparison misleads in both directions.
+
+Not open, and not up for discussion (/CLAUDE.md §3): the sample is PRO
+NOW's own approved quotes and nothing else. No estimate, no seeded
+"typical price per trade", no blend with an outside feed — /docs/10
+forbids scraping and no price data has been licensed. Telling an Israeli
+consumer a price is below market without a basis is a legal exposure as
+well as a lie.
+
+Also worth recording because it is the goal behind the request and the
+comparison does not achieve it on its own: *"מחיר נח לכל כיס עם מקצוענים
+מקסימום"* is a supply-and-price-level strategy. Transparency is the part
+that can be built without inventing a business rule.
+
 ### TBD — does an approved quote replace the visit fee or add to it?
 
 `settlement.ts` reads it as REPLACING. `/docs/02-UX-FLOWS.md` C12 shows
