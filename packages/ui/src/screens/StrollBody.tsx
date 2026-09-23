@@ -600,16 +600,30 @@ export function StrollBody({
 
       {onBack ? <BackButton onPress={onBack} tone="dark" accessibilityLabelHe="חזרה" /> : null}
 
-      <View style={[styles.hud, { top: spacing.md + BACK_BUTTON_CLEARANCE }]} pointerEvents="none">
-        <Text style={styles.title}>הרחוב של PRO NOW</Text>
-        {moved ? null : (
+      {/*
+        * THE TITLE LEAVES ONCE YOU ARE WALKING.
+        *
+        * The instruction already did — it is an instruction, and you
+        * have followed it. The title stayed forever, a dark slab across
+        * the top of a street whose whole point is being looked at, on a
+        * screen that now has three plates of it to look at. Amit, about
+        * the wait: *"למה זה לא נגלל למטה שאוכל לראות רק את המפה?"* Same
+        * complaint, same answer: the words get out of the way once they
+        * have nothing left to say.
+        *
+        * The back control stays, because leaving must never be
+        * something you have to remember how to do.
+        */}
+      {moved ? null : (
+        <View style={[styles.hud, { top: spacing.md + BACK_BUTTON_CLEARANCE }]} pointerEvents="none">
+          <Text style={styles.title}>הרחוב של PRO NOW</Text>
           <Text style={styles.sub}>
             {canWalk
               ? "טיילו בין העסקים · געו בעסק כדי לראות מה יש בו"
               : "געו בעסק כדי לראות מה יש בו"}
           </Text>
-        )}
-      </View>
+        </View>
+      )}
 
       {/*
         * WHAT JUST HAPPENED, FOR A MOMENT.
