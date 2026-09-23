@@ -24,7 +24,7 @@ import { HAIR_DISCOVERY_IDS } from "@pro-now/ui";
 
 import type { WorldAssetSources } from "@pro-now/ui";
 import { worldSources } from "./worldSources";
-import { City } from "./city/City";
+import { City, CITY_SHOP_DEPARTMENTS } from "./city/City";
 import { PREVIEW_SPONSORS } from "./sponsors";
 
 /**
@@ -3328,6 +3328,54 @@ const go = useCallback((r: CustomerRoute) => {
    */
   /*
    * ---------------------------------------------------------------
+   * WHAT EACH TRADE'S SHOP HAS TO SELL
+   * ---------------------------------------------------------------
+   * Amit: *"חייב שיפתחו אפשרויות."*
+   *
+   * A trade's shop in the city used to be a beautiful room with
+   * nothing to do in it. This is the catalogue, grouped the way the
+   * street is: every service whose department matches the shop, with
+   * the live availability beside it.
+   *
+   * The count comes from the same snapshot every other number on
+   * screen reads, and is NULL wherever the snapshot did not mention
+   * that service. The city renders a null as silence rather than as a
+   * zero, because a zero reads as "nobody is free" and that is a
+   * statement about supply nobody made (/CLAUDE.md §3).
+   *
+   * Built here rather than in the renderer because the catalogue, the
+   * snapshot and the route out all live on this side. The city knows
+   * how to show a list; it must not decide what is in it.
+   */
+  const cityTrades = useMemo(() => {
+    const byDept: Record<string, string[]> = {};
+    for (const id of Object.keys(SERVICE_PAGES)) {
+      const d = departmentCodeByServiceId[id];
+      if (!d) continue;
+      (byDept[d] ??= []).push(id);
+    }
+    const out: Record<
+      string,
+      { nameHe: string; services: Array<{ id: string; nameHe: string; descriptionHe?: string | null; availableNowCount: number | null }> }
+    > = {};
+    for (const [shopId, deptCode] of Object.entries(CITY_SHOP_DEPARTMENTS)) {
+      const ids = byDept[deptCode] ?? [];
+      if (ids.length === 0) continue;
+      out[shopId] = {
+        nameHe: WORLD_DISTRICTS[deptCode as DepartmentCode]?.labelHe ?? "",
+        services: ids.map((id) => ({
+          id,
+          nameHe: SERVICE_PAGES[id]!.nameHe,
+          descriptionHe: SERVICE_PAGES[id]!.descriptionHe ?? null,
+          availableNowCount: supply.supplyFor(id).count,
+        })),
+      };
+    }
+    return out;
+  }, [supply]);
+
+  /*
+   * ---------------------------------------------------------------
    * THE STREET *IS* THE CITY. THERE IS NO SWITCHING TO IT.
    * ---------------------------------------------------------------
    * Amit: *"וגם להשתמש במפה הווירטואלית מהרגע הראשון, ולא לעבור למפה
@@ -3356,6 +3404,8 @@ const go = useCallback((r: CustomerRoute) => {
         <City
           base="./world/"
           avatarNo={avatar ? Number(String(avatar).replace(/\D/g, "")) : null}
+          trades={cityTrades}
+          onRequestService={(id) => go({ name: "service", serviceId: id })}
           onExit={() => go({ name: "home" })}
         />
       </View>

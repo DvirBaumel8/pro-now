@@ -55,24 +55,42 @@ import {
  * truth, and better than sending everybody into the same borrowed room.
  */
 const SHOPS: ShopSpec[] = [
-  { id: "hair",      he: "טיפוח ויופי",    facade: "district_hair.webp",      z:   88, side: -1, interior: "hair_barbershop_hero.webp", neonColour: "#ff7ac2" },
-  { id: "pets",      he: "בעלי חיים",      facade: "district_pets.webp",      z:   70.4, side:  1, interior: "pets_salon_hero.webp",      neonColour: "#8ce06a" },
-  { id: "home",      he: "תיקונים דחופים", facade: "district_home.webp",      z:   52.8, side: -1, interior: "home_workshop_hero.webp",   neonColour: "#ffb45e" },
+  { id: "hair",      he: "טיפוח ויופי",    facade: "district_hair.webp",      z:   88, side: -1, interior: "hair_barbershop_hero.webp", neonColour: "#ff7ac2" , department: "BEAUTY" },
+  { id: "pets",      he: "בעלי חיים",      facade: "district_pets.webp",      z:   70.4, side:  1, interior: "pets_salon_hero.webp",      neonColour: "#8ce06a" , department: "PETS" },
+  { id: "home",      he: "תיקונים דחופים", facade: "district_home.webp",      z:   52.8, side: -1, interior: "home_workshop_hero.webp",   neonColour: "#ffb45e" , department: "HOME_URGENT" },
   { id: "lust",      he: "Lust",           facade: "sponsor_lust_venue.webp", z:   35.2, side:  1, interior: "sponsor_lust_hero.webp",    sponsor: true, neonColour: "#ff3d63" },
-  { id: "tech",      he: "מחשבים וסלולר",  facade: "district_tech.webp",      z:   17.6, side: -1, neonColour: "#7ad7ff" },
-  { id: "auto",      he: "רכב ודרך",       facade: "district_auto.webp",      z:    0, side:  1, interior: "auto_garage_hero.webp",     neonColour: "#ff9b3d" },
-  { id: "well",      he: "בריאות וכושר",   facade: "district_well.webp",      z:  -17.6, side: -1, neonColour: "#6affc6" },
-  { id: "appliance", he: "מוצרי חשמל",     facade: "district_appliance.webp", z:  -35.2, side:  1, interior: "appliance_workshop_hero.webp", neonColour: "#ffd166" },
-  { id: "care",      he: "ניקיון ותחזוקה", facade: "district_care.webp",      z:  -52.8, side: -1, interior: "care_studio_hero.webp",     neonColour: "#9db8ff" },
-  { id: "nails",     he: "ציפורניים",      facade: "district_nails.webp",     z:  -70.4, side:  1, neonColour: "#ff6fa8" },
-  { id: "move",      he: "הובלות ומשלוחים", facade: "district_move.webp",     z:  -88, side: -1, neonColour: "#c39bff" },
+  { id: "tech",      he: "מחשבים וסלולר",  facade: "district_tech.webp",      z:   17.6, side: -1, neonColour: "#7ad7ff" , department: "TECH" },
+  { id: "auto",      he: "רכב ודרך",       facade: "district_auto.webp",      z:    0, side:  1, interior: "auto_garage_hero.webp",     neonColour: "#ff9b3d" , department: "VEHICLE" },
+  { id: "well",      he: "בריאות וכושר",   facade: "district_well.webp",      z:  -17.6, side: -1, neonColour: "#6affc6" , department: "WELLNESS" },
+  { id: "appliance", he: "מוצרי חשמל",     facade: "district_appliance.webp", z:  -35.2, side:  1, interior: "appliance_workshop_hero.webp", neonColour: "#ffd166" , department: "APPLIANCES" },
+  { id: "care",      he: "ניקיון ותחזוקה", facade: "district_care.webp",      z:  -52.8, side: -1, interior: "care_studio_hero.webp",     neonColour: "#9db8ff" , department: "HOME_CARE" },
+  { id: "nails",     he: "ציפורניים",      facade: "district_nails.webp",     z:  -70.4, side:  1, neonColour: "#ff6fa8" , department: "BEAUTY" },
+  { id: "move",      he: "הובלות ומשלוחים", facade: "district_move.webp",     z:  -88, side: -1, neonColour: "#c39bff" , department: "LOGISTICS" },
   /*
    * The vet is a category inside PETS — "וטרינר עד הבית" — and it had
    * no house in the world. Amit spotted it: *"חנות חיות וטרינר?"* It
    * is the only trade in the catalogue that was missing one.
    */
-  { id: "vet",       he: "וטרינריה",       facade: "shop_vet.webp",           z: -105.6, side:  1, neonColour: "#7ad7ff" },
+  { id: "vet",       he: "וטרינריה",       facade: "shop_vet.webp",           z: -105.6, side:  1, neonColour: "#7ad7ff", department: "PETS" },
+  /*
+   * Two trades had drawn shopfronts and no house to put them on —
+   * `shop_build` and `shop_help` were installed and stood nowhere.
+   * With these the roster covers all eleven departments.
+   */
+  { id: "build",     he: "שיפוץ והתקנות",  facade: "shop_build.webp",         z: -123.2, side: -1, interior: "shop_build_inside.webp", neonColour: "#ffa552", department: "IMPROVEMENT" },
+  { id: "help",      he: "עזרה ועבודות קטנות", facade: "shop_help.webp",      z: -140.8, side:  1, interior: "shop_help_inside.webp",  neonColour: "#a8e06a", department: "ODD_JOBS" },
 ];
+
+/**
+ * Which department each shop stands for, taken from the roster itself.
+ *
+ * The host builds the service list for every shop and needs the same
+ * mapping the street uses. Derived rather than typed out again, so a
+ * shop that changes trade changes it in one place.
+ */
+export const CITY_SHOP_DEPARTMENTS: Record<string, string> = Object.fromEntries(
+  SHOPS.filter((s) => s.department).map((s) => [s.id, s.department!])
+);
 
 const WALK = Array.from({ length: 8 }, (_, i) => `avatar_amit_walk_0${i + 1}.webp`);
 const RUN = Array.from({ length: 8 }, (_, i) => `avatar_amit_run_0${i + 1}.webp`);
@@ -89,6 +107,37 @@ export interface CityProps {
    * it did for everybody until now.
    */
   avatarNo?: number | null;
+  /**
+   * WHAT EACH TRADE ACTUALLY DOES, SO A SHOP CAN SELL IT.
+   *
+   * Amit: *"חייב שיפתחו אפשרויות"*, and later, of the world as a
+   * whole: *"בלעדיו העולם יפה אבל לא מוכר כלום."*
+   *
+   * Walking into a trade's shop used to show a beautiful room and
+   * nothing to do in it. The services are what the shop is FOR — you
+   * go in, you see what this trade does, you call somebody.
+   *
+   * Passed in rather than imported, because the catalogue, the live
+   * availability snapshot and the route out all live in the host. The
+   * city knows how to show a list; it must not decide what is in it.
+   *
+   * `availableNowCount` is null wherever the snapshot did not say, and
+   * is rendered as silence rather than as a zero — /CLAUDE.md §3.
+   */
+  trades?: Record<
+    string,
+    {
+      nameHe: string;
+      services: Array<{
+        id: string;
+        nameHe: string;
+        descriptionHe?: string | null;
+        availableNowCount: number | null;
+      }>;
+    }
+  > | null;
+  /** Called when somebody picks a service inside a shop. */
+  onRequestService?: (serviceId: string) => void;
   /**
    * A NAMED CAMERA SHOT, FOR SCREENS THAT ARE NOT PLAYED.
    *
@@ -132,6 +181,8 @@ export function City({
   avatarNo = null,
   shot = null,
   hud = true,
+  trades = null,
+  onRequestService,
   onExit,
 }: CityProps) {
   const host = useRef<HTMLDivElement | null>(null);
@@ -1055,6 +1106,8 @@ export function City({
         <ShopRoom
           base={base}
           shop={room}
+          trade={(room.department && trades?.[room.id]) || null}
+          onRequestService={onRequestService}
           onLeave={() => {
             setRoom(null);
             leaveRef.current?.();
@@ -1097,14 +1150,29 @@ export function City({
  * says the next tap leaves PRO NOW, in the same spirit as the maps
  * handoff. We hand over a link and claim nothing about the other side.
  */
+interface Trade {
+  nameHe: string;
+  services: Array<{
+    id: string;
+    nameHe: string;
+    descriptionHe?: string | null;
+    availableNowCount: number | null;
+  }>;
+}
+
 function ShopRoom({
   base,
   shop,
+  trade,
+  onRequestService,
   onLeave,
   onStreet,
 }: {
   base: string;
   shop: ShopSpec;
+  /** What this trade does, when the host knows. */
+  trade: Trade | null;
+  onRequestService?: (serviceId: string) => void;
   onLeave: () => void;
   /* Called once the walk back out has finished, so the stick returns. */
   onStreet: () => void;
@@ -1234,6 +1302,39 @@ function ShopRoom({
             : "זה התחום, לא מקצוען מסוים"}
         </p>
         {sponsor ? <p style={S.roomLine}>{sponsor.taglineHe}</p> : null}
+
+        {/*
+          * WHAT THIS TRADE DOES.
+          *
+          * Amit: *"חייב שיפתחו אפשרויות."* A trade's shop used to be a
+          * beautiful room with nothing to do in it. These are the real
+          * services of the department the shop stands for, read from
+          * the catalogue, and pressing one asks for a professional.
+          *
+          * The count is shown only where the live snapshot gave one.
+          * A trade with no number simply has none — never a zero,
+          * which would read as "nobody is free" (/CLAUDE.md §3).
+          */}
+        {trade && trade.services.length > 0 ? (
+          <>
+            <p style={S.shelfHint}>מה שאפשר להזמין מכאן</p>
+            <div style={S.services}>
+              {trade.services.map((sv) => (
+                <button
+                  key={sv.id}
+                  style={S.service}
+                  onClick={() => onRequestService?.(sv.id)}
+                >
+                  <span style={S.serviceName}>{sv.nameHe}</span>
+                  {typeof sv.availableNowCount === "number" ? (
+                    <span style={S.serviceCount}>{sv.availableNowCount} פנויים עכשיו</span>
+                  ) : null}
+                  <span style={S.serviceGo}>›</span>
+                </button>
+              ))}
+            </div>
+          </>
+        ) : null}
 
         {things.length > 0 ? (
           <>
@@ -1444,6 +1545,16 @@ const S: Record<string, React.CSSProperties> = {
    * sparkles and winning, and a list of buttons is a catalogue —
    * pressing a bottle on a shelf is a shop.
    */
+  services: { display: "flex", flexDirection: "column", gap: 7, padding: "0 0 12px" },
+  service: {
+    display: "flex", alignItems: "center", gap: 10, width: "100%",
+    minHeight: 48, padding: "10px 14px", borderRadius: 14, cursor: "pointer",
+    fontFamily: "inherit", textAlign: "right",
+    background: "rgba(247,243,250,.1)", border: "1px solid rgba(247,243,250,.18)",
+  },
+  serviceName: { flex: 1, fontSize: 14.5, fontWeight: 600, color: "#F7F3FA" },
+  serviceCount: { fontSize: 12, color: "rgba(247,243,250,.6)" },
+  serviceGo: { fontSize: 18, color: "rgba(247,243,250,.5)" },
   shelfHint: {
     margin: "0 0 6px", fontSize: 11.5, color: "rgba(247,243,250,.45)",
   },

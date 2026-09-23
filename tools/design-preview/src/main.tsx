@@ -3,7 +3,9 @@ import { createRoot } from "react-dom/client";
 
 import { App } from "./App";
 import { Gallery } from "./Gallery";
-import { City } from "./city/City";
+import { catalogServicePages, departmentCodeByServiceId } from "@pro-now/ui";
+
+import { City, CITY_SHOP_DEPARTMENTS } from "./city/City";
 
 /**
  * Two entry points, one bundle.
@@ -31,11 +33,51 @@ const citySpawn = query.has("z") || query.has("x")
       z: query.has("z") ? Number(query.get("z")) : undefined }
   : undefined;
 
+/*
+ * THE CATALOGUE, FOR THE STANDALONE CITY DOOR.
+ *
+ * `?city=1` opens the street on its own, outside the app, for design
+ * review and screenshots. The app builds this map with the LIVE
+ * availability snapshot beside each service; here there is no snapshot,
+ * so every count is null — and null is rendered as silence rather than
+ * as a zero, because a zero would read as "nobody is free" and nothing
+ * here knows that (/CLAUDE.md §3).
+ */
+const cityTradesForReview = (() => {
+  const byDept: Record<string, string[]> = {};
+  for (const id of Object.keys(catalogServicePages)) {
+    const d = departmentCodeByServiceId[id];
+    if (!d) continue;
+    (byDept[d] ??= []).push(id);
+  }
+  const out: Record<
+    string,
+    { nameHe: string; services: Array<{ id: string; nameHe: string; availableNowCount: number | null }> }
+  > = {};
+  for (const [shopId, dept] of Object.entries(CITY_SHOP_DEPARTMENTS)) {
+    const ids = byDept[dept] ?? [];
+    if (ids.length === 0) continue;
+    out[shopId] = {
+      nameHe: "",
+      services: ids.map((id) => ({
+        id,
+        nameHe: catalogServicePages[id]!.nameHe,
+        availableNowCount: null,
+      })),
+    };
+  }
+  return out;
+})();
+
 const root = document.getElementById("root");
 if (!root) throw new Error("#root missing");
 
 createRoot(root).render(
   <React.StrictMode>
-    {showCity ? <City spawn={citySpawn} avatarNo={query.has("av") ? Number(query.get("av")) : null} /> : showGallery ? <Gallery /> : <App />}
+    {showCity ? <City
+        spawn={citySpawn}
+        avatarNo={query.has("av") ? Number(query.get("av")) : null}
+        trades={cityTradesForReview}
+      /> : showGallery ? <Gallery /> : <App />}
   </React.StrictMode>
 );

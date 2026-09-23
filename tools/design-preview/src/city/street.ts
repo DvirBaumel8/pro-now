@@ -68,6 +68,17 @@ export interface ShopSpec {
   /** -1 puts it on the left pavement, 1 on the right. */
   side: -1 | 1;
   sponsor?: boolean;
+  /**
+   * Which department's house this is.
+   *
+   * A shop in this street is not a shop you buy from — almost every
+   * service in the catalogue is *עד הבית*, and the professional comes
+   * to you. It is the TRADE's house: you go in to see what the trade
+   * does and to call somebody. So the building has to know which
+   * trade it stands for, or walking in can only ever show you a
+   * pretty room.
+   */
+  department?: string;
   /** The neon over the door, drawn rather than photographed. */
   neonColour?: string;
 }
