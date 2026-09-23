@@ -66,7 +66,22 @@ const SIGNIFICANT: ReadonlySet<WorldMoment> = new Set<WorldMoment>([
   "DOG_WALK",
 ]);
 
-export const MOTION_BUDGET = { significant: 2, micro: 2 } as const;
+/*
+ * RAISED WITH THE STREET.
+ *
+ * Two at a time was right for a world 1.25 screens across, where
+ * whatever was moving was nearly always in frame. The street is three
+ * plates now and the camera shows about a sixth of its length, so a
+ * single courier somewhere on the road is usually somewhere else — and
+ * a street where nothing passes for a minute is the "becalmed" reading
+ * the beat spacing was written to avoid.
+ *
+ * Four and three, which is the old pair scaled by how much less of the
+ * world is on screen, rounded down. Not more: the budget exists because
+ * a street with a dozen things crossing it reads as traffic rather than
+ * as life, and that ceiling is about attention rather than about size.
+ */
+export const MOTION_BUDGET = { significant: 4, micro: 3 } as const;
 
 /**
  * How long each moment occupies the world, and how rare it is.

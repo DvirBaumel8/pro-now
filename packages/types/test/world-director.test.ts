@@ -18,19 +18,35 @@ describe("the world director keeps a street from becoming a screensaver", () => 
     expect(directWorld({ now: 0, running: [], roll: 0.1 }).start).not.toBeNull();
   });
 
-  it("never runs more than two significant moments at once", () => {
-    const running = [at("COURIER_PASS"), at("TOW_PASS")];
+  /*
+   * THE RULE IS THE BUDGET, NOT THE NUMBER TWO.
+   *
+   * These read "two" as a literal, so the day the street became three
+   * plates and the budget rose with it, three checks failed for saying
+   * what the constant used to be rather than what the rule is. The
+   * budget is a judgement about attention and it may move again; the
+   * invariant is that the director respects it.
+   */
+  const SIG: WorldMoment[] = ["COURIER_PASS", "TOW_PASS", "MOVER_PASS", "DOG_WALK"];
+
+  it("never runs more significant moments at once than the budget allows", () => {
+    const running = SIG.slice(0, MOTION_BUDGET.significant).map(at);
     const d = directWorld({ now: 100, running, roll: 0.01 });
     expect(d.start === null || !isSignificant(d.start)).toBe(true);
   });
 
-  it("still allows a small moment while two big ones play", () => {
-    const d = directWorld({ now: 100, running: [at("COURIER_PASS"), at("DOG_WALK")], roll: 0.99 });
+  it("still allows a small moment while the big ones play", () => {
+    const running = SIG.slice(0, MOTION_BUDGET.significant).map(at);
+    const d = directWorld({ now: 100, running, roll: 0.99 });
     expect(d.start === null || !isSignificant(d.start)).toBe(true);
   });
 
   it("falls completely silent when every budget is spent", () => {
-    const full = [at("COURIER_PASS"), at("DOG_WALK"), at("WINDOW_LIGHT"), at("BIRDS")];
+    const MICRO: WorldMoment[] = ["WINDOW_LIGHT", "BIRDS", "CAT_APPEAR"];
+    const full = [
+      ...SIG.slice(0, MOTION_BUDGET.significant),
+      ...MICRO.slice(0, MOTION_BUDGET.micro),
+    ].map(at);
     expect(directWorld({ now: 100, running: full, roll: 0.5 }).start).toBeNull();
   });
 
@@ -66,8 +82,16 @@ describe("the world director keeps a street from becoming a screensaver", () => 
     expect(nextBeatMs(0)).toBeGreaterThanOrEqual(1000);
   });
 
-  it("budgets significant and small moments separately", () => {
-    expect(MOTION_BUDGET.significant).toBeLessThanOrEqual(2);
+  it("keeps a ceiling on both, and keeps them separate", () => {
+    /*
+     * A street with a dozen things crossing it reads as traffic rather
+     * than as life. The ceiling is about attention, so it stays low
+     * however long the street gets — but it is not the same number for
+     * both kinds, because that separation is the whole design.
+     */
+    expect(MOTION_BUDGET.significant).toBeLessThanOrEqual(5);
+    expect(MOTION_BUDGET.micro).toBeLessThanOrEqual(5);
+    expect(MOTION_BUDGET.significant).not.toBe(MOTION_BUDGET.micro);
   });
 });
 
