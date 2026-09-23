@@ -544,7 +544,38 @@ export function buildStreet(
   const moon = new THREE.DirectionalLight(0xb9c4ee, 0.8);
   moon.position.set(-34, 50, 26);
   /*
-   * NO SHADOW MAP.
+   * ---------------------------------------------------------------
+   * SHADOWS COME BACK, IN A BOX THAT FOLLOWS YOU
+   * ---------------------------------------------------------------
+   * Amit: *"עדיין נראה כמו ציור, לא מבין מה עשינו בזה."*
+   *
+   * Two things were missing and shadows were the larger. I turned
+   * them off for the frame rate, and that was the wrong economy: a
+   * shadow falling across a surface is how the eye decides the
+   * surface is IN SPACE. Without one, a perfect drawing stays a
+   * drawing — which is exactly the sentence he kept writing.
+   *
+   * The old cost came from covering the whole three-hundred-metre
+   * street: a second depth pass over every building, lamp, tree and
+   * passer-by in it. But you can only see shadows near you. The
+   * shadow camera is fourteen metres square and rides with the
+   * player, so it renders a handful of buildings instead of thirty,
+   * and 1024 pixels across fourteen metres is finer than 2048 across
+   * the whole street ever was.
+   */
+  moon.castShadow = true;
+  moon.shadow.mapSize.set(1024, 1024);
+  moon.shadow.camera.left = -16;
+  moon.shadow.camera.right = 16;
+  moon.shadow.camera.top = 16;
+  moon.shadow.camera.bottom = -16;
+  moon.shadow.camera.near = 1;
+  moon.shadow.camera.far = 90;
+  moon.shadow.bias = -0.0006;
+  moon.shadow.normalBias = 0.04;
+  scene.add(moon.target);
+  /*
+   * WAS: NO SHADOW MAP.
    *
    * A 2048² map over a hundred-and-twenty-metre street meant a second
    * depth pass across every building, lamp, tree and passer-by in it,
@@ -645,6 +676,44 @@ export function buildStreet(
         m.emissiveIntensity = 1.2 + Math.sin(t * 7.3 + x) * 0.35 + Math.sin(t * 2.1) * 0.2;
       });
     }
+  }
+
+  /**
+   * THE THINGS THAT STICK OUT.
+   *
+   * Amit, twice: *"עדיין נראה כמו ציור"*, and then *"הבניינים לא
+   * נראים לך כמו תמונה?"*
+   *
+   * They did, and nothing about the drawings was the reason. A real
+   * balcony projects eighty centimetres from a wall; a canopy a
+   * metre; a cornice thirty centimetres. Every one of ours was
+   * painted INSIDE the plane, so moving sideways moved nothing
+   * relative to anything else — and parallax between near and far is
+   * most of how depth is measured.
+   *
+   * These are thin boxes in a stone colour, standing clear of the
+   * drawing. They do two things at once: they shift against the
+   * painted detail as you walk past, and — now that the moon casts
+   * again — they lay a shadow ACROSS the drawing. A shadow falling on
+   * a painted balcony is the moment the eye stops asking.
+   */
+  const ledgeMat = new THREE.MeshStandardMaterial({ color: 0xbfae99, roughness: 0.85 });
+  const canopyMat = new THREE.MeshStandardMaterial({ color: 0x4a3540, roughness: 0.8 });
+
+  function ledge(
+    g: THREE.Group,
+    y: number,
+    w: number,
+    out: number,
+    thick = 0.22,
+    mat = ledgeMat
+  ) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, thick, out), mat);
+    m.position.set(0, y, out / 2 + 0.36);
+    m.castShadow = true;
+    m.receiveShadow = true;
+    g.add(m);
+    return m;
   }
 
   /**
@@ -787,7 +856,25 @@ export function buildStreet(
         })
       );
       face.position.set(0, h / 2, 0.36);
+      face.receiveShadow = true;
       g.add(face);
+
+      /*
+       * A CORNICE, AND NOTHING ELSE.
+       *
+       * The first attempt also put a ledge under each balcony line, at
+       * fractions of the height guessed from the six elevations. On
+       * screen they cut straight through windows — because the six
+       * drawings do not actually share a storey rhythm, and a guessed
+       * fraction is wrong for most of them.
+       *
+       * The parapet is the one projection whose position IS known: it
+       * is the top. So that is the one that gets built, and it earns
+       * its place twice over — it breaks the silhouette against the
+       * sky, and it lays a shadow straight down the face beneath it,
+       * which is the thing that stops a drawing reading as a drawing.
+       */
+      ledge(g, h - 0.22, w + 0.22, 0.3, 0.24);
 
       /*
        * THE PARTY WALL.
@@ -1024,7 +1111,20 @@ export function buildStreet(
       );
       face.receiveShadow = true;
       face.position.set(0, faceH / 2, 0.42);
+      face.receiveShadow = true;
       g.add(face);
+
+      /*
+       * A cornice at the top, and a canopy over the shop window — the
+       * one projection every shopfront in the world has, and the one
+       * that throws the most useful shadow, because it falls straight
+       * down the glass.
+       */
+      ledge(g, faceH - 0.2, w + 0.22, 0.3, 0.22);
+      /* The canopy sits on the awning line every one of these
+         shopfronts is drawn with, and its shadow falls straight down
+         the glass — the most useful shadow on the street. */
+      ledge(g, faceH * 0.45, w + 0.06, 0.55, 0.14, canopyMat);
     }
 
     /*
@@ -2010,7 +2110,20 @@ export function buildStreet(
      --------------------------------------------------------------- */
   const HALF = STREET_LENGTH / 2;
   let lendClock = 1;
+  const _focus = new THREE.Vector3();
   function update(dt: number, elapsed: number, camera: THREE.Camera) {
+    /*
+     * The shadow box rides with the viewer — see the moon above. It
+     * is aimed a few metres ahead of the camera rather than at it, so
+     * the sharp part of the map is where you are looking.
+     */
+    camera.getWorldDirection(_focus);
+    _focus.multiplyScalar(7).add(camera.position).setY(0);
+    moon.target.position.copy(_focus);
+    moon.target.updateMatrixWorld();
+    moon.position.set(_focus.x - 22, 34, _focus.z + 17);
+    moon.updateMatrixWorld();
+
     for (const c of cars) {
       const { dir, speed } = c.userData as { dir: 1 | -1; speed: number };
       c.position.z += dir * speed * dt;

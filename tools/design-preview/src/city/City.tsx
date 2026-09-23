@@ -187,9 +187,11 @@ export function City({
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(el.clientWidth, el.clientHeight);
-    /* Nothing casts any more — see the moon in street.ts. Leaving the
-       map enabled costs a depth pass for an empty result. */
-    renderer.shadowMap.enabled = false;
+    /* On again, over a small box that rides with the player — see the
+       moon in street.ts for why that is affordable and why it was a
+       mistake to turn it off. */
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     /*
      * EXPOSURE IS HALF OF THE LIGHTING, AND IT IS THE HALF THAT LIES.
