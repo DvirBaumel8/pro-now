@@ -57,7 +57,6 @@ const proWorldSources: WorldAssetSources = Object.fromEntries(
     .map((id) => [id, worldSources[id]!])
 );
 
-import { standInWorldSources } from "./standInAvatars";
 import fixtureGeo from "../geo/fixture_grid.json";
 
 import { ActiveJobCapsule, AddressPickerBody, AppHeader, AppMenuBody, AvatarPickerBody, IntroBody, customerDarkTheme, FocusSheet, ScreenTransition, ArrivalVerifyBody, CallsListBody, CAPSULE_HEIGHT, ChatBody, ConnectionBanner, CategoryBody, CustomerHomeBody, CustomerProfileBody, customerTheme, DescribeFaultBody, JobClosedBody, JobCompleteBody, MatchConfirmBody, NavGlyph, Persona, PhoneAuthBody, ProEarningsBody, ProJobBody, ProJobSettledBody, ProOfferBody, ProOnlineBody, ProPricingBody, ProProfileBody, ProQuoteBuilderBody, ProServicesBody, ProShiftBody, proTheme, ProVerificationBody, ProVerificationStepBody, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, SponsorShopBody, AdvertiseBody, StrollBody, Sheet, spacing, tint, TrackingBody, type as t, WelcomeBody } from "@pro-now/ui";
@@ -570,8 +569,13 @@ export function App() {
    * judging the FEEL of walking — which is what it was added to answer
    * and the one question the pin cannot.
    */
-  const [standIn, setStandIn] = useState(false);
-  const art = standIn ? standInWorldSources : worldSources;
+  /*
+   * The borrowed figures are no longer switchable, and they were never
+   * on: `standIn` started false and the control that turned it on is
+   * deleted. What the street draws is the customer's own character,
+   * which is the only honest answer now that there is one.
+   */
+  const art = worldSources;
 
   /**
    * THE GROUND, SWITCHABLE, SO THE TWO CAN BE COMPARED.
@@ -955,22 +959,6 @@ export function App() {
             geo={geo}
             realMap={realMap}
             onToggleRealMap={() => setRealMap((r) => !r)}
-            standIn={standIn}
-            onToggleStandIn={() => {
-              const next = !standIn;
-              setStandIn(next);
-              /*
-               * Re-ask only if there is nothing to walk as. The faces are
-               * real now and the question arrives by itself after
-               * sign-in, so re-opening the picker here would take a
-               * choice somebody already made and put it back in front of
-               * them.
-               */
-              if (!avatar) {
-                avatarAnswered.current = false;
-                setGate({ name: "avatar" });
-              }
-            }}
           />
         ) : (
           <ProApp
@@ -1194,8 +1182,6 @@ function CustomerApp({
   onQuoteDecision,
   avatar,
   art,
-  standIn,
-  onToggleStandIn,
   geo,
   realMap,
   onToggleRealMap,
@@ -1258,9 +1244,6 @@ function CustomerApp({
   avatar: AvatarChoice;
   /** The art that has arrived — or, in review, the borrowed stand-ins. */
   art: WorldAssetSources;
-  /** Whether the walking figures are currently borrowed. */
-  standIn: boolean;
-  onToggleStandIn: () => void;
   geo: WorldGeo | null;
   realMap: boolean;
   onToggleRealMap: () => void;
@@ -3297,39 +3280,21 @@ const go = useCallback((r: CustomerRoute) => {
    * known, rather than above the whole app where it was not.
    */
   /*
-   * ---------------------------------------------------------------------
-   * AND ONLY WHERE THERE IS SOMEBODY TO SHOW OR HIDE
-   * ---------------------------------------------------------------------
-   * Amit: *"מה עושה הליכה הדגמה, אני לוחץ לא קורה כלום."*
+   * THE BORROWED-FIGURE TOGGLE IS GONE.
    *
-   * "stroll" and "living" was not narrow enough. The walker exists on
-   * the living map only in ASSIGNED_ROUTE — during the search, the found
-   * moment and the reveal there is no figure on the street at all — so
-   * on three of the four phases the button was real, pressed, and
-   * changed nothing anybody could see. Which is the same fault the note
-   * above describes, one level further in.
+   * Amit: *"הדמות מוצגת — כפתור מיותר, גם ככה היא מוצגת."*
    *
-   * AND IT SAYS WHAT PRESSING IT WILL DO. It used to start OFF, so "▸
-   * הליכה" meant "press to see a walk". It starts ON now, so the same
-   * label sat over a figure that was already there and read as a button
-   * that had failed. A toggle has to name its own state.
+   * It was written when the street had nobody on it and a stand-in
+   * figure was something you might or might not switch on. His own
+   * character has walked this street for a while now, so the control
+   * offered a choice between the thing you can already see and
+   * nothing — which is not a choice, it is a switch that looks broken
+   * whichever way it is set.
+   *
+   * The figure itself is untouched and always drawn; only the toggle
+   * over it is deleted.
    */
-  const walkable =
-    route.name === "stroll" || (route.name === "living" && route.phase === "ASSIGNED_ROUTE");
-  const walkingDemo =
-    !AVATARS.some((a) => worldSources[a.worldAssetId]) && tab === "home" && walkable ? (
-      <Pressable
-        onPress={onToggleStandIn}
-        accessibilityRole="switch"
-        accessibilityState={{ checked: standIn }}
-        accessibilityLabel="הדגמה — דמות מושאלת ברחוב. הדמויות פונות למצלמה; האווטאר האמיתי ייראה מהגב."
-        style={styles.standIn}
-      >
-        <Text style={styles.standInText}>
-          {standIn ? "▪ הדמות מוצגת (הדגמה)" : "▸ הצגת דמות (הדגמה)"}
-        </Text>
-      </Pressable>
-    ) : null;
+  const walkingDemo = null;
 
   /*
    * THE GROUND SWITCH.
@@ -4998,7 +4963,20 @@ function ProApp({
  * one where the question is "where are they" — so tracking is in the list
  * even though nobody strolls on it.
  */
-const GROUND_SCREENS = ["stroll", "living", "tracking"];
+/*
+ * NOT ON THE STREET.
+ *
+ * Amit, looking at the stroll screen: *"הכפתורים המיותרים פה והמפה הלא
+ * רלוונטית פה מציקים לי."*
+ *
+ * The real-street-plan switch is a developer control for checking that
+ * the world renders over a surveyed extract. On the two screens that
+ * TRACK somebody it earns its place — there, a real map is a real
+ * question. On the street, which exists to be walked and looked at, it
+ * is a third pill in a corner that already had two, over a screen whose
+ * whole point is that nothing is in front of it.
+ */
+const GROUND_SCREENS = ["living", "tracking"];
 
 const DEMO_H = 60;
 
