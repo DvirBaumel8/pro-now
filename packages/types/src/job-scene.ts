@@ -474,3 +474,80 @@ export function proJobFocusFor(status: JobState): ProJobFocus | null {
       return null;
   }
 }
+
+/**
+ * ---------------------------------------------------------------------
+ * THE PRICE COMES BEFORE THE WORK, AND THAT IS A RULE, NOT A LAYOUT
+ * ---------------------------------------------------------------------
+ * Amit, twice: *"איך הצעת מחיר תשלח אם הוא כבר סיים את העבודה? זה אמור
+ * להיות לפני"*, and then *"זה אמור להיות לפני שהוא עובד בכלל, ההצעת
+ * מחיר."*
+ *
+ * He is right and it is the single most important ordering in the
+ * product: nobody works in somebody's home before that person has agreed
+ * what it costs. The order is already enforced by the state machine —
+ * DIAGNOSIS → WAITING_QUOTE_APPROVAL → IN_PROGRESS, with no edge that
+ * skips the middle — and by the screens, where the only control at a
+ * diagnosis opens the quote form and the only thing that leaves the wait
+ * is the customer's answer.
+ *
+ * What it did not have was a test. Everything he has caught in the last
+ * day has been something that was true once and quietly stopped being
+ * true, so the rule he keeps restating gets written down as a check
+ * rather than as a sentence.
+ *
+ * The canonical order of a visit, from which both the tracker and this
+ * are derived. Not the full state list: this is the path a visit takes
+ * when nothing goes wrong, and it is the only thing the order rule is
+ * about.
+ */
+export const VISIT_ORDER: readonly JobState[] = [
+  "PRO_ASSIGNED",
+  "PRO_EN_ROUTE",
+  "PRO_ARRIVED",
+  "DIAGNOSIS",
+  "WAITING_QUOTE_APPROVAL",
+  "IN_PROGRESS",
+  "COMPLETION_PENDING",
+];
+
+/** The invariants of that order, as a test rather than as a comment. */
+export function visitOrderViolations(): string[] {
+  const out: string[] = [];
+  const at = (s: JobState) => VISIT_ORDER.indexOf(s);
+
+  // The one Amit keeps restating.
+  if (!(at("WAITING_QUOTE_APPROVAL") < at("IN_PROGRESS"))) {
+    out.push("work happens before the customer has approved a price");
+  }
+  // And the one it depends on: a price is written after somebody looked.
+  if (!(at("DIAGNOSIS") < at("WAITING_QUOTE_APPROVAL"))) {
+    out.push("a price is quoted before anybody has looked at the fault");
+  }
+  // Nobody looks at a fault before arriving at it.
+  if (!(at("PRO_ARRIVED") < at("DIAGNOSIS"))) {
+    out.push("the diagnosis happens before the professional arrives");
+  }
+  // Money moves last, and only after the customer agrees it is finished.
+  if (at("COMPLETION_PENDING") !== VISIT_ORDER.length - 1) {
+    out.push("something happens after the customer confirms the work is done");
+  }
+
+  /*
+   * And the tracker must agree with all of it. Two orderings that are
+   * written down separately are two orderings that will disagree — the
+   * customer being told step three while the professional is shown step
+   * two is the exact failure this product cannot afford.
+   */
+  for (let i = 1; i < VISIT_ORDER.length; i += 1) {
+    const prev = visitStepIndex(VISIT_ORDER[i - 1]!);
+    const now = visitStepIndex(VISIT_ORDER[i]!);
+    if (prev === null || now === null) {
+      out.push(`${VISIT_ORDER[i - 1]} → ${VISIT_ORDER[i]} is not part of the tracker`);
+    } else if (now < prev) {
+      out.push(`the tracker goes backwards from ${VISIT_ORDER[i - 1]} to ${VISIT_ORDER[i]}`);
+    }
+  }
+
+  return out;
+}

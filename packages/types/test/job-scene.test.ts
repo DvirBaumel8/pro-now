@@ -7,6 +7,9 @@ import {
   sceneIsOver,
   scenePhaseForJob,
   proJobFocusHe,
+  VISIT_ORDER,
+  visitOrderViolations,
+  jobProgressHe,
   proJobFocusFor,
   visitMoneyLineHe,
   DEMO_WORLD,
@@ -233,5 +236,44 @@ describe("proJobFocusHe", () => {
     for (const s of JOB_STATES) {
       expect(proJobFocusHe(s) === null).toBe(proJobFocusFor(s) === null);
     }
+  });
+});
+
+/**
+ * THE PRICE COMES BEFORE THE WORK.
+ *
+ * Amit, twice: *"איך הצעת מחיר תשלח אם הוא כבר סיים את העבודה?"* and
+ * *"זה אמור להיות לפני שהוא עובד בכלל."* The single most important
+ * ordering in the product, and until now it was enforced everywhere and
+ * asserted nowhere.
+ */
+describe("visit order", () => {
+  it("holds its own invariants", () => {
+    expect(visitOrderViolations()).toEqual([]);
+  });
+
+  it("has no way from a diagnosis to work that skips the approval", () => {
+    const i = VISIT_ORDER.indexOf("DIAGNOSIS");
+    expect(VISIT_ORDER[i + 1]).toBe("WAITING_QUOTE_APPROVAL");
+    expect(VISIT_ORDER[i + 2]).toBe("IN_PROGRESS");
+  });
+
+  it("gives the professional a sentence at every step of it", () => {
+    for (const s of VISIT_ORDER) {
+      expect(proJobFocusHe(s), s).toBeTruthy();
+    }
+  });
+
+  /*
+   * The customer's sentence starts at the knock and not before, which is
+   * deliberate: until somebody is at the door the arrival assurance owns
+   * the words, and two things narrating the same wait is how a screen
+   * ends up contradicting itself.
+   */
+  it("gives the customer one from the moment somebody is at the door", () => {
+    for (const s of VISIT_ORDER.slice(VISIT_ORDER.indexOf("PRO_ARRIVED"))) {
+      expect(jobProgressHe(s), s).toBeTruthy();
+    }
+    expect(jobProgressHe("PRO_EN_ROUTE")).toBeNull();
   });
 });

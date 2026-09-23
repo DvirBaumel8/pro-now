@@ -10,7 +10,7 @@ import {
   type DiscoveryState,
   type WorldGeo,
 } from "@pro-now/types";
-import { AVATARS, formatMoney, greetingAt, money, screenKey, travelAssetFor, type AvatarChoice } from "@pro-now/types";
+import { AVATARS, formatMoney, greetingAt, money, screenKey, travelAssetFor, VISIT_ORDER, type AvatarChoice } from "@pro-now/types";
 import { matchServicesByText } from "@pro-now/ui";
 import { canSaveSession, clearSession, loadSession, saveSession, savedAgoHe } from "./session";
 import { HAIR_DISCOVERY_IDS } from "@pro-now/ui";
@@ -3476,16 +3476,18 @@ function ProApp({
    * his question: the approval he was looking for had nowhere to arrive,
    * because nothing was waiting for it.
    */
-  const JOB_FLOW: JobState[] = [
-    "PRO_ASSIGNED",
-    "PRO_EN_ROUTE",
-    "PRO_ARRIVED",
-    "DIAGNOSIS",
-    "WAITING_QUOTE_APPROVAL",
-    "IN_PROGRESS",
-    "COMPLETION_PENDING",
-    "COMPLETED",
-  ];
+  /*
+   * DERIVED, so this and the tracker cannot disagree about the order.
+   *
+   * Amit, twice: *"איך הצעת מחיר תשלח אם הוא כבר סיים את העבודה?"* and
+   * *"זה אמור להיות לפני שהוא עובד בכלל."* The order he keeps restating
+   * is now `VISIT_ORDER`, beside the state machine, with
+   * `visitOrderViolations` asserting it — and this list, which is what
+   * the professional's buttons actually walk, is that same order with
+   * the end of the job on it. A second copy typed out here is a second
+   * copy that drifts; the missing COMPLETION_PENDING was exactly that.
+   */
+  const JOB_FLOW: JobState[] = [...VISIT_ORDER, "COMPLETED"];
   const advanceJob = () => {
     if (!job) return;
     const i = JOB_FLOW.indexOf(job);
