@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, Easing, Image, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { customerDarkTheme, customerTheme, palette, radii, scale, spacing, tabular, type } from "../theme";
 import { NavGlyph } from "./NavGlyph";
@@ -117,6 +117,19 @@ export interface ActiveJobCapsuleProps {
    * not know how far. /CLAUDE.md §3.
    */
   progress?: number | null;
+  /**
+   * The drawn professional for this trade, when the pack has one.
+   *
+   * Amit: *"שפה תהיה האווטאר של הדמות של המקצוען שבחרנו, יותר מציאותי
+   * בבקשה."* The silhouette below is true of every trade and reads
+   * cleanly at thirty points, which is why it was built — but where
+   * there IS a drawing of that trade's professional, a drawing beats a
+   * silhouette and this is the same figure the world already uses for
+   * that trade, so nothing new is being claimed about who is coming.
+   *
+   * No uri, no drawing: the silhouette carries on.
+   */
+  figureUri?: string | null;
   live?: boolean;
   onPress?: () => void;
   width: number;
@@ -164,6 +177,7 @@ export function ActiveJobCapsule({
   textHe,
   etaMinutes,
   progress = null,
+  figureUri = null,
   live = true,
   onPress,
   width,
@@ -191,7 +205,7 @@ export function ActiveJobCapsule({
         ]}
       >
         <Text style={styles.capsuleGo}>›</Text>
-        <ApproachTrack progress={progress} />
+        <ApproachTrack progress={progress} figureUri={figureUri} />
         {typeof etaMinutes === "number" ? (
           <Text style={styles.capsuleEta}>{etaMinutes} דק׳</Text>
         ) : null}
@@ -225,14 +239,26 @@ export function ActiveJobCapsule({
  * reads as approach rather than departure without anybody deciding to
  * read it.
  */
-function ApproachTrack({ progress }: { progress: number | null }) {
+function ApproachTrack({
+  progress,
+  figureUri,
+}: {
+  progress: number | null;
+  figureUri: string | null;
+}) {
   const step = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    /*
+     * 1600ms, not 1100. Amit: *"שיראו התקדמות כאילו היא צועדת לאט."*
+     * A stride every half second is a jog, and a jog in a status
+     * capsule reads as urgency — which is a claim about the job. A
+     * walk is the honest gait: somebody is on their way, calmly.
+     */
     const loop = Animated.loop(
       Animated.timing(step, {
         toValue: 1,
-        duration: 1100,
+        duration: 1600,
         easing: Easing.linear,
         useNativeDriver: true,
       })
@@ -308,11 +334,19 @@ function ApproachTrack({ progress }: { progress: number | null }) {
           },
         ]}
       >
-        <View style={styles.head} />
-        <View style={styles.body} />
-        <View style={styles.bag} />
-        <Animated.View style={[styles.leg, { transform: [{ rotate: swing }] }]} />
-        <Animated.View style={[styles.leg, { transform: [{ rotate: swingBack }] }]} />
+        {figureUri ? (
+          /* The drawn professional. It only bobs: a drawing has its own
+             legs and swinging them from the hip would tear it in half. */
+          <Image source={{ uri: figureUri }} style={styles.figure} resizeMode="contain" />
+        ) : (
+          <>
+            <View style={styles.head} />
+            <View style={styles.body} />
+            <View style={styles.bag} />
+            <Animated.View style={[styles.leg, { transform: [{ rotate: swing }] }]} />
+            <Animated.View style={[styles.leg, { transform: [{ rotate: swingBack }] }]} />
+          </>
+        )}
       </Animated.View>
     </View>
   );
@@ -415,6 +449,8 @@ const styles = StyleSheet.create({
    * and the figure looks like it is skating.
    */
   walker: { position: "absolute", bottom: 7, width: 16, height: 30, alignItems: "center" },
+  /* Wider than the silhouette's 16, because a drawn figure has arms. */
+  figure: { width: 30, height: 34, marginLeft: -7 },
   head: {
     width: 8,
     height: 8,

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, Linking, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 
-import { CARD_REST, customerCategoryById, categoryForDepartment, liveAreaLineHe, DEMO_WORLD, WORLD_DISTRICTS, type CandidatePresence, type LivingMapPhase, type LivingMapState, themeForDepartment,
+import { CARD_REST, customerCategoryById, categoryForDepartment, liveAreaLineHe, DEMO_WORLD, WORLD_DISTRICTS, type DepartmentCode, type CandidatePresence, type LivingMapPhase, type LivingMapState, themeForDepartment,
   ROAD_PLATE_ASSET_ID,
   SUPPORT_EMAIL,
   SUPPORT_WHATSAPP_HE,
@@ -73,6 +73,7 @@ import {
   catalogHomeServices,
   catalogMatchRules,
   catalogServicePages,
+  departmentCodeByMark,
   departmentCodeByServiceId,
   eligibilityFor,
   isPersonFit,
@@ -1546,7 +1547,13 @@ function CustomerApp({
                     label: "המקצוען סיים את העבודה",
                     next: () => go({ name: "tracking", stage: "done" }),
                   }
-                : { label: "סיכום העבודה", next: () => go({ name: "complete" }) }
+                : {
+                    label: "סיכום העבודה",
+                    next: () => {
+                      setHasLiveJob(false);
+                      go({ name: "complete" });
+                    },
+                  }
       : null;
 
   const demo = advance ?? arrivalAdvance ?? previewMatch;
@@ -1572,6 +1579,91 @@ function CustomerApp({
     "complete",
     "matchconfirm",
   ];
+  /*
+   * ---------------------------------------------------------------
+   * NOBODY IS ON THEIR WAY UNTIL SOMEBODY IS
+   * ---------------------------------------------------------------
+   * Amit: *"למה זה מופיע פה אם לא הזמנתי בעל מקצוע?? רק בזמן שהוא
+   * בדרך שיופיע."*
+   *
+   * He is right, and this is the worst kind of bug in this product
+   * rather than a cosmetic one. `customerOpenCall` is a FIXTURE — a
+   * sample call that exists so the screens that list calls have
+   * something to list — and the capsule read it unconditionally. So
+   * the home screen told every customer, on first launch, before they
+   * had asked for anything, that a named professional was fourteen
+   * minutes away.
+   *
+   * That is a fabricated claim about supply on the most-seen surface
+   * in the app (/CLAUDE.md §3), and it was there because a fixture
+   * that is right for a LIST is wrong for an ASSERTION. A list says
+   * "here are some calls". A capsule says "somebody is coming, now".
+   *
+   * So the capsule is gated on a job this session actually started:
+   * set when the customer accepts a match, cleared when the work is
+   * summarised or closed. The fixture still feeds the calls list,
+   * where it was never a lie.
+   */
+  const [hasLiveJob, setHasLiveJob] = useState(false);
+
+  /*
+   * ---------------------------------------------------------------
+   * THE MINUTES ARE A STATEMENT, AND TIME PASSES
+   * ---------------------------------------------------------------
+   * Amit: *"שיראו התקדמות כאילו היא צועדת לאט ומתקדמת לפי המרחק."*
+   *
+   * The rule is that we never invent progress. The distinction that
+   * keeps this honest is the one `routeProgress` already draws: there
+   * is a difference between INVENTING a position and RENDERING a
+   * claim somebody already made.
+   *
+   * The server said fourteen minutes. Fourteen minutes is a statement
+   * about time passing, so counting those minutes down and walking
+   * the figure the same fraction of the way is showing that
+   * statement, not adding to it. What would be invention is moving
+   * without an ETA at all, or walking past the door when the ETA runs
+   * out — and neither can happen here: with no ETA the figure walks on
+   * the spot and the road moves under it instead, and the fraction is
+   * clamped at 1.
+   *
+   * The first reading is remembered, because a fraction needs a
+   * denominator and one of two numbers is not a fraction.
+   */
+  const firstEta = useRef<{ minutes: number; atMs: number } | null>(null);
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  const openEta = customerOpenCall[0]?.etaMinutes ?? null;
+  useEffect(() => {
+    if (openEta === null) { firstEta.current = null; return; }
+    if (!firstEta.current) firstEta.current = { minutes: openEta, atMs: Date.now() };
+    const t = window.setInterval(() => setNowMs(Date.now()), 1000);
+    return () => window.clearInterval(t);
+  }, [openEta]);
+
+  const seen = firstEta.current;
+  const elapsedMin = seen ? (nowMs - seen.atMs) / 60000 : 0;
+  const liveEta =
+    seen ? Math.max(0, Math.ceil(seen.minutes - elapsedMin)) : openEta;
+  const liveProgress =
+    seen && seen.minutes > 0
+      ? Math.max(0, Math.min(1, elapsedMin / seen.minutes))
+      : null;
+
+  /*
+   * The drawn professional for the trade that was called out, from the
+   * same lookup the tracking screen already uses for the face. A trade
+   * with no drawing simply has none, and the capsule keeps its
+   * silhouette — which is true of every trade.
+   */
+  const capsuleFigureUri = useMemo(() => {
+    const mark = customerOpenCall[0]?.mark;
+    const dept = mark ? (departmentCodeByMark[mark] as DepartmentCode | undefined) : null;
+    const id = dept ? WORLD_DISTRICTS[dept]?.characterWorldAssetId : null;
+    const src = id ? art[id] : undefined;
+    return src && typeof src === "object" && "uri" in src && typeof src.uri === "string"
+      ? src.uri
+      : null;
+  }, [art]);
+
   const capsule =
     pendingQuote && route.name !== "quote"
       ? {
@@ -1579,10 +1671,12 @@ function CustomerApp({
           etaMinutes: null,
           onPress: () => go({ name: "quote" }),
         }
-      : customerOpenCall.length > 0 && !jobScreens.includes(route.name)
+      : hasLiveJob && customerOpenCall.length > 0 && !jobScreens.includes(route.name)
       ? {
           textHe: `${customerOpenCall[0]!.proNameHe} · ${customerOpenCall[0]!.stateHe}`,
-          etaMinutes: customerOpenCall[0]!.etaMinutes,
+          etaMinutes: liveEta,
+          progress: liveProgress,
+          figureUri: capsuleFigureUri,
           onPress: () => go({ name: "tracking", stage: "enroute" }),
         }
       : null;
@@ -2199,7 +2293,10 @@ const go = useCallback((r: CustomerRoute) => {
           onOpen={(id) =>
             id === "call_live" ? go({ name: "tracking", stage: "enroute" }) : setSheet("payment")
           }
-          onRate={() => go({ name: "complete" })}
+          onRate={() => {
+            setHasLiveJob(false);
+            go({ name: "complete" });
+          }}
           onApproveQuote={() => go({ name: "quote" })}
           onNewCall={() => {
             setRoute({ name: "home" });
@@ -2696,7 +2793,10 @@ const go = useCallback((r: CustomerRoute) => {
             hasAlternative={
               isPersonFit(route.serviceId) && route.index < personFitCandidates.length - 1
             }
-            onAccept={() => go({ name: "tracking", stage: "assigned" })}
+            onAccept={() => {
+              setHasLiveJob(true);
+              go({ name: "tracking", stage: "assigned" });
+            }}
             onAnother={() =>
               go({ name: "matchconfirm", serviceId: route.serviceId, index: route.index + 1 })
             }
@@ -3556,6 +3656,8 @@ const go = useCallback((r: CustomerRoute) => {
         <ActiveJobCapsule
           textHe={capsule.textHe}
           etaMinutes={capsule.etaMinutes}
+          progress={capsule.progress ?? null}
+          figureUri={capsule.figureUri ?? null}
           onPress={capsule.onPress}
           width={width}
         />

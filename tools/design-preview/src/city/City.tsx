@@ -79,6 +79,8 @@ export function City({ base = "./world/", spawn, onExit }: CityProps) {
   /* True while a scripted camera move owns the screen. */
   const [walking, setWalking] = useState(false);
   const [hint, setHint] = useState(true);
+  /* True while the street is still being looked at from above. */
+  const [arriving, setArriving] = useState(true);
   const nearTint =
     (nearId ? SHOPS.find((x) => x.id === nearId)?.neonColour : null) ?? "#FF6B4A";
   useEffect(() => {
@@ -186,6 +188,32 @@ export function City({ base = "./world/", spawn, onExit }: CityProps) {
       let yaw = Math.PI, pitch = 0.26;
       /* The camera's head, turned toward whatever shop you are beside. */
       let look = 0;
+
+      /*
+       * -----------------------------------------------------------
+       * THE ARRIVAL SHOT
+       * -----------------------------------------------------------
+       * Amit: *"בא לי שכבר פה יראו את העולם החדש התלת־מימדי שלנו, רק
+       * בזווית זום אאוט, ואז יהיה אפשר להתקרב פנימה — לא שיצטרכו
+       * לעבור למסך אחר של מציאות מדומה. ושמתחילים ללכת, המצלמה זזה
+       * לכיוון המבט שהיה עכשיו."*
+       *
+       * He is right and the reason is not photography. A separate
+       * screen for the 3D world says "here is another feature". The
+       * world opening as the screen itself says "this is the place".
+       *
+       * So the street arrives from above — high enough to see the
+       * lights strung across the road, the traffic, the neon down
+       * both sides — and the first touch of the stick flies the
+       * camera down into the third-person view behind the walker.
+       * One continuous move; nothing loads, nothing cuts.
+       *
+       * `descend` is 0 up there and 1 down here, and it only ever
+       * travels once.
+       */
+      const WIDE = { dist: 38, hgt: 26 };
+      let descend = 0;
+      let leaving = false;
       const stick = { x: 0, y: 0 };
       let walked = 0;
 
@@ -331,7 +359,16 @@ export function City({ base = "./world/", spawn, onExit }: CityProps) {
 
         const push = Math.hypot(stick.x, stick.y);
         const running = push > 0.75;
-        if (push > 0.08) {
+        if (push > 0.08) leaving = true;
+        if (leaving && descend < 1) {
+          descend = Math.min(1, descend + dt / 1.9);
+          if (descend >= 1) setArriving(false);
+        }
+        /* Smoothstepped, so the drop eases out rather than arriving
+           at speed and stopping dead. */
+        const k = descend * descend * (3 - 2 * descend);
+
+        if (push > 0.08 && descend > 0.35) {
           const speed = running ? 5.6 : 2.6;
           const fx = Math.sin(yaw), fz = Math.cos(yaw);
           /*
@@ -463,7 +500,7 @@ export function City({ base = "./world/", spawn, onExit }: CityProps) {
          */
         player.group.rotation.y = camYaw + Math.PI;
 
-        const wide = 6.2 + pitch * 3.0;
+        const wide = WIDE.dist + (6.2 + pitch * 3.0 - WIDE.dist) * k;
         const fx = Math.sin(camYaw), fz = Math.cos(camYaw);
 
         /*
@@ -486,7 +523,10 @@ export function City({ base = "./world/", spawn, onExit }: CityProps) {
          */
         const WALL = FRONT_X - 0.5;
         let dist = wide;
-        if (Math.abs(fx) > 0.001) {
+        /* Only once the camera is down among the buildings. Above the
+           roofline there is no wall to hit, and clamping up there
+           would yank the arrival shot in to three metres. */
+        if (descend > 0.7 && Math.abs(fx) > 0.001) {
           const room =
             fx > 0
               ? (player.group.position.x + WALL) / fx
@@ -518,8 +558,8 @@ export function City({ base = "./world/", spawn, onExit }: CityProps) {
          * and -0.61 of the frame at every distance instead of
          * wandering off it.
          */
-        const hgt = 1.2 + dist * 0.33;
-        const ahead = dist * 1.55;
+        const hgt = WIDE.hgt + (1.2 + dist * 0.33 - WIDE.hgt) * k;
+        const ahead = dist * 1.55 * (0.45 + 0.55 * k);
         camPos.set(
           player.group.position.x - fx * dist,
           hgt,
@@ -528,7 +568,7 @@ export function City({ base = "./world/", spawn, onExit }: CityProps) {
         camera.position.lerp(camPos, 1 - Math.pow(0.002, dt));
         aim.set(
           player.group.position.x + fx * ahead,
-          1.1 + dist * 0.16,
+          (1.1 + dist * 0.16) * k + 2.6 * (1 - k),
           player.group.position.z + fz * ahead
         );
         camera.lookAt(aim);
@@ -671,7 +711,9 @@ export function City({ base = "./world/", spawn, onExit }: CityProps) {
       {/* Said once, for four seconds. A control nobody knows about is
           the same as a control that is not there — and this one was
           both, for a week. */}
-      {ready && !walking && !room && hint ? (
+      {ready && !walking && !room && arriving ? (
+        <div style={S.hint}>הזיזו את הג׳ויסטיק כדי לרדת לרחוב</div>
+      ) : ready && !walking && !room && hint ? (
         <div style={S.hint}>גררו על המסך כדי להסתכל ימינה ושמאלה</div>
       ) : null}
 

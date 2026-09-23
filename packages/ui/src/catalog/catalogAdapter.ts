@@ -213,6 +213,31 @@ const departmentOf: Record<string, string> = Object.fromEntries(
   pilotCatalog.flatMap((d) => d.categories.flatMap((c) => c.services.map((s) => [s.id, d.nameHe])))
 );
 
+/**
+ * WHICH DEPARTMENT A MARK BELONGS TO.
+ *
+ * A mark — "electrical", "plumbing" — is what a call carries when it is
+ * summarised for a list or a capsule, and a department is what the world
+ * knows about: it is the department that owns a district, a street and a
+ * drawn professional. Nothing connected the two, so a screen holding only
+ * a mark could not reach any of that.
+ *
+ * Built from the catalogue rather than typed out, so a mark that moves
+ * department moves here with it. First service wins, which is right
+ * because a mark is chosen per department in the first place.
+ */
+export const departmentCodeByMark: Record<string, string> = (() => {
+  const out: Record<string, string> = {};
+  for (const d of pilotCatalog) {
+    for (const c of d.categories) {
+      for (const sv of c.services) {
+        if (!(sv.mark in out)) out[sv.mark] = d.code;
+      }
+    }
+  }
+  return out;
+})();
+
 const notInMarketIds = new Set(marketSet.notInThisMarket.map((s) => s.id));
 
 /**
