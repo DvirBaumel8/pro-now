@@ -78,6 +78,13 @@ export function City({ base = "./world/", spawn, onExit }: CityProps) {
   const [veil, setVeil] = useState(0);
   /* True while a scripted camera move owns the screen. */
   const [walking, setWalking] = useState(false);
+  const [hint, setHint] = useState(true);
+  const nearTint =
+    (nearId ? SHOPS.find((x) => x.id === nearId)?.neonColour : null) ?? "#FF6B4A";
+  useEffect(() => {
+    const t = window.setTimeout(() => setHint(false), 5200);
+    return () => window.clearTimeout(t);
+  }, []);
 
   /*
    * THE HANDOVER.
@@ -585,7 +592,38 @@ export function City({ base = "./world/", spawn, onExit }: CityProps) {
       {/* The controls stand down while the camera is doing the walking:
           a joystick on screen during a camera move says the move is
           something you are doing, and it is not. */}
-      {nearName && !walking ? <div style={S.name}>{nearName}</div> : null}
+      {/*
+        * THE INVITATION.
+        *
+        * Amit: *"כשמגיעים לחנות של ספונסר יקפוץ איזה לוגו קטן שלהם או
+        * משהו שיסמן שכדאי להיכנס."*
+        *
+        * It was a line of white type that said the shop's name, which
+        * tells you where you are and not that there is anything to do
+        * about it. Now it is a card in the shop's own colour, and for
+        * a sponsor it carries בחסות on the same card — inseparable
+        * from the name, which is the rule.
+        *
+        * NOT a Lust character inviting you in, which he also
+        * suggested. A figure speaking for a brand is a promise made in
+        * that brand's name, and a brand's own voice is theirs to
+        * supply, not ours to invent. The day they send one it goes
+        * here with no change to this code.
+        */}
+      {nearName && !walking ? (
+        <div style={{ ...S.name, borderColor: nearTint }}>
+          <span style={{ ...S.nameDot, background: nearTint }} />
+          <span style={S.nameText}>{nearName}</span>
+          {enterRef.current ? <span style={S.nameGo}>כדאי להיכנס</span> : null}
+        </div>
+      ) : null}
+
+      {/* Said once, for four seconds. A control nobody knows about is
+          the same as a control that is not there — and this one was
+          both, for a week. */}
+      {ready && !walking && !room && hint ? (
+        <div style={S.hint}>גררו על המסך כדי להסתכל ימינה ושמאלה</div>
+      ) : null}
 
       {nearId && !walking && enterRef.current ? (
         <button
@@ -686,18 +724,33 @@ function ShopRoom({
   }, []);
 
   /*
-   * THE ROOM FILLS THE FRAME.
+   * ---------------------------------------------------------------
+   * THE WHOLE SHOP, FROM ACROSS THE ROOM
+   * ---------------------------------------------------------------
+   * Amit: *"כשנכנסים לחנות אני רוצה שזה יהיה כמו בחנות שעשינו
+   * בהתחלה — מבט מרחוק ונצנצים על מוצרים, לא ככה בקלוז־אפ."*
    *
-   * The interiors are 16:9 and the phone is 9:19.5, so laid out at
-   * their own aspect they covered a quarter of the screen with black
-   * above — a postcard of a shop, not a shop. `object-fit: cover`
-   * fixes the picture and breaks the hotspots, because the sparkles
-   * are fractions OF THE PICTURE and cover crops it by an amount CSS
-   * will not tell you.
+   * The previous version covered the screen with the picture, which
+   * on a 4:3 room and a 9:19.5 phone throws away a third of the width
+   * on each side. Two of Lust's four shelves were in the thrown-away
+   * part, and the answer at the time — drag to look around — was
+   * solving a problem that did not need to exist.
    *
-   * So the cover is computed here, once, on a box that holds both: the
-   * picture and its sparkles are scaled and cropped together, and a
-   * shelf stays under the sparkle that points at it.
+   * The picture is shown WHOLE now. That is not a compromise, it is
+   * the brief: you are meant to be standing across the room looking
+   * at the shelves, not pressed against one of them.
+   *
+   * A whole 4:3 picture on this screen is 298 points tall and the
+   * remaining 500 are the thing to solve. Black bars read as a
+   * letterbox — a video someone paused. So the same image, blown up,
+   * blurred and dimmed, fills behind it: the screen is full, the
+   * colour of the shop is everywhere, and the sharp picture reads as
+   * a window into the room rather than a photograph of it.
+   *
+   * And the shelves get a ROW of their own under the picture. The
+   * sparkles stay — they are what says "this is not a photograph" —
+   * but a 44-point target on a 298-point picture is fiddly, and
+   * nothing that a brand paid for should depend on a precise tap.
    */
   const stage = useRef<HTMLDivElement | null>(null);
   const [box, setBox] = useState<{ w: number; h: number } | null>(null);
@@ -705,86 +758,34 @@ function ShopRoom({
     const host = stage.current;
     if (!host || !img.naturalWidth) return;
     const cw = host.clientWidth, ch = host.clientHeight;
-    const k = Math.max(cw / img.naturalWidth, ch / img.naturalHeight);
+    /* CONTAIN, not cover: min, so the whole picture is inside. */
+    const k = Math.min(cw / img.naturalWidth, ch / img.naturalHeight);
     setBox({ w: img.naturalWidth * k, h: img.naturalHeight * k });
   };
 
-  /*
-   * ---------------------------------------------------------------
-   * YOU CAN LOOK AROUND, BECAUSE OTHERWISE IT IS A PHOTOGRAPH
-   * ---------------------------------------------------------------
-   * Covering the screen with a 4:3 room on a 9:19.5 phone throws away
-   * a third of the picture on each side — and two of Lust's four
-   * shelves were in the thrown-away part, sparkling where nobody
-   * could reach them. Cropping less means a postcard with black
-   * above it, which is what this replaced.
-   *
-   * So the room is WIDER than the window and you drag it. That is
-   * also the honest shape of the thing: he asked for a shop you walk
-   * around in, and a picture you can only stare at is not one.
-   *
-   * `nudge` runs once when the room opens — the view drifts a little
-   * and settles back, which is the only way anybody discovers that a
-   * still picture moves.
-   */
-  const [pan, setPan] = useState(0);
-  const panRef = useRef(0);
-  const range = box ? Math.max(0, (box.w - (stage.current?.clientWidth ?? 0)) / 2) : 0;
-  useEffect(() => {
-    if (!box || range < 8) return;
-    let raf = 0;
-    const t0 = performance.now();
-    const step = (now: number) => {
-      const k = Math.min(1, (now - t0) / 1600);
-      /* Out and back, easing at both ends. */
-      const v = Math.sin(k * Math.PI) * Math.min(range * 0.5, 54);
-      panRef.current = -v;
-      setPan(-v);
-      if (k < 1) raf = requestAnimationFrame(step);
-    };
-    raf = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(raf);
-  }, [box, range]);
-
-  const drag = useRef<{ x: number; from: number } | null>(null);
-  const onDown = (e: React.PointerEvent) => {
-    drag.current = { x: e.clientX, from: panRef.current };
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-  };
-  const onMove = (e: React.PointerEvent) => {
-    const d = drag.current;
-    if (!d) return;
-    const next = Math.max(-range, Math.min(range, d.from + (e.clientX - d.x)));
-    panRef.current = next;
-    setPan(next);
-  };
-  const onUp = () => { drag.current = null; };
-
   const thing = open === null ? null : things[open] ?? null;
+  const tint = shop.neonColour ?? "#FF6B4A";
 
   return (
     <div style={S.room}>
-      <div
-        ref={stage}
-        style={S.roomStage}
-        onPointerDown={onDown}
-        onPointerMove={onMove}
-        onPointerUp={onUp}
-        onPointerCancel={onUp}
-      >
-        <div style={{ ...S.roomBack, opacity: shown ? 1 : 0 }} />
+      {/* The shop's own colour and light, behind everything. */}
+      <img
+        src={base + shop.interior}
+        alt=""
+        aria-hidden
+        style={{ ...S.roomWash, opacity: shown ? 1 : 0 }}
+      />
+      <div style={{ ...S.roomWashVeil, opacity: shown ? 1 : 0 }} />
+
+      <div ref={stage} style={S.roomStage}>
         <div
           style={{
             ...S.roomInner,
-            width: box ? box.w : "100%",
-            height: box ? box.h : "100%",
-            transform: shown
-              ? `translate(calc(-50% + ${pan}px), -50%) scale(1)`
-              : `translate(calc(-50% + ${pan}px), -50%) scale(1.12)`,
+            width: box ? box.w : "92%",
+            height: box ? box.h : undefined,
+            transform: shown ? "scale(1)" : "scale(1.1)",
             opacity: shown ? 1 : 0,
-            transition: drag.current
-              ? "none"
-              : "transform 680ms cubic-bezier(.16,.84,.34,1), opacity 400ms ease",
+            boxShadow: `0 26px 70px rgba(0,0,0,.6), 0 0 0 1px ${tint}44`,
           }}
         >
           <img
@@ -809,8 +810,6 @@ function ShopRoom({
             </button>
           ))}
         </div>
-        <div style={S.roomShade} />
-        {range > 8 ? <div style={S.hint}>‹ גררו להסתכל מסביב ›</div> : null}
       </div>
 
       <div style={S.roomBar}>
@@ -823,6 +822,18 @@ function ShopRoom({
             : "זה התחום, לא מקצוען מסוים"}
         </p>
         {sponsor ? <p style={S.roomLine}>{sponsor.taglineHe}</p> : null}
+
+        {things.length > 0 ? (
+          <div style={S.shelf}>
+            {things.map((t, i) => (
+              <button key={t.titleHe} style={S.shelfItem} onClick={() => setOpen(i)}>
+                <span style={S.shelfName}>{t.titleHe}</span>
+                {t.priceHe ? <span style={S.shelfPrice}>{t.priceHe}</span> : null}
+              </button>
+            ))}
+          </div>
+        ) : null}
+
         <button
           style={S.out}
           onClick={() => {
@@ -880,17 +891,38 @@ function onBackButton(onExit?: () => void) {
 }
 
 const S: Record<string, React.CSSProperties> = {
-  wrap: { position: "absolute", inset: 0, background: "#05040c", overflow: "hidden", direction: "rtl" },
-  canvas: { position: "absolute", inset: 0 },
+  wrap: { position: "absolute", inset: 0, background: "#05040c", overflow: "hidden", direction: "rtl", touchAction: "none" },
+  /*
+   * `touchAction: "none"` is the whole of "you cannot look sideways".
+   *
+   * Amit: *"אני צריך שהמבט של הדמות תוכל לזוז ימינה שמאלה, שיראו את
+   * החנויות בצדדים, אחרת לא רואים אותם."*
+   *
+   * Drag-to-turn has been wired to the canvas since the first build
+   * and it works with a mouse, which is why every screenshot of it
+   * looked fine. On a touch screen the browser claims a drag for its
+   * own scrolling before the page sees it, cancels the pointer
+   * stream, and the camera never moves. The joystick had this line
+   * from the start; the canvas never did, so the one control that
+   * needs a drag was the one that did not declare it.
+   */
+  canvas: { position: "absolute", inset: 0, touchAction: "none" },
   load: {
     position: "absolute", inset: 0, display: "grid", placeItems: "center",
     color: "rgba(247,243,250,.6)", fontSize: 14,
   },
   name: {
-    position: "absolute", top: 54, left: 0, right: 0, textAlign: "center",
-    color: "#F7F3FA", fontSize: 19, fontWeight: 700, textShadow: "0 2px 14px #000",
-    pointerEvents: "none",
+    position: "absolute", top: 46, left: "50%", transform: "translateX(-50%)",
+    display: "flex", alignItems: "center", gap: 9,
+    padding: "9px 16px", borderRadius: 999,
+    background: "rgba(12,9,18,.82)", border: "1px solid",
+    boxShadow: "0 10px 30px rgba(0,0,0,.55)",
+    pointerEvents: "none", whiteSpace: "nowrap",
+    animation: "pnRise 320ms cubic-bezier(.16,.84,.34,1)",
   },
+  nameDot: { width: 9, height: 9, borderRadius: 999, flex: "0 0 auto" },
+  nameText: { color: "#F7F3FA", fontSize: 16, fontWeight: 700 },
+  nameGo: { color: "rgba(247,243,250,.6)", fontSize: 12.5 },
   /* Bottom RIGHT, opposite the stick. Centred at bottom:172 it sat on
      the character's head — the one thing on screen the eye is on. */
   enter: {
@@ -922,26 +954,27 @@ const S: Record<string, React.CSSProperties> = {
   /* Transparent, so the colour and the street behind it are what the
      room fades up out of. `roomBack` is the black, and it arrives with
      the picture rather than before it. */
+  /*
+   * Centred as a GROUP — picture and card together. Laid out top to
+   * bottom, the whole picture is 298 points on a 390-wide phone and
+   * the card is about 250, which left three hundred points of blurred
+   * nothing between them. Nothing is a legitimate design element and
+   * that much of it, in the middle, is not.
+   */
   room: {
-    position: "absolute", inset: 0, display: "flex",
-    flexDirection: "column", justifyContent: "flex-end",
+    position: "absolute", inset: 0, overflow: "hidden",
+    display: "flex", flexDirection: "column", justifyContent: "center",
   },
-  roomStage: { position: "absolute", inset: 0, overflow: "hidden" },
-  roomBack: {
-    position: "absolute", inset: 0, background: "#05040c",
-    transition: "opacity 400ms ease",
+  /* The picture sits in whatever room the bar leaves it, centred. */
+  roomStage: {
+    position: "relative", flex: "0 0 auto", height: "44%", minHeight: 0,
+    display: "flex", alignItems: "center", justifyContent: "center",
   },
   roomInner: {
-    position: "absolute", left: "50%", top: "50%",
-    transition: "transform 680ms cubic-bezier(.16,.84,.34,1), opacity 400ms ease",
+    position: "relative", borderRadius: 14, overflow: "hidden",
+    transition: "transform 680ms cubic-bezier(.16,.84,.34,1), opacity 420ms ease",
   },
   roomImg: { width: "100%", height: "100%", display: "block" },
-  /* So the type at the foot of the screen has something to sit on. */
-  roomShade: {
-    position: "absolute", left: 0, right: 0, bottom: 0, height: "46%",
-    background: "linear-gradient(to top, #05040c 8%, rgba(5,4,12,.82) 42%, rgba(5,4,12,0) 100%)",
-    pointerEvents: "none",
-  },
   /*
    * THE SPARKLE.
    *
@@ -965,11 +998,34 @@ const S: Record<string, React.CSSProperties> = {
     boxShadow: "0 0 12px 3px rgba(255,214,150,.9)",
   },
   hint: {
-    position: "absolute", left: 0, right: 0, top: 18, textAlign: "center",
-    color: "rgba(247,243,250,.72)", fontSize: 12.5, letterSpacing: .2,
-    textShadow: "0 2px 12px rgba(0,0,0,.85)", pointerEvents: "none",
+    position: "absolute", left: 20, right: 20, bottom: 158, textAlign: "center",
+    color: "rgba(247,243,250,.8)", fontSize: 13, letterSpacing: .2,
+    textShadow: "0 2px 14px rgba(0,0,0,.9)", pointerEvents: "none",
+    animation: "pnFade 5.2s ease forwards",
   },
-  roomBar: { position: "relative", padding: "18px 20px 26px" },
+  /* ----- inside a shop ----- */
+  roomWash: {
+    position: "absolute", inset: "-8%", width: "116%", height: "116%",
+    objectFit: "cover", filter: "blur(34px) saturate(1.25)",
+    transition: "opacity 520ms ease",
+  },
+  roomWashVeil: {
+    position: "absolute", inset: 0, background: "rgba(5,4,12,.62)",
+    transition: "opacity 520ms ease",
+  },
+  shelf: {
+    display: "flex", gap: 8, overflowX: "auto", padding: "2px 0 12px",
+    scrollbarWidth: "none",
+  },
+  shelfItem: {
+    flex: "0 0 auto", display: "flex", flexDirection: "column", gap: 2,
+    alignItems: "flex-start", minHeight: 44, padding: "8px 13px",
+    borderRadius: 14, cursor: "pointer", fontFamily: "inherit",
+    background: "rgba(247,243,250,.1)", border: "1px solid rgba(247,243,250,.18)",
+  },
+  shelfName: { fontSize: 12.5, fontWeight: 700, color: "#F7F3FA", whiteSpace: "nowrap" },
+  shelfPrice: { fontSize: 12, color: "rgba(247,243,250,.66)" },
+  roomBar: { position: "relative", flex: "0 0 auto", padding: "14px 20px 24px" },
   roomName: { margin: "0 0 4px", fontSize: 26, color: "#F7F3FA" },
   roomTag: { margin: "0 0 8px", fontSize: 13, color: "rgba(247,243,250,.62)" },
   roomLine: { margin: "0 0 14px", fontSize: 14, color: "rgba(247,243,250,.8)" },
@@ -1010,6 +1066,8 @@ if (typeof document !== "undefined" && !document.getElementById("pn-city-css")) 
   const tag = document.createElement("style");
   tag.id = "pn-city-css";
   tag.textContent =
-    "@keyframes pnSpot{0%,100%{transform:scale(.82);opacity:.7}50%{transform:scale(1.18);opacity:1}}";
+    "@keyframes pnSpot{0%,100%{transform:scale(.82);opacity:.7}50%{transform:scale(1.18);opacity:1}}" +
+    "@keyframes pnFade{0%{opacity:0}12%{opacity:1}72%{opacity:1}100%{opacity:0}}" +
+    "@keyframes pnRise{from{opacity:0;transform:translateX(-50%) translateY(-8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}";
   document.head.appendChild(tag);
 }
