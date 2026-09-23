@@ -46,6 +46,14 @@ with the numbers*. The decision is still a decision; what is no longer
 missing is the price of each option and what each one costs us in
 honesty.
 
+### Sponsored shops — mechanism built, list not decided (2026-09-23)
+
+A brand renting a building in the waiting neighbourhood, with a link out
+to its own site. Amit: *"ככה אגייס שיווק וכסף."* The product rules are
+built and tested (`sponsor-shops.ts`); what a sponsorship costs, who is
+accepted, and whether sponsored shops ship in the customer app at all
+remain open and belong on the list above. See `/docs/20-SPONSORS.md`.
+
 ### Decided — when the money moves (2026-09-23)
 
 Not on the list above any more, and it never belonged to the vendor

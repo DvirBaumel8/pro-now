@@ -1,0 +1,106 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  requiredSponsorAssets,
+  SPONSOR_BADGE_HE,
+  sponsorCtaHe,
+  sponsorLeaveHe,
+  sponsorShopViolations,
+  sponsorSignHe,
+  sponsorsHiddenHe,
+  sponsorsMayShow,
+  type SponsorShop,
+} from "../src";
+
+const LUST: SponsorShop = {
+  id: "lust",
+  brandName: "Lust",
+  categoryHe: "בושם",
+  taglineHe: "זו לא רק תחושה, זו אומנות המשיכה",
+  siteUrl: "https://mylustshop.com",
+  venueAssetId: "sponsor_lust_venue",
+  interiorAssetId: "sponsor_lust_hero",
+  minimumAge: 18,
+};
+
+const OURS = ["district_hair", "hair_barbershop_hero", "district_home", "home_workshop_hero"];
+
+describe("a shop somebody paid to put in the world", () => {
+  it("passes its own rules", () => {
+    expect(sponsorShopViolations([LUST], OURS)).toEqual([]);
+  });
+
+  it("always says it is paid for", () => {
+    expect(sponsorSignHe(LUST)).toContain(SPONSOR_BADGE_HE);
+  });
+
+  it("cannot wear a trade's building", () => {
+    const impostor = { ...LUST, venueAssetId: "district_hair" };
+    expect(sponsorShopViolations([impostor], OURS).join(" ")).toContain("a PRO NOW trade's building");
+  });
+
+  it("cannot borrow a trade's interior either", () => {
+    const impostor = { ...LUST, interiorAssetId: "hair_barbershop_hero" };
+    expect(sponsorShopViolations([impostor], OURS).join(" ")).toContain("a PRO NOW trade's interior");
+  });
+
+  it("refuses a link that does not leave the app", () => {
+    const inApp = { ...LUST, siteUrl: "/shop/lust" };
+    expect(sponsorShopViolations([inApp]).join(" ")).toContain("absolute https");
+  });
+
+  /*
+   * THE ONE THAT IS HERE TO BE BROKEN LATER.
+   *
+   * Revenue argues for showing advertising more often, and the cheapest
+   * way to do it is one more entry in SPONSOR_VISIBLE_STATES. This
+   * fails the moment somebody adds it.
+   */
+  it("is never shown while the professional is working or money is moving", () => {
+    expect(sponsorsMayShow("PRO_EN_ROUTE")).toBe(true);
+    expect(sponsorsMayShow("PRO_ARRIVED")).toBe(false);
+    expect(sponsorsMayShow("DIAGNOSIS")).toBe(false);
+    expect(sponsorsMayShow("WAITING_QUOTE_APPROVAL")).toBe(false);
+    expect(sponsorsMayShow("IN_PROGRESS")).toBe(false);
+    expect(sponsorsMayShow("COMPLETION_PENDING")).toBe(false);
+  });
+
+  it("says where the row went rather than simply losing it", () => {
+    expect(sponsorsHiddenHe("PRO_EN_ROUTE")).toBeNull();
+    expect(sponsorsHiddenHe("DIAGNOSIS")).toContain("המקצוען אצלך");
+  });
+
+  it("warns that the site is somebody else's before opening it", () => {
+    const line = sponsorLeaveHe(LUST);
+    expect(line).toContain("מחוץ לאפליקציה");
+    // And it never claims the order, the payment or the delivery.
+    expect(line).toContain("שלהם");
+    // The brand's own age statement, repeated rather than invented.
+    expect(line).toContain("מגיל 18");
+  });
+
+  it("says nothing about an age the brand did not state", () => {
+    const { minimumAge: _drop, ...noAge } = LUST;
+    expect(sponsorLeaveHe(noAge)).not.toContain("מגיל");
+  });
+
+  it("names the brand on the way out", () => {
+    expect(sponsorCtaHe(LUST)).toContain("Lust");
+  });
+
+  it("asks for exactly the art it draws", () => {
+    expect(requiredSponsorAssets([LUST])).toEqual(["sponsor_lust_hero", "sponsor_lust_venue"]);
+  });
+
+  /*
+   * A sponsor shop has no rating, no ETA and no availability — not
+   * "empty" ones, none at all. The check is on the object the product
+   * actually carries, because a field that exists is a field a screen
+   * in a hurry will fill in.
+   */
+  it("carries nothing that could pass for real supply", () => {
+    for (const forbidden of ["rating", "etaMinutes", "distanceKm", "available", "online", "reviews"]) {
+      expect(Object.keys(LUST)).not.toContain(forbidden);
+    }
+  });
+});

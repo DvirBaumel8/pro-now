@@ -17,6 +17,7 @@ import { HAIR_DISCOVERY_IDS } from "@pro-now/ui";
 
 import type { WorldAssetSources } from "@pro-now/ui";
 import { worldSources } from "./worldSources";
+import { PREVIEW_SPONSORS } from "./sponsors";
 
 /**
  * WHAT THE PROFESSIONAL'S APP ACTUALLY CARRIES.
@@ -51,7 +52,7 @@ const proWorldSources: WorldAssetSources = Object.fromEntries(
 import { standInWorldSources } from "./standInAvatars";
 import fixtureGeo from "../geo/fixture_grid.json";
 
-import { ActiveJobCapsule, AddressPickerBody, AppHeader, AvatarPickerBody, IntroBody, customerDarkTheme, FocusSheet, ScreenTransition, ArrivalVerifyBody, CallsListBody, CAPSULE_HEIGHT, ChatBody, ConnectionBanner, CategoryBody, CustomerHomeBody, CustomerProfileBody, customerTheme, DescribeFaultBody, JobClosedBody, JobCompleteBody, MatchConfirmBody, NavGlyph, Persona, PhoneAuthBody, ProEarningsBody, ProJobBody, ProJobSettledBody, ProOfferBody, ProOnlineBody, ProPricingBody, ProProfileBody, ProQuoteBuilderBody, ProServicesBody, ProShiftBody, proTheme, ProVerificationBody, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, StrollBody, Sheet, spacing, tint, TrackingBody, type as t, WelcomeBody } from "@pro-now/ui";
+import { ActiveJobCapsule, AddressPickerBody, AppHeader, AvatarPickerBody, IntroBody, customerDarkTheme, FocusSheet, ScreenTransition, ArrivalVerifyBody, CallsListBody, CAPSULE_HEIGHT, ChatBody, ConnectionBanner, CategoryBody, CustomerHomeBody, CustomerProfileBody, customerTheme, DescribeFaultBody, JobClosedBody, JobCompleteBody, MatchConfirmBody, NavGlyph, Persona, PhoneAuthBody, ProEarningsBody, ProJobBody, ProJobSettledBody, ProOfferBody, ProOnlineBody, ProPricingBody, ProProfileBody, ProQuoteBuilderBody, ProServicesBody, ProShiftBody, proTheme, ProVerificationBody, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, SponsorShopBody, AdvertiseBody, StrollBody, Sheet, spacing, tint, TrackingBody, type as t, WelcomeBody } from "@pro-now/ui";
 import type { JobMediaItem, LiveLocationState, MarkName, NavGlyphName, ProPricingRow } from "@pro-now/ui";
 import type { AuthStage, ChatMessage, ConnectionState } from "@pro-now/ui";
 import { canHandOffToMaps, categoryAsksForPerson, mapsHandoffUrl, buildIntakeBrief, pilotIntakeByService, pilotServiceById, readAvailability } from "@pro-now/types";
@@ -261,7 +262,18 @@ type CustomerRoute =
    * The professional has had `ProJobSettledBody` closing the same job for
    * months.
    */
-  | { name: "closed"; ratingGiven: number | null };
+  | { name: "closed"; ratingGiven: number | null }
+  /*
+   * INSIDE A SHOP THAT PAID TO BE IN THE STREET.
+   *
+   * Amit: *"לקוח בזמן ההמתנה למקצוען יכול להיכנס לחנויות ואז ייפתח
+   * האתר של המותג."* `from` is the waiting stage it was entered from,
+   * so closing the shop puts the customer back where they were rather
+   * than at the top of the job.
+   */
+  | { name: "sponsor"; shopId: string; from: "assigned" | "enroute" }
+  /** The page for a business owner who wants a shop of their own. */
+  | { name: "advertise" };
 
 /**
  * DEEP LINK TO ONE LIVING MAP PHASE — `?phase=SEARCHING`, `CANDIDATES_FOUND`,
@@ -1240,6 +1252,20 @@ function CustomerApp({
   const [faultText, setFaultText] = useState(saved?.faultText ?? "");
   const [chat, setChat] = useState<ChatMessage[]>(chatSeed);
   const [sheet, setSheet] = useState<null | "call" | "safety" | "payment" | "released">(null);
+  /**
+   * THE HANDOFF, RECORDED RATHER THAN PERFORMED.
+   *
+   * Pressing "לאתר של Lust" in the shipping app hands the URL to the
+   * platform's own browser and PRO NOW is done with it. In this gallery
+   * it is written down instead: a developer tool that navigates a review
+   * session away to a commercial site — mid-walk, mid-screenshot — is a
+   * surprise, and the thing worth SHOWING is that the app announced the
+   * handoff before making it, which is on the screen either way.
+   */
+  const [sponsorHandoff, setSponsorHandoff] = useState<string | null>(null);
+  /** Same, for the advertiser lead: shown back, never posted anywhere. */
+  const [advertiseLead, setAdvertiseLead] = useState<string | null>(null);
+
   /*
    * WHICH SHOP IS OPEN.
    *
@@ -2499,6 +2525,61 @@ const go = useCallback((r: CustomerRoute) => {
           />
         );
       }
+      /* ----------------------------------------------------------------
+         STANDING INSIDE A SPONSOR'S SHOP.
+
+         Reached from the street of shops on the tracking screen. The
+         "site" link is deliberately NOT wired to window.open here: the
+         gallery is a developer tool, and silently navigating a review
+         session away to a commercial site is a surprise. It records the
+         handoff instead, which is what the shipping app will hand to
+         the platform's own browser.
+         ---------------------------------------------------------------- */
+      case "sponsor": {
+        const shop = PREVIEW_SPONSORS.find((sp) => sp.id === route.shopId);
+        if (!shop) return null;
+        return (
+          <View style={{ width, height: bodyH }}>
+            <SponsorShopBody
+              shop={shop}
+              interiorUri={
+                shop.interiorAssetId
+                  ? (art?.[shop.interiorAssetId] as { uri?: string } | undefined)?.uri ?? null
+                  : null
+              }
+              onOpenSite={(picked) => setSponsorHandoff(picked.siteUrl)}
+              onBack={() => {
+                setSponsorHandoff(null);
+                go({ name: "tracking", stage: route.from });
+              }}
+              width={width}
+              height={bodyH}
+            />
+            {sponsorHandoff ? <PreviewNote textHe={`הועבר לדפדפן: ${sponsorHandoff}`} /> : null}
+          </View>
+        );
+      }
+      case "advertise":
+        return (
+          <View style={{ width, height: bodyH }}>
+            <AdvertiseBody
+              exampleVenueUri={
+                (art?.["sponsor_lust_venue"] as { uri?: string } | undefined)?.uri ?? null
+              }
+              exampleBrandName={PREVIEW_SPONSORS[0]?.brandName ?? null}
+              onSubmit={(lead) => setAdvertiseLead(lead.businessNameHe)}
+              onBack={() => {
+                setAdvertiseLead(null);
+                go({ name: "home" });
+              }}
+              width={width}
+              height={bodyH}
+            />
+            {advertiseLead ? (
+              <PreviewNote textHe={`נרשם בגלריה בלבד: ${advertiseLead} — שום דבר לא נשלח לשרת`} />
+            ) : null}
+          </View>
+        );
       case "tracking":
         return (
           <TrackingBody
@@ -2519,6 +2600,22 @@ const go = useCallback((r: CustomerRoute) => {
             serviceNameHe={trackedService.nameHe}
             professional={trackedProfessional}
             eta={matchFixture.eta}
+            /*
+             * The street of paid shops. `SponsorRow` shows itself only
+             * while the customer is waiting — pass it at every stage
+             * and watch it disappear at "arrived", which is the point.
+             */
+            sponsors={PREVIEW_SPONSORS}
+            sponsorVenueUriFor={(shop) =>
+              (art?.[shop.venueAssetId] as { uri?: string } | undefined)?.uri ?? null
+            }
+            onEnterSponsor={(shop) =>
+              go({
+                name: "sponsor",
+                shopId: shop.id,
+                from: route.stage === "assigned" ? "assigned" : "enroute",
+              })
+            }
             /*
              * The arrival clock is DERIVED from the ETA the server gave,
              * not stored beside it. Two fields carrying the same fact drift,
@@ -2829,6 +2926,8 @@ const go = useCallback((r: CustomerRoute) => {
           <CustomerHomeBody
             /* Same door, same rule — see the closing screen above. */
             onStroll={strollDoor}
+            /* The other doorway on this page, for a business owner. */
+            onAdvertise={() => go({ name: "advertise" })}
             strollNeedsAvatar={avatar === null}
             /*
              * FROM THE SAME CLOCK AS THE LIGHT OVER THE STREET.
@@ -4880,3 +4979,46 @@ const styles = StyleSheet.create({
   },
   switchText: { ...t.caption, fontSize: scale.micro, fontWeight: "700", writingDirection: "rtl" },
 });
+
+/**
+ * WHAT THE GALLERY DID INSTEAD OF THE REAL THING.
+ *
+ * Two places in this preview stop short of an action the shipping app
+ * performs: handing a URL to the platform's browser, and sending a
+ * business owner's details somewhere. Both stop for the same reason —
+ * a developer gallery must not navigate a reviewer away mid-walk, and
+ * must never appear to have submitted something it swallowed.
+ *
+ * So the gallery says so, on screen, in the place the action would have
+ * happened. A silent no-op would look exactly like a working button,
+ * which is the failure this note exists to prevent.
+ */
+function PreviewNote({ textHe }: { textHe: string }) {
+  return (
+    <View
+      style={{
+        position: "absolute",
+        left: spacing.lg,
+        right: spacing.lg,
+        bottom: spacing.xl,
+        paddingVertical: spacing.md,
+        paddingHorizontal: spacing.lg,
+        borderRadius: radii.md,
+        backgroundColor: "rgba(23,18,31,0.92)",
+        borderWidth: 1,
+        borderColor: "rgba(247,243,250,0.24)",
+      }}
+    >
+      <Text
+        style={{
+          ...t.micro,
+          color: "#F7F3FA",
+          textAlign: "right",
+          writingDirection: "rtl",
+        }}
+      >
+        {textHe}
+      </Text>
+    </View>
+  );
+}

@@ -93,6 +93,14 @@ function requestedIds(): Set<string> {
   return ids;
 }
 
+/**
+ * A sponsor's building, by its name. See the test below for why this is
+ * a convention rather than an entry in `requestedIds`.
+ */
+function isSponsorAsset(id: string): boolean {
+  return /^sponsor_.+_(venue|hero)$/.test(id);
+}
+
 function deliveredIds(): string[] {
   return readdirSync(WORLD_DIR)
     .filter((f) => f.endsWith(".webp"))
@@ -130,8 +138,46 @@ describe("the art the world asks for", () => {
       "shared_ground_street",
     ]);
     const wanted = requestedIds();
-    const orphans = deliveredIds().filter((id) => !wanted.has(id) && !LEGACY.has(id));
+    const orphans = deliveredIds().filter(
+      (id) => !wanted.has(id) && !LEGACY.has(id) && !isSponsorAsset(id)
+    );
     expect(orphans, "delivered but never drawn — probably ingested under the wrong id").toEqual([]);
+  });
+
+  /*
+   * THE SHOPS THAT ARE NOT OURS.
+   *
+   * A sponsor's art cannot be listed by `requestedIds`, because which
+   * brands have a building is a commercial fact that lives outside this
+   * package — see `sponsors.ts` in the gallery, and /CLAUDE.md §4. So
+   * the convention is checked instead of the list: `sponsor_<brand>_*`
+   * is drawn by `SponsorRow` and `SponsorShopBody` from whatever the
+   * caller passes, and every brand with art in the folder must at least
+   * have the building you see from the street.
+   *
+   * That keeps the orphan check above honest — a sponsor file is
+   * exempt because something draws it, not because it was waved
+   * through — and it still catches the likely mistake, which is an
+   * interior delivered for a brand that has no shopfront.
+   */
+  it("gives every sponsored brand a building before an inside", () => {
+    const brands = new Map<string, Set<string>>();
+    for (const id of deliveredIds()) {
+      const m = /^sponsor_(.+)_(venue|hero)$/.exec(id);
+      if (!m) continue;
+      if (!brands.has(m[1])) brands.set(m[1], new Set());
+      brands.get(m[1])!.add(m[2]);
+    }
+    const insideOnly = [...brands.entries()]
+      .filter(([, parts]) => !parts.has("venue"))
+      .map(([brand]) => brand);
+    expect(insideOnly, "a sponsor with an interior and no shopfront cannot be entered").toEqual([]);
+
+    // And nothing may call itself a sponsor asset without following it.
+    const malformed = deliveredIds().filter(
+      (id) => id.startsWith("sponsor_") && !/^sponsor_(.+)_(venue|hero)$/.test(id)
+    );
+    expect(malformed, "sponsor art is named sponsor_<brand>_venue|hero").toEqual([]);
   });
 
   it("reports what is still missing without failing over it", () => {

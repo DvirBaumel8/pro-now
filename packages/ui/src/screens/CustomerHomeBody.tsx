@@ -151,6 +151,21 @@ export interface CustomerHomeBodyProps {
   totalAvailableNow?: number | null;
   onSelectService?: (id: string) => void;
   onChangeAddress?: () => void;
+  /**
+   * "יש לי עסק, אני רוצה חנות בשכונה."
+   *
+   * Amit: *"אפילו לבנות פיצ'ר נוסף בעמוד הפתיחה שמיועד למי שרוצה לפרסם
+   * את העסק שלו."*
+   *
+   * At the very bottom, below everything a customer came here to do.
+   * The person this is for is not the person the screen is for, and a
+   * business owner looking for it will scroll — while a customer with a
+   * burst pipe must never meet it on the way to a plumber.
+   *
+   * Absent renders nothing, so the row cannot appear in a build that has
+   * nowhere to send it.
+   */
+  onAdvertise?: () => void;
 
   /**
    * ------------------------------------------------------------------
@@ -249,6 +264,7 @@ export function CustomerHomeBody({
   totalAvailableNow,
   onSelectService,
   onChangeAddress,
+  onAdvertise,
   seedQueryHe,
   capture,
   onSelectCategory,
@@ -781,6 +797,18 @@ export function CustomerHomeBody({
             </View>
           </View>
         ) : null}
+
+        {/* --- The last row on the page, for somebody else entirely --- */}
+        {onAdvertise ? (
+          <Pressable
+            onPress={onAdvertise}
+            accessibilityRole="button"
+            accessibilityLabel="יש לך עסק? פתיחת חנות בשכונה של PRO NOW"
+            style={({ pressed }) => [styles.advertise, pressed && { opacity: 0.75 }]}
+          >
+            <Text style={styles.advertiseText}>יש לך עסק? פתחו חנות בשכונה ›</Text>
+          </Pressable>
+        ) : null}
       </View>
     </ScrollView>
     </View>
@@ -935,6 +963,26 @@ const styles = StyleSheet.create({
     writingDirection: "rtl",
   },
   rows: { marginHorizontal: -spacing.sm, marginTop: spacing.sm },
+
+  /*
+   * Quiet on purpose. It is a doorway for a different visitor, not an
+   * offer being made to the customer — so it reads like a footer link
+   * and not like anything on this page that leads to a professional.
+   */
+  advertise: {
+    marginTop: spacing.xxl,
+    paddingVertical: spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: tint.neutralDark(0.1),
+    minHeight: 44,
+    justifyContent: "center",
+  },
+  advertiseText: {
+    ...type.meta,
+    color: colors.textSecondary,
+    textAlign: "right",
+    writingDirection: "rtl",
+  },
 
   livePanel: {
     marginTop: spacing.xl,

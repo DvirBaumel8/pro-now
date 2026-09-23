@@ -77,6 +77,17 @@ export const worldSources: WorldAssetSources = {
   appliance_workshop_hero: { uri: "./world/appliance_workshop_hero.webp" },
   care_studio_hero: { uri: "./world/care_studio_hero.webp" },
   home_workshop_hero: { uri: "./world/home_workshop_hero.webp" },
+  /*
+   * A SHOP THAT IS NOT OURS.
+   *
+   * The first sponsor building — see `sponsors.ts` beside this file,
+   * and `sponsor-shops.ts` for the rules it has to obey. Named
+   * `sponsor_*` rather than `district_*` so that the id itself says
+   * whose shop it is, and so `sponsorShopViolations` can tell the two
+   * apart without a lookup table.
+   */
+  sponsor_lust_venue: { uri: "./world/sponsor_lust_venue.webp" },
+  sponsor_lust_hero: { uri: "./world/sponsor_lust_hero.webp" },
   moving_van: { uri: "./world/moving_van.webp" },
   shared_ground_street: { uri: "./world/shared_ground_street.webp" },
   tow_truck: { uri: "./world/tow_truck.webp" },

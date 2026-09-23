@@ -17,6 +17,7 @@ import {
   type EtaView,
   type JobState,
   type ProfessionalSummaryView,
+  type SponsorShop,
   type WorldGeo,
   buildRoadGraph,
   CUSTOMER_POINT,
@@ -35,6 +36,7 @@ import { ProviderPortrait } from "../components/ProviderPortrait";
 import { RealMapSurface } from "../components/RealMapSurface";
 import { WorldBackdrop } from "../components/livingmap/WorldBackdrop";
 import { VisitSteps } from "../components/VisitSteps";
+import { SponsorRow } from "../components/SponsorRow";
 import { RouteLayer } from "../components/livingmap/RouteLayer";
 import { type WorldAssetSources } from "../components/livingmap/AssetSlot";
 import { ScreenShell } from "../components/ScreenShell";
@@ -164,6 +166,24 @@ export interface TrackingBodyProps {
    */
   etaSecondsAtAssignment?: number | null;
   vehicleAssetId?: string;
+  /**
+   * SHOPS IN THE NEIGHBOURHOOD THAT PAID TO BE THERE.
+   *
+   * Amit: *"לקוח בזמן ההמתנה למקצוען יכול להיכנס לחנויות ואז ייפתח האתר
+   * של המותג שיוכלו להזמין ממנו."*
+   *
+   * Passed in rather than imported, because which brands are in the
+   * street is a business relationship and not a fact about this screen
+   * (/CLAUDE.md §4). Empty, or absent, and the row is simply not there.
+   *
+   * The row shows itself only while the customer is waiting —
+   * `sponsorsMayShow` inside `SponsorRow` decides, from the job's state,
+   * and this screen does not get a say. Advertising does not run while
+   * somebody is in your home.
+   */
+  sponsors?: readonly SponsorShop[];
+  sponsorVenueUriFor?: (shop: SponsorShop) => string | null | undefined;
+  onEnterSponsor?: (shop: SponsorShop) => void;
   animate?: boolean;
   width?: number;
   height?: number;
@@ -190,6 +210,9 @@ export function TrackingBody({
   departmentCode = null,
   etaSecondsAtAssignment = null,
   vehicleAssetId,
+  sponsors,
+  sponsorVenueUriFor,
+  onEnterSponsor,
   animate = true,
   width = 390,
   height = 780,
@@ -843,6 +866,23 @@ export function TrackingBody({
 
         {moneyLineHe ? <Text style={styles.price}>{moneyLineHe}</Text> : null}
         <Text style={styles.masked}>המספרים מוסתרים משני הצדדים</Text>
+
+        {/* ----------------------------------------------------------------
+            THE PAID STREET, LAST.
+
+            Below the money line and below everything about the visit,
+            because nothing here is about the visit. The row removes
+            itself once the professional arrives — see `SponsorRow`.
+            ---------------------------------------------------------------- */}
+        {sponsors && sponsors.length > 0 ? (
+          <SponsorRow
+            status={status}
+            shops={sponsors}
+            venueUriFor={sponsorVenueUriFor}
+            onEnter={onEnterSponsor}
+            width={width - spacing.xl * 2}
+          />
+        ) : null}
         </ScrollView>
       </View>
     </ScreenShell>
