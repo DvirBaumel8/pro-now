@@ -1,7 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, Linking, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 
-import { CARD_REST, customerCategoryById, categoryForDepartment, liveAreaLineHe, DEMO_WORLD, WORLD_DISTRICTS, type CandidatePresence, type LivingMapPhase, type LivingMapState, themeForDepartment, ROAD_PLATE_ASSET_ID } from "@pro-now/types";
+import { CARD_REST, customerCategoryById, categoryForDepartment, liveAreaLineHe, DEMO_WORLD, WORLD_DISTRICTS, type CandidatePresence, type LivingMapPhase, type LivingMapState, themeForDepartment,
+  ROAD_PLATE_ASSET_ID,
+  SUPPORT_EMAIL,
+  SUPPORT_WHATSAPP_HE,
+  supportEmailUrl,
+  supportHoursHe,
+  whatsappUrl,
+} from "@pro-now/types";
 import {
   discover,
   emptyDiscoveries,
@@ -2108,6 +2115,33 @@ const go = useCallback((r: CustomerRoute) => {
               ],
             },
             {
+              titleHe: "עזרה",
+              items: [
+                {
+                  id: "whatsapp",
+                  labelHe: "ואטסאפ",
+                  detailHe: SUPPORT_WHATSAPP_HE,
+                  onPress: () => {
+                    /*
+                     * Handed to whatever WhatsApp the person already
+                     * has, the same way an address is handed to their
+                     * own maps app — see `maps-handoff`. It chooses no
+                     * vendor and needs no integration: it is a link.
+                     */
+                    void Linking.openURL(whatsappUrl("שלום, אני צריך עזרה ב-PRO NOW"));
+                  },
+                },
+                {
+                  id: "email",
+                  labelHe: "אימייל",
+                  detailHe: SUPPORT_EMAIL,
+                  onPress: () => {
+                    void Linking.openURL(supportEmailUrl("פנייה מ-PRO NOW"));
+                  },
+                },
+              ],
+            },
+            {
               titleHe: "העולם",
               items: [
                 {
@@ -2128,7 +2162,7 @@ const go = useCallback((r: CustomerRoute) => {
               ],
             },
           ]}
-          footnoteHe="הגדרות, התראות ויצירת קשר ייכנסו לכאן ברגע שיובילו למקום אמיתי."
+          footnoteHe={supportHoursHe()}
           onBack={() => setTab("home")}
           width={width}
           height={bodyH}

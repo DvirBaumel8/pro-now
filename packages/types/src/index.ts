@@ -45,3 +45,4 @@ export * from "./vehicle-motion";
 export * from "./catalog-bridge";
 export * from "./credential-requirements";
 export * from "./sponsor-shops";
+export * from "./support";

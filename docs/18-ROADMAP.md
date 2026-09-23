@@ -46,6 +46,18 @@ with the numbers*. The decision is still a decision; what is no longer
 missing is the price of each option and what each one costs us in
 honesty.
 
+### Decided — how somebody reaches a human (2026-09-23)
+
+Off the open list above. Amit: *"ערוץ תמיכה תעשה וואטסאפ 0547222218
+אימייל nivamit1210@gmail.com כרגע."* Recorded in
+`packages/types/src/support.ts` rather than typed into a screen, so the
+day it stops being a founder's own phone it changes in one place.
+
+Still open, and deliberately not invented: support HOURS and a response
+time. A channel is a fact; "we answer within an hour" is a promise, and
+promising one on a personal phone is how a marketplace loses trust the
+first night nobody answers. `supportHoursHe` says the true thing instead.
+
 ### Sponsored shops — mechanism built, list not decided (2026-09-23)
 
 A brand renting a building in the waiting neighbourhood, with a link out
