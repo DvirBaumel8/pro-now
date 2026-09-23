@@ -1000,9 +1000,25 @@ export function worldZoomFor(shot: "WIDE" | "DISTRICT" | "VENUE" | "ROUTE" | "EX
     // neighbourhood is still visible around it.
     case "DISTRICT":
       return fit * 1.45;
-    // Close enough to read a shopfront and the person standing outside it.
+    /*
+     * CLOSE ENOUGH TO BE AT THE DOOR.
+     *
+     * Amit, on the shopfront he had just been driven to: *"רוצה זום
+     * אין."* At 2.1 the venue is legible and the street is still most of
+     * the frame — which is a good shot of a place and the wrong one for
+     * arriving at it. The last beat of the journey is the moment the
+     * customer is standing in front of somebody's business, and a
+     * camera that stops across the road from it says "here it is"
+     * rather than "you are here".
+     *
+     * 3.2 puts the shopfront across the frame with its neighbours
+     * cropped, which is what being at a door looks like. Not more: past
+     * about three and a half the plate is being upscaled beyond its own
+     * resolution and the arrival ends on a soft picture, which reads as
+     * a worse camera rather than a closer one.
+     */
     case "VENUE":
-      return fit * 2.1;
+      return fit * 3.2;
     // Following somebody: wide enough to see where they are going.
     case "ROUTE":
       return fit * 1.25;

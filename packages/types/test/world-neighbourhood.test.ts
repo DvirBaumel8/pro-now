@@ -178,13 +178,35 @@ describe("how much world each shot shows", () => {
     expect(worldZoomFor("ROUTE")).toBeLessThan(worldZoomFor("VENUE"));
   });
 
-  it("never shows less than a third of the world's width", () => {
+  it("never shows less than a third of the world, on the shots about the world", () => {
     // The old bug: zoom 1 against a 2.4-screen world meant 40% of it, and
     // DISTRICT and VENUE pushed in from there until only tarmac was left.
-    for (const shot of ["WIDE", "DISTRICT", "VENUE", "ROUTE"] as const) {
+    for (const shot of ["WIDE", "DISTRICT", "ROUTE"] as const) {
       const visibleFraction = 1 / (worldZoomFor(shot) * WORLD_EXTENT.width);
       expect(visibleFraction).toBeGreaterThan(0.33);
     }
+  });
+
+  /*
+   * VENUE IS NOT ONE OF THOSE, AND THE RULE WAS NARROWED RATHER THAN
+   * DROPPED.
+   *
+   * Amit, standing in front of a shopfront: *"רוצה זום אין."* The floor
+   * above exists to stop a shot ending up on a patch of road — that is
+   * what "only tarmac was left" means — and it was applied to every
+   * shot because every shot was about the neighbourhood. VENUE is not:
+   * it is the last beat of a journey to ONE building, and a frame with
+   * that building across it is the whole point rather than a failure.
+   *
+   * So it keeps a floor of its own, loose enough to be at a door and
+   * tight enough that the tarmac case is still refused — and it must
+   * stay closer than the shot before it, which is what makes the
+   * journey a journey.
+   */
+  it("arrives close enough to be at a door, and no closer than the plate can carry", () => {
+    const visible = 1 / (worldZoomFor("VENUE") * WORLD_EXTENT.width);
+    expect(visible).toBeGreaterThan(0.25);
+    expect(visible).toBeLessThan(1 / (worldZoomFor("DISTRICT") * WORLD_EXTENT.width));
   });
 });
 
