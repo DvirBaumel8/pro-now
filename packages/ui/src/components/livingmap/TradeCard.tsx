@@ -1,5 +1,5 @@
-import React from "react";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useRef } from "react";
+import { Animated, Easing, Image, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { WORLD_DISTRICTS, type DepartmentCode } from "@pro-now/types";
 
@@ -36,6 +36,10 @@ import { customerDarkTheme, radii, spacing, type } from "../../theme";
  */
 export interface TradeCardProps {
   department: DepartmentCode;
+  /** How tall the screen is, so the room can fill it. */
+  height?: number;
+  /** False renders the settled frame — the same switch the world takes. */
+  animate?: boolean;
   sources?: WorldAssetSources;
   /** Look at what this trade offers. Absent renders no button. */
   onOpenTrade?: (department: DepartmentCode) => void;
@@ -43,15 +47,62 @@ export interface TradeCardProps {
   width: number;
 }
 
-export function TradeCard({ department, sources, onOpenTrade, onClose, width }: TradeCardProps) {
+export function TradeCard({
+  department,
+  sources,
+  onOpenTrade,
+  onClose,
+  width,
+  height = 780,
+  animate = true,
+}: TradeCardProps) {
   const district = WORLD_DISTRICTS[department];
   const colors = customerDarkTheme.colors;
   const interiorId = district.venueInteriorAssetId;
   const interior = interiorId ? (sources?.[interiorId] as { uri?: string } | undefined) : undefined;
 
+  /* ------------------------------------------------------------------
+     THE STEP THROUGH THE DOOR.
+
+     Amit, on the mock he liked: *"וכל האפקט של הכניסה לחנות אחרי
+     שהגעתי."* Cutting from the street to a card sliding up the bottom
+     of the screen is a page change. Coming in slightly too close and
+     settling is an arrival — the same beat the journey to a
+     professional already uses, at a tenth of the cost.
+
+     Transform and opacity only, so it runs off the JS thread while the
+     world behind it is still animating.
+     ------------------------------------------------------------------ */
+  const enter = useRef(new Animated.Value(animate ? 0 : 1)).current;
+  useEffect(() => {
+    if (!animate) return;
+    Animated.timing(enter, {
+      toValue: 1,
+      duration: 460,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [animate, enter]);
+
   return (
-    <View style={[styles.wrap, { width }]} pointerEvents="box-none">
-      <View style={[styles.card, { backgroundColor: colors.surface }]}>
+    <View style={[styles.wrap, { width, height }]} pointerEvents="box-none">
+      {/* The street dims but does not disappear: you are in a shop ON it. */}
+      <Animated.View
+        pointerEvents="none"
+        style={[StyleSheet.absoluteFill, styles.dim, { opacity: enter }]}
+      />
+      <Animated.View
+        style={[
+          styles.card,
+          {
+            backgroundColor: colors.surface,
+            opacity: enter,
+            transform: [
+              { scale: enter.interpolate({ inputRange: [0, 1], outputRange: [1.14, 1] }) },
+            ],
+          },
+        ]}
+      >
         {/*
          * THE INSIDE, WHERE IT EXISTS — at the artwork's own proportions.
          *
@@ -109,14 +160,21 @@ export function TradeCard({ department, sources, onOpenTrade, onClose, width }: 
             ) : null}
           </View>
         </View>
-      </View>
+      </Animated.View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { position: "absolute", left: 0, bottom: 0, padding: spacing.lg },
+  wrap: { position: "absolute", left: 0, top: 0, justifyContent: "flex-end", padding: spacing.lg },
+  dim: { backgroundColor: "rgba(11,8,16,0.72)" },
   card: { borderRadius: radii.lg, overflow: "hidden" },
+  /*
+   * 4:3, because that is the artwork's own shape. A 16:9 window cut the
+   * ceiling and the floor off the room, which is most of what makes a
+   * room read as a room — the same mistake, found the same way, as on
+   * the professional's profile card.
+   */
   interior: { width: "100%", aspectRatio: 4 / 3 },
   body: { padding: spacing.lg },
   trade: { ...type.section, textAlign: "right", writingDirection: "rtl" },

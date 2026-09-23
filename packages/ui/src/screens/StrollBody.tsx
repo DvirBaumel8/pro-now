@@ -581,6 +581,8 @@ export function StrollBody({
           }
           onClose={() => setOpenTrade(null)}
           width={width}
+          height={height}
+          animate={animate}
         />
       ) : null}
 
@@ -665,7 +667,17 @@ export function StrollBody({
         </View>
       ) : null}
 
-      {canWalk ? (
+      {/*
+        * THE CONTROL GOES AWAY WHILE YOU ARE INDOORS.
+        *
+        * It sat on top of the shop card — the pad over the text, "לרחוב"
+        * hidden behind it — which is the whole problem with a control
+        * pinned to a corner: it belongs to the street, and inside a shop
+        * the street is what you came back to rather than what you are
+        * doing. Found in a screenshot, like every other overlap in this
+        * product.
+        */}
+      {openTrade ? null : canWalk ? (
         <View style={styles.steerWrap} pointerEvents="box-none">
           <SteerPad onHeading={setHeading} onGait={setGait} />
         </View>

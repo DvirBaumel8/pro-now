@@ -1553,6 +1553,8 @@ export function LivingMapScene({
           onOpenTrade={onOpenTrade ? (d) => { setOpenTrade(null); onOpenTrade(d); } : undefined}
           onClose={() => setOpenTrade(null)}
           width={width}
+          height={height}
+          animate={animate}
         />
       ) : null}
 
