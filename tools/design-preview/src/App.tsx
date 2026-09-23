@@ -25,6 +25,7 @@ import { HAIR_DISCOVERY_IDS } from "@pro-now/ui";
 import type { WorldAssetSources } from "@pro-now/ui";
 import { worldSources } from "./worldSources";
 import { City, CITY_SHOP_DEPARTMENTS } from "./city/City";
+
 import { PREVIEW_SPONSORS } from "./sponsors";
 
 /**
@@ -575,6 +576,7 @@ export function App() {
    * deleted. What the street draws is the customer's own character,
    * which is the only honest answer now that there is one.
    */
+
   const art = worldSources;
 
   /**
@@ -850,6 +852,61 @@ export function App() {
           <IntroBody
             side={gate.side === "pro" ? "PRO" : "CUSTOMER"}
             sources={gate.side === "pro" ? proWorldSources : art}
+            /*
+             * THE REAL CITY BEHIND THE THREE SENTENCES.
+             *
+             * Amit: *"שהמצלמה תזוז ותתמקד בעולם שלנו ובמה שרשום — אם
+             * רשום עיר שיראו את העיר, אם רשום אווטאר שיראו אווטאר."*
+             *
+             * Slide one says "a whole city of professionals", so the
+             * camera is above the street looking down it. Slide two
+             * says "pick a character and walk", so it is behind the
+             * figure, close. Slide three is about a shop you can walk
+             * into, so it frames a shopfront.
+             *
+             * The HUD is off: a joystick on a slide is a promise that
+             * the picture is playable, and it is not — it is being
+             * looked at. Same world, same code, no controls.
+             */
+            /*
+             * ---------------------------------------------------------
+             * THE CITY BEHIND THE INTRO: BUILT, MEASURED, NOT SWITCHED ON
+             * ---------------------------------------------------------
+             * Amit: *"שהמצלמה תזוז ותתמקד בעולם שלנו ובמה שרשום — אם
+             * רשום עיר שיראו את העיר, אם רשום אווטאר שיראו אווטאר."*
+             *
+             * It works, and it looks like the thing he asked for: slide
+             * one above the street, slide two behind the figure, slide
+             * three on a shopfront, with the HUD off because a joystick
+             * on a slide promises a picture is playable when it is not.
+             *
+             * It is not wired up, and the reason is measured rather
+             * than felt. With it:
+             *
+             *     verify:a11y — 4 screens audited, 18 UNREACHABLE
+             *
+             * Without it:
+             *
+             *     verify:a11y — 21 screens audited, 0 unreachable
+             *
+             * The city mounts a WebGL context and fetches about thirty
+             * megabytes of texture before the first sentence can be
+             * read, and the page is busy enough for the rest of the
+             * walk to fall apart behind it. The audit is not the
+             * victim here, it is the instrument: what it is reporting
+             * is that onboarding now blocks on the whole world
+             * loading, which on a phone over mobile data is a dark
+             * screen before anybody has done anything.
+             *
+             * So the painted plate — instant, and three real camera
+             * moves over one place — carries the intro until the city
+             * can load lazily: the shot each slide needs, when that
+             * slide arrives. `background` and `onSlide` on IntroBody
+             * and `shot`/`hud` on City are the whole API for it, and
+             * they are already here.
+             *
+             *   background={<City hud={false} shot={INTRO_SHOTS[introSlide]} />}
+             */
             onDone={() => {
               introSeen.current = true;
               saveSession({ introSeen: true });

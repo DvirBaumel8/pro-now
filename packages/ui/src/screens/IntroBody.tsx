@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { CUSTOMER_POINT, venueSlots, WALK_START } from "@pro-now/types";
@@ -161,6 +161,16 @@ export interface IntroBodyProps {
   sources?: WorldAssetSources;
   /** Finished, or skipped — both are the same answer to the caller. */
   onDone?: () => void;
+  /** Which of the three is showing, 0-based. See `background`. */
+  onSlide?: (index: number) => void;
+  /**
+   * What to show behind the words.
+   *
+   * Left out, the painted neighbourhood travels between the three
+   * focus points below — which is what the phone apps still do. A host
+   * with a real camera passes its own world here instead.
+   */
+  background?: React.ReactNode;
   /** False holds the city still, for screenshots and tests. */
   animate?: boolean;
   width?: number;
@@ -171,6 +181,8 @@ export function IntroBody({
   side = "CUSTOMER",
   sources = EMPTY_ASSET_SOURCES,
   onDone,
+  onSlide,
+  background,
   animate = true,
   width = 390,
   height = 780,
@@ -178,6 +190,11 @@ export function IntroBody({
   const slides = side === "PRO" ? PRO_SLIDES : CUSTOMER_SLIDES;
   const colors = side === "PRO" ? proTheme.colors : customerDarkTheme.colors;
   const [i, setI] = useState(0);
+  /* The host needs to know which sentence is on screen, so it can aim
+     a camera at what the sentence is about. */
+  useEffect(() => {
+    onSlide?.(i);
+  }, [i, onSlide]);
   const slide = slides[i]!;
   const last = i === slides.length - 1;
 
@@ -212,14 +229,33 @@ export function IntroBody({
 
   return (
     <View style={[styles.screen, { width, height, backgroundColor: colors.bg }]}>
-      <WorldBackdrop
-        width={width}
-        height={height}
-        sources={sources}
-        animate={animate}
-        focus={slide.focus}
-        zoom={slide.zoom}
-      />
+      {/*
+        * THE WORLD BEHIND THE WORDS — AND IT CAN BE THE REAL ONE.
+        *
+        * Amit: *"שהמצלמה תזוז ותתמקד בעולם שלנו ובמה שרשום — אם רשום
+        * עיר שיראו את העיר, אם רשום אווטאר שיראו אווטאר."*
+        *
+        * These three slides have always travelled over the PAINTED
+        * plate, which was right when that was the only world there
+        * was: moving a camera rather than swapping a picture is what
+        * makes three slides demonstrably one place, and that is the
+        * claim they exist to make.
+        *
+        * There is now a world with a real camera in it. A host that
+        * can render one passes it as `background` and tells the slide
+        * where to look through `onSlide`; a host that cannot — the two
+        * phone apps, until `expo-gl` — gets the painting, unchanged.
+        */}
+      {background ?? (
+        <WorldBackdrop
+          width={width}
+          height={height}
+          sources={sources}
+          animate={animate}
+          focus={slide.focus}
+          zoom={slide.zoom}
+        />
+      )}
 
       {/*
         * ONE GRADIENT, NOT TWO PANELS.
