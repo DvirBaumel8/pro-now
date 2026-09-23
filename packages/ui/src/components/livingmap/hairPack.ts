@@ -70,6 +70,79 @@ export const HAIR_PACK_V0: WorldAssetManifest = Object.freeze({
     anchor: { x: 0.5152, y: 1 },
   }),
 
+  /* ------------------------------------------------------------------
+     THE INSIDE OF A BUSINESS, ONE PER TRADE.
+
+     Amit, four times: *"אני חייב להיכנס לתוך החנות ממש."* Cut from the
+     open-front shops in his generated pack — the part behind the
+     shutter, which is the picture "going inside" needs and the one a
+     façade cannot give however far the camera pushes.
+
+     `HERO_INTERIOR` rather than `HERO_BUILDING`: these do not stand on
+     a pavement and have no ground contact, so the anchor is the middle
+     of the frame and nothing tries to plant them in a street.
+     ------------------------------------------------------------------ */
+  /** מוסך: רכב על מגבה, צמיגים, ארון כלים */
+  auto_garage_hero: asset({
+    id: "auto_garage_hero",
+    file: "auto_garage_hero.webp",
+    role: "HERO_BUILDING",
+    theme: "SHARED",
+    defaultWidthRatio: 1,
+    critical: false,
+    intrinsicWidth: 744,
+    intrinsicHeight: 554,
+    anchor: { x: 0.5, y: 0.5 },
+  }),
+  /** מספרת חיות: שולחן טיפוח, מדפי מוצרים */
+  pets_salon_hero: asset({
+    id: "pets_salon_hero",
+    file: "pets_salon_hero.webp",
+    role: "HERO_BUILDING",
+    theme: "SHARED",
+    defaultWidthRatio: 1,
+    critical: false,
+    intrinsicWidth: 692,
+    intrinsicHeight: 566,
+    anchor: { x: 0.5, y: 0.5 },
+  }),
+  /** חנות מזגנים ומכשירי חשמל, ואן שירות */
+  appliance_workshop_hero: asset({
+    id: "appliance_workshop_hero",
+    file: "appliance_workshop_hero.webp",
+    role: "HERO_BUILDING",
+    theme: "SHARED",
+    defaultWidthRatio: 1,
+    critical: false,
+    intrinsicWidth: 677,
+    intrinsicHeight: 601,
+    anchor: { x: 0.5, y: 0.5 },
+  }),
+  /** חנות ניקיון: עגלה, ציוד, ואן */
+  care_studio_hero: asset({
+    id: "care_studio_hero",
+    file: "care_studio_hero.webp",
+    role: "HERO_BUILDING",
+    theme: "SHARED",
+    defaultWidthRatio: 1,
+    critical: false,
+    intrinsicWidth: 692,
+    intrinsicHeight: 566,
+    anchor: { x: 0.5, y: 0.5 },
+  }),
+  /** סדנת כלי עבודה: לוח כלים, שולחן, סולם */
+  home_workshop_hero: asset({
+    id: "home_workshop_hero",
+    file: "home_workshop_hero.webp",
+    role: "HERO_BUILDING",
+    theme: "SHARED",
+    defaultWidthRatio: 1,
+    critical: false,
+    intrinsicWidth: 717,
+    intrinsicHeight: 567,
+    anchor: { x: 0.5, y: 0.5 },
+  }),
+
   /**
    * THE FLOOR THE WHOLE WORLD STANDS ON.
    *

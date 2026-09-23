@@ -58,7 +58,25 @@ export const worldSources: WorldAssetSources = {
   district_tech: { uri: "./world/district_tech.webp" },
   district_well: { uri: "./world/district_well.webp" },
   dog_walker: { uri: "./world/dog_walker.webp" },
+  /*
+   * INSIDE THE SHOP, ONE FILE PER TRADE.
+   *
+   * Amit, four times: *"אני חייב להיכנס לתוך החנות ממש."* These are the
+   * interiors, cut from the open-front shops in the generated pack —
+   * the part behind the shutter, which is the picture "going inside"
+   * needs and the one a façade cannot give however far you zoom.
+   *
+   * Named by `venueInteriorAssetId`, so the renderer finds them without
+   * knowing where they came from. The trades still missing one fall
+   * back to the drawn room, which says on its face that it is a
+   * drawing.
+   */
   hair_barbershop_hero: { uri: "./world/hair_barbershop_hero.webp" },
+  auto_garage_hero: { uri: "./world/auto_garage_hero.webp" },
+  pets_salon_hero: { uri: "./world/pets_salon_hero.webp" },
+  appliance_workshop_hero: { uri: "./world/appliance_workshop_hero.webp" },
+  care_studio_hero: { uri: "./world/care_studio_hero.webp" },
+  home_workshop_hero: { uri: "./world/home_workshop_hero.webp" },
   moving_van: { uri: "./world/moving_van.webp" },
   shared_ground_street: { uri: "./world/shared_ground_street.webp" },
   tow_truck: { uri: "./world/tow_truck.webp" },

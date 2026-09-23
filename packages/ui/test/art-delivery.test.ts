@@ -61,6 +61,16 @@ function requestedIds(): Set<string> {
      * check that asks what the world wants.
      */
     for (const variant of d.venueVariantAssetIds ?? []) ids.add(variant);
+    /*
+     * AND THE INSIDE OF THE BUSINESS.
+     *
+     * The same omission as the variants above, one field along: five
+     * interiors arrived, every one was drawn by the threshold beat, and
+     * this reported all five as files nobody would ever use. A check
+     * that asks "what does the world want" has to read every field the
+     * world reads.
+     */
+    if (d.venueInteriorAssetId) ids.add(d.venueInteriorAssetId);
   }
   for (const a of AVATARS) {
     ids.add(a.portraitAssetId);

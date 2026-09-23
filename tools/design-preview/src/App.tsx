@@ -3103,7 +3103,14 @@ const go = useCallback((r: CustomerRoute) => {
            * pack under its name, pressing that trade's shop opens into
            * it, with no change here. Today only the barber has one.
            */
-          shopInteriorUri={shopInteriorUri}
+          /*
+           * NOT HERE ANY MORE — the frame behind this card IS the
+           * interior now that the trades have one, so putting the same
+           * picture inside the card shows it twice and pushes the
+           * person's own name below the fold. The match screen still
+           * carries it, because there the camera has not taken anybody
+           * anywhere.
+           */
           activeSinceYear={2014}
           areaLabelHe="גוש דן"
           fromPriceMinorUnits={17900}
