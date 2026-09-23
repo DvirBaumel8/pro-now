@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import {
   assessArrival,
   jobProgressHe,
+  paymentPromiseHe,
   visitMoneyLineHe,
   type VisitMoneyFacts,
   WORLD_DISTRICTS,
@@ -747,6 +748,18 @@ export function TrackingBody({
             ---------------------------------------------------------------- */}
         {status === "COMPLETION_PENDING" && onConfirmCompletion ? (
           <View style={styles.confirmBlock}>
+            {/* ----------------------------------------------------------
+                AND WHY THIS TAP IS THE ONE THAT MATTERS.
+
+                Amit's rule: the amount was HELD when the quote was
+                approved, and it moves on this. Saying so here is what
+                makes the button worth reading — otherwise it is a
+                courtesy confirmation, and somebody who thinks the money
+                already went has no reason to be careful with it.
+                ---------------------------------------------------------- */}
+            <Text style={styles.holdNote}>
+              {paymentPromiseHe("COMPLETION_PENDING", "customer")}
+            </Text>
             <Pressable
               onPress={onConfirmCompletion}
               accessibilityRole="button"
@@ -888,6 +901,13 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   confirmBlock: { marginTop: spacing.lg, gap: spacing.sm },
+  holdNote: {
+    ...type.caption,
+    color: colors.textSecondary,
+    textAlign: "right",
+    writingDirection: "rtl",
+    lineHeight: 18,
+  },
   confirmBtn: {
     minHeight: 52,
     borderRadius: radii.lg,

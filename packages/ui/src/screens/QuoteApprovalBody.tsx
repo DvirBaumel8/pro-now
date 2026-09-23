@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { formatMoney, money, type QuoteView } from "@pro-now/types";
+import { formatMoney, money, paymentPromiseHe, type QuoteView } from "@pro-now/types";
 
 import { BackButton } from "../components/BackButton";
 import { customerTheme, elevation, radii, scale, spacing, tabular, tint, type } from "../theme";
@@ -364,6 +364,24 @@ export function QuoteApprovalBody({
       {/* ---------------- Actions ---------------- */}
       {actionable ? (
         <View style={styles.actions}>
+          {/* ----------------------------------------------------------
+              WHAT PRESSING APPROVE ACTUALLY DOES TO THE MONEY.
+
+              Amit, setting the rule: *"ברגע שלחץ אישור הכסף כאילו עובר
+              אבל מגיע רק בסיום ביצוע העבודה — שלא יקרה מצב שהלקוח פתאום
+              מתחרט אחרי ביצוע העבודה ואז אין מה לעשות."*
+
+              The button said "אישור ותשלום", which reads as "pay now",
+              and that is not what happens: the amount is HELD so the
+              professional is not working against a promise, and it is
+              taken only when the customer agrees the work is done. Both
+              halves protect somebody, and the person being asked to
+              press it is entitled to know which.
+
+              Above the button, not in a sheet: this is the sentence that
+              changes whether somebody presses.
+              ---------------------------------------------------------- */}
+          <Text style={styles.holdNote}>{paymentPromiseHe("WAITING_QUOTE_APPROVAL", "customer")}</Text>
           <Pressable
             onPress={() => onApprove?.(quote.versionHash)}
             accessibilityRole="button"
@@ -507,6 +525,14 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 
+  holdNote: {
+    ...type.caption,
+    color: colors.textSecondary,
+    textAlign: "right",
+    writingDirection: "rtl",
+    lineHeight: 18,
+    marginBottom: spacing.sm,
+  },
   actions: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,

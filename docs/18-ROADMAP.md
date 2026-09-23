@@ -46,6 +46,22 @@ with the numbers*. The decision is still a decision; what is no longer
 missing is the price of each option and what each one costs us in
 honesty.
 
+### Decided — when the money moves (2026-09-23)
+
+Not on the list above any more, and it never belonged to the vendor
+question: WHEN `authorize` and `capture` are called is a product rule,
+and Amit has made it.
+
+Visit fee on arrival. The quote's amount HELD on the customer's
+approval, so the professional never works against a promise. Captured
+only when the customer confirms the work is finished, so the money does
+not leave before the job is done.
+
+Written up with the reasoning in `/docs/09-PAYMENTS.md § When the money
+moves`, and in code as `packages/types/src/payment-moments.ts`, whose
+invariants are asserted against the canonical order of a visit. The
+vendor remains open; nothing about this decision names one.
+
 Everywhere one of these matters, the codebase exposes an interface + a
 labeled sandbox adapter + an `app_config`/roadmap TODO — never a guessed
 answer.

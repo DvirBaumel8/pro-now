@@ -23,6 +23,39 @@ Must support: customer authorization/capture, platform fee split, provider
 payable amount, refund (full/partial), payout, failure/retry, webhook
 verification, reconciliation, and provider KYC/payout requirements.
 
+## When the money moves (decided 2026-09-23)
+
+Amit, setting it:
+
+> "האישור הראשון זה אישור תשלום אבחון והגעה לבית הלקוח, ברגע שסיים את
+> האבחון אז מגיע שלב ההצעת מחיר לפני העבודה. הלקוח מחליט אם לאשר לפני לפי
+> כל הפרטים וההצעת מחיר. ברגע שלחץ אישור הכסף כאילו עובר אבל מגיע רק
+> בסיום ביצוע העבודה — שלא יקרה מצב שהלקוח פתאום מתחרט אחרי ביצוע העבודה
+> ואז אין מה לעשות."
+
+Three moments, and each one protects one side:
+
+| Job state | Call | What it protects |
+| --- | --- | --- |
+| `PRO_ARRIVED` | visit fee charged | the professional drove out and looked, and that has a price whether or not work follows |
+| `WAITING_QUOTE_APPROVAL` → approved | `authorize` — the amount is **held** | the professional is not working against a promise |
+| `COMPLETION_PENDING` → customer confirms | `capture` | the money does not leave until the customer agrees the job was done |
+
+Both halves are load-bearing. A capture on approval lets a customer be
+charged for work that was never finished; a capture with no prior hold
+lets a customer walk away after three hours in their kitchen. Neither is
+a marketplace anybody uses twice.
+
+This is a decision about WHEN `authorize` and `capture` are called. It
+names no vendor and changes nothing above: the provider interface
+already has both, and the Israeli marketplace payment vendor stays open.
+
+`packages/types/src/payment-moments.ts` is this table in code, with the
+sentences each side is shown at each moment, and
+`paymentFlowViolations` asserts the ordering against `VISIT_ORDER` —
+including that none of the sentences may claim a card has been charged
+while no provider exists.
+
 ## Ledger
 Double-entry-style, immutable `ledger_entries`. Every professional-facing
 earnings number (today/week/month, net/hour) is *derived from the ledger*,
