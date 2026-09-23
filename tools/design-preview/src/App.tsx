@@ -3656,6 +3656,36 @@ function ProApp({
    * the end of the job on it. A second copy typed out here is a second
    * copy that drifts; the missing COMPLETION_PENDING was exactly that.
    */
+  /**
+   * THE PRICE THIS SERVICE ALREADY HAS, IF IT HAS ONE.
+   *
+   * FIXED services carry a figure the customer saw before they asked;
+   * VISIT_QUOTE ones carry a visit fee and nothing about the work. So
+   * the first is a line the builder should open with, and the second is
+   * a form that must stay empty — inventing a starting number there is
+   * the app putting a price in somebody's mouth.
+   */
+  const agreedPrice = useMemo(() => {
+    const id = takenRequest?.serviceId ?? null;
+    const price = id ? SERVICE_PAGES[id]?.price : undefined;
+    if (!price || price.priceModel !== "FIXED" || !price.fixedTotalMinorUnits) return null;
+    const amount = price.fixedTotalMinorUnits;
+    return {
+      lines: [
+        {
+          id: "l1",
+          description: takenRequest?.serviceNameHe ?? "",
+          quantity: 1,
+          unitPriceMinorUnits: amount,
+          kind: "LABOR" as const,
+        },
+      ],
+      noteHe: `לשירות הזה יש מחיר קבוע שסוכם מראש: ${formatMoney(
+        money(amount, "ILS")
+      )}. אפשר לשנות אם מצאת עבודה נוספת — הלקוח יראה את מה שתשלח.`,
+    };
+  }, [takenRequest]);
+
   const JOB_FLOW: JobState[] = [...VISIT_ORDER, "COMPLETED"];
   const advanceJob = () => {
     if (!job) return;
@@ -3877,8 +3907,25 @@ function ProApp({
             ...l,
             kind:
               l.kind === "LABOR" || l.kind === "MATERIALS" ? (l.kind as "LABOR" | "MATERIALS") : ("OTHER" as const),
-          })) ?? undefined
+          })) ??
+          /*
+           * A SERVICE WITH A SET PRICE OPENS WITH IT ALREADY IN.
+           *
+           * Amit: *"יש מקצועות שיש להם מחירים קבועים ויש מקצועות שזה
+           * משתנה."* On a FIXED service the customer was shown a price
+           * before anybody was dispatched, so a blank form asks the
+           * professional to invent a number that was already agreed —
+           * and every one they type that is not it is a deal being
+           * changed by accident.
+           *
+           * The figure comes from the catalogue, which is where the
+           * price lives, and it is editable: finding more work is real
+           * and this is a quote, not a receipt. What it is not is
+           * blank.
+           */
+          agreedPrice?.lines
         }
+        agreedPriceNoteHe={agreedPrice?.noteHe ?? null}
         initialNotesHe={sentQuoteNotes}
         serviceNameHe={takenRequest?.serviceNameHe ?? "תיקון נזילה בברז"}
         symptomsHe={takenRequest ? takenRequest.intakeBrief.map((l) => l.answerHe) : jobSymptoms}

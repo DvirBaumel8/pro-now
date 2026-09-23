@@ -36,6 +36,7 @@
     "verify:handover": "node tools/design-preview/handover.mjs",
     "verify:plan": "node tools/design-preview/plan-scale.mjs",
     "verify:faces": "node tools/design-preview/faces.mjs",
+    "verify:quote": "node tools/design-preview/quote-price.mjs",
     "verify:type-scale": "node scripts/check-type-scale.mjs",
     "verify:silhouettes": "node tools/design-preview/measure-silhouettes.mjs",
     "verify:geo": "node tools/design-preview/verify-geo.mjs tools/design-preview/geo/fixture_grid.json",

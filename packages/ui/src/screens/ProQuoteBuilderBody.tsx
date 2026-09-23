@@ -77,6 +77,22 @@ export interface ProQuoteBuilderBodyProps {
    * minimum sample. The same figure the customer will be shown, told
    * here BEFORE the quote goes out — see `price-context.ts`.
    */
+  /**
+   * WHAT WAS ALREADY AGREED ABOUT THE PRICE OF THIS SERVICE.
+   *
+   * Amit: *"כמובן יש מקצועות שיש להם מחירים קבועים ויש מקצועות שזה
+   * משתנה."*
+   *
+   * The builder treated every job as an open quote, which is right for a
+   * leak and wrong for a haircut: on a FIXED service the customer was
+   * shown a price before anybody was dispatched, and a professional who
+   * types a different one is changing a deal rather than pricing a job.
+   *
+   * Passing the sentence rather than the model keeps the decision with
+   * the catalogue, where the price actually lives, and lets this screen
+   * stay ignorant of pricing archetypes.
+   */
+  agreedPriceNoteHe?: string | null;
   usualUpToMinorUnits?: number | null;
   usualSampleSize?: number;
   /**
@@ -106,6 +122,7 @@ export function ProQuoteBuilderBody({
   serviceNameHe,
   symptomsHe = [],
   customerTextHe = null,
+  agreedPriceNoteHe = null,
   usualUpToMinorUnits = null,
   usualSampleSize = 0,
   initialLines,
@@ -198,8 +215,25 @@ export function ProQuoteBuilderBody({
 
         <SectionHeader title="מה צריך לעשות" colors={colors} />
 
+        {/* ----------------------------------------------------------------
+            A SERVICE WITH AN AGREED PRICE SAYS SO BEFORE THE FIRST LINE.
+
+            See `agreedPriceNoteHe`. Above the lines rather than beside
+            the total, because it changes what the professional is doing
+            here — filling in an agreed price, not setting one — and that
+            has to be known before they start typing.
+            ---------------------------------------------------------------- */}
+        {agreedPriceNoteHe ? <Text style={styles.agreed}>{agreedPriceNoteHe}</Text> : null}
+
         {lines.map((l, i) => (
           <Surface key={l.id} colors={colors} level={1} dark style={styles.line}>
+            {/*
+              * NUMBERED, because "שורה 2" in an error message is no help
+              * on a screen where the rows are not numbered — and with
+              * three of them the eye needs somewhere to land.
+              */}
+            <Text style={styles.lineNumber}>שורה {i + 1}</Text>
+            <Text style={styles.fieldLabel}>מה נעשה</Text>
             <TextInput
               value={l.description}
               onChangeText={(t) => patch(l.id, { description: t })}
@@ -279,9 +313,18 @@ export function ProQuoteBuilderBody({
               ) : null}
             </View>
 
-            <Text style={styles.lineTotal}>
-              {formatMoney(money(Math.round(l.quantity * l.unitPriceMinorUnits), "ILS"))}
-            </Text>
+            {/*
+              * LABELLED, because the screen carries two sums and they are
+              * the same number on a one-line quote. An unlabelled "320 ₪"
+              * above a "סה״כ להצעה 320 ₪" reads as the app saying the
+              * same thing twice rather than as a row and its total.
+              */}
+            <View style={styles.lineTotalRow}>
+              <Text style={styles.lineTotal}>
+                {formatMoney(money(Math.round(l.quantity * l.unitPriceMinorUnits), "ILS"))}
+              </Text>
+              <Text style={styles.fieldLabel}>סה״כ לשורה</Text>
+            </View>
           </Surface>
         ))}
 
@@ -399,14 +442,51 @@ const styles = StyleSheet.create({
   saidHead: { ...type.captionStrong, color: colors.trust, textAlign: "right", writingDirection: "rtl" },
   saidText: { ...type.caption, color: colors.textSecondary, textAlign: "right", writingDirection: "rtl" },
 
+  agreed: {
+    ...type.caption,
+    color: colors.textSecondary,
+    textAlign: "right",
+    writingDirection: "rtl",
+    lineHeight: 19,
+    marginBottom: spacing.xs,
+  },
   line: { gap: spacing.sm },
+  /*
+   * ---------------------------------------------------------------------
+   * A FIELD ON A DARK CARD HAS TO BE LIGHTER THAN THE CARD
+   * ---------------------------------------------------------------------
+   * Amit: *"דף הצעת המחיר שהמקצוען רושם, השורות קצת לא ברורות ונעלמות
+   * מאחורי הרקע."*
+   *
+   * They were. The boxes were filled with `colors.bg` — the PAGE colour
+   * — inside a card drawn one step above it, so every field was darker
+   * than the thing it sat on and read as a hole rather than as somewhere
+   * to type. The border that was supposed to rescue it was the next
+   * shade along and invisible at arm's length.
+   *
+   * On a dark surface a field goes UP, not down: `surfaceElevated` on
+   * the card, with a border bright enough to find. The same inversion
+   * that makes a light form work, applied the right way round.
+   */
+  lineNumber: {
+    ...type.captionStrong,
+    color: colors.textSecondary,
+    textAlign: "right",
+    writingDirection: "rtl",
+  },
+  fieldLabel: {
+    ...type.micro,
+    color: colors.textSecondary,
+    textAlign: "right",
+    writingDirection: "rtl",
+  },
   desc: {
     ...type.body,
     color: colors.textPrimary,
-    backgroundColor: colors.bg,
+    backgroundColor: colors.surfaceElevated,
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: "rgba(247,243,250,0.22)",
     paddingHorizontal: spacing.md,
     minHeight: 48,
     writingDirection: "rtl",
@@ -418,10 +498,10 @@ const styles = StyleSheet.create({
     ...type.body,
     ...tabular,
     color: colors.textPrimary,
-    backgroundColor: colors.bg,
+    backgroundColor: colors.surfaceElevated,
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: "rgba(247,243,250,0.22)",
     paddingHorizontal: spacing.md,
     minHeight: 48,
   },
@@ -435,10 +515,15 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   kindOn: { borderColor: colors.trust, backgroundColor: tint.trust(0.14) },
-  kindText: { ...type.caption, color: colors.textSecondary },
+  kindText: { ...type.captionStrong, color: colors.textPrimary },
   kindTextOn: { color: colors.textPrimary, fontWeight: "700" },
   remove: { minHeight: 44, justifyContent: "center", paddingHorizontal: spacing.sm },
   removeText: { ...type.caption, color: colors.statusDanger },
+  lineTotalRow: {
+    flexDirection: "row-reverse",
+    alignItems: "baseline",
+    justifyContent: "space-between",
+  },
   lineTotal: { ...type.bodyStrong, ...tabular, color: colors.textPrimary, textAlign: "right" },
 
   addLine: {
