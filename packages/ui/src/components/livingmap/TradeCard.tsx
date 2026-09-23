@@ -166,9 +166,35 @@ export function TradeCard({
 }
 
 const styles = StyleSheet.create({
-  wrap: { position: "absolute", left: 0, top: 0, justifyContent: "flex-end", padding: spacing.lg },
-  dim: { backgroundColor: "rgba(11,8,16,0.72)" },
-  card: { borderRadius: radii.lg, overflow: "hidden" },
+  /*
+   * THE ROOM FILLS THE SCREEN, IT DOES NOT SIT ON IT.
+   *
+   * Amit: *"הכניסה לחנות, המעבר על הפנים — אין שום אפקט... ממש רחוק
+   * מההדמיה שעשינו."* In the mock he liked, going in replaced the
+   * frame; here it was a card laid over the street with a picture in
+   * it, and a card is a page however good the picture is.
+   *
+   * No padding and no gap: the street is fully behind you while you are
+   * in a shop, the way it is when you walk through a door.
+   */
+  /*
+   * THE ROOM FILLS THE BOTTOM OF THE FRAME AND THE STREET GOES DARK.
+   *
+   * Amit: *"הכניסה לחנות, המעבר על הפנים — אין שום אפקט."* In the mock
+   * he liked, going in REPLACED the frame; here it was a card laid over
+   * the street with a picture in it, and a card is a page however good
+   * the picture is.
+   *
+   * Two attempts. The first gave the card `flex: 1` so it would fill —
+   * and a trade with no interior drawn became a screenful of nothing
+   * with three words at the top of it. The room is as tall as the
+   * artwork is, the panel under it is as tall as its words are, and the
+   * pair sit against the bottom edge with the street nearly black
+   * behind them. What fills the screen is what there is.
+   */
+  wrap: { position: "absolute", left: 0, top: 0, justifyContent: "flex-end" },
+  dim: { backgroundColor: "rgba(11,8,16,0.94)" },
+  card: { overflow: "hidden", width: "100%" },
   /*
    * 4:3, because that is the artwork's own shape. A 16:9 window cut the
    * ceiling and the floor off the room, which is most of what makes a
@@ -176,8 +202,8 @@ const styles = StyleSheet.create({
    * the professional's profile card.
    */
   interior: { width: "100%", aspectRatio: 4 / 3 },
-  body: { padding: spacing.lg },
-  trade: { ...type.section, textAlign: "right", writingDirection: "rtl" },
+  body: { padding: spacing.xl, paddingTop: spacing.lg },
+  trade: { ...type.title, textAlign: "right", writingDirection: "rtl" },
   note: {
     ...type.meta,
     textAlign: "right",

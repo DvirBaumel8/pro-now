@@ -265,11 +265,50 @@ export function StrollBody({
    * of where to go. There is no cut, because there is nothing to cut
    * between.
    */
+  /**
+   * Which shop is open, if any.
+   *
+   * Amit: *"רוצה שיהיו מוצרים בחנות שיפתחו... לא רוצה לאתר ישר."*
+   * Touching a building used to leave the street immediately for a list
+   * of services — which is a menu, not a shop.
+   */
+  const [openTrade, setOpenTrade] = useState<DepartmentCode | null>(null);
   const [metresAcross, setMetresAcross] = useState<number>(SHOT_METRES.EXPLORE);
-  const lens = useMemo(
-    () => (geo ? geoZoomFor("EXPLORE", geo.bounds) * (SHOT_METRES.EXPLORE / metresAcross) : worldZoomFor("EXPLORE")),
-    [geo, metresAcross]
-  );
+  /**
+   * WALKING UP TO A DOOR, BEFORE GOING THROUGH IT.
+   *
+   * Amit, of the app beside the mock he liked: *"הכניסה לחנות, המעבר על
+   * הפנים — אין שום אפקט."* He is right and the mock is why: there, the
+   * camera pushed through the shopfront until the shop filled the frame
+   * and the room was already behind it. Here the room simply appeared,
+   * which is a page change however good the picture is.
+   *
+   * So pressing a shop moves the camera in FIRST — the world's own
+   * VENUE lens, the same one the journey to a professional arrives on —
+   * and the room opens on top of it half a second later. `WorldViewport`
+   * eases a change of zoom, so this is one number and the push is free.
+   */
+  const [entering, setEntering] = useState<DepartmentCode | null>(null);
+  const lens = useMemo(() => {
+    const atDoor = entering !== null || openTrade !== null;
+    if (geo) {
+      const shot = atDoor ? "VENUE" : "EXPLORE";
+      return geoZoomFor(shot, geo.bounds) * (SHOT_METRES.EXPLORE / metresAcross);
+    }
+    return worldZoomFor(atDoor ? "VENUE" : "EXPLORE");
+  }, [geo, metresAcross, entering, openTrade]);
+
+  /*
+   * The push, and then the door. Cleared on the way out so leaving a
+   * shop pulls the camera back the way it came in.
+   */
+  const stepInside = useCallback((department: DepartmentCode) => {
+    setEntering(department);
+    setTimeout(() => {
+      setOpenTrade(department);
+      setEntering(null);
+    }, 520);
+  }, []);
   /*
    * And "near enough to open the shop" is metres too, for the same reason.
    * `NEAR` is 0.16 of the world: fourteen metres on the painting, a
@@ -304,7 +343,7 @@ export function StrollBody({
    * of services — which is a menu, not a shop. It opens the shop now,
    * and the list is one button inside it.
    */
-  const [openTrade, setOpenTrade] = useState<DepartmentCode | null>(null);
+
 
   /*
    * HOW FAR DOWN THE STREET THE WALKER IS, AS STATE.
@@ -512,7 +551,7 @@ export function StrollBody({
                * claim about who is available inside.
                */
               activeDepartment={nearest}
-              onSelect={setOpenTrade}
+              onSelect={stepInside}
             />
 
             {/*
@@ -591,7 +630,7 @@ export function StrollBody({
                 litGround={Boolean(geo)}
                 vRange={{ min: depth, max: 1.01 }}
                 activeDepartment={nearest}
-                onSelect={setOpenTrade}
+                onSelect={stepInside}
               />
             ) : null}
           </>
@@ -651,7 +690,7 @@ export function StrollBody({
         * The back control stays, because leaving must never be
         * something you have to remember how to do.
         */}
-      {moved ? null : (
+      {moved || openTrade || entering ? null : (
         <View style={[styles.hud, { top: spacing.md + BACK_BUTTON_CLEARANCE }]} pointerEvents="none">
           <Text style={styles.title}>הרחוב של PRO NOW</Text>
           <Text style={styles.sub}>
@@ -682,7 +721,7 @@ export function StrollBody({
         * person: this is a street of professions, and who is behind any
         * door is a question only the server gets to answer.
         */}
-      {label ? (
+      {label && !openTrade && !entering ? (
         <View style={styles.here} pointerEvents="none">
           <Text style={styles.hereText}>{label}</Text>
         </View>
