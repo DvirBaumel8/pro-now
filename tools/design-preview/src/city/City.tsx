@@ -1243,6 +1243,91 @@ function ShopRoom({
     setBox({ w: img.naturalWidth * k, h: img.naturalHeight * k });
   };
 
+  /*
+   * ---------------------------------------------------------------
+   * LOOKING CLOSER AT A SHELF
+   * ---------------------------------------------------------------
+   * Amit: *"שפה תהיה לי אפשרות לעשות זום אין לחנות להסתכל מקרוב
+   * יותר."*
+   *
+   * Pinch to zoom, drag to move, and tapping a sparkle takes you to
+   * it — which is the one that matters, because hunting for a shelf
+   * by pinching is work and pressing the thing you already want is
+   * not.
+   *
+   * Capped at 2.5. The interiors are 3400 pixels wide and the picture
+   * is shown at about 390, so 2.5 is still inside the file's own
+   * resolution; past that the engine would be inventing detail and he
+   * would be looking at mush. It is the file that sets this ceiling,
+   * not the code, and the day a larger one arrives the number moves.
+   *
+   * The sparkles live INSIDE the same transformed box as the picture,
+   * so they zoom and pan with it and a mark never drifts off the
+   * shelf it points at.
+   */
+  const MAX_ZOOM = 2.5;
+  const [zoom, setZoom] = useState(1);
+  const [at, setAt] = useState({ x: 0, y: 0 });
+  const zoomRef = useRef(1);
+  const atRef = useRef({ x: 0, y: 0 });
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const pinch = useRef<{ dist: number; zoom: number } | null>(null);
+  const drag2 = useRef<{ x: number; y: number; from: { x: number; y: number } } | null>(null);
+
+  const clampAt = (z: number, x: number, y: number) => {
+    if (!box) return { x: 0, y: 0 };
+    const mx = Math.max(0, (box.w * z - box.w) / 2);
+    const my = Math.max(0, (box.h * z - box.h) / 2);
+    return { x: Math.max(-mx, Math.min(mx, x)), y: Math.max(-my, Math.min(my, y)) };
+  };
+  const apply = (z: number, x: number, y: number) => {
+    const zz = Math.max(1, Math.min(MAX_ZOOM, z));
+    const p2 = clampAt(zz, x, y);
+    zoomRef.current = zz;
+    atRef.current = p2;
+    setZoom(zz);
+    setAt(p2);
+  };
+
+  const down2 = (e: React.PointerEvent) => {
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    if (pointers.current.size === 2) {
+      const [a, b2] = [...pointers.current.values()];
+      pinch.current = { dist: Math.hypot(a!.x - b2!.x, a!.y - b2!.y), zoom: zoomRef.current };
+      drag2.current = null;
+    } else if (pointers.current.size === 1) {
+      drag2.current = { x: e.clientX, y: e.clientY, from: { ...atRef.current } };
+    }
+  };
+  const move2 = (e: React.PointerEvent) => {
+    if (!pointers.current.has(e.pointerId)) return;
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pinch.current && pointers.current.size === 2) {
+      const [a, b2] = [...pointers.current.values()];
+      const d = Math.hypot(a!.x - b2!.x, a!.y - b2!.y);
+      apply((pinch.current.zoom * d) / pinch.current.dist, atRef.current.x, atRef.current.y);
+      return;
+    }
+    const d2 = drag2.current;
+    if (d2 && zoomRef.current > 1.01) {
+      apply(zoomRef.current, d2.from.x + (e.clientX - d2.x), d2.from.y + (e.clientY - d2.y));
+    }
+  };
+  const up2 = (e: React.PointerEvent) => {
+    pointers.current.delete(e.pointerId);
+    if (pointers.current.size < 2) pinch.current = null;
+    if (pointers.current.size === 0) drag2.current = null;
+  };
+
+  /** Press a sparkle: come in close on it, then open the card. */
+  const goTo = (i: number, t: { x: number; y: number }) => {
+    if (!box) { setOpen(i); return; }
+    const z = 2;
+    apply(z, (0.5 - t.x) * box.w * z, (0.5 - t.y) * box.h * z);
+    window.setTimeout(() => setOpen(i), 260);
+  };
+
   const thing = open === null ? null : things[open] ?? null;
   const tint = shop.neonColour ?? "#FF6B4A";
 
@@ -1257,13 +1342,25 @@ function ShopRoom({
       />
       <div style={{ ...S.roomWashVeil, opacity: shown ? 1 : 0 }} />
 
-      <div ref={stage} style={{ ...S.roomStage, height: box ? box.h : "40%" }}>
+      <div
+        ref={stage}
+        style={{ ...S.roomStage, height: box ? box.h : "40%" }}
+        onPointerDown={down2}
+        onPointerMove={move2}
+        onPointerUp={up2}
+        onPointerCancel={up2}
+      >
         <div
           style={{
             ...S.roomInner,
             width: box ? box.w : "92%",
             height: box ? box.h : undefined,
-            transform: shown ? "scale(1)" : "scale(1.1)",
+            transform: shown
+              ? `translate(${at.x}px, ${at.y}px) scale(${zoom})`
+              : "scale(1.1)",
+            transition: pinch.current || drag2.current
+              ? "none"
+              : "transform 300ms cubic-bezier(.16,.84,.34,1), opacity 420ms ease",
             opacity: shown ? 1 : 0,
             boxShadow: `0 26px 70px rgba(0,0,0,.6), 0 0 0 1px ${tint}44`,
           }}
@@ -1283,7 +1380,7 @@ function ShopRoom({
                 top: `${t.y * 100}%`,
                 animationDelay: `${i * 0.45}s`,
               }}
-              onClick={() => setOpen(i)}
+              onClick={() => goTo(i, t)}
               aria-label={t.titleHe}
             >
               <span style={S.spotCore} />
