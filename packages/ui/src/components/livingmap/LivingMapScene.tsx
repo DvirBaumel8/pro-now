@@ -526,6 +526,34 @@ export function LivingMapScene({
    * one is a place, the other is a person.
    */
   const [openTrade, setOpenTrade] = useState<DepartmentCode | null>(null);
+  /**
+   * JUST THE WORLD.
+   *
+   * Amit: *"למה זה לא נגלל למטה שאוכל לראות רק את המפה והמשחק?"*
+   *
+   * He was pointing at the ETA. The wait is two things at once — a fact
+   * you check ("how long") and a place you are in ("what is down that
+   * street") — and the first was permanently drawn over the second. The
+   * answer he reached for was scrolling, because a sheet that will not
+   * move is the only thing a phone teaches you to push away.
+   *
+   * So the words get out of the way on request: the top band, the scrim
+   * behind it and the drawer at the foot all leave together, and one
+   * small control stays to bring them back. Nothing about the job
+   * changes, nothing is dismissed, and it puts itself away the moment
+   * anything happens that the customer has to be told about — see the
+   * effect below.
+   */
+  const [bare, setBare] = useState(false);
+  /*
+   * And it puts itself away. A customer who hid the words to watch the
+   * street must not still be watching the street when the phase has
+   * moved on and the app has something to say — the whole permission to
+   * hide them rests on there being nothing to decide.
+   */
+  useEffect(() => {
+    if (phase !== "ASSIGNED_ROUTE") setBare(false);
+  }, [phase]);
   const wasOpen = useRef(false);
 
   useEffect(() => {
@@ -1679,7 +1707,7 @@ export function LivingMapScene({
         * They are gradients. They were flat panels, and a flat panel over
         * a photograph draws a hard line across it — see `ScrimBand`.
         */}
-      <ScrimBand width={width} height={height * HUD_SHARE} edge="top" />
+      {bare ? null : <ScrimBand width={width} height={height * HUD_SHARE} edge="top" />}
       {/*
         * No bottom band during the reveal — the match sheet is a real
         * surface and a scrim under it would just be a second, softer sheet.
@@ -1695,6 +1723,7 @@ export function LivingMapScene({
         * a building on a map is a business at a place; a label in the HUD
         * is the app talking.
         */}
+      {bare ? null : (
       <View style={[styles.hudTop, topInset ? { top: spacing.xl + topInset } : null]} pointerEvents="none">
         {/*
           * ONE THING IN THE TOP BAND AT A TIME.
@@ -1731,6 +1760,31 @@ export function LivingMapScene({
           </>
         )}
       </View>
+      )}
+
+      {/* ---------------------------------------------------------------
+          THE CONTROL THAT GETS THE WORDS OUT OF THE WAY.
+
+          Only while somebody is on their way — that is the only stretch
+          of this product with nothing to decide, and therefore the only
+          one where hiding what the app is saying costs nothing. During
+          the search and the reveal the words ARE the screen.
+
+          It stays visible in both states, because a control that hides
+          itself along with everything else leaves somebody tapping
+          around a picture looking for their ETA.
+          --------------------------------------------------------------- */}
+      {phase === "ASSIGNED_ROUTE" ? (
+        <Pressable
+          onPress={() => setBare((v) => !v)}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: !bare }}
+          accessibilityLabel={bare ? "הצגת פרטי ההזמנה" : "הסתרת הכתוביות והצגת העולם בלבד"}
+          style={[styles.bareToggle, topInset ? { top: spacing.xl + topInset } : null]}
+        >
+          <Text style={styles.bareToggleText}>{bare ? "פרטים" : "רק המפה"}</Text>
+        </Pressable>
+      ) : null}
 
       {/*
         * THE DECISION, gathered into one sheet at the bottom.
@@ -1764,7 +1818,7 @@ export function LivingMapScene({
         * screen to get stuck on. See PlayDrawer for why this is a defect
         * fix rather than a feature.
         */}
-      {phase === "ASSIGNED_ROUTE" ? (
+      {phase === "ASSIGNED_ROUTE" && !bare ? (
         <PlayDrawer
           firstNameHe={chosen ? firstName(chosen.displayNameHe) : null}
           etaMinutes={etaMinutes}
@@ -1973,6 +2027,24 @@ const styles = StyleSheet.create({
   },
 
   hudTop: { position: "absolute", top: spacing.xl, left: spacing.lg, right: spacing.lg, alignItems: "center" },
+  /*
+   * Small, and on the LEFT — the right is where the back control and the
+   * header's own chips live, and a control that lands on top of another
+   * one is the defect the sponsor badge already shipped once.
+   */
+  bareToggle: {
+    position: "absolute",
+    top: spacing.xl,
+    left: spacing.lg,
+    minHeight: 34,
+    paddingHorizontal: spacing.md,
+    justifyContent: "center",
+    borderRadius: radii.pill,
+    backgroundColor: "rgba(23,18,31,0.66)",
+    borderWidth: 1,
+    borderColor: "rgba(247,243,250,0.24)",
+  },
+  bareToggleText: { ...type.micro, fontWeight: "700", color: "#F7F3FA" },
   /*
    * THE HALO, AND WHY THE SCRIM WAS NOT DOING THIS JOB.
    *
