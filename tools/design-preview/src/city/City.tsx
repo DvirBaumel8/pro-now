@@ -463,27 +463,77 @@ export function City({ base = "./world/", spawn, onExit }: CityProps) {
          */
         player.group.rotation.y = camYaw + Math.PI;
 
-        const dist = 6.2 + pitch * 3.0;
-        const hgt = 2.4 + pitch * 4.6;
+        const wide = 6.2 + pitch * 3.0;
         const fx = Math.sin(camYaw), fz = Math.cos(camYaw);
+
+        /*
+         * -----------------------------------------------------------
+         * THE CAMERA MUST NOT GO THROUGH THE WALL
+         * -----------------------------------------------------------
+         * Found on an emulated phone, by swiping: turn far enough and
+         * the camera — which sits six metres BEHIND you — ends up
+         * inside the terrace, and the screen fills with the black
+         * inside face of a building.
+         *
+         * This street is a corridor with walls at x = ±FRONT_X, which
+         * makes the fix arithmetic rather than physics. The camera is
+         * at p.x - fx·d, so the largest d that keeps it inside is
+         * solvable directly, and the camera slides in towards you
+         * instead of through the brickwork.
+         *
+         * A floor of 2.4m, because a camera that collapses onto the
+         * back of the character's head is its own kind of broken.
+         */
+        const WALL = FRONT_X - 0.5;
+        let dist = wide;
+        if (Math.abs(fx) > 0.001) {
+          const room =
+            fx > 0
+              ? (player.group.position.x + WALL) / fx
+              : (WALL - player.group.position.x) / -fx;
+          dist = Math.max(2.4, Math.min(dist, room));
+        }
+
+        /*
+         * -----------------------------------------------------------
+         * HEIGHT AND AIM FOLLOW THE DISTANCE, OR THE WALL LOSES YOU
+         * -----------------------------------------------------------
+         * Height was a constant 3.6m and the aim a constant 11m ahead,
+         * which frames correctly at the resting distance and nowhere
+         * else. The moment the wall clamp above pulled the camera in
+         * to 3.1m, the camera was still three and a half metres up and
+         * still looking eleven metres down the street — so the figure,
+         * who is 1.78m and right underneath it, went off the BOTTOM of
+         * the screen. Measured by projecting him: ndc.y = -1.52, where
+         * anything past -1 is off the edge.
+         *
+         * Turning to look at a shop made the character disappear, and
+         * no screenshot of a stationary camera would ever have shown
+         * it.
+         *
+         * So both are proportional to the distance: come closer and
+         * the camera comes DOWN towards eye level and looks less far
+         * ahead, which is what a person does. The angles then stay
+         * roughly constant — measured, the figure sits between -0.53
+         * and -0.61 of the frame at every distance instead of
+         * wandering off it.
+         */
+        const hgt = 1.2 + dist * 0.33;
+        const ahead = dist * 1.55;
         camPos.set(
           player.group.position.x - fx * dist,
           hgt,
           player.group.position.z - fz * dist
         );
         camera.position.lerp(camPos, 1 - Math.pow(0.002, dt));
-        /* Aim well ahead and above head height: a camera that looks AT
-           you frames the pavement; one that looks where you are going
-           frames the street. */
         aim.set(
-          player.group.position.x + fx * 11,
-          2.5,
-          player.group.position.z + fz * 11
+          player.group.position.x + fx * ahead,
+          1.1 + dist * 0.16,
+          player.group.position.z + fz * ahead
         );
         camera.lookAt(aim);
 
         street.update(dt, now / 1000, camera);
-
         const id = best ? best.id : null;
         if (id !== lastNear) {
           lastNear = id;

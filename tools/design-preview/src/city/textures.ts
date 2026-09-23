@@ -35,14 +35,14 @@ function texture(c: HTMLCanvasElement, repeatX: number, repeatY: number): THREE.
 /** Cut stone, laid in courses, with the grout darker than the stone. */
 export function paving(repeat = 26): THREE.Texture {
   const [c, x] = canvas(512, 512);
-  x.fillStyle = "#211c1a";
+  x.fillStyle = "#332b28";
   x.fillRect(0, 0, 512, 512);
   const TILE = 128;
   for (let row = 0; row < 4; row += 1) {
     const offset = row % 2 ? TILE / 2 : 0;
     for (let col = -1; col < 5; col += 1) {
       const v = Math.random() * 14 - 7;
-      x.fillStyle = `rgb(${54 + v},${48 + v},${43 + v})`;
+      x.fillStyle = `rgb(${86 + v},${78 + v},${71 + v})`;
       x.fillRect(col * TILE + offset + 2, row * TILE + 2, TILE - 4, TILE - 4);
       /* A little wear towards the edges of each stone. */
       const g = x.createRadialGradient(
@@ -61,7 +61,7 @@ export function paving(repeat = 26): THREE.Texture {
 /** Asphalt, with a worn centre line and lane dashes. */
 export function asphalt(): THREE.Texture {
   const [c, x] = canvas(256, 1024);
-  x.fillStyle = "#1a181f";
+  x.fillStyle = "#26232e";
   x.fillRect(0, 0, 256, 1024);
   for (let i = 0; i < 4200; i += 1) {
     x.fillStyle = `rgba(255,255,255,${Math.random() * 0.035})`;
@@ -122,6 +122,40 @@ export function neon(
     draw(x, size, height);
     x.restore();
   }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 8;
+  return t;
+}
+
+/**
+ * THE WORDMARK, ON A PANEL.
+ *
+ * Amit: *"בא לי שכלי הרכב שמסתובבים בכביש יהיו של פרו נאו... בא לי
+ * שהכל ידבר את המותג."*
+ *
+ * PRO NOW stays in Latin letters wherever it appears — that rule is
+ * his and it is in `world-districts.ts`: *"תשאירו רק את הלוגו של פרו
+ * נאו באנגלית, כל השאר בעברית שיבינו את המקצועות."* A wordmark is a
+ * wordmark; the trade underneath it is information and is Hebrew.
+ */
+export function wordmark(
+  fg = "#F7F3FA",
+  bg = "rgba(0,0,0,0)",
+  w = 512,
+  h = 160
+): THREE.Texture {
+  const [c, x] = canvas(w, h);
+  if (bg !== "rgba(0,0,0,0)") {
+    x.fillStyle = bg;
+    x.fillRect(0, 0, w, h);
+  }
+  x.fillStyle = fg;
+  x.textAlign = "center";
+  x.textBaseline = "middle";
+  x.font = `800 ${Math.round(h * 0.46)}px "Helvetica Neue", Arial, sans-serif`;
+  x.letterSpacing = "4px";
+  x.fillText("PRO NOW", w / 2, h / 2);
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 8;

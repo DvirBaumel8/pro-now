@@ -1,6 +1,6 @@
 import * as THREE from "three";
 
-import { asphalt, glow, neon, paving, plaster } from "./textures";
+import { asphalt, glow, neon, paving, plaster, wordmark } from "./textures";
 
 /**
  * THE STREET, WITH VOLUME AND WITH NIGHT IN IT.
@@ -112,7 +112,7 @@ export const SPAWN = { x: 6.3, z: STREET_LENGTH / 2 - 46 } as const;
 /** One building's frontage along the street. */
 const BAY = 11.5;
 
-const DARK_SKY = 0x0b0916;
+const DARK_SKY = 0x2a2448;
 
 /* ---------------------------------------------------------------------
    NEON, DRAWN
@@ -266,7 +266,7 @@ export function buildStreet(
    * eleven metres and a shop every eleven, six is barely the block
    * you are standing in. Eight is still a seventh of what was there.
    */
-  const POOL = 8;
+  const POOL = 10;
   const pool: THREE.PointLight[] = [];
   for (let i = 0; i < POOL; i += 1) {
     const l = new THREE.PointLight(0xffffff, 0, 20, 2);
@@ -324,17 +324,36 @@ export function buildStreet(
   {
     const x = sky.getContext("2d")!;
     const g = x.createLinearGradient(0, 0, 0, 256);
-    g.addColorStop(0, "#04030a");
-    g.addColorStop(0.5, "#0b0916");
-    g.addColorStop(0.82, "#1d1430");
-    g.addColorStop(1, "#392042");
+    /*
+     * IT IS EIGHT IN THE EVENING, NOT TWO IN THE MORNING.
+     *
+     * Amit: *"בא לי שהרחוב יהיה טיפה יותר מואר ושמח ולא מפחיד וחשוך,
+     * יותר את סגנון הרחוב שעיצבנו בתמונה."*
+     *
+     * He is right and I know exactly how it happened: I built a
+     * cinematic night — nearly everything black, light only from the
+     * lamps. That photographs beautifully in a single frame and is a
+     * grim place to spend time in, and the painted world he
+     * commissioned is a WARM EVENING, not a night.
+     *
+     * This is not turning the brightness up, which flattens a scene
+     * into a grey model. It is moving the hour: a sky that still has
+     * light left in it, a horizon that glows, haze that is blue
+     * rather than black, and twice as many shopfronts with their
+     * lights on.
+     */
+    g.addColorStop(0, "#0b1030");
+    g.addColorStop(0.42, "#1d2050");
+    g.addColorStop(0.72, "#4a3364");
+    g.addColorStop(0.9, "#8a4f63");
+    g.addColorStop(1, "#c07a5e");
     x.fillStyle = g;
     x.fillRect(0, 0, 4, 256);
   }
   const skyTex = new THREE.CanvasTexture(sky);
   skyTex.colorSpace = THREE.SRGBColorSpace;
   scene.background = skyTex;
-  scene.fog = new THREE.FogExp2(DARK_SKY, 0.0115);
+  scene.fog = new THREE.FogExp2(DARK_SKY, 0.0125);
 
   /*
    * STARS AND A CITY BEYOND THE END OF THE STREET.
@@ -430,8 +449,8 @@ export function buildStreet(
      a dark scene lifts the shadows, which sounds like the thing to do
      and is how the pavement ended up looking like a beach.
      --------------------------------------------------------------- */
-  scene.add(new THREE.HemisphereLight(0x3f3a66, 0x0c0a18, 0.9));
-  const moon = new THREE.DirectionalLight(0x93a4d6, 1.15);
+  scene.add(new THREE.HemisphereLight(0x8290d0, 0x3d3140, 2.15));
+  const moon = new THREE.DirectionalLight(0xb9c4ee, 1.45);
   moon.position.set(-34, 50, 26);
   /*
    * NO SHADOW MAP.
@@ -470,7 +489,7 @@ export function buildStreet(
   road.receiveShadow = true;
   scene.add(road);
 
-  const kerbMat = new THREE.MeshStandardMaterial({ color: 0x585065, roughness: 0.7 });
+  const kerbMat = new THREE.MeshStandardMaterial({ color: 0x7d7488, roughness: 0.7 });
   for (const sx of [-1, 1] as const) {
     const k = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.28, STREET_LENGTH), kerbMat);
     k.position.set(KERB_X * sx, 0.14, 0);
@@ -487,7 +506,7 @@ export function buildStreet(
      ordinary ones are the reason the drawings read as shops rather
      than as exhibits.
      --------------------------------------------------------------- */
-  const wallTints = ["#241d2b", "#2b2130", "#1e1a28", "#302337"];
+  const wallTints = ["#4a3a3c", "#3d3344", "#54423a", "#40374e", "#5a4640"];
   const wallMats = wallTints.map(
     (t) => new THREE.MeshStandardMaterial({ map: plaster(t), roughness: 0.94 })
   );
@@ -504,7 +523,7 @@ export function buildStreet(
     const m = new THREE.MeshStandardMaterial({
       color: lit ? 0xffd9a0 : 0x0b0913,
       emissive: lit ? 0xffb15e : 0x000000,
-      emissiveIntensity: lit ? 1.5 : 0,
+      emissiveIntensity: lit ? 1.9 : 0,
       roughness: 0.25,
       metalness: 0.35,
     });
@@ -557,20 +576,20 @@ export function buildStreet(
      * None of them is named and none of them is a PRO NOW trade. They
      * are the city the marketplace stands in, not the marketplace.
      */
-    const open = seed % 3 === 1;
+    const open = seed % 2 === 1;
     const lintel = new THREE.Mesh(new THREE.BoxGeometry(BAY - 2.4, 0.5, 0.8), trimMat);
     lintel.position.set(-0.5, 3.9, 0.35);
     lintel.castShadow = true;
     g.add(lintel);
 
     if (open) {
-      const warmth = [0xffc88a, 0xffd9a8, 0xb9e2ff][seed % 3]!;
+      const warmth = [0xffc88a, 0xffd9a8, 0xb9e2ff, 0xffd0b0, 0xc9f0d8][seed % 5]!;
       const glass = new THREE.Mesh(
         new THREE.PlaneGeometry(BAY - 3.4, 3.2),
         new THREE.MeshStandardMaterial({
           color: warmth,
           emissive: warmth,
-          emissiveIntensity: 0.75,
+          emissiveIntensity: 0.95,
           roughness: 0.15,
           metalness: 0.5,
         })
@@ -597,7 +616,9 @@ export function buildStreet(
       const awning = new THREE.Mesh(
         new THREE.BoxGeometry(BAY - 2.8, 0.14, 1.6),
         new THREE.MeshStandardMaterial({
-          color: [0x6d2233, 0x1f3a4d, 0x2c4a2c][seed % 3]!,
+          /* Awnings carry most of the colour a street has by day and
+             nearly all of the cheer it has by night. */
+          color: [0xa3324a, 0x2d5f86, 0x3f7a4a, 0xc0783a, 0x6d4a8f][seed % 5]!,
           roughness: 0.85,
         })
       );
@@ -617,7 +638,7 @@ export function buildStreet(
 
     for (let s = 0; s < storeys; s += 1) {
       for (let c = -1; c <= 1; c += 1) {
-        flat(g, c * 3.5, 5.9 + s * 2.9, Math.random() > 0.42);
+        flat(g, c * 3.5, 5.9 + s * 2.9, Math.random() > 0.3);
       }
       /* A balcony every other storey, which is what this city has. */
       if (s % 2 === 1) {
@@ -704,7 +725,7 @@ export function buildStreet(
           map: tex,
           emissiveMap: tex,
           emissive: 0xffffff,
-          emissiveIntensity: 0.46,
+          emissiveIntensity: 0.55,
           transparent: true,
           alphaTest: 0.35,
           roughness: 0.82,
@@ -1034,32 +1055,103 @@ export function buildStreet(
      TRAFFIC — headlights are most of what a night street IS
      --------------------------------------------------------------- */
   const cars: THREE.Group[] = [];
-  function car(dir: 1 | -1, lane: number, speed: number, z: number) {
+  /*
+   * ONE VEHICLE IN THREE IS OURS.
+   *
+   * Amit: *"בא לי שכלי הרכב שמסתובבים בכביש יהיו של פרו נאו... בא לי
+   * שהכל ידבר את המותג."*
+   *
+   * Not all of them. A street where every car belongs to one company
+   * is not a city, it is a depot — and the point of the world is that
+   * PRO NOW operates inside a real place. One in three is enough to
+   * say the brand is moving through the neighbourhood, which is the
+   * claim, and it stays a claim about presence and not about supply:
+   * these vans are scenery, they carry no job and are never counted.
+   *
+   * The drawn vehicles in the art pack are BROADSIDE views, and this
+   * road runs away from the camera — the same mismatch that made the
+   * old painted traffic look wrong. So the livery is built rather
+   * than pasted: brand colours, a coral band, and the wordmark on the
+   * flank and over the cab.
+   */
+  const markTex = wordmark();
+  const PRONOW = { body: 0xf2eef6, band: 0xff6b4a };
+
+  function car(dir: 1 | -1, lane: number, speed: number, z: number, ours = false) {
     const g = new THREE.Group();
-    const bodyColour = [0x2a2f3d, 0x3a2430, 0x243028, 0x2e2a1f, 0x11131b][
-      Math.floor(Math.random() * 5)
-    ]!;
+    const bodyColour = ours
+      ? PRONOW.body
+      : [0x2a2f3d, 0x3a2430, 0x243028, 0x2e2a1f, 0x11131b][Math.floor(Math.random() * 5)]!;
+    const len = ours ? 5.2 : 4.3;
+    const tall = ours ? 1.7 : 0.95;
     const body = new THREE.Mesh(
-      new THREE.BoxGeometry(1.78, 0.95, 4.3),
-      new THREE.MeshStandardMaterial({ color: bodyColour, roughness: 0.28, metalness: 0.75 })
+      new THREE.BoxGeometry(1.86, tall, len),
+      new THREE.MeshStandardMaterial({
+        color: bodyColour,
+        roughness: ours ? 0.45 : 0.28,
+        metalness: ours ? 0.25 : 0.75,
+      })
     );
-    body.position.y = 0.68;
-    body.castShadow = true;
+    body.position.y = ours ? 1.15 : 0.68;
     g.add(body);
-    const cabin = new THREE.Mesh(
-      new THREE.BoxGeometry(1.6, 0.7, 2.1),
-      new THREE.MeshStandardMaterial({ color: 0x0b0910, roughness: 0.1, metalness: 0.95 })
-    );
-    cabin.position.set(0, 1.45, -0.1);
-    g.add(cabin);
+
+    if (ours) {
+      /* The coral band, low along the flank. */
+      const band = new THREE.Mesh(
+        new THREE.BoxGeometry(1.9, 0.26, len * 0.92),
+        new THREE.MeshStandardMaterial({ color: PRONOW.band, roughness: 0.5 })
+      );
+      band.position.y = 0.62;
+      g.add(band);
+      /* The wordmark on both flanks, and lit above the cab. */
+      for (const sx of [-1, 1] as const) {
+        const m = new THREE.Mesh(
+          new THREE.PlaneGeometry(2.3, 0.72),
+          new THREE.MeshStandardMaterial({
+            map: markTex, transparent: true, color: 0x1a1522, roughness: 0.6,
+          })
+        );
+        m.position.set(sx * 0.94, 1.32, 0.2);
+        m.rotation.y = (Math.PI / 2) * sx;
+        g.add(m);
+      }
+      const sign = new THREE.Mesh(
+        new THREE.PlaneGeometry(1.5, 0.46),
+        new THREE.MeshBasicMaterial({
+          map: markTex, transparent: true, toneMapped: false, side: THREE.DoubleSide,
+        })
+      );
+      sign.position.set(0, 2.15, dir > 0 ? -len / 2 + 0.6 : len / 2 - 0.6);
+      g.add(sign);
+      const box = new THREE.Mesh(
+        new THREE.BoxGeometry(1.6, 0.56, 0.4),
+        new THREE.MeshStandardMaterial({ color: PRONOW.band, roughness: 0.5 })
+      );
+      box.position.copy(sign.position).setZ(sign.position.z - (dir > 0 ? -0.12 : 0.12));
+      g.add(box);
+      const cab = new THREE.Mesh(
+        new THREE.BoxGeometry(1.7, 0.62, 1.5),
+        new THREE.MeshStandardMaterial({ color: 0x0b0910, roughness: 0.1, metalness: 0.95 })
+      );
+      cab.position.set(0, 1.62, dir > 0 ? -len / 2 + 1.2 : len / 2 - 1.2);
+      g.add(cab);
+    } else {
+      const cabin = new THREE.Mesh(
+        new THREE.BoxGeometry(1.6, 0.7, 2.1),
+        new THREE.MeshStandardMaterial({ color: 0x0b0910, roughness: 0.1, metalness: 0.95 })
+      );
+      cabin.position.set(0, 1.45, -0.1);
+      g.add(cabin);
+    }
+
     const lampMat = (c: number, i: number) =>
       new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: i });
     for (const sx of [-0.58, 0.58]) {
       const hl = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.15, 0.08), lampMat(0xfff3d6, 5));
-      hl.position.set(sx, 0.74, dir > 0 ? -2.19 : 2.19);
+      hl.position.set(sx, ours ? 0.9 : 0.74, dir > 0 ? -len / 2 - 0.02 : len / 2 + 0.02);
       g.add(hl);
       const tl = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.13, 0.08), lampMat(0xff3b30, 3));
-      tl.position.set(sx, 0.82, dir > 0 ? 2.19 : -2.19);
+      tl.position.set(sx, ours ? 1.0 : 0.82, dir > 0 ? len / 2 + 0.02 : -len / 2 - 0.02);
       g.add(tl);
     }
     const beam = new THREE.Mesh(
@@ -1090,8 +1182,8 @@ export function buildStreet(
   }
   const laneA = -ROAD_HALF * 0.5;
   const laneB = ROAD_HALF * 0.5;
-  for (let i = 0; i < 4; i += 1) car(-1, laneA, 11 + Math.random() * 5, -110 + i * 74);
-  for (let i = 0; i < 4; i += 1) car(1, laneB, 10 + Math.random() * 5, -70 + i * 78);
+  for (let i = 0; i < 4; i += 1) car(-1, laneA, 11 + Math.random() * 5, -110 + i * 74, i === 1);
+  for (let i = 0; i < 4; i += 1) car(1, laneB, 10 + Math.random() * 5, -70 + i * 78, i === 2);
 
   /* ---------------------------------------------------------------
      PEOPLE WHO ARE NOT YOU
@@ -1260,6 +1352,186 @@ export function buildStreet(
   for (let z = STREET_LENGTH / 2 - 8; z > -STREET_LENGTH / 2; z -= 46) {
     tree(FURNITURE_X, z - 7, 0.7 + Math.random() * 0.14);
     tree(-FURNITURE_X, z - 18.5, 0.7 + Math.random() * 0.14);
+  }
+
+  /* ---------------------------------------------------------------
+     THE THINGS THAT MAKE A STREET SOMEWHERE YOU WANT TO BE
+
+     Amit: *"תחשוב אווירה שמחה שכיף להיות בה."*
+
+     Lighting moved the hour from two in the morning to eight in the
+     evening, and that is as far as light alone goes — a well-lit
+     empty street is a well-lit empty street. What makes somewhere
+     feel good to be in is evidence that OTHER PEOPLE chose to be
+     there: somebody hung lights across the road, somebody put tables
+     out, somebody plants flowers and waters them.
+
+     None of it is ours and none of it is a claim. It is a
+     neighbourhood that was already nice before PRO NOW rented a
+     shopfront in it.
+     --------------------------------------------------------------- */
+
+  /*
+   * FESTOON LIGHTS, AS ONE DRAW CALL.
+   *
+   * Nine strings of eleven bulbs is ninety-nine objects, and ninety-
+   * nine meshes with ninety-nine sprites over them is how a scene
+   * quietly goes back to five frames a second. Every bulb in the
+   * street is one `Points` cloud with a glow sprite on it — a single
+   * draw call for the whole lot — and the cables are plain lines.
+   */
+  {
+    const bulbs: number[] = [];
+    const tints: number[] = [];
+    const cable = new THREE.BufferGeometry();
+    const cablePts: number[] = [];
+    const WARM = [
+      [1, 0.82, 0.55], [1, 0.72, 0.42], [1, 0.9, 0.7],
+      [0.68, 0.86, 1], [1, 0.62, 0.62], [0.78, 1, 0.78],
+    ];
+    for (let z = STREET_LENGTH / 2 - 16; z > -STREET_LENGTH / 2; z -= 31) {
+      const x0 = -KERB_X - 1.4, x1 = KERB_X + 1.4;
+      const top = 7.4, sag = 1.9;
+      const N = 13;
+      let prev: [number, number, number] | null = null;
+      for (let i = 0; i <= N; i += 1) {
+        const t = i / N;
+        const x = x0 + (x1 - x0) * t;
+        const y = top - sag * (1 - Math.pow(2 * t - 1, 2));
+        const zz = z + Math.sin(t * Math.PI) * 0.6;
+        if (prev) cablePts.push(prev[0], prev[1], prev[2], x, y, zz);
+        prev = [x, y, zz];
+        if (i > 0 && i < N) {
+          bulbs.push(x, y - 0.22, zz);
+          /* `z` is negative down half the street, and a negative
+             modulo in JS stays negative — which indexes off the front
+             of the array and hands you `undefined`. The city stopped
+             building at "בונה את העיר…" for exactly this. */
+          const c = WARM[(((i + Math.round(z)) % WARM.length) + WARM.length) % WARM.length]!;
+          tints.push(c[0]!, c[1]!, c[2]!);
+        }
+      }
+    }
+    cable.setAttribute("position", new THREE.Float32BufferAttribute(cablePts, 3));
+    scene.add(
+      new THREE.LineSegments(
+        cable,
+        new THREE.LineBasicMaterial({ color: 0x120e1a, transparent: true, opacity: 0.85 })
+      )
+    );
+    const bg = new THREE.BufferGeometry();
+    bg.setAttribute("position", new THREE.Float32BufferAttribute(bulbs, 3));
+    bg.setAttribute("color", new THREE.Float32BufferAttribute(tints, 3));
+    const lamps2 = new THREE.Points(
+      bg,
+      new THREE.PointsMaterial({
+        map: glowTex, size: 1.5, sizeAttenuation: true, vertexColors: true,
+        transparent: true, opacity: 0.95, depthWrite: false,
+        blending: THREE.AdditiveBlending, toneMapped: false,
+      })
+    );
+    scene.add(lamps2);
+    /* A slow breath across the whole string, so it is not a decal. */
+    ticking.push((_dt, t) => {
+      (lamps2.material as THREE.PointsMaterial).opacity = 0.82 + Math.sin(t * 1.4) * 0.13;
+    });
+  }
+
+  /*
+   * TABLES OUTSIDE. Somebody is sitting there, or was five minutes
+   * ago — either way a chair on a pavement is a street that people
+   * use rather than pass through.
+   */
+  const woodMat = new THREE.MeshStandardMaterial({ color: 0x6b4a33, roughness: 0.85 });
+  const metalMat = new THREE.MeshStandardMaterial({ color: 0x2a2430, roughness: 0.5, metalness: 0.5 });
+  function cafe(x: number, z: number, hue: number) {
+    const g = new THREE.Group();
+    const top = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.06, 14), woodMat);
+    top.position.y = 0.74;
+    g.add(top);
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.12, 0.74, 8), metalMat);
+    stem.position.y = 0.37;
+    g.add(stem);
+    for (let i = 0; i < 2; i += 1) {
+      const a = i * Math.PI + 0.5;
+      const seat = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.05, 12), metalMat);
+      seat.position.set(Math.cos(a) * 0.78, 0.46, Math.sin(a) * 0.78);
+      g.add(seat);
+      const back = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.42, 0.05), metalMat);
+      back.position.set(Math.cos(a) * 0.96, 0.68, Math.sin(a) * 0.96);
+      back.rotation.y = -a;
+      g.add(back);
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.46, 6), metalMat);
+      leg.position.set(Math.cos(a) * 0.78, 0.23, Math.sin(a) * 0.78);
+      g.add(leg);
+    }
+    /* A candle on the table. Tiny, and it is the whole point. */
+    const flame = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: glowTex, color: hue, transparent: true, opacity: 0.85,
+        blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
+      })
+    );
+    flame.scale.setScalar(0.9);
+    flame.position.y = 0.86;
+    g.add(flame);
+    ticking.push((_dt, t) => {
+      flame.material.opacity = 0.7 + Math.sin(t * 6.1 + x) * 0.16;
+    });
+    g.position.set(x, 0, z);
+    g.rotation.y = Math.random() * Math.PI;
+    scene.add(g);
+  }
+
+  /* Flowers, in a box, in colour. */
+  const flowerHues = [0xff6b9d, 0xffd166, 0xff8b4a, 0xc08bff, 0xfff1f1];
+  function planter(x: number, z: number) {
+    const g = new THREE.Group();
+    const box = new THREE.Mesh(
+      new THREE.BoxGeometry(1.5, 0.46, 0.55),
+      new THREE.MeshStandardMaterial({ color: 0x7a5a44, roughness: 0.9 })
+    );
+    box.position.y = 0.23;
+    g.add(box);
+    const soil = new THREE.Mesh(
+      new THREE.BoxGeometry(1.36, 0.06, 0.42),
+      new THREE.MeshStandardMaterial({ color: 0x2b2118, roughness: 1 })
+    );
+    soil.position.y = 0.46;
+    g.add(soil);
+    for (let i = 0; i < 16; i += 1) {
+      const f = new THREE.Mesh(
+        new THREE.SphereGeometry(0.07 + Math.random() * 0.05, 6, 5),
+        new THREE.MeshStandardMaterial({
+          color: flowerHues[i % flowerHues.length]!,
+          roughness: 0.8,
+          emissive: flowerHues[i % flowerHues.length]!,
+          emissiveIntensity: 0.14,
+        })
+      );
+      f.position.set(
+        (Math.random() - 0.5) * 1.28,
+        0.54 + Math.random() * 0.22,
+        (Math.random() - 0.5) * 0.34
+      );
+      g.add(f);
+      const leaf = new THREE.Mesh(
+        new THREE.SphereGeometry(0.1, 6, 5),
+        new THREE.MeshStandardMaterial({ color: 0x3f7a4a, roughness: 0.95 })
+      );
+      leaf.position.copy(f.position).setY(f.position.y - 0.11);
+      leaf.scale.set(1, 0.5, 1);
+      g.add(leaf);
+    }
+    g.position.set(x, 0, z);
+    scene.add(g);
+  }
+
+  for (let z = STREET_LENGTH / 2 - 24; z > -STREET_LENGTH / 2; z -= 31) {
+    cafe(FRONT_X - 2.0, z, flowerHues[Math.floor(Math.random() * 3)]!);
+    cafe(-FRONT_X + 2.0, z - 15, 0xffc07a);
+    planter(FRONT_X - 1.3, z - 7);
+    planter(-FRONT_X + 1.3, z - 22);
   }
 
   /* ---------------------------------------------------------------
