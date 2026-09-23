@@ -86,6 +86,25 @@ describe("one price approval", () => {
     expect(capture.proHe).toContain("כבר אושר");
   });
 
+  /*
+   * Amit, completing it: *"פעם שנייה אישור תשלום בסיום העבודה."* Two
+   * approvals on purpose, and the second has to name itself — a
+   * sentence that avoids the words to avoid confusion has understated
+   * what is being agreed to.
+   */
+  it("names the second one a payment approval", () => {
+    expect(PAYMENT_FLOW.find((p) => p.moment === "CAPTURE")!.customerHe).toContain("אישור תשלום");
+  });
+
+  it("catches a completion step that does not name itself", () => {
+    const coy = PAYMENT_FLOW.map((p) =>
+      p.moment === "CAPTURE" ? { ...p, customerHe: "המחיר כבר אושר. העבודה הושלמה?" } : p
+    );
+    expect(paymentFlowViolations(VISIT_ORDER, coy)).toContain(
+      "the completion step does not say it is a payment approval"
+    );
+  });
+
   it("asks about the price at exactly one moment", () => {
     const asks = PAYMENT_FLOW.filter((p) => /לאשר את המחיר|אישור המחיר/.test(p.customerHe));
     expect(asks.length).toBeLessThanOrEqual(1);

@@ -41,6 +41,12 @@ Three moments, and each one protects one side:
 | `WAITING_QUOTE_APPROVAL` → approved | `authorize` — the amount is **held** | the professional is not working against a promise |
 | `COMPLETION_PENDING` → customer confirms | `capture` | the money does not leave until the customer agrees the job was done |
 
+Two approvals, deliberately — Amit: *"צריך פעם אחת אישור הצעת מחיר, פעם
+שנייה אישור תשלום בסיום העבודה."* One of the price, before any work; one
+of the payment, at the end. The difficulty is only that the second must
+not read as the first being reopened, so it names itself and says the
+price is settled, in that order.
+
 Both halves are load-bearing. A capture on approval lets a customer be
 charged for work that was never finished; a capture with no prior hold
 lets a customer walk away after three hours in their kitchen. Neither is

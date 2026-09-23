@@ -766,7 +766,26 @@ export function TrackingBody({
               accessibilityLabel="אישור שהעבודה הושלמה, ומעבר לתשלום"
               style={({ pressed }) => [styles.confirmBtn, pressed && { opacity: 0.9 }]}
             >
-              <Text style={styles.confirmLabel}>הכול תקין — אישור וסיום</Text>
+              {/*
+                * THE SECOND OF TWO APPROVALS, NAMED.
+                *
+                * Amit: *"צריך פעם אחת אישור הצעת מחיר, פעם שנייה אישור
+                * תשלום בסיום העבודה."* Two on purpose — one of the
+                * price, one of the payment — so this one says which it
+                * is, and carries the amount for the same reason the
+                * first one does: a button about money that hides the
+                * number asks somebody to agree to it blind.
+                *
+                * The amount comes from the approved quote and is absent
+                * when there is none, in which case the button says what
+                * it does and nothing about a figure it has not been
+                * given.
+                */}
+              <Text style={styles.confirmLabel}>
+                {money?.approvedTotalHe
+                  ? `אישור תשלום · ${money.approvedTotalHe}`
+                  : "אישור תשלום — העבודה הושלמה"}
+              </Text>
             </Pressable>
             <Pressable
               onPress={onGetHelp}

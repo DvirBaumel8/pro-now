@@ -90,14 +90,21 @@ export const PAYMENT_FLOW: readonly PaymentMomentSpec[] = [
      * once, before any work; this one is "was the work done", and it is
      * the only question left.
      *
-     * So the sentence says so before it says anything else. A screen
-     * that merely avoids the word "price" leaves the reader to work out
-     * which of the two they are being asked, and they will assume the
-     * expensive one.
+     * So the sentence names this one for what it is and says what it is
+     * NOT, in that order. Amit, completing the thought: *"צריך פעם אחת
+     * אישור הצעת מחיר, פעם שנייה אישור תשלום בסיום העבודה."* Two
+     * approvals, deliberately — one of the price, one of the payment —
+     * and the whole difficulty is that the second must not be mistaken
+     * for the first being reopened.
+     *
+     * An earlier version said "כאן מאשרים רק שהעבודה הושלמה", which
+     * solved the confusion by understating the tap: this IS an approval
+     * of payment, and calling it a courtesy confirmation is the kind of
+     * softening that makes people press without reading.
      */
     customerHe:
-      "המחיר כבר אושר פעם אחת. כאן מאשרים רק שהעבודה הושלמה — וזה מה שמעביר את התשלום.",
-    proHe: "התשלום משתחרר כשהלקוח מאשר שהעבודה הושלמה. המחיר כבר אושר ולא נפתח שוב.",
+      "אישור תשלום. המחיר כבר אושר ולא משתנה — כאן מאשרים שהעבודה הושלמה, וזה משחרר את התשלום.",
+    proHe: "התשלום משתחרר כשהלקוח מאשר את התשלום בסיום. המחיר כבר אושר ולא נפתח שוב.",
   },
 ];
 
@@ -159,6 +166,14 @@ export function paymentFlowViolations(
   const capture = flow.find((p) => p.moment === "CAPTURE");
   if (capture && !capture.customerHe.includes("כבר אושר")) {
     out.push("the completion step does not say the price was already approved");
+  }
+  /*
+   * And it must name itself. "פעם שנייה אישור תשלום בסיום העבודה" — the
+   * second tap is an approval of payment, and a sentence that avoids
+   * saying so to avoid confusion has understated what is being agreed.
+   */
+  if (capture && !capture.customerHe.includes("אישור תשלום")) {
+    out.push("the completion step does not say it is a payment approval");
   }
 
   // Both sides must be told, at every moment. A rule one side cannot see
