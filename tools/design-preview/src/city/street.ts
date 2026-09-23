@@ -112,6 +112,81 @@ export const SPAWN = { x: 6.3, z: STREET_LENGTH / 2 - 46 } as const;
 /** One building's frontage along the street. */
 const BAY = 11.5;
 
+/**
+ * ---------------------------------------------------------------------
+ * THE ART THE STREET IS WAITING FOR
+ * ---------------------------------------------------------------------
+ * Amit: *"מת שכבר יעופו הבניינים המוזרים מסביב לעסקים שלנו ויהיו בתים
+ * שמחים."*
+ *
+ * The buildings between his shopfronts are plain boxes with flat
+ * rectangles for windows. On their own they are unremarkable; three
+ * metres from a hand-painted shopfront they are the reason he said the
+ * street looks like 2004, and he is right — the drawings and the
+ * geometry are not in the same decade and the eye goes straight to the
+ * gap.
+ *
+ * The fix is art, not code: flat orthographic elevations of ordinary
+ * buildings, in the same hand, which clad the blocks exactly the way
+ * his shopfronts already do. They are being drawn.
+ *
+ * So the ENGINE is ready for them first. Every id below is optional —
+ * where the file exists it is used, and where it does not the
+ * procedural version carries on. Nothing here has to change on the day
+ * they land: they drop into `public/world` and the street becomes his.
+ */
+export const BUILDING_FACADE_IDS = [
+  "bld_balconies",
+  "bld_flowers",
+  "bld_cafe",
+  "bld_shutter",
+  "bld_modern",
+  "bld_arch",
+] as const;
+
+export const MATERIAL_IDS = [
+  "mat_paving",
+  "mat_road",
+  "mat_plaster_warm",
+  "mat_plaster_cool",
+  "mat_stone",
+  "mat_kerb",
+] as const;
+
+export const PROP_IDS = [
+  "prop_palm",
+  "prop_jacaranda",
+  "prop_planter_round",
+  "prop_planter_box",
+] as const;
+
+/** Every optional id, for the loader to try. */
+export const OPTIONAL_ART = [
+  ...BUILDING_FACADE_IDS,
+  ...MATERIAL_IDS,
+  ...PROP_IDS,
+] as const;
+
+/**
+ * A delivered texture, tiled, or null.
+ *
+ * The drawn materials are albedo with flat lighting, so they take the
+ * engine's light. The canvas fallbacks below were always a stand-in for
+ * exactly this.
+ */
+function tiled(
+  tex: THREE.Texture | undefined,
+  repeatX: number,
+  repeatY: number
+): THREE.Texture | null {
+  if (!tex) return null;
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(repeatX, repeatY);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  return tex;
+}
+
 const DARK_SKY = 0x2a2448;
 
 /* ---------------------------------------------------------------------
@@ -449,8 +524,24 @@ export function buildStreet(
      a dark scene lifts the shadows, which sounds like the thing to do
      and is how the pavement ended up looking like a beach.
      --------------------------------------------------------------- */
-  scene.add(new THREE.HemisphereLight(0x8290d0, 0x3d3140, 2.15));
-  const moon = new THREE.DirectionalLight(0xb9c4ee, 1.45);
+  /*
+   * RECALIBRATED FOR REAL ALBEDO.
+   *
+   * Every number below was chosen against the canvas stand-ins, which
+   * were drawn deliberately dark — a surface with no dark in it cannot
+   * hold a shadow, and the pools of lamplight only existed because the
+   * pavement between them was nearly black.
+   *
+   * The delivered materials are the opposite: properly de-shaded
+   * albedo, and the paving is cream. The same lights that made a near-
+   * black canvas texture read as stone blew the real stone to white
+   * within five metres of the camera — with bloom on top of it.
+   *
+   * So the budget halves. This is not a taste change; it is the
+   * arithmetic of having replaced a 0.2 albedo with a 0.7 one.
+   */
+  scene.add(new THREE.HemisphereLight(0x8290d0, 0x3d3140, 0.95));
+  const moon = new THREE.DirectionalLight(0xb9c4ee, 0.8);
   moon.position.set(-34, 50, 26);
   /*
    * NO SHADOW MAP.
@@ -472,9 +563,11 @@ export function buildStreet(
      a low roughness picks up a long specular streak from every lamp,
      and that streak is what the eye reads as "it rained".
      --------------------------------------------------------------- */
+  const paveMap =
+    tiled(textures["mat_paving"], 26, 62) ?? paving();
   const pave = new THREE.Mesh(
     new THREE.PlaneGeometry(FRONT_X * 2 + 22, STREET_LENGTH),
-    new THREE.MeshStandardMaterial({ map: paving(), roughness: 0.45, metalness: 0.08 })
+    new THREE.MeshStandardMaterial({ map: paveMap, roughness: 0.45, metalness: 0.08 })
   );
   pave.rotation.x = -Math.PI / 2;
   pave.receiveShadow = true;
@@ -482,7 +575,11 @@ export function buildStreet(
 
   const road = new THREE.Mesh(
     new THREE.PlaneGeometry(ROAD_HALF * 2, STREET_LENGTH),
-    new THREE.MeshStandardMaterial({ map: asphalt(), roughness: 0.22, metalness: 0.35 })
+    new THREE.MeshStandardMaterial({
+      map: tiled(textures["mat_road"], 2, 34) ?? asphalt(),
+      roughness: 0.22,
+      metalness: 0.35,
+    })
   );
   road.rotation.x = -Math.PI / 2;
   road.position.y = 0.011;
@@ -507,9 +604,17 @@ export function buildStreet(
      than as exhibits.
      --------------------------------------------------------------- */
   const wallTints = ["#4a3a3c", "#3d3344", "#54423a", "#40374e", "#5a4640"];
-  const wallMats = wallTints.map(
-    (t) => new THREE.MeshStandardMaterial({ map: plaster(t), roughness: 0.94 })
-  );
+  const delivered = [
+    tiled(textures["mat_plaster_warm"], 3, 3),
+    tiled(textures["mat_plaster_cool"], 3, 3),
+    tiled(textures["mat_stone"], 3, 3),
+  ].filter((x): x is THREE.Texture => Boolean(x));
+  const wallMats =
+    delivered.length > 0
+      ? delivered.map((map) => new THREE.MeshStandardMaterial({ map, roughness: 0.9 }))
+      : wallTints.map(
+          (t) => new THREE.MeshStandardMaterial({ map: plaster(t), roughness: 0.94 })
+        );
   const trimMat = new THREE.MeshStandardMaterial({ color: 0x120e1a, roughness: 0.9 });
   const shutterMat = new THREE.MeshStandardMaterial({
     color: 0x2a2433,
@@ -523,7 +628,7 @@ export function buildStreet(
     const m = new THREE.MeshStandardMaterial({
       color: lit ? 0xffd9a0 : 0x0b0913,
       emissive: lit ? 0xffb15e : 0x000000,
-      emissiveIntensity: lit ? 1.9 : 0,
+      emissiveIntensity: lit ? 1.2 : 0,
       roughness: 0.25,
       metalness: 0.35,
     });
@@ -589,7 +694,11 @@ export function buildStreet(
         new THREE.MeshStandardMaterial({
           color: warmth,
           emissive: warmth,
-          emissiveIntensity: 0.95,
+          /* Halved again once bloom arrived: an emissive surface at
+             0.95 is over the bloom threshold across its whole area, so
+             a shop window stopped being a lit window and became a
+             floodlight on the pavement. */
+          emissiveIntensity: 0.5,
           roughness: 0.15,
           metalness: 0.5,
         })
@@ -602,11 +711,11 @@ export function buildStreet(
         m.position.set(-0.5 + mx, 2.0, 0.16);
         g.add(m);
       }
-      emit(FRONT_X * side - side * 2.0, 2.2, z - side * -0.5, warmth, 110, 13);
+      emit(FRONT_X * side - side * 2.0, 2.2, z - side * -0.5, warmth, 70, 12);
       const pool = new THREE.Mesh(
         new THREE.PlaneGeometry(10, 10),
         new THREE.MeshBasicMaterial({
-          map: glowTex, color: warmth, transparent: true, opacity: 0.2,
+          map: glowTex, color: warmth, transparent: true, opacity: 0.11,
           blending: THREE.AdditiveBlending, depthWrite: false,
         })
       );
@@ -805,7 +914,7 @@ export function buildStreet(
         halo.material.opacity = 0.34 + k * 0.22;
       });
 
-      emit(x - s.side * 2.6, faceH + 2.4, s.z, c3, 320, 26);
+      emit(x - s.side * 2.6, faceH + 2.4, s.z, c3, 210, 24);
       lamps.push(new THREE.Vector3(x, faceH + 2.4, s.z));
     } else {
       const sign = new THREE.Mesh(
@@ -830,7 +939,7 @@ export function buildStreet(
       halo.scale.set(9, 5, 1);
       halo.position.copy(sign.position);
       g.add(halo);
-      emit(x - s.side * 2, faceH + 0.9, s.z, c3, 130, 18);
+      emit(x - s.side * 2, faceH + 0.9, s.z, c3, 85, 16);
     }
 
     /*
@@ -916,14 +1025,14 @@ export function buildStreet(
     g.add(bladeGlow);
 
     /* ----- the light the shop throws onto its own pavement ----- */
-    emit(x - s.side * 2.4, 2.7, s.z, s.sponsor ? 0xff6f86 : 0xffc07a, 190, 16);
+    emit(x - s.side * 2.4, 2.7, s.z, s.sponsor ? 0xff6f86 : 0xffc07a, 110, 15);
     lamps.push(new THREE.Vector3(x - s.side * 1.6, 2.7, s.z));
 
     const pool = new THREE.Mesh(
       new THREE.PlaneGeometry(13, 13),
       new THREE.MeshBasicMaterial({
         map: glowTex, color: s.sponsor ? 0xff6f86 : 0xffc07a, transparent: true,
-        opacity: 0.24, blending: THREE.AdditiveBlending, depthWrite: false,
+        opacity: 0.13, blending: THREE.AdditiveBlending, depthWrite: false,
       })
     );
     pool.rotation.x = -Math.PI / 2;
@@ -942,7 +1051,7 @@ export function buildStreet(
     const wet = new THREE.Mesh(
       new THREE.PlaneGeometry(3.4, 15),
       new THREE.MeshBasicMaterial({
-        map: glowTex, color: c3, transparent: true, opacity: s.sponsor ? 0.24 : 0.15,
+        map: glowTex, color: c3, transparent: true, opacity: s.sponsor ? 0.15 : 0.09,
         blending: THREE.AdditiveBlending, depthWrite: false,
       })
     );
@@ -1011,7 +1120,7 @@ export function buildStreet(
     halo.scale.set(5.4, 5.4, 1);
     halo.position.copy(head.position);
     g.add(halo);
-    emit(x - Math.sign(x) * 1.45, 5.0, z, 0xffb45e, 190, 24);
+    emit(x - Math.sign(x) * 1.45, 5.0, z, 0xffb45e, 95, 22);
 
     const disc = new THREE.Mesh(
       new THREE.PlaneGeometry(11, 11),
@@ -1022,7 +1131,7 @@ export function buildStreet(
          * IS the light a distant lamp throws — so it has to do the
          * job the PointLight used to, and at 0.2 it did not.
          */
-        map: glowTex, color: 0xffb45e, transparent: true, opacity: 0.34,
+        map: glowTex, color: 0xffb45e, transparent: true, opacity: 0.16,
         blending: THREE.AdditiveBlending, depthWrite: false,
       })
     );
@@ -1032,7 +1141,7 @@ export function buildStreet(
     const streak = new THREE.Mesh(
       new THREE.PlaneGeometry(1.6, 17),
       new THREE.MeshBasicMaterial({
-        map: glowTex, color: 0xffb45e, transparent: true, opacity: 0.2,
+        map: glowTex, color: 0xffb45e, transparent: true, opacity: 0.1,
         blending: THREE.AdditiveBlending, depthWrite: false,
       })
     );

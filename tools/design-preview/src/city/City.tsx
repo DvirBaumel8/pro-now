@@ -1,11 +1,22 @@
 import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 
 import { buildPlayer } from "./player";
 import { SPONSOR_BADGE_HE, sponsorCtaHe, sponsorLeaveHe } from "@pro-now/types";
 
 import { PREVIEW_SPONSORS } from "../sponsors";
-import { buildStreet, FRONT_X, SPAWN, STREET_LENGTH, WALK_LIMIT, type ShopSpec } from "./street";
+import {
+  buildStreet,
+  FRONT_X,
+  OPTIONAL_ART,
+  SPAWN,
+  STREET_LENGTH,
+  WALK_LIMIT,
+  type ShopSpec,
+} from "./street";
 
 /**
  * THE CITY, AND THE CAMERA THAT LIVES IN IT.
@@ -136,6 +147,37 @@ export function City({ base = "./world/", spawn, onExit }: CityProps) {
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     el.appendChild(renderer.domElement);
 
+    /*
+     * -----------------------------------------------------------------
+     * BLOOM, WHICH IS MOST OF WHAT "MODERN" MEANS
+     * -----------------------------------------------------------------
+     * Amit: *"למה הכל בפיקסלים... רק מציאותי וקסום שמתאים ל-2030 ולא
+     * ל-2004."*
+     *
+     * Part of his answer is art and is being drawn. But a real part of
+     * it is this pass, and it is worth being precise about why.
+     *
+     * A renderer without bloom draws a lamp as a bright circle that
+     * stops at its own edge. No camera and no eye does that: bright
+     * light BLEEDS — into the lens, into the air, into the wet road —
+     * and every game that reads as modern is doing this to its lights.
+     * The street was already full of neon, festoon bulbs, headlights
+     * and lit windows, all of them stopping dead at their outlines.
+     *
+     * Threshold 0.85 so only genuinely bright things bleed — a lit
+     * window does, a plastered wall does not, and lifting the whole
+     * image into a haze is the failure mode here.
+     */
+    const composer = new EffectComposer(renderer);
+    composer.setPixelRatio(renderer.getPixelRatio());
+    composer.setSize(el.clientWidth, el.clientHeight);
+    const bloom = new UnrealBloomPass(
+      new THREE.Vector2(el.clientWidth, el.clientHeight),
+      /* strength */ 0.55,
+      /* radius   */ 0.5,
+      /* threshold*/ 0.92
+    );
+
     const loader = new THREE.TextureLoader();
     const load = (f: string) =>
       new Promise<THREE.Texture>((res, rej) => loader.load(base + f, res, undefined, rej));
@@ -154,6 +196,26 @@ export function City({ base = "./world/", spawn, onExit }: CityProps) {
           }
         })
       );
+      /*
+       * THE DELIVERED ART, WHERE IT HAS ARRIVED.
+       *
+       * Every id is optional and a miss is not an error: the street has
+       * a procedural stand-in for each one and falls back to it
+       * silently. That is what lets the art land in `public/world` and
+       * change the city with no code change at all — which is the whole
+       * arrangement, because the art is drawn in another room on
+       * another clock.
+       */
+      await Promise.all(
+        OPTIONAL_ART.map(async (id) => {
+          try {
+            facades[id] = await load(`${id}.webp`);
+          } catch {
+            /* not delivered yet */
+          }
+        })
+      );
+
       const walk = await Promise.all(WALK.map(load));
       const run = await Promise.all(RUN.map(load)).catch(() => walk);
       if (disposed) return;
@@ -183,6 +245,8 @@ export function City({ base = "./world/", spawn, onExit }: CityProps) {
       const lamps = street.lamps;
 
       const camera = new THREE.PerspectiveCamera(52, el.clientWidth / el.clientHeight, 0.1, 400);
+      composer.addPass(new RenderPass(street.scene, camera));
+      composer.addPass(bloom);
 
       /* ----- controls ----- */
       let yaw = Math.PI, pitch = 0.26;
@@ -340,7 +404,7 @@ export function City({ base = "./world/", spawn, onExit }: CityProps) {
           setVeil(Math.min(1, Math.max(0, (k - 0.6) / 0.34)));
 
           street.update(dt, now / 1000, camera);
-          renderer.render(street.scene, camera);
+          composer.render();
 
           if (raw >= 1) {
             if (entry.dir > 0) {
@@ -594,7 +658,7 @@ export function City({ base = "./world/", spawn, onExit }: CityProps) {
               : null;
         }
 
-        renderer.render(street.scene, camera);
+        composer.render();
         raf = requestAnimationFrame(tick);
       };
       /* Coming back out is the same move with the sign flipped. */
@@ -618,6 +682,8 @@ export function City({ base = "./world/", spawn, onExit }: CityProps) {
         camera.aspect = el.clientWidth / el.clientHeight;
         camera.updateProjectionMatrix();
         renderer.setSize(el.clientWidth, el.clientHeight);
+        composer.setSize(el.clientWidth, el.clientHeight);
+        bloom.setSize(el.clientWidth, el.clientHeight);
       };
       window.addEventListener("resize", resize);
 
@@ -628,6 +694,7 @@ export function City({ base = "./world/", spawn, onExit }: CityProps) {
         window.removeEventListener("pointermove", move);
         window.removeEventListener("pointerup", up);
         player.dispose();
+        composer.dispose();
         renderer.dispose();
       };
     })();
