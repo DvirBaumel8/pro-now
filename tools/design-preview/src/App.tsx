@@ -3326,10 +3326,38 @@ const go = useCallback((r: CustomerRoute) => {
    * is to stop feeling like one. It returns before the frame is built,
    * rather than being slotted into it.
    */
-  if (route.name === "city") {
+  /*
+   * ---------------------------------------------------------------
+   * THE STREET *IS* THE CITY. THERE IS NO SWITCHING TO IT.
+   * ---------------------------------------------------------------
+   * Amit: *"וגם להשתמש במפה הווירטואלית מהרגע הראשון, ולא לעבור למפה
+   * הווירטואלית אחר כך."*
+   *
+   * He is right and the reason is not convenience. A chip that says
+   * "the 3D city" announces a FEATURE — something extra, off to one
+   * side, that you might go and look at. Opening the street and being
+   * in it says "this is the place". Those are different products.
+   *
+   * So the stroll route returns the city, full bleed, before the
+   * app's own chrome is built. It is not a body under a header: it is
+   * a camera in a place, and a bar across the top of it is the single
+   * clearest way to say "widget in an app" about the one screen whose
+   * whole purpose is to stop feeling like one.
+   *
+   * `StrollBody` — the painted world — is untouched and still shipped
+   * from `packages/ui`, because react-native cannot host WebGL
+   * without `expo-gl` and the two phone apps still render it. This
+   * swap is the preview's alone, which is what Amit asked for when he
+   * chose it: *"שלא יסכן חס וחלילה."*
+   */
+  if (route.name === "city" || route.name === "stroll") {
     return (
       <View style={{ width, height }}>
-        <City base="./world/" onExit={() => go({ name: "stroll" })} />
+        <City
+          base="./world/"
+          avatarNo={avatar ? Number(String(avatar).replace(/\D/g, "")) : null}
+          onExit={() => go({ name: "home" })}
+        />
       </View>
     );
   }

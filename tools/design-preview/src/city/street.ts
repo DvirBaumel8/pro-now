@@ -1,5 +1,13 @@
 import * as THREE from "three";
 
+import {
+  CITY_BUILDING_IDS,
+  CITY_MATERIAL_IDS,
+  CITY_PLACE_IDS,
+  CITY_PROP_IDS,
+  CITY_VEHICLE_IDS,
+} from "@pro-now/types";
+
 import { asphalt, glow, neon, paving, plaster, wordmark } from "./textures";
 
 /**
@@ -135,39 +143,29 @@ const BAY = 8.8;
  * procedural version carries on. Nothing here has to change on the day
  * they land: they drop into `public/world` and the street becomes his.
  */
-export const BUILDING_FACADE_IDS = [
-  "bld_balconies",
-  "bld_flowers",
-  "bld_cafe",
-  "bld_shutter",
-  "bld_modern",
-  "bld_arch",
-] as const;
-
-export const MATERIAL_IDS = [
-  "mat_paving",
-  "mat_road",
-  "mat_plaster_warm",
-  "mat_plaster_cool",
-  "mat_stone",
-  "mat_kerb",
-] as const;
-
-export const PROP_IDS = [
-  "prop_palm",
-  "prop_jacaranda",
-  "prop_planter_round",
-  "prop_planter_box",
-  "prop_bench",
-  "prop_bin",
-] as const;
+/*
+ * The vocabulary itself lives in `@pro-now/types` — see `world-city.ts`
+ * for why. Two consumers read it: this renderer, to know what to load,
+ * and `art-delivery.test.ts`, to know which delivered files are spoken
+ * for. Declaring it twice is how the two quietly drift apart.
+ */
+export {
+  CITY_BUILDING_IDS as BUILDING_FACADE_IDS,
+  CITY_MATERIAL_IDS as MATERIAL_IDS,
+  CITY_PROP_IDS as PROP_IDS,
+  CITY_PLACE_IDS as PLACE_IDS,
+  CITY_VEHICLE_IDS as VEHICLE_IDS,
+} from "@pro-now/types";
 
 /** Every optional id, for the loader to try. */
-export const OPTIONAL_ART = [
-  ...BUILDING_FACADE_IDS,
-  ...MATERIAL_IDS,
-  ...PROP_IDS,
-] as const;
+export const OPTIONAL_ART: readonly string[] = [
+  ...CITY_BUILDING_IDS,
+  ...CITY_MATERIAL_IDS,
+  ...CITY_PROP_IDS,
+  ...CITY_PLACE_IDS,
+  ...CITY_VEHICLE_IDS,
+];
+
 
 /**
  * A delivered texture, tiled, or null.
@@ -671,7 +669,7 @@ export function buildStreet(
       map: tex,
       emissiveMap: tex,
       emissive: 0xffffff,
-      emissiveIntensity: 0.3,
+      emissiveIntensity: 0.14,
       transparent: true,
       alphaTest: 0.42,
       roughness: 0.9,
@@ -712,7 +710,7 @@ export function buildStreet(
      * metres, so that is the band, and a drawing outside it is scaled
      * whole rather than stretched.
      */
-    const drawn = textures[BUILDING_FACADE_IDS[seed % BUILDING_FACADE_IDS.length]!];
+    const drawn = textures[CITY_BUILDING_IDS[seed % CITY_BUILDING_IDS.length]!];
     if (drawn) {
       drawn.colorSpace = THREE.SRGBColorSpace;
       const img = drawn.image as { width: number; height: number };
@@ -732,7 +730,7 @@ export function buildStreet(
           map: drawn,
           emissiveMap: drawn,
           emissive: 0xffffff,
-          emissiveIntensity: 0.4,
+          emissiveIntensity: 0.16,
           transparent: true,
           alphaTest: 0.35,
           roughness: 0.88,
@@ -798,7 +796,7 @@ export function buildStreet(
              0.95 is over the bloom threshold across its whole area, so
              a shop window stopped being a lit window and became a
              floodlight on the pavement. */
-          emissiveIntensity: 0.5,
+          emissiveIntensity: 0.28,
           roughness: 0.15,
           metalness: 0.5,
         })
@@ -942,7 +940,27 @@ export function buildStreet(
           map: tex,
           emissiveMap: tex,
           emissive: 0xffffff,
-          emissiveIntensity: 0.55,
+          /*
+       * THE DRAWING IS ALREADY LIT. STOP LIGHTING IT.
+       *
+       * Amit, in front of the new pet shop: *"לא רואים כלום, רק אור
+       * צהוב. עבדנו קשה על ההדמיה של חנות החיות — איפה היא?"*
+       *
+       * He is right and it is my arithmetic, not his art. Every
+       * shopfront he commissioned is painted with its own warm
+       * interior glow — that IS the drawing. Then this code fed the
+       * same texture back as an emissive map at 0.55, put a 110-candela
+       * lamp two metres in front of it, laid an additive pool on the
+       * pavement under it and ran the whole thing through bloom.
+       *
+       * Four warm lights on one warm painting. What you get is not a
+       * lit shop, it is a yellow rectangle, and the work he paid for
+       * is underneath it where nobody can see it.
+       *
+       * So the painting carries its own light and the street adds a
+       * whisper.
+       */
+      emissiveIntensity: 0.18,
           transparent: true,
           alphaTest: 0.35,
           roughness: 0.82,
@@ -1133,14 +1151,14 @@ export function buildStreet(
     g.add(bladeGlow);
 
     /* ----- the light the shop throws onto its own pavement ----- */
-    emit(x - s.side * 2.4, 2.7, s.z, s.sponsor ? 0xff6f86 : 0xffc07a, 110, 15);
+    emit(x - s.side * 2.4, 2.7, s.z, s.sponsor ? 0xff6f86 : 0xffc07a, 42, 11);
     lamps.push(new THREE.Vector3(x - s.side * 1.6, 2.7, s.z));
 
     const pool = new THREE.Mesh(
       new THREE.PlaneGeometry(13, 13),
       new THREE.MeshBasicMaterial({
         map: glowTex, color: s.sponsor ? 0xff6f86 : 0xffc07a, transparent: true,
-        opacity: 0.13, blending: THREE.AdditiveBlending, depthWrite: false,
+        opacity: 0.07, blending: THREE.AdditiveBlending, depthWrite: false,
       })
     );
     pool.rotation.x = -Math.PI / 2;
@@ -1159,7 +1177,7 @@ export function buildStreet(
     const wet = new THREE.Mesh(
       new THREE.PlaneGeometry(3.4, 15),
       new THREE.MeshBasicMaterial({
-        map: glowTex, color: c3, transparent: true, opacity: s.sponsor ? 0.15 : 0.09,
+        map: glowTex, color: c3, transparent: true, opacity: s.sponsor ? 0.11 : 0.05,
         blending: THREE.AdditiveBlending, depthWrite: false,
       })
     );
@@ -1199,25 +1217,34 @@ export function buildStreet(
   const poleMat = new THREE.MeshStandardMaterial({ color: 0x0e0b14, roughness: 0.45, metalness: 0.6 });
   function lamp(x: number, z: number) {
     const g = new THREE.Group();
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.14, 5.4, 10), poleMat);
-    pole.position.y = 2.7;
-    pole.castShadow = true;
-    g.add(pole);
-    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.32, 0.45, 12), poleMat);
-    base.position.y = 0.22;
-    g.add(base);
-    /* The arm reaches over the pavement, the way a street lamp does. */
-    const arm = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.12, 0.12), poleMat);
-    arm.position.set(-Math.sign(x) * 0.75, 5.4, 0);
-    g.add(arm);
+    /* The drawn lamp where one has arrived, the turned column where it
+       has not. Only the COLUMN changes: the light, the halo, the pool
+       and the wet streak below are the same either way, because those
+       are the lamp doing its job and a drawing cannot do it. */
+    const drawnLamp = textures["prop_lamp"];
+    if (drawnLamp) {
+      const col = cutout(drawnLamp, 5.6);
+      col.rotation.y = x > 0 ? -Math.PI / 2 : Math.PI / 2;
+      g.add(col);
+    } else {
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.14, 5.4, 10), poleMat);
+      pole.position.y = 2.7;
+      g.add(pole);
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.32, 0.45, 12), poleMat);
+      base.position.y = 0.22;
+      g.add(base);
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.12, 0.12), poleMat);
+      arm.position.set(-Math.sign(x) * 0.75, 5.4, 0);
+      g.add(arm);
+    }
     const head = new THREE.Mesh(
-      new THREE.SphereGeometry(0.3, 16, 12),
+      new THREE.SphereGeometry(drawnLamp ? 0.16 : 0.3, 16, 12),
       new THREE.MeshStandardMaterial({
         color: 0xfff0d0, emissive: 0xffc069, emissiveIntensity: 5.2, roughness: 0.2,
         toneMapped: true,
       })
     );
-    head.position.set(-Math.sign(x) * 1.45, 5.3, 0);
+    head.position.set(drawnLamp ? 0 : -Math.sign(x) * 1.45, drawnLamp ? 4.4 : 5.3, 0);
     g.add(head);
     const halo = new THREE.Sprite(
       new THREE.SpriteMaterial({
@@ -1687,8 +1714,29 @@ export function buildStreet(
    */
   const woodMat = new THREE.MeshStandardMaterial({ color: 0x6b4a33, roughness: 0.85 });
   const metalMat = new THREE.MeshStandardMaterial({ color: 0x2a2430, roughness: 0.5, metalness: 0.5 });
+  const drawnCafe = textures["prop_cafe_set"];
   function cafe(x: number, z: number, hue: number) {
     const g = new THREE.Group();
+    if (drawnCafe) {
+      const set = cutout(drawnCafe, 1.35);
+      g.add(set);
+      const flame = new THREE.Sprite(
+        new THREE.SpriteMaterial({
+          map: glowTex, color: hue, transparent: true, opacity: 0.85,
+          blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
+        })
+      );
+      flame.scale.setScalar(0.8);
+      flame.position.set(0, 0.86, 0.06);
+      g.add(flame);
+      ticking.push((_dt, t) => {
+        flame.material.opacity = 0.62 + Math.sin(t * 6.1 + x) * 0.16;
+      });
+      g.position.set(x, 0, z);
+      g.rotation.y = Math.random() * Math.PI;
+      scene.add(g);
+      return;
+    }
     const top = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.06, 14), woodMat);
     top.position.y = 0.74;
     g.add(top);
@@ -1807,6 +1855,61 @@ export function buildStreet(
     furnish(FRONT_X - 1.6, z - 18, drawnBench, 1.0);
     furnish(-FRONT_X + 1.6, z - 3, drawnBench, 1.0);
     furnish(FRONT_X - 1.2, z - 26, drawnBin, 1.05);
+  }
+
+  /* ---------------------------------------------------------------
+     PLACES AND PARKED VEHICLES
+
+     Amit, on the dog walker: *"אין לו חנות, צריך לחשוב על דרך אחרת
+     לפגוש אותו, כי משהו כן צריך להיפתח."*
+
+     The places stand between the shops. They are scenery — no
+     availability, no ETA, nobody waiting inside — and they are the
+     shape the trades that COME TO YOU need: a dog walker meets you at
+     the park, a tow truck at the layby, a courier at the pickup point.
+
+     The vehicles are PARKED. The moving traffic stays geometry,
+     because a broadside drawing on a road running away from the
+     camera is the mismatch that made the old painted traffic look
+     wrong — but a van at the kerb is seen side-on, which is exactly
+     what the drawing is.
+     --------------------------------------------------------------- */
+  {
+    const places = CITY_PLACE_IDS.map((id) => textures[id]).filter(
+      (t): t is THREE.Texture => Boolean(t)
+    );
+    if (places.length > 0) {
+      let turn = 0;
+      /* Between the shops, on the building line, where a bay is free. */
+      for (let z = STREET_LENGTH / 2 - 60; z > -STREET_LENGTH / 2 + 20; z -= 61) {
+        for (const side of [-1, 1] as const) {
+          const t = places[turn++ % places.length]!;
+          const g = cutout(t, 4.2, 1);
+          g.position.set(FRONT_X * side - side * 0.5, 0, z - (side < 0 ? 26 : 0));
+          g.rotation.y = side < 0 ? Math.PI / 2 : -Math.PI / 2;
+          scene.add(g);
+        }
+      }
+    }
+
+    const parked: Array<[string, number]> = [
+      ["van_side", 2.3],
+      ["scooter_side", 1.3],
+      ["van_back", 2.3],
+      ["scooter_back", 1.3],
+    ];
+    let pk = 0;
+    for (let z = STREET_LENGTH / 2 - 34; z > -STREET_LENGTH / 2 + 10; z -= 47) {
+      const [id, h] = parked[pk++ % parked.length]!;
+      const tex = textures[id];
+      if (!tex) continue;
+      const side: -1 | 1 = pk % 2 ? 1 : -1;
+      const g = cutout(tex, h, 1);
+      g.position.set(side * (KERB_X - 1.1), 0, z);
+      /* Side views face across the road; rear views face down it. */
+      g.rotation.y = id.endsWith("_side") ? (side > 0 ? -Math.PI / 2 : Math.PI / 2) : 0;
+      scene.add(g);
+    }
   }
 
   /* ---------------------------------------------------------------

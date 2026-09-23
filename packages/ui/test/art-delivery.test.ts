@@ -3,6 +3,7 @@ import { readdirSync } from "node:fs";
 import path from "node:path";
 
 import {
+  CITY_ASSET_IDS,
   AVATARS,
   GROUND_GRASS_ID,
   GROUND_MATERIAL_IDS,
@@ -177,7 +178,22 @@ describe("the art the world asks for", () => {
        */
       "world_neighbourhood",
     ]);
-    const wanted = requestedIds();
+    /*
+     * THE SECOND CONSUMER.
+     *
+     * The painted living map is no longer the only thing that draws
+     * this pack: the 3D street does too, and it lives in
+     * `tools/design-preview`, which this test cannot see and this
+     * package must not import. Its vocabulary is declared in
+     * `@pro-now/types` so both can read it — the renderer to know what
+     * to load, this test to know what is spoken for.
+     *
+     * The guard keeps its teeth. An id in that list and drawn by
+     * nothing is still a lie; it has only moved from "nobody noticed"
+     * to "somebody wrote it down", which is where a claim can be
+     * checked.
+     */
+    const wanted = new Set([...requestedIds(), ...CITY_ASSET_IDS]);
     const orphans = deliveredIds().filter(
       (id) => !wanted.has(id) && !LEGACY.has(id) && !isSponsorAsset(id)
     );

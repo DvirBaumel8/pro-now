@@ -23,6 +23,7 @@ export * from "./world-neighbourhood";
 export * from "./arrival-journey";
 export * from "./assignment-route";
 export * from "./world-director";
+export * from "./world-city";
 export * from "./world-districts";
 export * from "./availability-scene";
 export * from "./market-activation";

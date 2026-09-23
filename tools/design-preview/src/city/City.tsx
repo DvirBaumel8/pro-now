@@ -186,9 +186,9 @@ export function City({ base = "./world/", spawn, avatarNo = null, onExit }: City
     composer.setSize(el.clientWidth, el.clientHeight);
     const bloom = new UnrealBloomPass(
       new THREE.Vector2(el.clientWidth, el.clientHeight),
-      /* strength */ 0.42,
+      /* strength */ 0.3,
       /* radius   */ 0.5,
-      /* threshold*/ 0.92
+      /* threshold*/ 0.96
     );
 
     const loader = new THREE.TextureLoader();
