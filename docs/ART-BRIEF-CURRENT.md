@@ -65,6 +65,32 @@ trades have nowhere to be shown standing. Same framing as the delivered
 - `district_build.webp` — שכונת הבנייה והשיפוצים · פיגום, ערימת חול, מכולה — לא אתר בנייה פעיל ורועש
 - `district_help.webp` — שכונת העזרה הכללית · חזית שקטה: הנדימן, זוג ידיים, שליחויות קטנות
 
+## Shop interiors (10)
+
+Pressing a shop on the map travels the camera to it and opens the
+professional's card. With one of these, the card opens INSIDE the
+business instead of at its front door.
+
+A different brief from the shopfronts: eye level, not 3/4 from above.
+16:9, landscape. The subject is the work — the bench, the shelves, the
+tools, the chair — not the sign. Same warm artificial light as the
+street, same PRO NOW branding present but not dominant. Nobody in the
+frame: the person is on the card underneath it, and a figure here
+would be a second, contradicting likeness.
+
+`hair_barbershop_hero.webp` is the delivered one and sets the level.
+
+- `home_workshop_hero.webp` — פנים העסק · תיקונים דחופים בבית
+- `appliance_workshop_hero.webp` — פנים העסק · מכשירי חשמל ומיזוג
+- `care_studio_hero.webp` — פנים העסק · ניקיון ותחזוקת בית
+- `well_studio_hero.webp` — פנים העסק · בריאות וכושר
+- `pets_salon_hero.webp` — פנים העסק · בעלי חיים
+- `auto_garage_hero.webp` — פנים העסק · שירותים לרכב
+- `move_depot_hero.webp` — פנים העסק · הובלות ומשלוחים
+- `tech_shop_hero.webp` — פנים העסק · מחשבים וסלולר
+- `help_yard_hero.webp` — פנים העסק · עזרה ועבודות קטנות
+- `build_workshop_hero.webp` — פנים העסק · שיפוץ והתקנות
+
 ## Not missing files — missing kinds of life
 
 These have no asset id yet because nothing has been written to draw them,
@@ -88,5 +114,5 @@ how alive the street feels than any change to the engine.
 
 ---
 
-**20 files named above.** 57 delivered.
+**30 files named above.** 57 delivered.
 

@@ -68,3 +68,36 @@ describe("every trade has a district, not just hair", () => {
     );
   });
 });
+
+/**
+ * EVERY TRADE HAS AN INSIDE, EVEN IF IT HAS NOT BEEN DRAWN YET.
+ *
+ * Amit: *"איך עושים שבלחיצה על המקצוען נכנסים לתוך החנות שלו ממש
+ * בפנים?"* The id is what makes that possible without a code change —
+ * the day a file lands under it, that trade's shop opens into its own
+ * interior. A district with no id can never get one, and nothing would
+ * say so.
+ *
+ * `scripts/art-brief.mjs` repeats this list because it is plain node and
+ * cannot import TypeScript. This is the half that keeps the two from
+ * diverging where it matters: a trade the renderer asks for and the
+ * brief never names.
+ */
+describe("shop interiors", () => {
+  it("every district names one", () => {
+    for (const d of Object.values(WORLD_DISTRICTS)) {
+      expect(d.venueInteriorAssetId, d.department).toBeTruthy();
+    }
+  });
+
+  it("names a different file from the shopfront", () => {
+    for (const d of Object.values(WORLD_DISTRICTS)) {
+      expect(d.venueInteriorAssetId).not.toBe(d.venueAssetId);
+    }
+  });
+
+  it("gives each trade its own, with no two sharing one", () => {
+    const ids = Object.values(WORLD_DISTRICTS).map((d) => d.venueInteriorAssetId);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+});

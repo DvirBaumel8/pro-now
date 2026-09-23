@@ -63,6 +63,27 @@ export interface WorldDistrict {
   /** The illustrated venue that stands for a candidate in this trade. */
   venueAssetId: string;
   /**
+   * THE SAME SHOP, FROM INSIDE IT.
+   *
+   * Amit: *"איך עושים שבלחיצה על המקצוען נכנסים לתוך החנות שלו ממש
+   * בפנים, שיראו את הדברים הקטנים שעבדנו עליהם?"*
+   *
+   * `venueAssetId` is the shopfront: the building you see from the
+   * street, sized for a row of them. It is the wrong picture for going
+   * in — blown up it is a façade with the detail on the wrong side of
+   * the glass.
+   *
+   * This is the other picture, and it is a different brief: a view from
+   * inside, at eye level, where the shelves, the bench and the tools are
+   * the subject rather than the sign. The barber's has been in the pack
+   * since the beginning and is the reason the convention is `_hero`.
+   *
+   * Optional, and the card falls back to the shopfront when it is
+   * missing — the same rule as everywhere else: the world fills in as
+   * assets land, and nothing is invented to cover a gap.
+   */
+  venueInteriorAssetId?: string;
+  /**
    * WHAT THIS TRADE ARRIVES IN.
    *
    * The tracking screen used to send a courier's scooter down the lane
@@ -129,6 +150,7 @@ export const WORLD_DISTRICTS: Readonly<Record<DepartmentCode, WorldDistrict>> = 
     brandHe: "תיקונים",
     labelHe: "תיקונים דחופים בבית",
     venueAssetId: "district_home",
+    venueInteriorAssetId: "home_workshop_hero",
     characterWorldAssetId: "character_home_world",
     characterPortraitAssetId: "character_home_icon",
   },
@@ -137,6 +159,7 @@ export const WORLD_DISTRICTS: Readonly<Record<DepartmentCode, WorldDistrict>> = 
     brandHe: "מכשירי חשמל",
     labelHe: "מכשירי חשמל ומיזוג",
     venueAssetId: "district_appliance",
+    venueInteriorAssetId: "appliance_workshop_hero",
     characterWorldAssetId: "character_appliance_world",
     characterPortraitAssetId: "character_appliance_icon",
   },
@@ -145,6 +168,7 @@ export const WORLD_DISTRICTS: Readonly<Record<DepartmentCode, WorldDistrict>> = 
     brandHe: "ניקיון",
     labelHe: "ניקיון ותחזוקת בית",
     venueAssetId: "district_care",
+    venueInteriorAssetId: "care_studio_hero",
     characterWorldAssetId: "character_care_world",
     characterPortraitAssetId: "character_care_icon",
   },
@@ -153,6 +177,7 @@ export const WORLD_DISTRICTS: Readonly<Record<DepartmentCode, WorldDistrict>> = 
     brandHe: "שיער",
     labelHe: "טיפוח ויופי",
     venueAssetId: "district_hair",
+    venueInteriorAssetId: "hair_barbershop_hero",
     // A salon and a nail bar: two real shapes for one trade, so two
     // beauticians online are two different places rather than one twice.
     venueVariantAssetIds: ["district_hair", "district_nails"],
@@ -164,6 +189,7 @@ export const WORLD_DISTRICTS: Readonly<Record<DepartmentCode, WorldDistrict>> = 
     brandHe: "כושר",
     labelHe: "בריאות וכושר",
     venueAssetId: "district_well",
+    venueInteriorAssetId: "well_studio_hero",
     characterWorldAssetId: "character_well_world",
     characterPortraitAssetId: "character_well_icon",
   },
@@ -172,6 +198,7 @@ export const WORLD_DISTRICTS: Readonly<Record<DepartmentCode, WorldDistrict>> = 
     brandHe: "חיות",
     labelHe: "בעלי חיים",
     venueAssetId: "district_pets",
+    venueInteriorAssetId: "pets_salon_hero",
     travelAssetId: "dog_walker",
     characterWorldAssetId: "character_pets_world",
     characterPortraitAssetId: "character_pets_icon",
@@ -181,6 +208,7 @@ export const WORLD_DISTRICTS: Readonly<Record<DepartmentCode, WorldDistrict>> = 
     brandHe: "רכב",
     labelHe: "שירותים לרכב",
     venueAssetId: "district_auto",
+    venueInteriorAssetId: "auto_garage_hero",
     travelAssetId: "tow_truck",
     characterWorldAssetId: "character_auto_world",
     characterPortraitAssetId: "character_auto_icon",
@@ -190,6 +218,7 @@ export const WORLD_DISTRICTS: Readonly<Record<DepartmentCode, WorldDistrict>> = 
     brandHe: "הובלות",
     labelHe: "הובלות ומשלוחים",
     venueAssetId: "district_move",
+    venueInteriorAssetId: "move_depot_hero",
     travelAssetId: "moving_van",
     characterWorldAssetId: "character_move_world",
     characterPortraitAssetId: "character_move_icon",
@@ -199,6 +228,7 @@ export const WORLD_DISTRICTS: Readonly<Record<DepartmentCode, WorldDistrict>> = 
     brandHe: "מחשבים",
     labelHe: "מחשבים וסלולר",
     venueAssetId: "district_tech",
+    venueInteriorAssetId: "tech_shop_hero",
     characterWorldAssetId: "character_tech_world",
     characterPortraitAssetId: "character_tech_icon",
   },
@@ -207,6 +237,7 @@ export const WORLD_DISTRICTS: Readonly<Record<DepartmentCode, WorldDistrict>> = 
     brandHe: "עזרה",
     labelHe: "עזרה ועבודות קטנות",
     venueAssetId: "district_help",
+    venueInteriorAssetId: "help_yard_hero",
     characterWorldAssetId: "character_help_world",
     characterPortraitAssetId: "character_help_icon",
   },
@@ -215,6 +246,7 @@ export const WORLD_DISTRICTS: Readonly<Record<DepartmentCode, WorldDistrict>> = 
     brandHe: "שיפוצים",
     labelHe: "שיפוץ והתקנות",
     venueAssetId: "district_build",
+    venueInteriorAssetId: "build_workshop_hero",
     characterWorldAssetId: "character_build_world",
     characterPortraitAssetId: "character_build_icon",
   },

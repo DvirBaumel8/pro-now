@@ -180,6 +180,62 @@ if (missingDistricts.length > 0) {
   }
 }
 
+// ---- shop interiors ------------------------------------------------
+/*
+ * Amit: *"איך עושים שבלחיצה על המקצוען נכנסים לתוך החנות שלו ממש בפנים,
+ * שיראו את הדברים הקטנים שעבדנו עליהם?"*
+ *
+ * The shopfront is the wrong picture for going in: blown up it is a
+ * façade with the detail on the wrong side of the glass. This is the
+ * other picture, and the ids come from `venueInteriorAssetId` rather
+ * than from a list here — so the brief cannot name a file the renderer
+ * does not ask for, which is the whole point of generating it.
+ */
+/*
+ * Mirrors `venueInteriorAssetId` in `world-districts.ts`. This script is
+ * plain node and cannot import the TypeScript, so the list is repeated —
+ * and `world-districts.test.ts` asserts every district HAS an interior
+ * id, so the two cannot silently diverge in the direction that matters
+ * (a trade the renderer asks for and the brief never mentions).
+ */
+const INTERIORS = [
+  { id: "home_workshop_hero", he: "תיקונים דחופים בבית" },
+  { id: "appliance_workshop_hero", he: "מכשירי חשמל ומיזוג" },
+  { id: "care_studio_hero", he: "ניקיון ותחזוקת בית" },
+  { id: "hair_barbershop_hero", he: "טיפוח ויופי" },
+  { id: "well_studio_hero", he: "בריאות וכושר" },
+  { id: "pets_salon_hero", he: "בעלי חיים" },
+  { id: "auto_garage_hero", he: "שירותים לרכב" },
+  { id: "move_depot_hero", he: "הובלות ומשלוחים" },
+  { id: "tech_shop_hero", he: "מחשבים וסלולר" },
+  { id: "help_yard_hero", he: "עזרה ועבודות קטנות" },
+  { id: "build_workshop_hero", he: "שיפוץ והתקנות" },
+];
+const interiors = INTERIORS.filter((d) => !delivered.has(d.id));
+if (interiors.length > 0) {
+  section(
+    `Shop interiors (${interiors.length})`,
+    [
+      "Pressing a shop on the map travels the camera to it and opens the",
+      "professional's card. With one of these, the card opens INSIDE the",
+      "business instead of at its front door.",
+      "",
+      "A different brief from the shopfronts: eye level, not 3/4 from above.",
+      "16:9, landscape. The subject is the work — the bench, the shelves, the",
+      "tools, the chair — not the sign. Same warm artificial light as the",
+      "street, same PRO NOW branding present but not dominant. Nobody in the",
+      "frame: the person is on the card underneath it, and a figure here",
+      "would be a second, contradicting likeness.",
+      "",
+      "`hair_barbershop_hero.webp` is the delivered one and sets the level.",
+    ].join("\n")
+  );
+  for (const d of interiors) {
+    missingCount += 1;
+    out(`- \`${d.id}.webp\` — פנים העסק · ${d.he}`);
+  }
+}
+
 // ---- what the street has no vocabulary for -------------------------
 out("");
 out("## Not missing files — missing kinds of life");

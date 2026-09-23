@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, Linking, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 
-import { CARD_REST, customerCategoryById, categoryForDepartment, liveAreaLineHe, DEMO_WORLD, type CandidatePresence, type LivingMapPhase, type LivingMapState, themeForDepartment } from "@pro-now/types";
+import { CARD_REST, customerCategoryById, categoryForDepartment, liveAreaLineHe, DEMO_WORLD, WORLD_DISTRICTS, type CandidatePresence, type LivingMapPhase, type LivingMapState, themeForDepartment } from "@pro-now/types";
 import {
   discover,
   emptyDiscoveries,
@@ -1825,6 +1825,30 @@ const go = useCallback((r: CustomerRoute) => {
     };
   }, [openVenue, route]);
 
+  /**
+   * INSIDE THE SHOP, IF THE TRADE HAS AN INSIDE DRAWN.
+   *
+   * Amit: *"איך עושים שבלחיצה על המקצוען נכנסים לתוך החנות שלו ממש
+   * בפנים, שיראו את הדברים הקטנים שעבדנו עליהם?"*
+   *
+   * The trade comes from the SERVICE the customer asked about, which is
+   * what decides whose street this is — not from the venue's id, which
+   * is only which of three candidates was pressed. The interior is named
+   * by `venueInteriorAssetId`, so the day one lands in the pack under
+   * its name, pressing that trade's shop opens into it with no change
+   * here. Today the barber is the only trade that has one.
+   */
+  const shopInteriorUri = useMemo(() => {
+    const serviceId = route.name === "living" ? route.serviceId : lastRequestedId;
+    const dept = serviceId ? departmentCodeByServiceId[serviceId] : null;
+    const id = dept ? WORLD_DISTRICTS[dept]?.venueInteriorAssetId : null;
+    if (!id) return null;
+    const src = art[id];
+    return src && typeof src === "object" && "uri" in src && typeof src.uri === "string"
+      ? src.uri
+      : null;
+  }, [route, lastRequestedId, art]);
+
   const screenNow = useMemo(() => {
     // Off the home tab, the tab IS the screen: the calls list and the card
     // are siblings of home, not steps into it.
@@ -2947,6 +2971,16 @@ const go = useCallback((r: CustomerRoute) => {
           services={profileServices}
           reviews={profileReviews}
           workPhotoSubjects={profileWorkPhotos}
+          /*
+           * INSIDE THE SHOP, IF THE TRADE HAS AN INSIDE DRAWN.
+           *
+           * Amit: *"איך עושים שבלחיצה על המקצוען נכנסים לתוך החנות שלו
+           * ממש בפנים?"* The lookup is by trade, from
+           * `venueInteriorAssetId` — so the day an interior lands in the
+           * pack under its name, pressing that trade's shop opens into
+           * it, with no change here. Today only the barber has one.
+           */
+          shopInteriorUri={shopInteriorUri}
           activeSinceYear={2014}
           areaLabelHe="גוש דן"
           fromPriceMinorUnits={17900}

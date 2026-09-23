@@ -1,5 +1,5 @@
 import React from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import {
   formatMoney,
@@ -68,6 +68,24 @@ export interface ProProfileBodyProps {
   reviews: ProProfileReviewItem[];
   /** Subjects for licensed photos of completed work. Never stock imagery. */
   workPhotoSubjects: string[];
+  /**
+   * THE SHOP, FROM INSIDE IT.
+   *
+   * Amit: *"איך עושים שבלחיצה על המקצוען נכנסים לתוך החנות שלו ממש
+   * בפנים, שיראו את הדברים הקטנים שעבדנו עליהם?"*
+   *
+   * The camera already travels to the shopfront and holds before this
+   * card rises. What it could not do was go IN, because the only picture
+   * of the shop was its façade, and the detail he is talking about — the
+   * shelves, the bench, the tools — is on the other side of the glass in
+   * that drawing.
+   *
+   * So the card opens with the interior when the trade has one: see
+   * `venueInteriorAssetId`. Absent, the card opens as it always did. No
+   * placeholder and no stand-in from another trade — a plumber's profile
+   * showing a barber's chair is a claim about a business.
+   */
+  shopInteriorUri?: string | null;
   /** Year the professional started in the trade, when they have stated it. */
   activeSinceYear: number | null;
   /** Coarse service area, never an address. */
@@ -84,6 +102,7 @@ export function ProProfileBody({
   services,
   reviews,
   workPhotoSubjects,
+  shopInteriorUri = null,
   activeSinceYear,
   areaLabelHe,
   fromPriceMinorUnits,
@@ -97,6 +116,25 @@ export function ProProfileBody({
   return (
     <View style={[styles.screen, { width, height }]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+        {/* ----------------------------------------------------------------
+            INSIDE THE SHOP, WHEN THERE IS AN INSIDE TO SHOW.
+
+            Above the portrait and the name, because it is the thing the
+            camera was travelling towards: you pressed a building, you
+            arrive in it, and then you are told whose it is. The other
+            order reads as a profile page that happens to have a photo.
+            ---------------------------------------------------------------- */}
+        {shopInteriorUri ? (
+          <Image
+            source={{ uri: shopInteriorUri }}
+            style={styles.interior}
+            resizeMode="cover"
+            accessible
+            accessibilityRole="image"
+            accessibilityLabel={`בתוך העסק של ${professional.displayName}`}
+          />
+        ) : null}
+
         {/* ---------------- Hero ---------------- */}
         <View style={styles.hero}>
           <HeroFlourish color={colors.trust} opacity={0.12} />
@@ -402,6 +440,17 @@ const styles = StyleSheet.create({
   screen: { backgroundColor: colors.bg, overflow: "hidden", borderRadius: radii.xl },
   scroll: { paddingBottom: spacing.xxl },
 
+  /*
+   * A band rather than a full bleed: this card is a sheet with a rounded
+   * top, and a picture that fills the width above the name reads as a
+   * window into the shop. 16:9 is what the interiors are drawn at.
+   */
+  interior: {
+    width: "100%",
+    aspectRatio: 16 / 9,
+    borderTopLeftRadius: radii.lg,
+    borderTopRightRadius: radii.lg,
+  },
   hero: {
     backgroundColor: colors.surface,
     paddingTop: spacing.xxl,
