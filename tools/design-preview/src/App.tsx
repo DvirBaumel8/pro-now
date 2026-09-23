@@ -278,7 +278,16 @@ type CustomerRoute =
    * so closing the shop puts the customer back where they were rather
    * than at the top of the job.
    */
-  | { name: "sponsor"; shopId: string; from: "assigned" | "enroute" }
+  /*
+   * `from` is WHERE YOU WERE, not a stage of the job.
+   *
+   * It was `"assigned" | "enroute"` — the two tracking stages — so
+   * entering Lust from the STREET and pressing back put you on the
+   * tracking screen, which is not where you were and not a place you
+   * asked to be. A shop is somewhere you step into from somewhere, and
+   * leaving it returns you there.
+   */
+  | { name: "sponsor"; shopId: string; from: "assigned" | "enroute" | "stroll" }
   /** The page for a business owner who wants a shop of their own. */
   | { name: "advertise" };
 
@@ -2222,7 +2231,7 @@ const go = useCallback((r: CustomerRoute) => {
             /* The paid shops stand in this street like any other. */
             sponsors={PREVIEW_SPONSORS}
             onEnterSponsor={(shop) =>
-              go({ name: "sponsor", shopId: shop.id, from: "enroute" })
+              go({ name: "sponsor", shopId: shop.id, from: "stroll" })
             }
             onOpenDepartment={(department) => {
               const category = categoryForDepartment(department);
@@ -2708,7 +2717,8 @@ const go = useCallback((r: CustomerRoute) => {
               onOpenSite={(picked) => setSponsorHandoff(picked.siteUrl)}
               onBack={() => {
                 setSponsorHandoff(null);
-                go({ name: "tracking", stage: route.from });
+                if (route.from === "stroll") go({ name: "stroll" });
+                else go({ name: "tracking", stage: route.from });
               }}
               width={width}
               height={bodyH}
