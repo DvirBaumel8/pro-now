@@ -604,6 +604,75 @@ export function groundSpotFor(
   return spots[at % spots.length]!;
 }
 
+/**
+ * WHERE A PAID SHOP MAY STAND.
+ *
+ * Amit: *"אני רוצה שלכל ספונסר שלי יהיה חנות פה במפה של העולם שלנו... לא
+ * הגיוני שאני צריך לגלול עד לפה בשביל למצוא את זה. למה אין מבנה של לאסט
+ * במפה??"*
+ *
+ * He is right: the first sponsor arrived as a row at the foot of a
+ * sheet, which is an advert in a list, and the whole argument for this
+ * product's world is that a business is a PLACE you walk past.
+ *
+ * These are measured the same way `PLATE_SPOTS` was — by
+ * `measure-spots.mjs`, on this plate — and they are the leftovers. The
+ * plate yields fifteen separated slots that a whole shopfront fits on;
+ * the eleven cleanest went to the trades, because a trade is the
+ * product and a sponsor is not. These are the next three by clear
+ * ground, in that order.
+ *
+ * Which means the ceiling is three sponsored buildings on this plate,
+ * and that is a fact about the drawing rather than a policy. A bigger
+ * neighbourhood re-measures and gets more; it does not get more by
+ * someone typing another pair of numbers here, and a fourth sponsor
+ * standing in a flowerbed would be the exact failure this measurement
+ * exists to prevent.
+ */
+export const SPONSOR_PLATE_SPOTS: readonly NormalizedPoint[] = [
+  /*
+   * NEAREST FIRST, which is not the order the measurement returned.
+   *
+   * The three leftovers score 84%, 82% and 67% clear ground, and the
+   * first version listed them in that order. The 84% one is at v=0.248
+   * — the far end of the street — so the first sponsored building came
+   * out 53 points wide, in the top corner, half of it behind a HUD
+   * chip. Amit: *"חייב שיוצגו יותר בברור."*
+   *
+   * Depth is what decides how big a building is drawn, so the order
+   * here is by depth. Two percentage points of clear pavement is not
+   * worth a shop nobody can see, and 82% is comfortably above the
+   * threshold at which a building starts standing in a flowerbed.
+   */
+  { u: 0.732, v: 0.406 }, // 67% clear — mid-street, in the clear band
+  { u: 0.721, v: 0.793 }, // 82%, nearest, but under the drawer
+  { u: 0.125, v: 0.248 }, // 84%, far up the street
+];
+
+/**
+ * The spot the i-th sponsor stands on.
+ *
+ * `spots` is the same list of real building plots the trades use when
+ * the world is standing on a real street plan — and there the sponsors
+ * take plots the trades did NOT, by starting past them. On the painted
+ * plate there is no such surplus, so the measured leftovers above are
+ * used instead.
+ *
+ * Returns null rather than wrapping. A fourth sponsor on a plate with
+ * three free frontages has nowhere honest to stand, and drawing it on
+ * top of a third one would put two businesses in one doorway.
+ */
+export function sponsorSpotFor(
+  index: number,
+  spots?: readonly NormalizedPoint[] | null
+): NormalizedPoint | null {
+  if (index < 0) return null;
+  if (spots && spots.length > DISTRICT_SITES.length + index) {
+    return spots[DISTRICT_SITES.length + index]!;
+  }
+  return SPONSOR_PLATE_SPOTS[index] ?? null;
+}
+
 /** The measured spot a trade stands on, by its position in the table. */
 export function plateSpotFor(department: DepartmentCode): NormalizedPoint {
   const i = DISTRICT_SITES.findIndex((d) => d.department === department);

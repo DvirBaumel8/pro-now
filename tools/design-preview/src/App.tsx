@@ -2377,6 +2377,19 @@ const go = useCallback((r: CustomerRoute) => {
           <SearchingBody
             geo={geo}
             worldSources={art}
+            /*
+             * THE SHOPS IN THE STREET THAT PAID TO BE THERE.
+             *
+             * Amit: *"לא הגיוני שאני צריך לגלול עד לפה בשביל למצוא את
+             * זה. למה אין מבנה של לאסט במפה??"* The row at the foot of
+             * the tracking sheet stays — it is the readable, scrollable
+             * copy — but this is where a shop is actually FOUND, by
+             * walking past it.
+             */
+            sponsors={PREVIEW_SPONSORS}
+            onEnterSponsor={(shop) =>
+              go({ name: "sponsor", shopId: shop.id, from: "enroute" })
+            }
             departmentCode={departmentCodeByServiceId[route.serviceId]}
             serviceNameHe={page?.nameHe ?? ""}
             living={living}

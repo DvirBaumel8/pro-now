@@ -9,6 +9,7 @@ import {
   type PlayDrawerActionId,
   type WorldTheme,
   type WorldGeo,
+  type SponsorShop,
 } from "@pro-now/types";
 
 import { BackButton, BACK_BUTTON_CLEARANCE } from "../components/BackButton";
@@ -77,6 +78,16 @@ export interface SearchingBodyProps {
    * draw honest grey boxes.
    */
   worldSources?: WorldAssetSources;
+  /**
+   * Sponsored shops standing in the same street.
+   *
+   * Amit: *"אני רוצה שלכל ספונסר שלי יהיה חנות פה במפה של העולם
+   * שלנו."* Passed through rather than decided here — see
+   * `SponsorVenueLayer` for every rule that keeps a paid building
+   * distinguishable from a trade's.
+   */
+  sponsors?: readonly SponsorShop[];
+  onEnterSponsor?: (shop: SponsorShop) => void;
   discoveries?: DiscoveryState;
   onFound?: (discoveryId: string) => void;
   onPlayAction?: (id: PlayDrawerActionId) => void;
@@ -132,6 +143,8 @@ export function SearchingBody({
   checkingEligibility = false,
   departmentCode,
   worldSources,
+  sponsors,
+  onEnterSponsor,
   discoveries,
   onFound,
   onPlayAction,
@@ -199,6 +212,9 @@ export function SearchingBody({
         onAnother={onAnother}
         onSafety={onSafety}
         worldSources={worldSources}
+        /* The shops in this street that somebody paid for. */
+        sponsors={sponsors}
+        onEnterSponsor={onEnterSponsor}
         discoveries={discoveries}
         onFound={onFound}
         onPlayAction={onPlayAction}

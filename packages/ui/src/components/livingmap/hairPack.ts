@@ -83,6 +83,48 @@ export const HAIR_PACK_V0: WorldAssetManifest = Object.freeze({
      of the frame and nothing tries to plant them in a street.
      ------------------------------------------------------------------ */
   /** מוסך: רכב על מגבה, צמיגים, ארון כלים */
+  /*
+   * A SHOP THAT IS NOT OURS.
+   *
+   * Amit: *"למה אין מבנה של לאסט במפה??"* — so the first sponsored
+   * brand has a building in the neighbourhood like everybody else, and
+   * the inside of it like everybody else.
+   *
+   * Registered here for one reason only: `shapeOf` needs the real
+   * intrinsic size or the building is drawn into a square box and
+   * floats above its own footing. Nothing about being registered makes
+   * it a PRO NOW business — `sponsor-shops.ts` holds every rule that
+   * keeps the two apart, and the `sponsor_` prefix is what tells them
+   * apart everywhere else.
+   *
+   * The shopfront's anchor is 0.5: the cutout was trimmed to the
+   * building's own bounding box by `knockout-white.mjs`, so its footing
+   * is the middle of its base rather than off to one side the way the
+   * hand-placed district plates are.
+   */
+  sponsor_lust_venue: asset({
+    id: "sponsor_lust_venue",
+    file: "sponsor_lust_venue.webp",
+    role: "HERO_BUILDING",
+    theme: "SHARED",
+    defaultWidthRatio: 0.3,
+    critical: false,
+    intrinsicWidth: 1401,
+    intrinsicHeight: 943,
+    anchor: { x: 0.5, y: 1 },
+  }),
+  /** בפנים: מדפים, דלפק, ומוכרת. נחתך מתוך החזית עצמה. */
+  sponsor_lust_hero: asset({
+    id: "sponsor_lust_hero",
+    file: "sponsor_lust_hero.webp",
+    role: "HERO_BUILDING",
+    theme: "SHARED",
+    defaultWidthRatio: 1,
+    critical: false,
+    intrinsicWidth: 715,
+    intrinsicHeight: 547,
+    anchor: { x: 0.5, y: 0.5 },
+  }),
   auto_garage_hero: asset({
     id: "auto_garage_hero",
     file: "auto_garage_hero.webp",

@@ -455,32 +455,18 @@ await visit('pro-earnings', PRO, ['כמה הרווחתי']);
 await visit('pro-verify', PRO, ['המסמכים שלי']);
 
 /*
- * THE SCREENS THAT ARE ALMOST ENTIRELY ARTWORK.
+ * ORDER MATTERS HERE, AND IT COST A GREEN TICK TO LEARN.
  *
- * The audit walked past them for weeks — they are behind a search that
- * takes seconds to run, so every journey stopped at "שליחת הקריאה". They
- * are also the screens where a contrast measurement is least able to
- * help, because there is no background colour behind the type at all,
- * only a lit city. Which is to say: the ones the check added below this
- * exists for.
+ * These two were written after the living-map visits and left the
+ * browser standing INSIDE a shop, on a screen with no city on it. The
+ * control below then put its word on a page with no artwork, found
+ * nothing, and correctly reported that the artwork-legibility check was
+ * not checking anything — a real failure, caused entirely by where the
+ * previous journey happened to stop.
+ *
+ * So they run before the artwork screens, which end on the world, which
+ * is what the control needs to be standing on.
  */
-await visit('living-searching', CUST, [
-  HOME_DOOR,
-  'פתיחת סתימה',
-  'בקשת בעל מקצוע עכשיו',
-  'שליחת הקריאה',
-  async () => p.waitForTimeout(2600),
-]);
-await visit('living-wait', CUST, [
-  HOME_DOOR,
-  'פתיחת סתימה',
-  'בקשת בעל מקצוע עכשיו',
-  'שליחת הקריאה',
-  async () => p.waitForTimeout(8500),
-  'כן, מתאים לי',
-  async () => p.waitForTimeout(2000),
-]);
-
 /*
  * THE SHOPS THAT ARE NOT OURS.
  *
@@ -525,6 +511,33 @@ await visit('sponsor-shop', CUST, [
     await p.getByRole('button', { name: /Lust/ }).first().click();
     await p.waitForTimeout(1200);
   },
+]);
+
+/*
+ * THE SCREENS THAT ARE ALMOST ENTIRELY ARTWORK.
+ *
+ * The audit walked past them for weeks — they are behind a search that
+ * takes seconds to run, so every journey stopped at "שליחת הקריאה". They
+ * are also the screens where a contrast measurement is least able to
+ * help, because there is no background colour behind the type at all,
+ * only a lit city. Which is to say: the ones the check added below this
+ * exists for.
+ */
+await visit('living-searching', CUST, [
+  HOME_DOOR,
+  'פתיחת סתימה',
+  'בקשת בעל מקצוע עכשיו',
+  'שליחת הקריאה',
+  async () => p.waitForTimeout(2600),
+]);
+await visit('living-wait', CUST, [
+  HOME_DOOR,
+  'פתיחת סתימה',
+  'בקשת בעל מקצוע עכשיו',
+  'שליחת הקריאה',
+  async () => p.waitForTimeout(8500),
+  'כן, מתאים לי',
+  async () => p.waitForTimeout(2000),
 ]);
 
 /*

@@ -25,6 +25,7 @@ import {
   searchingDetailHe,
   type CameraShot,
   type DiscoveryState,
+  type SponsorShop,
   type LivingMapState,
   type PlayDrawerActionId,
   type Heading,
@@ -57,6 +58,7 @@ import type { WorldAssetSources } from "./AssetSlot";
 import { ShopInterior } from "./ShopInterior";
 import { MatchSheet } from "./MatchSheet";
 import { DistrictLayer } from "./DistrictLayer";
+import { SponsorVenueLayer } from "./SponsorVenueLayer";
 import { VenueLayer } from "./VenueLayer";
 import { WorldLife } from "./WorldLife";
 import { ErrandLayer } from "./ErrandLayer";
@@ -182,6 +184,19 @@ export interface LivingMapSceneProps {
    * clears the request as soon as it has acted on it so a re-render
    * cannot start the same trip twice.
    */
+  /**
+   * SHOPS IN THIS STREET THAT SOMEBODY PAID FOR.
+   *
+   * Amit: *"למה אין מבנה של לאסט במפה??"* Handed in rather than
+   * imported, because which brands have a building is a commercial fact
+   * and not a property of the world (/CLAUDE.md §4). Absent, or empty,
+   * and the neighbourhood is exactly what it was.
+   *
+   * `SponsorVenueLayer` decides where each one stands, from ground
+   * measured off the plate after the eleven trades have taken theirs.
+   */
+  sponsors?: readonly SponsorShop[];
+  onEnterSponsor?: (shop: SponsorShop) => void;
   enterVenueId?: string | null;
   onEnterHandled?: () => void;
   /**
@@ -260,6 +275,8 @@ export function LivingMapScene({
   animate = true,
   topInset = 0,
   onOpenProfile,
+  sponsors,
+  onEnterSponsor,
   enterVenueId = null,
   onEnterHandled,
   profileOpen = false,
@@ -1320,6 +1337,27 @@ export function LivingMapScene({
                */
               venuesDrawn={venues.length > 0}
             />
+
+            {/*
+              * AND THE SHOPS THAT ARE NOT OURS.
+              *
+              * Drawn with the districts rather than with the venues,
+              * because a sponsor is a PLACE in this street and not a
+              * person who might come to your door. Everything that keeps
+              * the two apart — the plate over the door, the missing
+              * figure outside, the ground it is allowed to stand on — is
+              * in `SponsorVenueLayer`.
+              */}
+            {sponsors && sponsors.length > 0 ? (
+              <SponsorVenueLayer
+                shops={sponsors}
+                width={world.width}
+                height={world.height}
+                sizeBasis={width}
+                sources={worldSources ?? {}}
+                onEnter={onEnterSponsor}
+              />
+            ) : null}
 
             {/*
               * THE CANDIDATES, AS PLACES. Each match gets a virtual shop:
