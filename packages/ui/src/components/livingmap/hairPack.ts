@@ -376,6 +376,23 @@ export const HAIR_PACK_V0: WorldAssetManifest = Object.freeze({
     defaultWidthRatio: 1,
   }),
 
+  /*
+   * THE STREET, THREE PLATES LONG.
+   *
+   * `world_neighbourhood` is one of its three sources and stays in the
+   * pack for the day the street is extended again; `ROAD_PLATE_ASSET_ID`
+   * names this one, and everything that reads the ground reads that.
+   */
+  world_neighbourhood_xl: asset({
+    id: "world_neighbourhood_xl",
+    file: "world_neighbourhood_xl.webp",
+    role: "GROUND",
+    intrinsicWidth: 921,
+    intrinsicHeight: 4766,
+    anchor: { x: 0.5, y: 0.5 },
+    defaultWidthRatio: 1,
+  }),
+
   world_neighbourhood: asset({
     id: "world_neighbourhood",
     file: "world_neighbourhood.webp",
@@ -843,7 +860,7 @@ export const HAIR_SCENE: readonly ScenePlacement[] = Object.freeze([
    * it any more: it was one road seen end to end, which is the shape Amit
    * rejected twice.
    */
-  { key: "ground", assetId: "world_neighbourhood", x: 0.5, y: 0.5 },
+  { key: "ground", assetId: "world_neighbourhood_xl", x: 0.5, y: 0.5 },
 
   /*
    * NO SEPARATE BARBERSHOP. The plate already contains one — neon

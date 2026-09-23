@@ -97,7 +97,33 @@ export const WORLD_EXTENT = { width: 2.4, height: 2.4 } as const;
  * read from the image because the layout must be computable without having
  * loaded anything.
  */
-export const PLATE_ASPECT = 948 / 1659;
+/*
+ * THE PLATE IS THREE PLATES NOW.
+ *
+ * Amit: *"חייב שהשכונה תהיה הרבה יותר גדולה ולא הגבולות הקטנים שיש
+ * עכשיו"*, and then, after a walk through it: *"תחשוב השכונה באן-בי-איי
+ * טו-קיי."*
+ *
+ * One 946x1662 drawing is a picture with a camera on it. You cannot
+ * walk it, you cannot turn a corner in it, and pushing the camera close
+ * enough to read a shop sign runs out of pixels. He had three
+ * continuation plates drawn and `tools/design-preview/stitch.mjs` joined
+ * them: the road's position was measured at each plate's top and bottom
+ * edge, each plate nudged sideways until the tarmac continues, and the
+ * seams cross-faded over 110 pixels so there is no line across the
+ * street.
+ *
+ * The result is 921 x 4766 — three times the ground, and every
+ * coordinate in this file is a fraction of it, so the shops, the road,
+ * the routes and the camera all moved with it.
+ *
+ * WHY THREE AND NOT FOUR. Two of the supplied plates drift the road the
+ * same way — about nine hundredths of the width leftwards from bottom
+ * edge to top — so stacking both needs an 85-pixel jog and the crop
+ * that follows eats a fifth of the street. These three join with
+ * nudges of 12 and 0 pixels.
+ */
+export const PLATE_ASPECT = 921 / 4766;
 
 /**
  * How big the world box is, in points, for a given viewport.
@@ -252,18 +278,34 @@ export interface RoadSample {
 
 /** The measured carriageway, middle and width, front to back. */
 export const ROAD_SAMPLES: readonly RoadSample[] = [
-  { u: 0.743, v: 0.042, width: 0.09 },
-  { u: 0.758, v: 0.125, width: 0.09 },
-  { u: 0.782, v: 0.208, width: 0.11 },
-  { u: 0.804, v: 0.292, width: 0.11 },
-  { u: 0.831, v: 0.375, width: 0.09 },
-  { u: 0.853, v: 0.458, width: 0.16 },
-  { u: 0.862, v: 0.542, width: 0.11 },
-  { u: 0.862, v: 0.625, width: 0.19 },
-  { u: 0.872, v: 0.708, width: 0.14 },
-  { u: 0.91, v: 0.792, width: 0.14 },
-  { u: 0.94, v: 0.875, width: 0.06 },
-  { u: 0.959, v: 0.958, width: 0.09 },
+  { u: 0.893, v: 0.018, width: 0.15 },
+  { u: 0.902, v: 0.054, width: 0.10 },
+  { u: 0.920, v: 0.089, width: 0.16 },
+  { u: 0.931, v: 0.125, width: 0.11 },
+  { u: 0.939, v: 0.161, width: 0.13 },
+  { u: 0.944, v: 0.196, width: 0.12 },
+  { u: 0.951, v: 0.232, width: 0.08 },
+  { u: 0.957, v: 0.268, width: 0.09 },
+  { u: 0.959, v: 0.304, width: 0.08 },
+  { u: 0.922, v: 0.339, width: 0.07 },
+  { u: 0.889, v: 0.375, width: 0.13 },
+  { u: 0.861, v: 0.411, width: 0.15 },
+  { u: 0.881, v: 0.446, width: 0.15 },
+  { u: 0.901, v: 0.482, width: 0.17 },
+  { u: 0.916, v: 0.518, width: 0.15 },
+  { u: 0.925, v: 0.554, width: 0.14 },
+  { u: 0.930, v: 0.589, width: 0.14 },
+  { u: 0.935, v: 0.625, width: 0.13 },
+  { u: 0.877, v: 0.661, width: 0.11 },
+  { u: 0.827, v: 0.696, width: 0.09 },
+  { u: 0.781, v: 0.732, width: 0.12 },
+  { u: 0.815, v: 0.768, width: 0.10 },
+  { u: 0.842, v: 0.804, width: 0.16 },
+  { u: 0.855, v: 0.839, width: 0.12 },
+  { u: 0.862, v: 0.875, width: 0.18 },
+  { u: 0.890, v: 0.911, width: 0.12 },
+  { u: 0.927, v: 0.946, width: 0.08 },
+  { u: 0.953, v: 0.982, width: 0.09 },
 ];
 
 /**
@@ -292,7 +334,7 @@ export const ROAD_SAMPLES: readonly RoadSample[] = [
  * never on a real map, where invented traffic would be a claim about a
  * real street.
  */
-export const ROAD_PLATE_ASSET_ID = "world_neighbourhood";
+export const ROAD_PLATE_ASSET_ID = "world_neighbourhood_xl";
 
 /** Whether `ROAD` describes the ground currently being drawn. */
 export function roadIsMeasuredFor(args: {
@@ -374,18 +416,27 @@ export const STREETS: readonly Street[] = [
        * POSITIONED things; it matters now that people walk them, and
        * `lanes.test.ts` measures every point of every street against
        * `roadAt` rather than trusting the numbers to look sensible.
+       *
+       * Moved again for the three-plate street: the carriageway at this
+       * depth is 0.741 to 0.851 there, and 0.79 was in the middle of
+       * it. The check found it the moment the plate changed, which is
+       * the entire reason it is a measurement and not a comment.
        */
-      { u: 0.79, v: 0.72 },
+      { u: 0.70, v: 0.72 },
     ],
   },
   {
     id: "back",
     labelHe: "הסמטה",
     path: [
-      // Begins on the pavement for the same reason: 0.86 at this depth
-      // was inside a carriageway running 0.799 to 0.944.
-      { u: 0.78, v: 0.7 },
-      { u: 0.84, v: 0.9 },
+      /*
+       * Begins on the pavement for the same reason: 0.86 at this depth
+       * was inside a carriageway running 0.799 to 0.944 on the old
+       * plate — and 0.78 was inside the new one, which runs 0.778 to
+       * 0.872 here. Both ends moved with the drawing.
+       */
+      { u: 0.72, v: 0.7 },
+      { u: 0.75, v: 0.9 },
       { u: 0.66, v: 0.96 },
     ],
   },
@@ -454,78 +505,36 @@ export const DISTRICT_SITES: readonly DistrictSite[] = [
  */
 export const PLATE_SPOTS: readonly NormalizedPoint[] = [
   /*
-   * MEASURED AS BOXES, NOT AS POINTS — AND THEN MEASURED AGAINST THE
-   * RIGHT QUESTION.
+   * MEASURED ON THE THREE-PLATE STREET by `measure-spots.mjs`, and then
+   * FILTERED.
    *
-   * There have been three sets of these numbers and each one was produced
-   * by the same script, so it is worth being precise about what changed,
-   * because twice the script was confidently answering a slightly
-   * different question from the one being asked.
+   * The measurement found eighteen patches of ground a whole shopfront
+   * fits on. Four of them are the far pavement, on the OTHER side of the
+   * carriageway — clean ground by every test the tool applies, and a
+   * building placed there overhangs the road, which `plate-ground`
+   * catches and should. The old plate never posed the question because
+   * its far side was barely drawn.
    *
-   * The FIRST set scored the footing — the doorstep — and every one of
-   * the eleven passed. Six still looked wrong on screen, because a
-   * shopfront is 0.15 of the world wide and RISES from its footing: the
-   * doorsteps were on clean paving and the buildings were standing across
-   * flowerbeds, over the kerb, and in one case on a zebra crossing.
-   *
-   * The SECOND set fixed that. It eroded by the building's own footprint
-   * rather than by a token margin, and the marks it gave the first set
-   * were brutal — שיער on 4% clear ground, חיות on 18% and in the road.
-   * Its own best eleven scored worst 41%, median 63%: better everywhere,
-   * and still not good. The comment here concluded that the plate could
-   * hold four shopfronts and that the next plate needed to be drawn
-   * differently. That conclusion was wrong, and this is how:
-   *
-   * The THIRD set — these — changed nothing about the erosion and one
-   * thing about what counts as ground. The test was lum > 95: bright
-   * enough to be lit stone rather than tarmac. `measure-pavement.mjs` had
-   * already discovered, when the same test was tried for where a PERSON
-   * may stand, that brightness is the wrong question on this plate: the
-   * paving in shadow at the sides is darker than 95 and is still paving,
-   * while THE ZEBRA CROSSINGS ARE BRIGHTER THAN IT AND ARE STILL ROAD.
-   * That tool switched to warmth — paving is warm stone under sodium
-   * light, asphalt and its white paint are neutral — and this one was
-   * left behind, so the two tools disagreed about where the ground was
-   * and the one that places the buildings was the one that was wrong.
-   *
-   * It was rejecting most of the real pavement and accepting the road.
-   * With the same erosion and the pavement tool's own test:
-   *
-   *     standable ground   0.2%  ->  13.6% of the plate
-   *     separated slots    7     ->  15
-   *     worst placement    36%   ->  86% clear
-   *
-   * So the plate holds eleven shopfronts after all, comfortably, and the
-   * paragraph that used to stand here asking for a different drawing has
-   * been deleted rather than softened: it was a brief written from a
-   * measurement bug. The one thing it got right is kept below.
-   *
-   * Every one of these is now checked against the carriageway as well —
-   * see `CARRIAGEWAY` and `plate-ground.test.ts`. The worst overlap is a
-   * corner touching a kerb at 9%; the spot this set replaces was 90% road,
-   * which is to say it was a shop parked on the zebra crossing.
-   *
-   * ---------------------------------------------------------------------
-   * AND NONE OF THEM MAY BE NEARER THE VIEWER THAN THE CUSTOMER
-   * ---------------------------------------------------------------------
-   * An earlier run put a shop at v = 0.922, which is in front of
-   * `CUSTOMER_POINT` at 0.9. A professional leaving that shop drives AWAY
-   * from the eye to reach the person waiting, so the van shrinks as it
-   * arrives — and `assignment-route.test.ts` failed on exactly that, one
-   * assertion, before anybody looked at a screenshot. The cap is in the
-   * measurement: nothing past v = 0.86.
+   * So the list is the fourteen whose full footprint clears the tarmac
+   * with a kerb to spare. The first eleven are the trades', in the order
+   * `DISTRICT_SITES` indexes; the last three are for sponsors, and the
+   * first of those is mid-pavement on purpose — see
+   * `SPONSOR_PLATE_SPOTS`.
    */
-  { u: 0.339, v: 0.853 }, // 100% clear
-  { u: 0.126, v: 0.792 }, //  89%
-  { u: 0.508, v: 0.665 }, // 100%
-  { u: 0.731, v: 0.567 }, //  90%
-  { u: 0.292, v: 0.562 }, // 100%
-  { u: 0.517, v: 0.438 }, // 100%
-  { u: 0.279, v: 0.425 }, // 100%
-  { u: 0.574, v: 0.257 }, //  89%
-  { u: 0.359, v: 0.211 }, // 100%
-  { u: 0.874, v: 0.125 }, //  86%
-  { u: 0.122, v: 0.102 }, //  88%
+  { u: 0.133, v: 0.849 },
+  { u: 0.347, v: 0.849 },
+  { u: 0.677, v: 0.835 },
+  { u: 0.545, v: 0.674 },
+  { u: 0.329, v: 0.649 },
+  { u: 0.570, v: 0.539 },
+  { u: 0.353, v: 0.473 },
+  { u: 0.138, v: 0.435 },
+  { u: 0.648, v: 0.362 },
+  { u: 0.154, v: 0.284 },
+  { u: 0.384, v: 0.171 },
+  { u: 0.434, v: 0.307 },
+  { u: 0.652, v: 0.218 },
+  { u: 0.125, v: 0.100 },
 ];
 
 /**
@@ -631,39 +640,22 @@ export function groundSpotFor(
  */
 export const SPONSOR_PLATE_SPOTS: readonly NormalizedPoint[] = [
   /*
-   * NEAREST FIRST, which is not the order the measurement returned.
+   * ON THE BIG STREET THERE IS ROOM, AND THE FIRST ONE IS MID-PAVEMENT.
    *
-   * The three leftovers score 84%, 82% and 67% clear ground, and the
-   * first version listed them in that order. The 84% one is at v=0.248
-   * — the far end of the street — so the first sponsored building came
-   * out 53 points wide, in the top corner, half of it behind a HUD
-   * chip. Amit: *"חייב שיוצגו יותר בברור."*
+   * The old plate had fifteen frontages, eleven of them the trades', and
+   * the three leftovers were all at its edges — so a sponsored building
+   * was always off to one side of whatever the camera was looking at.
+   * Amit proved it himself: he could not find the only sponsor in the
+   * world, and he is the person who put it there.
    *
-   * Depth is what decides how big a building is drawn, so the order
-   * here is by depth. Two percentage points of clear pavement is not
-   * worth a shop nobody can see, and 82% is comfortably above the
-   * threshold at which a building starts standing in a flowerbed.
+   * These are the frontages the trades did not take, and the first is in
+   * the middle of the pavement where somebody walking the street goes
+   * straight past it. That is the whole proposition being sold to a
+   * brand, and this is the first drawing able to deliver it.
    */
-  /*
-   * AND NONE OF THE THREE IS IN THE MIDDLE OF THE FRAME, WHICH IS A
-   * FACT ABOUT THE DRAWING AND NOT A CHOICE.
-   *
-   * The plate yields fifteen slots a whole shopfront fits on, at 15 and
-   * at 20 requested alike — it is the drawing, not the count. The
-   * eleven cleanest are the trades' and the rest are at the edges. So
-   * wherever the wait's camera rests, a sponsored building is somewhere
-   * off to one side, and the closer the camera gets the more often it
-   * is out of frame entirely.
-   *
-   * This one is on the main street at mid-height, so it comes into view
-   * as the camera follows a professional along it. That is the best
-   * this plate can do, and it is one of the clearest arguments for the
-   * larger neighbourhood: more drawing, more frontages, and a sponsor
-   * standing somewhere you actually walk past.
-   */
-  { u: 0.732, v: 0.406 }, // 67% clear — on the street the camera follows
-  { u: 0.125, v: 0.248 }, // 84%
-  { u: 0.721, v: 0.793 }, // 82%
+  { u: 0.434, v: 0.307 }, // mid-pavement, walked past
+  { u: 0.652, v: 0.218 },
+  { u: 0.125, v: 0.100 },
 ];
 
 /**
@@ -1294,8 +1286,24 @@ export const WORLD_SIZE = {
   personOfVenue: 0.42,
   /** The customer's own figure, as a multiple of anybody else's height. */
   avatarOfPerson: 1.15,
-  /** What travels the lane. Height, not width — see RouteLayer. */
-  travellerHeight: 0.05,
+  /**
+   * WHAT TRAVELS THE LANE — A SHARE OF THE WORLD'S WIDTH.
+   *
+   * This was 0.05 of the world's HEIGHT, which is fine on a plate that
+   * is roughly as tall as it is wide and wrong on any other. The street
+   * is three plates now and five times taller than it is wide, so a van
+   * sized against its height came out nearly three times bigger than it
+   * had been — a bus among the shopfronts. The invariant beside this
+   * one caught it: a walking person was suddenly four times smaller
+   * than the vehicle sharing the pavement.
+   *
+   * Every other size in this table is a share of the WIDTH, which does
+   * not move when a plate is extended. This one is now too. The value
+   * is chosen against the person it stands beside: a person is
+   * `district * personOfVenue` wide-units tall, and a vehicle is about
+   * half as tall again.
+   */
+  travellerHeight: 0.1,
 } as const;
 
 /**

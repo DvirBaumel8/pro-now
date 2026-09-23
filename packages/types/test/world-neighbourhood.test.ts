@@ -322,13 +322,18 @@ describe("people are the same size as people", () => {
 
   it("keeps a walking person smaller than the vehicles sharing the street", () => {
     /*
-     * Expressed in the same units to be comparable at all: a traveller is
-     * a fraction of the world's HEIGHT, a person a fraction of a
-     * shopfront's WIDTH, and the plate is taller than it is wide.
+     * BOTH IN SHARES OF THE WORLD'S WIDTH.
+     *
+     * This used to convert the traveller through `1 / PLATE_ASPECT`,
+     * because a traveller was a share of the world's HEIGHT. That held
+     * while the plate was roughly square and broke the day the street
+     * became three plates: the same constant made a van three times
+     * larger, and this assertion is what reported it. `travellerHeight`
+     * is a share of the width now, so there is nothing to convert and
+     * nothing that changes when the world is extended again.
      */
-    const worldHeightPerWidth = 1 / PLATE_ASPECT;
     const personOfWorldWidth = WORLD_SIZE.district * WORLD_SIZE.personOfVenue;
-    const travellerOfWorldWidth = WORLD_SIZE.travellerHeight * worldHeightPerWidth;
+    const travellerOfWorldWidth = WORLD_SIZE.travellerHeight;
     expect(personOfWorldWidth).toBeLessThan(travellerOfWorldWidth);
     // But not absurdly so: a scooter is not a bus.
     expect(travellerOfWorldWidth / personOfWorldWidth).toBeLessThan(2);

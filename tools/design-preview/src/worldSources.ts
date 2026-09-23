@@ -98,4 +98,6 @@ export const worldSources: WorldAssetSources = {
   world_ground_mat_3: { uri: "./world/world_ground_mat_3.webp" },
   world_ground_mat_4: { uri: "./world/world_ground_mat_4.webp" },
   world_neighbourhood: { uri: "./world/world_neighbourhood.webp" },
+  /* The street, three plates long — see `stitch.mjs`. */
+  world_neighbourhood_xl: { uri: "./world/world_neighbourhood_xl.webp" },
 };

@@ -81,10 +81,27 @@ import type { CameraState, VenueKind, VirtualVenue } from "./virtual-venue";
  * overall tempo of the search screen where it was.
  */
 export const SWEEP_SPEED_PER_MS = 0.00041;
-/** No move snappier than this, however close the next shop is. */
-export const MIN_TRAVEL_MS = 800;
+/*
+ * THE CLAMP, WIDENED FOR A STREET THREE TIMES LONGER.
+ *
+ * 800 and 1500 were right for a world 946 pixels wide and 1662 tall.
+ * On the three-plate street the shops of one trade are spread much
+ * further, so the hops now want 433ms to 1656ms — and a clamp of
+ * 800..1500 flattens BOTH ends, which is the one thing it must not do:
+ * the short hops crawl, the long hops race, and the camera's speed
+ * varies more than the fixed timer this schedule replaced. The
+ * invariant beside it measured exactly that and failed at 2.04.
+ *
+ * Both ends moved by the least that lets real distances through. The
+ * reasons for having a clamp at all are unchanged: the floor stops two
+ * shops that are nearly on top of each other producing a cut, and the
+ * ceiling stops a move so slow it stops reading as one gesture. What
+ * changed is how far apart two shops on this street actually are — the
+ * shortest hop is now a real move rather than a twitch.
+ */
+export const MIN_TRAVEL_MS = 600;
 /** No move slower than this, however far. */
-export const MAX_TRAVEL_MS = 1500;
+export const MAX_TRAVEL_MS = 1700;
 /**
  * The nominal move, for a sweep with nothing to measure — a single venue
  * has no hop, and something still has to be handed to the viewport.

@@ -8,6 +8,7 @@ import {
   GROUND_MATERIAL_IDS,
   WORLD_DISTRICTS,
   type DepartmentCode,
+  ROAD_PLATE_ASSET_ID,
 } from "@pro-now/types";
 
 /**
@@ -76,8 +77,19 @@ function requestedIds(): Set<string> {
     ids.add(a.portraitAssetId);
     ids.add(a.worldAssetId);
   }
-  // The ground, and the four things that travel along it.
-  ids.add("world_neighbourhood");
+  /*
+   * THE GROUND, BY NAME RATHER THAN BY LITERAL.
+   *
+   * This said `"world_neighbourhood"`. The day the street became three
+   * plates and the ground became `world_neighbourhood_xl`, the check
+   * reported the new plate — the largest and most important file in the
+   * pack, the one the whole world stands on — as art nobody draws.
+   *
+   * `ROAD_PLATE_ASSET_ID` is what the world actually reads, so it is
+   * what this asks for. A check that names a constant by copying its
+   * value is a check that goes stale the first time the value moves.
+   */
+  ids.add(ROAD_PLATE_ASSET_ID);
   /*
    * And the ground as a MATERIAL, which is a different thing from the
    * plate and is asked for by `groundMaterials` rather than by a
@@ -136,6 +148,25 @@ describe("the art the world asks for", () => {
       "welcome_hero",
       "hair_barbershop_hero",
       "shared_ground_street",
+      /*
+       * THE SINGLE-PLATE NEIGHBOURHOOD.
+       *
+       * Superseded by `world_neighbourhood_xl`, which is this drawing
+       * with two continuation plates joined onto it. Kept rather than
+       * deleted because it is one of the three SOURCES of that
+       * composite: the day the street is extended again, the stitch is
+       * re-run from the originals, and a source thrown away to satisfy
+       * an orphan check is a source that has to be regenerated.
+       */
+      /*
+       * THE SINGLE-PLATE NEIGHBOURHOOD, now a SOURCE rather than a
+       * drawing: `world_neighbourhood_xl` is this plate with two
+       * continuation plates joined onto it. Kept because the stitch is
+       * re-run from the originals the day the street is extended again,
+       * and a source thrown away to satisfy an orphan check is a source
+       * somebody has to regenerate.
+       */
+      "world_neighbourhood",
     ]);
     const wanted = requestedIds();
     const orphans = deliveredIds().filter(
