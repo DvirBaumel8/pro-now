@@ -957,6 +957,18 @@ export function App() {
              */
             memory={proMemory}
             onReleaseJob={() => setJobReleased(true)}
+            /*
+             * Carried across from the picker, which runs on the other
+             * side of the app. `art` rather than `worldSources` so the
+             * gallery's borrowed figures work here too.
+             */
+            customerFaceUri={(() => {
+              const id = avatar ? AVATARS.find((a) => a.id === avatar)?.portraitAssetId : null;
+              const src = id ? art[id] : undefined;
+              return src && typeof src === "object" && "uri" in src && typeof src.uri === "string"
+                ? src.uri
+                : null;
+            })()}
             completionConfirmed={completionConfirmed}
             onCompletionSeen={() => setCompletionConfirmed(false)}
             onSeeAsCustomer={(what) => {
@@ -1871,6 +1883,30 @@ const go = useCallback((r: CustomerRoute) => {
    * its name, pressing that trade's shop opens into it with no change
    * here. Today the barber is the only trade that has one.
    */
+  /**
+   * THE PROFESSIONAL THE CUSTOMER IS WATCHING, WITH A FACE.
+   *
+   * Amit: *"למה התמונה של בעל המקצוע והשם לא מהדמויות שבנינו?"* The
+   * fixture carries `profilePhotoUrl: null`, so every screen fell back
+   * to a monogram — while eleven trade characters sat in the pack, and
+   * the candidate cards two screens earlier were already using them.
+   *
+   * It is the TRADE's figure, not a likeness of a person: an
+   * illustration of a plumber, on a demonstration professional whose
+   * name says "(תצוגה)". That is the same claim the candidate cards
+   * make and it is a small one. The day a real professional uploads a
+   * photo, the server sends it and this is never consulted.
+   */
+  const trackedProfessional = useMemo(() => {
+    const base = matchFixture.professional;
+    const dept = trackedService.id ? departmentCodeByServiceId[trackedService.id] : null;
+    const id = dept ? WORLD_DISTRICTS[dept]?.characterPortraitAssetId : null;
+    const src = id ? art[id] : undefined;
+    const uri =
+      src && typeof src === "object" && "uri" in src && typeof src.uri === "string" ? src.uri : null;
+    return uri ? { ...base, profilePhotoUrl: uri } : base;
+  }, [trackedService, art]);
+
   const shopInteriorUri = useMemo(() => {
     const serviceId = route.name === "living" ? route.serviceId : lastRequestedId;
     const dept = serviceId ? departmentCodeByServiceId[serviceId] : null;
@@ -2427,7 +2463,7 @@ const go = useCallback((r: CustomerRoute) => {
                         : "IN_PROGRESS"
             }
             serviceNameHe={trackedService.nameHe}
-            professional={matchFixture.professional}
+            professional={trackedProfessional}
             eta={matchFixture.eta}
             /*
              * The arrival clock is DERIVED from the ETA the server gave,
@@ -2570,7 +2606,7 @@ const go = useCallback((r: CustomerRoute) => {
               // came out of the diagnosis with.
               status="DIAGNOSIS"
               serviceNameHe={trackedService.nameHe}
-              professional={matchFixture.professional}
+              professional={trackedProfessional}
               eta={matchFixture.eta}
               /*
                * THE SAME STREET AS THE SCREEN UNDERNEATH.
@@ -3153,6 +3189,7 @@ function ProApp({
   completionConfirmed,
   onCompletionSeen,
   onReleaseJob,
+  customerFaceUri,
   memory,
 }: {
   /**
@@ -3208,6 +3245,11 @@ function ProApp({
   onCompletionSeen?: () => void;
   /** The professional gave the job back. The customer has to be told. */
   onReleaseJob?: () => void;
+  /**
+   * The avatar the customer picked for themselves, if they picked one.
+   * Their own choice, carried across — not a likeness we invented.
+   */
+  customerFaceUri?: string | null;
   /**
    * What this side was doing the last time it was mounted. Held above
    * because a crossing unmounts all of it — see `ProMemory`.
@@ -3807,6 +3849,19 @@ function ProApp({
         distanceHe="2.4 ק״מ"
         customerNameHe="אמית (תצוגה)"
         customerSeed="cust_demo_1"
+        /*
+         * THE FIGURE THE CUSTOMER ACTUALLY CHOSE.
+         *
+         * Amit: *"למה התמונה של הלקוח לא מהדמויות שבנינו?"* Because
+         * nothing was passing it. The picker runs on the other side of
+         * the app and the choice was never carried across — so a
+         * professional saw a monogram about somebody who had picked one
+         * of twelve characters we drew.
+         *
+         * Null when they skipped the picker, which is a real answer:
+         * the monogram comes back, claiming no likeness.
+         */
+        customerPhotoUri={customerFaceUri}
         symptomsHe={
           takenRequest ? takenRequest.intakeBrief.map((l) => l.answerHe) : jobSymptoms
         }

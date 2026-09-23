@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Animated, Easing, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Svg, { Rect } from "react-native-svg";
 
 import {
@@ -75,6 +75,24 @@ export interface ProJobBodyProps {
   distanceHe: string | null;
   customerNameHe: string;
   customerSeed: string;
+  /**
+   * THE FIGURE THE CUSTOMER CHOSE FOR THEMSELVES.
+   *
+   * Amit: *"למה התמונה של בעל המקצוע והשם וגם של הלקוח לא מהדמויות
+   * שבנינו?"*
+   *
+   * Because nothing was passing them. The monogram is the right answer
+   * when we have nothing — it claims no likeness — and it was being
+   * shown to a professional about somebody who had picked a character
+   * out of twelve we drew. That is not a missing asset, it is a fact the
+   * screen was never given.
+   *
+   * It is honest for exactly that reason: it is not a photograph and not
+   * a guess, it is the picture the customer chose to be. Null when they
+   * skipped the picker, which is a real answer, and the monogram comes
+   * back.
+   */
+  customerPhotoUri?: string | null;
   /**
    * The top of the usual range for this service, or null when there is
    * not enough history to say — the same answer, from the same source,
@@ -164,6 +182,7 @@ export function ProJobBody({
   distanceHe,
   customerNameHe,
   customerSeed,
+  customerPhotoUri = null,
   usualUpToMinorUnits = null,
   usualSampleSize = 0,
   onSiteContactNameHe = null,
@@ -351,7 +370,17 @@ export function ProJobBody({
           <SectionHeader title="הלקוח" colors={colors} />
           <Surface colors={colors} level={1} dark>
             <View style={styles.custRow}>
-              <Persona seed={customerSeed} size={46} ring={colors.trust} />
+              {customerPhotoUri ? (
+                <Image
+                  source={{ uri: customerPhotoUri }}
+                  style={styles.customerFace}
+                  accessible
+                  accessibilityRole="image"
+                  accessibilityLabel={`הדמות של ${customerNameHe}`}
+                />
+              ) : (
+                <Persona seed={customerSeed} size={46} ring={colors.trust} />
+              )}
               <View style={styles.custText}>
                 <Text style={styles.custName} numberOfLines={1}>
                   {onSiteContactNameHe ?? customerNameHe}
@@ -737,6 +766,13 @@ const styles = StyleSheet.create({
    * because a target somebody has to hit while standing in a stairwell
    * is not the place to save eight points.
    */
+  customerFace: {
+    width: 46,
+    height: 46,
+    borderRadius: 999,
+    borderWidth: 2,
+    borderColor: colors.trust,
+  },
   release: {
     minHeight: 44,
     justifyContent: "center",
