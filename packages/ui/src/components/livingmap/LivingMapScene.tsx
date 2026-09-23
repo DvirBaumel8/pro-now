@@ -46,6 +46,7 @@ import {
   metresAcrossAt,
   geoAspect,
   groundDisclosureHe,
+  ROAD_PLATE_ASSET_ID,
 } from "@pro-now/types";
 
 import { palette, radii, spacing, tabular, type } from "../../theme";
@@ -1258,7 +1259,7 @@ export function LivingMapScene({
          * plate is one screen, and blowing it up to travel across would
          * crop into the tarmac rather than reveal anything.
          */
-        worldSized={Boolean(geo) || Boolean(worldSources?.["world_neighbourhood"])}
+        worldSized={Boolean(geo) || Boolean(worldSources?.[ROAD_PLATE_ASSET_ID])}
         groundAspect={geo ? geoAspect(geo.bounds) : undefined}
         explorable={Boolean(worldSources)}
         /*

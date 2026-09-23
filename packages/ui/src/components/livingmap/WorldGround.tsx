@@ -1,7 +1,13 @@
 import React, { useMemo } from "react";
 import { Image, StyleSheet, View } from "react-native";
 
-import { type WorldGeo, GROUND_GRASS_ID, groundMaterials, pruneDeadEnds } from "@pro-now/types";
+import {
+  type WorldGeo,
+  GROUND_GRASS_ID,
+  groundMaterials,
+  pruneDeadEnds,
+  ROAD_PLATE_ASSET_ID,
+} from "@pro-now/types";
 
 import { type WorldAssetSources, EMPTY_ASSET_SOURCES } from "./AssetSlot";
 import { GeoPlate } from "./GeoPlate";
@@ -77,7 +83,7 @@ export function WorldGround({
   sources = EMPTY_ASSET_SOURCES,
   geo = null,
   metresAcross,
-  plateAssetId = "world_neighbourhood",
+  plateAssetId = ROAD_PLATE_ASSET_ID,
   fallbackPlateAssetId = "shared_ground_street",
   animate = true,
 }: WorldGroundProps) {

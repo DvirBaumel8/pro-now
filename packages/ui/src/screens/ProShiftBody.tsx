@@ -7,6 +7,7 @@ import {
   money,
   type ProPresenceState,
   type WorldGeo,
+  ROAD_PLATE_ASSET_ID,
 } from "@pro-now/types";
 
 import { proTheme, radii, spacing, tabular, tint, type } from "../theme";
@@ -156,7 +157,7 @@ export function ProShiftBody({
    * `worldSources`. What is NOT a world is an empty object, which is what
    * a build without the art has, so the plate itself is the test.
    */
-  const hasWorld = Boolean(worldSources?.["world_neighbourhood"]);
+  const hasWorld = Boolean(worldSources?.[ROAD_PLATE_ASSET_ID]);
   const money0 = (v: number | null) => (v === null ? "—" : formatMoney(money(v, "ILS")));
 
   return (

@@ -79,8 +79,16 @@ describe("the world has edges", () => {
     // mysteriously refuses to move.
     const out = clampWalkable({ u: 2, v: -3 });
     expect(insideWalkable(out)).toBe(true);
-    expect(out.u).toBe(WALKABLE.maxU);
     expect(out.v).toBe(WALKABLE.minV);
+    /*
+     * `u` is no longer simply the box's edge. At this depth the
+     * carriageway runs past the right-hand edge of the walkable box, so
+     * the corner of the rectangle is in the road — and the clamp's job
+     * is a position you can stand in, not a position on a boundary. It
+     * lands on the kerb instead, inside the box.
+     */
+    expect(out.u).toBeLessThanOrEqual(WALKABLE.maxU);
+    expect(out.u).toBeGreaterThanOrEqual(WALKABLE.minU);
   });
 });
 

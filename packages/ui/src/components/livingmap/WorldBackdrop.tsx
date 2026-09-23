@@ -11,6 +11,7 @@ import {
   roadIsMeasuredFor,
   worldBox,
   worldZoomFor,
+  ROAD_PLATE_ASSET_ID,
 } from "@pro-now/types";
 
 import { palette } from "../../theme";
@@ -164,7 +165,7 @@ export function WorldBackdrop({
   width,
   height,
   sources = EMPTY_ASSET_SOURCES,
-  groundAssetId = "world_neighbourhood",
+  groundAssetId = ROAD_PLATE_ASSET_ID,
   fallbackGroundAssetId = "shared_ground_street",
   animate = true,
   departmentCode = null,
@@ -198,7 +199,7 @@ export function WorldBackdrop({
    * takes the world-plate path — clamped camera, 2.4 screens across —
    * rather than the single-picture path the hero plates use.
    */
-  const isWorldPlate = geo !== null || assetId === "world_neighbourhood";
+  const isWorldPlate = geo !== null || assetId === ROAD_PLATE_ASSET_ID;
 
   /*
    * Fit the neighbourhood by default; the fallback single-street plate is

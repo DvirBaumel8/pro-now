@@ -22,6 +22,7 @@ import {
   type Gait,
   type RunningMoment,
   type WorldMoment,
+  PLATE_V_WEIGHT,
 } from "@pro-now/types";
 
 import { AssetSlot, EMPTY_ASSET_SOURCES, type WorldAssetSources } from "./AssetSlot";
@@ -530,7 +531,7 @@ export function WorldLife({
             if (i > 0) {
               const a = path[i - 1]!;
               const b = path[i]!;
-              total += Math.hypot(b.u - a.u, (b.v - a.v) * 0.6);
+              total += Math.hypot(b.u - a.u, (b.v - a.v) * PLATE_V_WEIGHT);
             }
             travelled.push(total);
           }

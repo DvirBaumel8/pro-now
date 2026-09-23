@@ -15,6 +15,7 @@ import {
   type Gait,
   type Heading,
   type NormalizedPoint,
+  PLATE_V_WEIGHT,
 } from "@pro-now/types";
 
 import { EMPTY_ASSET_SOURCES, type WorldAssetSources } from "./AssetSlot";
@@ -243,7 +244,7 @@ export function Walker({
        * single most obvious tell that a character is a sprite.
        */
       const movedU = next.u - at.current.u;
-      const movedV = (next.v - at.current.v) * 0.6;
+      const movedV = (next.v - at.current.v) * PLATE_V_WEIGHT;
       const moved = Math.hypot(movedU, movedV);
       at.current = next;
       distance.current += moved;
@@ -550,9 +551,15 @@ export function Walker({
  */
 function headingToward(from: NormalizedPoint, to: NormalizedPoint): Heading {
   const du = to.u - from.u;
-  // The 3/4 weighting, so a destination up the street is not mistaken
-  // for one beside you. The whole world measures depth this way.
-  const dv = (to.v - from.v) * 0.6;
+  /*
+   * The 3/4 weighting, so a destination up the street is not mistaken
+   * for one beside you. The whole world measures depth this way — and
+   * it takes the number from the PLATE now rather than from a literal,
+   * because a street three plates long makes "up the street" mean five
+   * times what it used to and a hard-coded 0.6 sent walkers off at the
+   * wrong angle.
+   */
+  const dv = (to.v - from.v) * PLATE_V_WEIGHT;
   if (Math.hypot(du, dv) < ARRIVED) return null;
   const deg = (Math.atan2(du, -dv) * 180) / Math.PI;
   return COMPASS[Math.round(((deg + 360) % 360) / 45) % 8]!;

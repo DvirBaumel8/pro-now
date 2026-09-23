@@ -1,3 +1,5 @@
+import { PLATE_V_WEIGHT } from "./world-neighbourhood";
+
 /**
  * HOW A THING MOVES, NOT JUST WHERE IT ENDS UP.
  *
@@ -181,15 +183,21 @@ export function travelMs(gait: Gait, worldDistance: number): number {
 /**
  * The length of a sampled path, in world widths.
  *
- * `v` is weighted down because the world is drawn in 3/4: a step up the
- * street covers more ground than a step across it, so treating the two
- * equally makes anything moving vertically look like it is in a hurry.
+ * `v` is weighted because the world is drawn in 3/4 AND because the
+ * drawing is not square: a step up the street covers more ground than a
+ * step across it, and how much more depends on how tall the plate is.
+ * The weight was a flat 0.6 until the street became three plates — see
+ * `PLATE_V_WEIGHT`, which reproduces 0.6 on the plate that number was
+ * tuned against and follows the drawing from here on.
  */
-export function pathLength(points: readonly { u: number; v: number }[]): number {
+export function pathLength(
+  points: readonly { u: number; v: number }[],
+  vWeight: number = PLATE_V_WEIGHT
+): number {
   let total = 0;
   for (let i = 1; i < points.length; i += 1) {
     const du = points[i]!.u - points[i - 1]!.u;
-    const dv = (points[i]!.v - points[i - 1]!.v) * 0.6;
+    const dv = (points[i]!.v - points[i - 1]!.v) * vWeight;
     total += Math.hypot(du, dv);
   }
   return total;

@@ -15,6 +15,7 @@ import {
   type DepartmentCode,
   type Gait,
   type NormalizedPoint,
+  PLATE_V_WEIGHT,
 } from "@pro-now/types";
 
 import { palette, radii, type as type_ } from "../../theme";
@@ -339,7 +340,7 @@ export function RouteLayer({
       if (i > 0) {
         const a = route[i - 1]!.at;
         const b = route[i]!.at;
-        run += Math.hypot(b.u - a.u, (b.v - a.v) * 0.6);
+        run += Math.hypot(b.u - a.u, (b.v - a.v) * PLATE_V_WEIGHT);
       }
       travelled.push(run);
     }

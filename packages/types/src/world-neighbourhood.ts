@@ -126,6 +126,29 @@ export const WORLD_EXTENT = { width: 2.4, height: 2.4 } as const;
 export const PLATE_ASPECT = 921 / 4766;
 
 /**
+ * HOW MUCH A STEP UP THE STREET IS WORTH AGAINST A STEP ACROSS IT.
+ *
+ * Every distance in this world is measured as `hypot(du, dv * this)`,
+ * and every step is divided by it, so the two are exact inverses: a
+ * second of walking covers the same ground whichever way you hold the
+ * control.
+ *
+ * It was a flat 0.6, tuned by eye on a plate 946 by 1662. A weight in
+ * SCREEN terms cannot be a constant, because how many pixels a `dv`
+ * spans depends on how tall the drawing is — and the street is three
+ * plates now. On the old plate the figure crossed it in the time you
+ * would expect; on this one, holding "up" covered nearly three times
+ * the screen distance of holding "right", which reads as the controls
+ * being broken rather than as perspective.
+ *
+ * So the number that was tuned is the one that stays: `PERSPECTIVE` is
+ * the 3/4 foreshortening, and it reproduces exactly 0.6 on the plate it
+ * was tuned against. What varies is the plate, which is measured.
+ */
+const PERSPECTIVE = 0.343;
+export const PLATE_V_WEIGHT = PERSPECTIVE / PLATE_ASPECT;
+
+/**
  * How big the world box is, in points, for a given viewport.
  *
  * `worldSized: false` is the old one-screen fallback for the hero plates,
@@ -1176,14 +1199,19 @@ export function worldZoomFor(shot: "WIDE" | "DISTRICT" | "VENUE" | "ROUTE" | "EX
      */
     case "EXPLORE":
       /*
-       * Raised with ROUTE above, and for the same complaint. The
-       * paragraph above still holds — the reason to stay pulled back is
-       * that a close camera on a walking figure shoves the world past
-       * you — but 1.85 was solving that by making the street too small
-       * to enjoy walking down. 2.4 keeps a screen and a half of world
-       * in view, which is still somewhere to go.
+       * Raised from 1.85 with ROUTE above, and then pulled back from
+       * 2.4 — because past about 2 the plate is being drawn LARGER than
+       * it was painted. The street is 921 pixels across; a phone at 390
+       * points and three times the pixel density wants nearly twelve
+       * hundred to look sharp, so every point past 1:1 is an upscale and
+       * the paving turns to soup. 2 keeps the drawing inside its own
+       * resolution while leaving two screens of world to walk.
+       *
+       * The honest ceiling here is the art, not the camera. A wider
+       * plate — or the same street drawn at twice the size — is what
+       * buys a closer walk.
        */
-      return fit * 2.4;
+      return fit * 2.0;
   }
 }
 

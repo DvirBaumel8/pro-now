@@ -1,7 +1,7 @@
 import React from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { WELCOME_VIEW } from "@pro-now/types";
+import { WELCOME_VIEW, ROAD_PLATE_ASSET_ID } from "@pro-now/types";
 
 import { customerDarkTheme, depth, palette, radii, scale, spacing, tint, type } from "../theme";
 import { lex } from "../lexicon";
@@ -131,7 +131,7 @@ export function WelcomeBody({
          * as night. The world's own hour starts once you are inside it.
          */
         daylight={false}
-        fallbackGroundAssetId="world_neighbourhood"
+        fallbackGroundAssetId={ROAD_PLATE_ASSET_ID}
         focus={WELCOME_VIEW.focus}
       />
 

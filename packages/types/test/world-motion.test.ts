@@ -87,11 +87,24 @@ describe("speed belongs to the traveller", () => {
 
 describe("distance in a 3/4 world", () => {
   it("counts a step up the street as further than a step across it", () => {
-    // The world is drawn in perspective: treating both axes equally makes
-    // anything moving vertically look like it is in a hurry.
+    /*
+     * THE NAME WAS ALWAYS RIGHT AND THE ASSERTION WAS BACKWARDS.
+     *
+     * It read `across > up` — half a unit up the street counting as
+     * LESS ground than half a unit across it. On a drawing 1662 tall
+     * and 946 wide that is false by a factor of 1.75, and on the
+     * three-plate street it is false by 5.17: the same `dv` spans five
+     * times the pixels the same `du` does, because the street is five
+     * times longer than it is wide. The old 0.6 weight simply made the
+     * arithmetic agree with the assertion.
+     *
+     * It matters for more than tidiness: `travelMs` divides by this, so
+     * an under-counted vertical distance is a van that crosses the
+     * whole neighbourhood in the time it takes to cross the street.
+     */
     const across = pathLength([{ u: 0, v: 0 }, { u: 0.5, v: 0 }]);
     const up = pathLength([{ u: 0, v: 0 }, { u: 0, v: 0.5 }]);
-    expect(across).toBeGreaterThan(up);
+    expect(up).toBeGreaterThan(across);
   });
 
   it("is zero for a thing that has not gone anywhere", () => {

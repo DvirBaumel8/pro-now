@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, Linking, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 
-import { CARD_REST, customerCategoryById, categoryForDepartment, liveAreaLineHe, DEMO_WORLD, WORLD_DISTRICTS, type CandidatePresence, type LivingMapPhase, type LivingMapState, themeForDepartment } from "@pro-now/types";
+import { CARD_REST, customerCategoryById, categoryForDepartment, liveAreaLineHe, DEMO_WORLD, WORLD_DISTRICTS, type CandidatePresence, type LivingMapPhase, type LivingMapState, themeForDepartment, ROAD_PLATE_ASSET_ID } from "@pro-now/types";
 import {
   discover,
   emptyDiscoveries,
@@ -44,7 +44,7 @@ import { PREVIEW_SPONSORS } from "./sponsors";
  * real street corridor had no pavement in it on that side only.
  */
 const proWorldSources: WorldAssetSources = Object.fromEntries(
-  ["world_neighbourhood", GROUND_GRASS_ID, ...GROUND_MATERIAL_IDS]
+  [ROAD_PLATE_ASSET_ID, GROUND_GRASS_ID, ...GROUND_MATERIAL_IDS]
     .filter((id) => worldSources[id])
     .map((id) => [id, worldSources[id]!])
 );

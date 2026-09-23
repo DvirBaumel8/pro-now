@@ -30,6 +30,8 @@ import {
   type Heading,
   type NormalizedPoint,
   type WorldGeo,
+  PLATE_V_WEIGHT,
+  ROAD_PLATE_ASSET_ID,
 } from "@pro-now/types";
 
 import { BackButton, BACK_BUTTON_CLEARANCE } from "../components/BackButton";
@@ -317,7 +319,7 @@ export function StrollBody({
        * both signed off on the same composition rule: small HUD at the
        * top, sheet at the bottom, centre completely clear.
        */
-      if (!moved && Math.hypot(at.u - WALK_START.u, (at.v - WALK_START.v) * 0.6) > 0.05) {
+      if (!moved && Math.hypot(at.u - WALK_START.u, (at.v - WALK_START.v) * PLATE_V_WEIGHT) > 0.05) {
         setMoved(true);
       }
       setDepth((was) => (depthChanged(was, at.v) ? at.v : was));
@@ -365,7 +367,7 @@ export function StrollBody({
         width={width}
         height={height}
         zoom={lens}
-        worldSized={Boolean(geo) || Boolean(sources["world_neighbourhood"])}
+        worldSized={Boolean(geo) || Boolean(sources[ROAD_PLATE_ASSET_ID])}
         groundAspect={geo ? geoAspect(geo.bounds) : undefined}
         /*
          * Dragging is allowed only when there is nobody to follow. They

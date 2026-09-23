@@ -1,5 +1,6 @@
 import { pathLength, type Gait } from "./world-motion";
 import type { NormalizedPoint } from "./virtual-venue";
+import { PLATE_V_WEIGHT, roadAt } from "./world-neighbourhood";
 
 /**
  * WALKING THE STREET, RATHER THAN DRAGGING A MAP.
@@ -69,24 +70,39 @@ const VECTORS: Readonly<Record<Exclude<Heading, null>, { du: number; dv: number 
 /**
  * Where one tick of walking puts you.
  *
- * `dv` is divided by the same 0.6 the distance metric multiplies it by, so
- * that walking north covers the same VISIBLE ground as walking east. The
- * world is drawn in 3/4: without this, holding "up" crosses the street
- * noticeably faster than holding "right", which reads as the controls
- * being broken rather than as perspective.
+ * ---------------------------------------------------------------------
+ * WHY THE VERTICAL STEP IS SCALED BY THE PLATE'S SHAPE
+ * ---------------------------------------------------------------------
+ * A position is a fraction of the world, and the world is not square. A
+ * step of `dv` covers `dv * worldHeight` pixels while the same step of
+ * `du` covers `du * worldWidth` — so to make holding "up" cover the same
+ * visible ground as holding "right", the vertical step is multiplied by
+ * the plate's width-over-height.
+ *
+ * This used to divide by a flat 0.6, a number tuned by eye against a
+ * plate 946 by 1662. That plate is now one of three joined end to end
+ * and the street is five times taller than it is wide, where dividing by
+ * 0.6 makes a step north cover about eight times the screen distance of
+ * a step east — the avatar crossing the neighbourhood in a second and
+ * the controls reading as broken.
+ *
+ * Taking it from `PLATE_ASPECT` means the next time the street is
+ * extended, walking still feels the same, and nobody has to remember
+ * this.
  */
 export function stepFrom(
   at: NormalizedPoint,
   heading: Heading,
   elapsedMs: number,
-  speed = STEER_SPEED
+  speed = STEER_SPEED,
+  vWeight = PLATE_V_WEIGHT
 ): NormalizedPoint {
   if (!heading) return at;
   const v = VECTORS[heading];
   const d = (speed * elapsedMs) / 1000;
   return {
     u: clamp01(at.u + v.du * d),
-    v: clamp01(at.v + (v.dv * d) / 0.6),
+    v: clamp01(at.v + (v.dv * d) / vWeight),
   };
 }
 
@@ -153,6 +169,13 @@ export const WALKABLE = { minU: 0.06, maxU: 0.94, minV: 0.08, maxV: 0.96 } as co
  * to stand — and 0.44,0.60 is the best of them: 2.8s at worst against
  * 0.8s, and 44.5s of walking in total against 37.3s.
  *
+ * MOVED AGAIN FOR THE THREE-PLATE STREET. 0.60 on the old plate was
+ * between two shopfronts; on this one it is open pavement with the
+ * nearest business half a screen away, so a walk began by looking at
+ * nothing. 0.66 stands between the frontages measured at (0.545, 0.674)
+ * and (0.329, 0.649) — you start where there is something to walk up
+ * to, which is the whole reason to be on the street.
+ *
  * IT ALSO UNPINS THE CAMERA, which is the larger half. On a 390x844
  * phone the world is 1263 tall, so a figure at v=0.74 sits 935 down it
  * and the camera wants an offset of -513 — outside the -419 the clamp
@@ -162,19 +185,68 @@ export const WALKABLE = { minU: 0.06, maxU: 0.94, minV: 0.08, maxV: 0.96 } as co
  * both directions, which is the difference between a walk you can see
  * and a walk you can only be told about.
  */
-export const WALK_START = { u: 0.44, v: 0.6 } as const;
+export const WALK_START = { u: 0.44, v: 0.66 } as const;
 
 export function insideWalkable(at: NormalizedPoint): boolean {
-  return (
-    at.u >= WALKABLE.minU && at.u <= WALKABLE.maxU && at.v >= WALKABLE.minV && at.v <= WALKABLE.maxV
-  );
+  if (
+    at.u < WALKABLE.minU || at.u > WALKABLE.maxU ||
+    at.v < WALKABLE.minV || at.v > WALKABLE.maxV
+  ) {
+    return false;
+  }
+  /*
+   * AND NOT IN THE ROAD.
+   *
+   * The note above says the plate has no collision map and that
+   * inventing one from image analysis would produce a figure that
+   * mysteriously refuses to move. That is still true of planters,
+   * benches and steps — and it was never true of the carriageway, which
+   * has been measured off the plate by `measure-road.mjs` since the
+   * traffic needed somewhere to drive.
+   *
+   * A person strolling down the middle of the tarmac is the one
+   * collision worth having: it is the thing that makes a drawn street
+   * read as a street rather than as a floor.
+   */
+  const road = roadAt(at.v);
+  return Math.abs(at.u - road.u) >= road.halfWidth;
 }
 
 export function clampWalkable(at: NormalizedPoint): NormalizedPoint {
-  return {
-    u: Math.max(WALKABLE.minU, Math.min(WALKABLE.maxU, at.u)),
-    v: Math.max(WALKABLE.minV, Math.min(WALKABLE.maxV, at.v)),
-  };
+  const v = Math.max(WALKABLE.minV, Math.min(WALKABLE.maxV, at.v));
+  let u = Math.max(WALKABLE.minU, Math.min(WALKABLE.maxU, at.u));
+  /*
+   * AND OUT OF THE ROAD, TO THE NEARER KERB.
+   *
+   * `insideWalkable` refuses the carriageway, so a clamp that only
+   * squared the position into the rectangle could hand back a point
+   * that is still not walkable — which is exactly what the invariant
+   * beside this one reported the moment the road became a rule.
+   *
+   * Pushed to whichever kerb is closer, so somebody steering into the
+   * road slides along it rather than being thrown across it.
+   */
+  const road = roadAt(v);
+  if (Math.abs(u - road.u) < road.halfWidth) {
+    const left = road.u - road.halfWidth;
+    const right = road.u + road.halfWidth;
+    /*
+     * WHICHEVER KERB IS BOTH NEARER AND INSIDE THE WORLD.
+     *
+     * Near the top of this plate the carriageway runs to 0.987 while
+     * the walkable box stops at 0.94 — so the far kerb is off the edge
+     * of the world, and pushing to it and re-clamping put the figure
+     * back in the road it had just been pushed out of. The check caught
+     * it with the plainest possible failure: a clamped point that is
+     * still not walkable.
+     */
+    const rightFits = right <= WALKABLE.maxU;
+    const leftFits = left >= WALKABLE.minU;
+    if (rightFits && (!leftFits || u >= road.u)) u = right;
+    else if (leftFits) u = left;
+    else u = left; // a road wider than the world: the near side, at least
+  }
+  return { u, v };
 }
 
 /**
