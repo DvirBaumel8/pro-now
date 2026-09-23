@@ -178,6 +178,29 @@ if (crossed) {
   if (!afterApproval.includes(`אישרתם ‏${AMOUNT}`)) {
     problems.push('the panel does not say the approved amount back while the work runs');
   }
+  /*
+   * AND ALL THE WAY TO THE END, because the closing screen is where the
+   * approved quote has to be still in one piece. Amit: *"חייב עמוד תודה
+   * אחרי הקבלה... וסיכום יותר משמעותי של השירות שהוא קיבל."* The screen
+   * named the service and the person and stopped there, over an amount
+   * that was hard-coded — so somebody who had just agreed to one price
+   * was thanked for another.
+   */
+  await tap(/המקצוען סיים את העבודה/, 1400);
+  await tap(/סיכום העבודה/, 1500);
+  await tap(/^5 כוכבים$/, 600);
+  await tap(/שליחת דירוג/, 1600);
+  const closing = await text();
+  if (closing.includes('תודה')) {
+    if (!closing.includes(LINE)) {
+      problems.push('the closing screen does not say what was done, in the words that were approved');
+    }
+    if (!closing.includes(AMOUNT)) {
+      problems.push('the closing screen shows an amount that is not the one approved');
+    }
+  } else {
+    problems.push('the walk did not reach the closing screen');
+  }
 }
 
 /*

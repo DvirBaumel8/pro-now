@@ -55,6 +55,23 @@ export interface JobClosedBodyProps {
   /** "היום, 14:20 · 55 דקות" — assembled by the caller from job events. */
   whenHe: string;
   totalChargedMinorUnits: number;
+  /**
+   * WHAT WAS ACTUALLY DONE, in the professional's own words.
+   *
+   * Amit: *"סיכום יותר משמעותי של השירות שהוא קיבל."* The screen used to
+   * name the service and the person and stop there — which is the LABEL
+   * on the call, not a summary of it. Two visits to the same plumber
+   * read identically, and a month later the customer has no way to tell
+   * which was which.
+   *
+   * These are the lines of the quote the customer APPROVED. Nothing here
+   * is written by the app: the descriptions are the ones the
+   * professional typed and the customer agreed to, which is the only
+   * account of the work that both sides have signed. Absent when there
+   * was no quote — a fixed-price call has a price and no lines, and an
+   * invented list would be the app describing work it did not see.
+   */
+  workLines?: readonly { id: string; descriptionHe: string; totalMinorUnits: number }[];
   /** See `JobCompleteBody`: only a captured payment may say "חויב". */
   paymentCaptured?: boolean;
   /**
@@ -106,6 +123,7 @@ export function JobClosedBody({
   professionalDisplayName,
   whenHe,
   totalChargedMinorUnits,
+  workLines,
   paymentCaptured = false,
   ratingGiven = null,
   onDone,
@@ -123,7 +141,18 @@ export function JobClosedBody({
           <ShieldCheckMark size={30} color={colors.trust} />
         </View>
 
-        <Text style={styles.title}>הקריאה נסגרה</Text>
+        {/*
+          * A THANK YOU, WHICH THIS SCREEN DID NOT SAY.
+          *
+          * Amit asked for one in so many words — *"ותודה כמובן"* — and
+          * the screen opened with "הקריאה נסגרה", which is a status
+          * line. It is also still true and still worth saying, so it
+          * stays, one size down: somebody came to your home, did work
+          * and was paid, and the first thing the app says about it
+          * should not read like a ticket being closed.
+          */}
+        <Text style={styles.title}>תודה שבחרתם בנו</Text>
+        <Text style={styles.closedNote}>הקריאה נסגרה</Text>
         <Text style={styles.sub} numberOfLines={2}>
           {serviceNameHe} · {professionalDisplayName}
         </Text>
@@ -148,6 +177,45 @@ export function JobClosedBody({
             </View>
           </View>
         </Surface>
+
+        {/* ----------------------------------------------------------------
+            THE WORK ITSELF.
+
+            Under the amount rather than above it, because the amount is
+            the thing somebody opens this screen to check — and beside
+            it rather than instead of it, because a number with no
+            account of what it bought is a receipt, not a summary.
+
+            Capped at four lines with a count for the rest: this is a
+            summary and the full breakdown is one tap away on the
+            invoice, which already lists every line with its quantity.
+            ---------------------------------------------------------------- */}
+        {workLines && workLines.length > 0 ? (
+          <View style={styles.work}>
+            <Text style={styles.workTitle}>מה נעשה</Text>
+            {workLines.slice(0, 4).map((l) => (
+              <View key={l.id} style={styles.workRow}>
+                <Text style={styles.workDesc} numberOfLines={1}>
+                  {l.descriptionHe}
+                </Text>
+                {/*
+                  * One line means its amount IS the total printed
+                  * directly above, and saying the same number twice in
+                  * two inches reads as two charges. With several lines
+                  * the breakdown is the point.
+                  */}
+                {workLines.length > 1 ? (
+                  <Text style={styles.workAmount}>
+                    {formatMoney(money(l.totalMinorUnits, "ILS"))}
+                  </Text>
+                ) : null}
+              </View>
+            ))}
+            {workLines.length > 4 ? (
+              <Text style={styles.workMore}>ועוד {workLines.length - 4} שורות בחשבונית</Text>
+            ) : null}
+          </View>
+        ) : null}
 
         {/*
           * WHAT HAPPENS TO WHAT THEY JUST WROTE.
@@ -260,7 +328,45 @@ const styles = StyleSheet.create({
     writingDirection: "rtl",
     marginTop: spacing.xs,
   },
+  closedNote: {
+    ...type.meta,
+    color: colors.textSecondary,
+    textAlign: "center",
+    writingDirection: "rtl",
+    marginTop: spacing.xs,
+  },
   when: { ...type.meta, color: colors.textSecondary, textAlign: "center", marginTop: 2 },
+
+  work: { alignSelf: "stretch", marginTop: spacing.lg },
+  workTitle: {
+    ...type.meta,
+    color: colors.textSecondary,
+    textAlign: "right",
+    writingDirection: "rtl",
+    marginBottom: spacing.xs,
+  },
+  workRow: {
+    flexDirection: "row-reverse",
+    alignItems: "baseline",
+    justifyContent: "space-between",
+    gap: spacing.md,
+    paddingVertical: 3,
+  },
+  workDesc: {
+    ...type.body,
+    flex: 1,
+    color: colors.textPrimary,
+    textAlign: "right",
+    writingDirection: "rtl",
+  },
+  workAmount: { ...type.body, ...tabular, color: colors.textSecondary },
+  workMore: {
+    ...type.caption,
+    color: colors.textSecondary,
+    textAlign: "right",
+    writingDirection: "rtl",
+    marginTop: 2,
+  },
 
   card: { alignSelf: "stretch", marginTop: spacing.xl },
   row: { flexDirection: "row-reverse", alignItems: "center", gap: spacing.md },

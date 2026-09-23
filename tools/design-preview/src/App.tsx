@@ -607,7 +607,7 @@ export function App() {
    * A ref rather than state: nothing up here should re-render because
    * the customer moved between their own screens.
    */
-  const customerMemory = useRef<{ route: CustomerRoute; approvedTotalMinor: number | null } | null>(null);
+  const customerMemory = useRef<CustomerMemory | null>(null);
 
   /**
    * And the professional's, for exactly the same reason and a worse
@@ -1037,6 +1037,24 @@ function AuthGate({
 // Customer
 // ---------------------------------------------------------------------
 
+/**
+ * WHAT THE CUSTOMER'S SIDE MUST NOT FORGET WHEN IT IS NOT ON SCREEN.
+ *
+ * The mirror of `ProMemory`, for the same reason: the two sides are two
+ * apps and crossing unmounts one of them. What is kept is what a person
+ * would be startled to lose — where they were, and what they approved.
+ *
+ * The approved quote is kept as LINES and not only as a total, because
+ * the closing screen tells them what was done in the professional's own
+ * words, and those words exist nowhere else once the pending quote has
+ * been answered and cleared.
+ */
+interface CustomerMemory {
+  route: CustomerRoute;
+  approvedTotalMinor: number | null;
+  approvedLines: readonly { id: string; descriptionHe: string; totalMinorUnits: number }[] | null;
+}
+
 function CustomerApp({
   width,
   height,
@@ -1098,7 +1116,7 @@ function CustomerApp({
    * Where this side was the last time it was mounted — see the shell.
    * Held above because crossing to the professional unmounts all of this.
    */
-  memory?: React.MutableRefObject<{ route: CustomerRoute; approvedTotalMinor: number | null } | null>;
+  memory?: React.MutableRefObject<CustomerMemory | null>;
   /** The customer has answered a quote, so the professional has a move. */
   returnToPro?: boolean;
   onReturnToPro?: () => void;
@@ -1146,6 +1164,10 @@ function CustomerApp({
   /** The total the customer actually approved, for the panel to say back. */
   const [approvedTotalMinor, setApprovedTotalMinor] = useState<number | null>(
     memory?.current?.approvedTotalMinor ?? null
+  );
+  /** The lines of that quote, for the closing screen's account of the work. */
+  const [approvedLines, setApprovedLines] = useState<CustomerMemory["approvedLines"]>(
+    memory?.current?.approvedLines ?? null
   );
 
   /**
@@ -1667,8 +1689,8 @@ const go = useCallback((r: CustomerRoute) => {
      * professional's side and back lands where it left off rather than
      * on the home screen. See `memory` in the shell.
      */
-    if (memory) memory.current = { route, approvedTotalMinor };
-  }, [route, tab, approvedTotalMinor, memory]);
+    if (memory) memory.current = { route, approvedTotalMinor, approvedLines };
+  }, [route, tab, approvedTotalMinor, approvedLines, memory]);
 
   /**
    * WHERE THE CUSTOMER IS, as the transition model understands it.
@@ -2449,7 +2471,25 @@ const go = useCallback((r: CustomerRoute) => {
                    * shell on this same tap, so the number has to be
                    * kept here or the screen behind it loses it.
                    */
-                  setApprovedTotalMinor((writtenQuote ?? quoteFixture).totalMinorUnits);
+                  {
+                    const approved = writtenQuote ?? quoteFixture;
+                    setApprovedTotalMinor(approved.totalMinorUnits);
+                    /*
+                     * The lines as APPROVED, kept whole. The pending
+                     * quote is cleared on this same tap, so this is the
+                     * last moment the customer's side can see what it
+                     * agreed to — and the closing screen's account of
+                     * the work is built from exactly this and from
+                     * nothing the app made up.
+                     */
+                    setApprovedLines(
+                      approved.lineItems.map((li) => ({
+                        id: li.id,
+                        descriptionHe: li.description,
+                        totalMinorUnits: Math.round(li.quantity * li.unitPriceMinorUnits),
+                      }))
+                    );
+                  }
                   onQuoteDecision("APPROVED");
                   // An approved price is the professional's cue to start.
                   go({ name: "tracking", stage: "working" });
@@ -2499,7 +2539,23 @@ const go = useCallback((r: CustomerRoute) => {
             mark={trackedService.mark}
             professionalDisplayName={matchFixture.professional.displayName}
             whenHe="היום, 14:20 · 55 דקות"
-            totalChargedMinorUnits={44500}
+            /*
+             * THE AMOUNT THAT WAS APPROVED, not a number on this screen.
+             *
+             * This was hard-coded to 44500 — so a customer who had just
+             * agreed to ₪320 was thanked for ₪445. The fixture stays as
+             * the fallback for a deep link that lands here with no visit
+             * behind it, which is how this screen is usually reviewed.
+             */
+            totalChargedMinorUnits={approvedTotalMinor ?? 44500}
+            /*
+             * And what the money bought, in the professional's own
+             * words — the lines of the quote that was approved. Null
+             * when nothing was approved in this session, in which case
+             * the screen says nothing rather than describing work it did
+             * not see.
+             */
+            workLines={approvedLines ?? undefined}
             /*
              * False, and it is the default for a reason: no payment
              * provider has been chosen (/CLAUDE.md §4), so the money has
