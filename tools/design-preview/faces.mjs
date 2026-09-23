@@ -59,6 +59,37 @@ await tap(/דילוג על ההסבר/, 1400);
 await tap(/^דמות 4$/, 700);
 await tap(/אישור הדמות/, 1800);
 
+/* ----------------------------------------------------------------
+   THE INSIDE OF A SHOP, WHERE ONE HAS BEEN DRAWN.
+
+   Amit: *"ממש שינוי מצלמה לתוך החנות, שינוי פריים, לא להישאר באותו
+   עמוד... שיראו את כל הפרטים של החנות מבפנים."*
+
+   The barber is the one trade whose interior exists, and a barber is
+   CHOSEN by the customer rather than dispatched — so the match screen
+   is where the inside of a business can be seen today. The other ten
+   are named in `npm run art:brief`, and the day one lands it appears
+   here and on the map with no change to any of this.
+
+   Walked before the plumbing journey below, in the same session,
+   because a reload lands back on the welcome screen.
+   ---------------------------------------------------------------- */
+await tap(/^ביוטי ושיער$/, 1400);
+await tap(/תספורת עד הבית/, 1400);
+await tap(/הצג איך נראית התאמה|^בקשת /, 1700);
+const inside = await drawn();
+if (!inside.includes('hair_barbershop_hero.webp')) {
+  problems.push(
+    `the one shop whose inside exists does not show it — images were: ${inside.join(', ') || '(none)'}`
+  );
+}
+await p.goBack();
+await p.waitForTimeout(900);
+await p.goBack();
+await p.waitForTimeout(900);
+await p.goBack();
+await p.waitForTimeout(1200);
+
 await tap(/^לבית$/, 1100);
 await tap(/פתיחת סתימ/, 1100);
 await tap(/^בקשת /, 1300);

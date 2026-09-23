@@ -50,6 +50,24 @@ export type JourneyBeat =
   | "VENUE_IN"
   /** Arrived, and nothing else yet. */
   | "ARRIVAL_HOLD"
+  /**
+   * INSIDE.
+   *
+   * Amit: *"ביקשתי שמזהה מקצוען פנוי שייכנס לתוך החנות שלו ממש בזום אין,
+   * בשביל לראות את כל הפרטים של החנות מבפנים. ממש שינוי מצלמה לתוך
+   * החנות, שינוי פריים, לא להישאר באותו עמוד."*
+   *
+   * The journey ended at the shopfront: the building filled the frame
+   * and the card rose over the street. That is arriving AT a business,
+   * and he is asking to arrive IN one — which is a different picture,
+   * not a closer one. Scaling a façade up only makes the glass bigger.
+   *
+   * So there is a beat for crossing the threshold, and it draws the
+   * trade's own interior (`venueInteriorAssetId`). Where that art has
+   * not been made yet the beat is SKIPPED rather than faked: the journey
+   * is the one it always was, and nothing pretends to be an inside.
+   */
+  | "INTERIOR"
   /** The card rises. */
   | "CARD_IN"
   /** Settled. */
@@ -62,18 +80,33 @@ export interface BeatSpec {
   durationMs: number;
 }
 
+/*
+ * THE WHOLE MOVE STILL LANDS INSIDE THREE SECONDS.
+ *
+ * That ceiling is a product rule with a test behind it — this is an app
+ * somebody opens because their kitchen is flooding — so the threshold
+ * beat is paid for rather than added on top. Forty milliseconds come off
+ * the pull-back and forty off the travel, both of which are long enough
+ * to give them and neither of which is the moment anybody remembers.
+ */
 export const JOURNEY: readonly BeatSpec[] = [
   { beat: "SEARCH_REACT", startMs: 0, durationMs: 180 },
-  { beat: "WIDE_OUT", startMs: 180, durationMs: 600 },
-  { beat: "ORIENT", startMs: 780, durationMs: 120 },
-  { beat: "TRAVEL", startMs: 900, durationMs: 900 },
-  { beat: "VENUE_IN", startMs: 1800, durationMs: 500 },
-  { beat: "ARRIVAL_HOLD", startMs: 2300, durationMs: 150 },
-  { beat: "CARD_IN", startMs: 2450, durationMs: 300 },
+  { beat: "WIDE_OUT", startMs: 180, durationMs: 560 },
+  { beat: "ORIENT", startMs: 740, durationMs: 120 },
+  { beat: "TRAVEL", startMs: 860, durationMs: 860 },
+  { beat: "VENUE_IN", startMs: 1720, durationMs: 500 },
+  { beat: "ARRIVAL_HOLD", startMs: 2220, durationMs: 150 },
+  /*
+   * Crossing the threshold. Short, because it is a cut with a fade over
+   * it rather than a move: the camera does not travel through a wall,
+   * the picture changes to the one on the other side of it.
+   */
+  { beat: "INTERIOR", startMs: 2370, durationMs: 320 },
+  { beat: "CARD_IN", startMs: 2690, durationMs: 300 },
 ];
 
 /** Tap to card-at-rest. Long enough to have travelled, short enough to be a marketplace. */
-export const JOURNEY_TOTAL_MS = 2750;
+export const JOURNEY_TOTAL_MS = 2990;
 
 /** The way back: the same move, faster, because the place is now familiar. */
 export const RETURN = {
@@ -116,7 +149,7 @@ export function beatAt(elapsedMs: number): JourneyBeat {
 }
 
 /** Which shot the camera is holding during a beat. */
-export function shotForBeat(beat: JourneyBeat): "WIDE" | "DISTRICT" | "VENUE" {
+export function shotForBeat(beat: JourneyBeat): "WIDE" | "DISTRICT" | "VENUE" | "INSIDE" {
   switch (beat) {
     case "SEARCH_REACT":
     case "WIDE_OUT":
@@ -124,9 +157,29 @@ export function shotForBeat(beat: JourneyBeat): "WIDE" | "DISTRICT" | "VENUE" {
       return "WIDE";
     case "TRAVEL":
       return "DISTRICT";
+    /*
+     * Past the threshold the camera is not looking at the street at all,
+     * so the shot is not a zoom on it. Callers with no interior art for
+     * this trade treat INSIDE as VENUE and the journey is unchanged —
+     * see `interiorBeat`.
+     */
+    case "INTERIOR":
+    case "CARD_IN":
+    case "SETTLED":
+      return "INSIDE";
     default:
       return "VENUE";
   }
+}
+
+/** When the threshold is crossed, for a caller that has the art to cross it. */
+export function interiorBeat(): BeatSpec {
+  return JOURNEY.find((b) => b.beat === "INTERIOR")!;
+}
+
+/** Are we inside yet? False for every trade with no interior drawn. */
+export function isInside(elapsedMs: number, hasInterior: boolean): boolean {
+  return hasInterior && elapsedMs >= interiorBeat().startMs;
 }
 
 /**
@@ -173,8 +226,22 @@ export function journeyViolations(beats: readonly BeatSpec[] = JOURNEY): string[
   if (card && hold && card.startMs < hold.startMs + hold.durationMs) {
     v.push("The card starts before the arrival hold finishes.");
   }
-  if (card && shotForBeat(beatAt(card.startMs)) !== "VENUE") {
+  if (card && shotForBeat(beatAt(card.startMs)) === "WIDE") {
     v.push("The card starts before the camera has reached the venue.");
+  }
+
+  /*
+   * The threshold is crossed after the arrival is felt and before the
+   * card covers it. Either way round and one of the two moments eats
+   * the other: a card rising over a street that is about to be replaced,
+   * or an interior nobody registered arriving at.
+   */
+  const inside = beats.find((b) => b.beat === "INTERIOR");
+  if (inside && hold && inside.startMs < hold.startMs + hold.durationMs) {
+    v.push("The camera goes inside before the arrival hold finishes.");
+  }
+  if (inside && card && card.startMs < inside.startMs + inside.durationMs) {
+    v.push("The card rises before the camera is through the door.");
   }
 
   return v;

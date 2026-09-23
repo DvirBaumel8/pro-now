@@ -1,5 +1,5 @@
 import React from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import type { EtaView, PriceQuoteView } from "@pro-now/types";
 
@@ -121,6 +121,24 @@ export interface MatchConfirmBodyProps {
    */
   photoUri?: string | null;
   portfolio: PortfolioItem[];
+  /**
+   * THEIR PLACE, FROM INSIDE IT.
+   *
+   * Amit: *"ממש שינוי מצלמה לתוך החנות, שינוי פריים... שיראו את כל
+   * הפרטים של החנות מבפנים."*
+   *
+   * On the map that is a camera move (see the INTERIOR beat in
+   * `arrival-journey.ts`). Here it is a picture, because this screen is
+   * already a card about one person — and it is the only screen in the
+   * product where somebody is deciding whether to let a stranger into
+   * their home, so what their place actually looks like is not
+   * decoration.
+   *
+   * Full width at the top, above the name. Absent for a trade whose
+   * inside has not been drawn, and nothing stands in: a borrowed
+   * interior is a claim about somebody's business.
+   */
+  shopInteriorUri?: string | null;
   /** Why this person, in the server's own facts. Empty renders nothing. */
   reasons: MatchReason[];
   ratingAverage: number | null;
@@ -172,6 +190,7 @@ export function MatchConfirmBody({
   headlineHe,
   photoUri,
   portfolio,
+  shopInteriorUri = null,
   reasons,
   ratingAverage,
   ratingCount,
@@ -297,6 +316,24 @@ export function MatchConfirmBody({
             />
           </View>
         </View>
+
+        {/* ----------------------------------------------------------------
+            THEIR PLACE. See `shopInteriorUri`.
+
+            Under the portrait and above the name: you have seen who, and
+            the next question a person asks about letting somebody into
+            their home is what their place looks like.
+            ---------------------------------------------------------------- */}
+        {shopInteriorUri ? (
+          <Image
+            source={{ uri: shopInteriorUri }}
+            style={styles.interior}
+            resizeMode="cover"
+            accessible
+            accessibilityRole="image"
+            accessibilityLabel={`בתוך העסק של ${displayNameHe}`}
+          />
+        ) : null}
 
         {/* ---------------- Who ---------------- */}
         <View style={styles.who}>
@@ -528,6 +565,11 @@ const styles = StyleSheet.create({
    * the face for the first look — and the whole change was to make the
    * person the first look.
    */
+  interior: {
+    width: "100%",
+    aspectRatio: 16 / 9,
+    marginTop: spacing.md,
+  },
   who: { paddingHorizontal: spacing.lg, paddingTop: spacing.xl, alignItems: "center" },
   name: { ...type.title, color: colors.textPrimary, textAlign: "center", writingDirection: "rtl" },
   headline: {

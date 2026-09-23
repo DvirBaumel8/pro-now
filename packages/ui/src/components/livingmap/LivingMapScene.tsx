@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, Easing, Image, Pressable, StyleSheet, Text, View } from "react-native";
 
 import {
   foundHeadlineHe,
@@ -10,6 +10,8 @@ import {
   cameraFor,
   venueAssetFor,
   cardMayShow,
+  interiorBeat,
+  isInside,
   JOURNEY_TOTAL_MS,
   RETURN,
   shotForBeat,
@@ -525,14 +527,42 @@ export function LivingMapScene({
    * walking and the story has genuinely moved on; a cut there is a cut on
    * purpose.
    */
+  /*
+   * INSIDE IS NOT A ZOOM LEVEL.
+   *
+   * `shotForBeat` can now answer "INSIDE", and the camera has no such
+   * shot — going through a door is a change of picture, not a change of
+   * lens. So the camera holds the venue and the interior is drawn over
+   * it; see `insideNow` below. A trade with no interior drawn never gets
+   * there and the journey is exactly the one it always was.
+   */
   const shot: CameraShot =
     restingAt !== null
       ? restingAt
       : journeyBeat !== null
-      ? shotForBeat(journeyBeat)
+      ? ((b) => (b === "INSIDE" ? "VENUE" : b))(shotForBeat(journeyBeat))
       : phase === "SEARCHING" || phase === "CANDIDATES_FOUND" || phase === "MATCH_REVEAL"
         ? "DISTRICT"
         : "ROUTE";
+
+  /**
+   * THE INSIDE OF THE SHOP, ONCE THE CAMERA IS THROUGH THE DOOR.
+   *
+   * Amit: *"ביקשתי שייכנס לתוך החנות שלו ממש בזום אין... ממש שינוי
+   * מצלמה לתוך החנות, שינוי פריים, לא להישאר באותו עמוד."*
+   *
+   * The journey ended at the shopfront and the card rose over the
+   * street. Scaling a façade up only makes the glass bigger, so this is
+   * the other picture — the trade's own interior, from
+   * `venueInteriorAssetId` — and it replaces the frame rather than
+   * sitting on it.
+   *
+   * Null wherever that art has not been made. Nothing stands in for it:
+   * a borrowed interior is a claim about somebody's business.
+   */
+  const interiorId = district?.venueInteriorAssetId ?? null;
+  const interiorSource = interiorId ? worldSources?.[interiorId] : undefined;
+  const insideNow = journeyMs !== null && isInside(journeyMs, Boolean(interiorSource));
 
   /*
    * ---------------------------------------------------------------------
@@ -1345,6 +1375,34 @@ export function LivingMapScene({
       </WorldViewport>
 
       {/* ---------------------------------------------------------------
+          THROUGH THE DOOR.
+          ---------------------------------------------------------------
+          Amit: *"ממש שינוי מצלמה לתוך החנות, שינוי פריים, לא להישאר
+          באותו עמוד."*
+
+          A frame change, so it covers the world rather than sitting in
+          it: the street is not behind this, you are not on it any more.
+          It fades in over the threshold beat and is under the card,
+          which rises afterwards — the order the journey's own invariants
+          enforce, because a card over an interior nobody registered is
+          the shopfront problem one screen further in.
+
+          Drawn only for a trade whose inside exists. See `insideNow`.
+          --------------------------------------------------------------- */}
+      {interiorSource && insideNow ? (
+        <FadeIn durationMs={interiorBeat().durationMs} animate={animate}>
+          <Image
+            source={interiorSource}
+            style={StyleSheet.absoluteFill}
+            resizeMode="cover"
+            accessible
+            accessibilityRole="image"
+            accessibilityLabel={`בתוך העסק · ${district?.labelHe ?? ""}`}
+          />
+        </FadeIn>
+      ) : null}
+
+      {/* ---------------------------------------------------------------
           THE TRADE'S COLOUR, AND THE SEARCH ITSELF.
           ---------------------------------------------------------------
           Screen-space, above the world and below the HUD — and that is the
@@ -1834,3 +1892,37 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
 });
+
+/**
+ * A layer that arrives by fading, once.
+ *
+ * Local and small on purpose: the only thing in this file that needs it
+ * is the interior, and it needs exactly one property — opacity — which
+ * runs on the native driver. A shared animation component would be a
+ * second place to look for a behaviour that is four lines long.
+ */
+function FadeIn({
+  children,
+  durationMs,
+  animate,
+}: {
+  children: React.ReactNode;
+  durationMs: number;
+  animate: boolean;
+}) {
+  const v = useRef(new Animated.Value(animate ? 0 : 1)).current;
+  useEffect(() => {
+    if (!animate) return;
+    Animated.timing(v, {
+      toValue: 1,
+      duration: durationMs,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true,
+    }).start();
+  }, [animate, durationMs, v]);
+  return (
+    <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: v }]}>
+      {children}
+    </Animated.View>
+  );
+}

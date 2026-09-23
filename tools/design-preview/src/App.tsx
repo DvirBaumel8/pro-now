@@ -1908,7 +1908,22 @@ const go = useCallback((r: CustomerRoute) => {
   }, [trackedService, art]);
 
   const shopInteriorUri = useMemo(() => {
-    const serviceId = route.name === "living" ? route.serviceId : lastRequestedId;
+    /*
+     * EVERY SCREEN THAT IS ABOUT A SERVICE, not only the map.
+     *
+     * This read the service off the living map and otherwise fell back
+     * to the last REQUESTED one — so on the match screen, which is
+     * reached before anything is requested, it had nothing and drew
+     * nothing. The trade is on the route wherever the route is about a
+     * trade.
+     */
+    const serviceId =
+      route.name === "living" ||
+      route.name === "matchconfirm" ||
+      route.name === "service" ||
+      route.name === "describe"
+        ? route.serviceId
+        : lastRequestedId;
     const dept = serviceId ? departmentCodeByServiceId[serviceId] : null;
     const id = dept ? WORLD_DISTRICTS[dept]?.venueInteriorAssetId : null;
     if (!id) return null;
@@ -2400,6 +2415,13 @@ const go = useCallback((r: CustomerRoute) => {
              */
             photoUri={null}
             portfolio={c.portfolio}
+            /*
+             * Their place, from inside it. Derived from the service being
+             * asked about — which on this screen is also the trade — so
+             * the day an interior lands under its name it appears here
+             * with no change. Today the barber is the only one drawn.
+             */
+            shopInteriorUri={shopInteriorUri}
             reasons={matchReasons({
               specialtiesHe: c.specialtiesHe,
               // What the customer actually said — their typed sentence and
