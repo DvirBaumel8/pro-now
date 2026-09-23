@@ -216,3 +216,91 @@ export function vehicleMotionViolations(): string[] {
 
   return out;
 }
+
+/**
+ * WHICH WAY THE ROAD ACTUALLY RUNS ON SCREEN — AND WHAT THE ART CAN TAKE.
+ *
+ * ---------------------------------------------------------------------
+ * THE REPORT
+ * ---------------------------------------------------------------------
+ * Amit: *"למה המכוניות והאופנועים נוסעים ככ עקום ולא אמיתי עדיין?"*
+ *
+ * He had reported the traffic twice before and each time the answer was
+ * a placement fix — the scooter riding through the pedestrian square,
+ * the tow truck crossing the flowerbeds. Both were real and neither was
+ * this one. This time the vehicles are on the measured carriageway and
+ * they still look wrong, so the cause is somewhere else.
+ *
+ * It is the art, and it is arithmetic rather than taste. The delivered
+ * vehicles are pure SIDE views — `moving_van`, `tow_truck`,
+ * `courier_scooter` are all drawn broadside, wheels in a line. The
+ * carriageway measured off this plate runs from (0.743, 0.042) to
+ * (0.959, 0.958) of a 946x1662 picture, which on screen is 204 pixels
+ * across for 1522 down: **82 degrees from horizontal**. The road goes
+ * almost straight down the screen, towards the camera.
+ *
+ * A side-view van driving along that line is broadside to its own
+ * direction of travel for the entire journey. There is no transform
+ * that repairs it — rotating a side view by 82 degrees produces a van
+ * standing on its nose, which is worse and is still not a vehicle seen
+ * from behind.
+ *
+ * ---------------------------------------------------------------------
+ * WHAT THIS DOES ABOUT IT
+ * ---------------------------------------------------------------------
+ * Two things, and neither pretends to be the fix.
+ *
+ * `roadScreenAngleDeg` measures what is actually on screen, so the
+ * question stops being a matter of looking at it. `sideViewFitsRoad`
+ * answers whether side-view art can honestly drive that road, and a
+ * test asks it about this plate — so the day the neighbourhood plate
+ * changes, or the day the 3/4 art arrives, the answer changes by itself
+ * instead of by somebody remembering.
+ *
+ * `SIDE_VIEW_MAX_DEG` is how far a broadside drawing can be turned
+ * before it stops reading as a vehicle at all. It is deliberately
+ * small. Turning a van 28 degrees into a road that runs at 82 does not
+ * make it correct; it makes it visibly angled into its own direction of
+ * travel rather than perfectly level across it, which is the most an
+ * honest transform can buy. The rest is a drawing nobody has made yet —
+ * see the vehicles section of `npm run art:brief`.
+ */
+export const SIDE_VIEW_MAX_DEG = 28;
+
+/**
+ * The angle of a line on screen, in degrees from horizontal, where the
+ * two points are fractions of a picture `aspect` times as tall as it is
+ * wide. Always 0..90: which way round it runs is `facing`, not this.
+ */
+export function roadScreenAngleDeg(
+  from: NormalizedPoint,
+  to: NormalizedPoint,
+  aspect: number
+): number {
+  const dx = Math.abs(to.u - from.u);
+  const dy = Math.abs(to.v - from.v) * aspect;
+  if (dx === 0 && dy === 0) return 0;
+  return (Math.atan2(dy, dx) * 180) / Math.PI;
+}
+
+/**
+ * Whether broadside art can honestly drive this road. False means the
+ * picture required is a vehicle seen from behind, not a rotation.
+ */
+export function sideViewFitsRoad(
+  from: NormalizedPoint,
+  to: NormalizedPoint,
+  aspect: number
+): boolean {
+  return roadScreenAngleDeg(from, to, aspect) <= SIDE_VIEW_MAX_DEG;
+}
+
+/** How far to turn side-view art towards a road, honestly bounded. */
+export function sideViewTurnDeg(
+  from: NormalizedPoint,
+  to: NormalizedPoint,
+  aspect: number
+): number {
+  const angle = roadScreenAngleDeg(from, to, aspect);
+  return Math.min(angle, SIDE_VIEW_MAX_DEG);
+}

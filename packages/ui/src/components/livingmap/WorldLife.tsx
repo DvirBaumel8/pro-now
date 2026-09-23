@@ -13,6 +13,7 @@ import {
   bobAt,
   laneForGait,
   facingScaleX,
+  sideViewTurnDeg,
   walkingStreet,
   leanAt,
   pathLength,
@@ -227,6 +228,13 @@ export function WorldLife({
   sizeBasis,
 }: WorldLifeProps) {
   const basis = sizeBasis ?? width;
+  /*
+   * How tall the world is drawn compared with how wide. A direction
+   * expressed in fractions is not a direction on screen until this is
+   * applied — see `roadScreenAngleDeg`, which exists because a road
+   * that looks gentle in u/v is 82 degrees on a plate this tall.
+   */
+  const worldAspect = width > 0 ? height / width : 1;
   void basis;
   const [playing, setPlaying] = useState<Playing[]>([]);
   /** What is on the street, readable without waiting for a render. */
@@ -496,6 +504,24 @@ export function WorldLife({
          */
         const goingRight = (path[path.length - 1]?.u ?? 0) >= (path[0]?.u ?? 0);
         const mirror = facingScaleX(spec.assetId, goingRight);
+        /*
+         * How far this thing may be turned towards the road it is on.
+         * Wheels only: a person walking is not a rigid body pointing
+         * along a carriageway, and turning the dog walker would tip
+         * somebody over on a flat pavement.
+         */
+        const wheeled = gait === "RIDE" || gait === "HAUL";
+        const turn = wheeled
+          ? sideViewTurnDeg(path[0]!, path.at(-1)!, worldAspect) *
+            /*
+             * Signed so the nose goes DOWN the screen when the thing is
+             * travelling towards the camera. The mirror below flips the
+             * whole box, so the sign is taken against it or the turn
+             * comes out backwards on one of the two directions.
+             */
+            (path.at(-1)!.v > path[0]!.v ? 1 : -1) *
+            mirror
+          : 0;
 
         const travelled: number[] = [];
         {
@@ -565,10 +591,40 @@ export function WorldLife({
                   }),
                 },
                 {
-                  // Leaning into the walk. Zero for anything on wheels.
+                  /*
+                   * TWO ROTATIONS IN ONE, AND THE SECOND IS AN ADMISSION.
+                   *
+                   * `leanAt` is the walk's own rock, and it is zero for
+                   * anything on wheels.
+                   *
+                   * `turn` is the other one. Amit: *"למה המכוניות
+                   * והאופנועים נוסעים ככ עקום ולא אמיתי עדיין?"* He had
+                   * reported the traffic twice before and both answers
+                   * were placement — a scooter through the pedestrian
+                   * square, a tow truck through the flowerbeds. Both
+                   * were real and neither was this.
+                   *
+                   * This one is the art. The carriageway measured off
+                   * this plate runs 82 degrees from horizontal — almost
+                   * straight down the screen, towards the camera — and
+                   * every delivered vehicle is drawn BROADSIDE. So a van
+                   * on that road is side-on to its own direction of
+                   * travel for the whole journey, and no transform
+                   * repairs that: a side view turned 82 degrees is a van
+                   * standing on its nose.
+                   *
+                   * `sideViewTurnDeg` turns it as far as broadside art
+                   * can bear and no further, which makes it visibly
+                   * angled into the road instead of perfectly level
+                   * across it. That is an improvement and it is not the
+                   * fix. The fix is a vehicle drawn from behind — see
+                   * `vehicle-motion.ts`, where the measurement lives
+                   * with a test that changes its own answer the day
+                   * either the plate or the art does.
+                   */
                   rotate: p.driver.interpolate({
                     inputRange: steps,
-                    outputRange: travelled.map((d) => `${leanAt(gait, d, facing).toFixed(2)}deg`),
+                    outputRange: travelled.map((d) => `${(leanAt(gait, d, facing) + turn).toFixed(2)}deg`),
                   }),
                 },
                 /*

@@ -6,7 +6,12 @@ import {
   curvatureBetween,
   vehicleMotionViolations,
   vehiclePose,
+  roadScreenAngleDeg,
+  sideViewFitsRoad,
+  sideViewTurnDeg,
+  SIDE_VIEW_MAX_DEG,
 } from "../src/vehicle-motion";
+import { CARRIAGEWAY } from "../src/world-neighbourhood";
 
 const cruising: VehicleState = { distance: 100, speed: 9, heading: { u: 0, v: -1 } };
 
@@ -110,5 +115,56 @@ describe("how sharp a turn is", () => {
 
   it("is finite over no distance", () => {
     expect(curvatureBetween({ u: 1, v: 0 }, { u: 0, v: 1 }, 0)).toBe(0);
+  });
+});
+
+/**
+ * THE TRAFFIC THAT STILL LOOKED WRONG AFTER TWICE BEING FIXED.
+ *
+ * Amit: *"למה המכוניות והאופנועים נוסעים ככ עקום ולא אמיתי עדיין?"*
+ *
+ * The first two reports were placement — a scooter through the square, a
+ * tow truck through the flowerbeds — and both were fixed. This one is
+ * the art, and it is measurable, which is the only reason it is in a
+ * test rather than in an argument.
+ */
+describe("what direction the road runs, and what the art can take", () => {
+  const PLATE_ASPECT = 1662 / 946;
+
+  it("measures a horizontal road as flat and a vertical one as ninety", () => {
+    expect(roadScreenAngleDeg({ u: 0, v: 0.5 }, { u: 1, v: 0.5 }, 1)).toBeCloseTo(0, 5);
+    expect(roadScreenAngleDeg({ u: 0.5, v: 0 }, { u: 0.5, v: 1 }, 1)).toBeCloseTo(90, 5);
+  });
+
+  it("takes the picture's own shape into account", () => {
+    // The same fractions on a tall picture are a much steeper line.
+    const square = roadScreenAngleDeg({ u: 0, v: 0 }, { u: 0.2, v: 0.9 }, 1);
+    const tall = roadScreenAngleDeg({ u: 0, v: 0 }, { u: 0.2, v: 0.9 }, PLATE_ASPECT);
+    expect(tall).toBeGreaterThan(square);
+  });
+
+  /*
+   * THE FINDING, WRITTEN DOWN SO IT CANNOT BE FORGOTTEN.
+   *
+   * These are the first and last samples of the measured carriageway.
+   * If the plate is redrawn with a road that runs across the screen, or
+   * the vehicles are redrawn from behind, this expectation is the thing
+   * that has to change — which is the point.
+   */
+  it("says plainly that this plate's road is too steep for broadside art", () => {
+    const from = CARRIAGEWAY[0]!;
+    const to = CARRIAGEWAY.at(-1)!;
+    const angle = roadScreenAngleDeg(from, to, PLATE_ASPECT);
+    expect(angle).toBeGreaterThan(80);
+    expect(sideViewFitsRoad(from, to, PLATE_ASPECT)).toBe(false);
+  });
+
+  it("turns side-view art only as far as it can bear", () => {
+    const from = CARRIAGEWAY[0]!;
+    const to = CARRIAGEWAY.at(-1)!;
+    expect(sideViewTurnDeg(from, to, PLATE_ASPECT)).toBe(SIDE_VIEW_MAX_DEG);
+    // A gentle road is followed exactly: there is nothing to clamp.
+    const gentle = roadScreenAngleDeg({ u: 0, v: 0.5 }, { u: 1, v: 0.56 }, 1);
+    expect(sideViewTurnDeg({ u: 0, v: 0.5 }, { u: 1, v: 0.56 }, 1)).toBeCloseTo(gentle, 5);
   });
 });

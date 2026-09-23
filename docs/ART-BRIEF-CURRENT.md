@@ -65,7 +65,7 @@ trades have nowhere to be shown standing. Same framing as the delivered
 - `district_build.webp` — שכונת הבנייה והשיפוצים · פיגום, ערימת חול, מכולה — לא אתר בנייה פעיל ורועש
 - `district_help.webp` — שכונת העזרה הכללית · חזית שקטה: הנדימן, זוג ידיים, שליחויות קטנות
 
-## Shop interiors (10)
+## Shop interiors (5)
 
 Pressing a shop on the map travels the camera to it and opens the
 professional's card. With one of these, the card opens INSIDE the
@@ -80,16 +80,34 @@ would be a second, contradicting likeness.
 
 `hair_barbershop_hero.webp` is the delivered one and sets the level.
 
-- `home_workshop_hero.webp` — פנים העסק · תיקונים דחופים בבית
-- `appliance_workshop_hero.webp` — פנים העסק · מכשירי חשמל ומיזוג
-- `care_studio_hero.webp` — פנים העסק · ניקיון ותחזוקת בית
 - `well_studio_hero.webp` — פנים העסק · בריאות וכושר
-- `pets_salon_hero.webp` — פנים העסק · בעלי חיים
-- `auto_garage_hero.webp` — פנים העסק · שירותים לרכב
 - `move_depot_hero.webp` — פנים העסק · הובלות ומשלוחים
 - `tech_shop_hero.webp` — פנים העסק · מחשבים וסלולר
 - `help_yard_hero.webp` — פנים העסק · עזרה ועבודות קטנות
 - `build_workshop_hero.webp` — פנים העסק · שיפוץ והתקנות
+
+## The street's own traffic, seen from behind (3)
+
+Amit: *"למה המכוניות והאופנועים נוסעים ככ עקום ולא אמיתי עדיין?"*
+
+`moving_van`, `tow_truck` and `courier_scooter` have all been delivered and
+all three are drawn BROADSIDE. The carriageway measured off
+`world_neighbourhood.webp` runs 82 degrees from horizontal — almost
+straight down the screen, towards the camera — so a side-view van is
+side-on to its own direction of travel for the entire journey.
+
+No transform repairs that. A side view rotated 82 degrees is a van
+standing on its nose. The engine now turns them as far as broadside art
+can bear and stops, which is an improvement and not a fix.
+
+What is needed is the same three vehicles seen from BEHIND — rear
+three-quarter, driving away up the street — as `_back` variants of the
+ids that already exist. Same vehicle, same colour, same livery. The
+wheels sit on the bottom edge of the canvas.
+
+- `moving_van_back.webp` — ואן הובלות · נוסע ומתרחק מהמצלמה, שלושת-רבעי מאחור · anchor y = 1
+- `tow_truck_back.webp` — גרר · נוסע ומתרחק מהמצלמה, שלושת-רבעי מאחור · anchor y = 1
+- `courier_scooter_back.webp` — קטנוע שליחויות · נוסע ומתרחק מהמצלמה, שלושת-רבעי מאחור · anchor y = 1
 
 ## Not missing files — missing kinds of life
 
@@ -114,5 +132,5 @@ how alive the street feels than any change to the engine.
 
 ---
 
-**30 files named above.** 57 delivered.
+**28 files named above.** 64 delivered.
 

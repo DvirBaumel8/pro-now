@@ -237,6 +237,45 @@ if (interiors.length > 0) {
 }
 
 // ---- what the street has no vocabulary for -------------------------
+/*
+ * THE TRAFFIC THAT WILL NOT LOOK RIGHT UNTIL THIS IS DRAWN.
+ *
+ * Measured rather than argued: see `roadScreenAngleDeg` and the test
+ * beside it. This paragraph is generated with everything else so that
+ * the day the art lands or the plate changes, it is here or gone for a
+ * reason instead of by somebody's memory.
+ */
+section(
+  "The street's own traffic, seen from behind (3)",
+  [
+    "Amit: *\"למה המכוניות והאופנועים נוסעים ככ עקום ולא אמיתי עדיין?\"*",
+    "",
+    "`moving_van`, `tow_truck` and `courier_scooter` have all been delivered and",
+    "all three are drawn BROADSIDE. The carriageway measured off",
+    "`world_neighbourhood.webp` runs 82 degrees from horizontal — almost",
+    "straight down the screen, towards the camera — so a side-view van is",
+    "side-on to its own direction of travel for the entire journey.",
+    "",
+    "No transform repairs that. A side view rotated 82 degrees is a van",
+    "standing on its nose. The engine now turns them as far as broadside art",
+    "can bear and stops, which is an improvement and not a fix.",
+    "",
+    "What is needed is the same three vehicles seen from BEHIND — rear",
+    "three-quarter, driving away up the street — as `_back` variants of the",
+    "ids that already exist. Same vehicle, same colour, same livery. The",
+    "wheels sit on the bottom edge of the canvas.",
+  ].join("\n")
+);
+for (const [id, he] of [
+  ["moving_van_back", "ואן הובלות"],
+  ["tow_truck_back", "גרר"],
+  ["courier_scooter_back", "קטנוע שליחויות"],
+]) {
+  if (delivered.has(id)) continue;
+  missingCount += 1;
+  out(`- \`${id}.webp\` — ${he} · נוסע ומתרחק מהמצלמה, שלושת-רבעי מאחור · anchor y = 1`);
+}
+
 out("");
 out("## Not missing files — missing kinds of life");
 out("");
