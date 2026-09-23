@@ -520,6 +520,14 @@ export function TrackingBody({
                    * the same reason.
                    */
                   plan={geo !== null}
+                  /*
+                   * And who the marker is, in words, because the plan
+                   * has no picture to say it with. Amit: *"מה מבינים
+                   * מהמסך הזה של המסלול הכחול עם הכתום?"* The first name
+                   * only — the same way somebody on their way to your
+                   * kitchen is referred to once the job is theirs.
+                   */
+                  travellerLabelHe={professional.displayName.split(/\s+/)[0] ?? undefined}
                   sources={worldSources}
                   animate={animate}
                   /*

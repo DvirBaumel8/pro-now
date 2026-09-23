@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useMemo } from "react";
-import { Animated, Easing, StyleSheet, View } from "react-native";
+import { Animated, Easing, StyleSheet, Text, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 
 import {
@@ -17,7 +17,7 @@ import {
   type NormalizedPoint,
 } from "@pro-now/types";
 
-import { palette } from "../../theme";
+import { palette, radii, type as type_ } from "../../theme";
 import { AssetSlot, EMPTY_ASSET_SOURCES, type WorldAssetSources } from "./AssetSlot";
 import { SHADOW } from "./shadowGeometry";
 import { HAIR_PACK_V0 } from "./hairPack";
@@ -131,6 +131,21 @@ export interface RouteLayerProps {
    */
   plan?: boolean;
   /**
+   * WHO THE MARKER IS, said on the plan itself.
+   *
+   * Amit, looking at the plan: *"מה מבינים מהמסך הזה של המסלול הכחול עם
+   * הכתום?"* Nothing, was the honest answer. A dashed line between two
+   * dots is a diagram of something, and which dot is the professional,
+   * which is your home and which way the journey runs were all left for
+   * the viewer to work out. On the illustrated plate none of that needs
+   * saying — a van is a van and it is driving towards a house — and the
+   * plan has no such picture to lean on, so it says it in words.
+   *
+   * Only on the plan: labels over the painting would be a diagram laid
+   * on top of a scene that is already telling you the same thing.
+   */
+  travellerLabelHe?: string;
+  /**
    * ---------------------------------------------------------------------
    * THE WORK ITSELF, WHICH THIS SCREEN USED TO SLEEP THROUGH
    * ---------------------------------------------------------------------
@@ -241,6 +256,7 @@ export function RouteLayer({
   progress,
   vehicleAssetId = "courier_scooter",
   plan = false,
+  travellerLabelHe,
   atWork = false,
   workerAssetId,
   sources = EMPTY_ASSET_SOURCES,
@@ -677,6 +693,51 @@ export function RouteLayer({
           at exactly the same progress, because that is the one thing on
           this screen that is real.
           ---------------------------------------------------------------- */}
+      {plan && travellerLabelHe ? (
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            transform: [
+              {
+                translateX: driver.interpolate({
+                  inputRange: steps,
+                  outputRange: route.map((s) => s.at.u * width + MARKER),
+                }),
+              },
+              {
+                translateY: driver.interpolate({
+                  inputRange: steps,
+                  outputRange: route.map((s) => s.at.v * height - MARKER),
+                }),
+              },
+            ],
+          }}
+        >
+          <Text style={styles.planLabel}>{travellerLabelHe}</Text>
+        </Animated.View>
+      ) : null}
+
+      {/*
+        * AND THE OTHER END OF IT, which is the one the customer is
+        * standing in. Without this the plan has two marks on it and no
+        * way to tell which is which — see `travellerLabelHe`.
+        */}
+      {plan ? (
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            left: CUSTOMER_POINT.u * width + 14,
+            top: CUSTOMER_POINT.v * height - 9,
+          }}
+        >
+          <Text style={styles.planLabel}>הבית שלכם</Text>
+        </View>
+      ) : null}
+
       {plan ? (
         <Animated.View
           pointerEvents="none"
@@ -876,3 +937,23 @@ export function RouteLayer({
     </View>
   );
 }
+
+/*
+ * The plan's two captions. Plated rather than bare, for the reason the
+ * accessibility audit exists to catch: words lying on artwork with
+ * nothing behind them are unreadable wherever the artwork happens to be
+ * light, and a street plan is light exactly where the streets are.
+ */
+const styles = StyleSheet.create({
+  planLabel: {
+    ...type_.caption,
+    color: palette.nightText,
+    backgroundColor: "rgba(14,10,20,0.82)",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: radii.sm,
+    textAlign: "right",
+    writingDirection: "rtl",
+    overflow: "hidden",
+  },
+});
