@@ -125,6 +125,34 @@ export function ProQuoteBuilderBody({
     [lines]
   );
 
+  /**
+   * THE SAME MONEY, SPLIT THE WAY THE CHIPS SAY.
+   *
+   * Amit, looking at the three chips on a line: *"מה קורה שאני לוחץ על
+   * עבודה, חומרים, אחר?"*
+   *
+   * Something did happen — the chip is how the line is labelled on the
+   * customer's approval screen, under its description — but nothing on
+   * THIS screen moved, so from where he was standing the control did
+   * nothing. That is the same fault as a button that changes a word: a
+   * consequence the presser cannot see is, to them, no consequence.
+   *
+   * It is also the split both sides argue about. "Why is this ₪320" is
+   * almost always "how much of that is parts", and a professional who
+   * can see their own split before sending is a professional who can
+   * answer that before it is asked.
+   *
+   * Arithmetic over his own lines. Nothing is inferred, nothing is
+   * suggested, and a kind with no money in it is not shown at all.
+   */
+  const split = useMemo(() => {
+    const by: Record<QuoteLineKind, number> = { LABOR: 0, MATERIALS: 0, OTHER: 0 };
+    for (const l of lines) by[l.kind] += Math.round(l.quantity * l.unitPriceMinorUnits);
+    return (Object.keys(by) as QuoteLineKind[])
+      .filter((k) => by[k] > 0)
+      .map((k) => ({ kind: k, labelHe: KIND_HE[k], amount: by[k] }));
+  }, [lines]);
+
   /*
    * A quote with no description and no amount is not a quote. The server
    * refuses an empty line list; this refuses to SEND one, which is the
@@ -266,6 +294,20 @@ export function ProQuoteBuilderBody({
           <Text style={styles.addLineText}>+ שורה</Text>
         </Pressable>
 
+        {/* ----------------------------------------------------------------
+            AND WHAT THE THREE CHIPS ARE FOR.
+
+            Amit: *"מה קורה שאני לוחץ על עבודה, חומרים, אחר?"* The answer
+            was real and invisible — the chip is the label the line
+            carries on the customer's approval screen — so it is said
+            here, once, next to the lines rather than in a help sheet
+            nobody opens. The split at the bottom is the other half of
+            the answer: press a chip and a number moves.
+            ---------------------------------------------------------------- */}
+        <Text style={styles.kindNote}>
+          עבודה · חומרים · אחר — הסיווג מופיע ללקוח מתחת לשורה, ומסכם למטה.
+        </Text>
+
         <SectionHeader title="הערה ללקוח" colors={colors} />
         <TextInput
           value={notes}
@@ -288,6 +330,24 @@ export function ProQuoteBuilderBody({
       </ScrollView>
 
       <View style={styles.footer}>
+        {/* ----------------------------------------------------------------
+            WHAT THE CHIPS ADD UP TO.
+
+            Shown only when there is more than one kind with money in it:
+            a "split" of one line into one bucket is a heading with
+            nothing under it, and it would be on the screen for every
+            simple quote, which is most of them.
+            ---------------------------------------------------------------- */}
+        {split.length > 1 ? (
+          <View style={styles.splitRow}>
+            {split.map((sp) => (
+              <Text key={sp.kind} style={styles.splitItem}>
+                {sp.labelHe} {formatMoney(money(sp.amount, "ILS"))}
+              </Text>
+            ))}
+          </View>
+        ) : null}
+
         <View style={styles.totalRow}>
           <Text style={styles.totalValue}>{formatMoney(money(total, "ILS"))}</Text>
           <Text style={styles.totalLabel}>סה״כ להצעה</Text>
@@ -418,6 +478,21 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
     backgroundColor: colors.surface,
   },
+  kindNote: {
+    ...type.caption,
+    color: colors.textSecondary,
+    textAlign: "right",
+    writingDirection: "rtl",
+    marginTop: spacing.sm,
+    lineHeight: 18,
+  },
+  splitRow: {
+    flexDirection: "row-reverse",
+    flexWrap: "wrap",
+    gap: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  splitItem: { ...type.caption, ...tabular, color: colors.textSecondary, writingDirection: "rtl" },
   totalRow: { flexDirection: "row-reverse", alignItems: "baseline", justifyContent: "space-between" },
   totalLabel: { ...type.caption, color: colors.textSecondary, writingDirection: "rtl" },
   totalValue: { ...type.h2, ...tabular, color: colors.textPrimary },

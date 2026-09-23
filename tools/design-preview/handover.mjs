@@ -154,6 +154,41 @@ await fill('תיאור שורה 1', LINE);
 await fill('כמות בשורה 1', '1');
 await fill('מחיר ליחידה בשורה 1', AMOUNT);
 await fill('הערה ללקוח', NOTE);
+
+/*
+ * THE THREE CHIPS ON A LINE HAVE TO DO SOMETHING YOU CAN SEE.
+ *
+ * Amit: *"מה קורה שאני לוחץ על עבודה חומרים אחר?"* They were already
+ * doing something real — the chip is the label the line carries on the
+ * customer's approval screen — and nothing on the builder moved when
+ * you pressed one, so from where he was standing the control did
+ * nothing. The running split is the visible half of that answer, so
+ * this presses a chip and asserts a number appears.
+ *
+ * The extra line is removed again afterwards, so everything below this
+ * block walks the same one-line quote it always did.
+ */
+await tap(/הוספת שורה/, 800);
+await fill('תיאור שורה 2', 'ברז וניל');
+await fill('כמות בשורה 2', '1');
+await fill('מחיר ליחידה בשורה 2', '220');
+const beforeChip = await text();
+if (/עבודה ‏\d/.test(beforeChip)) {
+  problems.push('the builder splits the total before there is more than one kind in it');
+}
+await p.getByRole('radio', { name: /חומרים · שורה 2/ }).first().click({ timeout: 6000 }).catch(() =>
+  problems.push('the materials chip on a line is not pressable')
+);
+await p.waitForTimeout(700);
+const afterChip = await text();
+if (!afterChip.includes('חומרים ‏220')) {
+  problems.push('pressing "חומרים" changes nothing the professional can see');
+}
+if (!afterChip.includes(`עבודה ‏${AMOUNT}`)) {
+  problems.push('the split does not say what is left as labour');
+}
+await tap(/מחיקת שורה 2/, 800);
+
 await tap(/שליחת הצעת המחיר ללקוח/, 1500);
 
 const waiting = await text();

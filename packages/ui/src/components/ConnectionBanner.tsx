@@ -180,7 +180,24 @@ const styles = StyleSheet.create({
   text: { flex: 1, alignItems: "flex-end" },
   title: { ...type.captionStrong, color: "#FFFFFF", writingDirection: "rtl" },
   detail: { ...type.caption, fontSize: scale.micro, color: "rgba(255,255,255,0.85)", textAlign: "right", writingDirection: "rtl" },
+  /*
+   * 44 TALL, WHICH IT WAS NOT.
+   *
+   * The sweep caught it at 52x33 on two category screens: this banner
+   * only appears when the supply snapshot has gone stale, so the one
+   * control on it is on screen exactly when somebody wants to press it
+   * and was a third too short for a thumb. Padding alone cannot be
+   * trusted for a target — a pill sized by its own text is a pill whose
+   * height depends on the font — so the minimum is stated.
+   *
+   * The pill does not have to LOOK 44 tall to BE 44 tall: the extra
+   * height is in the tap area, and `justifyContent` keeps the label
+   * centred in it.
+   */
   retry: {
+    minHeight: 44,
+    minWidth: 44,
+    justifyContent: "center",
     paddingHorizontal: spacing.md,
     paddingVertical: 7,
     borderRadius: radii.pill,
