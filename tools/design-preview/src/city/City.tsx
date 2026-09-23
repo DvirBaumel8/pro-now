@@ -177,6 +177,8 @@ export function City({ base = "./world/", spawn, onExit }: CityProps) {
 
       /* ----- controls ----- */
       let yaw = Math.PI, pitch = 0.26;
+      /* The camera's head, turned toward whatever shop you are beside. */
+      let look = 0;
       const stick = { x: 0, y: 0 };
       let walked = 0;
 
@@ -337,6 +339,71 @@ export function City({ base = "./world/", spawn, onExit }: CityProps) {
         }
         player.setDistance(walked, running);
         player.light(lamps);
+
+        /* Which shop you are beside, before the camera, because the
+           camera now needs to know. */
+        let best: (typeof street.shops)[number] | null = null;
+        /* Nine metres: at seven, standing directly under Lust's own
+           sign with its doorway in frame was still "not near a shop". */
+        let bd = 9;
+        for (const s of street.shops) {
+          const d = s.doorway.distanceTo(player.group.position);
+          if (d < bd) { bd = d; best = s; }
+        }
+
+        /*
+         * -----------------------------------------------------------
+         * LOOKING AT THE SHOP YOU ARE WALKING PAST
+         * -----------------------------------------------------------
+         * Amit, on the street itself: *"פה צריך שיהיה אפשר להסתכל
+         * לחנות."*
+         *
+         * He is describing something the camera could not do. It
+         * pointed exactly where you walk, and the shops are at right
+         * angles to that — so a shopfront was only ever in the corner
+         * of the frame, and the one way to face it was to turn, which
+         * also turns your feet into the wall.
+         *
+         * A real person walking a high street does not turn their body
+         * to look in a window; they turn their head. So the camera
+         * gets a head: `look`, an angle added to the camera's yaw and
+         * to nothing else. Your heading, your stick and your feet are
+         * untouched by it.
+         *
+         * It aims at the middle of the facade, not at the doorway, so
+         * what you get is the SHOP rather than the pavement in front
+         * of it. It comes on with proximity, so it is a drift and not
+         * a snap, and it holds back to less than half while you are
+         * moving — at a walk you glance, and only when you stop does
+         * the camera settle on the window.
+         *
+         * Clamped to 0.85 radians, about fifty degrees, for a reason
+         * that is about the artwork and not about taste: the figure is
+         * a BACK-VIEW drawing on a plane that turns to face the
+         * camera. Past roughly fifty degrees you are looking at
+         * somebody's back while they walk sideways, and the illusion
+         * that held the whole scene together comes apart.
+         */
+        let lookWant = 0;
+        if (best) {
+          const wallX = FRONT_X * best.side;
+          let d =
+            Math.atan2(
+              wallX - player.group.position.x,
+              best.doorway.z - player.group.position.z
+            ) - yaw;
+          while (d > Math.PI) d -= Math.PI * 2;
+          while (d < -Math.PI) d += Math.PI * 2;
+          const near = Math.max(0, Math.min(1, (9 - bd) / 4.5));
+          lookWant =
+            Math.max(-0.85, Math.min(0.85, d)) * near * (push > 0.08 ? 0.42 : 1);
+        }
+        /* Frame-rate independent easing, and slow: the drift is the
+           point. Snapping to a shop as you pass reads as a bug. */
+        look += (lookWant - look) * (1 - Math.pow(0.02, dt));
+
+        const camYaw = yaw + look;
+
         /*
          * ---------------------------------------------------------
          * WHICH SIDE OF THE WALKER THE CAMERA STANDS ON
@@ -359,16 +426,19 @@ export function City({ base = "./world/", spawn, onExit }: CityProps) {
          * shopfronts. They were behind the lens.
          *
          * The plane's normal is +Z, so to face a camera that is now at
-         * -f it must be turned by yaw + PI. DoubleSide costs nothing
-         * on one quad and makes the figure immune to getting this
-         * wrong again — a culled back face is an invisible character,
-         * which is a very expensive way to find a sign error.
+         * -f it must be turned by yaw + PI. It follows the CAMERA's
+         * yaw, not the walking heading — a billboard has to face where
+         * the lens actually is, and since `look` moved the lens those
+         * are no longer the same angle. DoubleSide costs nothing on
+         * one quad and makes the figure immune to getting this wrong
+         * again — a culled back face is an invisible character, which
+         * is a very expensive way to find a sign error.
          */
-        player.group.rotation.y = yaw + Math.PI;
+        player.group.rotation.y = camYaw + Math.PI;
 
         const dist = 6.2 + pitch * 3.0;
         const hgt = 2.4 + pitch * 4.6;
-        const fx = Math.sin(yaw), fz = Math.cos(yaw);
+        const fx = Math.sin(camYaw), fz = Math.cos(camYaw);
         camPos.set(
           player.group.position.x - fx * dist,
           hgt,
@@ -387,14 +457,6 @@ export function City({ base = "./world/", spawn, onExit }: CityProps) {
 
         street.update(dt, now / 1000, camera);
 
-        let best: (typeof street.shops)[number] | null = null;
-        /* Nine metres: at seven, standing directly under Lust's own
-           sign with its doorway in frame was still "not near a shop". */
-        let bd = 9;
-        for (const s of street.shops) {
-          const d = s.doorway.distanceTo(player.group.position);
-          if (d < bd) { bd = d; best = s; }
-        }
         const id = best ? best.id : null;
         if (id !== lastNear) {
           lastNear = id;
