@@ -6,6 +6,8 @@ import {
   livingMapViolations,
   sceneIsOver,
   scenePhaseForJob,
+  proJobFocusHe,
+  proJobFocusFor,
   visitMoneyLineHe,
   DEMO_WORLD,
   type JobState,
@@ -177,5 +179,59 @@ describe("visitMoneyLineHe", () => {
       expect(line).not.toContain("₪179");
     }
     expect(visitMoneyLineHe("COMPLETION_PENDING", fixed)).toContain("לתשלום");
+  });
+});
+
+/**
+ * THE PROFESSIONAL'S SCREEN HAS TO CHANGE TOO.
+ *
+ * Amit: *"עדיין כל המסכים פה אותו דבר ואין שום שינוי בין בדרך לבדיקה
+ * להצעת מחיר."*
+ */
+describe("proJobFocusHe", () => {
+  it("says something different at every stage of a visit", () => {
+    const stages: JobState[] = [
+      "PRO_ASSIGNED",
+      "PRO_EN_ROUTE",
+      "PRO_ARRIVED",
+      "DIAGNOSIS",
+      "WAITING_QUOTE_APPROVAL",
+      "IN_PROGRESS",
+      "COMPLETION_PENDING",
+    ];
+    const said = stages.map((s) => proJobFocusHe(s));
+    expect(said.every((t) => typeof t === "string" && t.length > 0)).toBe(true);
+    expect(new Set(said).size).toBe(stages.length);
+  });
+
+  it("says nothing before there is a job or after it is over", () => {
+    for (const s of ["DRAFT", "SEARCHING", "OFFERING", "COMPLETED", "CLOSED"] as const) {
+      expect(proJobFocusHe(s)).toBeNull();
+    }
+  });
+
+  it("never promises a time", () => {
+    for (const s of ["PRO_EN_ROUTE", "DIAGNOSIS", "IN_PROGRESS"] as const) {
+      expect(proJobFocusHe(s)).not.toMatch(/\d/);
+    }
+  });
+
+  it("moves the screen's point from the road to the fault to the money", () => {
+    expect(proJobFocusFor("PRO_EN_ROUTE")).toBe("TRAVEL");
+    expect(proJobFocusFor("PRO_ARRIVED")).toBe("PROBLEM");
+    expect(proJobFocusFor("DIAGNOSIS")).toBe("PROBLEM");
+    expect(proJobFocusFor("WAITING_QUOTE_APPROVAL")).toBe("MONEY");
+    expect(proJobFocusFor("IN_PROGRESS")).toBe("MONEY");
+    expect(proJobFocusFor("SEARCHING")).toBeNull();
+  });
+
+  /*
+   * The two must agree: a stage that has something to say is a stage
+   * that has a point, and one that has neither is not a visit.
+   */
+  it("agrees with itself about which stages are a visit", () => {
+    for (const s of JOB_STATES) {
+      expect(proJobFocusHe(s) === null).toBe(proJobFocusFor(s) === null);
+    }
   });
 });

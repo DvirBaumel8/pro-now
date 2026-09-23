@@ -55,7 +55,7 @@ the repository moved out of the build container — see EPIC-0-REPORT §17.
 | Prisma client | `npm run db:generate -w apps/api` | **PASS — v5.22.0** |
 | Typecheck (10 workspaces) | `npm run typecheck` | **CLEAN — all 10** |
 | Lint (10 workspaces) | `npm run lint` | **CLEAN** |
-| Unit tests | `npm test` | **PASS — 1087** |
+| Unit tests | `npm test` | **PASS — 1092** |
 | Domain logic | `npm run verify:domain` | **PASS — 28/28** |
 | Geometry | `npm run verify:geo` | **PASS** |
 | Accessibility | `npm run verify:a11y` | **PASS — 19 screens, 0 defects** |

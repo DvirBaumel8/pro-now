@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Svg, { Rect } from "react-native-svg";
 
-import { formatMoney, money, type JobState } from "@pro-now/types";
+import { formatMoney, money, proJobFocusFor, proJobFocusHe, type JobState } from "@pro-now/types";
 
 import { elevation, proTheme, radii, scale, spacing, tabular, tint, type } from "../theme";
 import { lex } from "../lexicon";
@@ -160,6 +160,72 @@ export function ProJobBody({
   const photos = media.filter((m) => m.kind === "PHOTO");
   const voice = media.find((m) => m.kind === "VOICE");
 
+  /*
+   * WHAT THIS STAGE IS ABOUT — see `proJobFocusFor`, beside the state
+   * machine. Amit: *"עדיין כל המסכים פה אותו דבר ואין שום שינוי בין
+   * בדרך לבדיקה להצעת מחיר."* Each stage already had its own screen and
+   * its own transition; what never changed was WHAT WAS ON IT. So the
+   * screen arranges itself around the answer instead of showing
+   * everything at every stage.
+   */
+  const focus = proJobFocusFor(status);
+  const focusHe = proJobFocusHe(status);
+
+  /* ------------------------------------------------------------------
+     WHAT THE CUSTOMER SAID IS WRONG.
+
+     Lifted out of the flow so it can be placed rather than fixed: while
+     you are driving, the person you are going to see is the next thing
+     you need; from the moment you are standing there, what they
+     described is. A fixed order meant one of the two was always in the
+     wrong place.
+     ------------------------------------------------------------------ */
+  const problemBlock = (
+    <View style={styles.block}>
+      <SectionHeader title="מה הבעיה" colors={colors} />
+
+      {symptomsHe.length > 0 ? (
+        <View style={styles.symptoms}>
+          {symptomsHe.map((sx) => (
+            <View key={sx} style={styles.symptom}>
+              <Text style={styles.symptomText}>{sx}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      {descriptionHe ? (
+        <Surface colors={colors} level={1} dark style={{ marginTop: spacing.md }}>
+          <Text style={styles.description}>{descriptionHe}</Text>
+        </Surface>
+      ) : null}
+
+      {voice ? <VoiceNote item={voice} /> : null}
+
+      {photos.length > 0 ? (
+        <View style={styles.photoGrid}>
+          {photos.map((ph) => (
+            <ImageSlot
+              key={ph.id}
+              uri={ph.uri}
+              subject={ph.subjectHe}
+              ratio={1}
+              colors={colors}
+              dark
+              style={styles.photo}
+            />
+          ))}
+        </View>
+      ) : null}
+
+      {symptomsHe.length === 0 && !descriptionHe && media.length === 0 ? (
+        <Text style={styles.emptyLine}>
+          הלקוח לא הוסיף פרטים. שווה להתקשר לפני שיוצאים.
+        </Text>
+      ) : null}
+    </View>
+  );
+
   return (
     <View style={[styles.screen, { width, height }]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
@@ -201,6 +267,17 @@ export function ProJobBody({
               ---------------------------------------------------------- */}
           <VisitSteps status={status} accent={colors.trust} done={colors.trust} />
 
+          {/* ----------------------------------------------------------
+              AND ONE LINE SAYING WHAT IS YOURS TO DO.
+
+              The customer's side has had `jobProgressHe` for a while —
+              what is happening TO them. This is the other audience's
+              sentence: what is happening is theirs to do. Same state
+              machine, two readers, and it changes at every step, which
+              is the thing he could not see.
+              ---------------------------------------------------------- */}
+          {focusHe ? <Text style={styles.focus}>{focusHe}</Text> : null}
+
           <View style={styles.addressRow}>
             <PinMark size={15} color={colors.textSecondary} />
             <Text style={styles.address} numberOfLines={2}>
@@ -209,24 +286,38 @@ export function ProJobBody({
           </View>
           {accessNoteHe ? <Text style={styles.access}>{accessNoteHe}</Text> : null}
 
-          <View style={styles.metaRow}>
-            {routeEtaMinutes !== null ? (
-              <View style={styles.metaChip}>
-                <ClockMark size={13} color={colors.textSecondary} />
-                <Text style={styles.metaText}>{routeEtaMinutes} דק׳ נסיעה</Text>
-              </View>
-            ) : null}
-            {distanceHe ? (
-              <View style={styles.metaChip}>
-                <Text style={styles.metaText}>{distanceHe}</Text>
-              </View>
-            ) : null}
-          </View>
+          {/* ----------------------------------------------------------
+              THE DRIVE, ONLY WHILE THERE IS ONE.
 
-          <Pressable onPress={onNavigate} accessibilityRole="button" style={styles.navBtn}>
-            <Text style={styles.navLabel}>ניווט לכתובת</Text>
-          </Pressable>
+              Drive time, distance and a navigation button are the whole
+              job while you are in the van, and clutter the moment you
+              are standing in the kitchen. They leave when the driving
+              does. The address itself stays: it is where you are.
+              ---------------------------------------------------------- */}
+          {focus === "TRAVEL" ? (
+            <>
+              <View style={styles.metaRow}>
+                {routeEtaMinutes !== null ? (
+                  <View style={styles.metaChip}>
+                    <ClockMark size={13} color={colors.textSecondary} />
+                    <Text style={styles.metaText}>{routeEtaMinutes} דק׳ נסיעה</Text>
+                  </View>
+                ) : null}
+                {distanceHe ? (
+                  <View style={styles.metaChip}>
+                    <Text style={styles.metaText}>{distanceHe}</Text>
+                  </View>
+                ) : null}
+              </View>
+
+              <Pressable onPress={onNavigate} accessibilityRole="button" style={styles.navBtn}>
+                <Text style={styles.navLabel}>ניווט לכתובת</Text>
+              </Pressable>
+            </>
+          ) : null}
         </View>
+
+        {focus === "PROBLEM" ? problemBlock : null}
 
         {/* ---------------- 2. Who ---------------- */}
         <View style={styles.block}>
@@ -269,50 +360,7 @@ export function ProJobBody({
           </Surface>
         </View>
 
-        {/* ---------------- 3. What ---------------- */}
-        <View style={styles.block}>
-          <SectionHeader title="מה הבעיה" colors={colors} />
-
-          {symptomsHe.length > 0 ? (
-            <View style={styles.symptoms}>
-              {symptomsHe.map((sx) => (
-                <View key={sx} style={styles.symptom}>
-                  <Text style={styles.symptomText}>{sx}</Text>
-                </View>
-              ))}
-            </View>
-          ) : null}
-
-          {descriptionHe ? (
-            <Surface colors={colors} level={1} dark style={{ marginTop: spacing.md }}>
-              <Text style={styles.description}>{descriptionHe}</Text>
-            </Surface>
-          ) : null}
-
-          {voice ? <VoiceNote item={voice} /> : null}
-
-          {photos.length > 0 ? (
-            <View style={styles.photoGrid}>
-              {photos.map((ph) => (
-                <ImageSlot
-                  key={ph.id}
-                  uri={ph.uri}
-                  subject={ph.subjectHe}
-                  ratio={1}
-                  colors={colors}
-                  dark
-                  style={styles.photo}
-                />
-              ))}
-            </View>
-          ) : null}
-
-          {symptomsHe.length === 0 && !descriptionHe && media.length === 0 ? (
-            <Text style={styles.emptyLine}>
-              הלקוח לא הוסיף פרטים. שווה להתקשר לפני שיוצאים.
-            </Text>
-          ) : null}
-        </View>
+        {focus === "PROBLEM" ? null : problemBlock}
 
         {/* ---------------- 4. Money ---------------- */}
         <View style={styles.block}>
@@ -589,6 +637,14 @@ const styles = StyleSheet.create({
   },
   navLabel: { ...type.bodyStrong, fontSize: scale.meta, color: colors.textPrimary },
 
+  focus: {
+    ...type.body,
+    color: colors.textPrimary,
+    textAlign: "right",
+    writingDirection: "rtl",
+    marginTop: spacing.md,
+    lineHeight: 22,
+  },
   block: { paddingHorizontal: spacing.lg, marginTop: spacing.xl },
 
   custRow: { flexDirection: "row-reverse", alignItems: "center", gap: spacing.md },

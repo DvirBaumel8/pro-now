@@ -60,9 +60,90 @@ await tap(/^סגירה$/, 900);
 await tap(/התחלת משמרת/, 1400);
 await tap(/קריאה לדוגמה/, 1600);
 await tap(/קבלת העבודה/, 1600);
+/*
+ * AND THE SCREEN HAS TO BE A DIFFERENT SCREEN AT EACH STEP.
+ *
+ * Amit: *"עדיין כל המסכים פה אותו דבר ואין שום שינוי בין בדרך לבדיקה
+ * להצעת מחיר, הכל נשאר באותו מסך."* Each stage already had its own
+ * screen key and its own transition — what never changed was what was
+ * ON it, which is the half a transition check cannot see. So this reads
+ * the screen at each step and asserts it actually says and shows
+ * something else.
+ */
+const stageText = [];
+const stageOrder = [];
+const readStage = async () => {
+  stageText.push(await text());
+  stageOrder.push(
+    await p.evaluate(() => {
+      /*
+       * The section HEADINGS, on their own lines. "הלקוח" as a plain
+       * substring also matches "מה שהלקוח תיאר" inside the sentence
+       * above both cards, which put the customer ahead of the problem
+       * at every stage and made this check fail for the wrong reason.
+       */
+      const t = document.body.innerText;
+      const line = (label) => {
+        const m = t.match(new RegExp('^' + label + '$', 'm'));
+        return m && m.index !== undefined ? m.index : -1;
+      };
+      return { problem: line('מה הבעיה'), who: line('הלקוח'), nav: t.indexOf('ניווט לכתובת') };
+    })
+  );
+};
+
+await readStage();
 await tap(/יוצא לדרך/, 1200);
+await readStage();
 await tap(/הגעתי/, 1200);
+await readStage();
 await tap(/מתחיל אבחון/, 1200);
+await readStage();
+
+/*
+ * NOT "different", but DIFFERENT ENOUGH TO NOTICE.
+ *
+ * The first version of this asked only that the two texts not be
+ * identical, and it passed with the fault fully in place: the status
+ * pill changes one word at every step, so the screens were never
+ * literally equal while being, to a person, the same screen. That is
+ * exactly what Amit was reporting, so a check satisfied by it is a
+ * check that agrees with the bug.
+ *
+ * The four stages walked here are assigned, en route, arrived and
+ * diagnosis. The first two are ONE thing to the professional — the
+ * tracker deliberately puts both at "בדרך", because the difference is
+ * whether a van has pulled out — so they are only required to differ at
+ * all. Arriving is a change of what the screen is FOR, and that one has
+ * to be a change you cannot miss: eight words is roughly a sentence,
+ * about the smallest thing somebody glancing at a phone registers.
+ */
+const MUST_CHANGE_A_LOT = new Set([2]);
+for (let i = 1; i < stageText.length; i += 1) {
+  const a = new Set(stageText[i - 1].split(/\s+/));
+  const changed = stageText[i].split(/\s+/).filter((w) => !a.has(w)).length;
+  const need = MUST_CHANGE_A_LOT.has(i) ? 8 : 3;
+  if (changed < need) {
+    problems.push(`step ${i} of the visit looks like step ${i - 1} — only ${changed} words differ`);
+  }
+}
+/*
+ * The drive belongs to the drive. A navigation button on the screen of
+ * somebody already standing in the kitchen is the clutter that made
+ * four stages read as one.
+ */
+if (stageOrder[1].nav < 0) problems.push('no way to navigate while still on the way');
+if (stageOrder[2].nav >= 0) problems.push('still offering navigation after arriving');
+/*
+ * And what the customer described moves to the top at the moment it
+ * becomes the thing being looked at.
+ */
+if (!(stageOrder[2].problem >= 0 && stageOrder[2].problem < stageOrder[2].who)) {
+  problems.push('after arriving, what the customer described is still below their contact card');
+}
+if (!(stageOrder[0].who >= 0 && stageOrder[0].who < stageOrder[0].problem)) {
+  problems.push('before setting off, the customer is not the first thing on the screen');
+}
 
 /*
  * THE QUOTE IS WRITTEN, NOT SUMMONED. The amount below is typed here and

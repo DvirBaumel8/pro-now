@@ -399,3 +399,78 @@ export function visitMoneyLineHe(status: JobState, facts: VisitMoneyFacts = {}):
       return null;
   }
 }
+
+/**
+ * ---------------------------------------------------------------------
+ * WHAT THE PROFESSIONAL IS SUPPOSED TO BE DOING RIGHT NOW
+ * ---------------------------------------------------------------------
+ * Amit, pressing through a visit on the professional's side: *"עדיין כל
+ * המסכים פה אותו דבר ואין שום שינוי בין בדרך לבדיקה להצעת מחיר, הכל
+ * נשאר באותו מסך."*
+ *
+ * The screens WERE separate screens by then — each state has its own key
+ * and its own transition. What he was describing is the other half of
+ * the same complaint and the harder one: the screen showed the same
+ * things in the same order at every stage. The address, the drive time
+ * and a navigation button are the whole job while you are driving and
+ * clutter once you are standing in the kitchen; the customer's photos
+ * and their description are the whole job at the diagnosis and noise
+ * while you are still in the van. Everything was always there, so
+ * nothing ever changed.
+ *
+ * `jobProgressHe` is the customer's version of this sentence. This is
+ * the professional's, and it is deliberately a different sentence: the
+ * customer is told what is happening TO them, and the professional is
+ * told what is theirs to do. Same state machine, two audiences.
+ *
+ * Nothing here promises a time and nothing counts anything, for the same
+ * reason as everywhere else in this file.
+ */
+export function proJobFocusHe(status: JobState): string | null {
+  switch (status) {
+    case "PRO_ASSIGNED":
+      return "העבודה שלך. הלקוח כבר יודע שאתה מגיע.";
+    case "PRO_EN_ROUTE":
+      return "בדרך לכתובת. הלקוח רואה אותך מתקדם על המפה.";
+    case "PRO_ARRIVED":
+      return "הגעת. שווה להסתכל על מה שהלקוח תיאר לפני שמתחילים.";
+    case "DIAGNOSIS":
+      return "באבחון. בסוף הבדיקה תשלח הצעת מחיר לאישור הלקוח.";
+    case "WAITING_QUOTE_APPROVAL":
+      return "ההצעה אצל הלקוח. אי אפשר להתחיל לעבוד לפני שהוא מאשר.";
+    case "IN_PROGRESS":
+      return "ההצעה אושרה. אפשר לעבוד לפי מה שסוכם.";
+    case "COMPLETION_PENDING":
+      return "אמרת שסיימת. הלקוח מאשר שהעבודה הושלמה, ואז נסגר התשלום.";
+    default:
+      return null;
+  }
+}
+
+/**
+ * WHICH PART OF THE JOB SCREEN IS THE POINT AT THIS STAGE.
+ *
+ * Not a style and not a layout — an answer to "what is this person
+ * looking at right now", which the screen then arranges itself around.
+ * It lives here because it is a fact about the state machine: the
+ * address stops mattering at the moment somebody arrives, and the
+ * customer's description starts mattering at the same moment.
+ */
+export type ProJobFocus = "TRAVEL" | "PROBLEM" | "MONEY";
+
+export function proJobFocusFor(status: JobState): ProJobFocus | null {
+  switch (status) {
+    case "PRO_ASSIGNED":
+    case "PRO_EN_ROUTE":
+      return "TRAVEL";
+    case "PRO_ARRIVED":
+    case "DIAGNOSIS":
+      return "PROBLEM";
+    case "WAITING_QUOTE_APPROVAL":
+    case "IN_PROGRESS":
+    case "COMPLETION_PENDING":
+      return "MONEY";
+    default:
+      return null;
+  }
+}
