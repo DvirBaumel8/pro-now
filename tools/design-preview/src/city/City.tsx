@@ -916,9 +916,24 @@ function ShopRoom({
   const fit = (img: HTMLImageElement) => {
     const host = stage.current;
     if (!host || !img.naturalWidth) return;
-    const cw = host.clientWidth, ch = host.clientHeight;
-    /* CONTAIN, not cover: min, so the whole picture is inside. */
-    const k = Math.min(cw / img.naturalWidth, ch / img.naturalHeight);
+    /*
+     * WIDTH-LIMITED, AND THEN THE FRAME FOLLOWS THE PICTURE.
+     *
+     * A 4:3 room on a 390-point phone is 298 points tall when it is
+     * shown whole. That is arithmetic, not a choice: the only way to
+     * make it bigger is to crop it, and cropping is what hid two of
+     * Lust's four shelves in the first place.
+     *
+     * What CAN go is the dead space. The stage was a fixed share of
+     * the screen, so raising it from 44% to 60% did not enlarge the
+     * picture by a pixel — it just put two hundred points of blurred
+     * nothing between the shop and its card. The frame is sized from
+     * the fitted picture now, and the card sits directly under it.
+     */
+    const k = Math.min(
+      host.clientWidth / img.naturalWidth,
+      (window.innerHeight * 0.58) / img.naturalHeight
+    );
     setBox({ w: img.naturalWidth * k, h: img.naturalHeight * k });
   };
 
@@ -936,7 +951,7 @@ function ShopRoom({
       />
       <div style={{ ...S.roomWashVeil, opacity: shown ? 1 : 0 }} />
 
-      <div ref={stage} style={S.roomStage}>
+      <div ref={stage} style={{ ...S.roomStage, height: box ? box.h : "40%" }}>
         <div
           style={{
             ...S.roomInner,
@@ -983,14 +998,17 @@ function ShopRoom({
         {sponsor ? <p style={S.roomLine}>{sponsor.taglineHe}</p> : null}
 
         {things.length > 0 ? (
-          <div style={S.shelf}>
-            {things.map((t, i) => (
-              <button key={t.titleHe} style={S.shelfItem} onClick={() => setOpen(i)}>
-                <span style={S.shelfName}>{t.titleHe}</span>
-                {t.priceHe ? <span style={S.shelfPrice}>{t.priceHe}</span> : null}
-              </button>
-            ))}
-          </div>
+          <>
+            <p style={S.shelfHint}>לחצו על הנצנצים במדפים — או כאן</p>
+            <div style={S.shelf}>
+              {things.map((t, i) => (
+                <button key={t.titleHe} style={S.shelfItem} onClick={() => setOpen(i)}>
+                  <span style={S.shelfName}>{t.titleHe}</span>
+                  {t.priceHe ? <span style={S.shelfPrice}>{t.priceHe}</span> : null}
+                </button>
+              ))}
+            </div>
+          </>
         ) : null}
 
         <button
@@ -1126,7 +1144,7 @@ const S: Record<string, React.CSSProperties> = {
   },
   /* The picture sits in whatever room the bar leaves it, centred. */
   roomStage: {
-    position: "relative", flex: "0 0 auto", height: "44%", minHeight: 0,
+    position: "relative", flex: "0 0 auto", width: "100%", minHeight: 0,
     display: "flex", alignItems: "center", justifyContent: "center",
   },
   roomInner: {
@@ -1145,17 +1163,28 @@ const S: Record<string, React.CSSProperties> = {
    *
    * 44px, because it is a touch target before it is an ornament.
    */
-  spot: {
-    position: "absolute", width: 44, height: 44, marginLeft: -22, marginTop: -22,
-    borderRadius: 999, border: 0, padding: 0, cursor: "pointer",
-    background: "radial-gradient(circle, rgba(255,240,210,.85) 0%, rgba(255,214,150,.35) 32%, rgba(255,190,120,0) 68%)",
-    animation: "pnSpot 2.4s ease-in-out infinite",
-  },
-  spotCore: {
-    position: "absolute", left: "50%", top: "50%", width: 10, height: 10,
-    marginLeft: -5, marginTop: -5, borderRadius: 999, background: "#FFF6E4",
-    boxShadow: "0 0 12px 3px rgba(255,214,150,.9)",
-  },
+  /*
+   * A SPARKLE HAS TO SURVIVE A BRIGHT PICTURE — AND STAY A SPARKLE.
+   *
+   * Two mistakes in a row, in opposite directions.
+   *
+   * First it was a soft warm dot, which was unmissable on the dark
+   * room he first saw and invisible once the room was shown whole and
+   * bright: a warm dot on warm cream is the shop's own lighting.
+   *
+   * Then I fixed the contrast with a 52-point ring — and Amit, at
+   * once: *"אני כבר רואה שזה גדול מדי ולא מה שאהבתי."* He is right.
+   * A ring that size is a UI control parked on the merchandise. What
+   * he liked was a TWINKLE: small, precious, something catching the
+   * light on a bottle.
+   *
+   * So the contrast comes from a hairline dark edge rather than from
+   * size — the same trick as an outlined subtitle — and the visible
+   * mark is 14 points across. The BUTTON stays 44, because that is
+   * the touch floor the sweep enforces, and it is invisible: a big
+   * target under a small ornament, which is what a fingertip needs
+   * and what the eye should not have to see.
+   */
   hint: {
     position: "absolute", left: 20, right: 20, bottom: 158, textAlign: "center",
     color: "rgba(247,243,250,.8)", fontSize: 13, letterSpacing: .2,
@@ -1172,18 +1201,40 @@ const S: Record<string, React.CSSProperties> = {
     position: "absolute", inset: 0, background: "rgba(5,4,12,.62)",
     transition: "opacity 520ms ease",
   },
+  /*
+   * The row is a SAFETY NET, not the offer. It was competing with the
+   * sparkles and winning, and a list of buttons is a catalogue —
+   * pressing a bottle on a shelf is a shop.
+   */
+  shelfHint: {
+    margin: "0 0 6px", fontSize: 11.5, color: "rgba(247,243,250,.45)",
+  },
   shelf: {
-    display: "flex", gap: 8, overflowX: "auto", padding: "2px 0 12px",
+    display: "flex", gap: 6, overflowX: "auto", padding: "0 0 10px",
     scrollbarWidth: "none",
   },
   shelfItem: {
-    flex: "0 0 auto", display: "flex", flexDirection: "column", gap: 2,
-    alignItems: "flex-start", minHeight: 44, padding: "8px 13px",
-    borderRadius: 14, cursor: "pointer", fontFamily: "inherit",
-    background: "rgba(247,243,250,.1)", border: "1px solid rgba(247,243,250,.18)",
+    flex: "0 0 auto", display: "flex", alignItems: "center", gap: 7,
+    minHeight: 40, padding: "6px 11px",
+    borderRadius: 12, cursor: "pointer", fontFamily: "inherit",
+    background: "rgba(247,243,250,.07)", border: "1px solid rgba(247,243,250,.13)",
   },
-  shelfName: { fontSize: 12.5, fontWeight: 700, color: "#F7F3FA", whiteSpace: "nowrap" },
-  shelfPrice: { fontSize: 12, color: "rgba(247,243,250,.66)" },
+  shelfName: { fontSize: 11.5, fontWeight: 600, color: "rgba(247,243,250,.86)", whiteSpace: "nowrap" },
+  shelfPrice: { fontSize: 11.5, color: "rgba(247,243,250,.5)" },
+  spot: {
+    position: "absolute", width: 44, height: 44, marginLeft: -22, marginTop: -22,
+    borderRadius: 999, border: 0, padding: 0, cursor: "pointer",
+    background: "transparent",
+    display: "flex", alignItems: "center", justifyContent: "center",
+    animation: "pnSpot 2.1s ease-in-out infinite",
+  },
+  spotCore: {
+    width: 14, height: 14, borderRadius: 999,
+    background:
+      "radial-gradient(circle, #FFFDF6 0%, #FFF0CF 42%, rgba(255,214,150,.55) 62%, rgba(255,214,150,0) 100%)",
+    boxShadow:
+      "0 0 0 1px rgba(40,24,12,.55), 0 0 10px 3px rgba(255,226,170,.95), 0 0 22px 8px rgba(255,190,110,.4)",
+  },
   roomBar: { position: "relative", flex: "0 0 auto", padding: "14px 20px 24px" },
   roomName: { margin: "0 0 4px", fontSize: 26, color: "#F7F3FA" },
   roomTag: { margin: "0 0 8px", fontSize: 13, color: "rgba(247,243,250,.62)" },
@@ -1225,7 +1276,7 @@ if (typeof document !== "undefined" && !document.getElementById("pn-city-css")) 
   const tag = document.createElement("style");
   tag.id = "pn-city-css";
   tag.textContent =
-    "@keyframes pnSpot{0%,100%{transform:scale(.82);opacity:.7}50%{transform:scale(1.18);opacity:1}}" +
+    "@keyframes pnSpot{0%,100%{transform:scale(.78);opacity:.82}50%{transform:scale(1.26);opacity:1}}" +
     "@keyframes pnFade{0%{opacity:0}12%{opacity:1}72%{opacity:1}100%{opacity:0}}" +
     "@keyframes pnRise{from{opacity:0;transform:translateX(-50%) translateY(-8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}";
   document.head.appendChild(tag);
