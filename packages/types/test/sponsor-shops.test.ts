@@ -150,3 +150,46 @@ describe("a paid building on the plate", () => {
     }
   });
 });
+
+/**
+ * WHAT IS ON THE SHELVES.
+ *
+ * Amit: *"רוצה שיהיו מוצרים בחנות שיפתחו... לא רוצה לאתר ישר."* The
+ * rules worth testing are the two that protect the brand: a mark has to
+ * be ON the picture, and a price has to be the brand's own.
+ */
+describe("the things in a sponsor's shop", () => {
+  const withThings: SponsorShop = {
+    ...LUST,
+    things: [
+      { x: 0.8, y: 0.32, titleHe: "LUST FOR HER", bodyHe: "בושם פרומונים לאישה.", priceHe: "₪168", wasPriceHe: "₪250" },
+      { x: 0.4, y: 0.25, titleHe: "למה שמן?", bodyHe: "שמן לא מייבש והניחוח נפתח בהדרגה." },
+    ],
+  };
+
+  it("passes with real marks and real prices", () => {
+    expect(sponsorShopViolations([withThings], OURS)).toEqual([]);
+  });
+
+  it("refuses a mark pinned outside the picture", () => {
+    const off = { ...withThings, things: [{ ...withThings.things![0]!, x: 1.4 }] };
+    expect(sponsorShopViolations([off]).join(" ")).toContain("outside the picture");
+  });
+
+  /*
+   * The one that matters commercially. A crossed-out price with nothing
+   * beside it is a discount on nothing, invented on a brand's behalf.
+   */
+  it("refuses a was-price with no price", () => {
+    const bad = {
+      ...withThings,
+      things: [{ x: 0.5, y: 0.5, titleHe: "משהו", bodyHe: "משהו", wasPriceHe: "₪250" }],
+    };
+    expect(sponsorShopViolations([bad]).join(" ")).toContain("was-price with no price");
+  });
+
+  it("refuses a thing that says nothing when you press it", () => {
+    const mute = { ...withThings, things: [{ x: 0.5, y: 0.5, titleHe: " ", bodyHe: " " }] };
+    expect(sponsorShopViolations([mute]).join(" ")).toContain("nothing to say");
+  });
+});

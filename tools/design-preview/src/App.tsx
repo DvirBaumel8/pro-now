@@ -2185,6 +2185,11 @@ const go = useCallback((r: CustomerRoute) => {
             avatar={avatar}
             sources={art}
             geo={geo}
+            /* The paid shops stand in this street like any other. */
+            sponsors={PREVIEW_SPONSORS}
+            onEnterSponsor={(shop) =>
+              go({ name: "sponsor", shopId: shop.id, from: "enroute" })
+            }
             onOpenDepartment={(department) => {
               const category = categoryForDepartment(department);
               if (category) go({ name: "category", categoryId: category.id });

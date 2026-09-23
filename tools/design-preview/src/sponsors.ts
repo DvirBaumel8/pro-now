@@ -45,5 +45,51 @@ export const PREVIEW_SPONSORS: readonly SponsorShop[] = [
     venueAssetId: "sponsor_lust_venue",
     interiorAssetId: "sponsor_lust_hero",
     minimumAge: 18,
+    /*
+     * WHAT IS ON THE SHELVES.
+     *
+     * Every name, every description and every price is READ OFF THE
+     * BRAND'S OWN PAGE — mylustshop.com, on the day this was written.
+     * Nothing here is written by us and nothing is computed: a price in
+     * a shop window is a claim made on a brand's behalf, and an invented
+     * one is the single thing a sponsor would never forgive.
+     *
+     * The positions are fractions of the interior picture, so they move
+     * with the art rather than with a layout.
+     */
+    things: [
+      {
+        x: 0.8,
+        y: 0.32,
+        titleHe: "LUST FOR HER",
+        bodyHe: "בושם פרומונים לאישה · אדמונית, ליצ׳י ופרזיה, לב של ורדים ומגנוליה, בסיס ארז וענבר.",
+        priceHe: "₪168",
+        wasPriceHe: "₪250",
+      },
+      {
+        x: 0.58,
+        y: 0.47,
+        titleHe: "LUST FOR HIM",
+        bodyHe: "בושם פרומונים לגבר · רעננות ימית והדרים, לב של עץ גויאק ופצ׳ולי, בסיס ענבר אפור.",
+        priceHe: "₪198",
+        wasPriceHe: "₪298",
+      },
+      {
+        x: 0.27,
+        y: 0.55,
+        titleHe: "COUPLES PACK",
+        bodyHe: "שני הבשמים יחד — לו ולה.",
+        priceHe: "₪348",
+        wasPriceHe: "₪499",
+      },
+      {
+        /* Not a product. A shop that only sells is a vending machine. */
+        x: 0.4,
+        y: 0.24,
+        titleHe: "למה שמן ולא תרסיס?",
+        bodyHe:
+          "שמן לא מייבש את העור, והניחוח נפתח בהדרגה לאורך היום. מחליקים על העור עם הרולר.",
+      },
+    ],
   },
 ];

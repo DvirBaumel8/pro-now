@@ -30,6 +30,7 @@ import {
   type Heading,
   type NormalizedPoint,
   type WorldGeo,
+  type SponsorShop,
   PLATE_V_WEIGHT,
   ROAD_PLATE_ASSET_ID,
 } from "@pro-now/types";
@@ -37,6 +38,8 @@ import {
 import { BackButton, BACK_BUTTON_CLEARANCE } from "../components/BackButton";
 import { EMPTY_ASSET_SOURCES, type WorldAssetSources } from "../components/livingmap/AssetSlot";
 import { DistrictLayer } from "../components/livingmap/DistrictLayer";
+import { SponsorVenueLayer } from "../components/livingmap/SponsorVenueLayer";
+import { TradeCard } from "../components/livingmap/TradeCard";
 import { ErrandLayer } from "../components/livingmap/ErrandLayer";
 import { ScrimBand } from "../components/livingmap/ScrimBand";
 import { SteerPad } from "../components/livingmap/SteerPad";
@@ -102,7 +105,24 @@ export interface StrollBodyProps {
    */
   geo?: WorldGeo | null;
   /** Tapping a trade's building opens that trade. */
+  /**
+   * What "מה אפשר להזמין כאן" does, from inside a shop.
+   *
+   * Touching a building no longer leaves the street: it opens the shop,
+   * with the room behind it where that art exists. This is the way OUT
+   * of the shop into the catalogue, which is the only honest action a
+   * building with nobody behind it can offer — see `TradeCard`.
+   */
   onOpenDepartment?: (department: DepartmentCode) => void;
+  /**
+   * SHOPS IN THIS STREET THAT SOMEBODY PAID FOR.
+   *
+   * Amit: *"לקוח יכול להיכנס לחנויות ואז ייפתח האתר של המותג."* The
+   * stroll is where that actually happens — it is the one screen whose
+   * whole purpose is walking past businesses.
+   */
+  sponsors?: readonly SponsorShop[];
+  onEnterSponsor?: (shop: SponsorShop) => void;
   onBack?: () => void;
   /** Lets somebody who skipped the avatar go and choose one. */
   onChooseAvatar?: () => void;
@@ -116,6 +136,8 @@ export function StrollBody({
   sources = EMPTY_ASSET_SOURCES,
   geo = null,
   onOpenDepartment,
+  sponsors,
+  onEnterSponsor,
   onBack,
   onChooseAvatar,
   animate = true,
@@ -272,6 +294,15 @@ export function StrollBody({
    * difference between a map with icons on it and a street.
    */
   const [nearest, setNearest] = useState<DepartmentCode | null>(null);
+  /**
+   * Which shop is open, if any.
+   *
+   * Amit: *"רוצה שיהיו מוצרים בחנות שיפתחו... לא רוצה לאתר ישר."*
+   * Touching a building used to leave the street immediately for a list
+   * of services — which is a menu, not a shop. It opens the shop now,
+   * and the list is one button inside it.
+   */
+  const [openTrade, setOpenTrade] = useState<DepartmentCode | null>(null);
 
   /*
    * HOW FAR DOWN THE STREET THE WALKER IS, AS STATE.
@@ -444,8 +475,30 @@ export function StrollBody({
                * claim about who is available inside.
                */
               activeDepartment={nearest}
-              onSelect={onOpenDepartment}
+              onSelect={setOpenTrade}
             />
+
+            {/*
+              * AND THE SHOPS THAT ARE NOT OURS.
+              *
+              * Drawn with the districts because a sponsor is a PLACE in
+              * this street. Everything that keeps the two apart — the
+              * lit sign with `בחסות` under the brand's name, the missing
+              * figure in the doorway, the ground it is allowed to stand
+              * on — is in `SponsorVenueLayer`.
+              */}
+            {sponsors && sponsors.length > 0 ? (
+              <SponsorVenueLayer
+                shops={sponsors}
+                width={world.width}
+                height={world.height}
+                sources={sources}
+                spots={spots}
+                litGround={Boolean(geo)}
+                onEnter={onEnterSponsor}
+              />
+            ) : null}
+
             {/*
               * Drawn before the walker, so the figure passes over the
               * glow rather than the glow sitting on its shoulders.
@@ -501,12 +554,35 @@ export function StrollBody({
                 litGround={Boolean(geo)}
                 vRange={{ min: depth, max: 1.01 }}
                 activeDepartment={nearest}
-                onSelect={onOpenDepartment}
+                onSelect={setOpenTrade}
               />
             ) : null}
           </>
         )}
       </WorldViewport>
+
+      {/* ----------------------------------------------------------------
+          INSIDE THE SHOP YOU TOUCHED.
+
+          Above the world and below nothing: while a shop is open the
+          street is what you came back to, not what you are doing.
+          ---------------------------------------------------------------- */}
+      {openTrade ? (
+        <TradeCard
+          department={openTrade}
+          sources={sources}
+          onOpenTrade={
+            onOpenDepartment
+              ? (d) => {
+                  setOpenTrade(null);
+                  onOpenDepartment(d);
+                }
+              : undefined
+          }
+          onClose={() => setOpenTrade(null)}
+          width={width}
+        />
+      ) : null}
 
       {/*
         * TALL ENOUGH TO COVER THE WORDS.

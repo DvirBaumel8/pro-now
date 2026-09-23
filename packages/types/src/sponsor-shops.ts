@@ -53,6 +53,38 @@ import type { JobState } from "./job";
  * to, and the world repeats that statement before handing anybody over.
  */
 
+/**
+ * SOMETHING ON A SHELF, THAT OPENS.
+ *
+ * Amit: *"רוצה שיהיו מוצרים בחנות פה שיפתחו כמו מקודם עם הנצנצים. לא
+ * רוצה לאתר ישר."*
+ *
+ * That sentence is the whole difference between a shop and a banner.
+ * You go in, you look at what is on the shelf, and only if you want it
+ * do you leave for the brand's site. A door that empties straight onto
+ * somebody else's checkout is an advert wearing a shop's clothes.
+ *
+ * `x` and `y` are fractions of the interior picture, because that is
+ * what they point at — move the art and the marks move with it.
+ *
+ * NOTHING HERE MAY BE INVENTED. A price in a shop window is a claim
+ * made on a brand's behalf, and the one thing a sponsor would never
+ * forgive is a number we made up. `priceHe` is the brand's own, copied
+ * from the brand's own page, or it is absent and the thing is simply
+ * described.
+ */
+export interface ShopThing {
+  /** Where it sits on the interior picture, as fractions of it. */
+  x: number;
+  y: number;
+  titleHe: string;
+  bodyHe: string;
+  /** "₪168" — the brand's own price, or absent. Never computed here. */
+  priceHe?: string;
+  /** "₪250" — what the brand says it was. Only ever beside `priceHe`. */
+  wasPriceHe?: string;
+}
+
 export interface SponsorShop {
   /** Stable id, also the asset prefix: `sponsor_<id>_venue|hero`. */
   id: string;
@@ -72,6 +104,8 @@ export interface SponsorShop {
   venueAssetId: string;
   /** The same shop from inside, if the brand supplied one. */
   interiorAssetId?: string;
+  /** What is on the shelves, and what each thing says. */
+  things?: readonly ShopThing[];
   /**
    * The age the BRAND says its own site sells to, when it says one.
    * Repeated before the handoff; never inferred, never guessed.
@@ -174,6 +208,24 @@ export function sponsorShopViolations(
     }
     if (s.minimumAge !== undefined && (s.minimumAge < 1 || s.minimumAge > 120)) {
       out.push(`${s.id}: ${s.minimumAge} is not an age`);
+    }
+
+    for (const thing of s.things ?? []) {
+      if (thing.x < 0 || thing.x > 1 || thing.y < 0 || thing.y > 1) {
+        out.push(`${s.id}: "${thing.titleHe}" is pinned outside the picture`);
+      }
+      /*
+       * A crossed-out price with nothing beside it is a discount on
+       * nothing. Either both numbers are the brand's or neither is
+       * shown — see `ShopThing`.
+       */
+      if (thing.wasPriceHe && !thing.priceHe) {
+        out.push(`${s.id}: "${thing.titleHe}" shows a was-price with no price`);
+      }
+      /* And a thing you can press has to say something when pressed. */
+      if (!thing.titleHe.trim() || !thing.bodyHe.trim()) {
+        out.push(`${s.id}: a thing on the shelf with nothing to say`);
+      }
     }
   }
 

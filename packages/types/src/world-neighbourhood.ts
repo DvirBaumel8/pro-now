@@ -550,12 +550,22 @@ export const PLATE_SPOTS: readonly NormalizedPoint[] = [
   { u: 0.545, v: 0.674 },
   { u: 0.329, v: 0.649 },
   { u: 0.570, v: 0.539 },
-  { u: 0.353, v: 0.473 },
+  /*
+   * SWAPPED WITH THE SPONSOR'S FIRST FRONTAGE, DELIBERATELY.
+   *
+   * Both are measured and both clear the road; what differs is how far
+   * they are from where a walk begins. The trades are eleven and a
+   * customer will meet them all; a sponsor is one and has to be met.
+   * (0.353, 0.473) is a short walk up the street from `WALK_START` and
+   * (0.434, 0.307) is most of the way to the far end, so the sponsor
+   * takes the near one and this trade takes the far one.
+   */
+  { u: 0.434, v: 0.307 },
   { u: 0.138, v: 0.435 },
   { u: 0.648, v: 0.362 },
   { u: 0.154, v: 0.284 },
   { u: 0.384, v: 0.171 },
-  { u: 0.434, v: 0.307 },
+  { u: 0.353, v: 0.473 },
   { u: 0.652, v: 0.218 },
   { u: 0.125, v: 0.100 },
 ];
@@ -676,7 +686,7 @@ export const SPONSOR_PLATE_SPOTS: readonly NormalizedPoint[] = [
    * straight past it. That is the whole proposition being sold to a
    * brand, and this is the first drawing able to deliver it.
    */
-  { u: 0.434, v: 0.307 }, // mid-pavement, walked past
+  { u: 0.353, v: 0.473 }, // mid-pavement, a short walk from where you start
   { u: 0.652, v: 0.218 },
   { u: 0.125, v: 0.100 },
 ];

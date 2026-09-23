@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useState } from "react";
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import {
   SPONSOR_BADGE_HE,
+  type ShopThing,
   sponsorCtaHe,
   sponsorLeaveHe,
   type SponsorShop,
@@ -66,6 +67,7 @@ export function SponsorShopBody({
   height = 780,
 }: SponsorShopBodyProps) {
   const colors = customerDarkTheme.colors;
+  const [openThing, setOpenThing] = useState<ShopThing | null>(null);
 
   return (
     <View style={[styles.screen, { width, height, backgroundColor: colors.bg }]}>
@@ -83,6 +85,39 @@ export function SponsorShopBody({
           ) : (
             <View style={[styles.interior, styles.noArt, { height: Math.round(height * 0.22) }]} />
           )}
+
+          {/* ------------------------------------------------------------
+              THE THINGS ON THE SHELVES.
+
+              Amit: *"רוצה שיהיו מוצרים בחנות שיפתחו... לא רוצה לאתר
+              ישר."* This is what makes it a shop rather than a door with
+              a picture on it: you look at what is there, and leaving for
+              the brand's site is something you choose afterwards.
+
+              Drawn only over real art — a mark floating on the empty
+              fallback would point at nothing.
+              ------------------------------------------------------------ */}
+          {interiorUri
+            ? (shop.things ?? []).map((thing) => (
+                <Pressable
+                  key={thing.titleHe}
+                  onPress={() => setOpenThing(thing)}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    thing.priceHe ? `${thing.titleHe} · ${thing.priceHe}` : thing.titleHe
+                  }
+                  style={[
+                    styles.thing,
+                    {
+                      left: `${Math.round(thing.x * 100)}%`,
+                      top: `${Math.round(thing.y * 100)}%`,
+                    },
+                  ]}
+                >
+                  <Text style={styles.thingMark}>+</Text>
+                </Pressable>
+              ))
+            : null}
 
           {/* ------------------------------------------------------------
               THE BADGE, OVER THE PICTURE.
@@ -137,6 +172,49 @@ export function SponsorShopBody({
         screen, and a translucent chip on a lit shop is invisible — see
         `BackButton`. Amit found this one by not finding the button.
       */}
+      {/* ----------------------------------------------------------------
+          WHAT YOU PICKED UP.
+
+          Over everything, because while you are looking at a thing that
+          is what you are doing. The way to the brand's site is here, on
+          the thing itself — not a button that was the only thing the
+          shop could do.
+          ---------------------------------------------------------------- */}
+      {openThing ? (
+        <View style={[styles.card, { backgroundColor: colors.surface }]}>
+          <Pressable
+            onPress={() => setOpenThing(null)}
+            accessibilityRole="button"
+            accessibilityLabel="סגירה"
+            style={styles.cardClose}
+          >
+            <Text style={[styles.cardCloseText, { color: colors.textSecondary }]}>×</Text>
+          </Pressable>
+          <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>{openThing.titleHe}</Text>
+          <Text style={[styles.cardBody, { color: colors.textSecondary }]}>{openThing.bodyHe}</Text>
+          {openThing.priceHe ? (
+            <View style={styles.cardPrice}>
+              <Text style={[styles.cardNow, { color: colors.textPrimary }]}>{openThing.priceHe}</Text>
+              {openThing.wasPriceHe ? (
+                <Text style={[styles.cardWas, { color: colors.textSecondary }]}>
+                  {openThing.wasPriceHe}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
+          {onOpenSite && openThing.priceHe ? (
+            <Pressable
+              onPress={() => onOpenSite(shop)}
+              accessibilityRole="button"
+              accessibilityLabel={`${sponsorCtaHe(shop)} — נפתח מחוץ לאפליקציה`}
+              style={[styles.cta, { backgroundColor: colors.action, marginTop: spacing.md }]}
+            >
+              <Text style={[styles.ctaText, { color: colors.onAction }]}>{sponsorCtaHe(shop)}</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
+
       {onBack ? (
         <BackButton onPress={onBack} tone="dark" onArtwork accessibilityLabelHe="חזרה לרחוב" />
       ) : null}
@@ -170,6 +248,51 @@ const styles = StyleSheet.create({
     borderColor: "rgba(247,243,250,0.34)",
   },
   badgeText: { ...type.microStrong, color: "#F7F3FA" },
+  /*
+   * A mark you press. 44 points because a finger is 44 — the same
+   * number `verify:a11y` has already caught this product missing twice.
+   */
+  thing: {
+    position: "absolute",
+    width: 44,
+    height: 44,
+    marginLeft: -22,
+    marginTop: -22,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(16,11,22,0.5)",
+    borderWidth: 2,
+    borderColor: "rgba(255,233,199,0.92)",
+  },
+  thingMark: { ...type.bodyStrong, color: "#FFE9C7" },
+  card: {
+    position: "absolute",
+    left: spacing.lg,
+    right: spacing.lg,
+    bottom: spacing.xl,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255,214,150,0.4)",
+  },
+  cardClose: { position: "absolute", top: spacing.sm, left: spacing.md, padding: spacing.xs },
+  cardCloseText: { ...type.section, fontWeight: "400" },
+  cardTitle: { ...type.bodyStrong, textAlign: "right", writingDirection: "rtl" },
+  cardBody: {
+    ...type.meta,
+    textAlign: "right",
+    writingDirection: "rtl",
+    marginTop: spacing.xs,
+  },
+  cardPrice: {
+    flexDirection: "row-reverse",
+    alignItems: "baseline",
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  cardNow: { ...type.section },
+  cardWas: { ...type.meta, textDecorationLine: "line-through" },
   pad: { paddingHorizontal: spacing.xl, paddingTop: spacing.xl },
   brand: { ...type.title, textAlign: "right", writingDirection: "rtl" },
   category: { ...type.meta, textAlign: "right", writingDirection: "rtl", marginTop: spacing.xs },
