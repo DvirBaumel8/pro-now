@@ -10,7 +10,7 @@ import {
   type DiscoveryState,
   type WorldGeo,
 } from "@pro-now/types";
-import { AVATARS, formatMoney, greetingAt, money, screenKey, travelAssetFor, VISIT_ORDER, type AvatarChoice } from "@pro-now/types";
+import { AVATARS, avatarById, formatMoney, greetingAt, money, screenKey, travelAssetFor, VISIT_ORDER, type AvatarChoice } from "@pro-now/types";
 import { matchServicesByText } from "@pro-now/ui";
 import { canSaveSession, clearSession, loadSession, saveSession, savedAgoHe } from "./session";
 import { HAIR_DISCOVERY_IDS } from "@pro-now/ui";
@@ -3076,6 +3076,32 @@ const go = useCallback((r: CustomerRoute) => {
       <AppHeader
         width={width}
         greetingHe="שלום"
+        /*
+         * THE FACE THE CUSTOMER CHOSE, IN THE ONE PLACE THEY LOOK FOR
+         * THEMSELVES.
+         *
+         * Amit, on the gallery: *"האווטאר ככ קטן שאני לא מצליח לראות
+         * אותו אפילו."* Two faults behind one sentence. The circle was
+         * 34px, which is fixed in `AppHeader` — and NOTHING HAD EVER
+         * PASSED IT A PICTURE. `avatarUri` has been a prop of that
+         * header since it was written, and every screen in this
+         * prototype rendered the grey stand-in glyph, including for
+         * somebody who had just spent a minute choosing a character.
+         *
+         * So what he was squinting at was not a small avatar. It was
+         * the placeholder that means "no avatar", drawn small.
+         *
+         * `avatarById` turns the stored id into the portrait's asset
+         * id; `art` resolves it as far as the pack has arrived. Absent
+         * — no choice made, or the file not delivered — the glyph comes
+         * back, which is the honest picture of "nobody chosen".
+         */
+        avatarUri={(() => {
+          const chosen = avatarById(avatar);
+          if (!chosen) return null;
+          const src = art?.[chosen.portraitAssetId] as { uri?: string } | undefined;
+          return src?.uri ?? null;
+        })()}
         /*
          * A TAB IS A MOVE TOO.
          *

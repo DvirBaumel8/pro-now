@@ -482,6 +482,52 @@ await visit('living-wait', CUST, [
 ]);
 
 /*
+ * THE SHOPS THAT ARE NOT OURS.
+ *
+ * Both screens exist to carry a disclosure — the word `בחסות`, and the
+ * sentence saying whose site is about to open — and a disclosure that
+ * fails a contrast check or sits under a floating control is not one.
+ * Which is not hypothetical: the badge shipped its first afternoon
+ * directly beneath the back button, and was found in a screenshot
+ * rather than by anything here.
+ *
+ * `advertise` is reached from the last row of the customer's home
+ * screen, so this also proves that row is reachable at all — it is at
+ * the bottom of a long scroller, and a door nobody can open is the
+ * failure this walk has found more often than any other.
+ */
+await visit('advertise', CUST, [
+  async () => {
+    await p.evaluate(() => {
+      const s = [...document.querySelectorAll('div')].find((d) => d.scrollHeight > d.clientHeight + 100);
+      if (s) s.scrollTop = s.scrollHeight;
+    });
+    await p.waitForTimeout(500);
+    await p.getByRole('button', { name: /פתיחת חנות בשכונה/ }).first().click();
+    await p.waitForTimeout(1000);
+  },
+]);
+await visit('sponsor-shop', CUST, [
+  HOME_DOOR,
+  'פתיחת סתימה',
+  'בקשת בעל מקצוע עכשיו',
+  'שליחת הקריאה',
+  async () => p.waitForTimeout(8500),
+  'כן, מתאים לי',
+  'לעקוב אחרי',
+  async () => {
+    await p.evaluate(() => {
+      for (const d of document.querySelectorAll('div')) {
+        if (d.scrollHeight > d.clientHeight + 60) d.scrollTop = d.scrollHeight;
+      }
+    });
+    await p.waitForTimeout(700);
+    await p.getByRole('button', { name: /Lust/ }).first().click();
+    await p.waitForTimeout(1200);
+  },
+]);
+
+/*
  * THE CONTROL, FOR THE CHECK THAT CANNOT BE SEEN FAILING.
  *
  * The other three checks here measure something a person could also

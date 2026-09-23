@@ -53,6 +53,13 @@ export function AppHeader({
 }: AppHeaderProps) {
   const colors = tone === "dark" ? customerDarkTheme.colors : customerTheme.colors;
   const wash = tone === "dark" ? tint.neutralDark(0.08) : tint.neutralLight(0.05);
+  /*
+   * The ring around the portrait, on whichever bar this header is. A
+   * fixed dark hairline is invisible on the night bar and the circle
+   * goes back to reading as a stain — which is the defect this ring was
+   * added to fix, reintroduced on half the screens.
+   */
+  const ring = tone === "dark" ? "rgba(247,243,250,0.22)" : "rgba(23,18,31,0.12)";
 
   return (
     <View style={[styles.header, { width }]}>
@@ -89,9 +96,23 @@ export function AppHeader({
             accessibilityLabel={greetingHe ? `${greetingHe} — החשבון שלי` : "החשבון שלי"}
             style={styles.me}
           >
-            <View style={[styles.avatar, { backgroundColor: wash }]}>
+            <View style={[styles.avatar, { backgroundColor: wash, borderColor: ring }]}>
               {avatarUri ? (
-                <Image source={{ uri: avatarUri }} style={styles.avatarImg} />
+                <Image
+                  source={{ uri: avatarUri }}
+                  style={styles.avatarImg}
+                  /*
+                   * COVER, SAID OUT LOUD.
+                   *
+                   * The portraits are 436×512 — a head and shoulders, not
+                   * a square — and the default fit on one platform is not
+                   * the default on another. Named here so the face is
+                   * centred in the circle everywhere rather than on
+                   * whichever platform was looked at last.
+                   */
+                  resizeMode="cover"
+                  accessible={false}
+                />
               ) : (
                 <PersonGlyph color={colors.textSecondary} />
               )}
@@ -149,8 +170,33 @@ const styles = StyleSheet.create({
   back: { ...type.section, fontWeight: "400" },
 
   me: { flexDirection: "row-reverse", alignItems: "center", gap: spacing.sm, minHeight: 44 },
-  avatar: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center", overflow: "hidden" },
-  avatarImg: { width: 34, height: 34, borderRadius: 17 },
+  /*
+   * 44, NOT 34.
+   *
+   * Amit, on the gallery: *"האווטאר ככ קטן שאני לא מצליח לראות אותו
+   * אפילו."* He is right, and 34 was chosen as chrome rather than as a
+   * face: at that size a drawn portrait is a coloured smudge, and the
+   * one thing this circle is for is the customer recognising THEMSELVES
+   * in the app.
+   *
+   * 44 costs the header nothing — the row beside it is already 44 for
+   * the touch target, so the bar does not grow by a pixel — and it is
+   * the same number the rest of the product uses for "a thing a finger
+   * is meant to find".
+   *
+   * The ring is the other half. A circular photograph with no edge on a
+   * near-white bar reads as a stain; a hairline says it is a portrait.
+   */
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    borderWidth: 1,
+  },
+  avatarImg: { width: 44, height: 44, borderRadius: 22 },
   greeting: { ...type.meta, writingDirection: "rtl", maxWidth: 70, flexShrink: 1 },
 
   menu: { width: 22, gap: 4, alignItems: "flex-end" },
