@@ -504,7 +504,31 @@ export function App() {
    * is not a shipping target; the apps have no such flag and still draw
    * nothing until the art lands.
    */
-  const [standIn, setStandIn] = useState(true);
+  /*
+   * ---------------------------------------------------------------------
+   * AND IT IS OFF AGAIN, BECAUSE THE REASON IT WAS ON HAS GONE
+   * ---------------------------------------------------------------------
+   * Amit, walking the street with an avatar he had just chosen: *"במשחק
+   * זה הבעל מקצוע ולא האווטאר שבחרתי."*
+   *
+   * He is right, and the note above explains exactly how it happened:
+   * this was turned on because with it off there was NOBODY on the
+   * street at all — the twelve `avatar_NN_world_back` files have never
+   * been drawn, so the walker had nothing to render and rendered
+   * nothing. Borrowing a trade figure was better than an empty street.
+   *
+   * That is no longer the choice. `walkingFallbackFor` draws the chosen
+   * avatar's PORTRAIT on a pin — a convention everybody reads as "you
+   * are here", claiming nothing about a figure that has not been drawn —
+   * so with the stand-in off the person walking the street is now HIS
+   * FACE rather than nobody. Between somebody else's body and your own
+   * face on a marker, the marker is the one that is true.
+   *
+   * The borrowed body stays one tap away, still labelled "הדגמה", for
+   * judging the FEEL of walking — which is what it was added to answer
+   * and the one question the pin cannot.
+   */
+  const [standIn, setStandIn] = useState(false);
   const art = standIn ? standInWorldSources : worldSources;
 
   /**
