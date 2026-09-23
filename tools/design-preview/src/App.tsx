@@ -660,6 +660,15 @@ export function App() {
    */
   const [completionConfirmed, setCompletionConfirmed] = useState(false);
   /**
+   * THE PROFESSIONAL GAVE THE JOB BACK.
+   *
+   * Amit: *"אחרי שהוא רשם כן אני לוקח, הוא לא יכול להתחרט?"* He can, up
+   * to the diagnosis — and the whole point is that the customer finds
+   * out at once rather than by nobody arriving. So it crosses the same
+   * way every other fact between the two sides does.
+   */
+  const [jobReleased, setJobReleased] = useState(false);
+  /**
    * The prototype notice. It covers the address row while it is up, so it
    * takes itself away — a permanent overlay on the first thing a reviewer
    * wants to tap is a worse lie about the product than the one the notice is
@@ -853,6 +862,8 @@ export function App() {
             onQuoteOpened={() => setOpenQuoteOnce(false)}
             openCompletionOnce={openCompletionOnce}
             onCompletionOpened={() => setOpenCompletionOnce(false)}
+            jobReleased={jobReleased}
+            onReleaseSeen={() => setJobReleased(false)}
             /*
              * REOPENING THE PICKER, WHICH ONLY THE SHELL CAN DO.
              *
@@ -945,6 +956,7 @@ export function App() {
              * must not reach into it.
              */
             memory={proMemory}
+            onReleaseJob={() => setJobReleased(true)}
             completionConfirmed={completionConfirmed}
             onCompletionSeen={() => setCompletionConfirmed(false)}
             onSeeAsCustomer={(what) => {
@@ -1116,6 +1128,8 @@ function CustomerApp({
   onQuoteOpened,
   openCompletionOnce,
   onCompletionOpened,
+  jobReleased,
+  onReleaseSeen,
   onPickAvatar,
   openStrollOnce,
   onStrollOpened,
@@ -1159,6 +1173,9 @@ function CustomerApp({
   /** The professional is waiting to be told the work is finished. */
   openCompletionOnce?: boolean;
   onCompletionOpened?: () => void;
+  /** The professional gave the job back and the customer has to be told. */
+  jobReleased?: boolean;
+  onReleaseSeen?: () => void;
   /**
    * Reopens the avatar picker. Undefined while its art has not arrived.
    * The picker is a gate above this component, so this is the only way
@@ -1210,7 +1227,7 @@ function CustomerApp({
   const saved = useMemo(() => loadSession(), []);
   const [faultText, setFaultText] = useState(saved?.faultText ?? "");
   const [chat, setChat] = useState<ChatMessage[]>(chatSeed);
-  const [sheet, setSheet] = useState<null | "call" | "safety" | "payment">(null);
+  const [sheet, setSheet] = useState<null | "call" | "safety" | "payment" | "released">(null);
   /*
    * WHICH SHOP IS OPEN.
    *
@@ -1658,6 +1675,22 @@ const go = useCallback((r: CustomerRoute) => {
     onCompletionOpened?.();
     go({ name: "tracking", stage: "done" });
   }, [openCompletionOnce, onCompletionOpened, go]);
+
+  /*
+   * TOLD AT ONCE, AND PUT BACK IN THE QUEUE.
+   *
+   * The professional released the job. The customer's screen must not
+   * keep tracking somebody who is not coming — which is the state the
+   * product had before, arrived at by the professional simply not
+   * turning up. The sheet says what happened; behind it the search has
+   * already started again, because that is what actually protects them.
+   */
+  useEffect(() => {
+    if (!jobReleased) return;
+    onReleaseSeen?.();
+    setSheet("released");
+    go({ name: "living", serviceId: lastRequestedId ?? "svc-leak", phase: "SEARCHING" });
+  }, [jobReleased, onReleaseSeen, lastRequestedId, go]);
 
   useEffect(() => {
     if (!openStrollOnce) return;
@@ -3010,6 +3043,29 @@ const go = useCallback((r: CustomerRoute) => {
         </Pressable>
       </Sheet>
 
+      {/* ----------------------------------------------------------------
+          THE PROFESSIONAL COULD NOT COME.
+
+          Told plainly, and the search is already running behind it. The
+          alternative — the one the product had — is a tracking screen
+          counting down to an arrival that is not going to happen.
+          ---------------------------------------------------------------- */}
+      <Sheet
+        visible={sheet === "released"}
+        onClose={() => setSheet(null)}
+        colors={customerTheme.colors}
+        titleHe="מחפשים לכם מישהו אחר"
+        width={width}
+        height={height}
+      >
+        <Text style={styles.sheetBody}>
+          המקצוען שהיה בדרך אליכם לא יכול להגיע, והקריאה חזרה לחיפוש. לא חויבתם על כלום.
+        </Text>
+        <Pressable style={styles.sheetPrimary} onPress={() => setSheet(null)}>
+          <Text style={styles.sheetPrimaryText}>הבנתי</Text>
+        </Pressable>
+      </Sheet>
+
       <Sheet
         visible={sheet === "payment"}
         onClose={() => setSheet(null)}
@@ -3096,6 +3152,7 @@ function ProApp({
   onSeeAsCustomer,
   completionConfirmed,
   onCompletionSeen,
+  onReleaseJob,
   memory,
 }: {
   /**
@@ -3149,6 +3206,8 @@ function ProApp({
    */
   completionConfirmed?: boolean;
   onCompletionSeen?: () => void;
+  /** The professional gave the job back. The customer has to be told. */
+  onReleaseJob?: () => void;
   /**
    * What this side was doing the last time it was mounted. Held above
    * because a crossing unmounts all of it — see `ProMemory`.
@@ -3279,7 +3338,7 @@ function ProApp({
    */
   const [takenRequest, setTakenRequest] = useState<LiveRequest | null>(kept?.takenRequest ?? null);
   const [proSheet, setProSheet] = useState<
-    null | "call" | "navigate" | "services" | "howitworks" | "quote"
+    null | "call" | "navigate" | "services" | "howitworks" | "quote" | "release"
   >(
     /*
      * OPEN ON ARRIVAL, ONCE.
@@ -3796,6 +3855,12 @@ function ProApp({
          * blank form means retyping the lines that did not change.
          */
         onWithdrawQuote={() => goPro("quote")}
+        /*
+         * A confirmation, because this is the rarest and most
+         * consequential thing on the screen and the customer finds out
+         * about it either way. See `onRelease` in ProJobBody.
+         */
+        onRelease={() => setProSheet("release")}
         onNavigate={() => setProSheet("navigate")}
         onCall={() => setProSheet("call")}
         onMessage={() => goPro("chat")}
@@ -4060,6 +4125,55 @@ function ProApp({
           <Text style={styles.sheetPrimaryText}>חיוג ללקוח</Text>
         </Pressable>
         <Text style={styles.sheetNoteDark}>באב־טיפוס אין חיוג אמיתי.</Text>
+      </Sheet>
+
+      {/* ----------------------------------------------------------------
+          GIVING THE JOB BACK.
+
+          Amit: *"אחרי שהוא רשם כן אני לוקח, הוא לא יכול להתחרט? אין פה
+          כפתור ביטול או חזור."*
+
+          What this sheet says is only what is certain. The customer is
+          told and re-matched — that is mechanical. What it does NOT say
+          is whether this costs the professional anything or what
+          repeated releases do to their dispatch: both are business rules
+          and both are open (/CLAUDE.md §4 lists cancellation fees by
+          name), and a screen that guessed at them would be inventing the
+          most consequential sentence on it.
+          ---------------------------------------------------------------- */}
+      <Sheet
+        visible={proSheet === "release"}
+        onClose={() => setProSheet(null)}
+        colors={proTheme.colors}
+        dark
+        titleHe="שחרור הקריאה"
+        width={width}
+        height={height}
+      >
+        <Text style={styles.sheetBodyDark}>
+          הלקוח מקבל הודעה מיד ואנחנו מתחילים לחפש לו מישהו אחר. הקריאה הזו כבר לא שלך.
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="אישור שחרור הקריאה"
+          style={styles.sheetPrimary}
+          onPress={() => {
+            setProSheet(null);
+            setJob(null);
+            setTakenRequest(null);
+            onReleaseJob?.();
+          }}
+        >
+          <Text style={styles.sheetPrimaryText}>שחרור הקריאה</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="ביטול — חזרה לעבודה"
+          style={styles.sheetSecondary}
+          onPress={() => setProSheet(null)}
+        >
+          <Text style={styles.sheetSecondaryText}>חזרה לעבודה</Text>
+        </Pressable>
       </Sheet>
 
       <Sheet

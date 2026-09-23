@@ -551,3 +551,57 @@ export function visitOrderViolations(): string[] {
 
   return out;
 }
+
+/**
+ * ---------------------------------------------------------------------
+ * CAN THE PROFESSIONAL STILL GET OUT OF IT?
+ * ---------------------------------------------------------------------
+ * Amit, on the job screen right after accepting: *"אחרי שהוא רשם כן אני
+ * לוקח, הוא לא יכול להתחרט? אין פה כפתור ביטול או חזור."*
+ *
+ * He could not, and that is not a safety feature — it is a screen with
+ * no answer to something that happens. A van breaks down, a previous job
+ * runs three hours over, somebody realises on the doorstep that this is
+ * not work they are licensed for. A product with no way to say so gets
+ * told by silence: the professional simply does not turn up, and the
+ * customer waits for somebody who was never coming.
+ *
+ * WHERE THE LINE IS. Up to and including the diagnosis, releasing a job
+ * costs the customer time and nothing else: no price has been agreed and
+ * no money is committed, so the honest thing is to hand them back to
+ * dispatch immediately. From the moment a quote is waiting, the money is
+ * involved — an amount is held on approval (see `payment-moments.ts`) —
+ * and walking away from that is not a release, it is a dispute. Those
+ * need different machinery and a policy nobody has written
+ * (/CLAUDE.md §4 lists cancellation fees as an open decision), so this
+ * refuses to pretend otherwise rather than offering a button that would
+ * quietly do the wrong thing.
+ *
+ * What this deliberately does NOT decide: whether releasing costs the
+ * professional anything, and what repeated releases do to their
+ * dispatch. Both are business rules and both are open.
+ */
+export function canReleaseJob(status: JobState): boolean {
+  switch (status) {
+    case "PRO_ASSIGNED":
+    case "PRO_EN_ROUTE":
+    case "PRO_ARRIVED":
+    case "DIAGNOSIS":
+      return true;
+    default:
+      return false;
+  }
+}
+
+/** Why there is no way out here, when there is not one. */
+export function releaseBlockedHe(status: JobState): string | null {
+  if (canReleaseJob(status)) return null;
+  switch (status) {
+    case "WAITING_QUOTE_APPROVAL":
+    case "IN_PROGRESS":
+    case "COMPLETION_PENDING":
+      return "יש כבר הצעת מחיר בתוקף, אז אי אפשר לשחרר את הקריאה מכאן. אם משהו השתבש — דברו עם התמיכה.";
+    default:
+      return null;
+  }
+}

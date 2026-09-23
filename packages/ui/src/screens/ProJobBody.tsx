@@ -2,7 +2,15 @@ import React, { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Svg, { Rect } from "react-native-svg";
 
-import { formatMoney, money, proJobFocusFor, proJobFocusHe, type JobState } from "@pro-now/types";
+import {
+  canReleaseJob,
+  formatMoney,
+  money,
+  proJobFocusFor,
+  proJobFocusHe,
+  releaseBlockedHe,
+  type JobState,
+} from "@pro-now/types";
 
 import { elevation, proTheme, radii, scale, spacing, tabular, tint, type } from "../theme";
 import { lex } from "../lexicon";
@@ -94,6 +102,24 @@ export interface ProJobBodyProps {
   onMessage?: () => void;
   onAdvance?: () => void;
   onSendQuote?: () => void;
+  /**
+   * GIVING THE JOB BACK.
+   *
+   * Amit, on this screen right after accepting: *"אחרי שהוא רשם כן אני
+   * לוקח, הוא לא יכול להתחרט? אין פה כפתור ביטול או חזור."*
+   *
+   * He could not, and that is not a safety feature — it is a screen with
+   * no answer to something that happens. A van breaks down, the previous
+   * job runs three hours over, somebody realises on the doorstep that
+   * this is not work they are licensed for. With nowhere to say so the
+   * product gets told by silence: the professional does not turn up and
+   * the customer waits for somebody who was never coming.
+   *
+   * Offered only while `canReleaseJob` — up to the diagnosis, where the
+   * cost is the customer's time and nothing else. Past that an amount is
+   * held and walking away is a dispute, not a release.
+   */
+  onRelease?: () => void;
   width?: number;
   height?: number;
 }
@@ -148,6 +174,7 @@ export function ProJobBody({
   payoutIsEstimate,
   waitingMinutes,
   onWithdrawQuote,
+  onRelease,
   onNavigate,
   onCall,
   onMessage,
@@ -381,6 +408,34 @@ export function ProJobBody({
             )}
           </Surface>
         </View>
+        {/* ----------------------------------------------------------------
+            AND A WAY TO GIVE IT BACK.
+
+            Last on the screen and quiet, because it is the rarest thing
+            a professional does here and the most consequential — but
+            present, because the alternative is somebody simply not
+            turning up. See `onRelease`.
+
+            Where it is not allowed, the screen says why rather than
+            showing nothing: a control that vanishes teaches people that
+            the app is broken, and this one vanishes exactly when
+            somebody is most likely to go looking for it.
+            ---------------------------------------------------------------- */}
+        {onRelease && canReleaseJob(status) ? (
+          <Pressable
+            onPress={onRelease}
+            accessibilityRole="button"
+            accessibilityLabel="לא אוכל להגיע — שחרור הקריאה למקצוען אחר"
+            style={({ pressed }) => [styles.release, pressed && { opacity: 0.85 }]}
+          >
+            <Text style={styles.releaseLabel}>לא אוכל להגיע — שחרור הקריאה</Text>
+            <Text style={styles.releaseNote}>
+              הלקוח מקבל הודעה מיד ואנחנו מחפשים לו מישהו אחר.
+            </Text>
+          </Pressable>
+        ) : releaseBlockedHe(status) ? (
+          <Text style={styles.releaseNote}>{releaseBlockedHe(status)}</Text>
+        ) : null}
       </ScrollView>
 
       {/* ----------------------------------------------------------------
@@ -676,6 +731,32 @@ const styles = StyleSheet.create({
   },
   navLabel: { ...type.bodyStrong, fontSize: scale.meta, color: colors.textPrimary },
 
+  /*
+   * A row, not a button: it is deliberately not competing with the one
+   * thing this screen wants the professional to do. Still 44 tall,
+   * because a target somebody has to hit while standing in a stairwell
+   * is not the place to save eight points.
+   */
+  release: {
+    minHeight: 44,
+    justifyContent: "center",
+    marginTop: spacing.xl,
+    paddingVertical: spacing.sm,
+  },
+  releaseLabel: {
+    ...type.captionStrong,
+    color: colors.statusDanger,
+    textAlign: "right",
+    writingDirection: "rtl",
+  },
+  releaseNote: {
+    ...type.caption,
+    color: colors.textSecondary,
+    textAlign: "right",
+    writingDirection: "rtl",
+    marginTop: 2,
+    lineHeight: 18,
+  },
   focus: {
     ...type.body,
     color: colors.textPrimary,

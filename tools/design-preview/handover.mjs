@@ -145,6 +145,23 @@ if (!(stageOrder[0].who >= 0 && stageOrder[0].who < stageOrder[0].problem)) {
   problems.push('before setting off, the customer is not the first thing on the screen');
 }
 
+/* ----------------------------------------------------------------
+   A WAY OUT, WHILE THERE STILL IS ONE.
+
+   Amit, on the job screen right after accepting: *"אחרי שהוא רשם כן אני
+   לוקח, הוא לא יכול להתחרט? אין פה כפתור ביטול או חזור."* He could not,
+   and a product with no way to say so gets told by silence — the
+   professional does not turn up and the customer waits for somebody who
+   was never coming.
+
+   Asserted here rather than walked, because taking it would end this
+   job and the rest of the walk is about the job continuing. The walk of
+   the release itself lives below, after the visit is over.
+   ---------------------------------------------------------------- */
+if ((await p.getByRole('button', { name: /שחרור הקריאה למקצוען אחר/ }).count()) === 0) {
+  problems.push('a professional at the diagnosis has no way to give the job back');
+}
+
 /*
  * THE QUOTE IS WRITTEN, NOT SUMMONED. The amount below is typed here and
  * has to survive the crossing — that is the whole assertion.
@@ -315,6 +332,16 @@ if (crossed) {
     .catch(() => problems.push('no way across to the professional from the tracking panel'));
   await p.waitForTimeout(1600);
   await tap(/סיימתי את העבודה/, 1500);
+  /*
+   * And it is gone by the time money is committed: from here an amount
+   * is held on the customer's approval, so walking away is a dispute
+   * rather than a release — different machinery and a policy nobody has
+   * written (/CLAUDE.md §4).
+   */
+  if ((await p.getByRole('button', { name: /שחרור הקריאה למקצוען אחר/ }).count()) > 0) {
+    problems.push('the job can still be given back after a price was agreed');
+  }
+
   const waitingDone = await text();
   if (!waitingDone.includes('הלקוח מאשר שהעבודה הושלמה')) {
     problems.push('finishing the work does not leave the professional waiting for the customer');

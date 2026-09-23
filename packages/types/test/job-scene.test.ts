@@ -7,6 +7,8 @@ import {
   sceneIsOver,
   scenePhaseForJob,
   proJobFocusHe,
+  canReleaseJob,
+  releaseBlockedHe,
   VISIT_ORDER,
   visitOrderViolations,
   jobProgressHe,
@@ -275,5 +277,43 @@ describe("visit order", () => {
       expect(jobProgressHe(s), s).toBeTruthy();
     }
     expect(jobProgressHe("PRO_EN_ROUTE")).toBeNull();
+  });
+});
+
+/**
+ * A WAY OUT, UP TO THE POINT WHERE MONEY IS INVOLVED.
+ *
+ * Amit: *"אחרי שהוא רשם כן אני לוקח, הוא לא יכול להתחרט? אין פה כפתור
+ * ביטול או חזור."*
+ */
+describe("releasing a job", () => {
+  it("is possible while nothing but time has been spent", () => {
+    for (const s of ["PRO_ASSIGNED", "PRO_EN_ROUTE", "PRO_ARRIVED", "DIAGNOSIS"] as const) {
+      expect(canReleaseJob(s), s).toBe(true);
+      expect(releaseBlockedHe(s)).toBeNull();
+    }
+  });
+
+  it("stops the moment a price is on the table", () => {
+    /*
+     * From here an amount is held on the customer's approval, so walking
+     * away is a dispute rather than a release — different machinery, and
+     * a policy nobody has written.
+     */
+    for (const s of ["WAITING_QUOTE_APPROVAL", "IN_PROGRESS", "COMPLETION_PENDING"] as const) {
+      expect(canReleaseJob(s), s).toBe(false);
+      expect(releaseBlockedHe(s)).toBeTruthy();
+    }
+  });
+
+  it("lines up with the order of a visit rather than being a second opinion", () => {
+    const stop = VISIT_ORDER.findIndex((s) => !canReleaseJob(s));
+    expect(VISIT_ORDER[stop]).toBe("WAITING_QUOTE_APPROVAL");
+    // And it never comes back afterwards.
+    for (const s of VISIT_ORDER.slice(stop)) expect(canReleaseJob(s)).toBe(false);
+  });
+
+  it("says nothing about a job that has not started", () => {
+    expect(releaseBlockedHe("SEARCHING")).toBeNull();
   });
 });
