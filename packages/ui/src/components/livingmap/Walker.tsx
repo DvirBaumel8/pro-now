@@ -16,6 +16,8 @@ import {
   type Heading,
   type NormalizedPoint,
   PLATE_V_WEIGHT,
+  walkCycleIds,
+  walkFrameAt,
 } from "@pro-now/types";
 
 import { EMPTY_ASSET_SOURCES, type WorldAssetSources } from "./AssetSlot";
@@ -76,6 +78,12 @@ export interface WalkerProps {
    */
   fallbackAssetId?: string | null;
   /**
+   * The character whose drawn walk cycle to play, if its poses are in
+   * `sources`. Absent, or missing a pose, and the figure falls back the
+   * way it always did — a cycle with a hole in it would limp.
+   */
+  cycleCharacter?: string | null;
+  /**
    * How tall this figure is, as a fraction of a standing person.
    *
    * Comes from the roster rather than from anything this component can
@@ -133,6 +141,7 @@ const REPORT_MS = 700;
 export function Walker({
   assetId,
   fallbackAssetId = null,
+  cycleCharacter = null,
   heightRatio = 1,
   sources = EMPTY_ASSET_SOURCES,
   width,
@@ -157,9 +166,26 @@ export function Walker({
    * the moment the real figures land, `figureSource` resolves and this
    * whole branch stops being reached.
    */
-  const markerSource = figureSource ? undefined : fallbackAssetId ? sources[fallbackAssetId] : undefined;
-  const source = figureSource ?? markerSource;
-  const asMarker = !figureSource && Boolean(markerSource);
+  /*
+   * A DRAWN WALK CYCLE, WHEN ONE HAS ARRIVED.
+   *
+   * Amit had sixteen poses of his character drawn from behind — eight
+   * walking, eight running — and `slice-walkcycle.mjs` cut them out.
+   * They take precedence over everything below: a figure that walks is
+   * the thing every fallback here was standing in for.
+   */
+  const walkIds = walkCycleIds(cycleCharacter ?? "", "WALK");
+  const runIds = walkCycleIds(cycleCharacter ?? "", "RUN");
+  const haveWalk = cycleCharacter ? walkIds.every((id) => sources[id]) : false;
+  const haveRun = cycleCharacter ? runIds.every((id) => sources[id]) : false;
+  const cycle = haveWalk ? (gait === "RUN" && haveRun ? runIds : walkIds) : null;
+  const [pose, setPose] = useState(0);
+  const poseRef = useRef(0);
+
+  const markerSource = figureSource || cycle ? undefined : fallbackAssetId ? sources[fallbackAssetId] : undefined;
+  const cycleSource = cycle ? sources[cycle[Math.min(pose, cycle.length - 1)]!] : undefined;
+  const source = cycleSource ?? figureSource ?? markerSource;
+  const asMarker = !cycleSource && !figureSource && Boolean(markerSource);
 
   const at = useRef<NormalizedPoint>(clampWalkable(startAt));
   const distance = useRef(0);
@@ -253,6 +279,28 @@ export function Walker({
       v.setValue(next.v);
       bob.setValue(bobAt(gait, distance.current));
       lean.setValue(leanAt(gait, distance.current, facingFor(h)));
+
+      /*
+       * WHICH POSE THE FEET ARE IN.
+       *
+       * From the same `distance` the bob and the lean already use, so
+       * the pose, the rise and the lean are one movement rather than
+       * three things that happen to be running at once — and so the
+       * feet land where the person is instead of sliding. See
+       * `walkFrameAt`.
+       *
+       * Set through state rather than an Animated value because it
+       * changes a SOURCE, which no driver can interpolate. Eight poses
+       * over a stride is a handful of re-renders a second, and only
+       * while somebody is walking.
+       */
+      if (cycle) {
+        const want = walkFrameAt(distance.current, gait === "RUN" ? "RUN" : "WALK", cycle.length);
+        if (want !== poseRef.current) {
+          poseRef.current = want;
+          setPose(want);
+        }
+      }
 
       if (now - lastReport > REPORT_MS) {
         lastReport = now;

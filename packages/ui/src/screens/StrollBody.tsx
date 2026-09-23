@@ -591,6 +591,16 @@ export function StrollBody({
               <Walker
                 assetId={walkAssetId}
                 fallbackAssetId={walkFallbackId}
+                /*
+                 * THE DRAWN CYCLE, WHEN IT IS IN THE PACK.
+                 *
+                 * It outranks both of the props above, and it should: a
+                 * figure that actually walks is the thing they have both
+                 * been standing in for. Amit had it drawn after saying,
+                 * four times, that a portrait in a circle is not a
+                 * person.
+                 */
+                cycleCharacter="amit"
                 heightRatio={heightRatio}
                 districtWidth={shopWidth}
                 sources={sources}

@@ -46,3 +46,4 @@ export * from "./catalog-bridge";
 export * from "./credential-requirements";
 export * from "./sponsor-shops";
 export * from "./support";
+export * from "./walk-cycle";

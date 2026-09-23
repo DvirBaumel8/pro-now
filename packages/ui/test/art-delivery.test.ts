@@ -9,6 +9,7 @@ import {
   WORLD_DISTRICTS,
   type DepartmentCode,
   ROAD_PLATE_ASSET_ID,
+  walkCycleAssets,
 } from "@pro-now/types";
 
 /**
@@ -90,6 +91,14 @@ function requestedIds(): Set<string> {
    * value is a check that goes stale the first time the value moves.
    */
   ids.add(ROAD_PLATE_ASSET_ID);
+  /*
+   * THE DRAWN WALK CYCLE.
+   *
+   * Sixteen poses of one character, played by `Walker` from whatever is
+   * in the pack. Asked for by the same function the renderer uses, so
+   * the list cannot drift from what is actually drawn.
+   */
+  for (const id of walkCycleAssets("amit")) ids.add(id);
   /*
    * And the ground as a MATERIAL, which is a different thing from the
    * plate and is asked for by `groundMaterials` rather than by a

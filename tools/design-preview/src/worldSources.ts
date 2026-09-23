@@ -12,6 +12,29 @@ import type { WorldAssetSources } from "@pro-now/ui";
  * maintained separately from the folder is a list that drifts from it.
  */
 export const worldSources: WorldAssetSources = {
+  /*
+   * A WALK CYCLE, CUT OUT OF A CHARACTER SHEET.
+   *
+   * Sixteen poses of one person seen from behind — eight walking, eight
+   * running — sliced and trimmed by `slice-walkcycle.mjs`. The first
+   * drawing in this project of somebody who can walk away from you.
+   */
+  avatar_amit_walk_01: { uri: "./world/avatar_amit_walk_01.webp" },
+  avatar_amit_walk_02: { uri: "./world/avatar_amit_walk_02.webp" },
+  avatar_amit_walk_03: { uri: "./world/avatar_amit_walk_03.webp" },
+  avatar_amit_walk_04: { uri: "./world/avatar_amit_walk_04.webp" },
+  avatar_amit_walk_05: { uri: "./world/avatar_amit_walk_05.webp" },
+  avatar_amit_walk_06: { uri: "./world/avatar_amit_walk_06.webp" },
+  avatar_amit_walk_07: { uri: "./world/avatar_amit_walk_07.webp" },
+  avatar_amit_walk_08: { uri: "./world/avatar_amit_walk_08.webp" },
+  avatar_amit_run_01: { uri: "./world/avatar_amit_run_01.webp" },
+  avatar_amit_run_02: { uri: "./world/avatar_amit_run_02.webp" },
+  avatar_amit_run_03: { uri: "./world/avatar_amit_run_03.webp" },
+  avatar_amit_run_04: { uri: "./world/avatar_amit_run_04.webp" },
+  avatar_amit_run_05: { uri: "./world/avatar_amit_run_05.webp" },
+  avatar_amit_run_06: { uri: "./world/avatar_amit_run_06.webp" },
+  avatar_amit_run_07: { uri: "./world/avatar_amit_run_07.webp" },
+  avatar_amit_run_08: { uri: "./world/avatar_amit_run_08.webp" },
   avatar_01_portrait: { uri: "./world/avatar_01_portrait.webp" },
   avatar_02_portrait: { uri: "./world/avatar_02_portrait.webp" },
   avatar_03_portrait: { uri: "./world/avatar_03_portrait.webp" },
