@@ -645,8 +645,42 @@ export function buildStreet(
     if (tex) {
       tex.colorSpace = THREE.SRGBColorSpace;
       const img = tex.image as { width: number; height: number };
-      const w = BAY + 0.6;
-      faceH = w / (img.width / img.height);
+      /*
+       * ---------------------------------------------------------
+       * A SHOPFRONT IS A HEIGHT, NOT A FILE'S ASPECT RATIO
+       * ---------------------------------------------------------
+       * Amit: *"שהכל יהיה פרופורציונלי למציאות."*
+       *
+       * Every other dimension in this street is a real measurement —
+       * the road is 6.6 metres, a storey is 2.9, a lamp is 5.4, a car
+       * is 4.3 long, the walker is 1.78. The shopfronts were the one
+       * exception: each drawing was stretched to fill the 12.1-metre
+       * bay and whatever height came out, came out. Measured across
+       * the eleven delivered files that is 7.96m for the car shop and
+       * 10.06m for the repairs shop — the SAME kind of building,
+       * two-thirds of a storey apart, decided by nothing but how the
+       * artist happened to crop the canvas.
+       *
+       * So the HEIGHT is the fixed quantity now, between 8.0 and 8.9
+       * metres, which is a two-storey shop building; the width follows
+       * from the drawing's own aspect. Nothing is squashed — a
+       * drawing outside the band is scaled down whole, not distorted,
+       * because a stretched door stops being a door.
+       *
+       * The carcass behind is 9.1m wide and every result is wider than
+       * that, so no drawing shrinks far enough to expose it.
+       */
+      const SHOPFRONT_H = { min: 8.0, max: 8.9 };
+      const aspect = img.width / img.height;
+      let w = BAY + 0.6;
+      faceH = w / aspect;
+      if (faceH > SHOPFRONT_H.max) {
+        faceH = SHOPFRONT_H.max;
+        w = faceH * aspect;
+      } else if (faceH < SHOPFRONT_H.min) {
+        faceH = SHOPFRONT_H.min;
+        w = faceH * aspect;
+      }
       /*
        * THE DRAWING IS LIT BY THE STREET, NOT PRINTED ON IT.
        *

@@ -327,8 +327,28 @@ export function City({ base = "./world/", spawn, onExit }: CityProps) {
         if (push > 0.08) {
           const speed = running ? 5.6 : 2.6;
           const fx = Math.sin(yaw), fz = Math.cos(yaw);
-          const dx = (-stick.y * fx + stick.x * fz) * speed * dt;
-          const dz = (-stick.y * fz - stick.x * fx) * speed * dt;
+          /*
+           * SIDEWAYS WAS MIRRORED, AND HERE IS THE ARITHMETIC.
+           *
+           * Amit: *"הגויסטיק הפוך, ימינה זה שמאל ושמאלה זה ימינה."*
+           *
+           * Forward is f = (sin yaw, cos yaw), and the camera looks
+           * along +f. Screen-right is therefore cross(f, up), which
+           * for f = (fx, 0, fz) and up = (0,1,0) comes out
+           * r = (-fz, 0, fx) — note the MINUS on the x term.
+           *
+           * The old line had `+stick.x * fz` and `-stick.x * fx`, i.e.
+           * exactly -r. At the starting heading (yaw = PI, walking down
+           * -Z) that sends a rightward push to -X, which is the left of
+           * the screen. Every step sideways went the wrong way.
+           *
+           * It survived because nothing in the scene is symmetrical
+           * enough to make it obvious from a screenshot, and because
+           * you mostly walk forwards. It took somebody actually
+           * holding the stick.
+           */
+          const dx = (-stick.y * fx - stick.x * fz) * speed * dt;
+          const dz = (-stick.y * fz + stick.x * fx) * speed * dt;
           const p = player.group.position;
           /* Wall to wall. Crossing the road is a thing you may do —
              the previous clamp kept you on one pavement, which made
