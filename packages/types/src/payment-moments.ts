@@ -80,8 +80,24 @@ export const PAYMENT_FLOW: readonly PaymentMomentSpec[] = [
   {
     moment: "CAPTURE",
     at: "COMPLETION_PENDING",
-    customerHe: "אישור הסיום הוא מה שמעביר את התשלום בפועל.",
-    proHe: "התשלום משתחרר כשהלקוח מאשר שהעבודה הושלמה.",
+    /*
+     * "צריך פעם אחת אישור הצעת מחיר" — Amit, and he is right to worry.
+     *
+     * Two taps about money in one visit invite the reading that the
+     * price is being approved twice, which is the thing a customer
+     * resents most and the thing a professional fears most. They are
+     * different questions: the first is "is this the right price", asked
+     * once, before any work; this one is "was the work done", and it is
+     * the only question left.
+     *
+     * So the sentence says so before it says anything else. A screen
+     * that merely avoids the word "price" leaves the reader to work out
+     * which of the two they are being asked, and they will assume the
+     * expensive one.
+     */
+    customerHe:
+      "המחיר כבר אושר פעם אחת. כאן מאשרים רק שהעבודה הושלמה — וזה מה שמעביר את התשלום.",
+    proHe: "התשלום משתחרר כשהלקוח מאשר שהעבודה הושלמה. המחיר כבר אושר ולא נפתח שוב.",
   },
 ];
 
@@ -105,10 +121,20 @@ export function paymentPromiseHe(status: JobState, side: "customer" | "pro"): st
  * one of its two protections removed — and it would be removed silently,
  * because nothing else in the codebase knows what order these belong in.
  */
-export function paymentFlowViolations(order: readonly JobState[]): string[] {
+export function paymentFlowViolations(
+  order: readonly JobState[],
+  /*
+   * The flow is a parameter so the checks can be handed a deliberately
+   * wrong one. An invariant that has only ever seen the right answer is
+   * not evidence of anything — the same reason `verify:rowlock` runs
+   * against a real conflict and the sweep plants its own off-screen
+   * card.
+   */
+  flow: readonly PaymentMomentSpec[] = PAYMENT_FLOW
+): string[] {
   const out: string[] = [];
   const at = (m: PaymentMoment) => {
-    const spec = PAYMENT_FLOW.find((p) => p.moment === m);
+    const spec = flow.find((p) => p.moment === m);
     return spec ? order.indexOf(spec.at) : -1;
   };
 
@@ -122,9 +148,22 @@ export function paymentFlowViolations(order: readonly JobState[]): string[] {
     out.push("the money is taken before the customer has approved a price");
   }
 
+  /*
+   * THE PRICE IS APPROVED ONCE.
+   *
+   * Amit: *"צריך פעם אחת אישור הצעת מחיר."* The capture moment has to
+   * say that the price is already settled, or two money taps in one
+   * visit read as being asked twice — and a reader who is unsure which
+   * question they are answering assumes the expensive one.
+   */
+  const capture = flow.find((p) => p.moment === "CAPTURE");
+  if (capture && !capture.customerHe.includes("כבר אושר")) {
+    out.push("the completion step does not say the price was already approved");
+  }
+
   // Both sides must be told, at every moment. A rule one side cannot see
   // is a rule the other side will be accused of inventing.
-  for (const spec of PAYMENT_FLOW) {
+  for (const spec of flow) {
     if (!spec.customerHe.trim()) out.push(`${spec.moment} says nothing to the customer`);
     if (!spec.proHe.trim()) out.push(`${spec.moment} says nothing to the professional`);
     /*
@@ -132,7 +171,19 @@ export function paymentFlowViolations(order: readonly JobState[]): string[] {
      * provider has been chosen (/CLAUDE.md §4), so these sentences
      * describe the agreement and never a transaction.
      */
-    if (/\bחויב|חויבת|נגבה\b/.test(spec.customerHe + spec.proHe)) {
+    /*
+     * NO `\b` HERE, AND THAT MATTERS.
+     *
+     * The first version of this was /\bחויב|נגבה\b/ and could never
+     * fire: in JavaScript `\w` is ASCII-only, so a Hebrew letter is not
+     * a word character and there is no word boundary in front of one.
+     * The check passed on a sentence that said "הכרטיס חויב" outright.
+     *
+     * Caught by handing it a deliberately wrong flow — which is the only
+     * reason it was caught at all, and the argument for every control in
+     * this project.
+     */
+    if (/חויב|נגבה|שולם בפועל/.test(spec.customerHe + spec.proHe)) {
       out.push(`${spec.moment} says money has already moved`);
     }
   }

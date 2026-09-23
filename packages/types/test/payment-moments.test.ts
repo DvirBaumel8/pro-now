@@ -73,3 +73,39 @@ describe("payment moments", () => {
     );
   });
 });
+
+/**
+ * THE PRICE IS APPROVED ONCE.
+ *
+ * Amit: *"צריך פעם אחת אישור הצעת מחיר."*
+ */
+describe("one price approval", () => {
+  it("tells the customer at the end that the price is already settled", () => {
+    const capture = PAYMENT_FLOW.find((p) => p.moment === "CAPTURE")!;
+    expect(capture.customerHe).toContain("כבר אושר");
+    expect(capture.proHe).toContain("כבר אושר");
+  });
+
+  it("asks about the price at exactly one moment", () => {
+    const asks = PAYMENT_FLOW.filter((p) => /לאשר את המחיר|אישור המחיר/.test(p.customerHe));
+    expect(asks.length).toBeLessThanOrEqual(1);
+  });
+
+  it("catches a completion step that forgets to say it", () => {
+    const blunted = PAYMENT_FLOW.map((p) =>
+      p.moment === "CAPTURE" ? { ...p, customerHe: "אישור הסיום מעביר את התשלום." } : p
+    );
+    expect(paymentFlowViolations(VISIT_ORDER, blunted)).toContain(
+      "the completion step does not say the price was already approved"
+    );
+  });
+
+  it("catches a sentence that claims a card was charged", () => {
+    const claiming = PAYMENT_FLOW.map((p) =>
+      p.moment === "CAPTURE" ? { ...p, customerHe: `${p.customerHe} הכרטיס חויב.` } : p
+    );
+    expect(paymentFlowViolations(VISIT_ORDER, claiming)).toContain(
+      "CAPTURE says money has already moved"
+    );
+  });
+});
