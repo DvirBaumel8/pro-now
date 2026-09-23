@@ -28,6 +28,8 @@ import { basename, extname, join } from "node:path";
 import { launchChromium } from "./browser.mjs";
 
 const dir = process.argv[2];
+/** Packs that carry the contact-sheet index. See the note below. */
+const debadge = process.argv.includes("--debadge");
 if (!dir) throw new Error("usage: node install-pack.mjs <dir>");
 const OUT = "public/world";
 
@@ -40,7 +42,7 @@ let done = 0;
 for (const f of files) {
   const b64 = readFileSync(join(dir, f)).toString("base64");
   const out = await page.evaluate(
-    async ({ b64 }) => {
+    async ({ b64, debadge }) => {
       const img = new Image();
       img.src = "data:image/png;base64," + b64;
       await img.decode();
@@ -54,49 +56,83 @@ for (const f of files) {
       let cut = 0;
 
       /*
-       * THE NUMBER BADGE, PAINTED OUT.
+       * THE NUMBER BADGE, PAINTED OUT — BUT ONLY IF IT IS THERE.
        *
-       * Every cut-out in this pack carries the contact-sheet's index —
-       * a purple ring with a numeral — burned into the top-left corner
-       * of the drawing itself. Asked twice, it came back both times.
-       * In the street it appears as a giant glowing "7" floating in
-       * the sky above a building, which is exactly what it is.
+       * The first pack carried the contact sheet's index burned into
+       * the top-left of every cut-out: a purple-and-white ring with a
+       * numeral, which in the street appeared as a giant glowing "7"
+       * floating above a building. Asked twice, it came back twice, so
+       * it is removed here.
        *
-       * It is patched rather than erased. Erasing leaves a square bite
-       * out of the roofline; patching copies the block immediately to
-       * its RIGHT, at the same height, which on these facades is the
-       * same cornice and the same plaster — and on a prop is the same
-       * transparent margin, so a cut-out's margin stays a margin.
-       * Horizontal copying is what keeps a cornice line continuous.
+       * The patch copies the block immediately to its RIGHT rather
+       * than erasing — erasing leaves a square bite out of a roofline,
+       * while copying sideways keeps a cornice line continuous and, on
+       * a prop, copies transparent margin onto transparent margin.
+       *
+       * ---------------------------------------------------------------
+       * AND THEN IT DAMAGED A CLEAN PACK
+       * ---------------------------------------------------------------
+       * The HD re-draw arrived with no badges at all, and this pass ran
+       * on it anyway — stamping a 714-pixel block of plaster over the
+       * top-left corner of every shopfront, duplicating balconies and
+       * planting a visible seam. I did that, and a side-by-side against
+       * the source is what showed it.
+       *
+       * So it LOOKS FIRST. The badge is a ring of near-white and pale
+       * lilac pixels, fully opaque, in the top-left corner — a colour
+       * combination that does not otherwise occur there in a warm
+       * evening drawing. Below the threshold nothing is touched at all,
+       * and a clean file passes through untouched.
        */
       /*
-       * The badge is a FIXED SIZE on the sheet these were cut from —
-       * roughly a seventh of the long edge — not a fraction of each
-       * file's own width. Sizing the patch by width alone made the box
-       * narrower than the badge on tall thin props: on the lamp post,
-       * 14% of 708 pixels is 99, the badge is about 170, and copying
-       * from 99 to the right copied the badge's own right half onto
-       * its left. The street grew a "33".
+       * ---------------------------------------------------------------
+       * THE BADGE IS A PROPERTY OF THE PACK, NOT OF THE FILE
+       * ---------------------------------------------------------------
+       * The first delivery stamped the contact sheet's index — a
+       * purple-and-white ring with a numeral — into the top-left of
+       * every cut-out. Asked twice, it came back twice. In the street
+       * it appears as a giant glowing "7" floating above a building.
        *
-       * Square, off the long edge, and never more than half the width
-       * so the source block is always inside the image.
+       * Two attempts to detect it per-file both failed, in opposite
+       * directions, and the failures are the argument for this design:
+       *
+       *   - A fixed box sized off the WIDTH was narrower than the badge
+       *     on tall thin props, so the copy brought the badge's own
+       *     right half back over its left. The lamp post grew a "33".
+       *   - Detecting it by colour was unstable: the same threshold
+       *     found it on `bld_cafe` one run and missed it the next,
+       *     because a warm plaster wall and a pale lilac ring are not
+       *     as far apart as they look.
+       *
+       * And the cost of guessing wrong is not symmetric. A missed badge
+       * is visible and fixable; a false positive stamps a block of
+       * plaster over a clean drawing, which is exactly what happened to
+       * the HD re-draw — duplicated balconies and a seam across every
+       * shopfront, found only by putting source and output side by side.
+       *
+       * So the caller says. A pack either carries badges or it does
+       * not, which is a fact about how it was exported, known before
+       * anything is decoded, and true of every file in it.
+       *
+       *   node install-pack.mjs <dir> --debadge
        */
-      const box = Math.min(
-        Math.floor(c.width / 2) - 1,
-        Math.round(Math.max(c.width, c.height) * 0.21)
-      );
-      const bw = box;
-      const bh = Math.min(box, c.height - 1);
-      for (let y = 0; y < bh; y += 1) {
-        for (let xx = 0; xx < bw; xx += 1) {
-          const dst = (y * c.width + xx) * 4;
-          const src = (y * c.width + (xx + bw)) * 4;
-          p[dst] = p[src];
-          p[dst + 1] = p[src + 1];
-          p[dst + 2] = p[src + 2];
-          p[dst + 3] = p[src + 3];
+      if (debadge) {
+        const box = Math.min(
+          Math.floor(c.width / 2) - 1,
+          Math.round(Math.max(c.width, c.height) * 0.24)
+        );
+        for (let y = 0; y < box; y += 1) {
+          for (let xx = 0; xx < box; xx += 1) {
+            const dst = (y * c.width + xx) * 4;
+            const src = (y * c.width + (xx + box)) * 4;
+            p[dst] = p[src];
+            p[dst + 1] = p[src + 1];
+            p[dst + 2] = p[src + 2];
+            p[dst + 3] = p[src + 3];
+          }
         }
       }
+
       for (let i = 0; i < p.length; i += 4) {
         const a = p[i + 3];
         if (a === 0) continue;
@@ -110,7 +146,7 @@ for (const f of files) {
       x.putImageData(d, 0, 0);
       return { url: c.toDataURL("image/webp", 0.9), w: c.width, h: c.height, cut };
     },
-    { b64 }
+    { b64, debadge }
   );
   const name = basename(f, extname(f)) + ".webp";
   writeFileSync(join(OUT, name), Buffer.from(out.url.split(",")[1], "base64"));
@@ -119,7 +155,8 @@ for (const f of files) {
     String(done).padStart(2) + "/" + files.length,
     name.padEnd(26),
     (out.w + "x" + out.h).padEnd(11),
-    "cleaned " + out.cut + "px"
+    "cleaned " + out.cut + "px",
+    debadge ? "· debadged" : ""
   );
 }
 await browser.close();

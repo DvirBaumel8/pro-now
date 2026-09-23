@@ -36,6 +36,6 @@ if (!root) throw new Error("#root missing");
 
 createRoot(root).render(
   <React.StrictMode>
-    {showCity ? <City spawn={citySpawn} /> : showGallery ? <Gallery /> : <App />}
+    {showCity ? <City spawn={citySpawn} avatarNo={query.has("av") ? Number(query.get("av")) : null} /> : showGallery ? <Gallery /> : <App />}
   </React.StrictMode>
 );

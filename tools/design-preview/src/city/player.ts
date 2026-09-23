@@ -48,13 +48,32 @@ const STRIDE = { walk: 2.1, run: 3.4 } as const;
 export function buildPlayer(
   walk: readonly THREE.Texture[],
   run: readonly THREE.Texture[],
-  height = 1.78
+  height = 1.78,
+  /**
+   * The shape of ONE FRAME, not of the file.
+   *
+   * Amit, the moment he walked into the street: *"כבר באג איך שנכנסתי"*
+   * — and the screenshot showed three enormous smeared rectangles lying
+   * flat on the pavement where the character should be.
+   *
+   * The twelve delivered walk cycles are ONE image with eight poses in
+   * a row: 1302 × 1800, so a frame is 162 wide. The engine slices them
+   * at load with a texture offset, which costs one download instead of
+   * eight — but the quad was still being sized from `image.width`,
+   * which is the whole sheet. A figure eight times too wide, with one
+   * eighth of a drawing stretched across it.
+   *
+   * Amit's own cycle came as eight separate files, so for a year the
+   * sheet and the frame were the same thing and this was invisible.
+   * The caller knows which it has; it says so here.
+   */
+  frameAspect?: number
 ): PlayerHandles {
   const group = new THREE.Group();
 
   const first = walk[0]!;
   const img = first.image as { width: number; height: number };
-  const w = height * (img.width / img.height);
+  const w = height * (frameAspect ?? img.width / img.height);
 
   const material = new THREE.MeshBasicMaterial({
     map: first,

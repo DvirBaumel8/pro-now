@@ -89,10 +89,51 @@ export interface CityProps {
    * it did for everybody until now.
    */
   avatarNo?: number | null;
+  /**
+   * A NAMED CAMERA SHOT, FOR SCREENS THAT ARE NOT PLAYED.
+   *
+   * Amit, about the onboarding: *"שהמצלמה תזוז ותתמקד בעולם שלנו ובמה
+   * שרשום — אם רשום עיר שיראו את העיר, אם רשום אווטאר שיראו אווטאר."*
+   *
+   * The three intro slides used to travel over the PAINTED plate,
+   * which was the right idea against the only world that existed then.
+   * The world is a place with a camera in it now, so the slides can
+   * look at the real thing — and a slide about the city should be
+   * standing in the city, not next to a picture of it.
+   *
+   * Changing this eases the camera to the new shot rather than
+   * cutting, because the claim the three slides make is that they are
+   * ONE place.
+   */
+  shot?: CityShot | null;
+  /**
+   * The joystick, the entry button and the hints.
+   *
+   * Off for a screen that is looked at rather than played: a control
+   * you cannot use is worse than no control, and on the intro it would
+   * also be a promise that the slide is interactive.
+   */
+  hud?: boolean;
   onExit?: () => void;
 }
 
-export function City({ base = "./world/", spawn, avatarNo = null, onExit }: CityProps) {
+/**
+ * Where the camera stands for a screen that is not being played.
+ *
+ * `wide` is the arrival shot over the whole street; `character` is the
+ * third-person rig, close, on the figure; `shopfront` frames a
+ * business the way you see one from the pavement.
+ */
+export type CityShot = "wide" | "character" | "shopfront";
+
+export function City({
+  base = "./world/",
+  spawn,
+  avatarNo = null,
+  shot = null,
+  hud = true,
+  onExit,
+}: CityProps) {
   const host = useRef<HTMLDivElement | null>(null);
   const [ready, setReady] = useState(false);
   const [nearName, setNearName] = useState<string | null>(null);
@@ -105,6 +146,10 @@ export function City({ base = "./world/", spawn, avatarNo = null, onExit }: City
   const [hint, setHint] = useState(true);
   /* True while the street is still being looked at from above. */
   const [arriving, setArriving] = useState(true);
+  /* Read every frame, so changing the prop moves the camera without
+     rebuilding the city. */
+  const shotRef = useRef<CityShot | null>(shot);
+  shotRef.current = shot;
   const nearTint =
     (nearId ? SHOPS.find((x) => x.id === nearId)?.neonColour : null) ?? "#FF6B4A";
   useEffect(() => {
@@ -288,11 +333,15 @@ export function City({ base = "./world/", spawn, avatarNo = null, onExit }: City
 
       let walk: THREE.Texture[];
       let run: THREE.Texture[];
+      /* A frame's own shape, which is not the sheet's. See buildPlayer. */
+      let frameAspect: number | undefined;
       const chosen = avatarNo ? String(avatarNo).padStart(2, "0") : null;
       try {
         if (!chosen) throw new Error("no avatar chosen");
         walk = await sheetFrames(`avatar_${chosen}_back.webp`);
         run = walk;
+        const img = walk[0]!.image as { width: number; height: number };
+        frameAspect = img.width / 8 / img.height;
       } catch {
         walk = await Promise.all(WALK.map(load));
         run = await Promise.all(RUN.map(load)).catch(() => walk);
@@ -300,7 +349,7 @@ export function City({ base = "./world/", spawn, avatarNo = null, onExit }: City
       if (disposed) return;
 
       const street = buildStreet(SHOPS, facades);
-      const player = buildPlayer(walk, run, 1.78);
+      const player = buildPlayer(walk, run, 1.78, frameAspect);
       street.scene.add(player.group);
       /* Facing down the street, on the right-hand pavement, with the
          first shopfront a short walk ahead rather than underfoot.
@@ -323,7 +372,36 @@ export function City({ base = "./world/", spawn, avatarNo = null, onExit }: City
          for them — every figure tinted as if a lamp stood at 0,0. */
       const lamps = street.lamps;
 
-      const camera = new THREE.PerspectiveCamera(52, el.clientWidth / el.clientHeight, 0.1, 400);
+      const camera = new THREE.PerspectiveCamera(
+        /*
+         * SEVENTY-TWO DEGREES, BECAUSE THE STREET IS NARROWER THAN THE
+         * LENS NEEDED.
+         *
+         * Amit, of the shopfronts: *"החנות עדיין מטושטשת ולא נראית
+         * חיה, לא מבינים מה יש בה... אני רוצה מבט יותר רחב חד משמעית."*
+         *
+         * Measured, and the answer was not a matter of taste. At 52°
+         * the horizontal field is 25.4°, so from where he stands —
+         * 2.4 metres off the wall — the screen holds 1.1 metres of an
+         * 8.6-metre shopfront. THIRTEEN PER CENT. The drawing is 3400
+         * pixels wide and about 440 of them were being stretched
+         * across the whole screen, which is the blur he is describing:
+         * the file is excellent and the magnification destroys it.
+         *
+         * And it could not be solved by backing away. Framing a whole
+         * shopfront at 52° needs 19.1 metres, and the street is 19.4
+         * metres from wall to wall. There is nowhere to stand.
+         *
+         * At 72° the horizontal field is 36.5° and a whole shopfront
+         * fits from 12.8 metres — a distance that exists here, out
+         * over the road. The cost is a little barrel-feel at the
+         * edges; the gain is that the shop he paid for is legible.
+         */
+        72,
+        el.clientWidth / el.clientHeight,
+        0.1,
+        400
+      );
       composer.addPass(new RenderPass(street.scene, camera));
       composer.addPass(bloom);
 
@@ -331,6 +409,8 @@ export function City({ base = "./world/", spawn, avatarNo = null, onExit }: City
       let yaw = Math.PI, pitch = 0.26;
       /* The camera's head, turned toward whatever shop you are beside. */
       let look = 0;
+      /* And the head YOU turn, by dragging. It decays when you walk. */
+      let turn = 0;
 
       /*
        * -----------------------------------------------------------
@@ -357,6 +437,20 @@ export function City({ base = "./world/", spawn, avatarNo = null, onExit }: City
       const WIDE = { dist: 38, hgt: 26 };
       let descend = 0;
       let leaving = false;
+      /* 0 walking, 1 standing back looking at a shopfront. */
+      let frame = 0;
+
+      /*
+       * A scripted shot overrides the stick entirely. `shotRef` is read
+       * every frame rather than captured, so changing the prop moves
+       * the camera without rebuilding the city — the whole point is
+       * that the slides are demonstrably one place.
+       */
+      const SHOTS: Record<string, { dist: number; hgt: number; ahead: number; yaw: number }> = {
+        wide:      { dist: 34, hgt: 23, ahead: 0.5, yaw: Math.PI },
+        character: { dist: 4.6, hgt: 2.2, ahead: 1.1, yaw: Math.PI },
+        shopfront: { dist: 9.5, hgt: 4.2, ahead: 0.7, yaw: Math.PI - 0.95 },
+      };
       const stick = { x: 0, y: 0 };
       let walked = 0;
 
@@ -374,7 +468,31 @@ export function City({ base = "./world/", spawn, avatarNo = null, onExit }: City
       };
       const move = (e: PointerEvent) => {
         if (!dragging) return;
-        yaw -= (e.clientX - lastX) * 0.0055;
+        /*
+         * -----------------------------------------------------------
+         * A DRAG TURNS THE HEAD, NOT THE BODY
+         * -----------------------------------------------------------
+         * Amit: *"צריך שתהיה אפשרות רק להסתובב עם המבט ימינה שמאלה."*
+         *
+         * It turned `yaw`, which is the direction you WALK. So looking
+         * right also pointed your feet right, and there was no way to
+         * glance at a shop without setting off towards it, or into the
+         * wall behind it.
+         *
+         * A person walking a street does not turn their body to look
+         * in a window. They turn their head. `turn` is that head: it
+         * is added to the camera and to nothing else, so the stick,
+         * the heading and the feet are untouched by it.
+         *
+         * Clamped to 1.05 radians, about sixty degrees, for a reason
+         * that is about the artwork and not taste: the figure is a
+         * BACK-VIEW drawing on a plane that faces the camera. Past
+         * sixty you are looking at somebody back while they walk
+         * sideways, and the illusion the whole scene rests on comes
+         * apart. The day the side-view sheets arrive this opens to
+         * ninety.
+         */
+        turn = Math.max(-1.05, Math.min(1.05, turn - (e.clientX - lastX) * 0.0055));
         pitch = Math.max(0.05, Math.min(0.75, pitch + (e.clientY - lastY) * 0.0035));
         lastX = e.clientX;
         lastY = e.clientY;
@@ -500,9 +618,16 @@ export function City({ base = "./world/", spawn, avatarNo = null, onExit }: City
           return;
         }
 
-        const push = Math.hypot(stick.x, stick.y);
+        const scripted = shotRef.current ? SHOTS[shotRef.current] ?? null : null;
+        const push = scripted ? 0 : Math.hypot(stick.x, stick.y);
         const running = push > 0.75;
-        if (push > 0.08) leaving = true;
+        if (push > 0.08) {
+          leaving = true;
+          /* Walking straightens you up, the way it does in life: nobody
+             strides down a street looking sideways for ever. */
+          turn *= Math.pow(0.12, dt);
+        }
+        if (scripted) { descend = 1; leaving = true; }
         if (leaving && descend < 1) {
           descend = Math.min(1, descend + dt / 1.9);
           if (descend >= 1) setArriving(false);
@@ -609,7 +734,30 @@ export function City({ base = "./world/", spawn, avatarNo = null, onExit }: City
            point. Snapping to a shop as you pass reads as a bug. */
         look += (lookWant - look) * (1 - Math.pow(0.02, dt));
 
-        const camYaw = yaw + look;
+        /*
+         * -----------------------------------------------------------
+         * STANDING BACK TO SEE A SHOP
+         * -----------------------------------------------------------
+         * Amit: *"לא מצליח להסתכל לחנות, לא רואים את כל מה שבנינו."*
+         *
+         * Measured: from the middle of the pavement, 2.4 metres off
+         * the wall, the screen holds thirteen per cent of a shopfront.
+         * You cannot see a shop from underneath it, and no amount of
+         * turning fixes that. Only distance does.
+         *
+         * So stopping beside a shop walks the CAMERA backwards, out
+         * over the road, while the figure stays on the pavement. At
+         * about eleven metres, with the wider lens, most of the facade
+         * is in frame and the drawing is shown near its own resolution
+         * rather than magnified past it.
+         *
+         * `frame` rises only while you are stationary next to
+         * something; walk on and the camera comes back in behind you.
+         */
+        const wantFrame = best && push < 0.08 ? Math.max(0, Math.min(1, (9 - bd) / 4)) : 0;
+        frame += (wantFrame - frame) * (1 - Math.pow(0.08, dt));
+
+        let camYaw = yaw + look + turn;
 
         /*
          * ---------------------------------------------------------
@@ -643,7 +791,11 @@ export function City({ base = "./world/", spawn, avatarNo = null, onExit }: City
          */
         player.group.rotation.y = camYaw + Math.PI;
 
-        const wide = WIDE.dist + (6.2 + pitch * 3.0 - WIDE.dist) * k;
+        const follow = 6.2 + pitch * 3.0 + frame * 5.2;
+        const wide = scripted
+          ? scripted.dist
+          : WIDE.dist + (follow - WIDE.dist) * k;
+        if (scripted) camYaw = camYaw + (scripted.yaw - camYaw) * (1 - Math.pow(0.02, dt));
         const fx = Math.sin(camYaw), fz = Math.cos(camYaw);
 
         /*
@@ -701,8 +853,10 @@ export function City({ base = "./world/", spawn, avatarNo = null, onExit }: City
          * and -0.61 of the frame at every distance instead of
          * wandering off it.
          */
-        const hgt = WIDE.hgt + (1.2 + dist * 0.33 - WIDE.hgt) * k;
-        const ahead = dist * 1.55 * (0.45 + 0.55 * k);
+        const hgt = scripted
+          ? scripted.hgt
+          : WIDE.hgt + (1.2 + dist * 0.33 + frame * 1.1 - WIDE.hgt) * k;
+        const ahead = scripted ? dist * scripted.ahead : dist * 1.55 * (0.45 + 0.55 * k);
         camPos.set(
           player.group.position.x - fx * dist,
           hgt,
@@ -1288,9 +1442,25 @@ const S: Record<string, React.CSSProperties> = {
   shelfHint: {
     margin: "0 0 6px", fontSize: 11.5, color: "rgba(247,243,250,.45)",
   },
+  /*
+   * IT WRAPS. IT DOES NOT SCROLL.
+   *
+   * Amit, on the row of products: *"החץ פה לא פותח משהו אחר ולא גולל."*
+   *
+   * Two faults in one line. The row was a horizontal scroller, so the
+   * fourth product sat half off the edge looking like a control — and
+   * it could not be scrolled to, because the city's wrapper carries
+   * `touchAction: "none"` so that a drag turns the camera instead of
+   * panning the page. That declaration is inherited, and it had
+   * silently switched off scrolling for everything inside it.
+   *
+   * Setting `touch-action` back on this one row would have worked and
+   * would have been the wrong fix: a row of four things on a phone
+   * should not need scrolling at all. It wraps. Everything is on
+   * screen, nothing is half-cut, and there is no gesture to discover.
+   */
   shelf: {
-    display: "flex", gap: 6, overflowX: "auto", padding: "0 0 10px",
-    scrollbarWidth: "none",
+    display: "flex", flexWrap: "wrap", gap: 6, padding: "0 0 10px",
   },
   shelfItem: {
     flex: "0 0 auto", display: "flex", alignItems: "center", gap: 7,

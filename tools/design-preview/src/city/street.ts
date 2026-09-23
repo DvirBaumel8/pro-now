@@ -648,6 +648,61 @@ export function buildStreet(
   }
 
   /**
+   * HOW BIG A FACADE IS, AND WHY THE WIDTH LEADS.
+   *
+   * ---------------------------------------------------------------
+   * THE BUG THIS ENDS
+   * ---------------------------------------------------------------
+   * Amit: *"החנות נהרסה, והתערבבה עם הבניינים."*
+   *
+   * Measured, he was describing this exactly. The bay was narrowed
+   * from 11.5 metres to 8.8 — correct, because the redrawn shopfronts
+   * are tall and narrow — and the code went on laying every facade at
+   * `BAY + 0.6` and clamping only the HEIGHT. So the width fell out of
+   * each file's aspect ratio and had no relationship to the bay:
+   *
+   *     bld_arch          9.40m in an 8.8m bay   +0.60 into its neighbours
+   *     bld_balconies     9.40m                  +0.60
+   *     sponsor_lust     11.74m                  +2.94
+   *     shop_hair         7.81m                  -0.99, a gap
+   *
+   * Two painted facades in the same plane, overlapping by thirty
+   * centimetres each side, interleave and flicker. Lust overlapped by
+   * nearly three metres — a metre and a half into each neighbour —
+   * which is why the shop he cares most about looked the most
+   * destroyed.
+   *
+   * ---------------------------------------------------------------
+   * THE RULE
+   * ---------------------------------------------------------------
+   * The WIDTH is what the street owns: a bay is a bay and nothing may
+   * cross into its neighbour. So width is capped first and height
+   * follows from the drawing's own proportions. The height band still
+   * applies, but it can only make a facade SMALLER — never wider than
+   * the bay it stands in.
+   *
+   * Nothing is stretched, ever. A drawing that cannot fill its bay is
+   * centred with a party wall either side, which is what a terrace of
+   * different buildings actually looks like.
+   */
+  function facadeSize(
+    img: { width: number; height: number },
+    band: { min: number; max: number }
+  ): { w: number; h: number } {
+    const aspect = img.width / img.height;
+    let w = BAY;
+    let h = w / aspect;
+    if (h > band.max) {
+      h = band.max;
+      w = Math.min(BAY, h * aspect);
+    } else if (h < band.min) {
+      h = band.min;
+      w = Math.min(BAY, h * aspect);
+    }
+    return { w, h };
+  }
+
+  /**
    * A CUT-OUT THAT STANDS UP.
    *
    * A painted tree on one flat plane is a sticker: walk past it and it
@@ -714,15 +769,10 @@ export function buildStreet(
     if (drawn) {
       drawn.colorSpace = THREE.SRGBColorSpace;
       const img = drawn.image as { width: number; height: number };
-      const aspect = img.width / img.height;
-      let w = BAY + 0.6;
-      let h = w / aspect;
-      /* Four storeys of a narrow Mediterranean street, not a tower.
-         The same reasoning as the shopfronts: it is looked at from
-         three metres away, and 15 metres of wall at three metres is
-         not a building, it is a cliff. */
-      if (h > 11.6) { h = 11.6; w = h * aspect; }
-      else if (h < 9.6) { h = 9.6; w = h * aspect; }
+      /* Four storeys of a narrow Mediterranean street, not a tower:
+         it is looked at from three metres away, and fifteen metres of
+         wall at three metres is not a building, it is a cliff. */
+      const { w, h } = facadeSize(img, { min: 9.6, max: 11.6 });
 
       const face = new THREE.Mesh(
         new THREE.PlaneGeometry(w, h),
@@ -739,12 +789,25 @@ export function buildStreet(
       face.position.set(0, h / 2, 0.36);
       g.add(face);
 
+      /*
+       * THE PARTY WALL.
+       *
+       * Now that a facade may be NARROWER than its bay — see
+       * `facadeSize` — the block behind it has to fill what the
+       * drawing does not, or the street shows a raw slab between
+       * buildings. Amit saw one in the first screenshot after the
+       * change: a flat grey-green panel standing where two shops meet.
+       *
+       * So the carcass is bay-wide and set back, and the strip that
+       * shows either side of a narrow drawing is plaster — which is
+       * what a party wall between two buildings actually is.
+       */
       const depth = 11;
       const carcass = new THREE.Mesh(
-        new THREE.BoxGeometry(Math.min(w - 1.6, BAY - 1.2), h - 1.4, depth),
+        new THREE.BoxGeometry(BAY, h - 0.6, depth),
         wallMats[seed % wallMats.length]!
       );
-      carcass.position.set(0, (h - 1.4) / 2, -depth / 2 - 0.05);
+      carcass.position.set(0, (h - 0.6) / 2, -depth / 2 - 0.05);
       g.add(carcass);
 
       scene.add(g);
@@ -906,17 +969,9 @@ export function buildStreet(
        * and a half is a two-storey shop and it fits in the frame from
        * the pavement, which is the only place anybody looks at it.
        */
-      const SHOPFRONT_H = { min: 7.9, max: 8.6 };
-      const aspect = img.width / img.height;
-      let w = BAY + 0.6;
-      faceH = w / aspect;
-      if (faceH > SHOPFRONT_H.max) {
-        faceH = SHOPFRONT_H.max;
-        w = faceH * aspect;
-      } else if (faceH < SHOPFRONT_H.min) {
-        faceH = SHOPFRONT_H.min;
-        w = faceH * aspect;
-      }
+      const size = facadeSize(img, { min: 7.9, max: 9.2 });
+      const w = size.w;
+      faceH = size.h;
       /*
        * THE DRAWING IS LIT BY THE STREET, NOT PRINTED ON IT.
        *
@@ -982,12 +1037,15 @@ export function buildStreet(
      * and shorter, it gives the drawing depth at its edges and stays
      * inside it everywhere else.
      */
+    /* Bay-wide, for the same reason as the ordinary bays above: a
+       shopfront narrower than its bay would otherwise show the street
+       a bare edge instead of a party wall. */
     const depth = 11;
     const carcass = new THREE.Mesh(
-      new THREE.BoxGeometry(BAY - 2.4, Math.max(3.4, faceH - 1.6), depth),
+      new THREE.BoxGeometry(BAY, Math.max(3.4, faceH - 0.5), depth),
       wallMats[1]!
     );
-    carcass.position.set(0, Math.max(3.4, faceH - 1.6) / 2, -depth / 2 - 0.05);
+    carcass.position.set(0, Math.max(3.4, faceH - 0.5) / 2, -depth / 2 - 0.05);
     carcass.castShadow = carcass.receiveShadow = true;
     g.add(carcass);
 
