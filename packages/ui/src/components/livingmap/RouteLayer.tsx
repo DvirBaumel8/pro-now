@@ -708,9 +708,14 @@ export function RouteLayer({
                 }),
               },
               {
+                /*
+                 * BELOW the marker, not above it. The map band carries a
+                 * status chip across its top, and a label above a marker
+                 * near the top of the frame lands underneath it.
+                 */
                 translateY: driver.interpolate({
                   inputRange: steps,
-                  outputRange: route.map((s) => s.at.v * height - MARKER),
+                  outputRange: route.map((s) => s.at.v * height + MARKER * 0.6),
                 }),
               },
             ],

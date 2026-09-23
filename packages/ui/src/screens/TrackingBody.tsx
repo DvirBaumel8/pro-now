@@ -395,6 +395,8 @@ export function TrackingBody({
 
   // The map gets the top 54%; the sheet sizes itself and overlaps the rest.
   const mapH = Math.round(height * 0.54);
+  /** A real extract is a street plan, not our painting. See `RouteLayer`. */
+  const plan = geo !== null;
 
   return (
     <ScreenShell side="customer" tone="dark" liveState="ROUTE" width={width} height={height}>
@@ -475,9 +477,41 @@ export function TrackingBody({
                   ? CUSTOMER_POINT
                   : tripProgress === null
                     ? null
-                    : roadPath
-                      ? alongRoute({ path: roadPath.path, drive: roadPath.path, metres: roadPath.metres }, tripProgress).at
-                      : routeAt((departmentCode as never) ?? "HOME_URGENT", tripProgress).at
+                    : (() => {
+                        const at = roadPath
+                          ? alongRoute(
+                              { path: roadPath.path, drive: roadPath.path, metres: roadPath.metres },
+                              tripProgress
+                            ).at
+                          : routeAt((departmentCode as never) ?? "HOME_URGENT", tripProgress).at;
+                        /*
+                         * ON A PLAN, THE JOURNEY RATHER THAN THE TRAVELLER.
+                         *
+                         * Following the marker keeps it dead centre and
+                         * pushes the destination off the frame — so the
+                         * route reads as a line leaving the screen, and
+                         * the thing it exists to show, the distance still
+                         * to come, is the part that is cropped. Amit:
+                         * *"מה מבינים מהמסך הזה?"*
+                         *
+                         * Halfway between where they are and where they
+                         * are going holds both ends, and it still MOVES:
+                         * as the marker closes on the address the midpoint
+                         * slides with it. It is only worth doing now that
+                         * the band is tall enough to hold the two — see
+                         * the sheet's height below.
+                         *
+                         * The painted plate keeps the follow shot. It is
+                         * one street at eye level and the point there is
+                         * watching somebody come down it.
+                         */
+                        return plan
+                          ? {
+                              u: (at.u + CUSTOMER_POINT.u) / 2,
+                              v: (at.v + CUSTOMER_POINT.v) / 2,
+                            }
+                          : at;
+                      })()
               }
               /*
                * WIDE ENOUGH TO BE A JOURNEY.
@@ -602,7 +636,37 @@ export function TrackingBody({
         * its share on a tall phone; on a short one the sheet can take more
         * of the screen rather than losing its last line.
         */}
-      <View style={[styles.sheet, { maxHeight: height - mapH * 0.42 }]}>
+      {/* ----------------------------------------------------------------
+          AND IT GIVES THE MAP ROOM WHILE SOMEBODY IS DRIVING.
+
+          Amit, on the real map: *"מה מבינים מהמסך הזה של המסלול הכחול
+          עם הכתום?"* — and then, plainly, *"לא טוב."*
+
+          The sheet may grow until only the top 42% of the map band is
+          left, which is about 190pt on a phone. A painted street reads
+          fine in 190pt: it is one road at eye level and the van coming
+          down it is the whole story. A street PLAN does not — 190pt of a
+          city holds one end of a journey and crops the other, so the
+          route leaves the frame and you never see where it is going.
+          That is the fault behind both of his sentences, and it is a
+          layout decision rather than anything about the drawing.
+
+          So while somebody is actually driving on a plan, the sheet
+          keeps only what it needs and the map keeps the rest. The
+          sheet's own order is unchanged and it scrolls, so the two
+          things being waited on — the clock and the five steps — are
+          still the first things under it.
+
+          It reverts the moment the driving does. Once the visit begins
+          the map is a house with somebody working in it and the sheet is
+          the screen.
+          ---------------------------------------------------------------- */}
+      <View
+        style={[
+          styles.sheet,
+          { maxHeight: height - mapH * (plan && !atWork && tripProgress !== null ? 0.9 : 0.42) },
+        ]}
+      >
         <View style={styles.grabber} />
 
         {/*
