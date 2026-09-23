@@ -1,5 +1,6 @@
 import React from "react";
 import { Image, ScrollView, StyleSheet, Text, View } from "react-native";
+import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 
 import {
   formatMoney,
@@ -360,6 +361,31 @@ export function ProProfileBody({
           מספר הטלפון והכתובת המלאה נחשפים רק לאחר שיוך עבודה, לשני הצדדים.
         </Text>
       </ScrollView>
+
+      {/* ----------------------------------------------------------------
+          THERE IS MORE BELOW, AND NOTHING SAID SO.
+
+          Amit: *"למה זה עין מסך תצוגה שלא נגלל?"* It scrolls — measured:
+          1557 points of content in a 259 point window — and nothing on
+          the screen admitted it. A card whose content ends flush with
+          its own edge reads as a card that ends there, so the services,
+          the verifications and the reviews under the fold were, to a
+          person looking at it, not there.
+
+          A fade rather than an arrow or a bar: it says "this continues"
+          without adding a control that does nothing when pressed.
+          ---------------------------------------------------------------- */}
+      <View style={styles.moreBelow} pointerEvents="none">
+        <Svg width="100%" height={28}>
+          <Defs>
+            <LinearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor={colors.bg} stopOpacity="0" />
+              <Stop offset="1" stopColor={colors.bg} stopOpacity="0.95" />
+            </LinearGradient>
+          </Defs>
+          <Rect x={0} y={0} width="100%" height={28} fill="url(#fade)" />
+        </Svg>
+      </View>
     </View>
   );
 }
@@ -438,6 +464,7 @@ function ExternalReputation({ rep }: { rep: ExternalReputationView }) {
 
 const styles = StyleSheet.create({
   screen: { backgroundColor: colors.bg, overflow: "hidden", borderRadius: radii.xl },
+  moreBelow: { position: "absolute", left: 0, right: 0, bottom: 0, height: 28 },
   scroll: { paddingBottom: spacing.xxl },
 
   /*

@@ -54,6 +54,7 @@ import { WorldGround } from "./WorldGround";
 import { WorldStage } from "./WorldStage";
 import { WorldViewport } from "./WorldViewport";
 import type { WorldAssetSources } from "./AssetSlot";
+import { ShopInterior } from "./ShopInterior";
 import { MatchSheet } from "./MatchSheet";
 import { DistrictLayer } from "./DistrictLayer";
 import { VenueLayer } from "./VenueLayer";
@@ -562,7 +563,21 @@ export function LivingMapScene({
    */
   const interiorId = district?.venueInteriorAssetId ?? null;
   const interiorSource = interiorId ? worldSources?.[interiorId] : undefined;
-  const insideNow = journeyMs !== null && isInside(journeyMs, Boolean(interiorSource));
+  /*
+   * DRAWN WHEN IT HAS NOT BEEN PHOTOGRAPHED.
+   *
+   * Amit, three times and finally plainly: *"אני חייב להיכנס לתוך החנות
+   * ממש."* One trade has an interior in the pack and ten do not, so
+   * "skip the beat until the art lands" is honest and useless to
+   * somebody who wants to see the idea work.
+   *
+   * `ShopInterior` draws the room from geometry and light — both of
+   * which the renderer makes exactly — with the trade's own character in
+   * it, and says on its face that it is an illustration of the trade
+   * rather than a photograph of this shop. So the threshold is always
+   * crossed, and the day a real interior lands it is used instead.
+   */
+  const insideNow = journeyMs !== null && isInside(journeyMs, true);
 
   /*
    * ---------------------------------------------------------------------
@@ -1389,16 +1404,25 @@ export function LivingMapScene({
 
           Drawn only for a trade whose inside exists. See `insideNow`.
           --------------------------------------------------------------- */}
-      {interiorSource && insideNow ? (
+      {insideNow ? (
         <FadeIn durationMs={interiorBeat().durationMs} animate={animate}>
-          <Image
-            source={interiorSource}
-            style={StyleSheet.absoluteFill}
-            resizeMode="cover"
-            accessible
-            accessibilityRole="image"
-            accessibilityLabel={`בתוך העסק · ${district?.labelHe ?? ""}`}
-          />
+          {interiorSource ? (
+            <Image
+              source={interiorSource}
+              style={StyleSheet.absoluteFill}
+              resizeMode="cover"
+              accessible
+              accessibilityRole="image"
+              accessibilityLabel={`בתוך העסק · ${district?.labelHe ?? ""}`}
+            />
+          ) : (
+            <ShopInterior
+              departmentCode={departmentCode ?? ""}
+              sources={worldSources}
+              width={width}
+              height={height}
+            />
+          )}
         </FadeIn>
       ) : null}
 

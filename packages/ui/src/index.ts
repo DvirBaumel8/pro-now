@@ -90,3 +90,4 @@ export * from "./components/ServiceListRow";
 export * from "./components/Scrim";
 export * from "./screens/StrollBody";
 export * from "./catalog/catalogAdapter";
+export { ShopInterior } from "./components/livingmap/ShopInterior";
