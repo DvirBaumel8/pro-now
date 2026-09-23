@@ -73,6 +73,26 @@ export interface BackButtonProps {
    * screen is already laying out.
    */
   placement?: "absolute" | "inline";
+  /**
+   * TRUE WHEN THERE IS A PICTURE BEHIND IT.
+   *
+   * Amit, standing inside the Lust shop: *"אין פה כפתור חזור."* There
+   * was one. It is a translucent dark disc, and it was sitting on a
+   * photograph of a brightly lit shop — so it vanished. I had to hunt
+   * for it in a screenshot myself.
+   *
+   * The chip was designed for the app's own surfaces, and every surface
+   * in this product was a flat colour until we started putting
+   * full-bleed artwork behind it. A wash that reads as "a control" on a
+   * near-black panel reads as "a smudge on the glass" on a lit
+   * interior, and a control nobody can see is the same as no control.
+   *
+   * So a screen that puts art behind this says so, and the chip becomes
+   * opaque with a brighter edge — a real button rather than a tint of
+   * whatever happens to be underneath. Not the default, because on the
+   * app's own surfaces the solid version is heavier than it needs to be.
+   */
+  onArtwork?: boolean;
 }
 
 export function BackButton({
@@ -81,10 +101,28 @@ export function BackButton({
   labelHe = null,
   accessibilityLabelHe,
   placement = "absolute",
+  onArtwork = false,
 }: BackButtonProps) {
   const colors = tone === "dark" ? customerDarkTheme.colors : customerTheme.colors;
-  const wash = tone === "dark" ? tint.neutralDark(0.1) : tint.neutralLight(0.06);
-  const edge = tone === "dark" ? "rgba(247,243,250,0.16)" : "rgba(23,18,31,0.1)";
+  /*
+   * Over artwork the chip stops being a tint and becomes an object: a
+   * near-opaque ink disc with a light rim, legible on a night street and
+   * on a shop lit like a jeweller's window alike. The chevron is forced
+   * light there for the same reason — `colors.textPrimary` follows the
+   * TONE, and the tone describes the app's surface, not the photograph
+   * somebody put behind it.
+   */
+  const wash = onArtwork
+    ? "rgba(16,11,22,0.86)"
+    : tone === "dark"
+      ? tint.neutralDark(0.1)
+      : tint.neutralLight(0.06);
+  const edge = onArtwork
+    ? "rgba(247,243,250,0.55)"
+    : tone === "dark"
+      ? "rgba(247,243,250,0.16)"
+      : "rgba(23,18,31,0.1)";
+  const ink = onArtwork ? "#F7F3FA" : colors.textPrimary;
 
   return (
     <Pressable
@@ -105,9 +143,9 @@ export function BackButton({
         pressed ? styles.pressed : null,
       ]}
     >
-      <Chevron color={colors.textPrimary} />
+      <Chevron color={ink} />
       {labelHe ? (
-        <Text style={[styles.label, { color: colors.textPrimary }]} numberOfLines={1}>
+        <Text style={[styles.label, { color: ink }]} numberOfLines={1}>
           {labelHe}
         </Text>
       ) : null}

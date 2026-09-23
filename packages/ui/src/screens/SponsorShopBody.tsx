@@ -132,7 +132,14 @@ export function SponsorShopBody({
         </View>
       </ScrollView>
 
-      {onBack ? <BackButton onPress={onBack} tone="dark" accessibilityLabelHe="חזרה לרחוב" /> : null}
+      {/*
+        `onArtwork`: the brand's own interior fills the top of this
+        screen, and a translucent chip on a lit shop is invisible — see
+        `BackButton`. Amit found this one by not finding the button.
+      */}
+      {onBack ? (
+        <BackButton onPress={onBack} tone="dark" onArtwork accessibilityLabelHe="חזרה לרחוב" />
+      ) : null}
     </View>
   );
 }

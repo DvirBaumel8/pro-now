@@ -360,6 +360,19 @@ export function DistrictLayer({
                  * — a landmark says what happens here, never who is free.
                  */
                 accessibilityLabel={district.labelHe}
+                /*
+                 * The same reasoning as the sponsor buildings: the
+                 * world's depth decides how big a shop is drawn, and
+                 * `verify:a11y` measured one at 65x43 — three points
+                 * under what a finger needs. The picture stays true to
+                 * the perspective; the touch area does not have to.
+                 */
+                hitSlop={{
+                  top: Math.max(0, (44 - h) / 2),
+                  bottom: Math.max(0, (44 - h) / 2),
+                  left: Math.max(0, (44 - w) / 2),
+                  right: Math.max(0, (44 - w) / 2),
+                }}
                 style={{ width: w, height: h }}
               >
                 <AssetSlot

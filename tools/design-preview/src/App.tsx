@@ -52,7 +52,7 @@ const proWorldSources: WorldAssetSources = Object.fromEntries(
 import { standInWorldSources } from "./standInAvatars";
 import fixtureGeo from "../geo/fixture_grid.json";
 
-import { ActiveJobCapsule, AddressPickerBody, AppHeader, AvatarPickerBody, IntroBody, customerDarkTheme, FocusSheet, ScreenTransition, ArrivalVerifyBody, CallsListBody, CAPSULE_HEIGHT, ChatBody, ConnectionBanner, CategoryBody, CustomerHomeBody, CustomerProfileBody, customerTheme, DescribeFaultBody, JobClosedBody, JobCompleteBody, MatchConfirmBody, NavGlyph, Persona, PhoneAuthBody, ProEarningsBody, ProJobBody, ProJobSettledBody, ProOfferBody, ProOnlineBody, ProPricingBody, ProProfileBody, ProQuoteBuilderBody, ProServicesBody, ProShiftBody, proTheme, ProVerificationBody, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, SponsorShopBody, AdvertiseBody, StrollBody, Sheet, spacing, tint, TrackingBody, type as t, WelcomeBody } from "@pro-now/ui";
+import { ActiveJobCapsule, AddressPickerBody, AppHeader, AppMenuBody, AvatarPickerBody, IntroBody, customerDarkTheme, FocusSheet, ScreenTransition, ArrivalVerifyBody, CallsListBody, CAPSULE_HEIGHT, ChatBody, ConnectionBanner, CategoryBody, CustomerHomeBody, CustomerProfileBody, customerTheme, DescribeFaultBody, JobClosedBody, JobCompleteBody, MatchConfirmBody, NavGlyph, Persona, PhoneAuthBody, ProEarningsBody, ProJobBody, ProJobSettledBody, ProOfferBody, ProOnlineBody, ProPricingBody, ProProfileBody, ProQuoteBuilderBody, ProServicesBody, ProShiftBody, proTheme, ProVerificationBody, ProVerificationStepBody, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, SponsorShopBody, AdvertiseBody, StrollBody, Sheet, spacing, tint, TrackingBody, type as t, WelcomeBody } from "@pro-now/ui";
 import type { JobMediaItem, LiveLocationState, MarkName, NavGlyphName, ProPricingRow } from "@pro-now/ui";
 import type { AuthStage, ChatMessage, ConnectionState } from "@pro-now/ui";
 import { canHandOffToMaps, categoryAsksForPerson, mapsHandoffUrl, buildIntakeBrief, pilotIntakeByService, pilotServiceById, readAvailability } from "@pro-now/types";
@@ -162,7 +162,7 @@ export interface LiveRequest {
   createdAtMs: number;
 }
 
-type CustomerTab = "home" | "calls" | "card";
+type CustomerTab = "home" | "calls" | "card" | "menu";
 type ProTab = "shift" | "earnings" | "verify" | "profile";
 type Side = "customer" | "pro";
 /** Before either side's app: the landing page and the sign-in. */
@@ -2056,6 +2056,86 @@ const go = useCallback((r: CustomerRoute) => {
       );
     }
 
+    if (tab === "menu") {
+      /* ----------------------------------------------------------------
+         EVERY ROW HERE GOES SOMEWHERE THAT EXISTS.
+
+         `AppMenuBody` drops a row with no handler, so this list is also
+         the honest inventory of what the customer side can actually do.
+         Settings and "צור קשר" are absent because the support channel is
+         an open decision (/CLAUDE.md §4) — a switch that controls nothing
+         and a contact row pointing nowhere would make the real rows
+         beside them suspect.
+         ---------------------------------------------------------------- */
+      return (
+        <AppMenuBody
+          groups={[
+            {
+              titleHe: "העבודות שלי",
+              items: [
+                {
+                  id: "calls",
+                  labelHe: "הקריאות שלי",
+                  detailHe: "היסטוריה, קריאה פעילה ודירוגים",
+                  onPress: () => goTab("calls"),
+                },
+              ],
+            },
+            {
+              titleHe: "החשבון",
+              items: [
+                {
+                  id: "card",
+                  labelHe: "החשבון שלי",
+                  detailHe: "פרטים, אמצעי תשלום והיסטוריית חיובים",
+                  onPress: () => goTab("card"),
+                },
+                {
+                  id: "address",
+                  labelHe: "הכתובות שלי",
+                  detailHe: "לאן שולחים את המקצוען",
+                  onPress: () => {
+                    setTab("home");
+                    go({ name: "address" });
+                  },
+                },
+                {
+                  id: "avatar",
+                  labelHe: "הדמות שלי",
+                  detailHe: "מי מטייל ברחוב בזמן ההמתנה",
+                  onPress: onPickAvatar,
+                },
+              ],
+            },
+            {
+              titleHe: "העולם",
+              items: [
+                {
+                  id: "stroll",
+                  labelHe: "טיול בשכונה",
+                  detailHe: "בלי בקשה פתוחה",
+                  onPress: strollDoor,
+                },
+                {
+                  id: "advertise",
+                  labelHe: "יש לך עסק?",
+                  detailHe: "פתיחת חנות בשכונה של PRO NOW",
+                  onPress: () => {
+                    setTab("home");
+                    go({ name: "advertise" });
+                  },
+                },
+              ],
+            },
+          ]}
+          footnoteHe="הגדרות, התראות ויצירת קשר ייכנסו לכאן ברגע שיובילו למקום אמיתי."
+          onBack={() => setTab("home")}
+          width={width}
+          height={bodyH}
+        />
+      );
+    }
+
     if (tab === "calls") {
       return (
         <CallsListBody
@@ -3137,7 +3217,14 @@ const go = useCallback((r: CustomerRoute) => {
          * returning to the home screen — the one place a reviewer on a
          * phone reaches for back first.
          */
-        onMenu={() => goTab("calls")}
+        /*
+         * THE MENU IS A MENU NOW.
+         *
+         * Amit: *"התפריט פה נראה כמו תפריט ראשי, לא יכול להיות שזה מביא
+         * אותי ישר לקריאות שלי."* Three lines that go to one screen is a
+         * small broken promise on the busiest chrome in the app.
+         */
+        onMenu={() => goTab("menu")}
         onAccount={() => goTab("card")}
         trailing={
           <Pressable
@@ -3606,6 +3693,14 @@ function ProApp({
    * not change under the professional's hands while the ring counts down.
    */
   const [takenRequest, setTakenRequest] = useState<LiveRequest | null>(kept?.takenRequest ?? null);
+  /**
+   * Which credential's own page is open, if any. An id rather than the
+   * step itself, so the list stays the single source of what each step
+   * says — a copy held here would go stale the first time a state
+   * changed.
+   */
+  const [openStepId, setOpenStepId] = useState<string | null>(null);
+  const openStep = openStepId ? verificationSteps.find((v) => v.id === openStepId) ?? null : null;
   const [proSheet, setProSheet] = useState<
     null | "call" | "navigate" | "services" | "howitworks" | "quote" | "release"
   >(
@@ -4019,15 +4114,39 @@ function ProApp({
       height={bodyH}
     />
   ) : tab === "verify" ? (
+    /* ----------------------------------------------------------------
+       ONE CREDENTIAL AT A TIME, WHEN ONE IS OPEN.
+
+       Amit: *"כל מה שאני לוחץ פה פותח לי בכלל משהו אחר ולא מחובר"*, and
+       he was right in the most literal way: `onOpenStep` ignored WHICH
+       step had been pressed and opened the services sheet, so five
+       different credentials in five different states all led to the same
+       unrelated screen.
+       ---------------------------------------------------------------- */
+    openStep ? (
+      <ProVerificationStepBody
+        step={openStep}
+        /*
+         * No submit handler, deliberately. The identity provider is an
+         * open decision (/CLAUDE.md §4), and a button that photographs
+         * somebody's identity card and says "הוגש" would be presenting a
+         * stub as production. The screen says so itself.
+         */
+        onBack={() => setOpenStepId(null)}
+        width={width}
+        height={bodyH}
+      />
+    ) : (
     <ProVerificationBody
       displayNameHe="דוגמה ד׳ (תצוגה)"
       steps={verificationSteps}
       services={proEligibility}
-      onOpenStep={() => setProSheet("services")}
+      onOpenStep={(id) => setOpenStepId(id)}
       onBack={() => setTab("shift")}
       width={width}
       height={bodyH}
     />
+    )
   ) :
     tab === "profile" ? (
       <ProProfileBody

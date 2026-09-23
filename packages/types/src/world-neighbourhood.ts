@@ -644,9 +644,26 @@ export const SPONSOR_PLATE_SPOTS: readonly NormalizedPoint[] = [
    * worth a shop nobody can see, and 82% is comfortably above the
    * threshold at which a building starts standing in a flowerbed.
    */
-  { u: 0.732, v: 0.406 }, // 67% clear — mid-street, in the clear band
-  { u: 0.721, v: 0.793 }, // 82%, nearest, but under the drawer
-  { u: 0.125, v: 0.248 }, // 84%, far up the street
+  /*
+   * AND NONE OF THE THREE IS IN THE MIDDLE OF THE FRAME, WHICH IS A
+   * FACT ABOUT THE DRAWING AND NOT A CHOICE.
+   *
+   * The plate yields fifteen slots a whole shopfront fits on, at 15 and
+   * at 20 requested alike — it is the drawing, not the count. The
+   * eleven cleanest are the trades' and the rest are at the edges. So
+   * wherever the wait's camera rests, a sponsored building is somewhere
+   * off to one side, and the closer the camera gets the more often it
+   * is out of frame entirely.
+   *
+   * This one is on the main street at mid-height, so it comes into view
+   * as the camera follows a professional along it. That is the best
+   * this plate can do, and it is one of the clearest arguments for the
+   * larger neighbourhood: more drawing, more frontages, and a sponsor
+   * standing somewhere you actually walk past.
+   */
+  { u: 0.732, v: 0.406 }, // 67% clear — on the street the camera follows
+  { u: 0.125, v: 0.248 }, // 84%
+  { u: 0.721, v: 0.793 }, // 82%
 ];
 
 /**
@@ -1065,10 +1082,28 @@ export function worldZoomFor(shot: "WIDE" | "DISTRICT" | "VENUE" | "ROUTE" | "EX
   switch (shot) {
     case "WIDE":
       return fit;
-    // Half a step in: the district fills the frame, the rest of the
-    // neighbourhood is still visible around it.
+    /*
+     * THE SHOT THE WAIT ACTUALLY RESTS ON.
+     *
+     * This was 1.45, and raising ROUTE alone changed nothing on screen
+     * — which is how I found out that the wait does not rest on ROUTE
+     * at all. After the journey to a professional the camera settles
+     * back to DISTRICT (`RETURN.restsAt`), so DISTRICT is the shot
+     * somebody actually sits and looks at for several minutes. A
+     * measurement caught it: the sponsored shopfront came out 57 points
+     * wide before the change and 57 points wide after it.
+     *
+     * Amit: *"אני חייב את העולם הזה יותר ברורררר... דמיינתי את זה יותר
+     * כמו מיני משחק סימס."*
+     *
+     * 2.2 puts a shopfront near a hundred points across, which is the
+     * size at which its sign, its doorway and the person outside it are
+     * all legible. The journey still steps inwards — WIDE, then this,
+     * then VENUE at 3.2 — and the third-of-the-world floor still holds
+     * at 45%.
+     */
     case "DISTRICT":
-      return fit * 1.45;
+      return fit * 2.2;
     /*
      * CLOSE ENOUGH TO BE AT THE DOOR.
      *
@@ -1088,9 +1123,33 @@ export function worldZoomFor(shot: "WIDE" | "DISTRICT" | "VENUE" | "ROUTE" | "EX
      */
     case "VENUE":
       return fit * 3.2;
-    // Following somebody: wide enough to see where they are going.
+    /*
+     * CLOSE ENOUGH THAT IT IS A PLACE AND NOT A DIAGRAM.
+     *
+     * Amit: *"אני חייב את העולם הזה יותר ברורררר... זה מעצבן אותי שהכל
+     * ככ קטן. דמיינתי את זה יותר כמו מיני משחק סימס."*
+     *
+     * This was 1.25 — the world 1.25 screens across, four fifths of it
+     * in frame. That is a good MAP and he did not ask for a map. At
+     * that zoom a shopfront came out 57 points wide on a 390-point
+     * phone: the sign unreadable, the person in the doorway a smudge,
+     * and every detail in the artwork wasted. The automated
+     * accessibility pass found it in the same hour by a different
+     * route — it measured the tappable buildings at 39 points tall,
+     * under the 44 a finger needs.
+     *
+     * At 2.4 the world is 2.4 screens across, a shopfront is about 110
+     * points, and the doorway, the sign and the figure standing outside
+     * all read. That is the difference between looking at a
+     * neighbourhood and being in one.
+     *
+     * The ceiling is the floor in the test beside this: no shot about
+     * the world may show less than a third of it, or the camera ends up
+     * on a patch of road with nothing to orient by. 2.4 shows 42%.
+     * Beyond about 3 that rule bites, and it should.
+     */
     case "ROUTE":
-      return fit * 1.25;
+      return fit * 2.2;
     /*
      * WALKING THE STREET YOURSELF.
      *
@@ -1124,7 +1183,15 @@ export function worldZoomFor(shot: "WIDE" | "DISTRICT" | "VENUE" | "ROUTE" | "EX
      * destinations you can see from where you stand.
      */
     case "EXPLORE":
-      return fit * 1.85;
+      /*
+       * Raised with ROUTE above, and for the same complaint. The
+       * paragraph above still holds — the reason to stay pulled back is
+       * that a close camera on a walking figure shoves the world past
+       * you — but 1.85 was solving that by making the street too small
+       * to enjoy walking down. 2.4 keeps a screen and a half of world
+       * in view, which is still somewhere to go.
+       */
+      return fit * 2.4;
   }
 }
 

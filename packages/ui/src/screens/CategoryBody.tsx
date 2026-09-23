@@ -120,7 +120,8 @@ export function CategoryBody({
       />
       <Scrim width={width} height={height} />
 
-      {onBack ? <BackButton onPress={onBack} tone="dark" /> : null}
+      {/* The world is the background of this screen — see `BackButton`. */}
+      {onBack ? <BackButton onPress={onBack} tone="dark" onArtwork /> : null}
 
       <ScrollView
         style={StyleSheet.absoluteFill}

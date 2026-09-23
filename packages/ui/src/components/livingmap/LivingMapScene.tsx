@@ -2036,8 +2036,14 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: spacing.xl,
     left: spacing.lg,
-    minHeight: 34,
-    paddingHorizontal: spacing.md,
+    /*
+     * 44, because a finger is 44. `verify:a11y` measured this chip at
+     * 34 the first time it ran against it — the same pass that caught
+     * the avatar at 34 in the header, on the same afternoon, for the
+     * same reason: a control sized as decoration.
+     */
+    minHeight: 44,
+    paddingHorizontal: spacing.lg,
     justifyContent: "center",
     borderRadius: radii.pill,
     backgroundColor: "rgba(23,18,31,0.66)",

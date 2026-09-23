@@ -94,3 +94,5 @@ export * from "./catalog/catalogAdapter";
 export { ShopInterior } from "./components/livingmap/ShopInterior";
 export * from "./screens/SponsorShopBody";
 export * from "./screens/AdvertiseBody";
+export * from "./screens/ProVerificationStepBody";
+export * from "./screens/AppMenuBody";

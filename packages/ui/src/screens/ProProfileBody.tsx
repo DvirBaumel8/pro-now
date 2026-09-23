@@ -163,7 +163,13 @@ export function ProProfileBody({
         <View style={styles.hero}>
           <HeroFlourish color={colors.trust} opacity={0.12} />
 
-          <BackButton onPress={onBack} tone={"light"} placement="absolute" />
+          {/*
+            The shop's interior opens this card when the trade has one,
+            so the chip may or may not have a photograph behind it. It
+            takes the solid treatment either way: a solid chip on a plain
+            surface is merely heavier, an invisible one is broken.
+          */}
+          <BackButton onPress={onBack} tone={"light"} onArtwork placement="absolute" />
 
           {/* ----------------------------------------------------------
               OUT, AND INTO THE NEXT ONE. See `onNext`.

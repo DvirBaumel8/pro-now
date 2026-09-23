@@ -80,8 +80,11 @@ export interface SponsorVenueLayerProps {
   shops: readonly SponsorShop[];
   width: number;
   height: number;
-  /** What a building's size is a fraction of: the viewport, not the world. */
-  sizeBasis: number;
+  /**
+   * Kept for callers that still pass it, and deliberately unused: see
+   * the note where `w` is computed. A building is a share of the WORLD.
+   */
+  sizeBasis?: number;
   sources: WorldAssetSources;
   /** Real building plots, when the world stands on a real street plan. */
   spots?: readonly NormalizedPoint[] | null;
@@ -94,7 +97,6 @@ export function SponsorVenueLayer({
   shops,
   width,
   height,
-  sizeBasis,
   sources,
   spots,
   onEnter,
@@ -122,7 +124,27 @@ export function SponsorVenueLayer({
 
         const scale = depthScale(at.v);
         const shape = shapeOf(shop.venueAssetId);
-        const w = sizeBasis * WORLD_SIZE.district * scale;
+        /*
+         * A SHARE OF THE WORLD, NOT OF THE PHONE.
+         *
+         * This read `sizeBasis` — the viewport — and `DistrictLayer`,
+         * one file away, reads the world's width for the same number.
+         * The consequence only appears when the camera moves: a
+         * viewport-relative building keeps its size on screen at every
+         * zoom, so it stays put while the painted street behind it
+         * grows and shrinks around it.
+         *
+         * It cost an hour. Amit asked for a bigger world, I raised the
+         * camera twice, rebuilt, and measured the sponsored shopfront at
+         * 57 points wide both times — exactly the same number, which is
+         * the tell. The zoom was working; this building was the one
+         * object in the street immune to it.
+         *
+         * See the long note on `WORLD_SIZE`: a building has a size in
+         * the WORLD, and the camera scales it along with the ground it
+         * stands on. That is what walking towards a shop does.
+         */
+        const w = width * WORLD_SIZE.district * scale;
         const h = w * shape.ratio;
 
         if (w < LEGIBLE_WIDTH) return null;
@@ -161,6 +183,24 @@ export function SponsorVenueLayer({
                * see the plate over the door gets the word anyway.
                */
               accessibilityLabel={`${shop.brandName} · ${shop.categoryHe} · ${SPONSOR_BADGE_HE}`}
+              /*
+               * A BUILDING CANNOT BE GROWN TO FIT A FINGER.
+               *
+               * `verify:a11y` measured this shopfront at 57x39 and
+               * flagged it: under the 44 points a finger needs. The
+               * honest fix is not to draw the shop bigger than the
+               * street says it is — the world's depth decides that —
+               * but to extend the TOUCH area past the picture, which is
+               * what hitSlop is for. The drawing stays true to the
+               * perspective and the tap target stops being a test of
+               * aim.
+               */
+              hitSlop={{
+                top: Math.max(0, (44 - h) / 2),
+                bottom: Math.max(0, (44 - h) / 2),
+                left: Math.max(0, (44 - w) / 2),
+                right: Math.max(0, (44 - w) / 2),
+              }}
               style={{ width: w, height: h }}
             >
               <AssetSlot
@@ -192,34 +232,69 @@ export function SponsorVenueLayer({
             </Pressable>
 
             {/* ------------------------------------------------------------
-                THE PLATE OVER THE DOOR.
+                THE LIT SIGN OVER THE DOOR.
 
-                Drawn by us, over the brand's own artwork, at the top of
-                the building where a shop's own sign is — so it reads as
-                part of the street rather than as a label stuck on a
-                picture. It scales with the building, because a fixed-size
-                chip on a shop that is half a screen away becomes bigger
-                than the shop.
+                Amit: *"זה גרוע שרואים רק חסות. צריך שלט זוהר או משהו עם
+                השם של החברה. רק חסות זה גרוע וקטן, לא רואים כלום."*
 
-                This is the one piece of a sponsor's building that the
-                brand does not supply and cannot change.
+                He is right, and the first version had the priority
+                backwards. It drew only the word `בחסות` — the
+                DISCLOSURE — and nothing that says whose shop it is. A
+                brand paying to be in the street got a grey pill reading
+                "sponsored", which is the label an advert gets when
+                somebody is embarrassed by it.
+
+                So it is a shop sign now: the brand's name, lit, the way
+                every other business in this street has its name lit
+                over its door. `בחסות` sits under it in small type — it
+                is still there, still unremovable, still in the
+                accessible name, and it is a footnote rather than the
+                headline, which is what a disclosure is supposed to be.
+
+                The glow is two stacked boxes rather than a shadow,
+                because react-native-web will not animate a shadow and
+                the world holds this sign while the camera moves.
+
+                Everything scales with the building. A fixed-size sign
+                on a shop half a screen away ends up bigger than the
+                shop, which is how the first badge looked at distance.
                 ------------------------------------------------------------ */}
             <View
               pointerEvents="none"
-              style={[
-                styles.badge,
-                {
-                  top: h * 0.04,
-                  left: w * 0.5 - Math.max(30, w * 0.17),
-                  width: Math.max(60, w * 0.34),
-                  paddingVertical: Math.max(2, w * 0.012),
-                  borderRadius: radii.pill,
-                },
-              ]}
+              style={{
+                position: "absolute",
+                top: -h * 0.16,
+                left: w * 0.5 - Math.max(52, w * 0.42),
+                width: Math.max(104, w * 0.84),
+                alignItems: "center",
+              }}
             >
-              <Text style={[styles.badgeText, { fontSize: Math.max(9, w * 0.055) }]} numberOfLines={1}>
-                {SPONSOR_BADGE_HE}
-              </Text>
+              {/* The halo the sign throws. Behind it, wider, softer. */}
+              <View
+                style={{
+                  position: "absolute",
+                  top: -h * 0.03,
+                  left: -w * 0.08,
+                  right: -w * 0.08,
+                  bottom: -h * 0.03,
+                  borderRadius: radii.md,
+                  backgroundColor: "rgba(255,196,107,0.18)",
+                }}
+              />
+              <View style={styles.sign}>
+                <Text
+                  style={[styles.signName, { fontSize: Math.max(13, w * 0.115) }]}
+                  numberOfLines={1}
+                >
+                  {shop.brandName}
+                </Text>
+                <Text
+                  style={[styles.signBadge, { fontSize: Math.max(8, w * 0.062) }]}
+                  numberOfLines={1}
+                >
+                  {SPONSOR_BADGE_HE}
+                </Text>
+              </View>
             </View>
           </View>
         );
@@ -230,19 +305,35 @@ export function SponsorVenueLayer({
 
 const styles = StyleSheet.create({
   venue: { position: "absolute" },
-  badge: {
-    position: "absolute",
+  sign: {
+    alignSelf: "stretch",
     alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(23,18,31,0.82)",
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radii.sm,
+    backgroundColor: "rgba(16,11,22,0.9)",
     borderWidth: 1,
-    borderColor: "rgba(247,243,250,0.4)",
+    borderColor: "rgba(255,214,150,0.55)",
   },
-  badgeText: {
+  /*
+   * The brand's own name, in the brand's own script. Latin stays Latin
+   * — the same rule the PRO NOW wordmark follows on the district signs.
+   */
+  signName: {
+    ...typeScale.bodyStrong,
+    color: "#FFE9C7",
+    letterSpacing: 0.4,
+  },
+  /*
+   * The disclosure, under the name. Small, and never optional: it is in
+   * the accessible name too, so a screen reader hears it in the same
+   * breath whatever this looks like.
+   */
+  signBadge: {
     ...typeScale.micro,
     fontWeight: "700",
-    color: "#F7F3FA",
-    letterSpacing: 0.6,
-    paddingHorizontal: spacing.xs,
+    color: "rgba(255,233,199,0.82)",
+    letterSpacing: 1.2,
+    marginTop: 1,
   },
 });
