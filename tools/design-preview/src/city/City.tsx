@@ -55,17 +55,23 @@ import {
  * truth, and better than sending everybody into the same borrowed room.
  */
 const SHOPS: ShopSpec[] = [
-  { id: "hair",      he: "טיפוח ויופי",    facade: "district_hair.webp",      z:   92, side: -1, interior: "hair_barbershop_hero.webp", neonColour: "#ff7ac2" },
-  { id: "pets",      he: "בעלי חיים",      facade: "district_pets.webp",      z:   69, side:  1, interior: "pets_salon_hero.webp",      neonColour: "#8ce06a" },
-  { id: "home",      he: "תיקונים דחופים", facade: "district_home.webp",      z:   46, side: -1, interior: "home_workshop_hero.webp",   neonColour: "#ffb45e" },
-  { id: "lust",      he: "Lust",           facade: "sponsor_lust_venue.webp", z:   23, side:  1, interior: "sponsor_lust_hero.webp",    sponsor: true, neonColour: "#ff3d63" },
-  { id: "tech",      he: "מחשבים וסלולר",  facade: "district_tech.webp",      z:    0, side: -1, neonColour: "#7ad7ff" },
-  { id: "auto",      he: "רכב ודרך",       facade: "district_auto.webp",      z:  -23, side:  1, interior: "auto_garage_hero.webp",     neonColour: "#ff9b3d" },
-  { id: "well",      he: "בריאות וכושר",   facade: "district_well.webp",      z:  -46, side: -1, neonColour: "#6affc6" },
-  { id: "appliance", he: "מוצרי חשמל",     facade: "district_appliance.webp", z:  -69, side:  1, interior: "appliance_workshop_hero.webp", neonColour: "#ffd166" },
-  { id: "care",      he: "ניקיון ותחזוקה", facade: "district_care.webp",      z:  -92, side: -1, interior: "care_studio_hero.webp",     neonColour: "#9db8ff" },
-  { id: "nails",     he: "ציפורניים",      facade: "district_nails.webp",     z: -115, side:  1, neonColour: "#ff6fa8" },
-  { id: "move",      he: "הובלות ומשלוחים", facade: "district_move.webp",     z: -138, side: -1, neonColour: "#c39bff" },
+  { id: "hair",      he: "טיפוח ויופי",    facade: "district_hair.webp",      z:   88, side: -1, interior: "hair_barbershop_hero.webp", neonColour: "#ff7ac2" },
+  { id: "pets",      he: "בעלי חיים",      facade: "district_pets.webp",      z:   70.4, side:  1, interior: "pets_salon_hero.webp",      neonColour: "#8ce06a" },
+  { id: "home",      he: "תיקונים דחופים", facade: "district_home.webp",      z:   52.8, side: -1, interior: "home_workshop_hero.webp",   neonColour: "#ffb45e" },
+  { id: "lust",      he: "Lust",           facade: "sponsor_lust_venue.webp", z:   35.2, side:  1, interior: "sponsor_lust_hero.webp",    sponsor: true, neonColour: "#ff3d63" },
+  { id: "tech",      he: "מחשבים וסלולר",  facade: "district_tech.webp",      z:   17.6, side: -1, neonColour: "#7ad7ff" },
+  { id: "auto",      he: "רכב ודרך",       facade: "district_auto.webp",      z:    0, side:  1, interior: "auto_garage_hero.webp",     neonColour: "#ff9b3d" },
+  { id: "well",      he: "בריאות וכושר",   facade: "district_well.webp",      z:  -17.6, side: -1, neonColour: "#6affc6" },
+  { id: "appliance", he: "מוצרי חשמל",     facade: "district_appliance.webp", z:  -35.2, side:  1, interior: "appliance_workshop_hero.webp", neonColour: "#ffd166" },
+  { id: "care",      he: "ניקיון ותחזוקה", facade: "district_care.webp",      z:  -52.8, side: -1, interior: "care_studio_hero.webp",     neonColour: "#9db8ff" },
+  { id: "nails",     he: "ציפורניים",      facade: "district_nails.webp",     z:  -70.4, side:  1, neonColour: "#ff6fa8" },
+  { id: "move",      he: "הובלות ומשלוחים", facade: "district_move.webp",     z:  -88, side: -1, neonColour: "#c39bff" },
+  /*
+   * The vet is a category inside PETS — "וטרינר עד הבית" — and it had
+   * no house in the world. Amit spotted it: *"חנות חיות וטרינר?"* It
+   * is the only trade in the catalogue that was missing one.
+   */
+  { id: "vet",       he: "וטרינריה",       facade: "shop_vet.webp",           z: -105.6, side:  1, neonColour: "#7ad7ff" },
 ];
 
 const WALK = Array.from({ length: 8 }, (_, i) => `avatar_amit_walk_0${i + 1}.webp`);
@@ -76,10 +82,17 @@ export interface CityProps {
   base?: string;
   /** Where to stand at the start. Only the gallery passes this. */
   spawn?: { x?: number; z?: number };
+  /**
+   * Which of the twelve characters the customer chose, 1–12.
+   *
+   * Without it the street falls back to Amit's cycle, which is what
+   * it did for everybody until now.
+   */
+  avatarNo?: number | null;
   onExit?: () => void;
 }
 
-export function City({ base = "./world/", spawn, onExit }: CityProps) {
+export function City({ base = "./world/", spawn, avatarNo = null, onExit }: CityProps) {
   const host = useRef<HTMLDivElement | null>(null);
   const [ready, setReady] = useState(false);
   const [nearName, setNearName] = useState<string | null>(null);
@@ -173,7 +186,7 @@ export function City({ base = "./world/", spawn, onExit }: CityProps) {
     composer.setSize(el.clientWidth, el.clientHeight);
     const bloom = new UnrealBloomPass(
       new THREE.Vector2(el.clientWidth, el.clientHeight),
-      /* strength */ 0.55,
+      /* strength */ 0.42,
       /* radius   */ 0.5,
       /* threshold*/ 0.92
     );
@@ -188,6 +201,23 @@ export function City({ base = "./world/", spawn, onExit }: CityProps) {
       const facades: Record<string, THREE.Texture | undefined> = {};
       await Promise.all(
         SHOPS.map(async (s) => {
+          /*
+           * `shop_<id>` FIRST, `district_<id>` AFTER.
+           *
+           * The district drawings are three-quarter views with their
+           * own baked perspective, which is why Amit said the shops
+           * read as a photo glued to a wall: the painted vanishing
+           * point argues with the camera's every time it moves. The
+           * `shop_*` set is the same trades redrawn as flat
+           * elevations, the way the residential buildings are, and
+           * where one exists it wins.
+           */
+          try {
+            facades[s.facade] = await load(`shop_${s.id}.webp`);
+            return;
+          } catch {
+            /* not redrawn yet */
+          }
           try {
             facades[s.facade] = await load(s.facade);
           } catch {
@@ -206,6 +236,19 @@ export function City({ base = "./world/", spawn, onExit }: CityProps) {
        * arrangement, because the art is drawn in another room on
        * another clock.
        */
+      /* The redrawn interiors, one per trade, where they exist. */
+      await Promise.all(
+        SHOPS.map(async (sh) => {
+          try {
+            const t = await load(`shop_${sh.id}_inside.webp`);
+            (sh as { interior?: string }).interior = `shop_${sh.id}_inside.webp`;
+            t.dispose();
+          } catch {
+            /* keep whatever interior the roster already names */
+          }
+        })
+      );
+
       await Promise.all(
         OPTIONAL_ART.map(async (id) => {
           try {
@@ -216,8 +259,44 @@ export function City({ base = "./world/", spawn, onExit }: CityProps) {
         })
       );
 
-      const walk = await Promise.all(WALK.map(load));
-      const run = await Promise.all(RUN.map(load)).catch(() => walk);
+      /*
+       * ---------------------------------------------------------------
+       * YOU WALK AS THE CHARACTER YOU CHOSE
+       * ---------------------------------------------------------------
+       * The city has been hard-coded to Amit's cycle since it was
+       * built, so whoever you picked at sign-up — including the dog
+       * and the cat — walked this street as somebody else.
+       *
+       * The delivered sheets are ONE image with eight poses in a row,
+       * and that is better than eight files: a texture clone shares
+       * the decoded image and carries its own offset, so eight frames
+       * cost one download and one upload to the GPU. No slicing tool,
+       * no eight requests.
+       */
+      const sheetFrames = async (id: string, n = 8) => {
+        const sheet = await load(id);
+        sheet.colorSpace = THREE.SRGBColorSpace;
+        return Array.from({ length: n }, (_, i) => {
+          const f = sheet.clone();
+          f.needsUpdate = true;
+          f.wrapS = f.wrapT = THREE.ClampToEdgeWrapping;
+          f.repeat.set(1 / n, 1);
+          f.offset.set(i / n, 0);
+          return f;
+        });
+      };
+
+      let walk: THREE.Texture[];
+      let run: THREE.Texture[];
+      const chosen = avatarNo ? String(avatarNo).padStart(2, "0") : null;
+      try {
+        if (!chosen) throw new Error("no avatar chosen");
+        walk = await sheetFrames(`avatar_${chosen}_back.webp`);
+        run = walk;
+      } catch {
+        walk = await Promise.all(WALK.map(load));
+        run = await Promise.all(RUN.map(load)).catch(() => walk);
+      }
       if (disposed) return;
 
       const street = buildStreet(SHOPS, facades);
@@ -704,7 +783,7 @@ export function City({ base = "./world/", spawn, onExit }: CityProps) {
       stop();
       if (renderer.domElement.parentElement === el) el.removeChild(renderer.domElement);
     };
-  }, [base, spawn?.x, spawn?.z]);
+  }, [base, spawn?.x, spawn?.z, avatarNo]);
 
   /* ----- the pad, in the DOM because that is where fingers are ----- */
   const padRef = useRef<HTMLDivElement | null>(null);

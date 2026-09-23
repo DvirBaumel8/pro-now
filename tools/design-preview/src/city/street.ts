@@ -110,7 +110,7 @@ export const STREET_LENGTH = 300;
  */
 export const SPAWN = { x: 6.3, z: STREET_LENGTH / 2 - 46 } as const;
 /** One building's frontage along the street. */
-const BAY = 11.5;
+const BAY = 8.8;
 
 /**
  * ---------------------------------------------------------------------
@@ -158,6 +158,8 @@ export const PROP_IDS = [
   "prop_jacaranda",
   "prop_planter_round",
   "prop_planter_box",
+  "prop_bench",
+  "prop_bin",
 ] as const;
 
 /** Every optional id, for the loader to try. */
@@ -647,11 +649,109 @@ export function buildStreet(
     }
   }
 
+  /**
+   * A CUT-OUT THAT STANDS UP.
+   *
+   * A painted tree on one flat plane is a sticker: walk past it and it
+   * has no side. Two planes crossed at right angles is the oldest
+   * trick in real-time graphics and it still works, because what the
+   * eye reads as a tree's volume is mostly the silhouette changing as
+   * you move — and with two of them one is always nearly square-on.
+   *
+   * Lit rather than unlit: the drawing carries its own painted light,
+   * so it goes in as an emissive map at a low intensity and takes the
+   * street's lamps on top. A fully unlit cut-out is the thing that
+   * made the shopfronts look like decals (see `shopBay`).
+   */
+  function cutout(tex: THREE.Texture, height: number, sides = 2): THREE.Group {
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const img = tex.image as { width: number; height: number };
+    const w = height * (img.width / img.height);
+    const mat = new THREE.MeshStandardMaterial({
+      map: tex,
+      emissiveMap: tex,
+      emissive: 0xffffff,
+      emissiveIntensity: 0.3,
+      transparent: true,
+      alphaTest: 0.42,
+      roughness: 0.9,
+      side: THREE.DoubleSide,
+    });
+    const g = new THREE.Group();
+    for (let i = 0; i < sides; i += 1) {
+      const q = new THREE.Mesh(new THREE.PlaneGeometry(w, height), mat);
+      q.position.y = height / 2;
+      q.rotation.y = (Math.PI / sides) * i;
+      g.add(q);
+    }
+    return g;
+  }
+
   /** A plain building, for the bays between his shops. */
   function ordinary(side: -1 | 1, z: number, seed: number) {
     const g = new THREE.Group();
     g.position.set(FRONT_X * side, 0, z);
     g.rotation.y = side < 0 ? Math.PI / 2 : -Math.PI / 2;
+
+    /*
+     * ---------------------------------------------------------------
+     * A DRAWN BUILDING, WHERE ONE HAS BEEN DRAWN
+     * ---------------------------------------------------------------
+     * Amit: *"מת שכבר יעופו הבניינים המוזרים מסביב לעסקים שלנו."*
+     *
+     * Everything below this branch — the plaster box, the flat
+     * rectangles for windows, the balcony slabs — was a stand-in for
+     * exactly this, and it is the thing that made him say the street
+     * looks like 2004. A flat orthographic elevation clads the block
+     * the same way his shopfronts do, and then the bay is his.
+     *
+     * The HEIGHT is the fixed quantity, for the reason the shopfronts
+     * taught: let the bay width decide it and a building's storey
+     * height comes out of a file's aspect ratio, which is not a
+     * decision anybody made. A four-storey building is about 14
+     * metres, so that is the band, and a drawing outside it is scaled
+     * whole rather than stretched.
+     */
+    const drawn = textures[BUILDING_FACADE_IDS[seed % BUILDING_FACADE_IDS.length]!];
+    if (drawn) {
+      drawn.colorSpace = THREE.SRGBColorSpace;
+      const img = drawn.image as { width: number; height: number };
+      const aspect = img.width / img.height;
+      let w = BAY + 0.6;
+      let h = w / aspect;
+      /* Four storeys of a narrow Mediterranean street, not a tower.
+         The same reasoning as the shopfronts: it is looked at from
+         three metres away, and 15 metres of wall at three metres is
+         not a building, it is a cliff. */
+      if (h > 11.6) { h = 11.6; w = h * aspect; }
+      else if (h < 9.6) { h = 9.6; w = h * aspect; }
+
+      const face = new THREE.Mesh(
+        new THREE.PlaneGeometry(w, h),
+        new THREE.MeshStandardMaterial({
+          map: drawn,
+          emissiveMap: drawn,
+          emissive: 0xffffff,
+          emissiveIntensity: 0.4,
+          transparent: true,
+          alphaTest: 0.35,
+          roughness: 0.88,
+        })
+      );
+      face.position.set(0, h / 2, 0.36);
+      g.add(face);
+
+      const depth = 11;
+      const carcass = new THREE.Mesh(
+        new THREE.BoxGeometry(Math.min(w - 1.6, BAY - 1.2), h - 1.4, depth),
+        wallMats[seed % wallMats.length]!
+      );
+      carcass.position.set(0, (h - 1.4) / 2, -depth / 2 - 0.05);
+      g.add(carcass);
+
+      scene.add(g);
+      return;
+    }
 
     const storeys = 3 + (seed % 3);
     const h = 4.2 + storeys * 2.9;
@@ -800,7 +900,15 @@ export function buildStreet(
        * The carcass behind is 9.1m wide and every result is wider than
        * that, so no drawing shrinks far enough to expose it.
        */
-      const SHOPFRONT_H = { min: 8.0, max: 8.9 };
+      /*
+       * The redrawn shopfronts are two-storey and nearly square, so a
+       * bay-wide facade came out fourteen metres tall — and you stand
+       * three metres from it. At that distance a fourteen-metre wall
+       * is a wall; you see the bottom third and nothing else. Eight
+       * and a half is a two-storey shop and it fits in the frame from
+       * the pavement, which is the only place anybody looks at it.
+       */
+      const SHOPFRONT_H = { min: 7.9, max: 8.6 };
       const aspect = img.width / img.height;
       let w = BAY + 0.6;
       faceH = w / aspect;
@@ -1434,7 +1542,33 @@ export function buildStreet(
    * than in the gaps between them.
    */
   const leafMat = new THREE.MeshStandardMaterial({ color: 0x5c8f5e, roughness: 0.8 });
+  /*
+   * The palm and the jacaranda are the two things in this street that
+   * Amit named without naming: the sphere-on-a-stick trees are the
+   * loudest remaining piece of 2004 in the frame. Where the drawings
+   * have landed they stand instead, as crossed cut-outs.
+   */
+  const drawnTrees = [textures["prop_palm"], textures["prop_jacaranda"]].filter(
+    (t): t is THREE.Texture => Boolean(t)
+  );
+  let treeTurn = 0;
+
   function tree(x: number, z: number, scale = 1) {
+    if (drawnTrees.length > 0) {
+      const t = drawnTrees[treeTurn++ % drawnTrees.length]!;
+      /*
+       * Five metres, not seven. The drawn palm is nearly as wide as it
+       * is tall, so at seven it was a four-and-a-half-metre crown two
+       * metres from the walker — the whole left of the frame. A real
+       * street palm of this kind is about five, and at five the crown
+       * passes overhead instead of across the lens.
+       */
+      const g = cutout(t, (4.9 + Math.random() * 0.9) * scale);
+      g.position.set(x, 0, z);
+      g.rotation.y = Math.random() * Math.PI;
+      scene.add(g);
+      return;
+    }
     const g = new THREE.Group();
     const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.2, 4.2, 8), barkMat);
     trunk.position.y = 2.1;
@@ -1459,8 +1593,8 @@ export function buildStreet(
   /* Every 34 metres and no closer. A tree at every lamp is an avenue,
      and an avenue is a green tunnel you cannot see a shop through. */
   for (let z = STREET_LENGTH / 2 - 8; z > -STREET_LENGTH / 2; z -= 46) {
-    tree(FURNITURE_X, z - 7, 0.7 + Math.random() * 0.14);
-    tree(-FURNITURE_X, z - 18.5, 0.7 + Math.random() * 0.14);
+    tree(FURNITURE_X - 0.3, z - 7, 0.94 + Math.random() * 0.12);
+    tree(-FURNITURE_X + 0.3, z - 18.5, 0.94 + Math.random() * 0.12);
   }
 
   /* ---------------------------------------------------------------
@@ -1594,7 +1728,21 @@ export function buildStreet(
 
   /* Flowers, in a box, in colour. */
   const flowerHues = [0xff6b9d, 0xffd166, 0xff8b4a, 0xc08bff, 0xfff1f1];
+  const drawnPlanters = [
+    textures["prop_planter_box"],
+    textures["prop_planter_round"],
+  ].filter((t): t is THREE.Texture => Boolean(t));
+  let planterTurn = 0;
+
   function planter(x: number, z: number) {
+    if (drawnPlanters.length > 0) {
+      const t = drawnPlanters[planterTurn++ % drawnPlanters.length]!;
+      const g = cutout(t, 1.15);
+      g.position.set(x, 0, z);
+      g.rotation.y = Math.random() * Math.PI;
+      scene.add(g);
+      return;
+    }
     const g = new THREE.Group();
     const box = new THREE.Mesh(
       new THREE.BoxGeometry(1.5, 0.46, 0.55),
@@ -1636,11 +1784,29 @@ export function buildStreet(
     scene.add(g);
   }
 
+  /*
+   * Benches and bins are drawn too, where they have arrived. The café
+   * set keeps its geometry either way, because its candle is a light
+   * source and a cut-out cannot hold one.
+   */
+  const drawnBench = textures["prop_bench"];
+  const drawnBin = textures["prop_bin"];
+  function furnish(x: number, z: number, tex: THREE.Texture | undefined, h: number) {
+    if (!tex) return;
+    const g = cutout(tex, h);
+    g.position.set(x, 0, z);
+    g.rotation.y = (Math.random() - 0.5) * 0.7 + (x > 0 ? -Math.PI / 2 : Math.PI / 2);
+    scene.add(g);
+  }
+
   for (let z = STREET_LENGTH / 2 - 24; z > -STREET_LENGTH / 2; z -= 31) {
     cafe(FRONT_X - 2.0, z, flowerHues[Math.floor(Math.random() * 3)]!);
     cafe(-FRONT_X + 2.0, z - 15, 0xffc07a);
     planter(FRONT_X - 1.3, z - 7);
     planter(-FRONT_X + 1.3, z - 22);
+    furnish(FRONT_X - 1.6, z - 18, drawnBench, 1.0);
+    furnish(-FRONT_X + 1.6, z - 3, drawnBench, 1.0);
+    furnish(FRONT_X - 1.2, z - 26, drawnBin, 1.05);
   }
 
   /* ---------------------------------------------------------------
