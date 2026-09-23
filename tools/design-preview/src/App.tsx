@@ -605,6 +605,8 @@ export function App() {
    */
   const pickingForStroll = useRef(false);
   const [openStrollOnce, setOpenStrollOnce] = useState(false);
+  /** The same one-shot for the other wait: "is the work finished?" */
+  const [openCompletionOnce, setOpenCompletionOnce] = useState(false);
 
   /**
    * THE WAY BACK, AFTER THE CUSTOMER HAS ANSWERED.
@@ -647,6 +649,16 @@ export function App() {
     draft: { lines: { id: string; description: string; quantity: number; unitPriceMinorUnits: number; kind: string }[]; notesHe: string } | null;
   } | null>(null);
   const [quoteDecision, setQuoteDecision] = useState<"APPROVED" | "DECLINED" | null>(null);
+  /**
+   * THE CUSTOMER SAID THE WORK IS DONE.
+   *
+   * Amit: *"איפה המקצוען רואה את האישור עבודה?"* The professional's
+   * side had nowhere for this to arrive, because nothing was waiting
+   * for it — their own "סיימתי" used to settle the job by itself. It
+   * crosses the same way the quote's answer does, through the shell,
+   * which is this prototype's stand-in for the server.
+   */
+  const [completionConfirmed, setCompletionConfirmed] = useState(false);
   /**
    * The prototype notice. It covers the address row while it is up, so it
    * takes itself away — a permanent overlay on the first thing a reviewer
@@ -839,6 +851,8 @@ export function App() {
             pendingQuote={pendingQuote}
             openQuoteOnce={openQuoteOnce}
             onQuoteOpened={() => setOpenQuoteOnce(false)}
+            openCompletionOnce={openCompletionOnce}
+            onCompletionOpened={() => setOpenCompletionOnce(false)}
             /*
              * REOPENING THE PICKER, WHICH ONLY THE SHELL CAN DO.
              *
@@ -863,6 +877,10 @@ export function App() {
             openStrollOnce={openStrollOnce}
             onStrollOpened={() => setOpenStrollOnce(false)}
             memory={customerMemory}
+            onConfirmCompletion={() => {
+              setCompletionConfirmed(true);
+              setReturnToPro(true);
+            }}
             returnToPro={returnToPro}
             onReturnToPro={() => {
               setReturnToPro(false);
@@ -927,8 +945,16 @@ export function App() {
              * must not reach into it.
              */
             memory={proMemory}
-            onSeeAsCustomer={() => {
-              setOpenQuoteOnce(true);
+            completionConfirmed={completionConfirmed}
+            onCompletionSeen={() => setCompletionConfirmed(false)}
+            onSeeAsCustomer={(what) => {
+              /*
+               * Two waits, two destinations. The quote is a screen of its
+               * own; the confirmation that the work is done lives on the
+               * tracking panel, at the stage that asks for it.
+               */
+              if (what === "completion") setOpenCompletionOnce(true);
+              else setOpenQuoteOnce(true);
               switchTo("customer");
             }}
           />
@@ -1088,12 +1114,15 @@ function CustomerApp({
   pendingQuote,
   openQuoteOnce,
   onQuoteOpened,
+  openCompletionOnce,
+  onCompletionOpened,
   onPickAvatar,
   openStrollOnce,
   onStrollOpened,
   memory,
   returnToPro,
   onReturnToPro,
+  onConfirmCompletion,
   onQuoteDecision,
   avatar,
   art,
@@ -1127,6 +1156,9 @@ function CustomerApp({
   openQuoteOnce: boolean;
   /** Cleared as soon as we have acted on it, so it fires exactly once. */
   onQuoteOpened: () => void;
+  /** The professional is waiting to be told the work is finished. */
+  openCompletionOnce?: boolean;
+  onCompletionOpened?: () => void;
   /**
    * Reopens the avatar picker. Undefined while its art has not arrived.
    * The picker is a gate above this component, so this is the only way
@@ -1144,6 +1176,8 @@ function CustomerApp({
   /** The customer has answered a quote, so the professional has a move. */
   returnToPro?: boolean;
   onReturnToPro?: () => void;
+  /** The customer agreed the work is finished. See `completionConfirmed`. */
+  onConfirmCompletion?: () => void;
   onQuoteDecision: (d: "APPROVED" | "DECLINED") => void;
   /**
    * Who the customer walks the street as. Owned above, because the picker
@@ -1615,6 +1649,16 @@ const go = useCallback((r: CustomerRoute) => {
    * trusted: a skip answers "no figure", and walking an empty street is
    * the thing the door exists not to do.
    */
+  /*
+   * The other crossing: straight to the stage that asks the customer
+   * whether the work is finished. Same one-shot shape as the quote's.
+   */
+  useEffect(() => {
+    if (!openCompletionOnce) return;
+    onCompletionOpened?.();
+    go({ name: "tracking", stage: "done" });
+  }, [openCompletionOnce, onCompletionOpened, go]);
+
   useEffect(() => {
     if (!openStrollOnce) return;
     onStrollOpened?.();
@@ -2352,7 +2396,16 @@ const go = useCallback((r: CustomerRoute) => {
              * settles, authorises, captures and writes the ledger, and
              * none of it is reported by the client.
              */
-            onConfirmCompletion={() => go({ name: "complete" })}
+            /*
+             * The most consequential tap in the product: the
+             * professional's claim becomes the customer's agreement and
+             * the money moves. It goes UP as well as forward now, so the
+             * other side's screen can stop waiting.
+             */
+            onConfirmCompletion={() => {
+              onConfirmCompletion?.();
+              go({ name: "complete" });
+            }}
             /*
              * The world, and who is coming through it. `departmentCode`
              * decides which street they come down and what they are
@@ -3007,6 +3060,8 @@ function ProApp({
   onSendQuote,
   onQuoteSeen,
   onSeeAsCustomer,
+  completionConfirmed,
+  onCompletionSeen,
   memory,
 }: {
   /**
@@ -3049,7 +3104,17 @@ function ProApp({
    * their own customer, which is why this lives on the demo row and says
    * "הדגמה" before it says anything else.
    */
-  onSeeAsCustomer?: () => void;
+  onSeeAsCustomer?: (what: "quote" | "completion") => void;
+  /**
+   * The customer has agreed the work is finished.
+   *
+   * This is what ends a job. The professional's own "סיימתי את העבודה"
+   * only moves them to COMPLETION_PENDING — see `JOB_FLOW` — because
+   * /docs/09-PAYMENTS.md puts the charge behind the customer's
+   * confirmation rather than the professional's claim.
+   */
+  completionConfirmed?: boolean;
+  onCompletionSeen?: () => void;
   /**
    * What this side was doing the last time it was mounted. Held above
    * because a crossing unmounts all of it — see `ProMemory`.
@@ -3232,7 +3297,13 @@ function ProApp({
    * and says so, like every other control in this row: a real
    * professional has no button that answers as their customer.
    */
-  const showHandover = job === "WAITING_QUOTE_APPROVAL" && settled === null;
+  /*
+   * The same crossing at the second wait: the customer's confirmation
+   * that the work is done is what ends the job, and a reviewer looking
+   * at "ממתין לאישור הלקוח" needs the same one tap to go and give it.
+   */
+  const showHandover =
+    (job === "WAITING_QUOTE_APPROVAL" || job === "COMPLETION_PENDING") && settled === null;
   const bodyH = height - BAR - (showDemo || showHandover ? DEMO_H : 0);
 
   useEffect(() => {
@@ -3255,6 +3326,25 @@ function ProApp({
     setJob(quoteDecision === "APPROVED" ? "IN_PROGRESS" : "DIAGNOSIS");
     onQuoteSeen();
   }, [quoteDecision, job, onQuoteSeen]);
+
+  /**
+   * AND THE CUSTOMER SAID THE WORK IS DONE.
+   *
+   * Amit: *"איפה המקצוען רואה את האישור עבודה?"* Here — this is the
+   * only thing that ends a job. The professional's own "סיימתי את
+   * העבודה" leaves them at COMPLETION_PENDING; what settles the money
+   * and opens the closing screen is the other person agreeing, and it
+   * arrives from the shell the way the quote's answer does.
+   *
+   * Guarded on the state, not just on the flag: a confirmation that
+   * arrived for a job this side is no longer on would otherwise settle
+   * whatever job it IS on.
+   */
+  useEffect(() => {
+    if (!completionConfirmed || job !== "COMPLETION_PENDING") return;
+    advanceJob();
+    onCompletionSeen?.();
+  });
 
   // The shift clock ticks once a second while online, and not at all when
   // offline — there is nothing to count.
@@ -3331,6 +3421,27 @@ function ProApp({
         }
     : null;
 
+  /*
+   * ---------------------------------------------------------------------
+   * AND IT STOPS ON THE CUSTOMER'S CONFIRMATION, WHICH IT DID NOT
+   * ---------------------------------------------------------------------
+   * Amit: *"איפה מסך אישור התשלום ע"י הלקוח? איפה המקצוען רואה את
+   * האישור עבודה?"*
+   *
+   * COMPLETION_PENDING was missing from this list, so "סיימתי את
+   * העבודה" went straight to COMPLETED: the professional declared the
+   * work done and the app paid them out on their own say-so, on the
+   * same tap. The state machine has two states there for a reason —
+   * /docs/09-PAYMENTS.md puts the charge behind the CUSTOMER's
+   * confirmation, not the professional's claim — and this side was
+   * skipping the one that belongs to the other person.
+   *
+   * With it in the list the professional's last button leaves them
+   * waiting, and what ends the job is the customer pressing "הכול תקין"
+   * on their own screen. Which is also the answer to the second half of
+   * his question: the approval he was looking for had nowhere to arrive,
+   * because nothing was waiting for it.
+   */
   const JOB_FLOW: JobState[] = [
     "PRO_ASSIGNED",
     "PRO_EN_ROUTE",
@@ -3338,6 +3449,7 @@ function ProApp({
     "DIAGNOSIS",
     "WAITING_QUOTE_APPROVAL",
     "IN_PROGRESS",
+    "COMPLETION_PENDING",
     "COMPLETED",
   ];
   const advanceJob = () => {
@@ -3797,8 +3909,12 @@ function ProApp({
       {showHandover ? (
         <DemoBar
           dark
-          label="מעבר לצד הלקוח כדי לאשר את ההצעה"
-          onPress={() => onSeeAsCustomer?.()}
+          label={
+            job === "COMPLETION_PENDING"
+              ? "מעבר לצד הלקוח כדי לאשר שהעבודה הושלמה"
+              : "מעבר לצד הלקוח כדי לאשר את ההצעה"
+          }
+          onPress={() => onSeeAsCustomer?.(job === "COMPLETION_PENDING" ? "completion" : "quote")}
           width={width}
         />
       ) : null}

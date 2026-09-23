@@ -294,6 +294,55 @@ if (crossed) {
   if (!afterApproval.includes(`אישרתם ‏${AMOUNT}`)) {
     problems.push('the panel does not say the approved amount back while the work runs');
   }
+  /* ----------------------------------------------------------------
+     AND THE SECOND HANDOVER, WHICH DID NOT EXIST.
+
+     Amit: *"איפה מסך אישור התשלום ע"י הלקוח? איפה המקצוען רואה את
+     האישור עבודה?"* The professional's "סיימתי את העבודה" used to go
+     straight to a payout — the job settled on their own say-so, and
+     COMPLETION_PENDING, the state that belongs to the customer, was
+     missing from this side's flow entirely. So there was no approval to
+     see, because nothing was waiting for one.
+
+     This walks it from the professional's side: finish the work, land
+     on a wait, cross over, confirm, and check the job actually settled
+     over there.
+     ---------------------------------------------------------------- */
+  await p
+    .getByRole('button', { name: 'מעבר לצד בעל המקצוע', exact: true })
+    .first()
+    .click({ timeout: 6000 })
+    .catch(() => problems.push('no way across to the professional from the tracking panel'));
+  await p.waitForTimeout(1600);
+  await tap(/סיימתי את העבודה/, 1500);
+  const waitingDone = await text();
+  if (!waitingDone.includes('הלקוח מאשר שהעבודה הושלמה')) {
+    problems.push('finishing the work does not leave the professional waiting for the customer');
+  }
+  if ((await p.getByRole('button', { name: /סיימתי את העבודה/ }).count()) > 0) {
+    problems.push('the professional can still declare the work finished after finishing it');
+  }
+  /*
+   * "נוסף להכנסות שלך" is the settled screen's own line. An earlier
+   * version of this looked for "הרווחת", which also lives in the tab
+   * bar as "כמה הרווחתי" — so it reported the job settled on a screen
+   * where it plainly had not.
+   */
+  if (waitingDone.includes('נוסף להכנסות שלך')) {
+    problems.push('the job settled on the professional own say-so, without the customer');
+  }
+
+  const crossBack = await tap(/מעבר לצד הלקוח כדי לאשר שהעבודה הושלמה/, 1800);
+  if (crossBack) {
+    await tap(/אישור שהעבודה הושלמה/, 1800);
+    await p.getByRole('button', { name: 'מעבר לצד בעל המקצוע', exact: true }).first().click({ timeout: 6000 }).catch(() => {});
+    await p.waitForTimeout(1800);
+    const settled = await text();
+    if (!settled.includes('נוסף להכנסות שלך')) {
+      problems.push('after the customer confirmed, the professional side does not show the job closing');
+    }
+  }
+
   /*
    * AND ALL THE WAY TO THE END, because the closing screen is where the
    * approved quote has to be still in one piece. Amit: *"חייב עמוד תודה
@@ -302,8 +351,18 @@ if (crossed) {
    * that was hard-coded — so somebody who had just agreed to one price
    * was thanked for another.
    */
-  await tap(/המקצוען סיים את העבודה/, 1400);
-  await tap(/סיכום העבודה/, 1500);
+  /*
+   * Back to the customer, who confirmed the work a moment ago and is
+   * therefore already past the tracking panel. The demo row's "המקצוען
+   * סיים את העבודה" used to be how this walk got here, and it is gone
+   * for a good reason: the customer ended the job themselves.
+   */
+  await p
+    .getByRole('button', { name: 'לקוח', exact: true })
+    .first()
+    .click({ timeout: 6000 })
+    .catch(() => problems.push('no way back to the customer after the job settled'));
+  await p.waitForTimeout(1800);
   await tap(/^5 כוכבים$/, 600);
   await tap(/שליחת דירוג/, 1600);
   const closing = await text();

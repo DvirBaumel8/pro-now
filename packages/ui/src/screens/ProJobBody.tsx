@@ -475,6 +475,45 @@ export function ProJobBody({
             </Pressable>
           </View>
         </View>
+      ) : status === "COMPLETION_PENDING" ? (
+        /* ----------------------------------------------------------------
+           AND THE SECOND TIME THE BALL IS IN THE OTHER COURT.
+
+           Amit: *"איפה המקצוען רואה את האישור עבודה?"*
+
+           He could not see it because nothing was waiting for it: this
+           side used to go from "סיימתי את העבודה" straight to a payout,
+           settling the job on the professional's own say-so. The state
+           machine has two states here for a reason, and
+           /docs/09-PAYMENTS.md puts the charge behind the CUSTOMER's
+           confirmation — so this is the moment that was being skipped.
+
+           Same shape as the quote's wait, because it is the same
+           situation: something has been handed over, nothing can be done
+           until it comes back, and a screen that says only "waiting"
+           with no way to affect anything is what makes people close an
+           app. A nudge is the one honest action here — there is nothing
+           to revise, because the work is done.
+           ---------------------------------------------------------------- */
+        <View style={styles.cta}>
+          <View style={styles.waiting}>
+            <Text style={styles.waitingText}>
+              אמרת שסיימת. הלקוח מאשר שהעבודה הושלמה, ואז התשלום נסגר.
+            </Text>
+            <Text style={styles.waitingSince}>
+              התשלום נסגר על אישור הלקוח, לא על ההצהרה שלך — כך זה מוסכם משני הצדדים.
+            </Text>
+          </View>
+          <View style={styles.waitingActions}>
+            <Pressable
+              onPress={onCall}
+              accessibilityRole="button"
+              style={({ pressed }) => [styles.waitingBtn, pressed && { opacity: 0.88 }]}
+            >
+              <Text style={styles.waitingBtnText}>תזכורת ללקוח</Text>
+            </Pressable>
+          </View>
+        </View>
       ) : null}
     </View>
   );
