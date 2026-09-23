@@ -24,6 +24,7 @@ import { HAIR_DISCOVERY_IDS } from "@pro-now/ui";
 
 import type { WorldAssetSources } from "@pro-now/ui";
 import { worldSources } from "./worldSources";
+import { City } from "./city/City";
 import { PREVIEW_SPONSORS } from "./sponsors";
 
 /**
@@ -224,6 +225,18 @@ type CustomerRoute =
    * on the home screen now. See `StrollBody`.
    */
   | { name: "stroll" }
+  /*
+   * THE SAME STREET, WITH A CAMERA IN IT.
+   *
+   * A full-bleed WebGL scene rather than a react-native-web tree, so it
+   * is returned above the app's own chrome rather than as a body. It
+   * lives in the preview and not in `packages/ui` for the reason given
+   * on `StrollBody.onEnterCity`: react-native cannot host WebGL without
+   * `expo-gl`, and pretending otherwise by shipping it from the shared
+   * package would put a component in there that only one of the three
+   * consumers can render.
+   */
+  | { name: "city" }
   | { name: "category"; categoryId: string }
   | { name: "service"; serviceId: string }
   | { name: "describe"; serviceId: string; symptomsHe: string[] }
@@ -2238,6 +2251,7 @@ const go = useCallback((r: CustomerRoute) => {
               if (category) go({ name: "category", categoryId: category.id });
             }}
             onBack={() => go({ name: "home" })}
+            onEnterCity={() => go({ name: "city" })}
             width={width}
             height={bodyH}
           />
@@ -3237,6 +3251,24 @@ const go = useCallback((r: CustomerRoute) => {
       </Pressable>
     ) : null;
 
+  /*
+   * THE CITY TAKES THE WHOLE SCREEN, HEADER AND ALL.
+   *
+   * Everything else in this app is a BODY under a header and over a
+   * utility row. The city is not a body: it is a camera in a place, and
+   * a chrome bar across the top of it is the single clearest way to say
+   * "this is a widget in an app" about something whose entire purpose
+   * is to stop feeling like one. It returns before the frame is built,
+   * rather than being slotted into it.
+   */
+  if (route.name === "city") {
+    return (
+      <View style={{ width, height }}>
+        <City base="./world/" onExit={() => go({ name: "stroll" })} />
+      </View>
+    );
+  }
+
   return (
     <View style={{ width, height }}>
       {walkingDemo}
@@ -3506,6 +3538,21 @@ const go = useCallback((r: CustomerRoute) => {
         * CommandChrome.tsx.)
         */}
       {capsule ? (
+        /*
+         * NO `progress` HERE, AND THAT IS THE POINT.
+         *
+         * The capsule can walk the professional to a known point on the
+         * track when the server says how far through the trip they are —
+         * `routeProgress` computes that from the ETA at assignment and
+         * the ETA now. The preview's open-call record carries only the
+         * minutes remaining, so it has the second number and not the
+         * first, and one of two numbers is not a fraction.
+         *
+         * Left out, the figure walks and the road moves past it: alive,
+         * and silent about distance, which is exactly what we know.
+         * Filling it in from the minutes alone would be inventing the
+         * denominator. /CLAUDE.md §3.
+         */
         <ActiveJobCapsule
           textHe={capsule.textHe}
           etaMinutes={capsule.etaMinutes}

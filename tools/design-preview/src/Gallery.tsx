@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet, ScrollView, useWindowDimensions } from "react-native";
 
-import { CustomerHomeBody, CustomerProfileBody, customerTheme, JobClosedBody, JobCompleteBody, MatchCard, MatchCardSkeleton, OfferCard, OfferCardSkeleton, Persona, PersonaStack, ProJobBody, ProOfferBody, ProOnlineBody, ProProfileBody, ProQuoteBuilderBody, ProShiftBody, proTheme, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, spacing, TrackingBody, type as t } from "@pro-now/ui";
+import {ActiveJobCapsule, CustomerHomeBody, CustomerProfileBody, customerTheme, JobClosedBody, JobCompleteBody, MatchCard, MatchCardSkeleton, OfferCard, OfferCardSkeleton, Persona, PersonaStack, ProJobBody, ProOfferBody, ProOnlineBody, ProProfileBody, ProQuoteBuilderBody, ProShiftBody, proTheme, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, spacing, TrackingBody, type as t } from "@pro-now/ui";
 
 import {
   FROZEN_NOW_MS,
@@ -162,6 +162,44 @@ export function Gallery() {
           </Text>
           <ProSequence width={PHONE_W} height={PHONE_H} />
         </View>
+      </Section>
+
+      {/* =============== THE LIVE CAPSULE =============== */}
+      <Section
+        title="הכרטיסייה החיה"
+        subtitle="הדבר היחיד במסך הבית שזז. הוא מופיע רק כשיש קריאה פתוחה, ומראה מקצוען מתקדם בדרך — בלי משפט, רק הדקות. שתי הגרסאות כאן הן ההבדל בין 'השרת יודע כמה התקדמנו' לבין 'השרת אמר רק כמה נשאר'."
+      >
+        <Frame caption="כשאין אחוז התקדמות מהשרת — הדמות הולכת והכביש נע. תנועה בלי טענה על מרחק">
+          <View style={{ width: PHONE_W, backgroundColor: "#0E0A14", paddingVertical: spacing.lg }}>
+            <ActiveJobCapsule
+              textHe="דוגמה ב׳ · בדרך אליך"
+              etaMinutes={14}
+              width={PHONE_W}
+            />
+          </View>
+        </Frame>
+
+        <Frame caption="כשיש — הדמות עומדת בנקודה שהשרת אמר, והכביש עומד. זו טענה, מצויירת">
+          <View style={{ width: PHONE_W, backgroundColor: "#0E0A14", paddingVertical: spacing.lg }}>
+            <ActiveJobCapsule
+              textHe="דוגמה ב׳ · בדרך אליך"
+              etaMinutes={4}
+              progress={0.72}
+              width={PHONE_W}
+            />
+          </View>
+        </Frame>
+
+        <Frame caption="הצעת מחיר ממתינה — אין דקות, אין מסע. רק המסלול הריק והדלת">
+          <View style={{ width: PHONE_W, backgroundColor: "#0E0A14", paddingVertical: spacing.lg }}>
+            <ActiveJobCapsule
+              textHe="הצעת מחיר ממתינה לאישורך"
+              etaMinutes={null}
+              live={false}
+              width={PHONE_W}
+            />
+          </View>
+        </Frame>
       </Section>
 
       {/* =============== CUSTOMER FLOW =============== */}

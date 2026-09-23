@@ -126,6 +126,21 @@ export interface StrollBodyProps {
   sponsors?: readonly SponsorShop[];
   onEnterSponsor?: (shop: SponsorShop) => void;
   onBack?: () => void;
+  /**
+   * THE DOOR TO THE SAME STREET IN THREE DIMENSIONS.
+   *
+   * This screen is the painted world: one viewpoint, painted from
+   * above, with cut-out figures standing on it. It is the version that
+   * runs on a phone today, and it is good at what it does.
+   *
+   * The city with a camera in it is a WebGL scene, which react-native
+   * cannot host without `expo-gl` — a real piece of work and a decision
+   * that is not this component's to make. So the host supplies the door
+   * when it has somewhere to send you, and this screen neither knows
+   * nor cares what is on the other side of it. Where there is no such
+   * place, the chip is simply not drawn.
+   */
+  onEnterCity?: () => void;
   /** Lets somebody who skipped the avatar go and choose one. */
   onChooseAvatar?: () => void;
   animate?: boolean;
@@ -141,6 +156,7 @@ export function StrollBody({
   sponsors,
   onEnterSponsor,
   onBack,
+  onEnterCity,
   onChooseAvatar,
   animate = true,
   width = 390,
@@ -686,6 +702,17 @@ export function StrollBody({
 
       {onBack ? <BackButton onPress={onBack} tone="dark" accessibilityLabelHe="חזרה" /> : null}
 
+      {onEnterCity ? (
+        <Pressable
+          onPress={onEnterCity}
+          accessibilityRole="button"
+          accessibilityLabel="כניסה לעיר בתלת מימד"
+          style={styles.cityChip}
+        >
+          <Text style={styles.cityChipText}>העיר בתלת־מימד ›</Text>
+        </Pressable>
+      ) : null}
+
       {/*
         * THE TITLE LEAVES ONCE YOU ARE WALKING.
         *
@@ -854,6 +881,24 @@ const FURTHEST_METRES = 700;
 const ZOOM_STEP = 1.55;
 
 const styles = StyleSheet.create({
+  /* Opposite the back control, on the same line, so the two reads of
+     this screen — out, and further in — sit at the same height. */
+  cityChip: {
+    position: "absolute",
+    top: spacing.lg,
+    left: spacing.lg,
+    minHeight: 44,
+    justifyContent: "center",
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.pill,
+    backgroundColor: "rgba(16,11,22,0.86)",
+    borderWidth: 1,
+    borderColor: "rgba(247,243,250,0.55)",
+  },
+  cityChipText: {
+    ...type.metaStrong,
+    color: "#F7F3FA",
+  },
   screen: { overflow: "hidden", backgroundColor: "#0B0918" },
   /*
    * THE TITLE CARRIES ITS OWN BACKGROUND.

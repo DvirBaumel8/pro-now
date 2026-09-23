@@ -1,5 +1,5 @@
-import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useRef } from "react";
+import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { customerDarkTheme, customerTheme, palette, radii, scale, spacing, tabular, type } from "../theme";
 import { NavGlyph } from "./NavGlyph";
@@ -96,10 +96,27 @@ export function UtilityRow({
 }
 
 export interface ActiveJobCapsuleProps {
-  /** "דוגמה א׳ בדרך אליך" — the sentence, already assembled. */
+  /**
+   * "דוגמה א׳ · בדרך אליך". No longer drawn, and still required: it is
+   * the capsule's accessibility label, and a screen reader that is told
+   * only "14 דקות" has been told the least useful half.
+   */
   textHe: string;
   /** Minutes away, when the server has computed a route. */
   etaMinutes?: number | null;
+  /**
+   * How far through the trip the SERVER says they are, 0…1 — from
+   * `routeProgress`, which derives it from the ETA and returns null
+   * rather than guessing.
+   *
+   * Null is not a failure state and is not drawn as one. With a number
+   * the figure stands at that point on the track and the track is
+   * still: a claim, rendered. Without one the figure walks and the
+   * ROAD moves past it instead — motion with no position in it, which
+   * says "on their way" and says nothing about how far, because we do
+   * not know how far. /CLAUDE.md §3.
+   */
+  progress?: number | null;
   live?: boolean;
   onPress?: () => void;
   width: number;
@@ -115,6 +132,29 @@ export interface ActiveJobCapsuleProps {
  * raised surface with a coral wash at its leading edge and the ETA set in
  * coral: the only object on the home screen that is lit from inside, which
  * is what "someone is on their way to you right now" should look like.
+ *
+ * ---------------------------------------------------------------------
+ * AND THEN THE SENTENCE CAME OUT OF IT
+ * ---------------------------------------------------------------------
+ * Amit, pointing at a screenshot of it: *"איפה שרשום דומה ב למטה תעיף
+ * את זה ותעשה איזה דמות מגניבה של המקצוען מתקדמת ותשאיר רק את הזמן בסוף
+ * של הדק."*
+ *
+ * He is right, and the reason is not decoration. The capsule said
+ * "דוגמה ב׳ · בדרך אליך · 14 דק׳" — three facts, of which the customer
+ * already knows the first (they chose them), can infer the second (why
+ * else would this be here), and only needs the third. A line of type
+ * spending two thirds of itself on what you already know reads as
+ * filler, and filler on the one live element of the screen is exactly
+ * what makes it feel dead.
+ *
+ * A figure walking a road says "בדרך אליך" without a word of it, in a
+ * way type cannot: it is the only thing on the home screen that MOVES,
+ * and movement is what "right now" looks like. The minutes stay,
+ * because the minutes are the part nobody can infer.
+ *
+ * The name does not disappear — it moves to the accessibility label,
+ * where somebody who cannot see the figure still gets the sentence.
  */
 
 /** The vertical space the capsule needs, for callers sizing the body. */
@@ -123,6 +163,7 @@ export const CAPSULE_HEIGHT = 68;
 export function ActiveJobCapsule({
   textHe,
   etaMinutes,
+  progress = null,
   live = true,
   onPress,
   width,
@@ -133,20 +174,146 @@ export function ActiveJobCapsule({
         onPress={onPress}
         accessibilityRole="button"
         accessibilityLabel={`${textHe}${etaMinutes ? `, ${etaMinutes} דקות` : ""}`}
-        style={({ pressed }) => [styles.capsule, pressed && { opacity: 0.92 }]}
+        /*
+         * AN EXPLICIT WIDTH, NOW THAT THE CONTENT IS NOT A SENTENCE.
+         *
+         * The pill used to size itself to its text and `maxWidth: 92%`
+         * kept it from running off. With the text gone the only greedy
+         * child is the road, and a `flex: 1` child inside a row that
+         * shrink-wraps its content collapses to nothing — the first
+         * build put a walker, a door and nine dashes into about sixty
+         * points, all on top of the minutes.
+         */
+        style={({ pressed }) => [
+          styles.capsule,
+          { width: Math.round(width * 0.92) },
+          pressed && { opacity: 0.92 },
+        ]}
       >
         <Text style={styles.capsuleGo}>›</Text>
-        <Text style={styles.capsuleText} numberOfLines={1}>
-          {textHe}
-        </Text>
+        <ApproachTrack progress={progress} />
         {typeof etaMinutes === "number" ? (
-          <>
-            <Text style={styles.capsuleDot}>·</Text>
-            <Text style={styles.capsuleEta}>{etaMinutes} דק׳</Text>
-          </>
+          <Text style={styles.capsuleEta}>{etaMinutes} דק׳</Text>
         ) : null}
         {live ? <Pulse color={colors.action} size={7} /> : null}
       </Pressable>
+    </View>
+  );
+}
+
+/**
+ * THE ROAD, THE WALKER, AND YOUR DOOR.
+ *
+ * ---------------------------------------------------------------------
+ * WHY IT IS DRAWN AND NOT A PICTURE
+ * ---------------------------------------------------------------------
+ * The art pack has a professional for every trade and a vehicle for
+ * three, and none of them would be right here: the capsule is 68 points
+ * tall, so the figure is about thirty, and a thirty-point crop of a
+ * detailed drawing is a smudge. It is also the wrong claim — a plumber
+ * shown when the job is electrical is a lie told by an asset id.
+ *
+ * So it is a silhouette: head, body, a bag, two legs that swing. At
+ * this size a silhouette reads as "a person walking" more clearly than
+ * any illustration would, and it is true of every trade.
+ *
+ * ---------------------------------------------------------------------
+ * RIGHT TO LEFT, BECAUSE THE APP IS
+ * ---------------------------------------------------------------------
+ * The walker starts at the right and the door is at the left. In an RTL
+ * layout that is the direction of travel through a sentence, so it
+ * reads as approach rather than departure without anybody deciding to
+ * read it.
+ */
+function ApproachTrack({ progress }: { progress: number | null }) {
+  const step = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.timing(step, {
+        toValue: 1,
+        duration: 1100,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [step]);
+
+  /* One cycle is two strides, so each leg leads once. */
+  const swing = step.interpolate({
+    inputRange: [0, 0.25, 0.5, 0.75, 1],
+    outputRange: ["17deg", "0deg", "-17deg", "0deg", "17deg"],
+  });
+  const swingBack = step.interpolate({
+    inputRange: [0, 0.25, 0.5, 0.75, 1],
+    outputRange: ["-17deg", "0deg", "17deg", "0deg", "-17deg"],
+  });
+  /* The small rise and fall of a body over its own stride. */
+  const bob = step.interpolate({
+    inputRange: [0, 0.25, 0.5, 0.75, 1],
+    outputRange: [0, -1.2, 0, -1.2, 0],
+  });
+
+  const known = typeof progress === "number";
+  const known01 = known ? Math.max(0, Math.min(1, progress as number)) : 0;
+
+  return (
+    <View style={styles.track} pointerEvents="none">
+      {/*
+        * THE ROAD.
+        *
+        * Dashes, and they only move when the walker does not. With a
+        * server progress the figure travels the track and the road is
+        * still; without one the figure walks on the spot and the road
+        * runs past, which is motion that makes no claim about distance.
+        */}
+      <View style={styles.road}>
+        {Array.from({ length: 9 }).map((_, i) => (
+          <Animated.View
+            key={i}
+            style={[
+              styles.dash,
+              known
+                ? null
+                : {
+                    transform: [
+                      {
+                        translateX: step.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0, 14],
+                        }),
+                      },
+                    ],
+                  },
+            ]}
+          />
+        ))}
+      </View>
+
+      {/* Your door, at the end of it. */}
+      <View style={styles.doorWrap}>
+        <View style={styles.doorPin} />
+        <View style={styles.doorStem} />
+      </View>
+
+      <Animated.View
+        style={[
+          styles.walker,
+          {
+            /* RTL: `right` is the start. A known progress walks it in. */
+            right: known ? `${14 + known01 * 68}%` : "16%",
+            transform: [{ translateY: bob }],
+          },
+        ]}
+      >
+        <View style={styles.head} />
+        <View style={styles.body} />
+        <View style={styles.bag} />
+        <Animated.View style={[styles.leg, { transform: [{ rotate: swing }] }]} />
+        <Animated.View style={[styles.leg, { transform: [{ rotate: swingBack }] }]} />
+      </Animated.View>
     </View>
   );
 }
@@ -195,7 +362,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
     minHeight: 58,
-    maxWidth: "92%",
     paddingHorizontal: spacing.lg,
     borderRadius: radii.pill,
     backgroundColor: palette.night700,
@@ -216,8 +382,69 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 10 },
     elevation: 10,
   },
-  capsuleText: { ...type.bodyStrong, color: customerDarkTheme.colors.textPrimary, writingDirection: "rtl", flexShrink: 1 },
-  capsuleDot: { color: "rgba(255,255,255,0.4)", fontSize: scale.meta, flexShrink: 0 },
   capsuleEta: { ...type.bodyStrong, ...tabular, color: colors.action, flexShrink: 0 },
+
+  /* ----- the road the professional walks, inside the capsule ----- */
+  track: { flex: 1, height: 40, justifyContent: "center" },
+  road: {
+    position: "absolute",
+    left: 6,
+    right: 6,
+    bottom: 7,
+    height: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    overflow: "hidden",
+  },
+  dash: { width: 7, height: 2, borderRadius: 1, backgroundColor: "rgba(255,255,255,0.16)" },
+  doorWrap: { position: "absolute", left: 2, bottom: 5, alignItems: "center" },
+  doorPin: {
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    borderWidth: 2,
+    borderColor: colors.action,
+    backgroundColor: "transparent",
+  },
+  doorStem: { width: 2, height: 4, backgroundColor: colors.action, opacity: 0.6 },
+  /*
+   * A silhouette, built out of four small blocks. The legs are anchored
+   * at the TOP so a rotation swings them from the hip; anchored at the
+   * centre, which is the default, they scissor around their own knees
+   * and the figure looks like it is skating.
+   */
+  walker: { position: "absolute", bottom: 7, width: 16, height: 30, alignItems: "center" },
+  head: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: customerDarkTheme.colors.textPrimary,
+  },
+  body: {
+    width: 9,
+    height: 11,
+    marginTop: 1,
+    borderRadius: 3,
+    backgroundColor: customerDarkTheme.colors.textPrimary,
+  },
+  bag: {
+    position: "absolute",
+    right: -1,
+    top: 12,
+    width: 6,
+    height: 6,
+    borderRadius: 1.5,
+    backgroundColor: colors.action,
+  },
+  leg: {
+    position: "absolute",
+    bottom: 0,
+    width: 2.5,
+    height: 10,
+    borderRadius: 1.5,
+    backgroundColor: customerDarkTheme.colors.textPrimary,
+    transformOrigin: "top",
+  },
   capsuleGo: { color: "rgba(255,255,255,0.55)", fontSize: scale.section, lineHeight: 26 },
 });
