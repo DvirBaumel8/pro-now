@@ -213,6 +213,8 @@ export interface WorldLifeProps {
    * seconds would be the world implying supply nobody counted.
    */
   departmentCode?: string | null;
+  /** Dark enough for a shop light to come on — see `world-daylight.ts`. */
+  lampsLit?: boolean;
 }
 
 export function WorldLife({
@@ -221,6 +223,7 @@ export function WorldLife({
   sources = EMPTY_ASSET_SOURCES,
   animate = true,
   departmentCode = null,
+  lampsLit,
   sizeBasis,
 }: WorldLifeProps) {
   const basis = sizeBasis ?? width;
@@ -255,6 +258,12 @@ export function WorldLife({
       roll: Math.random(),
       reducedMotion: !animate,
       departmentCode,
+      /*
+       * A light comes on when it gets dark, and the sky over this street
+       * is the viewer's own hour — so a lit window at one in the
+       * afternoon would contradict the wash above it on the same screen.
+       */
+      lampsLit,
     });
 
     const kept = current.filter((p) => decision.running.some((r) => r.moment === p.moment));

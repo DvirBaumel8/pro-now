@@ -137,6 +137,20 @@ export function directWorld(args: {
    * particular trade, where the street is simply the street.
    */
   departmentCode?: string | null;
+  /**
+   * Whether it is dark enough for a light to come on.
+   *
+   * A window lighting up at one in the afternoon is the small detail that
+   * tells you the world is a loop rather than a place — and now that the
+   * light over the street is taken from the viewer's own clock
+   * (`world-daylight.ts`), a lit window in broad daylight would contradict
+   * the sky above it on the same screen.
+   *
+   * Undefined means "do not know", and the moment stays available: a
+   * caller who has not been given a clock should not lose a moment over
+   * it.
+   */
+  lampsLit?: boolean;
 }): DirectorDecision {
   const running = args.running.filter(
     (r) => args.now - r.startedAt < (r.durationMs ?? MOMENT_SPEC[r.moment].durationMs)
@@ -151,6 +165,8 @@ export function directWorld(args: {
     // Never two of the same thing at once — two identical vehicles crossing
     // together is the single most obvious way to look like a loop.
     if (running.some((r) => r.moment === m)) return false;
+    // A light comes on when it gets dark. See `lampsLit`.
+    if (m === "WINDOW_LIGHT" && args.lampsLit === false) return false;
     return isSignificant(m) ? sig < MOTION_BUDGET.significant : micro < MOTION_BUDGET.micro;
   });
 

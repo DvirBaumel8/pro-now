@@ -1,7 +1,17 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import { Animated, Easing, StyleSheet, View } from "react-native";
 
-import { type WorldGeo, geoAspect, metresAcrossAt, roadIsMeasuredFor, worldBox, worldZoomFor } from "@pro-now/types";
+import {
+  type WorldGeo,
+  daylightAt,
+  daylightAtMinute,
+  daylightWashColor,
+  geoAspect,
+  metresAcrossAt,
+  roadIsMeasuredFor,
+  worldBox,
+  worldZoomFor,
+} from "@pro-now/types";
 
 import { palette } from "../../theme";
 import { AssetSlot, EMPTY_ASSET_SOURCES, type WorldAssetSources } from "./AssetSlot";
@@ -131,6 +141,23 @@ export interface WorldBackdropProps {
    * than the same figures somewhere real.
    */
   geo?: WorldGeo | null;
+  /**
+   * THE HOUR IT IS, OVER THE WORLD.
+   *
+   * On by default, because a world that is at the viewer's own hour is
+   * the point rather than an option — see `world-daylight.ts`. Off for
+   * the places where the plate is a poster rather than a place: a hero
+   * image behind a sign-in form is composed art, and washing it blue at
+   * midnight makes it look broken rather than nocturnal.
+   */
+  daylight?: boolean;
+  /**
+   * The clock, in minutes since midnight, when the caller already has
+   * one ticking. Omitted, it reads the device clock once per mount —
+   * which is right for a screen somebody looks at for a minute, and
+   * wrong for one they leave open through a sunset.
+   */
+  minuteOfDay?: number;
 }
 
 export function WorldBackdrop({
@@ -144,8 +171,20 @@ export function WorldBackdrop({
   focus = null,
   zoom,
   geo = null,
+  daylight = true,
+  minuteOfDay,
   children,
 }: WorldBackdropProps) {
+  /*
+   * Read once per mount unless the caller is passing a clock. A screen
+   * that re-reads the time every frame is asking the light to animate,
+   * and the light moves about as fast as the sun does.
+   */
+  const light = useMemo(
+    () =>
+      minuteOfDay === undefined ? daylightAt(new Date()) : daylightAtMinute(minuteOfDay),
+    [minuteOfDay]
+  );
   const assetId = sources[groundAssetId] ? groundAssetId : fallbackGroundAssetId;
   const hasArt = Boolean(sources[assetId]);
   /*
@@ -481,12 +520,60 @@ export function WorldBackdrop({
           sources={sources}
           animate={animate}
           departmentCode={departmentCode}
+          /* A shop light comes on when the sky above it says evening. */
+          lampsLit={daylight ? light.lampsLit : undefined}
         />
         )}
 
         {/* In the world, not over it. See `children` above. */}
         {children?.({ width: worldW, height: worldH })}
       </Animated.View>
+
+      {/* ----------------------------------------------------------------
+          AND THE HOUR IT IS.
+
+          Amit: *"חייב לייצר פה משהו שלא ראו בשום אפליקציה."*
+
+          The painting was made at one hour and stayed there, so the
+          street looked the same at seven in the morning as at eleven at
+          night — which is the single thing that most makes an
+          illustrated world read as a PICTURE rather than as a place.
+
+          This is a wash, not a filter: a colour laid over the world at
+          low opacity, taken from the clock on the phone holding it. It
+          sits over the ground and everything living on it and UNDER the
+          screen's own marks, because a route line and a name are things
+          the app is saying rather than things in the street.
+
+          It is fixed to the frame rather than to the plate. The sky does
+          not pan when you walk.
+
+          Not on a real extract: see `daylightAt`. A wash over our own
+          painting is a property of the painting; the same wash over
+          somebody's actual neighbourhood starts to read as a photograph
+          of that place at this hour, which is a claim.
+          ---------------------------------------------------------------- */}
+      {daylight && !geo ? (
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            /*
+             * The FRAME, not the parent. `absoluteFill` here covered
+             * whatever this backdrop happened to be mounted inside, which
+             * on the home screen is the whole page — so a night wash
+             * meant for a band of street dimmed the panel, the type and
+             * the icons under it. The band is `width` by `height`, which
+             * is exactly what the camera is looking through.
+             */
+            width,
+            height,
+            backgroundColor: daylightWashColor(light),
+          }}
+        />
+      ) : null}
     </View>
   );
 }

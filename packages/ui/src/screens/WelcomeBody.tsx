@@ -124,6 +124,13 @@ export function WelcomeBody({
         sources={worldSources}
         animate={animate}
         groundAssetId="welcome_hero"
+        /*
+         * NO CLOCK ON THIS ONE. The hero is composed art behind a headline
+         * and two doors — a poster, not a place — and washing a poster
+         * blue at midnight reads as the image failing to load rather than
+         * as night. The world's own hour starts once you are inside it.
+         */
+        daylight={false}
         fallbackGroundAssetId="world_neighbourhood"
         focus={WELCOME_VIEW.focus}
       />

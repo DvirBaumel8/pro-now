@@ -30,6 +30,7 @@ export * from "./intake";
 export * from "./navigation-flow";
 export * from "./pro-pricing";
 export * from "./world-motion";
+export * from "./world-daylight";
 export * from "./avatar";
 export * from "./world-steering";
 export * from "./visual-register";

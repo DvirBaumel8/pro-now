@@ -10,7 +10,7 @@ import {
   type DiscoveryState,
   type WorldGeo,
 } from "@pro-now/types";
-import { AVATARS, formatMoney, money, screenKey, travelAssetFor, type AvatarChoice } from "@pro-now/types";
+import { AVATARS, formatMoney, greetingAt, money, screenKey, travelAssetFor, type AvatarChoice } from "@pro-now/types";
 import { matchServicesByText } from "@pro-now/ui";
 import { canSaveSession, clearSession, loadSession, saveSession, savedAgoHe } from "./session";
 import { HAIR_DISCOVERY_IDS } from "@pro-now/ui";
@@ -2606,7 +2606,16 @@ const go = useCallback((r: CustomerRoute) => {
             /* Same door, same rule — see the closing screen above. */
             onStroll={strollDoor}
             strollNeedsAvatar={avatar === null}
-            greetingHe="ערב טוב"
+            /*
+             * FROM THE SAME CLOCK AS THE LIGHT OVER THE STREET.
+             *
+             * This said "ערב טוב" at every hour, which was survivable
+             * while the world was painted at one hour too. It stops
+             * being survivable now that the sky above the words is at
+             * the viewer's own time: a bright midday street under "ערב
+             * טוב" is the app contradicting itself on one screen.
+             */
+            greetingHe={greetingAt(new Date())}
             addressLabelHe={addressLabel}
             onChangeAddress={() => go({ name: "address" })}
             services={catalogHomeServices}
