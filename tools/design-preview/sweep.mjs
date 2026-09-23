@@ -200,10 +200,34 @@ if (await p.getByRole('button', { name: 'שינוי כתובת' }).first().click
   problems.push('home: the address chip is not tappable');
 }
 
+/*
+ * WHICH QUESTION EACH CATEGORY ASKS.
+ *
+ * Amit: *"מתלבט איתך אם צריך פה את התפקידים גם של האנשי מקצוע ולא רק
+ * בעיות."* A category whose every service is a PERSON asks "את מי
+ * צריך?"; one with a fault in it asks "מה צריך?". The rule is derived
+ * from the catalogue (`categoryAsksForPerson`) and the unit tests cover
+ * the rule — this covers the WIRING, which is the half a pure function
+ * cannot prove and the half that has silently come undone in this
+ * project more than once.
+ *
+ * The expected answers are written out rather than computed here on
+ * purpose: a check that re-derives the thing it is checking proves only
+ * that two copies of the same arithmetic agree.
+ */
+const ASKS_WHO = new Set(['ביוטי ושיער', 'חיות', 'בריאות וכושר']);
 for (const [i, cat] of ['לבית', 'ביוטי ושיער', 'ניקיון', 'הובלות ומשלוחים', 'רכב', 'חיות', 'בריאות וכושר', 'מחשבים וסלולר'].entries()) {
   const ok = await p.getByRole('button', { name: cat }).first().click({ timeout: 4000 }).then(() => true).catch(() => false);
   if (!ok) { problems.push(`home: category "${cat}" not tappable`); continue; }
   await p.waitForTimeout(1100);
+  const asked = await p.evaluate(() => {
+    const m = document.body.innerText.match(/(את מי צריך\?|מה צריך\?)/);
+    return m ? m[1] : null;
+  });
+  const want = ASKS_WHO.has(cat) ? 'את מי צריך?' : 'מה צריך?';
+  if (asked !== want) {
+    problems.push(`${cat}: asks "${asked ?? 'nothing'}" where it should ask "${want}"`);
+  }
   await inspect(`05-cat-${i}-${cat.replace(/\s/g, '_')}`);
   await p.goBack(); await p.waitForTimeout(900);
 }

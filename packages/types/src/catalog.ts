@@ -326,6 +326,40 @@ export function providerChoiceFor(s: CatalogServiceDef): ProviderChoiceMode {
   return s.matchingMode === "PERSON_FIT" ? "CONFIRM_MATCH" : "AUTO_ASSIGN";
 }
 
+/**
+ * ---------------------------------------------------------------------
+ * "WHAT HAPPENED?" OR "WHO DO YOU WANT?"
+ * ---------------------------------------------------------------------
+ * Amit, on the category screen: *"מתלבט איתך אם צריך פה את התפקידים גם
+ * של האנשי מקצוע ולא רק בעיות."*
+ *
+ * The screen asks "מה צריך?" everywhere, and for most of the catalogue
+ * that is the right question and the heart of the promise: somebody with
+ * water on the floor does not know whether they need a plumber or a
+ * washing-machine technician, and asking them to pick a trade hands them
+ * the dispatcher's job. Describe it; we find who.
+ *
+ * But some services ARE a person. Nobody books a barber because
+ * something is wrong — there is no fault to describe, there is somebody
+ * you want to come. On those, "מה צריך?" is a question about a problem
+ * that does not exist, and the answer the customer has in mind is a
+ * ROLE.
+ *
+ * The catalogue already knows which is which and does not need a second
+ * flag to say so: `matchingMode: "PERSON_FIT"` is exactly the statement
+ * "the person is the thing being chosen here", and it is the same field
+ * that makes these services show the customer who is coming before they
+ * commit (`providerChoiceFor`). Deriving the wording from it means the
+ * question a screen asks and the way the match is made cannot disagree.
+ *
+ * ALL, not some. A category with one barber and eight repairs is a
+ * category of repairs, and asking "את מי צריך?" over a list of faults
+ * would be worse than the question it replaced.
+ */
+export function categoryAsksForPerson(services: readonly CatalogServiceDef[]): boolean {
+  return services.length > 0 && services.every((s) => s.matchingMode === "PERSON_FIT");
+}
+
 export function lightweightServices(departments: CatalogDepartmentDef[]): CatalogServiceDef[] {
   return allServices(departments).filter((s) => s.mobilityProfile !== "NEEDS_VEHICLE");
 }

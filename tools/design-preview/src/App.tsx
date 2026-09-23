@@ -54,7 +54,7 @@ import fixtureGeo from "../geo/fixture_grid.json";
 import { ActiveJobCapsule, AddressPickerBody, AppHeader, AvatarPickerBody, IntroBody, customerDarkTheme, FocusSheet, ScreenTransition, ArrivalVerifyBody, CallsListBody, CAPSULE_HEIGHT, ChatBody, ConnectionBanner, CategoryBody, CustomerHomeBody, CustomerProfileBody, customerTheme, DescribeFaultBody, JobClosedBody, JobCompleteBody, MatchConfirmBody, NavGlyph, Persona, PhoneAuthBody, ProEarningsBody, ProJobBody, ProJobSettledBody, ProOfferBody, ProOnlineBody, ProPricingBody, ProProfileBody, ProQuoteBuilderBody, ProServicesBody, ProShiftBody, proTheme, ProVerificationBody, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, StrollBody, Sheet, spacing, tint, TrackingBody, type as t, WelcomeBody } from "@pro-now/ui";
 import type { JobMediaItem, LiveLocationState, MarkName, NavGlyphName, ProPricingRow } from "@pro-now/ui";
 import type { AuthStage, ChatMessage, ConnectionState } from "@pro-now/ui";
-import { canHandOffToMaps, mapsHandoffUrl, buildIntakeBrief, pilotIntakeByService, pilotServiceById, readAvailability } from "@pro-now/types";
+import { canHandOffToMaps, categoryAsksForPerson, mapsHandoffUrl, buildIntakeBrief, pilotIntakeByService, pilotServiceById, readAvailability } from "@pro-now/types";
 import type { IntakeAnswer, IntakeBriefLine, MapsPlatform, OfferCardView, PriceModel } from "@pro-now/types";
 import type { JobState, ProPresenceState } from "@pro-now/types";
 
@@ -1906,6 +1906,25 @@ const go = useCallback((r: CustomerRoute) => {
               availableNowCount: supply.supplyFor(s2.id).count,
             }))}
             worldSources={art}
+            /*
+             * "מה צריך?" OR "את מי צריך?" — decided from the catalogue,
+             * not typed into the screen.
+             *
+             * Amit: *"מתלבט איתך אם צריך פה את התפקידים גם של האנשי
+             * מקצוע ולא רק בעיות."* On a category whose every service is
+             * a PERSON — a barber, a makeup artist, a trainer — there is
+             * no fault to describe, and the thing the customer has in
+             * mind is a role. The catalogue already says which those are
+             * (`matchingMode: "PERSON_FIT"`, the same field that makes
+             * them show who is coming before you commit), so the question
+             * is derived from it and cannot drift out of agreement with
+             * the way the match is actually made.
+             */
+            asksForPerson={categoryAsksForPerson(
+              servicesForCategory(category)
+                .map((s2) => pilotServiceById[s2.id])
+                .filter((s2): s2 is NonNullable<typeof s2> => Boolean(s2))
+            )}
             onSelectService={(id) => go({ name: "service", serviceId: id })}
             /*
              * TYPED, NOT TAPPED.

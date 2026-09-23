@@ -76,6 +76,16 @@ export interface CategoryBodyProps {
    * second screen that says "choose from these".
    */
   onDescribe?: (textHe: string) => void;
+  /**
+   * This category's services are PEOPLE, not faults — see
+   * `categoryAsksForPerson`. The screen then asks who rather than what,
+   * because "מה צריך?" over a list of barbers is a question about a
+   * problem that does not exist.
+   *
+   * Decided by the caller from the catalogue rather than here: the
+   * screen renders, it does not classify.
+   */
+  asksForPerson?: boolean;
   onBack?: () => void;
   width?: number;
   height?: number;
@@ -88,6 +98,7 @@ export function CategoryBody({
   animate = true,
   onSelectService,
   onDescribe,
+  asksForPerson = false,
   onBack,
   width = 390,
   height = 780,
@@ -126,7 +137,7 @@ export function CategoryBody({
             * words rather than asking them to find themselves in our
             * taxonomy.
             */}
-          <Text style={styles.question}>מה צריך?</Text>
+          <Text style={styles.question}>{asksForPerson ? "את מי צריך?" : "מה צריך?"}</Text>
         </View>
 
         {/*
@@ -155,17 +166,25 @@ export function CategoryBody({
               * asking somebody what else they wanted before offering them
               * anything. It leads now, which is what it does.
               */}
-            <Text style={styles.otherLabel}>ספרו לנו במילים שלכם</Text>
+            <Text style={styles.otherLabel}>
+              {asksForPerson ? "ספרו לנו את מי אתם מחפשים" : "ספרו לנו במילים שלכם"}
+            </Text>
             <View style={styles.otherRow}>
               <TextInput
                 value={typed}
                 onChangeText={setTyped}
-                placeholder={`תארו במילים שלכם — ${district.labelHe}`}
+                placeholder={
+                  asksForPerson
+                    ? `את מי אתם מחפשים — ${district.labelHe}`
+                    : `תארו במילים שלכם — ${district.labelHe}`
+                }
                 placeholderTextColor="rgba(247,243,250,0.45)"
                 style={styles.otherInput}
                 textAlign="right"
                 multiline
-                accessibilityLabel="תיאור חופשי של מה שצריך"
+                accessibilityLabel={
+                  asksForPerson ? "תיאור חופשי של מי שצריך" : "תיאור חופשי של מה שצריך"
+                }
                 onSubmitEditing={() => canSend && onDescribe(typed.trim())}
                 returnKeyType="send"
               />

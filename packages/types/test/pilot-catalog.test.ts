@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   allServices,
   browseOnly,
+  categoryAsksForPerson,
   lightweightServices,
   providerChoiceFor,
   credentialsFor,
@@ -388,5 +389,51 @@ describe("how a professional is found is a property of the service", () => {
       expect(pilotServiceById[id]!.mediaIntent, id).toBe("INSPIRATION");
     }
     expect(pilotServiceById["svc-leak"]!.mediaIntent).toBe("PROBLEM_EVIDENCE");
+  });
+});
+
+
+/**
+ * "מה צריך?" OR "את מי צריך?"
+ *
+ * Amit: *"מתלבט איתך אם צריך פה את התפקידים גם של האנשי מקצוע ולא רק
+ * בעיות."* The rule is derived from the catalogue rather than stored
+ * beside it, so these are the properties that must hold for it to stay
+ * honest as services are added.
+ */
+describe("categoryAsksForPerson", () => {
+  const byId = (ids: string[]) => ids.map((id) => pilotServiceById[id]!).filter(Boolean);
+
+  it("asks who when every service in the group is a person", () => {
+    expect(categoryAsksForPerson(byId(["svc-haircut", "svc-makeup", "svc-nails"]))).toBe(true);
+  });
+
+  it("asks what when any of them is a fault", () => {
+    // The dangerous case: one barber among eight repairs is a category of
+    // repairs, and asking "את מי צריך?" over a list of faults is worse
+    // than the question it replaced.
+    expect(categoryAsksForPerson(byId(["svc-haircut", "svc-leak"]))).toBe(false);
+    expect(categoryAsksForPerson(byId(["svc-leak", "svc-blockage"]))).toBe(false);
+  });
+
+  it("asks what when there is nothing to go on", () => {
+    // An empty category must not flip the question by default. "את מי
+    // צריך?" over no rows at all is the app sounding confident about a
+    // list it does not have.
+    expect(categoryAsksForPerson([])).toBe(false);
+  });
+
+  it("agrees with the way the match is actually made", () => {
+    /*
+     * The two are derived from the same field on purpose. If a service
+     * ever asked "את מי" and then assigned somebody without showing
+     * them, the screen would have promised a choice the dispatch does
+     * not give — so this asserts they cannot come apart.
+     */
+    for (const s of allServices(pilotCatalog)) {
+      if (categoryAsksForPerson([s])) {
+        expect(providerChoiceFor(s)).toBe("CONFIRM_MATCH");
+      }
+    }
   });
 });
