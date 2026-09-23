@@ -31,6 +31,8 @@ import {
   type NormalizedPoint,
   type WorldGeo,
   type SponsorShop,
+  sponsorSignHe,
+  sponsorSpotFor,
   PLATE_V_WEIGHT,
   ROAD_PLATE_ASSET_ID,
 } from "@pro-now/types";
@@ -47,7 +49,7 @@ import { Walker } from "../components/livingmap/Walker";
 import { WorldGround } from "../components/livingmap/WorldGround";
 import { WorldViewport } from "../components/livingmap/WorldViewport";
 import { palette, radii, spacing, type } from "../theme";
-import { depthChanged, nearestDistrict } from "./stroll";
+import { depthChanged, nearestDistrict, NEAR } from "./stroll";
 
 export { nearestDistrict, NEAR, DEPTH_STEP } from "./stroll";
 
@@ -387,7 +389,42 @@ export function StrollBody({
     return () => clearTimeout(t);
   }, [lastFoundHe]);
 
-  const label = nearest ? WORLD_DISTRICTS[nearest].labelHe : null;
+  /*
+   * WHAT YOU ARE STANDING IN FRONT OF, NAMED.
+   *
+   * A trade, or — since the street has paid buildings in it — a brand.
+   * Amit could not find the only sponsor in his own world, and a chip
+   * that names it as you walk past is the cheapest possible fix: you
+   * are told what is beside you without anything hunting for you.
+   *
+   * A sponsor is named WITH `בחסות` and never without it. The whole
+   * reason this chip is allowed to name a business at all — where the
+   * note below says it may only ever name a trade — is that a paid
+   * building is not a claim about supply, and the word that makes that
+   * true travels with the name.
+   */
+  const nearSponsor = useMemo(() => {
+    if (!sponsors || sponsors.length === 0) return null;
+    let best: SponsorShop | null = null;
+    let bestD = Infinity;
+    for (const [i, shop] of sponsors.entries()) {
+      const at = sponsorSpotFor(i, spots);
+      if (!at) continue;
+      const d = Math.hypot(at.u - walkedTo.current.u, (at.v - walkedTo.current.v) * PLATE_V_WEIGHT);
+      if (d < NEAR && d < bestD) {
+        bestD = d;
+        best = shop;
+      }
+    }
+    return best;
+    /* `depth` changes on every step, which is what re-runs this. */
+  }, [sponsors, spots, depth]);
+
+  const label = nearSponsor
+    ? sponsorSignHe(nearSponsor)
+    : nearest
+      ? WORLD_DISTRICTS[nearest].labelHe
+      : null;
 
   /** One pair, kept. See the note at the `follow` prop below. */
   const followPair = useMemo(() => (canWalk ? { u, v } : null), [canWalk, u, v]);
