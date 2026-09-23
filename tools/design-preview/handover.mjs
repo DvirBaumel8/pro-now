@@ -135,6 +135,42 @@ if (crossed) {
    * in: the work is running, and the line must say the approved amount
    * back rather than promise a quote.
    */
+  /*
+   * AND THE WAY BACK, which is the same fault mirrored. Amit, standing
+   * on the customer's screen having just approved: *"איך אני חוזר לצד
+   * המקצוען אחרי שאישרתי את ההצעה מצד הלקוח?"* The header's switch was
+   * always there and said nothing about now.
+   */
+  const backRow = p.getByRole('button', { name: /חזרה לצד בעל המקצוע/ });
+  if ((await backRow.count()) === 0) {
+    problems.push('after approving, the customer is offered no way back to the professional');
+  } else {
+    await backRow.first().click({ timeout: 6000 }).catch(() => problems.push('the way back would not press'));
+    await p.waitForTimeout(1600);
+    if ((await p.getByRole('button', { name: 'לקוח', exact: true }).count()) === 0) {
+      problems.push('the way back did not land on the professional side');
+    }
+    if ((await p.getByRole('button', { name: /סיימתי את העבודה/ }).count()) === 0) {
+      problems.push('the professional side did not move to the work after the approval');
+    }
+    /*
+     * AND BACK AGAIN, which is where the crossing used to cost you the
+     * job: the two sides are two apps, so switching unmounts one and
+     * everything it held went with it — you approved a quote, looked at
+     * his screen, came back and landed on the home grid. The customer's
+     * place is remembered above both sides now, and the assertions
+     * below are on the panel this has to return to.
+     */
+    const returned = await p
+      .getByRole('button', { name: 'לקוח', exact: true })
+      .first()
+      .click({ timeout: 6000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!returned) problems.push('there is no way back to the customer from the job');
+    await p.waitForTimeout(1600);
+  }
+
   const afterApproval = await text();
   if (/הצעת מחיר תישלח|ההצעה תגיע/.test(afterApproval)) {
     problems.push('the panel still promises a quote after one was approved');

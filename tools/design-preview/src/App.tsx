@@ -582,6 +582,42 @@ export function App() {
   const pickingForStroll = useRef(false);
   const [openStrollOnce, setOpenStrollOnce] = useState(false);
 
+  /**
+   * THE WAY BACK, AFTER THE CUSTOMER HAS ANSWERED.
+   *
+   * Amit, standing on the customer's screen having just approved a
+   * quote: *"איך אני חוזר לצד המקצוען אחרי שאישרתי את ההצעה מצד
+   * הלקוח?"* The crossing has always been in the header — but it is a
+   * plain switch that is there on every screen of the app, saying
+   * nothing about the fact that the ball is now back in the other
+   * court. The professional's side got a labelled row for exactly this
+   * moment; this is its mirror, and the loop is only closed with both.
+   */
+  const [returnToPro, setReturnToPro] = useState(false);
+
+  /**
+   * WHERE THE CUSTOMER WAS, ACROSS A CROSSING.
+   *
+   * The two sides are two apps: switching unmounts one and mounts the
+   * other, so everything the customer's side held goes with it. That was
+   * invisible while nobody crossed mid-job — and the moment a labelled
+   * row invites you to cross and come back, it becomes "I approved a
+   * quote, went to look at his screen, came back, and my job was gone".
+   *
+   * A ref rather than state: nothing up here should re-render because
+   * the customer moved between their own screens.
+   */
+  const customerMemory = useRef<{ route: CustomerRoute; approvedTotalMinor: number | null } | null>(null);
+
+  /**
+   * And the professional's, for exactly the same reason and a worse
+   * symptom: his side held the JOB. Crossing to the customer to answer a
+   * quote destroyed the call he was on, so coming back showed an empty
+   * shift — the customer had approved a job that, on the other screen,
+   * had never happened.
+   */
+  const proMemory = useRef<ProMemory | null>(null);
+
   const [pendingQuote, setPendingQuote] = useState<{
     sentAtMs: number;
     draft: { lines: { id: string; description: string; quantity: number; unitPriceMinorUnits: number; kind: string }[]; notesHe: string } | null;
@@ -802,9 +838,22 @@ export function App() {
             }
             openStrollOnce={openStrollOnce}
             onStrollOpened={() => setOpenStrollOnce(false)}
+            memory={customerMemory}
+            returnToPro={returnToPro}
+            onReturnToPro={() => {
+              setReturnToPro(false);
+              switchTo("pro");
+            }}
             onQuoteDecision={(d) => {
               setQuoteDecision(d);
               setPendingQuote(null);
+              /*
+               * Either answer puts the professional back to work — an
+               * approval starts the job, a decline sends him back to the
+               * diagnosis with the customer still standing there. So the
+               * way back is offered for both.
+               */
+              setReturnToPro(true);
             }}
             avatar={avatar}
             art={art}
@@ -853,6 +902,7 @@ export function App() {
              * because CustomerApp owns its own routing and the shell
              * must not reach into it.
              */
+            memory={proMemory}
             onSeeAsCustomer={() => {
               setOpenQuoteOnce(true);
               switchTo("customer");
@@ -999,6 +1049,9 @@ function CustomerApp({
   onPickAvatar,
   openStrollOnce,
   onStrollOpened,
+  memory,
+  returnToPro,
+  onReturnToPro,
   onQuoteDecision,
   avatar,
   art,
@@ -1041,6 +1094,14 @@ function CustomerApp({
   /** A figure was just chosen because the street was asked for. */
   openStrollOnce?: boolean;
   onStrollOpened?: () => void;
+  /**
+   * Where this side was the last time it was mounted — see the shell.
+   * Held above because crossing to the professional unmounts all of this.
+   */
+  memory?: React.MutableRefObject<{ route: CustomerRoute; approvedTotalMinor: number | null } | null>;
+  /** The customer has answered a quote, so the professional has a move. */
+  returnToPro?: boolean;
+  onReturnToPro?: () => void;
   onQuoteDecision: (d: "APPROVED" | "DECLINED") => void;
   /**
    * Who the customer walks the street as. Owned above, because the picker
@@ -1083,7 +1144,9 @@ function CustomerApp({
    */
   const [openVenue, setOpenVenue] = useState<string | null>(null);
   /** The total the customer actually approved, for the panel to say back. */
-  const [approvedTotalMinor, setApprovedTotalMinor] = useState<number | null>(null);
+  const [approvedTotalMinor, setApprovedTotalMinor] = useState<number | null>(
+    memory?.current?.approvedTotalMinor ?? null
+  );
 
   /**
    * The professional's own lines, shaped as the quote the screen renders.
@@ -1159,11 +1222,16 @@ function CustomerApp({
     );
   }, []);
   const [route, setRoute] = useState<CustomerRoute>(
+    /*
+     * A pin or a review cycle is an instruction about where to open and
+     * wins; otherwise a crossing back lands where it left off rather
+     * than on the home screen. See `memory` in the shell.
+     */
     PINNED
       ? { name: "living", serviceId: PINNED.serviceId, phase: PINNED.phase }
       : REVIEW_CYCLE
         ? { name: "living", serviceId: "svc-leak", phase: "SEARCHING" }
-        : { name: "home" }
+        : (memory?.current?.route ?? { name: "home" })
   );
   /**
    * The intake answers live in the app, not in the screen, because they
@@ -1347,8 +1415,30 @@ function CustomerApp({
         }
       : null;
 
+  /*
+   * THE WAY BACK TO THE OTHER SIDE, AT THE MOMENT IT MATTERS.
+   *
+   * Amit, having just approved a quote as the customer: *"איך אני חוזר
+   * לצד המקצוען אחרי שאישרתי את ההצעה מצד הלקוח?"* The switch has always
+   * been in the header, on every screen — which is exactly why it does
+   * not answer this: a control that is always there says nothing about
+   * now. The professional's side gained a labelled row for the crossing
+   * out; this is the crossing back, offered only while the professional
+   * actually has a move to make, and only on the job's own screens where
+   * it is about the thing in front of you.
+   *
+   * A review control, and it says so like every other one in this row.
+   */
+  const showReturnToPro =
+    (returnToPro ?? false) && (route.name === "tracking" || route.name === "arrival");
+
   const UTIL = 56;
-  const bodyH = height - UTIL - (demo ? DEMO_H : 0) - (capsule ? CAPSULE_HEIGHT : 0);
+  const bodyH =
+    height -
+    UTIL -
+    (demo ? DEMO_H : 0) -
+    (showReturnToPro ? DEMO_H : 0) -
+    (capsule ? CAPSULE_HEIGHT : 0);
 
   /**
    * The live job, as one sentence. Present only while there is a job to
@@ -1572,7 +1662,13 @@ const go = useCallback((r: CustomerRoute) => {
   useEffect(() => {
     hereRef.current = route;
     tabRef.current = tab;
-  }, [route, tab]);
+    /*
+     * And the same two facts one level up, so a crossing to the
+     * professional's side and back lands where it left off rather than
+     * on the home screen. See `memory` in the shell.
+     */
+    if (memory) memory.current = { route, approvedTotalMinor };
+  }, [route, tab, approvedTotalMinor, memory]);
 
   /**
    * WHERE THE CUSTOMER IS, as the transition model understands it.
@@ -2612,6 +2708,14 @@ const go = useCallback((r: CustomerRoute) => {
         </ScreenTransition>
       </View>
 
+      {showReturnToPro ? (
+        <DemoBar
+          label="חזרה לצד בעל המקצוע — לראות מה קורה אצלו"
+          onPress={() => onReturnToPro?.()}
+          width={width}
+        />
+      ) : null}
+
       {demo ? <DemoBar label={demo.label} onPress={demo.next} width={width} /> : null}
 
       <Sheet
@@ -2756,6 +2860,30 @@ const go = useCallback((r: CustomerRoute) => {
 // Professional
 // ---------------------------------------------------------------------
 
+/**
+ * WHAT THE PROFESSIONAL'S SIDE MUST NOT FORGET WHEN IT IS NOT ON SCREEN.
+ *
+ * The two sides of this prototype are two apps: switching unmounts one
+ * and mounts the other. Everything below lived only inside `ProApp`, so
+ * a reviewer who crossed to the customer to answer a quote came back to
+ * an empty shift — the job the customer had just approved did not exist
+ * on the screen of the person doing it.
+ *
+ * The shift's own totals are here too. A crossing that resets somebody's
+ * earnings to zero is the same fault wearing a different number.
+ */
+interface ProMemory {
+  tab: ProTab;
+  presence: ProPresenceState;
+  job: JobState | null;
+  proView: null | "chat" | "presence" | "pricing" | "quote";
+  onlineSince: number | null;
+  shiftNet: number;
+  shiftJobs: number;
+  settled: number | null;
+  takenRequest: LiveRequest | null;
+}
+
 function ProApp({
   geo: proGeo,
   width,
@@ -2771,6 +2899,7 @@ function ProApp({
   onSendQuote,
   onQuoteSeen,
   onSeeAsCustomer,
+  memory,
 }: {
   /**
    * The professional's city is the customer's city.
@@ -2813,14 +2942,27 @@ function ProApp({
    * "הדגמה" before it says anything else.
    */
   onSeeAsCustomer?: () => void;
+  /**
+   * What this side was doing the last time it was mounted. Held above
+   * because a crossing unmounts all of it — see `ProMemory`.
+   */
+  memory?: React.MutableRefObject<ProMemory | null>;
 }) {
-  const [tab, setTab] = useState<ProTab>("shift");
-  const [presence, setPresence] = useState<ProPresenceState>("OFFLINE");
+  const kept = memory?.current ?? null;
+  const [tab, setTab] = useState<ProTab>(kept?.tab ?? "shift");
+  const [presence, setPresence] = useState<ProPresenceState>(kept?.presence ?? "OFFLINE");
+  /*
+   * The offer is NOT restored. An offer is a live thing with a clock on
+   * it; bringing one back after a trip to another screen would be
+   * showing a countdown that never ran.
+   */
   const [offerAt, setOfferAt] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
-  const [job, setJob] = useState<JobState | null>(null);
+  const [job, setJob] = useState<JobState | null>(kept?.job ?? null);
   const [proChat, setProChat] = useState<ChatMessage[]>(chatSeed);
-  const [proView, setProView] = useState<null | "chat" | "presence" | "pricing" | "quote">(null);
+  const [proView, setProView] = useState<null | "chat" | "presence" | "pricing" | "quote">(
+    kept?.proView ?? null
+  );
 
   /*
    * The draft is NOT kept here. It goes straight up through
@@ -2911,7 +3053,7 @@ function ProApp({
    * rate stays withheld for the first 45 minutes exactly as production
    * would withhold it.
    */
-  const [onlineSince, setOnlineSince] = useState<number | null>(null);
+  const [onlineSince, setOnlineSince] = useState<number | null>(kept?.onlineSince ?? null);
   const [shiftNow, setShiftNow] = useState(() => Date.now());
   /**
    * The shift's running totals. They start at zero and only move when a job
@@ -2919,16 +3061,16 @@ function ProApp({
    * something and what makes "לשעת חיבור" a real number rather than a
    * fixture. End the shift and they reset, because they describe THIS shift.
    */
-  const [shiftNet, setShiftNet] = useState(0);
-  const [shiftJobs, setShiftJobs] = useState(0);
+  const [shiftNet, setShiftNet] = useState(kept?.shiftNet ?? 0);
+  const [shiftJobs, setShiftJobs] = useState(kept?.shiftJobs ?? 0);
   /** The payout just settled, while the completion screen is showing. */
-  const [settled, setSettled] = useState<number | null>(null);
+  const [settled, setSettled] = useState<number | null>(kept?.settled ?? null);
   /**
    * The customer request this offer was built from, captured at the moment
    * the offer was raised. Held here rather than read live, so the card does
    * not change under the professional's hands while the ring counts down.
    */
-  const [takenRequest, setTakenRequest] = useState<LiveRequest | null>(null);
+  const [takenRequest, setTakenRequest] = useState<LiveRequest | null>(kept?.takenRequest ?? null);
   const [proSheet, setProSheet] = useState<
     null | "call" | "navigate" | "services" | "howitworks" | "quote"
   >(
@@ -2941,8 +3083,14 @@ function ProApp({
      * reaction to that, not a failure to read carefully. Four sentences
      * before the first tap costs nothing and removes the confusion at its
      * source.
+     *
+     * ONCE means once. This side is unmounted every time the reviewer
+     * crosses to the customer, so an unconditional "howitworks" reopened
+     * the explanation on top of whatever was happening — including on
+     * top of a job that was mid-visit, where it covered the whole screen
+     * and the way back out. See `ProMemory`.
      */
-    "howitworks"
+    kept ? null : "howitworks"
   );
 
   const BAR = 64;
@@ -3125,6 +3273,16 @@ function ProApp({
   useEffect(() => {
     proHere.current = { view: proView, tab };
   }, [proView, tab]);
+
+  /*
+   * And everything a crossing would otherwise throw away — see
+   * `ProMemory`. Written on every change rather than on the way out,
+   * because there is no "way out": the component is simply unmounted.
+   */
+  useEffect(() => {
+    if (!memory) return;
+    memory.current = { tab, presence, job, proView, onlineSince, shiftNet, shiftJobs, settled, takenRequest };
+  }, [memory, tab, presence, job, proView, onlineSince, shiftNet, shiftJobs, settled, takenRequest]);
 
   useEffect(
     () =>
