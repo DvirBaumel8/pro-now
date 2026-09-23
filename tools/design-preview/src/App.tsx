@@ -2532,11 +2532,23 @@ const go = useCallback((r: CustomerRoute) => {
             discoveries={discoveries}
             onFound={(id) => setDiscoveries((d) => discover(d, id))}
             onPlayAction={(action) => {
-              // Every route out of the wait is a real destination. This is
-              // the thing that was missing when finishing the old game left
-              // the screen with nowhere to go.
+              /*
+               * EVERY ROUTE OUT OF THE WAIT IS A REAL DESTINATION.
+               *
+               * That was the note, and half of it was untrue: only two of
+               * the drawer's four actions went anywhere. "לשחק עוד" and
+               * "בינתיים" did nothing at all — the exact failure this
+               * comment was written about, sitting under the comment.
+               *
+               * They go to the street. Amit: *"לקוח בזמן ההמתנה למקצוען
+               * יכול להיכנס לחנויות."* The wait IS the street; walking it
+               * is the thing there is to do while somebody drives to you,
+               * and it is the only place the sponsored shops mean
+               * anything.
+               */
               if (action === "JOB_DETAILS") go({ name: "tracking", stage: "enroute" });
               if (action === "FOLLOW_PRO") go({ name: "tracking", stage: "enroute" });
+              if (action === "PLAY_MORE" || action === "WHILE_YOU_WAIT") strollDoor?.();
             }}
             onAccept={() => go({ name: "living", serviceId: route.serviceId, phase: "ASSIGNED_ROUTE" })}
             onAnother={
