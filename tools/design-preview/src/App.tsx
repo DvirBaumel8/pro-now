@@ -571,6 +571,17 @@ export function App() {
    */
   const [openQuoteOnce, setOpenQuoteOnce] = useState(false);
 
+  /**
+   * The same shape, for the door to the street: the picker was opened by
+   * that door, so once a figure exists the street is where to go.
+   *
+   * A ref rather than state because the picker replaces the customer's
+   * whole app while it is up — nothing re-renders on it, and a render
+   * between the tap and the answer would be the only thing state buys.
+   */
+  const pickingForStroll = useRef(false);
+  const [openStrollOnce, setOpenStrollOnce] = useState(false);
+
   const [pendingQuote, setPendingQuote] = useState<{
     sentAtMs: number;
     draft: { lines: { id: string; description: string; quantity: number; unitPriceMinorUnits: number; kind: string }[]; notesHe: string } | null;
@@ -731,6 +742,16 @@ export function App() {
               avatarAnswered.current = true;
               saveSession({ avatar: id, avatarAnswered: true });
               setGate(null);
+              /*
+               * If the picker was opened BY the door to the street, the
+               * door finishes what it started. Without this the person
+               * taps an invitation, answers a question, and lands on the
+               * home screen — which is the picker's own behaviour
+               * leaking out as "I pressed something and it went
+               * somewhere else".
+               */
+              if (pickingForStroll.current) setOpenStrollOnce(true);
+              pickingForStroll.current = false;
             }}
             /*
              * Skipping is an ANSWER, recorded as one. Treating it as a
@@ -742,6 +763,8 @@ export function App() {
               avatarAnswered.current = true;
               saveSession({ avatar: null, avatarAnswered: true });
               setGate(null);
+              // Skipped, so there is still nobody to walk: no street.
+              pickingForStroll.current = false;
             }}
             width={w}
             height={h - bannerH}
@@ -756,6 +779,29 @@ export function App() {
             pendingQuote={pendingQuote}
             openQuoteOnce={openQuoteOnce}
             onQuoteOpened={() => setOpenQuoteOnce(false)}
+            /*
+             * REOPENING THE PICKER, WHICH ONLY THE SHELL CAN DO.
+             *
+             * Skipping the avatar is a real answer and it is the one most
+             * people give — so the door to the street, which needs a
+             * figure to walk, disappeared for most people. It stays now
+             * and picks a figure on the way; this is the only way back
+             * into the picker, because the picker is a gate over the whole
+             * app rather than a screen inside it.
+             *
+             * Undefined while the portraits have not arrived: a picker
+             * with nothing in it is worse than no door.
+             */
+            onPickAvatar={
+              avatarArtReady
+                ? () => {
+                    pickingForStroll.current = true;
+                    setGate({ name: "avatar" });
+                  }
+                : undefined
+            }
+            openStrollOnce={openStrollOnce}
+            onStrollOpened={() => setOpenStrollOnce(false)}
             onQuoteDecision={(d) => {
               setQuoteDecision(d);
               setPendingQuote(null);
@@ -950,6 +996,9 @@ function CustomerApp({
   pendingQuote,
   openQuoteOnce,
   onQuoteOpened,
+  onPickAvatar,
+  openStrollOnce,
+  onStrollOpened,
   onQuoteDecision,
   avatar,
   art,
@@ -983,6 +1032,15 @@ function CustomerApp({
   openQuoteOnce: boolean;
   /** Cleared as soon as we have acted on it, so it fires exactly once. */
   onQuoteOpened: () => void;
+  /**
+   * Reopens the avatar picker. Undefined while its art has not arrived.
+   * The picker is a gate above this component, so this is the only way
+   * somebody who skipped it can answer again.
+   */
+  onPickAvatar?: () => void;
+  /** A figure was just chosen because the street was asked for. */
+  openStrollOnce?: boolean;
+  onStrollOpened?: () => void;
   onQuoteDecision: (d: "APPROVED" | "DECLINED") => void;
   /**
    * Who the customer walks the street as. Owned above, because the picker
@@ -1412,6 +1470,32 @@ const go = useCallback((r: CustomerRoute) => {
     if (!pendingQuote) return;
     go({ name: "quote" });
   }, [openQuoteOnce, onQuoteOpened, pendingQuote, go]);
+
+  /*
+   * AND THE DOOR TO THE STREET FINISHES ITS OWN SENTENCE.
+   *
+   * The picker unmounts this component, so the intent is held above and
+   * arrives back here as a one-shot. `avatar` is checked rather than
+   * trusted: a skip answers "no figure", and walking an empty street is
+   * the thing the door exists not to do.
+   */
+  useEffect(() => {
+    if (!openStrollOnce) return;
+    onStrollOpened?.();
+    if (avatar === null) return;
+    go({ name: "stroll" });
+  }, [openStrollOnce, onStrollOpened, avatar, go]);
+
+  /**
+   * ONE DOOR, TWO ANSWERS.
+   *
+   * With a figure it opens the street. Without one it opens the picker
+   * and comes back here — and the card says which of the two it is, so
+   * nobody taps "walk the street" and gets a questionnaire. When the
+   * portraits have not arrived there is no door at all, because a picker
+   * with nothing in it is worse than no invitation.
+   */
+  const strollDoor = avatar ? () => go({ name: "stroll" }) : onPickAvatar;
 
   const goTab = useCallback((t: CustomerTab) => {
     backStack.current = [...backStack.current, { route: hereRef.current, tab: tabRef.current }].slice(-40);
@@ -2333,12 +2417,14 @@ const go = useCallback((r: CustomerRoute) => {
             onOpenReceipt={() => setSheet("payment")}
             onGetHelp={() => setSheet("safety")}
             /*
-             * Only when there is somebody to walk as — the same condition
-             * the home screen's door uses. A street with no figure in it
-             * is a map, and the whole point of this door is that it is
-             * not one.
+             * The street still needs somebody to walk it, so without an
+             * avatar this door picks one first and the card says so. It
+             * used to simply vanish — which meant the invitation Amit
+             * asked for reached only the minority who did not skip the
+             * picker.
              */
-            onStroll={avatar ? () => go({ name: "stroll" }) : undefined}
+            onStroll={strollDoor}
+            strollNeedsAvatar={avatar === null}
             width={width}
             height={bodyH}
           />
@@ -2346,12 +2432,9 @@ const go = useCallback((r: CustomerRoute) => {
       default:
         return (
           <CustomerHomeBody
-            /*
-             * Only offered once there is somebody to walk as. A street
-             * with no figure in it is a map, and the whole point of this
-             * door is that it is not one.
-             */
-            onStroll={avatar ? () => go({ name: "stroll" }) : undefined}
+            /* Same door, same rule — see the closing screen above. */
+            onStroll={strollDoor}
+            strollNeedsAvatar={avatar === null}
             greetingHe="ערב טוב"
             addressLabelHe={addressLabel}
             onChangeAddress={() => go({ name: "address" })}

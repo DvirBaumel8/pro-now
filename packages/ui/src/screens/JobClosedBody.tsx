@@ -80,10 +80,22 @@ export interface JobClosedBodyProps {
    * anywhere earlier competes with a flooded kitchen; here it competes
    * with nothing.
    *
-   * Absent when there is nobody to walk as. A street with no figure in
-   * it is a map, and the whole point of this door is that it is not one.
+   * Never absent for want of a figure — see `strollNeedsAvatar`. It used
+   * to be, and that was the whole invitation quietly reaching almost
+   * nobody: skipping the avatar is a real answer most people give, and
+   * the door vanished for every one of them.
    */
   onStroll?: () => void;
+  /**
+   * There is nobody to walk as yet, so this door picks a figure first.
+   *
+   * A street with no figure in it is a map, and the point of this door is
+   * that it is not one — so the requirement stands. What changed is what
+   * happens when it is not met: the card says what the tap will do
+   * instead of disappearing. A control that quietly does not exist is
+   * indistinguishable, to the person, from a feature that does not.
+   */
+  strollNeedsAvatar?: boolean;
   width?: number;
   height?: number;
 }
@@ -100,6 +112,7 @@ export function JobClosedBody({
   onOpenReceipt,
   onGetHelp,
   onStroll,
+  strollNeedsAvatar = false,
   width = 390,
   height = 780,
 }: JobClosedBodyProps) {
@@ -173,12 +186,16 @@ export function JobClosedBody({
         <Pressable
           onPress={onStroll}
           accessibilityRole="button"
-          accessibilityLabel="טיול ברחוב של PRO NOW"
+          accessibilityLabel={
+            strollNeedsAvatar ? "בחירת דמות וטיול ברחוב של PRO NOW" : "טיול ברחוב של PRO NOW"
+          }
           style={({ pressed }) => [styles.stroll, pressed && { opacity: 0.9 }]}
         >
           <Text style={styles.strollTitle}>הרחוב פתוח גם בלי קריאה</Text>
           <Text style={styles.strollSub} numberOfLines={2}>
-            אפשר להסתובב בעיר, לראות מי יש בה ולהיכנס לעסקים — בלי להזמין כלום.
+            {strollNeedsAvatar
+              ? "בחרו דמות ותוכלו להסתובב בעיר, לראות מי יש בה ולהיכנס לעסקים."
+              : "אפשר להסתובב בעיר, לראות מי יש בה ולהיכנס לעסקים — בלי להזמין כלום."}
           </Text>
         </Pressable>
       ) : null}

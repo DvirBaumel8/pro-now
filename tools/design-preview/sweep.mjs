@@ -167,6 +167,23 @@ await tryClick('דלג כרגע', 1200);
 await inspect('04-home', { needsBack: false });
 
 /*
+ * THE DOOR TO THE STREET, FOR SOMEBODY WHO SKIPPED THE PICKER.
+ *
+ * Amit asked for an invitation to walk the world without an urgent job.
+ * It was built and then gated on having chosen an avatar — and skipping
+ * that is a real answer, the one this very walk gives, and the one most
+ * people give. So the invitation existed and reached almost nobody, and
+ * nothing here noticed, because a control that is absent looks exactly
+ * like a screen that never had one.
+ *
+ * The door stays now and picks a figure on the way when there is none.
+ * This asserts it on the path where it used to disappear.
+ */
+if ((await p.getByRole('button', { name: /טיול ברחוב|בחירת דמות וטיול/ }).count()) === 0) {
+  problems.push('home: no door to the street for a customer who skipped the avatar');
+}
+
+/*
  * THE ADDRESS SCREEN, WHICH NOTHING HAD EVER WALKED.
  *
  * Reached the way a customer reaches it — the address chip at the top of

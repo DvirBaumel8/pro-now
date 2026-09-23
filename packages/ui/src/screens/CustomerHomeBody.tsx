@@ -212,9 +212,12 @@ export interface CustomerHomeBodyProps {
    * arrive somewhere, not something to do while a server thinks, so it
    * gets a door on the screen everybody lands on.
    *
-   * Absent until there is an avatar to walk as — see `StrollBody`.
+   * Present whether or not there is an avatar yet: when there is none,
+   * the door picks one first and says so. See `strollNeedsAvatar`.
    */
   onStroll?: () => void;
+  /** No figure chosen yet, so this door picks one on the way. */
+  strollNeedsAvatar?: boolean;
   width?: number;
   /**
    * THE SCREEN'S HEIGHT, AND WHY IT IS NOT OPTIONAL IN PRACTICE.
@@ -251,6 +254,7 @@ export function CustomerHomeBody({
   onSelectCategory,
   worldSources,
   onStroll,
+  strollNeedsAvatar = false,
   liveLineHe = null,
   width = 390,
   height = 780,
@@ -702,11 +706,15 @@ export function CustomerHomeBody({
           <Pressable
             onPress={onStroll}
             accessibilityRole="button"
-            accessibilityLabel="טיול ברחוב של פרו נאו"
+            accessibilityLabel={
+              strollNeedsAvatar ? "בחירת דמות וטיול ברחוב של פרו נאו" : "טיול ברחוב של פרו נאו"
+            }
             style={({ pressed }) => [styles.stroll, pressed && { opacity: 0.9 }]}
           >
             <Text style={styles.strollText}>טיילו ברחוב של PRO NOW</Text>
-            <Text style={styles.strollSub}>לכו בין העסקים עם הדמות שלכם</Text>
+            <Text style={styles.strollSub}>
+              {strollNeedsAvatar ? "בחרו דמות ותצאו לרחוב" : "לכו בין העסקים עם הדמות שלכם"}
+            </Text>
           </Pressable>
         ) : null}
 
