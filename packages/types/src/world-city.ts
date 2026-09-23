@@ -107,6 +107,11 @@ export const CITY_SHOP_IDS = [
   "shop_build",
   "shop_help",
   "shop_vet",
+  /* The sponsor's own front, redrawn flat like the rest. It keeps
+     its own identity — burgundy and glass where ours are plaster and
+     balconies — because a shop somebody paid for must not be mistaken
+     for one of ours. */
+  "shop_lust",
   "shop_tech_inside",
   "shop_well_inside",
   "shop_move_inside",

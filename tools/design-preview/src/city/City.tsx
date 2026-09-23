@@ -1000,7 +1000,7 @@ export function City({
         * supply, not ours to invent. The day they send one it goes
         * here with no change to this code.
         */}
-      {nearName && !walking ? (
+      {hud && nearName && !walking ? (
         <div style={{ ...S.name, borderColor: nearTint }}>
           <span style={{ ...S.nameDot, background: nearTint }} />
           <span style={S.nameText}>{nearName}</span>
@@ -1011,13 +1011,13 @@ export function City({
       {/* Said once, for four seconds. A control nobody knows about is
           the same as a control that is not there — and this one was
           both, for a week. */}
-      {ready && !walking && !room && arriving ? (
+      {hud && ready && !walking && !room && arriving ? (
         <div style={S.hint}>הזיזו את הג׳ויסטיק כדי לרדת לרחוב</div>
       ) : ready && !walking && !room && hint ? (
         <div style={S.hint}>גררו על המסך כדי להסתכל ימינה ושמאלה</div>
       ) : null}
 
-      {nearId && !walking && enterRef.current ? (
+      {hud && nearId && !walking && enterRef.current ? (
         <button
           style={S.enter}
           onClick={() => {
@@ -1029,7 +1029,10 @@ export function City({
         </button>
       ) : null}
 
-      <div ref={padRef} style={{ ...S.pad, opacity: walking ? 0 : 1 }}>
+      <div
+        ref={padRef}
+        style={{ ...S.pad, opacity: !hud || walking ? 0 : 1, pointerEvents: hud ? "auto" : "none" }}
+      >
         <div ref={nubRef} style={S.nub} />
       </div>
 
