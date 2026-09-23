@@ -62,6 +62,7 @@ the repository moved out of the build container — see EPIC-0-REPORT §17.
 | Screen sweep | `npm run verify:screens` | **PASS** |
 | Play layer | `npm run verify:game` | **PASS** |
 | Quote handover, both sides | `npm run verify:handover` | **PASS — written quote survives the crossing, panel says it back** |
+| Nothing plate-scaled on a real map | `npm run verify:plan` | **PASS — with a control** |
 | Admin build | `next build` | **PASS — 7 pages** |
 | Schema vs. real database | `npm run db:verify` | **PASS — 1411/1411** |
 | Row lock vs. real Postgres | `npm run verify:rowlock` | **PASS — 7/7, with a control** |

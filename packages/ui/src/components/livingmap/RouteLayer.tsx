@@ -109,6 +109,28 @@ export interface RouteLayerProps {
   /** Which asset is travelling. A courier's scooter, a mover's van. */
   vehicleAssetId?: string;
   /**
+   * THE GROUND UNDERNEATH IS A REAL STREET PLAN, NOT OUR PAINTING.
+   *
+   * Amit, on the tracking screen: *"תראה איך נראה המסלול שלו ותראה את
+   * הגודל הלא הגיוני שלו."* He is describing something measurable. The
+   * traveller is sized off the PEOPLE RULER — a fraction of the width of
+   * a shopfront in the illustrated plate, which is how a scooter ends up
+   * the right size next to a painted person. A real extract has no
+   * shopfronts and no painted people: it is a street plan whose blocks
+   * are buildings seen from above. The same ruler then puts a figure the
+   * height of a city block on it.
+   *
+   * It is also the same mistake the district markers and the ambient
+   * traffic already refuse to make — both switch off on a real extract,
+   * because a drawing placed on somebody's actual street is a claim
+   * about that street (see `geo-truth.ts`, `roadIsMeasuredFor`). The
+   * traveller cannot switch off, because it is the one thing the screen
+   * is about. So on a plan it is drawn as a MARKER: a symbol, sized in
+   * screen points, which is what a plan uses and what cannot be the
+   * wrong size relative to a map it was never drawn for.
+   */
+  plan?: boolean;
+  /**
    * ---------------------------------------------------------------------
    * THE WORK ITSELF, WHICH THIS SCREEN USED TO SLEEP THROUGH
    * ---------------------------------------------------------------------
@@ -194,6 +216,15 @@ const DEGREES = 180 / Math.PI;
  */
 const CRUISE_MS = 9;
 
+/**
+ * The marker's diameter, in SCREEN points — see `plan`.
+ *
+ * 18 is a map pin, not a character: big enough to find at a glance on a
+ * dark plan, small enough that it reads as a symbol sitting on a street
+ * rather than as something standing in it.
+ */
+const MARKER = 18;
+
 /** A unit vector from one point to the next. */
 function unit(a: NormalizedPoint, b: NormalizedPoint): NormalizedPoint {
   const du = b.u - a.u;
@@ -209,6 +240,7 @@ export function RouteLayer({
   department,
   progress,
   vehicleAssetId = "courier_scooter",
+  plan = false,
   atWork = false,
   workerAssetId,
   sources = EMPTY_ASSET_SOURCES,
@@ -545,7 +577,7 @@ export function RouteLayer({
           honest, and better than a grey rectangle standing in for a
           person.
           ---------------------------------------------------------------- */}
-      {atWork ? (
+      {atWork && !plan ? (
         <>
           <Animated.View
             pointerEvents="none"
@@ -628,6 +660,54 @@ export function RouteLayer({
         </>
       ) : null}
 
+      {/* ----------------------------------------------------------------
+          ON A REAL PLAN, A MARKER.
+
+          See `plan` above. Everything else here is drawn on the ruler
+          that the illustrated plate establishes — a fraction of a
+          shopfront's width — and a street plan has no shopfronts, so the
+          same arithmetic puts a person the height of a city block on it.
+          Amit: *"תראה את הגודל הלא הגיוני שלו."*
+
+          Sized in SCREEN points and not in world fractions, so it is the
+          same size at every zoom and cannot be wrong relative to a map it
+          was never drawn against. It carries no depth scale, no bob and
+          no lean: those describe a figure in an illustration, and this is
+          a symbol on a plan. It still moves along exactly the same route
+          at exactly the same progress, because that is the one thing on
+          this screen that is real.
+          ---------------------------------------------------------------- */}
+      {plan ? (
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            width: MARKER,
+            height: MARKER,
+            borderRadius: 999,
+            backgroundColor: palette.signal300,
+            borderWidth: 3,
+            borderColor: "rgba(14,10,20,0.85)",
+            transform: [
+              {
+                translateX: driver.interpolate({
+                  inputRange: steps,
+                  outputRange: route.map((s) => s.at.u * width - MARKER / 2),
+                }),
+              },
+              {
+                translateY: driver.interpolate({
+                  inputRange: steps,
+                  outputRange: route.map((s) => s.at.v * height - MARKER / 2),
+                }),
+              },
+            ],
+          }}
+        />
+      ) : null}
+
       {/*
         * THE SHADOW UNDER THE ONE FIGURE THE CUSTOMER IS WATCHING.
         *
@@ -641,7 +721,7 @@ export function RouteLayer({
         * offset is half the UNSCALED size, because a transform's scale is
         * about the box's centre.
         */}
-      {sources[vehicleAssetId] ? (
+      {sources[vehicleAssetId] && !plan ? (
         <Animated.View
           pointerEvents="none"
           style={{
@@ -680,7 +760,7 @@ export function RouteLayer({
         />
       ) : null}
 
-      {sources[vehicleAssetId] ? (
+      {sources[vehicleAssetId] && !plan ? (
         <Animated.View
           style={{
             position: "absolute",

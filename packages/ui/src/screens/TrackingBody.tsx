@@ -511,6 +511,15 @@ export function TrackingBody({
                   department={(departmentCode as never) ?? "HOME_URGENT"}
                   progress={tripProgress}
                   vehicleAssetId={vehicleAssetId}
+                  /*
+                   * A real extract is a street plan, so the traveller is
+                   * a marker on it rather than a painted figure at a
+                   * painting's scale. See `plan` in RouteLayer — and the
+                   * two layers above it, the district markers and the
+                   * ambient traffic, which already switch off here for
+                   * the same reason.
+                   */
+                  plan={geo !== null}
                   sources={worldSources}
                   animate={animate}
                   /*
