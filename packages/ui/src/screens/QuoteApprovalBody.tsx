@@ -388,8 +388,22 @@ export function QuoteApprovalBody({
             accessibilityLabel={`אישור הצעת מחיר על סך ${formatMoney(money(quote.totalMinorUnits, "ILS"))}`}
             style={({ pressed }) => [styles.primary, pressed && { opacity: 0.88 }]}
           >
+            {/*
+              * "אישור ותשלום" MEANT "PAY NOW", AND IT DOES NOT.
+              *
+              * Amit: *"אישור תשלום רק בסוף העבודה."* Under the rule he
+              * set, this tap HOLDS the amount and the money moves when
+              * the work is confirmed finished — so a button that says
+              * "pay" is the screen contradicting the sentence directly
+              * above it, on the one screen where somebody is deciding
+              * about their own money.
+              *
+              * The amount stays on the button. What is being approved is
+              * a price, and a button that hides it would be worse than
+              * one that misnames the moment.
+              */}
             <Text style={styles.primaryLabel}>
-              אישור ותשלום {formatMoney(money(quote.totalMinorUnits, "ILS"))}
+              אישור ההצעה · {formatMoney(money(quote.totalMinorUnits, "ILS"))}
             </Text>
           </Pressable>
           <View style={styles.secondaryRow}>
