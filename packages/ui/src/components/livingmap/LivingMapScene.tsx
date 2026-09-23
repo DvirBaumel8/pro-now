@@ -59,6 +59,7 @@ import { ShopInterior } from "./ShopInterior";
 import { MatchSheet } from "./MatchSheet";
 import { DistrictLayer } from "./DistrictLayer";
 import { SponsorVenueLayer } from "./SponsorVenueLayer";
+import { TradeCard } from "./TradeCard";
 import { VenueLayer } from "./VenueLayer";
 import { WorldLife } from "./WorldLife";
 import { ErrandLayer } from "./ErrandLayer";
@@ -197,6 +198,23 @@ export interface LivingMapSceneProps {
    */
   sponsors?: readonly SponsorShop[];
   onEnterSponsor?: (shop: SponsorShop) => void;
+  /**
+   * PRESSING ONE OF THE NEIGHBOURHOOD'S OWN SHOPS.
+   *
+   * Amit: *"שגם זה יהיה לחיץ ויפתח את החנות והכרטיס שלו."* Ten of the
+   * eleven buildings in this street were scenery, in a world whose
+   * whole proposition is that you can walk up to a business.
+   *
+   * The card that opens is `TradeCard`, and it is deliberately NOT a
+   * profile: there is nobody behind a district's door, so it names the
+   * trade, shows the inside where that art exists, and says so. This
+   * callback is the only thing it can do — look at what the trade
+   * offers, which is catalogue and not availability. Absent, the card
+   * opens with no button rather than a dead one, and absent
+   * `onOpenTrade` the buildings are still openable: seeing inside is
+   * worth the tap on its own.
+   */
+  onOpenTrade?: (department: DepartmentCode) => void;
   enterVenueId?: string | null;
   onEnterHandled?: () => void;
   /**
@@ -277,6 +295,7 @@ export function LivingMapScene({
   onOpenProfile,
   sponsors,
   onEnterSponsor,
+  onOpenTrade,
   enterVenueId = null,
   onEnterHandled,
   profileOpen = false,
@@ -499,6 +518,14 @@ export function LivingMapScene({
    * than as a dismissal followed by an animation.
    */
   const [restingAt, setRestingAt] = useState<"DISTRICT" | null>(null);
+  /**
+   * Which of the neighbourhood's own shops is open, if any.
+   *
+   * A district, not a candidate: `openVenue` above is the other thing,
+   * and conflating them is the mistake `TradeCard` exists to prevent —
+   * one is a place, the other is a person.
+   */
+  const [openTrade, setOpenTrade] = useState<DepartmentCode | null>(null);
   const wasOpen = useRef(false);
 
   useEffect(() => {
@@ -1336,6 +1363,12 @@ export function LivingMapScene({
                * street, they are the street — see `venuesDrawn`.
                */
               venuesDrawn={venues.length > 0}
+              /*
+               * Every door opens now. The card that opens is about the
+               * TRADE — see `TradeCard`, and the note there about why
+               * it must never look like a profile.
+               */
+              onSelect={setOpenTrade}
             />
 
             {/*
@@ -1477,6 +1510,24 @@ export function LivingMapScene({
       </WorldViewport>
 
       {/* ---------------------------------------------------------------
+          THE CARD FOR ONE OF THE NEIGHBOURHOOD'S OWN SHOPS.
+          ---------------------------------------------------------------
+          Above the world and below everything the job owns. It closes
+          itself the moment the journey starts — a card about a trade
+          sitting over a camera travelling to a professional is two
+          things competing for the same attention, and the journey wins.
+          --------------------------------------------------------------- */}
+      {openTrade && journeyMs === null ? (
+        <TradeCard
+          department={openTrade}
+          sources={worldSources}
+          onOpenTrade={onOpenTrade ? (d) => { setOpenTrade(null); onOpenTrade(d); } : undefined}
+          onClose={() => setOpenTrade(null)}
+          width={width}
+        />
+      ) : null}
+
+      {/* ---------------------------------------------------------------
           THROUGH THE DOOR.
           ---------------------------------------------------------------
           Amit: *"ממש שינוי מצלמה לתוך החנות, שינוי פריים, לא להישאר
@@ -1494,14 +1545,54 @@ export function LivingMapScene({
       {insideNow ? (
         <FadeIn durationMs={interiorBeat().durationMs} animate={animate}>
           {interiorSource ? (
-            <Image
-              source={interiorSource}
-              style={StyleSheet.absoluteFill}
-              resizeMode="cover"
-              accessible
-              accessibilityRole="image"
-              accessibilityLabel={`בתוך העסק · ${district?.labelHe ?? ""}`}
-            />
+            /* ---------------------------------------------------------
+               THE WHOLE ROOM, NOT A SLICE OF IT.
+
+               Amit: *"פחות זום אין בחנות שיראו יותר מה קורה שם."*
+
+               This was `resizeMode="cover"` across the full screen, and
+               the arithmetic is brutal: the interiors are landscape,
+               about 1.3 wide to 1 tall, and a phone is about 1 to 2. To
+               COVER that, the picture is scaled until its height fits —
+               which throws away roughly three fifths of its width. So
+               the shelves down both sides, the window, half the counter
+               and usually the shopkeeper's arm were outside the frame,
+               on the one beat whose entire purpose is *"שיראו את הדברים
+               הקטנים שעבדנו עליהם"*.
+
+               Now the picture is laid out at its OWN proportions, full
+               width, and the frame around it is dark. You are in the
+               doorway looking at the room, which is the thing the beat
+               was for; nothing is cropped, and a wider or narrower
+               interior from a future pack is framed correctly without
+               anybody touching a number here.
+
+               It sits above centre because the card rises over the
+               bottom of the screen afterwards — see `CARD_REST`.
+               --------------------------------------------------------- */
+            (() => {
+              const shape = HAIR_PACK_V0[interiorId!];
+              const ratio = shape ? shape.intrinsicWidth / shape.intrinsicHeight : 4 / 3;
+              const h = width / ratio;
+              return (
+                <View style={[StyleSheet.absoluteFill, styles.interiorRoom]}>
+                  <Image
+                    source={interiorSource}
+                    style={{
+                      position: "absolute",
+                      left: 0,
+                      width,
+                      height: h,
+                      top: Math.max(0, height * 0.38 - h / 2),
+                    }}
+                    resizeMode="contain"
+                    accessible
+                    accessibilityRole="image"
+                    accessibilityLabel={`בתוך העסק · ${district?.labelHe ?? ""}`}
+                  />
+                </View>
+              );
+            })()
           ) : (
             <ShopInterior
               departmentCode={departmentCode ?? ""}
@@ -1827,6 +1918,12 @@ const HUD_SHARE = 0.17;
 const SHEET_SHARE = 0.26;
 
 const styles = StyleSheet.create({
+  /*
+   * The dark the room is framed against. Near-black rather than the
+   * street, because the street is not behind you any more — the beat is
+   * a frame change, not a zoom (see `interiorBeat`).
+   */
+  interiorRoom: { backgroundColor: "#0B0810" },
   steerWrap: { position: "absolute", left: spacing.lg },
   foundLine: {
     position: "absolute",

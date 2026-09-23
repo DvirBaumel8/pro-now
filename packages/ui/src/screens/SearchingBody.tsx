@@ -10,6 +10,7 @@ import {
   type WorldTheme,
   type WorldGeo,
   type SponsorShop,
+  type DepartmentCode,
 } from "@pro-now/types";
 
 import { BackButton, BACK_BUTTON_CLEARANCE } from "../components/BackButton";
@@ -88,6 +89,8 @@ export interface SearchingBodyProps {
    */
   sponsors?: readonly SponsorShop[];
   onEnterSponsor?: (shop: SponsorShop) => void;
+  /** Pressing one of the neighbourhood's own shops. */
+  onOpenTrade?: (department: DepartmentCode) => void;
   discoveries?: DiscoveryState;
   onFound?: (discoveryId: string) => void;
   onPlayAction?: (id: PlayDrawerActionId) => void;
@@ -145,6 +148,7 @@ export function SearchingBody({
   worldSources,
   sponsors,
   onEnterSponsor,
+  onOpenTrade,
   discoveries,
   onFound,
   onPlayAction,
@@ -215,6 +219,8 @@ export function SearchingBody({
         /* The shops in this street that somebody paid for. */
         sponsors={sponsors}
         onEnterSponsor={onEnterSponsor}
+        /* Every door in the street opens — see `TradeCard`. */
+        onOpenTrade={onOpenTrade}
         discoveries={discoveries}
         onFound={onFound}
         onPlayAction={onPlayAction}

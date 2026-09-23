@@ -2390,6 +2390,20 @@ const go = useCallback((r: CustomerRoute) => {
             onEnterSponsor={(shop) =>
               go({ name: "sponsor", shopId: shop.id, from: "enroute" })
             }
+            /*
+             * AND EVERY OTHER DOOR IN THE STREET.
+             *
+             * Amit: *"שגם זה יהיה לחיץ ויפתח את החנות והכרטיס שלו."*
+             * The card that opens is about the trade — `TradeCard`, and
+             * the note there about why it must never read as a profile
+             * — and its one action is the catalogue for that trade,
+             * which is the honest thing a building without a person
+             * behind it can offer.
+             */
+            onOpenTrade={(department) => {
+              const category = categoryForDepartment(department);
+              if (category) go({ name: "category", categoryId: category.id });
+            }}
             departmentCode={departmentCodeByServiceId[route.serviceId]}
             serviceNameHe={page?.nameHe ?? ""}
             living={living}

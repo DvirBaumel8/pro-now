@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 
@@ -111,6 +111,13 @@ export interface ProProfileBodyProps {
   height?: number;
 }
 
+/**
+ * How many reviews a profile opens with. Two is enough to show that
+ * real people have written real sentences; the rest are a deliberate
+ * question and live behind a control.
+ */
+const REVIEWS_SHOWN = 2;
+
 export function ProProfileBody({
   professional,
   services,
@@ -127,6 +134,8 @@ export function ProProfileBody({
 }: ProProfileBodyProps) {
   const rating = formatProNowRating(professional.proNowRatingAverage, professional.proNowRatingCount);
   const jobs = formatCompletedJobs(professional.proNowCompletedJobs);
+  const [allReviews, setAllReviews] = useState(false);
+  const shownReviews = allReviews ? reviews : reviews.slice(0, REVIEWS_SHOWN);
 
   return (
     <View style={[styles.screen, { width, height }]}>
@@ -365,7 +374,7 @@ export function ProProfileBody({
             </Surface>
           ) : (
             <View style={styles.reviewList}>
-              {reviews.map((r) => (
+              {shownReviews.map((r) => (
                 <Surface key={r.id} colors={colors} level={1} style={styles.reviewCard}>
                   <View style={styles.reviewHead}>
                     <Stars rating={r.rating} />
@@ -386,6 +395,45 @@ export function ProProfileBody({
                   )}
                 </Surface>
               ))}
+              {/* ----------------------------------------------------------
+                  THE REST OF THEM, FOLDED.
+
+                  Amit: *"הגלילה על פרטי המקצוען ארוכה מדי."* He is right,
+                  and the reviews were most of it — every one of them, in
+                  full, below four other sections, on a card somebody
+                  opened to answer "should I let this person into my
+                  flat".
+
+                  Two answers that question. The rest answer a different
+                  one — "am I sure" — and that is a question somebody
+                  asks deliberately, which is what a control is for.
+
+                  Folded, not truncated: nothing is hidden from the
+                  customer, and the count is on the button so the number
+                  of reviews is still visible without opening it. That
+                  matters — the count is part of how trustworthy the
+                  rating looks, and quietly showing two of eleven would
+                  understate a professional's own record.
+                  ---------------------------------------------------------- */}
+              {reviews.length > REVIEWS_SHOWN ? (
+                <Pressable
+                  onPress={() => setAllReviews((v) => !v)}
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: allReviews }}
+                  accessibilityLabel={
+                    allReviews
+                      ? "הצגת ביקורות מקוצרת"
+                      : `הצגת כל ${reviews.length} הביקורות`
+                  }
+                  style={({ pressed }) => [styles.moreReviews, pressed && { opacity: 0.7 }]}
+                >
+                  <Text style={styles.moreReviewsText}>
+                    {allReviews
+                      ? "פחות ביקורות"
+                      : `עוד ${reviews.length - REVIEWS_SHOWN} ביקורות ›`}
+                  </Text>
+                </Pressable>
+              ) : null}
             </View>
           )}
         </View>
@@ -519,7 +567,17 @@ const styles = StyleSheet.create({
    */
   interior: {
     width: "100%",
-    aspectRatio: 16 / 9,
+    /*
+     * 4:3, NOT 16:9.
+     *
+     * Amit: *"פחות זום אין בחנות שיראו יותר מה קורה שם."* The interiors
+     * are about 1.3 wide to 1 tall; a 16:9 window is 1.78, so `cover`
+     * was cutting a quarter of the room off the top and bottom — the
+     * ceiling lamps and the floor, which is most of what makes a room
+     * look like a room. 4:3 is within two percent of the artwork, so
+     * almost nothing is lost.
+     */
+    aspectRatio: 4 / 3,
     borderTopLeftRadius: radii.lg,
     borderTopRightRadius: radii.lg,
   },
@@ -635,6 +693,13 @@ const styles = StyleSheet.create({
   },
 
   reviewList: { gap: spacing.md },
+  moreReviews: { minHeight: 44, justifyContent: "center" },
+  moreReviewsText: {
+    ...type.bodyStrong,
+    color: colors.actionText ?? colors.action,
+    textAlign: "right",
+    writingDirection: "rtl",
+  },
   reviewCard: {},
   reviewHead: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" },
   stars: { flexDirection: "row-reverse", gap: 2 },
