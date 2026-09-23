@@ -100,6 +100,15 @@ export const FRONT_X = KERB_X + PAVEMENT;
 /** How far a pedestrian may get from the centre line before the wall. */
 export const WALK_LIMIT = FRONT_X - 0.9;
 export const STREET_LENGTH = 300;
+/**
+ * WHERE YOU ARRIVE.
+ *
+ * Exported because two things need to agree about it: the camera, which
+ * puts you here, and the crowd, which must not. The first frame of the
+ * street had a stranger standing inside the player — funny once, and
+ * the first thing anybody sees.
+ */
+export const SPAWN = { x: 6.3, z: STREET_LENGTH / 2 - 46 } as const;
 /** One building's frontage along the street. */
 const BAY = 11.5;
 
@@ -1136,9 +1145,12 @@ export function buildStreet(
       g.add(hip);
       legs.push(hip);
     }
-    for (const sx of [-0.235, 0.235]) {
+    /* Outside the shoulder mass. At ±0.235 the arms were buried inside
+       a 0.227-wide shoulder sphere, and the figure had no limbs at all
+       above the waist. */
+    for (const sx of [-0.275, 0.275]) {
       const sh = new THREE.Group();
-      sh.position.set(sx, 1.4, 0);
+      sh.position.set(sx, 1.38, 0);
       const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.045, 0.58, 6), coat);
       arm.position.set(0, -0.29, 0.03);
       sh.add(arm);
@@ -1159,7 +1171,12 @@ export function buildStreet(
        background figure inspected at three metres stops being
        background. Out there they are what they are meant to be. */
     const x = side * (KERB_X + 1.0 + Math.random() * 1.9);
-    person(x, -STREET_LENGTH / 2 + Math.random() * STREET_LENGTH, Math.random() > 0.5 ? 1 : -1);
+    /* Anywhere but standing on top of you at the moment you arrive. */
+    let z = 0;
+    do {
+      z = -STREET_LENGTH / 2 + Math.random() * STREET_LENGTH;
+    } while (Math.abs(z - SPAWN.z) < 13);
+    person(x, z, Math.random() > 0.5 ? 1 : -1);
   }
 
   /* ---------------------------------------------------------------

@@ -2289,3 +2289,160 @@ discovered after the work.
 
 **1010 tests.** `verify:journey` sets a price and is refused a meaningless
 field before it walks the job.
+
+## 26. A city with a camera in it (2026-09-23)
+
+Amit, after a week of asking for a street that felt modern:
+*"חשבתי שהבנת שאני מחפש המחשה של משחק מציאות מדומה ולא משחק שנראה
+מלפני 20 שנה… אני חייב לבנות פה עיר שלי מדוייקת וחיה שלא רוצים לצאת
+ממנה."*
+
+### 26.1 One cause behind every complaint
+
+Every separate note he had written about the world for a week — the
+camera angle is old, the figure is tiny, there is no life, the
+sponsor's shop is a black rectangle — was a symptom of the same fact.
+The world was a PAINTING with cut-out figures standing on it, which is
+the technique of 1998:
+
+- there is one painted viewpoint, so the camera cannot move;
+- the figure must match the painting's scale, so it is small;
+- nothing can be lit, because the light is already in the paint.
+
+No amount of retuning the 2D living map reaches any of those. 921
+pixels of artwork cannot carry a close camera, and a painting has no
+camera at all.
+
+### 26.2 What was built
+
+`tools/design-preview/src/city/` — the same street as geometry, in
+three.js 0.160. Four files: `street.ts` (the scene), `player.ts` (the
+drawn walk cycle on a camera-facing plane), `textures.ts` (paving,
+asphalt, plaster, neon and glow, drawn on canvas at load), `City.tsx`
+(the renderer, the camera, the joystick, the shop entry and the room).
+
+The shopfronts he commissioned are the facades of buildings now rather
+than stickers on a photograph. The two things they were missing, a
+camera and a light, are what a scene gives them.
+
+Three decisions carry the look:
+
+1. **It is continuous.** The first build placed the eleven shops at
+   their map coordinates, twenty-three metres apart, and the twelve
+   metres between each pair were empty pavement against black sky. A
+   street is a wall with doors in it, so the bays between the drawings
+   are ordinary buildings, and one ground floor in three has its
+   lights on.
+2. **It is narrow.** Sixteen metres between facades, road down the
+   middle. The first version was thirty across and the camera could
+   only ever frame paving.
+3. **Its signs project.** A sign flat on a facade faces across the
+   street, so walking down one you see every shop edge-on and none of
+   them. A blade sign on a bracket over the pavement did more for the
+   street reading as a high street than every lighting change
+   combined.
+
+### 26.3 Going in is a camera move
+
+*"שגם הכניסה לחנות תהיה מרשימה."* It had been a state change: press a
+button, the street is replaced by a photograph. A cut is the one
+camera move that tells you nothing, and the painted world could only
+ever cut.
+
+Now the stick goes quiet, the figure walks the last metres to the door
+on its own, the camera comes off the follow rig, swings to face the
+shopfront and pushes in until the window fills the frame, and the
+brand's own colour rises over the last third and becomes the room.
+Leaving plays it backwards.
+
+The interior is wider than the phone and you drag to look around —
+covering a 4:3 room on a 9:19.5 screen crops a third off each side,
+and two of Lust's four pressable shelves were in the cropped part.
+
+### 26.4 Sixty lights, eight lamps
+
+Measured in the browser at 780×1688: **five frames a second**.
+
+three.js compiles the light count into every material's shader and
+every lit fragment loops over all of them. Eleven shops with a spill
+and a sign, twenty-six street lamps, nine lit cafés and eight cars came
+to about sixty point lights, so every pixel of every wall was doing
+sixty attenuation calculations.
+
+There are **eight** real point lights now and they are lent: every
+fifth of a second, the eight emitters nearest the camera take them.
+Everything else keeps its halo sprite and its pool of light on the
+pavement, which are additive planes and cost nothing. The moon stopped
+casting shadows — on a night street the shadows that read are contact
+shadows, and those are drawn where the eye looks for them.
+
+**Five frames a second to sixty.** This is the single most important
+number in this section: a street that looks like this and runs at five
+is worth nothing.
+
+### 26.5 Faults found by looking, not by reasoning
+
+- **The camera stood in front of the walker, looking back.** On screen
+  it was almost convincing — the figure is a back-view drawing on a
+  plane that turns to face the camera, so he still appeared to walk
+  away — but he was walking away from the shops, and every screenshot
+  framed the empty end of the street. Three rounds of "the lighting is
+  too dark" were spent on shopfronts that were behind the lens.
+- **Physical light units.** three.js stopped scaling lights at r155;
+  intensity is candela now. The numbers that lit a scene under the old
+  convention mean roughly what they sound like, which is nothing. The
+  first build was black; the second, corrected by multiplying until
+  something appeared, was white. Exposure and intensity have to be
+  chosen as a pair.
+- **`DoubleSide` mirrors.** Every Hebrew sign in the street read
+  backwards from the far pavement. A blade sign is two single-sided
+  faces now, which is also what a real one is.
+- **An additive plane seen edge-on is a bright streak, not an
+  invisible one.** Signs fade by how square-on the viewer is.
+- **A scripted move must use the wall clock.** The walk-in accumulated
+  the loop's `dt`, which is clamped at 50ms so one slow frame cannot
+  teleport the player through a wall. That clamp is right for movement
+  and wrong for a cinematic: at five frames a second a 1.5-second
+  sequence took six.
+
+### 26.6 Where it lives, and the decision that is not ours
+
+The city is reachable from the app — a chip on the stroll screen —
+rather than from a query string only.
+
+It stays in `tools/design-preview` and **not** in `packages/ui`.
+React Native cannot host WebGL without `expo-gl`; shipping this from
+the shared package would put a component in there that only one of its
+three consumers can render. Making the city run inside
+`apps/customer-mobile` is a real piece of work (`expo-gl`, and a
+renderer that survives a native surface being recreated) and it is a
+scope decision for Amit, recorded here rather than assumed.
+
+### 26.7 The capsule lost its sentence
+
+*"איפה שרשום דומה ב למטה תעיף את זה ותעשה איזה דמות מגניבה של המקצוען
+מתקדמת ותשאיר רק את הזמן בסוף של הדק."*
+
+`ActiveJobCapsule` said "דוגמה ב׳ · בדרך אליך · 14 דק׳" — three facts,
+of which the customer chose the first, can infer the second, and only
+needs the third. It now draws a figure walking a road toward a door,
+and the minutes.
+
+It takes an optional `progress`, from `routeProgress`:
+
+- **a number** — the figure stands where the server says and the road
+  is still. A claim, rendered.
+- **null** — the figure walks and the ROAD moves past it. Motion with
+  no distance in it, because we do not know the distance.
+
+The preview passes nothing, because its open-call record carries the
+minutes remaining and not the minutes at assignment, and one of two
+numbers is not a fraction. The name moves to the accessibility label,
+so a screen reader still gets the sentence. /CLAUDE.md §3.
+
+### 26.8 Gates
+
+`verify:domain` 28 · **1152 unit tests** · typecheck and lint clean
+across all ten workspaces · `verify:a11y` 21 screens, 0 defects, 0
+unreachable · `verify:screens` and `verify:game` clean · 60fps at
+780×1688.

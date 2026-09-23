@@ -5,7 +5,7 @@ import { buildPlayer } from "./player";
 import { SPONSOR_BADGE_HE, sponsorCtaHe, sponsorLeaveHe } from "@pro-now/types";
 
 import { PREVIEW_SPONSORS } from "../sponsors";
-import { buildStreet, FRONT_X, STREET_LENGTH, WALK_LIMIT, type ShopSpec } from "./street";
+import { buildStreet, FRONT_X, SPAWN, STREET_LENGTH, WALK_LIMIT, type ShopSpec } from "./street";
 
 /**
  * THE CITY, AND THE CAMERA THAT LIVES IN IT.
@@ -158,7 +158,14 @@ export function City({ base = "./world/", spawn, onExit }: CityProps) {
          of one particular shop without walking there for two minutes;
          it is a developer-gallery affordance and nothing reads it in
          the app. */
-      player.group.position.set(spawn?.x ?? 6.3, 0, spawn?.z ?? STREET_LENGTH / 2 - 26);
+      /*
+       * `SPAWN` lives in street.ts because the crowd has to know it too
+       * — see the note there. Twenty-six metres in was the empty top of
+       * the street: you landed between two lamps with dark pavement
+       * ahead and the first sign forty metres off. This opens on a lit
+       * shopfront with its blade sign over the pavement.
+       */
+      player.group.position.set(spawn?.x ?? SPAWN.x, 0, spawn?.z ?? SPAWN.z);
 
       /* The street collected these as it built them. Traversing for
          point lights used to miss the ones inside groups that had not

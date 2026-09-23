@@ -118,6 +118,8 @@ blocks the epic's stated acceptance criteria.
 /packages/api-client     — typed client consumed by mobile/admin
 /packages/validation     — shared zod schemas (request/response validation)
 /tools/design-preview    — developer-only browser gallery for packages/ui (not a shipping target)
+                           also hosts the 3D city (`src/city`, three.js) — see EPIC-0-REPORT §26
+                           for why it is here and not in packages/ui
 ```
 
 ## 9. Current status
@@ -125,7 +127,7 @@ blocks the epic's stated acceptance criteria.
 See `/docs/EPIC-0-REPORT.md` for the as-built state, contradictions found
 between source documents, and the recommended next epic.
 
-**Read `§25` in that report first**, then `§24`, `§23` and `§15` —
+**Read `§26` in that report first**, then `§25`, `§24` and `§15` —
 together they are the current truth about what has actually been
 installed, compiled, linted, bundled, rendered and executed. They
 supersede the older `§7`/`§8`.
