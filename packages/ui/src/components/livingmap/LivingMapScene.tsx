@@ -170,6 +170,21 @@ export interface LivingMapSceneProps {
    */
   onOpenProfile?: (candidateId: string) => void;
   /**
+   * TAKE ME TO THIS SHOP, FROM OUTSIDE THE SCENE.
+   *
+   * Amit: *"ואם אני עושה דלג אז חוזר לרחוב ועובר לחנות הבאה."* Skipping
+   * happens on the profile card, which lives above this component — so
+   * the request to travel to the next one has to come back down. Set it
+   * to a candidate id and the same journey runs: out to the street,
+   * along it, into the next shop, card.
+   *
+   * A request rather than a route: the scene owns the journey, and it
+   * clears the request as soon as it has acted on it so a re-render
+   * cannot start the same trip twice.
+   */
+  enterVenueId?: string | null;
+  onEnterHandled?: () => void;
+  /**
    * Whether the professional's card is currently on screen.
    *
    * The scene needs to know, because closing it is a camera move rather
@@ -245,6 +260,8 @@ export function LivingMapScene({
   animate = true,
   topInset = 0,
   onOpenProfile,
+  enterVenueId = null,
+  onEnterHandled,
   profileOpen = false,
   avatar = null,
   width,
@@ -476,8 +493,26 @@ export function LivingMapScene({
     wasOpen.current = false;
 
     const id = setTimeout(() => {
+      /*
+       * UNLESS A NEW JOURNEY HAS ALREADY STARTED.
+       *
+       * Skipping to the next shop closes this card and asks for the next
+       * trip in the same breath — see `enterVenueId` — so this timeout
+       * lands 120ms into a journey that is already under way and used to
+       * wipe it: the card closed, the camera went back to the street and
+       * nothing else happened. The guard is the destination itself,
+       * which `startJourney` has already set.
+       *
+       * HOW MUCH THIS IS WORTH, MEASURED: removing it does not change
+       * what `verify:faces` sees, because the clock effect restarts on
+       * `journeyStartedAt` and the wipe is recovered from within a
+       * frame or two. So it is a guard against a transient rather than
+       * against a failure, and it is kept for the narrower reason that
+       * a timer must not clear state a later action has already set —
+       * which stays true however the clock behaves.
+       */
+      if (travellingTo.current) return;
       setJourneyMs(null);
-      travellingTo.current = null;
       setRestingAt(RETURN.restsAt);
     }, RETURN.cameraStartMs);
     return () => clearTimeout(id);
@@ -501,6 +536,20 @@ export function LivingMapScene({
     travellingTo.current = null;
     onOpenProfile?.(id);
   }, [journeyMs, onOpenProfile]);
+
+  /*
+   * AND THE SAME JOURNEY, ASKED FOR FROM ABOVE.
+   *
+   * See `enterVenueId`. It runs through `startJourney`, so skipping to
+   * the next shop is the identical move as pressing one on the street —
+   * the camera pulls back out, travels, and goes in. Two ways of doing
+   * the same thing would drift the first time one of them was tuned.
+   */
+  useEffect(() => {
+    if (!enterVenueId) return;
+    onEnterHandled?.();
+    startJourney(enterVenueId);
+  }, [enterVenueId, onEnterHandled, startJourney]);
 
   /*
    * ONE LENS FOR THE WHOLE SEARCH, AND THE CAMERA MOVES INSTEAD.

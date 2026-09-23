@@ -1,5 +1,5 @@
 import React from "react";
-import { Image, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 
 import {
@@ -87,6 +87,19 @@ export interface ProProfileBodyProps {
    * showing a barber's chair is a claim about a business.
    */
   shopInteriorUri?: string | null;
+  /**
+   * OUT, AND INTO THE NEXT ONE.
+   *
+   * Amit: *"ואם אני עושה דלג אז חוזר לרחוב ועובר לחנות הבאה."* Closing
+   * this card put the customer back on the street and left them there,
+   * which makes comparing two businesses a matter of finding the next
+   * shopfront yourself. This is the same journey the street's own taps
+   * run — out, along, in — asked for from here.
+   *
+   * Absent when there is nobody else to see, and then the card simply
+   * closes.
+   */
+  onNext?: () => void;
   /** Year the professional started in the trade, when they have stated it. */
   activeSinceYear: number | null;
   /** Coarse service area, never an address. */
@@ -104,6 +117,7 @@ export function ProProfileBody({
   reviews,
   workPhotoSubjects,
   shopInteriorUri = null,
+  onNext,
   activeSinceYear,
   areaLabelHe,
   fromPriceMinorUnits,
@@ -141,6 +155,25 @@ export function ProProfileBody({
           <HeroFlourish color={colors.trust} opacity={0.12} />
 
           <BackButton onPress={onBack} tone={"light"} placement="absolute" />
+
+          {/* ----------------------------------------------------------
+              OUT, AND INTO THE NEXT ONE. See `onNext`.
+
+              Opposite the back control and at the same height, because
+              they are the two ways out of this card and one of them
+              should not be hidden at the bottom of a page that scrolls
+              for fifteen hundred points.
+              ---------------------------------------------------------- */}
+          {onNext ? (
+            <Pressable
+              onPress={onNext}
+              accessibilityRole="button"
+              accessibilityLabel="דילוג לחנות הבאה"
+              style={({ pressed }) => [styles.next, pressed && { opacity: 0.85 }]}
+            >
+              <Text style={styles.nextLabel}>החנות הבאה ›</Text>
+            </Pressable>
+          ) : null}
 
           {/*
             * A real photo when the professional has uploaded one; otherwise
@@ -464,6 +497,18 @@ function ExternalReputation({ rep }: { rep: ExternalReputationView }) {
 
 const styles = StyleSheet.create({
   screen: { backgroundColor: colors.bg, overflow: "hidden", borderRadius: radii.xl },
+  next: {
+    position: "absolute",
+    top: spacing.lg,
+    left: spacing.lg,
+    minHeight: 44,
+    justifyContent: "center",
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.pill,
+    backgroundColor: colors.surfaceElevated,
+    zIndex: 2,
+  },
+  nextLabel: { ...type.captionStrong, color: colors.textPrimary, writingDirection: "rtl" },
   moreBelow: { position: "absolute", left: 0, right: 0, bottom: 0, height: 28 },
   scroll: { paddingBottom: spacing.xxl },
 

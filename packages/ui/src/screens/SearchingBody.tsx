@@ -104,6 +104,9 @@ export interface SearchingBodyProps {
   backLabelHe?: string | null;
   /** Tapping a shop opens the professional it stands for. */
   onOpenProfile?: (candidateId: string) => void;
+  /** Pass-through: skipping a shop asks the scene for the next journey. */
+  enterVenueId?: string | null;
+  onEnterHandled?: () => void;
   /** Whether that card is on screen; closing it is a camera move. */
   profileOpen?: boolean;
   /**
@@ -139,6 +142,8 @@ export function SearchingBody({
   onBack,
   backLabelHe = null,
   onOpenProfile,
+  enterVenueId = null,
+  onEnterHandled,
   profileOpen = false,
   avatar = null,
   width = 390,
@@ -179,6 +184,8 @@ export function SearchingBody({
       <LivingMapScene
         geo={geo}
         onOpenProfile={onOpenProfile}
+        enterVenueId={enterVenueId}
+        onEnterHandled={onEnterHandled}
         profileOpen={profileOpen}
         avatar={avatar}
         topInset={onBack ? BACK_BUTTON_CLEARANCE : 0}

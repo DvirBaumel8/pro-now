@@ -95,6 +95,64 @@ await tap(/פתיחת סתימ/, 1100);
 await tap(/^בקשת /, 1300);
 await tap(/שליחת הקריאה/, 3000);
 await p.waitForTimeout(7000);
+/* ----------------------------------------------------------------
+   OUT TO THE STREET AND INTO THE NEXT ONE.
+
+   Amit: *"ואם אני עושה דלג אז חוזר לרחוב ועובר לחנות הבאה."* Closing
+   the card used to put the customer back on the street and leave them
+   there, so comparing two businesses meant finding the next shopfront
+   yourself.
+
+   This asserts the whole move: a shop is open, skip is pressed, and a
+   DIFFERENT professional's card is open at the end of it. The first
+   version of the wiring passed the first half and failed the second —
+   the card closed, the camera went back, and nothing else happened —
+   so the name is the assertion, not the card.
+   ---------------------------------------------------------------- */
+const cardName = () =>
+  p.evaluate(() => {
+    const t = document.body.innerText;
+    const i = t.indexOf('הפרופיל של המקצוען');
+    if (i < 0) return null;
+    const m = t.slice(i).match(/(יוסי|מאיה|איתי|דוגמה [\u0590-\u05FF]׳)[^\n]*/);
+    return m ? m[0] : null;
+  });
+
+/*
+ * A shopfront on the street. Its label is the candidate's name and
+ * trade — "לפרטים" is only appended at the reveal, and matching on that
+ * is how this first looked for a button that is not on this screen.
+ */
+await p
+  .getByRole('button', { name: /\(תצוגה\) · / })
+  .first()
+  .click({ timeout: 6000 })
+  .catch(() => problems.push('no shop on the street can be opened'));
+await p.waitForTimeout(3600);
+const firstShop = await cardName();
+if (!firstShop) problems.push('opening a shop does not open a profile');
+
+const skipped = await p
+  .getByRole('button', { name: /דילוג לחנות הבאה/ })
+  .first()
+  .click({ timeout: 6000 })
+  .then(() => true)
+  .catch(() => false);
+if (!skipped) {
+  problems.push('there is no way to skip from a shop to the next one');
+} else {
+  await p.waitForTimeout(3600);
+  const secondShop = await cardName();
+  if (!secondShop) problems.push('skipping a shop leaves the customer on the street with nothing');
+  else if (secondShop === firstShop) problems.push(`skipping went back into the same shop: ${secondShop}`);
+}
+
+
+
+/* Out of the card, so the rest of the walk starts where it used to. */
+await p.getByRole('button', { name: /^חזרה$/ }).first().click({ timeout: 5000 }).catch(() => {});
+await p.waitForTimeout(1400);
+
 await tap(/כן, מתאים לי/, 1800);
 await tap(/לעקוב אחרי/, 2000);
 

@@ -1248,6 +1248,14 @@ function CustomerApp({
    * picture of a choice rather than a choice.
    */
   const [openVenue, setOpenVenue] = useState<string | null>(null);
+  /**
+   * A REQUEST TO TRAVEL, from the card back down to the street.
+   *
+   * Amit: *"ואם אני עושה דלג אז חוזר לרחוב ועובר לחנות הבאה."* The card
+   * is above the map, so skipping has to ask the map to make the same
+   * move a tap on a shopfront makes: out, along, in.
+   */
+  const [enterVenue, setEnterVenue] = useState<string | null>(null);
   /** The total the customer actually approved, for the panel to say back. */
   const [approvedTotalMinor, setApprovedTotalMinor] = useState<number | null>(
     memory?.current?.approvedTotalMinor ?? null
@@ -1907,6 +1915,23 @@ const go = useCallback((r: CustomerRoute) => {
     return uri ? { ...base, profilePhotoUrl: uri } : base;
   }, [trackedService, art]);
 
+  /**
+   * WHICH SHOP IS NEXT ALONG THE STREET.
+   *
+   * The candidates the search found, in the order it found them, wrapped
+   * — so "next" from the last one is the first rather than a dead end.
+   * Null when there is only one to see.
+   */
+  const nextVenueId = useMemo(() => {
+    const serviceId = route.name === "living" ? route.serviceId : lastRequestedId;
+    if (!serviceId || !openVenue) return null;
+    const ids = demoCandidatesFor(serviceId, 3).map((_, i) => `demo-cand-${i}`);
+    if (ids.length < 2) return null;
+    const at = ids.indexOf(openVenue);
+    if (at < 0) return null;
+    return ids[(at + 1) % ids.length] ?? null;
+  }, [route, lastRequestedId, openVenue]);
+
   const shopInteriorUri = useMemo(() => {
     /*
      * EVERY SCREEN THAT IS ABOUT A SERVICE, not only the map.
@@ -2349,6 +2374,13 @@ const go = useCallback((r: CustomerRoute) => {
             }
             onSafety={() => setSheet("safety")}
             onOpenProfile={(id) => setOpenVenue(id)}
+            /*
+             * SKIP TAKES YOU TO THE NEXT SHOP, not just off this card.
+             * Amit: *"ואם אני עושה דלג אז חוזר לרחוב ועובר לחנות הבאה."*
+             * The scene runs its own journey for it — see `enterVenueId`.
+             */
+            enterVenueId={enterVenue}
+            onEnterHandled={() => setEnterVenue(null)}
             profileOpen={openVenue !== null}
             /*
              * WHO IS WALKING. Whatever they picked at the start, or null
@@ -3076,6 +3108,20 @@ const go = useCallback((r: CustomerRoute) => {
           areaLabelHe="גוש דן"
           fromPriceMinorUnits={17900}
           onBack={() => setOpenVenue(null)}
+          /*
+           * THE NEXT SHOP ON THE STREET, cycling through the ones the
+           * search actually found. Absent when there is only one, in
+           * which case the card simply closes — a "next" that comes
+           * back to the same shop is worse than no next.
+           */
+          onNext={
+            nextVenueId
+              ? () => {
+                  setOpenVenue(null);
+                  setEnterVenue(nextVenueId);
+                }
+              : undefined
+          }
           width={width}
           height={Math.round(bodyH * CARD_REST.heightShare) - 56}
         />
