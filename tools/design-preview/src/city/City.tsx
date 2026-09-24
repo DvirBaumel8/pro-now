@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
@@ -175,6 +175,17 @@ export interface CityProps {
  */
 export type CityShot = "wide" | "character" | "shopfront";
 
+/** What one trade offers, as the host hands it over. */
+interface Trade {
+  nameHe: string;
+  services: Array<{
+    id: string;
+    nameHe: string;
+    descriptionHe?: string | null;
+    availableNowCount: number | null;
+  }>;
+}
+
 export function City({
   base = "./world/",
   spawn,
@@ -197,8 +208,30 @@ export function City({
   const [hint, setHint] = useState(true);
   /* True while the street is still being looked at from above. */
   const [arriving, setArriving] = useState(true);
+  /*
+   * A place you have walked up to that is not a shop — the dog park,
+   * the layby, the pickup point. Amit: *"אין לו חנות, צריך לחשוב על
+   * דרך אחרת לפגוש אותו, כי משהו כן צריך להיפתח."*
+   */
+  const [nearPlace, setNearPlace] = useState<{ id: string; he: string; department: string | null } | null>(null);
+  const [openPlace, setOpenPlace] = useState<{ he: string; department: string } | null>(null);
   /* Read every frame, so changing the prop moves the camera without
      rebuilding the city. */
+  /*
+   * The services for a DEPARTMENT rather than for a shop, because a
+   * place belongs to a trade and not to a building. Derived from the
+   * same map the shops use, so there is one source for what a trade
+   * offers and a place can never advertise something a shop would not.
+   */
+  const placeTrades = useMemo(() => {
+    const out: Record<string, Trade["services"]> = {};
+    for (const [shopId, t] of Object.entries(trades ?? {})) {
+      const dept = SHOPS.find((x) => x.id === shopId)?.department;
+      if (dept && !out[dept]) out[dept] = t.services;
+    }
+    return out;
+  }, [trades]);
+
   const shotRef = useRef<CityShot | null>(shot);
   shotRef.current = shot;
   const nearTint =
@@ -607,6 +640,7 @@ export function City({
       const doorCam = new THREE.Vector3();
       const walkTo = new THREE.Vector3();
       let lastNear: string | null = null;
+      let lastPlace: string | null = null;
 
       const tick = (now: number) => {
         const dt = Math.min(0.05, (now - last) / 1000);
@@ -924,6 +958,28 @@ export function City({
         camera.lookAt(aim);
 
         street.update(dt, now / 1000, camera);
+        /*
+         * The places are checked the same way and at the same radius,
+         * but separately: a shop you go INTO, a place you are MET at,
+         * and the two must never be confused on screen.
+         */
+        let bestPlace: (typeof street.places)[number] | null = null;
+        let pd = 8;
+        for (const pl of street.places) {
+          if (!pl.department) continue;
+          const d = pl.spot.distanceTo(player.group.position);
+          if (d < pd) { pd = d; bestPlace = pl; }
+        }
+        const placeId = bestPlace ? bestPlace.id : null;
+        if (placeId !== lastPlace) {
+          lastPlace = placeId;
+          setNearPlace(
+            bestPlace
+              ? { id: bestPlace.id, he: bestPlace.he, department: bestPlace.department }
+              : null
+          );
+        }
+
         const id = best ? best.id : null;
         if (id !== lastNear) {
           lastNear = id;
@@ -1070,6 +1126,33 @@ export function City({
         <div style={S.hint}>גררו על המסך כדי להסתכל ימינה ושמאלה</div>
       ) : null}
 
+      {/*
+        * A PLACE, NOT A SHOP.
+        *
+        * Same pill, different sentence and a different verb: you do
+        * not go INTO a dog park, you are met at one. The distinction
+        * matters because the whole street is built on the difference
+        * between premises and presence.
+        */}
+      {hud && nearPlace && !nearId && !walking ? (
+        <div style={{ ...S.name, borderColor: "#8ce06a" }}>
+          <span style={{ ...S.nameDot, background: "#8ce06a" }} />
+          <span style={S.nameText}>{nearPlace.he}</span>
+          <span style={S.nameGo}>נפגשים כאן</span>
+        </div>
+      ) : null}
+
+      {hud && nearPlace && !nearId && !walking && nearPlace.department ? (
+        <button
+          style={S.enter}
+          onClick={() =>
+            setOpenPlace({ he: nearPlace.he, department: nearPlace.department! })
+          }
+        >
+          מה אפשר להזמין כאן ›
+        </button>
+      ) : null}
+
       {hud && nearId && !walking && enterRef.current ? (
         <button
           style={S.enter}
@@ -1101,6 +1184,35 @@ export function City({
           opacity: veil,
         }}
       />
+
+      {openPlace ? (
+        <div style={S.sheetWrap} onClick={() => setOpenPlace(null)}>
+          <div style={S.sheet} onClick={(e) => e.stopPropagation()}>
+            <h3 style={S.sheetName}>{openPlace.he}</h3>
+            <p style={S.sheetBody}>
+              אין כאן חנות — המקצוען מגיע אליכם. זה המקום שנפגשים בו.
+            </p>
+            <div style={S.services}>
+              {(placeTrades[openPlace.department] ?? []).map((sv) => (
+                <button
+                  key={sv.id}
+                  style={S.service}
+                  onClick={() => onRequestService?.(sv.id)}
+                >
+                  <span style={S.serviceName}>{sv.nameHe}</span>
+                  {typeof sv.availableNowCount === "number" ? (
+                    <span style={S.serviceCount}>{sv.availableNowCount} פנויים עכשיו</span>
+                  ) : null}
+                  <span style={S.serviceGo}>›</span>
+                </button>
+              ))}
+            </div>
+            <button style={S.sheetClose} onClick={() => setOpenPlace(null)}>
+              סגירה
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {room ? (
         <ShopRoom
@@ -1150,16 +1262,6 @@ export function City({
  * says the next tap leaves PRO NOW, in the same spirit as the maps
  * handoff. We hand over a link and claim nothing about the other side.
  */
-interface Trade {
-  nameHe: string;
-  services: Array<{
-    id: string;
-    nameHe: string;
-    descriptionHe?: string | null;
-    availableNowCount: number | null;
-  }>;
-}
-
 function ShopRoom({
   base,
   shop,

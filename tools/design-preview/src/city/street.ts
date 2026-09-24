@@ -86,6 +86,15 @@ export interface ShopSpec {
 export interface StreetHandles {
   scene: THREE.Scene;
   shops: Array<ShopSpec & { doorway: THREE.Vector3 }>;
+  /**
+   * Places that are not shops.
+   *
+   * Almost every service in this catalogue is *עד הבית* — the
+   * professional comes to you — and for a dog walker, a courier or a
+   * tow truck a shopfront would be a lie: there are no premises to
+   * walk into. But there is a place, and a place can be walked up to.
+   */
+  places: Array<{ id: string; he: string; department: string | null; spot: THREE.Vector3 }>;
   /** Every warm light in the street, for tinting the figure. */
   lamps: THREE.Vector3[];
   update: (dt: number, elapsed: number, camera: THREE.Camera) => void;
@@ -664,6 +673,13 @@ export function buildStreet(
     metalness: 0.4,
   });
   const shops: Array<ShopSpec & { doorway: THREE.Vector3 }> = [];
+  /** Somewhere in the street you can be met that is not a shop. */
+  const places: Array<{
+    id: string;
+    he: string;
+    department: string | null;
+    spot: THREE.Vector3;
+  }> = [];
 
   /** A window that may be somebody's lit flat. */
   function flat(g: THREE.Group, x: number, y: number, lit: boolean) {
@@ -2044,21 +2060,56 @@ export function buildStreet(
      what the drawing is.
      --------------------------------------------------------------- */
   {
-    const places = CITY_PLACE_IDS.map((id) => textures[id]).filter(
-      (t): t is THREE.Texture => Boolean(t)
-    );
-    if (places.length > 0) {
-      let turn = 0;
-      /* Between the shops, on the building line, where a bay is free. */
-      for (let z = STREET_LENGTH / 2 - 60; z > -STREET_LENGTH / 2 + 20; z -= 61) {
-        for (const side of [-1, 1] as const) {
-          const t = places[turn++ % places.length]!;
-          const g = cutout(t, 4.2, 1);
-          g.position.set(FRONT_X * side - side * 0.5, 0, z - (side < 0 ? 26 : 0));
-          g.rotation.y = side < 0 ? Math.PI / 2 : -Math.PI / 2;
-          scene.add(g);
-        }
-      }
+    /*
+     * A PLACE IS SOMEWHERE YOU CAN BE MET, SO IT HAS TO BE FINDABLE.
+     *
+     * Rotating the five drawings through whatever bay came next made
+     * them scenery, which is half of what Amit asked for and the
+     * easier half. *"צריך לחשוב על דרך אחרת לפגוש אותו, כי משהו כן
+     * צריך להיפתח."*
+     *
+     * So each one is placed deliberately, carries the trade it
+     * belongs to, and goes into `places` where the proximity check can
+     * find it — the same way a shop does. Walk up to the dog park and
+     * it offers dog walking; walk up to the layby and it offers the
+     * roadside trades.
+     *
+     * `place_bench_stop` deliberately has no trade. A street needs
+     * places that are simply nice to stand in, and a bench that tried
+     * to sell you something would be the worst object in the city.
+     */
+    const PLACED: ReadonlyArray<{
+      id: string;
+      asset: string;
+      he: string;
+      department: string | null;
+      z: number;
+      side: -1 | 1;
+      height: number;
+    }> = [
+      { id: "dogpark",  asset: "park_dogs",        he: "גינת הכלבים",   department: "PETS",      z:  61.6, side: -1, height: 4.4 },
+      { id: "roadside", asset: "place_roadside",   he: "מפרץ עצירה",    department: "VEHICLE",   z:   8.8, side: -1, height: 3.6 },
+      { id: "pickup",   asset: "place_pickup",     he: "נקודת שליחויות", department: "LOGISTICS", z: -79.2, side:  1, height: 3.8 },
+      { id: "garden",   asset: "place_garden",     he: "פינת המשתלה",   department: "HOME_CARE", z: -26.4, side: -1, height: 3.4 },
+      { id: "bench",    asset: "place_bench_stop", he: "פינת ישיבה",    department: null,        z: -114.4, side: -1, height: 3.4 },
+    ];
+
+    for (const pl of PLACED) {
+      const tex = textures[pl.asset];
+      if (!tex) continue;
+      const g = cutout(tex, pl.height, 1);
+      const x = FRONT_X * pl.side - pl.side * 0.5;
+      g.position.set(x, 0, pl.z);
+      g.rotation.y = pl.side < 0 ? Math.PI / 2 : -Math.PI / 2;
+      scene.add(g);
+      places.push({
+        id: pl.id,
+        he: pl.he,
+        department: pl.department,
+        /* Where somebody stands to be met here: off the wall, on the
+           pavement, the same offset a shop doorway uses. */
+        spot: new THREE.Vector3(x - pl.side * 2.6, 0, pl.z),
+      });
     }
 
     const parked: Array<[string, number]> = [
@@ -2198,7 +2249,7 @@ export function buildStreet(
     }
   }
 
-  return { scene, shops, lamps, update };
+  return { scene, shops, places, lamps, update };
 }
 
 export { neon, glow };
