@@ -101,7 +101,18 @@ export interface ShopSpec {
 
 export interface StreetHandles {
   scene: THREE.Scene;
-  shops: Array<ShopSpec & { doorway: THREE.Vector3 }>;
+  shops: Array<
+    ShopSpec & {
+      doorway: THREE.Vector3;
+      /**
+       * Where a person stands INSIDE, for the shops that have a room.
+       * Absent means the door opens a list rather than a place.
+       */
+      roomSpot?: THREE.Vector3;
+      /** Fades the shopfront out of the way on the way in. */
+      fadeFace?: (k: number) => void;
+    }
+  >;
   /**
    * Places that are not shops.
    *
@@ -731,7 +742,7 @@ export function buildStreet(
     roughness: 0.55,
     metalness: 0.4,
   });
-  const shops: Array<ShopSpec & { doorway: THREE.Vector3 }> = [];
+  const shops: StreetHandles["shops"] = [];
   /** Somewhere in the street you can be met that is not a shop. */
   const places: Array<{
     id: string;
@@ -947,7 +958,7 @@ export function buildStreet(
    * row belongs to the drawing if anything in it is opaque, and the
    * first run of such rows is the thing itself.
    */
-  function topBand(tex: THREE.Texture): { tex: THREE.Texture; aspect: number } {
+  function mainBand(tex: THREE.Texture): { tex: THREE.Texture; aspect: number } {
     const img = tex.image as HTMLImageElement | undefined;
     if (!img || !img.width) return { tex, aspect: 0 };
     const c = document.createElement("canvas");
@@ -957,15 +968,43 @@ export function buildStreet(
     if (!x2) return { tex, aspect: 0 };
     x2.drawImage(img, 0, 0);
     const d = x2.getImageData(0, 0, c.width, c.height).data;
+    /*
+     * THE BIGGEST BAND, NOT THE FIRST ONE.
+     *
+     * This began as "take the top band", because the four place
+     * drawings arrive as a place with a row of spare props under it.
+     * Then the shop interiors arrived shaped differently: measured,
+     * `shop_tech_inside.webp` is 3400 x 2404 and holds THREE things —
+     * a 125-pixel strip of somebody else's drawing along the top, the
+     * workshop itself from 218 to 1976, and a jacaranda blossom from
+     * 2027 down.
+     *
+     * Standing in that room, the blossom was a metre-high magenta bush
+     * growing out of the floor in front of the workbench, and the
+     * stray strip was a shadow across the ceiling. Amit saw it
+     * immediately.
+     *
+     * A sheet that holds several drawings has one that is the drawing
+     * and the rest are offcuts, and the one that is the drawing is the
+     * biggest. That rule is right for the places too — their place is
+     * always taller than their row of props.
+     */
     let y0 = -1;
     let y1 = -1;
+    let runStart = -1;
+    let gap = 0;
     for (let y = 0; y < c.height; y += 1) {
       let n = 0;
       for (let x = 0; x < c.width; x += 1) {
         if ((d[(y * c.width + x) * 4 + 3] ?? 0) > 40) { n += 1; if (n > 3) break; }
       }
-      if (n > 3) { if (y0 < 0) y0 = y; y1 = y; }
-      else if (y0 >= 0 && y - y1 > 12) break;
+      if (n > 3) {
+        if (runStart < 0) runStart = y;
+        gap = 0;
+        if (y - runStart > y1 - y0) { y0 = runStart; y1 = y; }
+      } else if (runStart >= 0 && ++gap > 12) {
+        runStart = -1;
+      }
     }
     if (y0 < 0 || y1 - y0 < 20) return { tex, aspect: 0 };
     /* Nothing to crop: the drawing already fills the sheet. */
@@ -1301,6 +1340,8 @@ export function buildStreet(
     g.rotation.y = s.side < 0 ? Math.PI / 2 : -Math.PI / 2;
 
     const tex = textures[s.facade];
+    /** The shopfront's own material, so the way in can fade it. */
+    let faceMat: THREE.MeshStandardMaterial | null = null;
     let faceH = 8.4;
     if (tex) {
       tex.colorSpace = THREE.SRGBColorSpace;
@@ -1396,8 +1437,8 @@ export function buildStreet(
       );
       face.receiveShadow = true;
       face.position.set(0, faceH / 2, 0.42);
-      face.receiveShadow = true;
       g.add(face);
+      faceMat = face.material as THREE.MeshStandardMaterial;
 
       /*
        * A cornice at the top, and a canopy over the shop window — the
@@ -1629,7 +1670,247 @@ export function buildStreet(
     g.add(wet);
 
     scene.add(g);
-    shops.push({ ...s, doorway: new THREE.Vector3(x - s.side * 3.0, 0, s.z) });
+    /* ---------------------------------------------------------------
+       AND A ROOM BEHIND THE DRAWING
+
+       Amit: *"רוצה שיכנסו לתוך החנויות ככה שלא ייתקעו בקרטון — שיהיה
+       אפשר לעשות צעד פנימה לתוך החנות, להרגיש חוויה אמיתית ולא
+       להסתכל על בית מקרטון."*
+
+       The interiors he commissioned are straight-on views of a room —
+       a bench, a wall of shelves, a counter, lit warm. Shown as a
+       full-screen picture they are a poster of a shop. Stood up as the
+       BACK WALL of an actual volume, with side walls, a floor, a
+       ceiling and two warm lamps in it, they are a room you are
+       standing in: the shelves recede past you at the edges of vision,
+       the floor runs away under your feet, and the doorway is behind
+       your shoulder.
+
+       Nothing is invented. The room is the size of the bay, the
+       picture keeps its own proportions, and the walls are the same
+       plaster the rest of the street is built from.
+       --------------------------------------------------------------- */
+    const roomTex = s.interior ? textures[s.interior] : undefined;
+    let fadeFace: ((k: number) => void) | null = null;
+    let roomSpot: THREE.Vector3 | undefined;
+    if (roomTex) {
+      const RD = 7.2;   /* how deep the room goes */
+      const RH = 3.7;   /* floor to ceiling */
+      const room = new THREE.Group();
+
+      /* Warm plaster, and dark enough that two ceiling lamps read as
+         two lamps rather than as a lit ceiling. */
+      const innerMat = new THREE.MeshStandardMaterial({
+        color: 0x2a232f,
+        roughness: 0.96,
+      });
+      /*
+       * A SHOP FLOOR, NOT A CASTLE WALL.
+       *
+       * At three repeats across a bay the stone came out in blocks a
+       * metre and a half wide. And the texture has to be CLONED before
+       * its repeat is set: `tiled` writes the repeat onto the texture
+       * itself, and these are the same objects the pavement outside is
+       * using — re-tiling one here would re-tile the whole street.
+       */
+      const floorSrc = textures["mat_paving"] ?? textures["mat_stone"];
+      const floorTex = floorSrc ? floorSrc.clone() : null;
+      if (floorTex) {
+        floorTex.needsUpdate = true;
+        floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping;
+        floorTex.repeat.set(5, 4);
+        floorTex.colorSpace = THREE.SRGBColorSpace;
+        floorTex.anisotropy = 8;
+      }
+      const floorMat = new THREE.MeshStandardMaterial({
+        map: floorTex ?? undefined,
+        color: floorTex ? 0xffffff : 0x4a3f48,
+        roughness: 0.6,
+        metalness: 0.05,
+      });
+
+      const floor = new THREE.Mesh(new THREE.PlaneGeometry(BAY, RD), floorMat);
+      floor.rotation.x = -Math.PI / 2;
+      floor.position.set(0, 0.02, -RD / 2);
+      floor.receiveShadow = true;
+      room.add(floor);
+
+      const ceil = new THREE.Mesh(new THREE.PlaneGeometry(BAY, RD), innerMat);
+      ceil.rotation.x = Math.PI / 2;
+      ceil.position.set(0, RH, -RD / 2);
+      room.add(ceil);
+
+      for (const sx of [-1, 1] as const) {
+        const sw = new THREE.Mesh(new THREE.PlaneGeometry(RD, RH), innerMat);
+        sw.rotation.y = sx > 0 ? -Math.PI / 2 : Math.PI / 2;
+        sw.position.set((sx * BAY) / 2, RH / 2, -RD / 2);
+        /*
+         * Not a shadow receiver. A flat wall a metre from the camera,
+         * lit by a directional light that reaches it through the
+         * building it is inside, is the classic place for shadow acne
+         * — and it showed up as a checkerboard crawling across the
+         * plaster. Nothing indoors casts onto these walls anyway.
+         */
+        room.add(sw);
+      }
+
+      /*
+       * THE PICTURE, AS THE FAR WALL — WHOLE, NEVER STRETCHED.
+       *
+       * The drawings are wider than they are tall and the room is
+       * wider still, so the fit is by WIDTH and the height follows.
+       * A picture squeezed to fill a wall is the same fault the
+       * shopfronts had, one room further in.
+       */
+      /*
+       * THE PICTURE COVERS THE WALL, FLOOR TO CEILING.
+       *
+       * Fitting it by width hung it on the wall like a television —
+       * a lit rectangle with plaster above and below it, which is the
+       * one thing a room must not look like. A room's back wall IS the
+       * picture, so the wall is the wall and the texture is cropped to
+       * cover it, keeping its own proportions. What falls outside the
+       * crop is the far edges of the drawing, which is exactly what
+       * you lose by standing in a room rather than looking at a photo
+       * of one.
+       */
+      /* The delivered interiors carry offcuts above and below the room
+         — see `mainBand`. The wall gets the room and nothing else. */
+      const band = mainBand(roomTex);
+      const roomMap = band.tex;
+      const bw = BAY;
+      const bh = RH;
+      const wallAspect = bw / bh;
+      const ri = roomMap.image as { width: number; height: number };
+      const imgAspect = band.aspect || ri.width / ri.height;
+      const wallTex = roomMap.clone();
+      wallTex.needsUpdate = true;
+      wallTex.colorSpace = THREE.SRGBColorSpace;
+      wallTex.wrapS = wallTex.wrapT = THREE.ClampToEdgeWrapping;
+      wallTex.anisotropy = 8;
+      /* The crop below composes with the band's own crop rather than
+         replacing it: `mainBand` has already set a repeat and an
+         offset in V, and the cover-fit narrows that window further. */
+      const bandRepeatY = roomMap.repeat.y;
+      const bandOffsetY = roomMap.offset.y;
+      if (imgAspect > wallAspect) {
+        /* The drawing is wider than the wall: keep its full height and
+           take the middle of its width. */
+        const r = wallAspect / imgAspect;
+        wallTex.repeat.set(r, bandRepeatY);
+        wallTex.offset.set((1 - r) / 2, bandOffsetY);
+      } else {
+        /* Taller than the wall: keep its width and take the BOTTOM,
+           because the floor of the drawing has to meet the floor of
+           the room. Cropping the middle would float the shelves. */
+        const r = imgAspect / wallAspect;
+        wallTex.repeat.set(1, bandRepeatY * r);
+        wallTex.offset.set(0, bandOffsetY);
+      }
+      const back = new THREE.Mesh(
+        new THREE.PlaneGeometry(bw, bh),
+        new THREE.MeshStandardMaterial({
+          map: wallTex,
+          emissiveMap: wallTex,
+          emissive: 0xffffff,
+          /* The room is painted lit, exactly like the shopfronts, and
+             for the same reason it is not lit again from scratch. */
+          emissiveIntensity: 0.26,
+          normalMap: relief(roomMap),
+          normalScale: new THREE.Vector2(0.9, 0.9),
+          roughness: 0.86,
+        })
+      );
+      back.position.set(0, bh / 2, -RD + 0.02);
+      room.add(back);
+
+      /* Two warm lamps in the ceiling. A room lit only by its own
+         painting reads as a lightbox; these put light ON the floor and
+         the side walls, which is what says "volume". */
+      const world = new THREE.Vector3();
+      for (const dz of [-1.9, -5.3]) {
+        /* Small and warm. At 0.12 with `toneMapped: false` these went
+           through the bloom as two white suns on the ceiling. */
+        const bulb = new THREE.Mesh(
+          new THREE.SphereGeometry(0.055, 10, 8),
+          new THREE.MeshBasicMaterial({ color: 0xffd9a8 })
+        );
+        bulb.position.set(0, RH - 0.22, dz);
+        room.add(bulb);
+        /* The emitter pool works in world space and the bay is rotated
+           to face the street, so the lamp's position is converted once
+           here rather than re-derived from the side. */
+        world.set(0, RH - 0.55, dz);
+        g.updateMatrixWorld();
+        g.localToWorld(world);
+        emit(world.x, world.y, world.z, 0xffd9a0, 30, 7.5);
+        lamps.push(world.clone());
+      }
+
+      /*
+       * A FRONT, WITH THE SHOP WINDOW CUT OUT OF IT.
+       *
+       * The room was open to the street along its whole width, which
+       * is not a shop and is not watertight either: standing inside,
+       * the very edges of a 72-degree lens caught the pavement past
+       * the jamb, and a magenta planter from the terrace outside
+       * appeared to be standing in the middle of the workshop.
+       *
+       * Two piers and a transom leave a window three and a half metres
+       * wide in the middle — which is a shopfront — and the street is
+       * then something you see THROUGH the glass from a room you are
+       * standing in, rather than a hole in the world.
+       */
+      const OPEN = 3.6;
+      const pier = (BAY - OPEN) / 2;
+      for (const sx of [-1, 1] as const) {
+        const jamb = new THREE.Mesh(new THREE.PlaneGeometry(pier, RH), innerMat);
+        jamb.position.set(sx * (OPEN / 2 + pier / 2), RH / 2, -0.04);
+        jamb.rotation.y = Math.PI;
+        room.add(jamb);
+      }
+      const transom = new THREE.Mesh(new THREE.PlaneGeometry(OPEN, RH * 0.22), innerMat);
+      transom.position.set(0, RH - (RH * 0.22) / 2, -0.04);
+      transom.rotation.y = Math.PI;
+      room.add(transom);
+
+      g.add(room);
+
+      /*
+       * THE FRONT OF THE SHOP HAS TO GET OUT OF THE WAY.
+       *
+       * The facade is one opaque plane across the whole bay — there is
+       * no door in it to walk through, because the door is painted.
+       * So on the way in it fades, and on the way out it comes back.
+       * From inside, the street is then visible where the glass would
+       * be, which is what a shop window is.
+       */
+      const fm = faceMat;
+      if (fm) {
+        fadeFace = (k: number) => {
+          fm.opacity = 1 - k;
+          /* `alphaTest` and a fading opacity fight: the test keeps
+             every pixel the drawing calls solid, whatever the opacity
+             says. It is released for the fade and restored after. */
+          fm.alphaTest = k > 0.02 ? 0 : 0.35;
+          fm.depthWrite = k < 0.5;
+          fm.needsUpdate = true;
+        };
+      }
+      /* Where you end up standing: three and a half metres in, which
+         is far enough that the doorway is behind you and near enough
+         that the far wall is not in your face. Local -z is into the
+         building, and the bay faces the street, so in world terms that
+         is further out along the shop's own side. */
+      roomSpot = new THREE.Vector3(x + s.side * 3.4, 0, s.z);
+    }
+
+    shops.push({
+      ...s,
+      doorway: new THREE.Vector3(x - s.side * 3.0, 0, s.z),
+      roomSpot,
+      fadeFace: fadeFace ?? undefined,
+    });
   }
 
   /* Lay the terrace: a bay every BAY metres, his shops where they fall. */
@@ -2666,7 +2947,7 @@ export function buildStreet(
     for (const pl of PLACED) {
       const tex = textures[pl.asset];
       if (!tex) continue;
-      const band = topBand(tex);
+      const band = mainBand(tex);
       const g = cutout(band.tex, pl.height, 1, band.aspect);
       const x = pl.kerb
         ? pl.side * (KERB_X - 1.2)

@@ -214,6 +214,24 @@ export function City({
   const [nearName, setNearName] = useState<string | null>(null);
   const [nearId, setNearId] = useState<string | null>(null);
   const [room, setRoom] = useState<ShopSpec | null>(null);
+  /*
+   * The shop you are STANDING IN, as opposed to the one whose picture
+   * is filling the screen. Amit: *"שיהיה אפשר לעשות צעד פנימה לתוך
+   * החנות, להרגיש חוויה אמיתית."* A room is a place you are in; the
+   * catalogue is something you then ask for.
+   */
+  const [insideShop, setInside] = useState<ShopSpec | null>(null);
+  /*
+   * The same fact, where the render loop can see it. The loop runs on
+   * requestAnimationFrame and never re-reads React state; the camera
+   * and the movement clamp both have to behave differently indoors, so
+   * they read this.
+   */
+  const insideRef = useRef<{
+    side: -1 | 1;
+    x: number;
+    z: number;
+  } | null>(null);
   /* 0 while you are on the street, 1 at the moment the door opens. */
   const [veil, setVeil] = useState(0);
   /* True while a scripted camera move owns the screen. */
@@ -430,9 +448,31 @@ export function City({
           try {
             const t = await load(`shop_${sh.id}_inside.webp`);
             (sh as { interior?: string }).interior = `shop_${sh.id}_inside.webp`;
-            t.dispose();
+            facades[`shop_${sh.id}_inside.webp`] = t;
           } catch {
             /* keep whatever interior the roster already names */
+          }
+        })
+      );
+
+      /*
+       * AND THE ROOMS THEMSELVES, AS TEXTURES.
+       *
+       * Amit: *"רוצה שיכנסו לתוך החנויות, שלא ייתקעו בקרטון — שיהיה
+       * אפשר לעשות צעד פנימה."*
+       *
+       * The interiors used to be loaded only by the `<img>` in the
+       * flat room overlay, and disposed here the moment their
+       * existence had been confirmed. They are the back wall of a real
+       * room now, so the street needs them as textures.
+       */
+      await Promise.all(
+        SHOPS.map(async (sh) => {
+          if (!sh.interior || facades[sh.interior]) return;
+          try {
+            facades[sh.interior] = await load(sh.interior);
+          } catch {
+            /* a shop with no room is a door that opens a list */
           }
         })
       );
@@ -824,14 +864,44 @@ export function City({
           const k = entry.dir > 0 ? k0 : 1 - k0;
           const shop = entry.shop;
 
-          /* Where the door is, and where a person stands to open it. */
+          /*
+           * -----------------------------------------------------------
+           * THE WALK-IN GOES THROUGH THE DOOR NOW
+           * -----------------------------------------------------------
+           * Amit: *"רוצה שיכנסו לתוך החנויות ככה שלא ייתקעו בקרטון —
+           * שיהיה אפשר לעשות צעד פנימה."*
+           *
+           * It used to stop 1.9 metres SHORT of the wall and cut to a
+           * full-screen picture of the inside. That is the cardboard
+           * he means: you never go anywhere, a poster arrives.
+           *
+           * Where a shop has a room, the figure keeps walking and ends
+           * up standing in it, the camera follows him through, and the
+           * shopfront fades out of the way as he passes it. Where it
+           * has no room, nothing changes: the old approach still ends
+           * at the door and opens a list, which is the honest thing a
+           * shop with no painted interior can do.
+           */
           const wall = FRONT_X * shop.side;
-          doorAim.set(wall, 3.4, shop.doorway.z);
-          /* Six metres off the wall, not four and a half: at four and a
-             half the facade filled the frame edge to edge and the
-             figure walking into it was half out of shot. */
-          doorCam.set(wall - shop.side * 6.4, 2.5, shop.doorway.z + 3.6);
-          walkTo.set(wall - shop.side * 1.9, 0, shop.doorway.z);
+          const inside = shop.roomSpot ?? null;
+          doorAim.set(
+            inside ? inside.x + shop.side * 3.0 : wall,
+            inside ? 2.0 : 3.4,
+            shop.doorway.z
+          );
+          doorCam.set(
+            inside ? inside.x - shop.side * 3.6 : wall - shop.side * 6.4,
+            inside ? 1.95 : 2.5,
+            shop.doorway.z + (inside ? 0.6 : 3.6)
+          );
+          walkTo.copy(inside ?? new THREE.Vector3(wall - shop.side * 1.9, 0, shop.doorway.z));
+          /* The glass gets out of the way over the middle of the move,
+             so the figure is never seen walking into a painted wall. */
+          shop.fadeFace?.(
+            entry.dir > 0
+              ? Math.min(1, Math.max(0, (k - 0.25) / 0.3))
+              : Math.min(1, Math.max(0, (k - 0.25) / 0.3))
+          );
 
           player.group.position.lerpVectors(entry.from, walkTo, k);
           /* Ground covered drives the cycle, so the legs match the
@@ -855,15 +925,52 @@ export function City({
           );
           camera.lookAt(aim);
 
-          /* The brand's colour, last third only. */
-          setVeil(Math.min(1, Math.max(0, (k - 0.6) / 0.34)));
+          /* The brand's colour, last third only — and only when the
+             screen is about to be replaced by a picture. Walking into
+             a room needs no curtain: you can see where you are going. */
+          setVeil(shop.roomSpot ? 0 : Math.min(1, Math.max(0, (k - 0.6) / 0.34)));
 
           street.update(dt, now / 1000, camera);
           composer.render();
 
           if (raw >= 1) {
+            if (entry.dir < 0) insideRef.current = null;
             if (entry.dir > 0) {
-              setRoom(shop as ShopSpec);
+              if (shop.roomSpot) {
+                /* You are in the shop. The catalogue is a button, not
+                   an ambush — see `insideShop`. */
+                setInside(shop as ShopSpec);
+                /*
+                 * AND HAND THE CONTROLS BACK.
+                 *
+                 * Pressing "היכנס" sets `walking`, which hides the
+                 * whole HUD while the camera does the moving — and it
+                 * was cleared only by the flat room overlay's
+                 * `onStreet`. With the overlay gone, walking into a
+                 * shop left the screen with no joystick, no pill and
+                 * no way out, permanently.
+                 */
+                setWalking(false);
+                insideRef.current = {
+                  side: shop.side,
+                  x: shop.roomSpot.x,
+                  z: shop.doorway.z,
+                };
+                /*
+                 * FACING THE BACK OF THE SHOP, NOT ALONG THE STREET.
+                 *
+                 * Forward is `(sin yaw, cos yaw)` here, so facing into
+                 * a shop on the -x side means forward (-1, 0), which
+                 * is yaw = -PI/2; the +x side is +PI/2. The expression
+                 * borrowed from the exit handler pointed the camera
+                 * down the street instead, and the first walk-in ended
+                 * with a side wall filling the screen and the pavement
+                 * visible out of the corner of the eye.
+                 */
+                yaw = (shop.side * Math.PI) / 2;
+              } else {
+                setRoom(shop as ShopSpec);
+              }
             } else {
               setVeil(0);
               /* Put the follow rig where the scripted camera left it,
@@ -920,11 +1027,30 @@ export function City({
           const dx = (-stick.y * fx - stick.x * fz) * speed * dt;
           const dz = (-stick.y * fz + stick.x * fx) * speed * dt;
           const p = player.group.position;
-          /* Wall to wall. Crossing the road is a thing you may do —
-             the previous clamp kept you on one pavement, which made
-             half the shops in the world literally unreachable. */
-          p.x = Math.max(-WALK_LIMIT, Math.min(WALK_LIMIT, p.x + dx));
-          p.z = Math.max(-STREET_LENGTH / 2 + 6, Math.min(STREET_LENGTH / 2 - 6, p.z + dz));
+          const room = insideRef.current;
+          if (room) {
+            /*
+             * INDOORS THE WALLS ARE THE WALLS.
+             *
+             * The street's clamp is the two building lines, and inside
+             * a shop that is the whole world away. These are the room's
+             * own four walls, kept half a metre clear so the camera
+             * never ends up inside the plaster.
+             */
+            const deep = room.x + room.side * 3.0;
+            const shallow = room.x - room.side * 3.2;
+            p.x = Math.max(
+              Math.min(deep, shallow),
+              Math.min(Math.max(deep, shallow), p.x + dx)
+            );
+            p.z = Math.max(room.z - 3.4, Math.min(room.z + 3.4, p.z + dz));
+          } else {
+            /* Wall to wall. Crossing the road is a thing you may do —
+               the previous clamp kept you on one pavement, which made
+               half the shops in the world literally unreachable. */
+            p.x = Math.max(-WALK_LIMIT, Math.min(WALK_LIMIT, p.x + dx));
+            p.z = Math.max(-STREET_LENGTH / 2 + 6, Math.min(STREET_LENGTH / 2 - 6, p.z + dz));
+          }
           walked += Math.hypot(dx, dz);
         }
         player.setDistance(walked, running);
@@ -1076,10 +1202,23 @@ export function City({
          */
         const WALL = FRONT_X - 0.5;
         let dist = wide;
-        /* Only once the camera is down among the buildings. Above the
-           roofline there is no wall to hit, and clamping up there
-           would yank the arrival shot in to three metres. */
-        if (descend > 0.7 && Math.abs(fx) > 0.001) {
+        /*
+         * INDOORS THE STREET'S WALL CLAMP IS THE WRONG WALL.
+         *
+         * It exists to stop the third-person camera reversing into a
+         * shopfront, and it is derived from the building LINE — so
+         * with the player standing three metres inside a shop it
+         * shoved the camera out through the front of the building and
+         * left the screen looking at the outside of the plaster.
+         * Measured: that is exactly what the first walk-in did.
+         *
+         * A room has its own walls and they are close, so the camera
+         * comes in tight instead: near enough to stand behind a
+         * shoulder, far enough to see the shelves.
+         */
+        if (insideRef.current) {
+          dist = Math.min(dist, 2.9);
+        } else if (descend > 0.7 && Math.abs(fx) > 0.001) {
           const room =
             fx > 0
               ? (player.group.position.x + WALL) / fx
@@ -1227,6 +1366,20 @@ export function City({
       leaveRef.current = () => {
         const shop = street.shops.find((x) => x.id === lastNear);
         if (!shop) return;
+        if (shop.roomSpot) {
+          entry = {
+            shop,
+            startedAt: performance.now(),
+            dir: -1,
+            from: shop.roomSpot.clone(),
+            aimFrom: new THREE.Vector3(
+              shop.roomSpot.x - shop.side * 3.6,
+              1.95,
+              shop.doorway.z + 0.6
+            ),
+          };
+          return;
+        }
         const wall = FRONT_X * shop.side;
         entry = {
           shop,
@@ -1330,12 +1483,56 @@ export function City({
         * supply, not ours to invent. The day they send one it goes
         * here with no change to this code.
         */}
-      {hud && nearName && !walking ? (
+      {hud && nearName && !walking && !insideShop ? (
         <div style={{ ...S.name, borderColor: nearTint }}>
           <span style={{ ...S.nameDot, background: nearTint }} />
           <span style={S.nameText}>{nearName}</span>
           {enterRef.current ? <span style={S.nameGo}>כדאי להיכנס</span> : null}
         </div>
+      ) : null}
+
+      {/*
+        * STANDING INSIDE.
+        *
+        * The name of the room you are in, and the two things there are
+        * to do in it: ask what can be ordered from here, and walk back
+        * out. Nothing else — a room full of buttons is a menu with
+        * wallpaper.
+        */}
+      {hud && insideShop && !walking && !room ? (
+        <div
+          style={{
+            ...S.name,
+            borderColor: insideShop.neonColour ?? "#FF6B4A",
+          }}
+        >
+          <span style={{ ...S.nameDot, background: insideShop.neonColour ?? "#FF6B4A" }} />
+          <span style={S.nameText}>{insideShop.he}</span>
+          <span style={S.nameGo}>אתם בפנים</span>
+        </div>
+      ) : null}
+
+      {hud && insideShop && !walking && !room ? (
+        <button
+          type="button"
+          style={{ ...S.enter, background: insideShop.neonColour ?? "#FF6B4A" }}
+          onClick={() => setRoom(insideShop)}
+        >
+          מה אפשר להזמין כאן ›
+        </button>
+      ) : null}
+
+      {hud && insideShop && !walking && !room ? (
+        <button
+          type="button"
+          style={S.leaveRoom}
+          onClick={() => {
+            setInside(null);
+            leaveRef.current?.();
+          }}
+        >
+          ‹ חזרה לרחוב
+        </button>
       ) : null}
 
       {/* Said once, for four seconds. A control nobody knows about is
@@ -1379,7 +1576,7 @@ export function City({
         </button>
       ) : null}
 
-      {hud && nearId && !walking && enterRef.current ? (
+      {hud && nearId && !walking && !insideShop && enterRef.current ? (
         <button
           style={S.enter}
           onClick={() => {
@@ -1889,6 +2086,15 @@ const S: Record<string, React.CSSProperties> = {
     border: 0, borderRadius: 999, padding: "13px 26px", background: "#FF6B4A",
     color: "#17121F", fontSize: scale.meta, fontWeight: 700, fontFamily: "inherit", cursor: "pointer",
     boxShadow: "0 8px 26px rgba(255,107,74,.45)",
+  },
+  leaveRoom: {
+    /* Top left, clear of the joystick. At the bottom it sat on the
+       pad and you could not tell which you were pressing. */
+    position: "absolute", left: 16, top: 84,
+    border: "1px solid rgba(247,243,250,.22)", borderRadius: 999,
+    padding: "11px 20px", background: "rgba(16,12,22,.72)",
+    color: "rgba(247,243,250,.86)", fontSize: scale.meta, fontFamily: "inherit",
+    cursor: "pointer", backdropFilter: "blur(8px)",
   },
   pad: {
     position: "absolute", left: 18, bottom: 26, width: 118, height: 118, borderRadius: 999,
