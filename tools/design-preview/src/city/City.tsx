@@ -6,6 +6,18 @@ import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPa
 
 import { buildPlayer } from "./player";
 import { SPONSOR_BADGE_HE, sponsorCtaHe, sponsorLeaveHe } from "@pro-now/types";
+/*
+ * The type scale, which this file had been quietly outside of.
+ *
+ * `check-type-scale.mjs` counted 23 literal `fontSize:` values here —
+ * 11.5, 12.5, 14.5, 15, 16, 19, 20, 22, 26 — every one of them typed by
+ * somebody making one panel look right, which is exactly the failure
+ * that check was written for: "the ETA rendered at 44 on the match
+ * screen and at 30 on the tracking screen, so its size told the reader
+ * nothing". The city's panels are the same product as the screens and
+ * they read the same scale now.
+ */
+import { scale } from "@pro-now/ui";
 
 import { PREVIEW_SPONSORS } from "../sponsors";
 import {
@@ -970,6 +982,21 @@ export function City({
           const d = pl.spot.distanceTo(player.group.position);
           if (d < pd) { pd = d; bestPlace = pl; }
         }
+        /*
+         * WHICHEVER IS ACTUALLY NEARER.
+         *
+         * The place pill was drawn only when no shop was in range, and
+         * the shop range is nine metres against the place's eight — so
+         * standing IN the dog park, half a metre from its gate, the
+         * screen named the pet shop eight metres up the road and never
+         * the park. Measured at z 62: "בעלי חיים · כדאי להיכנס", with
+         * `place_dogpark` right under the camera.
+         *
+         * The two are still different things and never share the
+         * screen — a shop you go INTO, a place you are MET at — but
+         * which one you are at is a distance, not a precedence.
+         */
+        if (bestPlace && best && pd < bd) best = null;
         const placeId = bestPlace ? bestPlace.id : null;
         if (placeId !== lastPlace) {
           lastPlace = placeId;
@@ -1624,7 +1651,7 @@ const S: Record<string, React.CSSProperties> = {
   canvas: { position: "absolute", inset: 0, touchAction: "none" },
   load: {
     position: "absolute", inset: 0, display: "grid", placeItems: "center",
-    color: "rgba(247,243,250,.6)", fontSize: 14,
+    color: "rgba(247,243,250,.6)", fontSize: scale.meta,
   },
   name: {
     position: "absolute", top: 46, left: "50%", transform: "translateX(-50%)",
@@ -1636,14 +1663,14 @@ const S: Record<string, React.CSSProperties> = {
     animation: "pnRise 320ms cubic-bezier(.16,.84,.34,1)",
   },
   nameDot: { width: 9, height: 9, borderRadius: 999, flex: "0 0 auto" },
-  nameText: { color: "#F7F3FA", fontSize: 16, fontWeight: 700 },
-  nameGo: { color: "rgba(247,243,250,.6)", fontSize: 12.5 },
+  nameText: { color: "#F7F3FA", fontSize: scale.body, fontWeight: 700 },
+  nameGo: { color: "rgba(247,243,250,.6)", fontSize: scale.micro },
   /* Bottom RIGHT, opposite the stick. Centred at bottom:172 it sat on
      the character's head — the one thing on screen the eye is on. */
   enter: {
     position: "absolute", right: 20, bottom: 52,
     border: 0, borderRadius: 999, padding: "13px 26px", background: "#FF6B4A",
-    color: "#17121F", fontSize: 15, fontWeight: 700, fontFamily: "inherit", cursor: "pointer",
+    color: "#17121F", fontSize: scale.meta, fontWeight: 700, fontFamily: "inherit", cursor: "pointer",
     boxShadow: "0 8px 26px rgba(255,107,74,.45)",
   },
   pad: {
@@ -1660,7 +1687,7 @@ const S: Record<string, React.CSSProperties> = {
   back: {
     position: "absolute", top: 14, right: 14, width: 40, height: 40, borderRadius: 999,
     background: "rgba(16,11,22,.9)", border: "1px solid rgba(247,243,250,.55)",
-    color: "#F7F3FA", fontSize: 20, cursor: "pointer", lineHeight: 1,
+    color: "#F7F3FA", fontSize: scale.body, cursor: "pointer", lineHeight: 1,
   },
   veil: {
     position: "absolute", inset: 0, pointerEvents: "none",
@@ -1725,7 +1752,7 @@ const S: Record<string, React.CSSProperties> = {
    */
   hint: {
     position: "absolute", left: 20, right: 20, bottom: 158, textAlign: "center",
-    color: "rgba(247,243,250,.8)", fontSize: 13, letterSpacing: .2,
+    color: "rgba(247,243,250,.8)", fontSize: scale.meta, letterSpacing: .2,
     textShadow: "0 2px 14px rgba(0,0,0,.9)", pointerEvents: "none",
     animation: "pnFade 5.2s ease forwards",
   },
@@ -1751,11 +1778,11 @@ const S: Record<string, React.CSSProperties> = {
     fontFamily: "inherit", textAlign: "right",
     background: "rgba(247,243,250,.1)", border: "1px solid rgba(247,243,250,.18)",
   },
-  serviceName: { flex: 1, fontSize: 14.5, fontWeight: 600, color: "#F7F3FA" },
-  serviceCount: { fontSize: 12, color: "rgba(247,243,250,.6)" },
-  serviceGo: { fontSize: 18, color: "rgba(247,243,250,.5)" },
+  serviceName: { flex: 1, fontSize: scale.meta, fontWeight: 600, color: "#F7F3FA" },
+  serviceCount: { fontSize: scale.micro, color: "rgba(247,243,250,.6)" },
+  serviceGo: { fontSize: scale.body, color: "rgba(247,243,250,.5)" },
   shelfHint: {
-    margin: "0 0 6px", fontSize: 11.5, color: "rgba(247,243,250,.45)",
+    margin: "0 0 6px", fontSize: scale.micro, color: "rgba(247,243,250,.45)",
   },
   /*
    * IT WRAPS. IT DOES NOT SCROLL.
@@ -1783,8 +1810,8 @@ const S: Record<string, React.CSSProperties> = {
     borderRadius: 12, cursor: "pointer", fontFamily: "inherit",
     background: "rgba(247,243,250,.07)", border: "1px solid rgba(247,243,250,.13)",
   },
-  shelfName: { fontSize: 11.5, fontWeight: 600, color: "rgba(247,243,250,.86)", whiteSpace: "nowrap" },
-  shelfPrice: { fontSize: 11.5, color: "rgba(247,243,250,.5)" },
+  shelfName: { fontSize: scale.micro, fontWeight: 600, color: "rgba(247,243,250,.86)", whiteSpace: "nowrap" },
+  shelfPrice: { fontSize: scale.micro, color: "rgba(247,243,250,.5)" },
   spot: {
     position: "absolute", width: 44, height: 44, marginLeft: -22, marginTop: -22,
     borderRadius: 999, border: 0, padding: 0, cursor: "pointer",
@@ -1800,12 +1827,12 @@ const S: Record<string, React.CSSProperties> = {
       "0 0 0 1px rgba(40,24,12,.55), 0 0 10px 3px rgba(255,226,170,.95), 0 0 22px 8px rgba(255,190,110,.4)",
   },
   roomBar: { position: "relative", flex: "0 0 auto", padding: "14px 20px 24px" },
-  roomName: { margin: "0 0 4px", fontSize: 26, color: "#F7F3FA" },
-  roomTag: { margin: "0 0 8px", fontSize: 13, color: "rgba(247,243,250,.62)" },
-  roomLine: { margin: "0 0 14px", fontSize: 14, color: "rgba(247,243,250,.8)" },
+  roomName: { margin: "0 0 4px", fontSize: scale.section, color: "#F7F3FA" },
+  roomTag: { margin: "0 0 8px", fontSize: scale.meta, color: "rgba(247,243,250,.62)" },
+  roomLine: { margin: "0 0 14px", fontSize: scale.meta, color: "rgba(247,243,250,.8)" },
   out: {
     width: "100%", border: "1px solid rgba(247,243,250,.24)", borderRadius: 999, padding: 14,
-    background: "rgba(247,243,250,.14)", color: "#F7F3FA", fontSize: 15, fontWeight: 700,
+    background: "rgba(247,243,250,.14)", color: "#F7F3FA", fontSize: scale.meta, fontWeight: 700,
     fontFamily: "inherit", cursor: "pointer",
   },
   sheetWrap: {
@@ -1816,20 +1843,20 @@ const S: Record<string, React.CSSProperties> = {
     background: "#17121F", borderTopLeftRadius: 22, borderTopRightRadius: 22,
     padding: "20px 20px 26px", borderTop: "1px solid rgba(247,243,250,.14)",
   },
-  sheetName: { margin: "0 0 8px", fontSize: 19, color: "#F7F3FA" },
-  sheetBody: { margin: "0 0 12px", fontSize: 14, lineHeight: 1.55, color: "rgba(247,243,250,.78)" },
+  sheetName: { margin: "0 0 8px", fontSize: scale.body, color: "#F7F3FA" },
+  sheetBody: { margin: "0 0 12px", fontSize: scale.meta, lineHeight: 1.55, color: "rgba(247,243,250,.78)" },
   price: { margin: "0 0 14px", display: "flex", gap: 10, alignItems: "baseline" },
-  priceNow: { fontSize: 22, color: "#F7F3FA" },
-  priceWas: { fontSize: 14, color: "rgba(247,243,250,.5)", textDecoration: "line-through" },
-  leaving: { margin: "0 0 10px", fontSize: 12.5, color: "rgba(247,243,250,.58)", lineHeight: 1.5 },
+  priceNow: { fontSize: scale.section, color: "#F7F3FA" },
+  priceWas: { fontSize: scale.meta, color: "rgba(247,243,250,.5)", textDecoration: "line-through" },
+  leaving: { margin: "0 0 10px", fontSize: scale.micro, color: "rgba(247,243,250,.58)", lineHeight: 1.5 },
   site: {
     display: "block", textAlign: "center", borderRadius: 999, padding: 14,
-    background: "#FF6B4A", color: "#17121F", fontSize: 15, fontWeight: 700,
+    background: "#FF6B4A", color: "#17121F", fontSize: scale.meta, fontWeight: 700,
     textDecoration: "none",
   },
   sheetClose: {
     width: "100%", marginTop: 10, border: 0, borderRadius: 999, padding: 12,
-    background: "transparent", color: "rgba(247,243,250,.6)", fontSize: 14,
+    background: "transparent", color: "rgba(247,243,250,.6)", fontSize: scale.meta,
     fontFamily: "inherit", cursor: "pointer",
   },
 };

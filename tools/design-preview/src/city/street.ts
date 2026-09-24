@@ -6,6 +6,7 @@ import {
   CITY_PLACE_IDS,
   CITY_PROP_IDS,
   CITY_VEHICLE_IDS,
+  CITY_WALKER_IDS,
 } from "@pro-now/types";
 
 import { asphalt, glow, neon, paving, plaster, wordmark } from "./textures";
@@ -184,6 +185,7 @@ export const OPTIONAL_ART: readonly string[] = [
   ...CITY_PROP_IDS,
   ...CITY_PLACE_IDS,
   ...CITY_VEHICLE_IDS,
+  ...CITY_WALKER_IDS,
 ];
 
 
@@ -812,10 +814,17 @@ export function buildStreet(
    * street's lamps on top. A fully unlit cut-out is the thing that
    * made the shopfronts look like decals (see `shopBay`).
    */
-  function cutout(tex: THREE.Texture, height: number, sides = 2): THREE.Group {
+  function cutout(
+    tex: THREE.Texture,
+    height: number,
+    sides = 2,
+    /** For a texture cropped to part of its sheet, whose `image` is
+        still the whole sheet. Zero means "use the image". */
+    aspect = 0
+  ): THREE.Group {
     tex.colorSpace = THREE.SRGBColorSpace;
     const img = tex.image as { width: number; height: number };
-    const w = height * (img.width / img.height);
+    const w = height * (aspect || img.width / img.height);
     const mat = new THREE.MeshStandardMaterial({
       map: tex,
       emissiveMap: tex,
@@ -834,6 +843,60 @@ export function buildStreet(
       g.add(q);
     }
     return g;
+  }
+
+  /**
+   * THE TOP BAND OF A SHEET THAT HOLDS MORE THAN ONE THING.
+   *
+   * The four place drawings each arrived as a place on top and a row of
+   * spare props under it — `place_bench_stop` is a pergola and a bench,
+   * and then two PRO NOW van rears; `place_roadside` is a tow truck,
+   * and then a kerb and four traffic cones. Mapped whole onto one
+   * plane, the extras hang in the air below the place like a shelf of
+   * offcuts.
+   *
+   * Measured rather than guessed, the same way the walk cycles are: a
+   * row belongs to the drawing if anything in it is opaque, and the
+   * first run of such rows is the thing itself.
+   */
+  function topBand(tex: THREE.Texture): { tex: THREE.Texture; aspect: number } {
+    const img = tex.image as HTMLImageElement | undefined;
+    if (!img || !img.width) return { tex, aspect: 0 };
+    const c = document.createElement("canvas");
+    c.width = img.width;
+    c.height = img.height;
+    const x2 = c.getContext("2d", { willReadFrequently: true });
+    if (!x2) return { tex, aspect: 0 };
+    x2.drawImage(img, 0, 0);
+    const d = x2.getImageData(0, 0, c.width, c.height).data;
+    let y0 = -1;
+    let y1 = -1;
+    for (let y = 0; y < c.height; y += 1) {
+      let n = 0;
+      for (let x = 0; x < c.width; x += 1) {
+        if ((d[(y * c.width + x) * 4 + 3] ?? 0) > 40) { n += 1; if (n > 3) break; }
+      }
+      if (n > 3) { if (y0 < 0) y0 = y; y1 = y; }
+      else if (y0 >= 0 && y - y1 > 12) break;
+    }
+    if (y0 < 0 || y1 - y0 < 20) return { tex, aspect: 0 };
+    /* Nothing to crop: the drawing already fills the sheet. */
+    if (y0 <= 2 && y1 >= c.height - 3) return { tex, aspect: 0 };
+    const t = tex.clone();
+    t.needsUpdate = true;
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
+    /* Texture V runs from the BOTTOM, so the top band is the far end. */
+    t.repeat.set(1, (y1 - y0 + 1) / c.height);
+    t.offset.set(0, (c.height - y1 - 1) / c.height);
+    /*
+     * The clone SHARES `image` with the original — that is the whole
+     * point of a clone, and it is also a trap: `image` is what three
+     * uploads to the GPU, so overwriting it with a plain {width,height}
+     * to fix the quad's shape produces a texture with no pixels in it.
+     * The band's aspect is returned alongside instead.
+     */
+    return { tex: t, aspect: c.width / (y1 - y0 + 1) };
   }
 
   /** A plain building, for the bays between his shops. */
@@ -1504,21 +1567,97 @@ export function buildStreet(
    * flank and over the cab.
    */
   const markTex = wordmark();
-  const PRONOW = { body: 0xf2eef6, band: 0xff6b4a };
+  /*
+   * The body colour is READ OFF THE DRAWN VAN, not chosen. It is the
+   * warm off-white of `van_back.webp`, darkened enough that a street
+   * lamp cannot push it past the bloom threshold — which is what turned
+   * the oncoming van into a white brick with a black brick on top.
+   */
+  const PRONOW = { body: 0xcbb9b4, band: 0xff6b4a };
 
+  /**
+   * ---------------------------------------------------------------------
+   * THE VAN IS A DRAWING WHERE THE DRAWING IS THE RIGHT VIEW
+   * ---------------------------------------------------------------------
+   * The note above says the drawn vehicles are broadside and this road
+   * runs away from the camera, so the livery was built out of boxes
+   * instead. Half of that was right and half of it threw away the best
+   * asset in the pack: `van_back.webp` is a REAR view of Amit's own van,
+   * with PRO NOW and "שירותים עד הבית" across the doors and the five
+   * trade badges under them — and a rear view is exactly what a vehicle
+   * driving AWAY from you looks like.
+   *
+   * So a van receding down the street is that drawing, and only a
+   * vehicle coming towards you stays geometry. Which is also honest
+   * about what an oncoming car is at night: headlights and a dark shape.
+   * There is no front view in the pack, and inventing one out of boxes
+   * is what produced the white brick with the black brick on top.
+   */
   function car(dir: 1 | -1, lane: number, speed: number, z: number, ours = false) {
     const g = new THREE.Group();
+    /* Negative z is away from the camera, which watches from the near
+       end of the street — see `SPAWN` and the shadow box in `update`. */
+    const away = dir < 0;
+    const drawnVan = ours && away ? textures["van_back"] : undefined;
+    if (drawnVan) {
+      const body = cutout(drawnVan, 2.45, 1);
+      g.add(body);
+      /* Tail lamps are IN the drawing, so what is added here is only
+         what a drawing cannot hold: the red wash they throw back at
+         you, and the pool the headlights lay down out of sight ahead. */
+      const tail = new THREE.Sprite(
+        new THREE.SpriteMaterial({
+          map: glowTex, color: 0xff3b30, transparent: true, opacity: 0.30,
+          blending: THREE.AdditiveBlending, depthWrite: false,
+        })
+      );
+      tail.scale.set(3.6, 2.2, 1);
+      tail.position.set(0, 1.0, 0.5);
+      g.add(tail);
+      emitters.push({
+        pos: new THREE.Vector3(),
+        colour: new THREE.Color(0xfff0cc),
+        intensity: 62,
+        distance: 14,
+        follow: g,
+        offsetZ: -6.4,
+      });
+      g.position.set(lane, 0, z);
+      g.userData = { dir, speed };
+      scene.add(g);
+      cars.push(g);
+      return;
+    }
+
     const bodyColour = ours
       ? PRONOW.body
-      : [0x2a2f3d, 0x3a2430, 0x243028, 0x2e2a1f, 0x11131b][Math.floor(Math.random() * 5)]!;
+      /* Dark, but not black. The old set bottomed out at 0x11131b,
+         which under a street lamp is still a silhouette — and a
+         silhouette three metres from the camera is a hole in the
+         picture rather than a car. */
+      : [0x4a5170, 0x5e3c4c, 0x3d5145, 0x50492f, 0x2b3042][Math.floor(Math.random() * 5)]!;
     const len = ours ? 5.2 : 4.3;
     const tall = ours ? 1.7 : 0.95;
     const body = new THREE.Mesh(
       new THREE.BoxGeometry(1.86, tall, len),
+      /*
+       * METAL WITH NOTHING TO REFLECT IS BLACK.
+       *
+       * A `metalness` of 0.75 says "this surface has no diffuse colour
+       * at all; everything you see in it is the environment" — and this
+       * scene has no environment map, so the environment is nothing. The
+       * cars came out as black bricks with two glowing dots, which is
+       * most of why the traffic looked twenty years old in a street that
+       * otherwise does not.
+       *
+       * Car paint at night is mostly a dark diffuse body with a hard
+       * highlight where a lamp catches it, and that is what a low
+       * metalness and a mid roughness give under real lights.
+       */
       new THREE.MeshStandardMaterial({
         color: bodyColour,
-        roughness: ours ? 0.45 : 0.28,
-        metalness: ours ? 0.25 : 0.75,
+        roughness: ours ? 0.42 : 0.38,
+        metalness: 0.12,
       })
     );
     body.position.y = ours ? 1.15 : 0.68;
@@ -1550,7 +1689,7 @@ export function buildStreet(
           map: markTex, transparent: true, toneMapped: false, side: THREE.DoubleSide,
         })
       );
-      sign.position.set(0, 2.15, dir > 0 ? -len / 2 + 0.6 : len / 2 - 0.6);
+      sign.position.set(0, 2.15, dir > 0 ? len / 2 - 0.6 : -len / 2 + 0.6);
       g.add(sign);
       const box = new THREE.Mesh(
         new THREE.BoxGeometry(1.6, 0.56, 0.4),
@@ -1560,14 +1699,21 @@ export function buildStreet(
       g.add(box);
       const cab = new THREE.Mesh(
         new THREE.BoxGeometry(1.7, 0.62, 1.5),
-        new THREE.MeshStandardMaterial({ color: 0x0b0910, roughness: 0.1, metalness: 0.95 })
+        new THREE.MeshStandardMaterial({
+        color: 0x14111d, roughness: 0.16, metalness: 0.1,
+        /* Glass at night is not black: it holds the street. */
+        emissive: 0x2a2440, emissiveIntensity: 0.5,
+      })
       );
-      cab.position.set(0, 1.62, dir > 0 ? -len / 2 + 1.2 : len / 2 - 1.2);
+      cab.position.set(0, 1.62, dir > 0 ? len / 2 - 1.2 : -len / 2 + 1.2);
       g.add(cab);
     } else {
       const cabin = new THREE.Mesh(
         new THREE.BoxGeometry(1.6, 0.7, 2.1),
-        new THREE.MeshStandardMaterial({ color: 0x0b0910, roughness: 0.1, metalness: 0.95 })
+        new THREE.MeshStandardMaterial({
+          color: 0x14111d, roughness: 0.16, metalness: 0.1,
+          emissive: 0x2a2440, emissiveIntensity: 0.5,
+        })
       );
       cabin.position.set(0, 1.45, -0.1);
       g.add(cabin);
@@ -1575,33 +1721,99 @@ export function buildStreet(
 
     const lampMat = (c: number, i: number) =>
       new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: i });
+    /*
+     * THE LIGHTS WERE ON THE WRONG END OF EVERY CAR.
+     *
+     * `update` advances a car by `dir * speed * dt`, so `dir > 0` drives
+     * towards +z — and the headlights, the beam and the light pool were
+     * all placed at -z for exactly that car. Every vehicle in the street
+     * was driving backwards: white lights and a beam of tarmac behind
+     * it, red lamps leading. It is the kind of thing nobody sees and
+     * everybody feels, because a street full of cars reversing at 11
+     * metres a second is not a street anybody has stood in.
+     *
+     * The nose is where the car is going. One expression, used by the
+     * lamps, the beam and the pool, so they cannot disagree again.
+     */
+    const nose = dir > 0 ? len / 2 : -len / 2;
+    const tailEnd = -nose;
     for (const sx of [-0.58, 0.58]) {
-      const hl = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.15, 0.08), lampMat(0xfff3d6, 5));
-      hl.position.set(sx, ours ? 0.9 : 0.74, dir > 0 ? -len / 2 - 0.02 : len / 2 + 0.02);
+      /*
+       * A HEADLAMP IS A SMALL BRIGHT THING INSIDE A BIG SOFT ONE.
+       *
+       * At intensity 5 the lamp box was a panel of flat white, and a
+       * car passing within a few metres of the camera filled a tenth of
+       * the screen with it. What reads as a headlight is the halo — the
+       * same three-pass logic as the neon in `textures.ts` — so the box
+       * is turned down to a filament and the size is given to a sprite,
+       * which costs nothing and cannot clip.
+       */
+      const hl = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.12, 0.08), lampMat(0xfff3d6, 2.2));
+      hl.position.set(sx, ours ? 0.9 : 0.74, nose + dir * 0.02);
       g.add(hl);
-      const tl = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.13, 0.08), lampMat(0xff3b30, 3));
-      tl.position.set(sx, ours ? 1.0 : 0.82, dir > 0 ? len / 2 + 0.02 : -len / 2 - 0.02);
+      const flare = new THREE.Sprite(
+        new THREE.SpriteMaterial({
+          map: glowTex, color: 0xffe9bd, transparent: true, opacity: 0.3,
+          blending: THREE.AdditiveBlending, depthWrite: false,
+        })
+      );
+      flare.scale.set(1.05, 1.05, 1);
+      flare.position.copy(hl.position);
+      g.add(flare);
+      const tl = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.13, 0.08), lampMat(0xff3b30, 1.6));
+      tl.position.set(sx, ours ? 1.0 : 0.82, tailEnd - dir * 0.02);
       g.add(tl);
+      const tlGlow = new THREE.Sprite(
+        new THREE.SpriteMaterial({
+          map: glowTex, color: 0xff3b30, transparent: true, opacity: 0.32,
+          blending: THREE.AdditiveBlending, depthWrite: false,
+        })
+      );
+      tlGlow.scale.set(1.0, 1.0, 1);
+      tlGlow.position.copy(tl.position);
+      g.add(tlGlow);
     }
+    /*
+     * THE BEAM IS THE FAINT HALF OF THE HEADLIGHT, NOT THE LOUD HALF.
+     *
+     * Turning this plane off entirely and re-shooting was the test: what
+     * was left — the real point light's pool on the tarmac — read better
+     * than what was there, because a plane with a hard edge lying on the
+     * road is a shape, and a pool of light is not. But the pool only
+     * exists for the ten cars nearest the viewer (see `emit`), so the
+     * plane stays for everything beyond them, narrowed and dimmed until
+     * it is a suggestion rather than a spotlight.
+     */
     const beam = new THREE.Mesh(
-      new THREE.PlaneGeometry(4.2, 14),
+      new THREE.PlaneGeometry(2.8, 11),
       new THREE.MeshBasicMaterial({
-        map: glowTex, color: 0xfff0cc, transparent: true, opacity: 0.17,
+        /* The pool on the tarmac, and no brighter. Additive over a
+           light-coloured car body is how a van becomes a white slab,
+           and bloom then finishes the job. */
+        map: glowTex, color: 0xfff0cc, transparent: true, opacity: 0.055,
         blending: THREE.AdditiveBlending, depthWrite: false,
       })
     );
     beam.rotation.x = -Math.PI / 2;
-    beam.position.set(0, 0.04, dir > 0 ? -7.5 : 7.5);
+    beam.position.set(0, 0.04, dir * 7.5);
     g.add(beam);
     /* The tarmac under a car lifts when the pool reaches it. The
        emitter follows the group, because this one moves. */
     emitters.push({
       pos: new THREE.Vector3(),
       colour: new THREE.Color(0xfff0cc),
-      intensity: 90,
-      distance: 13,
+      /*
+       * FAR ENOUGH AHEAD THAT THE CAR IS NOT STANDING IN ITS OWN POOL.
+       *
+       * The pool exists to lift the tarmac in front of a car. At 3.2m
+       * and 90 candela it was also lighting the car's own nose from
+       * half a metre away, and the pale van came back white — the
+       * brightest object in the street was a parked box.
+       */
+      intensity: 62,
+      distance: 14,
       follow: g,
-      offsetZ: dir > 0 ? -3.2 : 3.2,
+      offsetZ: dir * 6.4,
     });
 
     g.position.set(lane, 0, z);
@@ -1611,114 +1823,209 @@ export function buildStreet(
   }
   const laneA = -ROAD_HALF * 0.5;
   const laneB = ROAD_HALF * 0.5;
-  for (let i = 0; i < 4; i += 1) car(-1, laneA, 11 + Math.random() * 5, -110 + i * 74, i === 1);
-  for (let i = 0; i < 4; i += 1) car(1, laneB, 10 + Math.random() * 5, -70 + i * 78, i === 2);
+  /* Two of ours going away, where the drawing is the right view, and
+     one coming towards you, which is the geometry. One in three, as the
+     note above says. */
+  /*
+   * OURS ARE THE ONES DRIVING AWAY, BECAUSE THAT IS THE VIEW WE HAVE.
+   *
+   * A PRO NOW van was coming towards the camera too, built out of boxes
+   * with the wordmark on a plane — and three metres from the lens it was
+   * a white slab lit to pure white by its own headlight pool. There is
+   * no front view of the van in the pack, so there is no honest way to
+   * draw one, and a brand rendered badly says something worse about the
+   * brand than a brand not rendered at all.
+   *
+   * Two of the four in the receding lane are ours and they are the
+   * drawing; everything coming the other way is an ordinary dark car,
+   * which at night is headlights and a shape. When a front view arrives
+   * this is one line.
+   */
+  for (let i = 0; i < 4; i += 1) car(-1, laneA, 11 + Math.random() * 5, -110 + i * 74, i === 1 || i === 3);
+  for (let i = 0; i < 4; i += 1) car(1, laneB, 10 + Math.random() * 5, -70 + i * 78);
 
   /* ---------------------------------------------------------------
      PEOPLE WHO ARE NOT YOU
 
      /docs/03c §16.3: *motion without agency is ambience, motion with
      agency is an entity*. These are ambience and nothing more — they
-     are not professionals, they carry no claim about supply, and
-     none of them is ever named. A street with nobody on it reads as
-     an architectural render, which is the other half of "old".
+     are not professionals, they carry no claim about supply, and none
+     of them is ever named.
 
-     They are geometry, not drawings, for an honest reason as much as
-     a technical one: the only walk cycle delivered is Amit's own
-     character, and putting the customer's own likeness on six
-     passers-by is worse than a silhouette. At night, on a lit street,
-     a dark figure with a warm rim is what a stranger IS.
+     They used to be geometry, with an honest argument behind it: the
+     only walk cycle delivered was Amit's own character, and putting
+     the customer's own likeness on six passers-by is worse than a
+     silhouette. That argument expired the moment `walk_man`,
+     `walk_woman` and `walk_dogwalker` arrived — three back-view cycles
+     of people who are nobody in particular — and what was left was a
+     blocky mannequin with rectangles for arms, standing three metres
+     from the camera in the one screen Amit reviews most. He named it:
+     *"חוץ מהדמות שלי הכל נראה מלפני מאה שנה."*
+
+     So the geometry figure is gone rather than kept as a fallback.
+     Everyone in the street walks away from the camera, which is the
+     view the pack holds. Nobody walks towards it: there is no front
+     view, and inventing one out of boxes is the thing that was wrong.
+     When front-facing cycles arrive, this takes a `dir` again.
      --------------------------------------------------------------- */
-  const crowd: Array<{ g: THREE.Group; dir: 1 | -1; speed: number; legs: THREE.Object3D[] }> = [];
-  const coatColours = [0x2a2338, 0x1d2b33, 0x33242a, 0x232a22, 0x2e2a35];
-  function person(x: number, z: number, dir: 1 | -1) {
-    const g = new THREE.Group();
-    const scale = 0.94 + Math.random() * 0.14;
+  /* ---------------------------------------------------------------
+     SLICING A SHEET THAT IS NOT A GRID
+
+     Measured: `walk_man` holds 7 figures at 0-304, 329-628, 640-941,
+     942-1242, 1244-1508, 1512-1767, 1770-2023 — widths from 254 to 305
+     and gaps from 1 to 25 pixels. Slicing that with a uniform
+     `repeat.set(1/n, 1)` clips a shoulder off every other pose, which
+     is the fault that put three smeared rectangles on the pavement the
+     last time a sheet was assumed rather than measured.
+
+     So the frames are FOUND: a column belongs to a figure if anything
+     in it is opaque, a run of such columns is a figure, and a run much
+     wider than the median is two figures touching and is split.
+     --------------------------------------------------------------- */
+  interface Cycle {
+    frames: THREE.Texture[];
+    /** Width of one frame's sampling window, over its height. */
+    aspect: number;
+  }
+
+  function cycle(tex: THREE.Texture | undefined, forceEven = 0): Cycle | null {
+    if (!tex) return null;
+    const img = tex.image as HTMLImageElement | undefined;
+    if (!img || !img.width) return null;
+    const c = document.createElement("canvas");
+    c.width = img.width;
+    c.height = img.height;
+    const x2 = c.getContext("2d", { willReadFrequently: true });
+    if (!x2) return null;
+    x2.drawImage(img, 0, 0);
+    const data = x2.getImageData(0, 0, c.width, c.height).data;
+
+    const rects: Array<[number, number]> = [];
+    if (forceEven > 0) {
+      /* `walk_dogwalker` is a person AND a dog per pose, and the gap
+         between the two is as wide as the gap between poses — so the
+         run rule finds a person here and a dog there. It is the one
+         sheet that is evenly spaced, and it says so here rather than
+         being guessed at. */
+      const w = c.width / forceEven;
+      for (let i = 0; i < forceEven; i += 1) {
+        rects.push([Math.round(i * w), Math.round((i + 1) * w) - 1]);
+      }
+    } else {
+      const col = new Int32Array(c.width);
+      for (let x = 0; x < c.width; x += 1) {
+        let n = 0;
+        for (let y = 0; y < c.height; y += 1) {
+          if ((data[(y * c.width + x) * 4 + 3] ?? 0) > 40) n += 1;
+        }
+        col[x] = n;
+      }
+      const runs: Array<[number, number]> = [];
+      let start = -1;
+      for (let x = 0; x < c.width; x += 1) {
+        if (col[x]! > 2 && start < 0) start = x;
+        else if (col[x]! <= 2 && start >= 0) { runs.push([start, x - 1]); start = -1; }
+      }
+      if (start >= 0) runs.push([start, c.width - 1]);
+      const keep = runs.filter(([a, z]) => z - a > 40);
+      if (keep.length === 0) return null;
+      const widths = keep.map(([a, z]) => z - a + 1).sort((a, b) => a - b);
+      const median = widths[Math.floor(widths.length / 2)]!;
+      for (const [a, z] of keep) {
+        const w = z - a + 1;
+        const parts = Math.max(1, Math.round(w / median));
+        for (let i = 0; i < parts; i += 1) {
+          rects.push([Math.round(a + (w * i) / parts), Math.round(a + (w * (i + 1)) / parts) - 1]);
+        }
+      }
+    }
+    if (rects.length === 0) return null;
+
     /*
-     * Dark, and deliberately so. The first pass used mid-tone clothing
-     * and the figures picked up so much of Lust's magenta that they
-     * came out as bright pink mannequins standing in the street. A
-     * stranger at night is a silhouette with a rim of whatever they
-     * are walking past; the coat has to be dark enough for that to be
-     * what happens.
+     * ONE WINDOW WIDTH FOR THE WHOLE CYCLE.
+     *
+     * Each pose is a different number of pixels wide — a stride is
+     * wider than a stand — and giving every frame its own quad would
+     * make the figure grow and shrink as it walked. So the window is
+     * the widest frame, centred on each pose, and the quad never
+     * changes size. The pose moves inside it, which is what a pose
+     * does.
      */
-    const coat = new THREE.MeshStandardMaterial({
-      color: coatColours[Math.floor(Math.random() * coatColours.length)]!,
-      roughness: 0.92,
+    const unit = Math.max(...rects.map(([a, z]) => z - a + 1));
+    const frames = rects.map(([a, z]) => {
+      const t = tex.clone();
+      t.needsUpdate = true;
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
+      t.repeat.set(unit / c.width, 1);
+      t.offset.set(((a + z + 1) / 2 - unit / 2) / c.width, 0);
+      return t;
     });
-    const skin = new THREE.MeshStandardMaterial({ color: 0x4a3a30, roughness: 0.85 });
+    return { frames, aspect: unit / c.height };
+  }
 
-    /* Shoulders wider than the waist, and a head that is not a ball
-       on a post: the silhouette is the whole of the character here. */
-    /*
-     * The join at the neck is the whole thing. A barrel torso with a
-     * ball above it reads as a shop mannequin however well it is lit —
-     * a screenshot with one three metres from the camera under Lust's
-     * sign was the worst object in the frame. So the chest TAPERS to
-     * the shoulders, the shoulders are their own mass, and the neck is
-     * thick enough to be a neck.
-     */
-    const chest = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.165, 0.46, 10), coat);
-    chest.position.y = 1.18;
-    chest.castShadow = true;
-    g.add(chest);
-    const shoulders = new THREE.Mesh(new THREE.SphereGeometry(0.21, 12, 9), coat);
-    shoulders.position.y = 1.4;
-    shoulders.scale.set(1.08, 0.52, 0.78);
-    shoulders.castShadow = true;
-    g.add(shoulders);
-    const hips = new THREE.Mesh(new THREE.CylinderGeometry(0.165, 0.15, 0.24, 10), coat);
-    hips.position.y = 0.9;
-    g.add(hips);
-    const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.072, 0.085, 0.13, 8), skin);
-    neck.position.y = 1.52;
-    g.add(neck);
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.113, 12, 10), skin);
-    head.position.y = 1.65;
-    head.scale.set(1, 1.16, 1.02);
-    head.castShadow = true;
-    g.add(head);
-    const hair = new THREE.Mesh(
-      new THREE.SphereGeometry(0.12, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.66),
-      new THREE.MeshStandardMaterial({ color: 0x14100f, roughness: 1 })
+  interface Walker {
+    g: THREE.Group;
+    speed: number;
+    cycle: Cycle;
+    material: THREE.MeshStandardMaterial;
+    stride: number;
+    walked: number;
+  }
+  const walkers: Walker[] = [];
+
+  function drawnWalker(
+    x: number,
+    z: number,
+    c: Cycle,
+    height: number,
+    stride: number,
+    /** Zero for somebody standing still — the cycle then holds frame 0. */
+    speed = 0.9 + Math.random() * 0.7
+  ) {
+    const g = new THREE.Group();
+    const material = new THREE.MeshStandardMaterial({
+      map: c.frames[0]!,
+      emissiveMap: c.frames[0]!,
+      emissive: 0xffffff,
+      emissiveIntensity: 0.14,
+      transparent: true,
+      alphaTest: 0.42,
+      roughness: 0.9,
+      side: THREE.DoubleSide,
+    });
+    const quad = new THREE.Mesh(new THREE.PlaneGeometry(height * c.aspect, height), material);
+    quad.position.y = height / 2;
+    g.add(quad);
+
+    /* The same contact shadow the player has, and for the same reason:
+       a plane facing the camera casts a sheet, not a person. */
+    const shadow = new THREE.Mesh(
+      new THREE.PlaneGeometry(height * c.aspect * 0.8, height * 0.34),
+      new THREE.MeshBasicMaterial({
+        map: glowTex, color: 0x000000, transparent: true, opacity: 0.45, depthWrite: false,
+      })
     );
-    hair.position.y = 1.665;
-    hair.scale.set(1, 1.14, 1.02);
-    g.add(hair);
-
-    const legs: THREE.Object3D[] = [];
-    for (const sx of [-0.09, 0.09]) {
-      const hip = new THREE.Group();
-      hip.position.set(sx, 0.78, 0);
-      const thigh = new THREE.Mesh(new THREE.CylinderGeometry(0.078, 0.062, 0.78, 7), coat);
-      thigh.position.y = -0.39;
-      thigh.castShadow = true;
-      hip.add(thigh);
-      const shoe = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.07, 0.24), coat);
-      shoe.position.set(0, -0.76, 0.04);
-      hip.add(shoe);
-      g.add(hip);
-      legs.push(hip);
-    }
-    /* Outside the shoulder mass. At ±0.235 the arms were buried inside
-       a 0.227-wide shoulder sphere, and the figure had no limbs at all
-       above the waist. */
-    for (const sx of [-0.275, 0.275]) {
-      const sh = new THREE.Group();
-      sh.position.set(sx, 1.38, 0);
-      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.045, 0.58, 6), coat);
-      arm.position.set(0, -0.29, 0.03);
-      sh.add(arm);
-      g.add(sh);
-      legs.push(sh);
-    }
+    shadow.rotation.x = -Math.PI / 2;
+    shadow.position.y = 0.02;
+    g.add(shadow);
 
     g.position.set(x, 0, z);
-    g.scale.setScalar(scale);
-    g.rotation.y = dir > 0 ? 0 : Math.PI;
     scene.add(g);
-    crowd.push({ g, dir, speed: 0.9 + Math.random() * 0.7, legs });
+    walkers.push({ g, speed, cycle: c, material, stride, walked: 0 });
   }
+
+  /*
+   * The drawn cycles, measured once. `walk_dog` is deliberately not in
+   * the crowd: a loose dog trotting down a pavement on its own is a lost
+   * dog, and it belongs at the park — see `PLACED`.
+   */
+  const peopleCycles = [
+    cycle(textures["walk_man"]),
+    cycle(textures["walk_woman"]),
+    cycle(textures["walk_dogwalker"], 6),
+  ].filter((c): c is Cycle => c !== null);
+
   for (let i = 0; i < 14; i += 1) {
     const side = Math.random() > 0.5 ? 1 : -1;
     /* Near the kerb. They used to be spread across the full pavement,
@@ -1731,7 +2038,24 @@ export function buildStreet(
     do {
       z = -STREET_LENGTH / 2 + Math.random() * STREET_LENGTH;
     } while (Math.abs(z - SPAWN.z) < 13);
-    person(x, z, Math.random() > 0.5 ? 1 : -1);
+    const c = peopleCycles.length
+      ? peopleCycles[Math.floor(Math.random() * peopleCycles.length)]!
+      : null;
+    if (c) drawnWalker(x, z, c, 1.62 + Math.random() * 0.14, 1.9);
+  }
+
+  /*
+   * ONE DOG, STANDING IN THE DOG PARK.
+   *
+   * It was trotting down the pavement with the crowd, and a dog walking
+   * a street on its own at night is a lost dog — the opposite of what
+   * the park is for. It stands in the park instead, which is a dog
+   * being a dog somewhere a dog belongs, and it claims nothing: a dog
+   * is not a professional and nobody is waiting for you here.
+   */
+  {
+    const dog = cycle(textures["walk_dog"]);
+    if (dog) drawnWalker(FRONT_X - 2.6, 60.2, dog, 0.72, 1.1, 0);
   }
 
   /* ---------------------------------------------------------------
@@ -2032,14 +2356,23 @@ export function buildStreet(
     scene.add(g);
   }
 
+  /*
+   * The park's footprint, kept clear. A café table standing in the
+   * middle of a fenced dog park is the same fault as a table standing
+   * inside a building — furniture laid out on a grid that does not know
+   * what else is there.
+   */
+  const inPark = (x: number, z: number) =>
+    x > 0 && Math.abs(z - 61.6) < 5.4 && x > FRONT_X - 4.6;
+
   for (let z = STREET_LENGTH / 2 - 24; z > -STREET_LENGTH / 2; z -= 31) {
-    cafe(FRONT_X - 2.0, z, flowerHues[Math.floor(Math.random() * 3)]!);
+    if (!inPark(FRONT_X - 2.0, z)) cafe(FRONT_X - 2.0, z, flowerHues[Math.floor(Math.random() * 3)]!);
     cafe(-FRONT_X + 2.0, z - 15, 0xffc07a);
-    planter(FRONT_X - 1.3, z - 7);
+    if (!inPark(FRONT_X - 1.3, z - 7)) planter(FRONT_X - 1.3, z - 7);
     planter(-FRONT_X + 1.3, z - 22);
-    furnish(FRONT_X - 1.6, z - 18, drawnBench, 1.0);
+    if (!inPark(FRONT_X - 1.6, z - 18)) furnish(FRONT_X - 1.6, z - 18, drawnBench, 1.0);
     furnish(-FRONT_X + 1.6, z - 3, drawnBench, 1.0);
-    furnish(FRONT_X - 1.2, z - 26, drawnBin, 1.05);
+    if (!inPark(FRONT_X - 1.2, z - 26)) furnish(FRONT_X - 1.2, z - 26, drawnBin, 1.05);
   }
 
   /* ---------------------------------------------------------------
@@ -2087,17 +2420,33 @@ export function buildStreet(
       side: -1 | 1;
       height: number;
     }> = [
-      { id: "dogpark",  asset: "park_dogs",        he: "גינת הכלבים",   department: "PETS",      z:  61.6, side: -1, height: 4.4 },
+      /*
+       * ON THE PAVEMENT YOU ARE ACTUALLY WALKING ON.
+       *
+       * Four of the five places started on the far side of the road,
+       * and the proximity check is a radius of 8 metres from a spot
+       * 2.6m off the wall — which is 13 metres away across the road, so
+       * the dog park could not be reached from the pavement the player
+       * spawns on and walks down. Measured: walking to z 61.6 named the
+       * pets shop and never the park.
+       *
+       * The two places a person is most likely to want — the one Amit
+       * asked for and the one that is simply somewhere to sit — are on
+       * the near side now. The rest stay across the road, because a
+       * street with everything on one side is a corridor.
+       */
+
       { id: "roadside", asset: "place_roadside",   he: "מפרץ עצירה",    department: "VEHICLE",   z:   8.8, side: -1, height: 3.6 },
       { id: "pickup",   asset: "place_pickup",     he: "נקודת שליחויות", department: "LOGISTICS", z: -79.2, side:  1, height: 3.8 },
       { id: "garden",   asset: "place_garden",     he: "פינת המשתלה",   department: "HOME_CARE", z: -26.4, side: -1, height: 3.4 },
-      { id: "bench",    asset: "place_bench_stop", he: "פינת ישיבה",    department: null,        z: -114.4, side: -1, height: 3.4 },
+      { id: "bench",    asset: "place_bench_stop", he: "פינת ישיבה",    department: null,        z: -114.4, side:  1, height: 3.4 },
     ];
 
     for (const pl of PLACED) {
       const tex = textures[pl.asset];
       if (!tex) continue;
-      const g = cutout(tex, pl.height, 1);
+      const band = topBand(tex);
+      const g = cutout(band.tex, pl.height, 1, band.aspect);
       const x = FRONT_X * pl.side - pl.side * 0.5;
       g.position.set(x, 0, pl.z);
       g.rotation.y = pl.side < 0 ? Math.PI / 2 : -Math.PI / 2;
@@ -2109,6 +2458,99 @@ export function buildStreet(
         /* Where somebody stands to be met here: off the wall, on the
            pavement, the same offset a shop doorway uses. */
         spot: new THREE.Vector3(x - pl.side * 2.6, 0, pl.z),
+      });
+    }
+
+    /* ---------------------------------------------------------------
+       THE DOG PARK, BUILT RATHER THAN DRAWN
+
+       Amit asked for it by name — *"צריך גם לעבוד על גינת כלבים לדוג
+       ווקרים"* — and the file that came back under the name is a
+       pet-grooming shopfront (see `CITY_BUILDING_IDS`). A shopfront is
+       the one thing this place must not be: standing at it, the screen
+       says "אין כאן חנות — המקצוען מגיע אליכם".
+
+       So it is made out of what a small city dog park is made out of:
+       a patch of grass, a low rail around it, two trees and a bench,
+       with the drawn dog standing in it. Every piece is either real
+       delivered art or a box, nothing pretends to be a photograph of a
+       park, and it can be replaced by one cut-out the day a drawing of
+       a park arrives.
+       --------------------------------------------------------------- */
+    {
+      /*
+       * SET AGAINST THE BUILDING, NOT ACROSS THE PAVEMENT.
+       *
+       * The first version was six metres wide on a six-and-a-half metre
+       * pavement, so the only way down the street was straight through
+       * the park — which is charming once and an obstacle every time
+       * after. Four metres against the wall leaves two and a bit to
+       * walk past on, and the gate still faces the pavement.
+       */
+      const pz = 61.6;
+      const px = FRONT_X - 2.2;
+      const PW = 4.0;
+      const PL = 8.0;
+      const g = new THREE.Group();
+
+      const grass = new THREE.Mesh(
+        new THREE.PlaneGeometry(PW, PL),
+        new THREE.MeshStandardMaterial({ color: 0x2f4a2c, roughness: 0.95 })
+      );
+      grass.rotation.x = -Math.PI / 2;
+      grass.position.y = 0.03;
+      grass.receiveShadow = true;
+      g.add(grass);
+
+      /* A low rail, which is what tells you it is a park and not a
+         verge. Posts and a top bar, dark like the lamp posts. */
+      const railMat = new THREE.MeshStandardMaterial({
+        color: 0x1b1722, roughness: 0.5, metalness: 0.2,
+      });
+      const rail = (x: number, z: number, len: number, along: "x" | "z") => {
+        const bar = new THREE.Mesh(
+          new THREE.BoxGeometry(along === "x" ? len : 0.07, 0.07, along === "z" ? len : 0.07),
+          railMat
+        );
+        bar.position.set(x, 0.62, z);
+        g.add(bar);
+        const n = Math.max(2, Math.round(len / 1.5));
+        for (let i = 0; i <= n; i += 1) {
+          const post = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.68, 0.09), railMat);
+          const t = -len / 2 + (len * i) / n;
+          post.position.set(along === "x" ? x + t : x, 0.34, along === "z" ? z + t : z);
+          g.add(post);
+        }
+      };
+      /* Open towards the pavement, so it can be walked into. */
+      rail(px, pz - PL / 2, PW, "x");
+      rail(px, pz + PL / 2, PW, "x");
+      rail(px + PW / 2, pz, PL, "z");
+
+      grass.position.set(px, 0.03, pz);
+
+      const tree = textures["prop_jacaranda"] ?? textures["prop_palm"];
+      if (tree) {
+        for (const dz of [-2.8, 3.1]) {
+          const t = cutout(tree, 6.4);
+          t.position.set(px + 1.2, 0, pz + dz);
+          g.add(t);
+        }
+      }
+      const benchTex = textures["prop_bench"];
+      if (benchTex) {
+        const bench = cutout(benchTex, 1.0);
+        bench.position.set(px + 1.5, 0, pz - 1.2);
+        bench.rotation.y = -Math.PI / 2;
+        g.add(bench);
+      }
+      scene.add(g);
+
+      places.push({
+        id: "dogpark",
+        he: "גינת הכלבים",
+        department: "PETS",
+        spot: new THREE.Vector3(px - 2.2, 0, pz),
       });
     }
 
@@ -2192,19 +2634,23 @@ export function buildStreet(
       if (c.position.z > HALF) c.position.z = -HALF;
       if (c.position.z < -HALF) c.position.z = HALF;
     }
-    for (const p of crowd) {
-      p.g.position.z += p.dir * p.speed * dt;
-      if (p.g.position.z > HALF) p.g.position.z = -HALF;
-      if (p.g.position.z < -HALF) p.g.position.z = HALF;
-      /* Legs and arms out of phase with each other, which is walking. */
-      /* [hip L, hip R, shoulder L, shoulder R] — a leg swings with the
-         OPPOSITE arm, which is the whole of what makes it read as a
-         walk rather than a shuffle. */
-      const swing = Math.sin(elapsed * p.speed * 4.4 + p.g.position.x) * 0.5;
-      p.legs[0]!.rotation.x = swing;
-      p.legs[1]!.rotation.x = -swing;
-      p.legs[2]!.rotation.x = -swing * 0.65;
-      p.legs[3]!.rotation.x = swing * 0.65;
+    for (const w of walkers) {
+      /* Everyone walks away from the camera; see the note above. */
+      w.g.position.z -= w.speed * dt;
+      if (w.g.position.z > HALF) w.g.position.z = -HALF;
+      if (w.g.position.z < -HALF) w.g.position.z = HALF;
+      /* Driven by ground covered, never by a clock: a timer plays the
+         same poses at the same rate whether the figure is moving or
+         not, and the feet slide. */
+      w.walked += w.speed * dt;
+      const n = w.cycle.frames.length;
+      const i = Math.min(n - 1, Math.floor((((w.walked / w.stride) % 1) + 1) % 1 * n));
+      const frame = w.cycle.frames[i]!;
+      if (w.material.map !== frame) {
+        w.material.map = frame;
+        w.material.emissiveMap = frame;
+        w.material.needsUpdate = true;
+      }
     }
     for (const f of ticking) f(dt, elapsed);
 

@@ -802,7 +802,8 @@ export function LivingMapScene({
 
   const sweepVenues = useMemo(
     () => (touring ? streetTour(tourDepartment, tourKind) : venues),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    /* Only the key. Everything the value depends on is IN the key, and
+       the identities left out are the ones being defended against. */
     [tourKey]
   );
 
