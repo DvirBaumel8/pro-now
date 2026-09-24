@@ -74,6 +74,43 @@ export const CITY_LAYERED_BUILDING_IDS = Array.from({ length: 6 }, (_, i) => [
 ]).flat();
 
 /**
+ * HEIGHT MAPS, WHICH ARE THE THING I COULD NOT INFER.
+ *
+ * The street tried to derive relief from each drawing's own brightness
+ * and it half worked: as a normal map it sculpts the plaster nicely,
+ * and as real geometry it was a disaster, because on a NIGHT facade the
+ * brightest thing is a lit WINDOW — so every window bulged out of the
+ * wall like a blister. Brightness is not height; it only looks like it
+ * in daylight.
+ *
+ * These are drawn as height: mid grey for the wall, near-white for what
+ * projects (cornices, frames, awnings, balconies), near-black for what
+ * recedes (window reveals, doorways) — and the lit windows are black,
+ * which is exactly the fact no amount of image processing was going to
+ * recover.
+ *
+ * Every one is the same canvas and the same registration as the drawing
+ * it belongs to, checked file by file on delivery.
+ */
+export const CITY_HEIGHT_IDS = [
+  ...Array.from({ length: 6 }, (_, i) => `bld_${i + 1}_wall_height`),
+  "shop_hair_height",
+  "shop_pets_height",
+  "shop_home_height",
+  "shop_tech_height",
+  "shop_auto_height",
+  "shop_well_height",
+  "shop_appliance_height",
+  "shop_care_height",
+  "shop_nails_height",
+  "shop_move_height",
+  "shop_vet_height",
+  "shop_build_height",
+  "shop_help_height",
+  "shop_lust_height",
+];
+
+/**
  * What stands on a roof.
  *
  * The roofline is where an eye decides "building" or "flat" — a real
@@ -87,6 +124,53 @@ export const CITY_ROOF_IDS = [
   "roof_laundry",
   "roof_rail",
 ] as const;
+
+/**
+ * THE FLEET, ONE VEHICLE PER TRADE.
+ *
+ * Amit: *"שיעצב כלי רכב קשורים למותג, לא סתם מכוניות"*, and then
+ * *"שיבינו שזה רכב של בעל המקצוע הרלוונטי"*.
+ *
+ * Eleven vehicles that share one design language — cream, coral and
+ * charcoal, PRO NOW on the flank, and a glass canopy you can see the
+ * driver through — and differ by the one or two things that say what
+ * the driver does: a hose reel for the plumber, a ladder for the
+ * electrician, a mesh window for the vet, a lit mirror for the salon.
+ *
+ * Front and back are what a street running away from the camera needs:
+ * a vehicle coming towards you shows its face, one leaving shows its
+ * back. The old geometry boxes existed only because neither drawing
+ * existed.
+ */
+export const CITY_FLEET_TRADES = [
+  /*
+   * The pod came first, before the fleet became one vehicle per trade,
+   * and it stays: not every PRO NOW vehicle on the road is carrying a
+   * tradesperson to a job. It is the one that says the brand is simply
+   * present in the neighbourhood, which was the original point.
+   */
+  "pod",
+  "plumber",
+  "electric",
+  "vet",
+  "courier",
+  "beauty",
+  "clean",
+  "tow",
+  "tech",
+  "appliance",
+  "well",
+] as const;
+
+export const CITY_FLEET_IDS = CITY_FLEET_TRADES.flatMap((t) => [
+  `pn_${t}_front`,
+  `pn_${t}_back`,
+  /* Side for the ones parked at the kerb, top for the route on the
+     waiting screen — Amit: *"במפה שממתינים אני רוצה שיראו את הרכב הזה
+     נוסע אליו לבית במסלול."* */
+  `pn_${t}_side`,
+  `pn_${t}_top`,
+]);
 
 /** Trees, drawn rather than built out of spheres. */
 export const CITY_TREE_IDS = ["tree_green", "tree_blossom", "tree_jacaranda"] as const;
@@ -235,16 +319,49 @@ export const CITY_SHOP_IDS = [
   "sponsor_lust_inside",
 ] as const;
 
-/** The twelve characters, each an eight-frame walk sheet from behind. */
-export const CITY_AVATAR_SHEET_IDS = Array.from(
-  { length: 12 },
-  (_, i) => `avatar_${String(i + 1).padStart(2, "0")}_back`
-);
+/**
+ * The twelve characters, each an eight-frame walk sheet — and now in
+ * three directions rather than one.
+ *
+ * Back was all the pack held for a year, which is why the head could
+ * only turn sixty degrees before the drawing stopped making sense: past
+ * that you are looking at the back of somebody walking sideways. With a
+ * side view the turn opens up, and with a front view the picker can
+ * show a face instead of a back.
+ */
+export const CITY_AVATAR_SHEET_IDS = Array.from({ length: 12 }, (_, i) => {
+  const n = String(i + 1).padStart(2, "0");
+  return [`avatar_${n}_back`, `avatar_${n}_front`, `avatar_${n}_side`];
+}).flat();
+
+/** The loading screen's own picture — see `S.load` in the city. */
+export const CITY_SPLASH_IDS = ["splash_city"] as const;
+
+/**
+ * Rooms in three layers, the same way the buildings are.
+ *
+ * Amit: *"רוצה שיכנסו לתוך החנויות... שיראו את כל הפנים של החנות."*
+ * The back wall carries the room, the middle carries what stands in it,
+ * and the front carries the counter you walk up to.
+ */
+export const CITY_ROOM_LAYER_IDS = [
+  "hair",
+  "home",
+  "auto",
+  "appliance",
+  "care",
+].flatMap((t) => [
+  `shop_${t}_inside_back`,
+  `shop_${t}_inside_mid`,
+  `shop_${t}_inside_front`,
+]);
 
 /** Everything the 3D street will load if it has been delivered. */
 export const CITY_ASSET_IDS: readonly string[] = [
   ...CITY_BUILDING_IDS,
   ...CITY_LAYERED_BUILDING_IDS,
+  ...CITY_HEIGHT_IDS,
+  ...CITY_FLEET_IDS,
   ...CITY_ROOF_IDS,
   ...CITY_TREE_IDS,
   ...CITY_MATERIAL_IDS,
@@ -253,5 +370,7 @@ export const CITY_ASSET_IDS: readonly string[] = [
   ...CITY_VEHICLE_IDS,
   ...CITY_WALKER_IDS,
   ...CITY_SHOP_IDS,
+  ...CITY_ROOM_LAYER_IDS,
+  ...CITY_SPLASH_IDS,
   ...CITY_AVATAR_SHEET_IDS,
 ];

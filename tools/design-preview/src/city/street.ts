@@ -2,6 +2,9 @@ import * as THREE from "three";
 
 import {
   CITY_BUILDING_IDS,
+  CITY_FLEET_IDS,
+  CITY_FLEET_TRADES,
+  CITY_HEIGHT_IDS,
   CITY_LAYERED_BUILDING_IDS,
   CITY_TREE_IDS,
   CITY_MATERIAL_IDS,
@@ -225,6 +228,8 @@ export const OPTIONAL_ART: readonly string[] = [
   ...CITY_MATERIAL_IDS,
   ...CITY_PROP_IDS,
   ...CITY_PLACE_IDS,
+  ...CITY_FLEET_IDS,
+  ...CITY_HEIGHT_IDS,
   ...CITY_LAYERED_BUILDING_IDS,
   ...CITY_ROOF_IDS,
   ...CITY_TREE_IDS,
@@ -1275,6 +1280,45 @@ export function buildStreet(
     return { tex: t, aspect: (x1 - x0 + 1) / (y1 - y0 + 1) };
   }
 
+  /**
+   * A HEIGHT MAP WITH NO HOLES IN IT.
+   *
+   * The delivered maps carry the drawing's own alpha, so the margin
+   * around a building is TRANSPARENT — and a transparent pixel reads
+   * as black, which is "recessed 22 centimetres". The vertices along
+   * the silhouette were pushed in while the ones just inside were not,
+   * and every roofline in the street came out serrated like a saw.
+   *
+   * `alphaTest` hides those pixels but it cannot un-move them: it runs
+   * in the fragment stage, and displacement happens to vertices long
+   * before that.
+   *
+   * So the map is flattened onto mid grey first. Mid grey is the
+   * building line — no displacement at all — which is exactly right
+   * for a part of the plane where there is no building.
+   */
+  const flatHeightCache = new Map<THREE.Texture, THREE.Texture>();
+  function flatHeight(tex: THREE.Texture | undefined): THREE.Texture | null {
+    if (!tex) return null;
+    const cached = flatHeightCache.get(tex);
+    if (cached) return cached;
+    const img = tex.image as HTMLImageElement | undefined;
+    if (!img || !img.width) return null;
+    const c = document.createElement("canvas");
+    c.width = img.width;
+    c.height = img.height;
+    const x2 = c.getContext("2d");
+    if (!x2) return null;
+    x2.fillStyle = "#808080";
+    x2.fillRect(0, 0, c.width, c.height);
+    x2.drawImage(img, 0, 0);
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.NoColorSpace;
+    t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
+    flatHeightCache.set(tex, t);
+    return t;
+  }
+
   /** A plain building, for the bays between his shops. */
   function ordinary(side: -1 | 1, z: number, seed: number) {
     const g = new THREE.Group();
@@ -1333,11 +1377,40 @@ export function buildStreet(
          wall at three metres is not a building, it is a cliff. */
       const { w, h } = facadeSize(img, { min: 9.6, max: 11.6 });
 
-      const layer = (tex: THREE.Texture, z: number, lit: number) => {
+      /*
+       * -----------------------------------------------------------------
+       * A DRAWN HEIGHT MAP, AND THE WALL IS FINALLY A WALL
+       * -----------------------------------------------------------------
+       * This is what the whole "הבתים קרטון" argument came down to, and
+       * it could not be solved in code: the street had been inferring
+       * relief from each drawing's own brightness, and on a NIGHT facade
+       * the brightest thing is a lit WINDOW. As a normal map that is
+       * survivable — a wrong tilt on glass reads as glass. As geometry
+       * it was a disaster: every window bulged out of the wall like a
+       * blister, measured and thrown away within one build.
+       *
+       * These maps are drawn as height. Mid grey is the wall, white is
+       * what projects, black is what recedes, and the lit windows are
+       * BLACK — which is the one fact no amount of image processing was
+       * ever going to recover from a picture.
+       *
+       * So the wall is subdivided and actually displaced: windows go in
+       * a real 22 centimetres, cornices come out, and the silhouette at
+       * the edge of the building changes as you walk past it. Only the
+       * wall layer — the balconies and plants are cut-outs with holes in
+       * them and displacing a hole tears it.
+       */
+      const wallHeight = wallTexture
+        ? flatHeight(textures[`bld_${kind}_wall_height`]) ?? undefined
+        : undefined;
+
+      const layer = (tex: THREE.Texture, z: number, lit: number, height?: THREE.Texture) => {
         tex.colorSpace = THREE.SRGBColorSpace;
         const maps = reliefMaps(tex);
         const m = new THREE.Mesh(
-          new THREE.PlaneGeometry(w, h),
+          height
+            ? new THREE.PlaneGeometry(w, h, 128, 128)
+            : new THREE.PlaneGeometry(w, h),
           new THREE.MeshStandardMaterial({
             map: tex,
             emissiveMap: tex,
@@ -1370,7 +1443,12 @@ export function buildStreet(
              * Real relief needs a real height map, which is a thing to
              * ask the artist for, not to infer.
              */
-            displacementScale: 0,
+            /* Mid grey is the building line, so the scale is doubled
+               and the bias pulls it back: 0.5 lands at zero, white at
+               +22cm and black at -22cm. */
+            displacementMap: height ?? null,
+            displacementScale: height ? 0.44 : 0,
+            displacementBias: height ? -0.22 : 0,
             transparent: true,
             alphaTest: 0.35,
             roughness: 0.88,
@@ -1392,7 +1470,7 @@ export function buildStreet(
         return m;
       };
 
-      layer(drawn, 0.36, 0.16);
+      layer(drawn, 0.36, 0.16, wallHeight);
       if (wallTexture) {
         const mid = textures[`bld_${kind}_mid`];
         const front = textures[`bld_${kind}_front`];
@@ -1693,8 +1771,13 @@ export function buildStreet(
        * window the artist painted as lit stays lit, and the brickwork
        * around it does not.
        */
+      /* The shopfronts get the same treatment as the houses — see the
+         note on `wallHeight` in `ordinary`. */
+      const shopHeight = flatHeight(textures[`shop_${s.id}_height`]);
       const face = new THREE.Mesh(
-        new THREE.PlaneGeometry(w, faceH),
+        shopHeight
+          ? new THREE.PlaneGeometry(w, faceH, 128, 128)
+          : new THREE.PlaneGeometry(w, faceH),
         new THREE.MeshStandardMaterial({
           map: tex,
           emissiveMap: tex,
@@ -1723,6 +1806,9 @@ export function buildStreet(
           /* The relief the drawing cannot have. See `relief`. */
           normalMap: relief(tex),
           normalScale: new THREE.Vector2(1.15, 1.15),
+          displacementMap: shopHeight ?? null,
+          displacementScale: shopHeight ? 0.44 : 0,
+          displacementBias: shopHeight ? -0.22 : 0,
           transparent: true,
           alphaTest: 0.35,
           roughness: 0.82,
@@ -1930,6 +2016,37 @@ export function buildStreet(
 
     /* ----- the light the shop throws onto its own pavement ----- */
     emit(x - s.side * 2.4, 2.7, s.z, s.sponsor ? 0xff6f86 : 0xffc07a, 42, 11);
+
+    /*
+     * -----------------------------------------------------------------
+     * THE SIGN, REFLECTED IN THE WET ROAD
+     * -----------------------------------------------------------------
+     * Amit: *"הרבה חלקים נראים ציור."* A lot of that is the ground. A
+     * night street photographs the way it does because every lit sign
+     * is ALSO on the tarmac, stretched and soft — and a road with
+     * nothing in it reads as a painted floor however good its texture
+     * is.
+     *
+     * The street lamps have had this since the beginning and the
+     * shopfronts never did, which is why the most colourful objects in
+     * the street were the only ones leaving no mark on it. One long
+     * additive smear per sign, in the sign's own colour, lying on the
+     * asphalt in front of it — reflections belong where the water is.
+     */
+    const signWet = new THREE.Mesh(
+      new THREE.PlaneGeometry(4.6, 26),
+      new THREE.MeshBasicMaterial({
+        map: glowTex,
+        color: c3,
+        transparent: true,
+        opacity: s.sponsor ? 0.3 : 0.19,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      })
+    );
+    signWet.rotation.x = -Math.PI / 2;
+    signWet.position.set(x - s.side * 7.4, 0.03, s.z);
+    scene.add(signWet);
     lamps.push(new THREE.Vector3(x - s.side * 1.6, 2.7, s.z));
 
     const pool = new THREE.Mesh(
@@ -2114,6 +2231,40 @@ export function buildStreet(
       backing.position.set(0, RH / 2, -RD);
       room.add(backing);
 
+      /*
+       * -----------------------------------------------------------------
+       * THE ROOM IN THREE LAYERS, LIKE THE BUILDINGS
+       * -----------------------------------------------------------------
+       * A back wall alone is a photograph at the end of a box. Where
+       * the three layers exist — the shelves, what stands in the middle
+       * of the room, and the counter nearest you — they are hung apart
+       * in depth, and the room gains the same parallax the street
+       * outside it has. Walk in and the counter moves across the
+       * shelves behind it.
+       */
+      const roomLayers = ["mid", "front"]
+        .map((k) => textures[`shop_${s.id}_inside_${k}`])
+        .filter((t): t is THREE.Texture => Boolean(t));
+      roomLayers.forEach((tex, i) => {
+        const band2 = mainBand(tex);
+        const lh = Math.min(7.4, bw / (band2.aspect || 2));
+        const m = new THREE.Mesh(
+          new THREE.PlaneGeometry(bw, lh),
+          new THREE.MeshStandardMaterial({
+            map: band2.tex,
+            emissiveMap: band2.tex,
+            emissive: 0xffffff,
+            emissiveIntensity: 0.24,
+            transparent: true,
+            alphaTest: 0.4,
+            roughness: 0.88,
+            side: THREE.DoubleSide,
+          })
+        );
+        m.position.set(0, lh / 2, -RD + 0.9 + i * 1.5);
+        room.add(m);
+      });
+
       const back = new THREE.Mesh(
         new THREE.PlaneGeometry(bw, bh),
         new THREE.MeshStandardMaterial({
@@ -2172,12 +2323,15 @@ export function buildStreet(
       const pier = (BAY - OPEN) / 2;
       for (const sx of [-1, 1] as const) {
         const jamb = new THREE.Mesh(new THREE.PlaneGeometry(pier, RH), innerMat);
-        jamb.position.set(sx * (OPEN / 2 + pier / 2), RH / 2, -0.04);
+        /* Set back from the very front: at -0.04 the pier and the side
+           wall shared the same corner plane and the two fought for it,
+           which showed as a checkerboard crawling up the jamb. */
+        jamb.position.set(sx * (OPEN / 2 + pier / 2), RH / 2, -0.18);
         jamb.rotation.y = Math.PI;
         room.add(jamb);
       }
       const transom = new THREE.Mesh(new THREE.PlaneGeometry(OPEN, RH * 0.22), innerMat);
-      transom.position.set(0, RH - (RH * 0.22) / 2, -0.04);
+      transom.position.set(0, RH - (RH * 0.22) / 2, -0.18);
       transom.rotation.y = Math.PI;
       room.add(transom);
 
@@ -2381,9 +2535,30 @@ export function buildStreet(
     /* Negative z is away from the camera, which watches from the near
        end of the street — see `SPAWN` and the shadow box in `update`. */
     const away = dir < 0;
-    const drawnVan = ours && away ? textures["van_back"] : undefined;
+    /*
+     * -----------------------------------------------------------------
+     * EVERY VEHICLE IN THE STREET IS ONE OF OURS NOW, AND DRAWN
+     * -----------------------------------------------------------------
+     * Amit: *"אלה כלי הרכב שאני רוצה שיסעו בכבישים של העיר כל הזמן"*,
+     * and, about the boxes that were there before, *"שיבינו שזה רכב של
+     * בעל המקצוע הרלוונטי"*.
+     *
+     * Eleven trades, each with a front and a back view — which is
+     * exactly the pair a street running away from the camera needs. A
+     * car coming towards you shows its face; one leaving shows its
+     * back. The geometry cars existed only because neither drawing
+     * existed, and they are gone.
+     *
+     * The trade is chosen from the lane and the position so a given
+     * vehicle keeps its identity instead of reshuffling every frame.
+     */
+    const trade = CITY_FLEET_TRADES[
+      Math.abs(Math.round(z / 7) + (dir > 0 ? 3 : 0)) % CITY_FLEET_TRADES.length
+    ]!;
+    const drawnVan = textures[`pn_${trade}_${away ? "back" : "front"}`];
     if (drawnVan) {
-      const body = cutout(drawnVan, 2.45, 1);
+      const body = cutout(drawnVan, away ? 2.3 : 2.45, 1);
+      if (!away) body.rotation.y = Math.PI;
       g.add(body);
       /* Tail lamps are IN the drawing, so what is added here is only
          what a drawing cannot hold: the red wash they throw back at
@@ -2395,7 +2570,9 @@ export function buildStreet(
         })
       );
       tail.scale.set(3.6, 2.2, 1);
-      tail.position.set(0, 1.0, 0.5);
+      tail.material.color.set(away ? 0xff3b30 : 0xfff0cc);
+      tail.material.opacity = away ? 0.3 : 0.4;
+      tail.position.set(0, 1.0, away ? 0.5 : -0.5);
       g.add(tail);
       emitters.push({
         pos: new THREE.Vector3(),
@@ -2403,7 +2580,7 @@ export function buildStreet(
         intensity: 62,
         distance: 14,
         follow: g,
-        offsetZ: -6.4,
+        offsetZ: dir * 6.4,
       });
       g.position.set(lane, 0, z);
       g.userData = { dir, speed };
@@ -2624,8 +2801,15 @@ export function buildStreet(
    * which at night is headlights and a shape. When a front view arrives
    * this is one line.
    */
-  for (let i = 0; i < 4; i += 1) car(-1, laneA, 11 + Math.random() * 5, -110 + i * 74, i === 1 || i === 3);
-  for (let i = 0; i < 4; i += 1) car(1, laneB, 10 + Math.random() * 5, -70 + i * 78);
+  /*
+   * SLOWER, AND MORE OF THEM.
+   *
+   * Amit: *"חייב שיבחינו בהם ויתנו להם מקום, שיסעו לאט ויקבלו תשומת
+   * לב מהלקוח."* Eleven metres a second is a main road; this is a
+   * high street where the point is that you look at what goes past.
+   */
+  for (let i = 0; i < 5; i += 1) car(-1, laneA, 5 + Math.random() * 2.5, -120 + i * 58, true);
+  for (let i = 0; i < 5; i += 1) car(1, laneB, 4.5 + Math.random() * 2.5, -92 + i * 61, true);
 
   /* ---------------------------------------------------------------
      PEOPLE WHO ARE NOT YOU

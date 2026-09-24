@@ -1484,7 +1484,44 @@ export function City({
     <div style={S.wrap}>
       <div ref={host} style={S.canvas} />
 
-      {!ready ? <div style={S.load}>בונה את העיר…</div> : null}
+      {/*
+        * -----------------------------------------------------------------
+        * THE FIRST SECOND OF THE PRODUCT, AND IT WAS A BLACK SCREEN
+        * -----------------------------------------------------------------
+        * Amit: *"שלוחצים להיכנס למפה שלנו ואז רשום 'העיר בבנייה' עם מסך
+        * שחור — זה גרוע ומעפן."*
+        *
+        * He is right, and it is worse than ugly: the city is 38MB of
+        * art, so this screen is the FIRST thing anybody sees and it
+        * lasts for seconds. A black rectangle with grey type on it is
+        * the app admitting it is a web page that has not finished
+        * loading.
+        *
+        * So the wait is a view of the city you are about to walk into,
+        * with the brand over it and a bar that fills. Same seconds,
+        * and they now say "somewhere is being opened for you" instead
+        * of "please hold".
+        */}
+      {!ready ? (
+        <div style={S.load}>
+          <div
+            style={{
+              ...S.loadArt,
+              backgroundImage: `url(${base}splash_city.webp)`,
+            }}
+          />
+          <div style={S.loadVeil} />
+          <div style={S.loadMid}>
+            <div style={S.loadMark}>
+              PRO <span style={{ color: "#FF6B4A" }}>NOW</span>
+            </div>
+            <div style={S.loadWordHe}>נכנסים לעיר</div>
+            <div style={S.loadBar}>
+              <div style={S.loadFill} />
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {/* The controls stand down while the camera is doing the walking:
           a joystick on screen during a camera move says the move is
@@ -1614,7 +1651,13 @@ export function City({
 
       <div
         ref={padRef}
-        style={{ ...S.pad, opacity: !hud || walking ? 0 : 1, pointerEvents: hud ? "auto" : "none" }}
+        style={{
+          ...S.pad,
+          /* Nothing from the street shows through the loading screen —
+             a joystick under a splash is the seam showing. */
+          opacity: !hud || walking || !ready ? 0 : 1,
+          pointerEvents: hud && ready ? "auto" : "none",
+        }}
       >
         <div ref={nubRef} style={S.nub} />
       </div>
@@ -1857,6 +1900,23 @@ function ShopRoom({
   };
 
   const down2 = (e: React.PointerEvent) => {
+    /*
+     * -----------------------------------------------------------------
+     * A SPARKLE HAS TO BE ABLE TO SWALLOW ITS OWN PRESS
+     * -----------------------------------------------------------------
+     * Amit: *"הכפתורים הזוהרים בלאסט לא לחיצים בכלל ולא קורה כלום."*
+     *
+     * He was pressing them and they were doing nothing, and the reason
+     * is one line below this: the stage calls `setPointerCapture` on
+     * every pointerdown so a drag can continue outside its own bounds.
+     * Capture RETARGETS every later event to the capturing element —
+     * so the pointerup never reached the button, and a button that
+     * never gets its pointerup never fires a click. The sparkle was a
+     * button in name only.
+     *
+     * A press that starts on a sparkle is not a drag. It is left alone.
+     */
+    if ((e.target as HTMLElement).closest?.("[data-spark]")) return;
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     if (pointers.current.size === 2) {
@@ -1947,6 +2007,7 @@ function ShopRoom({
                 top: `${t.y * 100}%`,
                 animationDelay: `${i * 0.45}s`,
               }}
+              data-spark=""
               onClick={() => goTo(i, t)}
               aria-label={t.titleHe}
             >
@@ -2000,17 +2061,49 @@ function ShopRoom({
           </>
         ) : null}
 
+        {/*
+          * THE SHELF ROW IS GONE, AND THAT IS THE POINT.
+          *
+          * Amit: *"חייב שיופיעו הדברים האלה רק כשלוחצים על הזוהרים."*
+          *
+          * It was here as a fallback for the day the sparkles did not
+          * work — and they did not work, so the fallback became the
+          * whole interaction: every product was listed at the bottom
+          * of the screen and the room above it was decoration. Now
+          * that a sparkle actually opens its product, a list of the
+          * same products underneath takes the discovery away.
+          *
+          * What stays is the sentence that tells you the room is the
+          * control.
+          */}
         {things.length > 0 ? (
+          <p style={S.shelfHint}>לחצו על הנצנצים במדפים כדי לראות מה יש בחנות</p>
+        ) : null}
+
+        {/*
+          * THE BRAND'S OWN DOOR, ON THE BRAND'S OWN PAGE.
+          *
+          * Amit: *"אין קישור לאתר בעמוד הראשי של החנות."* It existed
+          * only inside a product card, so you could stand in Lust's
+          * shop, read her name and her line, and have no way to reach
+          * her — unless you happened to press a sparkle first.
+          *
+          * A sponsor paid for a shop, and a shop has a door out to the
+          * business. The sentence above it is `sponsorLeaveHe`, which
+          * says plainly that this leaves PRO NOW — the rule is that an
+          * exit to somebody else's site is always announced.
+          */}
+        {sponsor ? (
           <>
-            <p style={S.shelfHint}>לחצו על הנצנצים במדפים — או כאן</p>
-            <div style={S.shelf}>
-              {things.map((t, i) => (
-                <button key={t.titleHe} style={S.shelfItem} onClick={() => setOpen(i)}>
-                  <span style={S.shelfName}>{t.titleHe}</span>
-                  {t.priceHe ? <span style={S.shelfPrice}>{t.priceHe}</span> : null}
-                </button>
-              ))}
-            </div>
+            <p style={S.leaving}>{sponsorLeaveHe(sponsor)}</p>
+            <a
+              style={S.site}
+              href={sponsor.siteUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+            >
+              {sponsorCtaHe(sponsor)}
+            </a>
           </>
         ) : null}
 
@@ -2088,8 +2181,42 @@ const S: Record<string, React.CSSProperties> = {
    */
   canvas: { position: "absolute", inset: 0, touchAction: "none" },
   load: {
-    position: "absolute", inset: 0, display: "grid", placeItems: "center",
-    color: "rgba(247,243,250,.6)", fontSize: scale.meta,
+    position: "absolute", inset: 0, overflow: "hidden", background: "#17121F",
+  },
+  loadArt: {
+    /*
+     * A background rather than an <img>. The picture is 2:1 and the
+     * phone is 1:2, so it has to be cropped hard — and `object-fit`
+     * on an absolutely-positioned image left a band of empty screen
+     * under it. `background-size: cover` crops without asking.
+     */
+    position: "absolute", inset: 0,
+    backgroundSize: "cover", backgroundPosition: "center",
+    /* A slow drift, so the wait is alive rather than frozen. */
+    animation: "pnDrift 18s ease-in-out infinite alternate",
+  },
+  loadVeil: {
+    position: "absolute", inset: 0,
+    background:
+      "linear-gradient(180deg, rgba(23,18,31,.35) 0%, rgba(23,18,31,.15) 42%, rgba(23,18,31,.92) 100%)",
+  },
+  loadMid: {
+    position: "absolute", left: 0, right: 0, bottom: "16%",
+    display: "flex", flexDirection: "column", alignItems: "center", gap: 14,
+  },
+  loadMark: {
+    color: "#F7F3FA", fontSize: scale.title, fontWeight: 800, letterSpacing: 3,
+  },
+  loadWordHe: {
+    color: "rgba(247,243,250,.72)", fontSize: scale.meta, letterSpacing: 1,
+  },
+  loadBar: {
+    width: 168, height: 3, borderRadius: 999,
+    background: "rgba(247,243,250,.16)", overflow: "hidden",
+  },
+  loadFill: {
+    width: "40%", height: "100%", borderRadius: 999, background: "#FF6B4A",
+    animation: "pnFill 1.6s ease-in-out infinite",
   },
   name: {
     position: "absolute", top: 46, left: "50%", transform: "translateX(-50%)",
@@ -2316,6 +2443,11 @@ if (typeof document !== "undefined" && !document.getElementById("pn-city-css")) 
   tag.textContent =
     "@keyframes pnSpot{0%,100%{transform:scale(.78);opacity:.82}50%{transform:scale(1.26);opacity:1}}" +
     "@keyframes pnFade{0%{opacity:0}12%{opacity:1}72%{opacity:1}100%{opacity:0}}" +
-    "@keyframes pnRise{from{opacity:0;transform:translateX(-50%) translateY(-8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}";
+    "@keyframes pnRise{from{opacity:0;transform:translateX(-50%) translateY(-8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}" +
+    /* The loading screen: a slow push into the skyline, and a bar that
+       sweeps rather than pretending to measure progress it does not
+       have. A fake percentage is a lie told in the first second. */
+    "@keyframes pnDrift{from{transform:scale(1.06) translateX(-1.5%)}to{transform:scale(1.14) translateX(1.5%)}}" +
+    "@keyframes pnFill{0%{transform:translateX(-120%)}100%{transform:translateX(320%)}}";
   document.head.appendChild(tag);
 }
