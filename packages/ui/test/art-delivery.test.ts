@@ -219,7 +219,7 @@ describe("the art the world asks for", () => {
   it("gives every sponsored brand a building before an inside", () => {
     const brands = new Map<string, Set<string>>();
     for (const id of deliveredIds()) {
-      const m = /^sponsor_(.+)_(venue|hero)$/.exec(id);
+      const m = /^sponsor_(.+)_(venue|hero|inside)$/.exec(id);
       if (!m) continue;
       if (!brands.has(m[1])) brands.set(m[1], new Set());
       brands.get(m[1])!.add(m[2]);
@@ -230,10 +230,18 @@ describe("the art the world asks for", () => {
     expect(insideOnly, "a sponsor with an interior and no shopfront cannot be entered").toEqual([]);
 
     // And nothing may call itself a sponsor asset without following it.
+    /*
+     * `inside` joined `venue` and `hero` when the sponsor's shop became
+     * somewhere you walk into rather than a picture that fills the
+     * screen. Three parts, three different jobs: the front you see from
+     * the street, the product shot the sheet uses, and the room you
+     * stand in. The rule above is unchanged and still the point — a
+     * brand may not have an interior without a shopfront.
+     */
     const malformed = deliveredIds().filter(
-      (id) => id.startsWith("sponsor_") && !/^sponsor_(.+)_(venue|hero)$/.test(id)
+      (id) => id.startsWith("sponsor_") && !/^sponsor_(.+)_(venue|hero|inside)$/.test(id)
     );
-    expect(malformed, "sponsor art is named sponsor_<brand>_venue|hero").toEqual([]);
+    expect(malformed, "sponsor art is named sponsor_<brand>_venue|hero|inside").toEqual([]);
   });
 
   it("reports what is still missing without failing over it", () => {

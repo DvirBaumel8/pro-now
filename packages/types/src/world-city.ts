@@ -49,6 +49,48 @@ export const CITY_BUILDING_IDS = [
   "park_dogs",
 ] as const;
 
+/**
+ * THE SAME SIX BUILDINGS, IN THREE LAYERS EACH.
+ *
+ * Amit, four times over: *"הבתים קרטון."* And he was right in a way
+ * that no amount of lighting could answer — a facade is one plane, and
+ * when you walk past a real building the balcony moves against the wall
+ * and the plants move against the balcony. Nothing in a single plane
+ * can do that, because there is nothing for anything to move against.
+ *
+ * So each building arrives as three files that are the same canvas and
+ * the same registration: the wall with its windows and doors, the
+ * balconies and awnings, and the plants at the front. Stacked they are
+ * the building; spaced twenty centimetres apart in depth they are a
+ * building you can walk past.
+ *
+ * Measured on delivery: all eighteen are 2048 x 2300, and composited
+ * they line up exactly.
+ */
+export const CITY_LAYERED_BUILDING_IDS = Array.from({ length: 6 }, (_, i) => [
+  `bld_${i + 1}_wall`,
+  `bld_${i + 1}_mid`,
+  `bld_${i + 1}_front`,
+]).flat();
+
+/**
+ * What stands on a roof.
+ *
+ * The roofline is where an eye decides "building" or "flat" — a real
+ * one is never a straight edge — and a water tank costs one cut-out.
+ */
+export const CITY_ROOF_IDS = [
+  "roof_tank",
+  "roof_chimney",
+  "roof_ac",
+  "roof_aerial",
+  "roof_laundry",
+  "roof_rail",
+] as const;
+
+/** Trees, drawn rather than built out of spheres. */
+export const CITY_TREE_IDS = ["tree_green", "tree_blossom", "tree_jacaranda"] as const;
+
 /** Seamless, de-shaded materials: the ground and the walls. */
 export const CITY_MATERIAL_IDS = [
   "mat_paving",
@@ -90,6 +132,11 @@ export const CITY_PROP_IDS = [
  * `topBand` in the street.
  */
 export const CITY_PLACE_IDS = [
+  /* A dog park that is a dog park: grass, a fence, a bench, agility
+     hoops. The file that first arrived under this name was a
+     pet-grooming shopfront — see `CITY_BUILDING_IDS` — and the street
+     built one out of props in the meantime. */
+  "place_dogpark",
   "place_roadside",
   "place_pickup",
   "place_garden",
@@ -117,6 +164,12 @@ export const CITY_VEHICLE_IDS = [
   "van_back",
   "scooter_side",
   "scooter_back",
+  /* Straight-on fronts, which is what a vehicle coming towards you is.
+     Until these arrived, oncoming traffic was geometry — a dark box
+     with two lamps — for the honest reason that there was no drawing
+     to use. */
+  "van_front",
+  "car_front",
 ] as const;
 
 /**
@@ -142,6 +195,11 @@ export const CITY_WALKER_IDS = [
   "walk_woman",
   "walk_dogwalker",
   "walk_dog",
+  /* And the other half of the crowd. Everyone in the street walked
+     away from the camera because a back view was all the pack held;
+     these are the people who walk towards you. */
+  "walk_man_front",
+  "walk_woman_front",
 ] as const;
 
 /** One shopfront and one interior per trade, as flat elevations. */
@@ -170,6 +228,11 @@ export const CITY_SHOP_IDS = [
   "shop_nails_inside",
   "shop_build_inside",
   "shop_help_inside",
+  "shop_pets_inside",
+  "shop_vet_inside",
+  /* The sponsor's room, which took four asks: the facade came back
+     twice in its place. */
+  "sponsor_lust_inside",
 ] as const;
 
 /** The twelve characters, each an eight-frame walk sheet from behind. */
@@ -181,6 +244,9 @@ export const CITY_AVATAR_SHEET_IDS = Array.from(
 /** Everything the 3D street will load if it has been delivered. */
 export const CITY_ASSET_IDS: readonly string[] = [
   ...CITY_BUILDING_IDS,
+  ...CITY_LAYERED_BUILDING_IDS,
+  ...CITY_ROOF_IDS,
+  ...CITY_TREE_IDS,
   ...CITY_MATERIAL_IDS,
   ...CITY_PROP_IDS,
   ...CITY_PLACE_IDS,

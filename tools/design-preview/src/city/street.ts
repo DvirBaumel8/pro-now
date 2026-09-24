@@ -2,9 +2,12 @@ import * as THREE from "three";
 
 import {
   CITY_BUILDING_IDS,
+  CITY_LAYERED_BUILDING_IDS,
+  CITY_TREE_IDS,
   CITY_MATERIAL_IDS,
   CITY_PLACE_IDS,
   CITY_PROP_IDS,
+  CITY_ROOF_IDS,
   CITY_VEHICLE_IDS,
   CITY_WALKER_IDS,
 } from "@pro-now/types";
@@ -221,6 +224,9 @@ export const OPTIONAL_ART: readonly string[] = [
   ...CITY_MATERIAL_IDS,
   ...CITY_PROP_IDS,
   ...CITY_PLACE_IDS,
+  ...CITY_LAYERED_BUILDING_IDS,
+  ...CITY_ROOF_IDS,
+  ...CITY_TREE_IDS,
   ...CITY_VEHICLE_IDS,
   ...CITY_WALKER_IDS,
 ];
@@ -1153,7 +1159,31 @@ export function buildStreet(
      * metres, so that is the band, and a drawing outside it is scaled
      * whole rather than stretched.
      */
-    const drawn = textures[CITY_BUILDING_IDS[seed % CITY_BUILDING_IDS.length]!];
+    /*
+     * -----------------------------------------------------------------
+     * THREE LAYERS, AND THAT IS WHAT STOPS IT BEING CARDBOARD
+     * -----------------------------------------------------------------
+     * Amit said it four times: *"הבתים קרטון."* Lighting could not
+     * answer it and a normal map could not answer it, because the
+     * complaint is not about light — it is about PARALLAX. Walk past a
+     * real building and the balcony slides across the wall behind it
+     * and the plants slide across the balcony. One plane has nothing
+     * to slide against, so it reads as a picture however well it is
+     * lit, and the eye knows within one step.
+     *
+     * Each building now arrives as three drawings on the same canvas
+     * and the same registration — wall, balconies, plants — and they
+     * are hung twenty-two and forty centimetres in front of each
+     * other. That is roughly a real balcony's projection, and it is
+     * enough: at walking speed the layers separate visibly.
+     *
+     * Measured on delivery: all eighteen files are 2048 x 2300 and
+     * composite exactly, which is the thing that had to be true and
+     * the thing worth checking before writing a line of this.
+     */
+    const kind = (seed % 6) + 1;
+    const wallTexture = textures[`bld_${kind}_wall`];
+    const drawn = wallTexture ?? textures[CITY_BUILDING_IDS[seed % CITY_BUILDING_IDS.length]!];
     if (drawn) {
       drawn.colorSpace = THREE.SRGBColorSpace;
       const img = drawn.image as { width: number; height: number };
@@ -1162,23 +1192,45 @@ export function buildStreet(
          wall at three metres is not a building, it is a cliff. */
       const { w, h } = facadeSize(img, { min: 9.6, max: 11.6 });
 
-      const face = new THREE.Mesh(
-        new THREE.PlaneGeometry(w, h),
-        new THREE.MeshStandardMaterial({
-          map: drawn,
-          emissiveMap: drawn,
-          emissive: 0xffffff,
-          emissiveIntensity: 0.16,
-          normalMap: relief(drawn),
-          normalScale: new THREE.Vector2(1.2, 1.2),
-          transparent: true,
-          alphaTest: 0.35,
-          roughness: 0.88,
-        })
-      );
-      face.position.set(0, h / 2, 0.36);
-      face.receiveShadow = true;
-      g.add(face);
+      const layer = (tex: THREE.Texture, z: number, lit: number) => {
+        tex.colorSpace = THREE.SRGBColorSpace;
+        const m = new THREE.Mesh(
+          new THREE.PlaneGeometry(w, h),
+          new THREE.MeshStandardMaterial({
+            map: tex,
+            emissiveMap: tex,
+            emissive: 0xffffff,
+            emissiveIntensity: lit,
+            normalMap: relief(tex),
+            normalScale: new THREE.Vector2(1.2, 1.2),
+            transparent: true,
+            alphaTest: 0.35,
+            roughness: 0.88,
+          })
+        );
+        m.position.set(0, h / 2, z);
+        m.receiveShadow = true;
+        /* The front two layers cast onto the wall behind them, which is
+           the other half of what makes them read as standing off it. */
+        if (z > 0.4) {
+          m.castShadow = true;
+          m.customDepthMaterial = new THREE.MeshDepthMaterial({
+            depthPacking: THREE.RGBADepthPacking,
+            map: tex,
+            alphaTest: 0.42,
+          });
+        }
+        g.add(m);
+        return m;
+      };
+
+      layer(drawn, 0.36, 0.16);
+      if (wallTexture) {
+        const mid = textures[`bld_${kind}_mid`];
+        const front = textures[`bld_${kind}_front`];
+        if (mid) layer(mid, 0.58, 0.14);
+        if (front) layer(front, 0.76, 0.12);
+      }
 
       /*
        * A CORNICE, AND NOTHING ELSE.
@@ -1196,6 +1248,37 @@ export function buildStreet(
        * which is the thing that stops a drawing reading as a drawing.
        */
       ledge(g, h - 0.22, w + 0.22, 0.3, 0.24);
+
+      /*
+       * -----------------------------------------------------------------
+       * AND SOMETHING ON THE ROOF
+       * -----------------------------------------------------------------
+       * The roofline is where an eye decides whether it is looking at a
+       * building or at a flat, and every roof in this street was a
+       * ruler. A real one has a water tank on it, a chimney, an air
+       * conditioner, an aerial, washing.
+       *
+       * Two per roof, picked by the same seed that picks the building,
+       * so a given bay always looks the same and the street does not
+       * reshuffle itself on reload. They stand ON the parapet and a
+       * little back from it, which is where those things live.
+       */
+      const roofKit = CITY_ROOF_IDS.map((id) => textures[id]).filter(
+        (t): t is THREE.Texture => Boolean(t)
+      );
+      if (roofKit.length > 0) {
+        const heights = [2.4, 1.6, 1.3, 2.1, 1.5, 0.9];
+        for (let i = 0; i < 2; i += 1) {
+          const pick = (seed * 3 + i * 5) % roofKit.length;
+          const prop = cutout(roofKit[pick]!, heights[pick] ?? 1.6, 1);
+          prop.position.set(
+            (i === 0 ? -1 : 1) * (BAY * 0.22 + ((seed + i) % 3) * 0.4),
+            h - 0.1,
+            -0.6 - ((seed + i * 2) % 3) * 0.5
+          );
+          g.add(prop);
+        }
+      }
 
       /*
        * THE PARTY WALL.
@@ -1694,8 +1777,34 @@ export function buildStreet(
     let fadeFace: ((k: number) => void) | null = null;
     let roomSpot: THREE.Vector3 | undefined;
     if (roomTex) {
+      /*
+       * -----------------------------------------------------------------
+       * THE WHOLE ROOM, NOT A CROP OF IT
+       * -----------------------------------------------------------------
+       * Amit, after walking into the first one: *"זה לא מה שהתכוונתי —
+       * שיראו את כל הפנים של החנות ולא קלוז אין."*
+       *
+       * The first version fixed the wall's size and cropped the drawing
+       * to cover it, which is correct for a wall and wrong for this:
+       * the drawing IS the shop, and cutting its edges off to fit a
+       * ceiling height I picked throws away the thing he commissioned.
+       *
+       * So the drawing decides. The wall is the full width of the bay
+       * and as tall as the picture's own proportions make it, the
+       * ceiling goes above that, and nothing is cropped — you walk in
+       * and the whole shop is in front of you.
+       */
+      const rIm = roomTex.image as { width: number; height: number };
+      /* The delivered interiors carry offcuts above and below the room
+         — see `mainBand`. The wall gets the room and nothing else. */
+      const band = mainBand(roomTex);
+      const roomMap = band.tex;
       const RD = 7.2;   /* how deep the room goes */
-      const RH = 3.7;   /* floor to ceiling */
+      /* Ceiling above the picture, never through it. */
+      const RH = Math.max(
+        3.9,
+        Math.min(7.4, BAY / (band.aspect || rIm.width / rIm.height)) + 0.4
+      );
       const room = new THREE.Group();
 
       /* Warm plaster, and dark enough that two ceiling lamps read as
@@ -1774,39 +1883,26 @@ export function buildStreet(
        * you lose by standing in a room rather than looking at a photo
        * of one.
        */
-      /* The delivered interiors carry offcuts above and below the room
-         — see `mainBand`. The wall gets the room and nothing else. */
-      const band = mainBand(roomTex);
-      const roomMap = band.tex;
       const bw = BAY;
-      const bh = RH;
-      const wallAspect = bw / bh;
-      const ri = roomMap.image as { width: number; height: number };
-      const imgAspect = band.aspect || ri.width / ri.height;
-      const wallTex = roomMap.clone();
-      wallTex.needsUpdate = true;
-      wallTex.colorSpace = THREE.SRGBColorSpace;
-      wallTex.wrapS = wallTex.wrapT = THREE.ClampToEdgeWrapping;
-      wallTex.anisotropy = 8;
-      /* The crop below composes with the band's own crop rather than
-         replacing it: `mainBand` has already set a repeat and an
-         offset in V, and the cover-fit narrows that window further. */
-      const bandRepeatY = roomMap.repeat.y;
-      const bandOffsetY = roomMap.offset.y;
-      if (imgAspect > wallAspect) {
-        /* The drawing is wider than the wall: keep its full height and
-           take the middle of its width. */
-        const r = wallAspect / imgAspect;
-        wallTex.repeat.set(r, bandRepeatY);
-        wallTex.offset.set((1 - r) / 2, bandOffsetY);
-      } else {
-        /* Taller than the wall: keep its width and take the BOTTOM,
-           because the floor of the drawing has to meet the floor of
-           the room. Cropping the middle would float the shelves. */
-        const r = imgAspect / wallAspect;
-        wallTex.repeat.set(1, bandRepeatY * r);
-        wallTex.offset.set(0, bandOffsetY);
-      }
+      const bh = Math.min(7.4, bw / (band.aspect || rIm.width / rIm.height));
+      /* No crop. The wall was sized from the picture, so the picture
+         goes on whole — `mainBand` has already trimmed the offcuts and
+         its window is the one we keep. */
+      const wallTex = roomMap;
+      /*
+       * Plaster behind the picture, floor to ceiling.
+       *
+       * The wall is sized to the drawing and the ceiling is above it,
+       * so there is a strip between the two — and through that strip
+       * you could see the night sky over the back of the shop.
+       */
+      const backing = new THREE.Mesh(
+        new THREE.PlaneGeometry(bw, RH),
+        innerMat
+      );
+      backing.position.set(0, RH / 2, -RD);
+      room.add(backing);
+
       const back = new THREE.Mesh(
         new THREE.PlaneGeometry(bw, bh),
         new THREE.MeshStandardMaterial({

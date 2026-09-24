@@ -69,9 +69,14 @@ import {
  */
 const SHOPS: ShopSpec[] = [
   { id: "hair",      he: "טיפוח ויופי",    facade: "district_hair.webp",      z:   88, side: -1, interior: "hair_barbershop_hero.webp", neonColour: "#ff7ac2" , department: "BEAUTY", services: ["svc-haircut", "svc-makeup"] },
-  { id: "pets",      he: "בעלי חיים",      facade: "district_pets.webp",      z:   70.4, side:  1, interior: "pets_salon_hero.webp",      neonColour: "#8ce06a" , department: "PETS", services: ["svc-pet-sit", "svc-pet-groom"] },
+  { id: "pets",      he: "בעלי חיים",      facade: "district_pets.webp",      z:   70.4, side:  1, interior: "shop_pets_inside.webp",     neonColour: "#8ce06a" , department: "PETS", services: ["svc-pet-sit", "svc-pet-groom"] },
   { id: "home",      he: "תיקונים דחופים", facade: "district_home.webp",      z:   52.8, side: -1, interior: "home_workshop_hero.webp",   neonColour: "#ffb45e" , department: "HOME_URGENT" },
-  { id: "lust",      he: "Lust",           facade: "sponsor_lust_venue.webp", z:   35.2, side:  1, interior: "sponsor_lust_hero.webp",    sponsor: true, neonColour: "#ff3d63" },
+  /*
+   * The sponsor's own room, at the fourth time of asking — the facade
+   * came back in its place twice. `sponsor_lust_hero` stays the
+   * picture the product sheet uses; this is the place you stand in.
+   */
+  { id: "lust",      he: "Lust",           facade: "sponsor_lust_venue.webp", z:   35.2, side:  1, interior: "sponsor_lust_inside.webp",  sponsor: true, neonColour: "#ff3d63" },
   { id: "tech",      he: "מחשבים וסלולר",  facade: "district_tech.webp",      z:   17.6, side: -1, neonColour: "#7ad7ff" , department: "TECH" },
   { id: "auto",      he: "רכב ודרך",       facade: "district_auto.webp",      z:    0, side:  1, interior: "auto_garage_hero.webp",     neonColour: "#ff9b3d" , department: "VEHICLE" },
   { id: "well",      he: "בריאות וכושר",   facade: "district_well.webp",      z:  -17.6, side: -1, neonColour: "#6affc6" , department: "WELLNESS" },
@@ -84,7 +89,7 @@ const SHOPS: ShopSpec[] = [
    * no house in the world. Amit spotted it: *"חנות חיות וטרינר?"* It
    * is the only trade in the catalogue that was missing one.
    */
-  { id: "vet",       he: "וטרינריה",       facade: "shop_vet.webp",           z: -105.6, side:  1, neonColour: "#7ad7ff", department: "PETS", services: ["svc-vet"] },
+  { id: "vet",       he: "וטרינריה",       facade: "shop_vet.webp",           z: -105.6, side:  1, interior: "shop_vet_inside.webp", neonColour: "#7ad7ff", department: "PETS", services: ["svc-vet"] },
   /*
    * Two trades had drawn shopfronts and no house to put them on —
    * `shop_build` and `shop_help` were installed and stood nowhere.
