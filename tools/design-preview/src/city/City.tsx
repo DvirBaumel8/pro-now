@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
+import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
 
 import { buildPlayer } from "./player";
 import { SPONSOR_BADGE_HE, sponsorCtaHe, sponsorLeaveHe } from "@pro-now/types";
@@ -67,8 +68,8 @@ import {
  * truth, and better than sending everybody into the same borrowed room.
  */
 const SHOPS: ShopSpec[] = [
-  { id: "hair",      he: "טיפוח ויופי",    facade: "district_hair.webp",      z:   88, side: -1, interior: "hair_barbershop_hero.webp", neonColour: "#ff7ac2" , department: "BEAUTY" },
-  { id: "pets",      he: "בעלי חיים",      facade: "district_pets.webp",      z:   70.4, side:  1, interior: "pets_salon_hero.webp",      neonColour: "#8ce06a" , department: "PETS" },
+  { id: "hair",      he: "טיפוח ויופי",    facade: "district_hair.webp",      z:   88, side: -1, interior: "hair_barbershop_hero.webp", neonColour: "#ff7ac2" , department: "BEAUTY", services: ["svc-haircut", "svc-makeup"] },
+  { id: "pets",      he: "בעלי חיים",      facade: "district_pets.webp",      z:   70.4, side:  1, interior: "pets_salon_hero.webp",      neonColour: "#8ce06a" , department: "PETS", services: ["svc-pet-sit", "svc-pet-groom"] },
   { id: "home",      he: "תיקונים דחופים", facade: "district_home.webp",      z:   52.8, side: -1, interior: "home_workshop_hero.webp",   neonColour: "#ffb45e" , department: "HOME_URGENT" },
   { id: "lust",      he: "Lust",           facade: "sponsor_lust_venue.webp", z:   35.2, side:  1, interior: "sponsor_lust_hero.webp",    sponsor: true, neonColour: "#ff3d63" },
   { id: "tech",      he: "מחשבים וסלולר",  facade: "district_tech.webp",      z:   17.6, side: -1, neonColour: "#7ad7ff" , department: "TECH" },
@@ -76,14 +77,14 @@ const SHOPS: ShopSpec[] = [
   { id: "well",      he: "בריאות וכושר",   facade: "district_well.webp",      z:  -17.6, side: -1, neonColour: "#6affc6" , department: "WELLNESS" },
   { id: "appliance", he: "מוצרי חשמל",     facade: "district_appliance.webp", z:  -35.2, side:  1, interior: "appliance_workshop_hero.webp", neonColour: "#ffd166" , department: "APPLIANCES" },
   { id: "care",      he: "ניקיון ותחזוקה", facade: "district_care.webp",      z:  -52.8, side: -1, interior: "care_studio_hero.webp",     neonColour: "#9db8ff" , department: "HOME_CARE" },
-  { id: "nails",     he: "ציפורניים",      facade: "district_nails.webp",     z:  -70.4, side:  1, neonColour: "#ff6fa8" , department: "BEAUTY" },
+  { id: "nails",     he: "ציפורניים",      facade: "district_nails.webp",     z:  -70.4, side:  1, neonColour: "#ff6fa8" , department: "BEAUTY", services: ["svc-nails"] },
   { id: "move",      he: "הובלות ומשלוחים", facade: "district_move.webp",     z:  -88, side: -1, neonColour: "#c39bff" , department: "LOGISTICS" },
   /*
    * The vet is a category inside PETS — "וטרינר עד הבית" — and it had
    * no house in the world. Amit spotted it: *"חנות חיות וטרינר?"* It
    * is the only trade in the catalogue that was missing one.
    */
-  { id: "vet",       he: "וטרינריה",       facade: "shop_vet.webp",           z: -105.6, side:  1, neonColour: "#7ad7ff", department: "PETS" },
+  { id: "vet",       he: "וטרינריה",       facade: "shop_vet.webp",           z: -105.6, side:  1, neonColour: "#7ad7ff", department: "PETS", services: ["svc-vet"] },
   /*
    * Two trades had drawn shopfronts and no house to put them on —
    * `shop_build` and `shop_help` were installed and stood nowhere.
@@ -225,8 +226,22 @@ export function City({
    * the layby, the pickup point. Amit: *"אין לו חנות, צריך לחשוב על
    * דרך אחרת לפגוש אותו, כי משהו כן צריך להיפתח."*
    */
-  const [nearPlace, setNearPlace] = useState<{ id: string; he: string; department: string | null } | null>(null);
-  const [openPlace, setOpenPlace] = useState<{ he: string; department: string } | null>(null);
+  const [nearPlace, setNearPlace] = useState<{
+    id: string;
+    he: string;
+    department: string | null;
+    services?: readonly string[];
+  } | null>(null);
+  const [openPlace, setOpenPlace] = useState<{
+    he: string;
+    department: string;
+    services?: readonly string[];
+    /**
+     * The one line above the list. A place and a shop with no painted
+     * room open the same sheet and mean different things by it.
+     */
+    noteHe: string;
+  } | null>(null);
   /* Read every frame, so changing the prop moves the camera without
      rebuilding the city. */
   /*
@@ -324,7 +339,37 @@ export function City({
      * window does, a plastered wall does not, and lifting the whole
      * image into a haze is the failure mode here.
      */
-    const composer = new EffectComposer(renderer);
+    /*
+     * -----------------------------------------------------------------
+     * `antialias: true` WAS DOING NOTHING, AND IT IS WHY EVERY EDGE
+     * IN THE CITY WAS JAGGED
+     * -----------------------------------------------------------------
+     * Amit: *"זה עדיין נראה מאוד זול וישן."* This is the first reason,
+     * and it is the cheapest one to have got wrong.
+     *
+     * The flag on `WebGLRenderer` asks for a multisampled DEFAULT
+     * framebuffer — the canvas. Nothing is drawn to the canvas here:
+     * every frame goes through the composer, into an off-screen target,
+     * and only the bloom's output reaches the screen. `EffectComposer`
+     * builds that target itself, with `{ type: HalfFloatType }` and
+     * nothing else — `samples` defaults to 0.
+     *
+     * So the whole city was rendered with NO antialiasing at all: every
+     * roofline, every lamp post, every cut-out edge stair-stepped, and
+     * the character shimmered as she walked because an `alphaTest` edge
+     * with no samples flickers on and off between pixels. Amit named
+     * that one too: *"הדמות מרצדת."*
+     *
+     * Four samples is the usual place to stand: it is where the jaggies
+     * stop being the thing you notice, and eight costs more than it
+     * returns on a phone.
+     */
+    const aa = new THREE.WebGLRenderTarget(
+      el.clientWidth * renderer.getPixelRatio(),
+      el.clientHeight * renderer.getPixelRatio(),
+      { type: THREE.HalfFloatType, samples: 4 }
+    );
+    const composer = new EffectComposer(renderer, aa);
     composer.setPixelRatio(renderer.getPixelRatio());
     composer.setSize(el.clientWidth, el.clientHeight);
     const bloom = new UnrealBloomPass(
@@ -502,6 +547,120 @@ export function City({
       );
       composer.addPass(new RenderPass(street.scene, camera));
       composer.addPass(bloom);
+      /*
+       * -----------------------------------------------------------------
+       * THE GRADE, WHICH IS MOST OF WHAT "EXPENSIVE" MEANS
+       * -----------------------------------------------------------------
+       * Amit: *"זה עדיין נראה מאוד זול וישן."*
+       *
+       * Everything up to here draws the world correctly. What was
+       * missing is what every film and every modern game does AFTER
+       * drawing it, and it is the reason a raw render looks like a
+       * render:
+       *
+       *   a lens is darker at its edges than at its centre,
+       *   a sensor has grain in its shadows,
+       *   and a lens bends red and blue by slightly different amounts
+       *   the further you get from the middle.
+       *
+       * None of those is a beauty filter. They are the fingerprints of
+       * a camera, and a picture without any of them reads as a
+       * diagram — clean in a way nothing photographed is ever clean.
+       *
+       * All three are deliberately small. A vignette you can see is a
+       * vignette that is too strong; grain you can count is noise. The
+       * test for each of these is that removing it looks wrong and
+       * adding it looks like nothing happened.
+       */
+      const grade = new ShaderPass({
+        uniforms: {
+          tDiffuse: { value: null },
+          uTime: { value: 0 },
+          uAspect: { value: 1 },
+        },
+        vertexShader: `
+          varying vec2 vUv;
+          void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: `
+          uniform sampler2D tDiffuse;
+          uniform float uTime;
+          uniform float uAspect;
+          varying vec2 vUv;
+
+          void main() {
+            vec2 c = vUv - 0.5;
+            /* Distance from the centre of the LENS, not of the image:
+               on a tall phone an un-corrected radius makes the top and
+               bottom far darker than the sides. */
+            float r = length(vec2(c.x * uAspect, c.y)) / length(vec2(uAspect, 1.0) * 0.5);
+
+            /* Chromatic aberration: zero in the middle, a fraction of a
+               pixel at the corners. */
+            /* A twelfth of a pixel at the corner. At three times this the
+               stars grew coloured fringes and the whole sky glittered
+               in three colours, which is a lens fault and not a lens. */
+            vec2 off = c * (r * r) * 0.0012;
+            vec3 col;
+            col.r = texture2D(tDiffuse, vUv + off).r;
+            col.g = texture2D(tDiffuse, vUv).g;
+            col.b = texture2D(tDiffuse, vUv - off).b;
+
+            /* Vignette. Flat across the middle two thirds, then falling
+               away — a smooth radial gradient darkens faces standing in
+               the centre of the frame, which is the opposite of what a
+               vignette is for. */
+            float vig = 1.0 - 0.34 * smoothstep(0.55, 1.25, r);
+            col *= vig;
+
+            /* Grain, in the shadows only. Film has more of it where
+               there is less light, and a bright neon sign with visible
+               noise on it looks like a bad video call. */
+            float luma = dot(col, vec3(0.2126, 0.7152, 0.0722));
+            float n = fract(sin(dot(vUv * vec2(1024.0, 768.0) + uTime, vec2(12.9898, 78.233))) * 43758.5453);
+            /* Measured at 0.030 the night sky boiled. Grain belongs in
+               the mid-shadows, not in the black: a black that is noisy
+               reads as a bad video call, and a black that is clean
+               reads as night. */
+            col += (n - 0.5) * 0.011 * smoothstep(0.02, 0.16, luma) * (1.0 - smoothstep(0.16, 0.6, luma));
+
+            /* A whisper of cool into the darks and warm into the
+               lights, which is the oldest grade there is and the reason
+               a night street reads as blue-and-amber rather than as
+               grey-and-grey. */
+            col = mix(col * vec3(0.94, 0.97, 1.06), col * vec3(1.04, 1.0, 0.96), smoothstep(0.08, 0.6, luma));
+
+            gl_FragColor = vec4(col, 1.0);
+            /*
+             * AND THE CONVERSION BACK TO SCREEN COLOUR, WHICH IS NOT
+             * OPTIONAL AND IS NOT AUTOMATIC HERE.
+             *
+             * The composer works in LINEAR light — that is what makes
+             * the bloom correct — and something has to convert to sRGB
+             * on the way to the screen. Three does that in the pass
+             * that renders to the screen, through this chunk. The
+             * bloom used to be that pass and included it; the moment a
+             * grade went after it, the bloom stopped rendering to the
+             * screen and this one started, without it.
+             *
+             * What that looked like: every midtone crushed and every
+             * colour over-saturated — the whole street went orange and
+             * the night sky went black. It reads exactly like a heavy
+             * grade, which is why it is worth naming: it was not a
+             * grade at all, it was a missing conversion.
+             */
+            #include <colorspace_fragment>
+          }
+        `,
+      });
+      composer.addPass(grade);
+      const gradeAspect = () => {
+        grade.uniforms.uAspect!.value = el.clientWidth / Math.max(1, el.clientHeight);
+      };
+      gradeAspect();
 
       /* ----- controls ----- */
       let yaw = Math.PI, pitch = 0.26;
@@ -1002,7 +1161,12 @@ export function City({
           lastPlace = placeId;
           setNearPlace(
             bestPlace
-              ? { id: bestPlace.id, he: bestPlace.he, department: bestPlace.department }
+              ? {
+                  id: bestPlace.id,
+                  he: bestPlace.he,
+                  department: bestPlace.department,
+                  services: bestPlace.services,
+                }
               : null
           );
         }
@@ -1012,21 +1176,50 @@ export function City({
           lastNear = id;
           setNearId(id);
           setNearName(best ? (best.sponsor ? `${best.he} · בחסות` : best.he) : null);
-          enterRef.current =
-            best?.interior
-              ? () => {
-                  if (entry) return;
-                  entry = {
-                    shop: best!,
-                    startedAt: performance.now(),
-                    dir: 1,
-                    from: player.group.position.clone(),
-                    aimFrom: camera.position.clone(),
-                  };
-                }
+          /*
+           * -----------------------------------------------------------
+           * A DOOR WITH NO PAINTED ROOM STILL OPENS
+           * -----------------------------------------------------------
+           * The vet's house has a sign, a neon, a doorway and a pill
+           * that names it — and pressing nothing happened, because
+           * `shop_vet_inside.webp` has not been drawn. Measured: at
+           * z -105.6 the pill read "וטרינריה" with no "כדאי להיכנס"
+           * under it and no button on screen. Amit: *"הרבה דברים
+           * שבורים במפה."* This is one of them, and from the pavement
+           * it is indistinguishable from a bug.
+           *
+           * The painting was never the point. A house in this street
+           * exists so you can see what the trade does and call
+           * somebody — and that is a list, which we have. So a shop
+           * with a room walks you into the room, and a shop without
+           * one opens the same sheet a place opens, with a sentence
+           * that fits a shop rather than a park.
+           */
+          const target = best;
+          enterRef.current = target?.interior
+            ? () => {
+                if (entry) return;
+                entry = {
+                  shop: target,
+                  startedAt: performance.now(),
+                  dir: 1,
+                  from: player.group.position.clone(),
+                  aimFrom: camera.position.clone(),
+                };
+              }
+            : target?.department
+              ? () =>
+                  setOpenPlace({
+                    he: target.he,
+                    department: target.department!,
+                    services: target.services,
+                    noteHe: "אלה השירותים שאפשר להזמין מכאן. המקצוען מגיע אליכם.",
+                  })
               : null;
         }
 
+        /* Grain has to move, or it is a dirty lens rather than film. */
+        grade.uniforms.uTime!.value = (now % 10000) / 1000;
         composer.render();
         raf = requestAnimationFrame(tick);
       };
@@ -1053,6 +1246,7 @@ export function City({
         renderer.setSize(el.clientWidth, el.clientHeight);
         composer.setSize(el.clientWidth, el.clientHeight);
         bloom.setSize(el.clientWidth, el.clientHeight);
+        gradeAspect();
       };
       window.addEventListener("resize", resize);
 
@@ -1173,7 +1367,12 @@ export function City({
         <button
           style={S.enter}
           onClick={() =>
-            setOpenPlace({ he: nearPlace.he, department: nearPlace.department! })
+            setOpenPlace({
+              he: nearPlace.he,
+              department: nearPlace.department!,
+              services: nearPlace.services,
+              noteHe: "אין כאן חנות — המקצוען מגיע אליכם. זה המקום שנפגשים בו.",
+            })
           }
         >
           מה אפשר להזמין כאן ›
@@ -1216,11 +1415,11 @@ export function City({
         <div style={S.sheetWrap} onClick={() => setOpenPlace(null)}>
           <div style={S.sheet} onClick={(e) => e.stopPropagation()}>
             <h3 style={S.sheetName}>{openPlace.he}</h3>
-            <p style={S.sheetBody}>
-              אין כאן חנות — המקצוען מגיע אליכם. זה המקום שנפגשים בו.
-            </p>
+            <p style={S.sheetBody}>{openPlace.noteHe}</p>
             <div style={S.services}>
-              {(placeTrades[openPlace.department] ?? []).map((sv) => (
+              {(placeTrades[openPlace.department] ?? [])
+                .filter((sv) => !openPlace.services || openPlace.services.includes(sv.id))
+                .map((sv) => (
                 <button
                   key={sv.id}
                   style={S.service}
@@ -1245,7 +1444,25 @@ export function City({
         <ShopRoom
           base={base}
           shop={room}
-          trade={(room.department && trades?.[room.id]) || null}
+          /*
+           * The house's OWN services, not its department's. See
+           * `ShopSpec.services`: two BEAUTY houses stand in this
+           * street and both were offering all three beauty trades, so
+           * "ציפורניים" opened with a haircut at the top of the list.
+           */
+          trade={
+            (room.department &&
+              (() => {
+                const t = trades?.[room.id];
+                if (!t) return null;
+                if (!room.services) return t;
+                return {
+                  ...t,
+                  services: t.services.filter((sv) => room.services!.includes(sv.id)),
+                };
+              })()) ||
+            null
+          }
           onRequestService={onRequestService}
           onLeave={() => {
             setRoom(null);

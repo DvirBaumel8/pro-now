@@ -80,6 +80,21 @@ export interface ShopSpec {
    * pretty room.
    */
   department?: string;
+  /**
+   * The services THIS house sells, when its department has more than
+   * one house in the street.
+   *
+   * Amit: *"יש עסקים שלא מתאימים לתיאור שלהם — פותח עסק אחר."* He was
+   * describing a real bug and it is this one: the sheet was built from
+   * the DEPARTMENT, so the nail bar and the hair salon are both BEAUTY
+   * and both offered haircuts, manicures and makeup. Walking into
+   * "ציפורניים" and being offered a haircut is the shop telling you it
+   * does not know what it is.
+   *
+   * Absent means "everything the department does", which is right for
+   * the nine trades that have one house each.
+   */
+  services?: readonly string[];
   /** The neon over the door, drawn rather than photographed. */
   neonColour?: string;
 }
@@ -95,7 +110,18 @@ export interface StreetHandles {
    * tow truck a shopfront would be a lie: there are no premises to
    * walk into. But there is a place, and a place can be walked up to.
    */
-  places: Array<{ id: string; he: string; department: string | null; spot: THREE.Vector3 }>;
+  places: Array<{
+    id: string;
+    he: string;
+    department: string | null;
+    /**
+     * The service ids offered here, when a place offers fewer than its
+     * whole department. Amit: *"בגינת כלבים אמור להיות רק דוג ווקר."*
+     * Absent means the whole department.
+     */
+    services?: readonly string[];
+    spot: THREE.Vector3;
+  }>;
   /** Every warm light in the street, for tinting the figure. */
   lamps: THREE.Vector3[];
   update: (dt: number, elapsed: number, camera: THREE.Camera) => void;
@@ -208,6 +234,8 @@ function tiled(
   tex.anisotropy = 8;
   return tex;
 }
+
+const reliefCache = new Map<THREE.Texture, THREE.Texture | null>();
 
 const DARK_SKY = 0x2a2448;
 
@@ -620,16 +648,28 @@ export function buildStreet(
     tiled(textures["mat_paving"], 26, 62) ?? paving();
   const pave = new THREE.Mesh(
     new THREE.PlaneGeometry(FRONT_X * 2 + 22, STREET_LENGTH),
-    new THREE.MeshStandardMaterial({ map: paveMap, roughness: 0.45, metalness: 0.08 })
+    new THREE.MeshStandardMaterial({
+      map: paveMap,
+      /* Cut stone has a lip on every edge, and a lamp finds it. Without
+         this the pavement is a photograph of stone lying flat on the
+         floor — which is what it was. */
+      normalMap: relief(paveMap),
+      normalScale: new THREE.Vector2(0.55, 0.55),
+      roughness: 0.45,
+      metalness: 0.08,
+    })
   );
   pave.rotation.x = -Math.PI / 2;
   pave.receiveShadow = true;
   scene.add(pave);
 
+  const roadMap = tiled(textures["mat_road"], 2, 34) ?? asphalt();
   const road = new THREE.Mesh(
     new THREE.PlaneGeometry(ROAD_HALF * 2, STREET_LENGTH),
     new THREE.MeshStandardMaterial({
-      map: tiled(textures["mat_road"], 2, 34) ?? asphalt(),
+      map: roadMap,
+      normalMap: relief(roadMap),
+      normalScale: new THREE.Vector2(0.35, 0.35),
       roughness: 0.22,
       metalness: 0.35,
     })
@@ -668,7 +708,24 @@ export function buildStreet(
       : wallTints.map(
           (t) => new THREE.MeshStandardMaterial({ map: plaster(t), roughness: 0.94 })
         );
-  const trimMat = new THREE.MeshStandardMaterial({ color: 0x120e1a, roughness: 0.9 });
+  /*
+   * THE TRIM WAS SO DARK IT READ AS A HOLE.
+   *
+   * 0x120e1a against a lit plaster facade is not "dark metal", it is
+   * black — and every parapet, every sign bracket and every shutter
+   * frame in the street came out as a hard black bar laid over the
+   * drawing. Amit: *"הבתים קרטון."* A black bar with no shading in it
+   * is the most cardboard object there is.
+   *
+   * Painted ironwork at night is a dark warm grey that picks up the
+   * sky above it and the lamps beside it. This is dark enough to stay
+   * trim and light enough to have a lit side.
+   */
+  const trimMat = new THREE.MeshStandardMaterial({
+    color: 0x2b2536,
+    roughness: 0.72,
+    metalness: 0.18,
+  });
   const shutterMat = new THREE.MeshStandardMaterial({
     color: 0x2a2433,
     roughness: 0.55,
@@ -680,6 +737,11 @@ export function buildStreet(
     id: string;
     he: string;
     department: string | null;
+    /**
+     * The service ids this place offers, when it is fewer than the
+     * whole department. Absent means "everything the department does".
+     */
+    services?: readonly string[];
     spot: THREE.Vector3;
   }> = [];
 
@@ -835,11 +897,37 @@ export function buildStreet(
       roughness: 0.9,
       side: THREE.DoubleSide,
     });
+    /*
+     * -----------------------------------------------------------------
+     * A CUT-OUT THAT CASTS NO SHADOW IS A STICKER
+     * -----------------------------------------------------------------
+     * Amit: *"הבתים קרטון."* The trees, the benches, the parked vans
+     * and the people had exactly one thing under them — a soft dark
+     * blob — and a blob is a patch, not a shadow. Nothing in the street
+     * was planted in it.
+     *
+     * They could not cast one, and the reason is worth writing down
+     * because it is invisible: three builds the shadow pass from a
+     * depth material, and it copies `alphaMap` and `alphaTest` across
+     * but NOT `map`. A cut-out's silhouette lives in its map's alpha
+     * channel, so every one of these would have cast a solid
+     * RECTANGLE — a tree throwing the shadow of a packing crate.
+     *
+     * So each carries its own depth material, which does have the map,
+     * and the shadow is the shape of the drawing.
+     */
+    const depth = new THREE.MeshDepthMaterial({
+      depthPacking: THREE.RGBADepthPacking,
+      map: tex,
+      alphaTest: 0.42,
+    });
     const g = new THREE.Group();
     for (let i = 0; i < sides; i += 1) {
       const q = new THREE.Mesh(new THREE.PlaneGeometry(w, height), mat);
       q.position.y = height / 2;
       q.rotation.y = (Math.PI / sides) * i;
+      q.castShadow = true;
+      q.customDepthMaterial = depth;
       g.add(q);
     }
     return g;
@@ -899,6 +987,108 @@ export function buildStreet(
     return { tex: t, aspect: c.width / (y1 - y0 + 1) };
   }
 
+  /* ---------------------------------------------------------------
+     THE DRAWINGS ARE FLAT, AND THAT IS MOST OF WHAT "CARDBOARD" MEANS
+
+     Amit, of the street as a whole: *"הבתים קרטון."* He is right and
+     it is not the art's fault. Every facade is one plane. A real wall
+     has twenty to forty centimetres of relief in it — window reveals,
+     a door set back, a moulding that catches the lamp on its top edge
+     and shades its underside — and all of that is what tells an eye
+     "this is a building" before it has read a single detail.
+
+     We cannot model that: the windows are painted INTO the picture,
+     so there is no geometry to push in. But the light can be told the
+     shape anyway. A normal map turns every pixel into a surface angle,
+     and then the street's own lamps sculpt the drawing — a moulding
+     lights along its top and darkens underneath as you walk past it,
+     which is exactly what the flat version could never do.
+
+     The height is read from the drawing's own brightness. On a
+     painted elevation that is a remarkably good guess: an artist
+     paints a recess dark and a projection light, because that is what
+     they look like. The map is built at 1024 across whatever the
+     source is — a normal map carries angles, not detail, and doing
+     this at 3400 x 3509 on thirteen shopfronts would cost seconds of
+     the load for a difference nobody can see.
+     --------------------------------------------------------------- */
+  function relief(tex: THREE.Texture | undefined): THREE.Texture | null {
+    if (!tex) return null;
+    const cached = reliefCache.get(tex);
+    if (cached !== undefined) return cached;
+    const img = tex.image as HTMLImageElement | undefined;
+    if (!img || !img.width) { reliefCache.set(tex, null); return null; }
+
+    const W = Math.min(1024, img.width);
+    const H = Math.max(1, Math.round((img.height / img.width) * W));
+    const src = document.createElement("canvas");
+    src.width = W;
+    src.height = H;
+    const sx = src.getContext("2d", { willReadFrequently: true });
+    if (!sx) { reliefCache.set(tex, null); return null; }
+    sx.drawImage(img, 0, 0, W, H);
+    const d = sx.getImageData(0, 0, W, H).data;
+
+    /* Height = luminance, and transparent pixels are "no wall": left
+       flat so a cut-out's empty margin does not grow a cliff edge. */
+    const hgt = new Float32Array(W * H);
+    for (let i = 0, p2 = 0; i < hgt.length; i += 1, p2 += 4) {
+      const a = (d[p2 + 3] ?? 0) / 255;
+      hgt[i] = a < 0.5
+        ? 0
+        : (0.2126 * (d[p2] ?? 0) + 0.7152 * (d[p2 + 1] ?? 0) + 0.0722 * (d[p2 + 2] ?? 0)) / 255;
+    }
+
+    const out = document.createElement("canvas");
+    out.width = W;
+    out.height = H;
+    const ox = out.getContext("2d")!;
+    const im = ox.createImageData(W, H);
+    const o = im.data;
+    /* How deep the relief reads. Too high and a painted shadow becomes
+       a canyon; this is the value at which a window frame reads as a
+       frame and a brick stays a brick. */
+    const STRENGTH = 2.6;
+    const at = (x: number, y: number) =>
+      hgt[Math.min(H - 1, Math.max(0, y)) * W + Math.min(W - 1, Math.max(0, x))]!;
+    for (let y = 0; y < H; y += 1) {
+      for (let x = 0; x < W; x += 1) {
+        /* Sobel, which is the cheapest gradient that is not noisy. */
+        const gx =
+          at(x - 1, y - 1) + 2 * at(x - 1, y) + at(x - 1, y + 1) -
+          (at(x + 1, y - 1) + 2 * at(x + 1, y) + at(x + 1, y + 1));
+        const gy =
+          at(x - 1, y - 1) + 2 * at(x, y - 1) + at(x + 1, y - 1) -
+          (at(x - 1, y + 1) + 2 * at(x, y + 1) + at(x + 1, y + 1));
+        let nx = gx * STRENGTH;
+        let ny = gy * STRENGTH;
+        const nz = 1;
+        const len = Math.hypot(nx, ny, nz);
+        nx /= len;
+        ny /= len;
+        const i = (y * W + x) * 4;
+        o[i] = Math.round((nx * 0.5 + 0.5) * 255);
+        o[i + 1] = Math.round((ny * 0.5 + 0.5) * 255);
+        o[i + 2] = Math.round((nz / len * 0.5 + 0.5) * 255);
+        o[i + 3] = 255;
+      }
+    }
+    ox.putImageData(im, 0, 0);
+    const t = new THREE.CanvasTexture(out);
+    /* A normal map is DATA, never colour — tagging it sRGB bends every
+       angle in it towards the flat. */
+    t.colorSpace = THREE.NoColorSpace;
+    t.wrapS = tex.wrapS;
+    t.wrapT = tex.wrapT;
+    /* A tiled floor tiles its relief too, or the stones light up in
+       one square metre and nowhere else. */
+    t.repeat.copy(tex.repeat);
+    t.offset.copy(tex.offset);
+    t.anisotropy = 4;
+    reliefCache.set(tex, t);
+    return t;
+  }
+
   /** A plain building, for the bays between his shops. */
   function ordinary(side: -1 | 1, z: number, seed: number) {
     const g = new THREE.Group();
@@ -940,6 +1130,8 @@ export function buildStreet(
           emissiveMap: drawn,
           emissive: 0xffffff,
           emissiveIntensity: 0.16,
+          normalMap: relief(drawn),
+          normalScale: new THREE.Vector2(1.2, 1.2),
           transparent: true,
           alphaTest: 0.35,
           roughness: 0.88,
@@ -1193,6 +1385,9 @@ export function buildStreet(
        * whisper.
        */
       emissiveIntensity: 0.18,
+          /* The relief the drawing cannot have. See `relief`. */
+          normalMap: relief(tex),
+          normalScale: new THREE.Vector2(1.15, 1.15),
           transparent: true,
           alphaTest: 0.35,
           roughness: 0.82,
@@ -1969,6 +2164,8 @@ export function buildStreet(
     speed: number;
     cycle: Cycle;
     material: THREE.MeshStandardMaterial;
+    /** Carries the same frame, so the shadow walks too. */
+    depth: THREE.MeshDepthMaterial;
     stride: number;
     walked: number;
   }
@@ -1996,6 +2193,18 @@ export function buildStreet(
     });
     const quad = new THREE.Mesh(new THREE.PlaneGeometry(height * c.aspect, height), material);
     quad.position.y = height / 2;
+    /* Same reasoning as `cutout`: the silhouette is in the map, and the
+       shadow pass does not read the map unless it is given one. The
+       frame changes as they walk, so the depth material is updated with
+       it — a person whose shadow is stuck on one pose is worse than a
+       person with no shadow. */
+    const depth = new THREE.MeshDepthMaterial({
+      depthPacking: THREE.RGBADepthPacking,
+      map: c.frames[0]!,
+      alphaTest: 0.42,
+    });
+    quad.castShadow = true;
+    quad.customDepthMaterial = depth;
     g.add(quad);
 
     /* The same contact shadow the player has, and for the same reason:
@@ -2012,7 +2221,7 @@ export function buildStreet(
 
     g.position.set(x, 0, z);
     scene.add(g);
-    walkers.push({ g, speed, cycle: c, material, stride, walked: 0 });
+    walkers.push({ g, speed, cycle: c, material, depth, stride, walked: 0 });
   }
 
   /*
@@ -2419,6 +2628,18 @@ export function buildStreet(
       z: number;
       side: -1 | 1;
       height: number;
+      /**
+       * Stands in the parking lane rather than against the wall.
+       *
+       * Amit: *"משאית על המדרכה."* He was right and it was mine: every
+       * place was placed the same way, half a metre off the building
+       * line — which is correct for a bench, a parcel point and a
+       * nursery, and absurd for a tow truck with a car on its back. It
+       * was parked on the pavement, against a shop window.
+       *
+       * A layby is a piece of ROAD. That is what the word means.
+       */
+      kerb?: boolean;
     }> = [
       /*
        * ON THE PAVEMENT YOU ARE ACTUALLY WALKING ON.
@@ -2436,7 +2657,7 @@ export function buildStreet(
        * street with everything on one side is a corridor.
        */
 
-      { id: "roadside", asset: "place_roadside",   he: "מפרץ עצירה",    department: "VEHICLE",   z:   8.8, side: -1, height: 3.6 },
+      { id: "roadside", asset: "place_roadside",   he: "מפרץ עצירה",    department: "VEHICLE",   z:   8.8, side:  1, height: 3.6, kerb: true },
       { id: "pickup",   asset: "place_pickup",     he: "נקודת שליחויות", department: "LOGISTICS", z: -79.2, side:  1, height: 3.8 },
       { id: "garden",   asset: "place_garden",     he: "פינת המשתלה",   department: "HOME_CARE", z: -26.4, side: -1, height: 3.4 },
       { id: "bench",    asset: "place_bench_stop", he: "פינת ישיבה",    department: null,        z: -114.4, side:  1, height: 3.4 },
@@ -2447,7 +2668,9 @@ export function buildStreet(
       if (!tex) continue;
       const band = topBand(tex);
       const g = cutout(band.tex, pl.height, 1, band.aspect);
-      const x = FRONT_X * pl.side - pl.side * 0.5;
+      const x = pl.kerb
+        ? pl.side * (KERB_X - 1.2)
+        : FRONT_X * pl.side - pl.side * 0.5;
       g.position.set(x, 0, pl.z);
       g.rotation.y = pl.side < 0 ? Math.PI / 2 : -Math.PI / 2;
       scene.add(g);
@@ -2455,9 +2678,15 @@ export function buildStreet(
         id: pl.id,
         he: pl.he,
         department: pl.department,
-        /* Where somebody stands to be met here: off the wall, on the
-           pavement, the same offset a shop doorway uses. */
-        spot: new THREE.Vector3(x - pl.side * 2.6, 0, pl.z),
+        /* Where somebody stands to be met here. Off the wall for a
+           place on the pavement; up ON the pavement, behind the kerb,
+           for one parked in the road — you do not wait for a tow truck
+           by standing in the traffic. */
+        spot: new THREE.Vector3(
+          pl.kerb ? pl.side * (KERB_X + 1.6) : x - pl.side * 2.6,
+          0,
+          pl.z
+        ),
       });
     }
 
@@ -2650,6 +2879,8 @@ export function buildStreet(
         w.material.map = frame;
         w.material.emissiveMap = frame;
         w.material.needsUpdate = true;
+        w.depth.map = frame;
+        w.depth.needsUpdate = true;
       }
     }
     for (const f of ticking) f(dt, elapsed);
