@@ -760,19 +760,50 @@ export function LivingMapScene({
    * for a person. See `streetTour`.
    */
   const touring = phase === "SEARCHING" && venues.length === 0;
+  const tourKind = theme === "HAIR" ? "HAIR" : "HOME";
+  // The scene takes the code as a plain string (it renders whatever the
+  // catalogue names); the district table answers for anything it does not
+  // know, which is the same fallback `districtFor` uses a few lines up.
+  const tourDepartment = (departmentCode as DepartmentCode | undefined) ?? "HOME_URGENT";
+
+  /*
+   * ---------------------------------------------------------------------
+   * THE TOUR IS IDENTIFIED BY WHAT IT CONTAINS, NOT BY WHICH RENDER MADE IT
+   * ---------------------------------------------------------------------
+   * Measured in a browser: during the whole SEARCHING phase the world did
+   * not move a pixel — plate at left 0, top -733, identical at fourteen
+   * samples across six seconds — and `verify:game` had been reporting it
+   * as "the lens never moved during the search".
+   *
+   * The sweep itself was innocent. `sweepFrame` was asked for the frame at
+   * elapsed 0 every single time, because the clock below restarts whenever
+   * `sweepVenues` changes IDENTITY, and it changed identity on every
+   * render: the host hands this scene `candidates: []` as a fresh literal,
+   * so `visible` → `venues` → `sweepVenues` were all rebuilt, the effect
+   * tore down, `startedAt` became now, and elapsed was 0 again. Something
+   * above re-renders about once a second, so the camera was re-aimed at
+   * the first shop in the street roughly once a second, forever.
+   *
+   * This is the same fault the note further down describes being fixed
+   * once already ("Measured in a browser, that left the camera sitting on
+   * the world's centre for the entire phase"), arriving the second time
+   * through identity rather than through an empty list — which is why the
+   * cure is a key rather than another dependency.
+   *
+   * `layOutVenues` and `streetTour` are pure functions of exactly what is
+   * in this string, so two renders with the same key MUST produce an equal
+   * array, and reusing the previous one is not an optimisation but the
+   * truth. `venues` is deliberately not a dependency: its identity is the
+   * thing being defended against, and its content is in the key.
+   */
+  const tourKey = touring
+    ? `street:${tourDepartment}:${tourKind}`
+    : `venues:${tourKind}:${venues.map((v) => v.candidateId).join("|")}`;
+
   const sweepVenues = useMemo(
-    () =>
-      touring
-        ? streetTour(
-            // The scene takes the code as a plain string (it renders
-            // whatever the catalogue names); the district table answers
-            // for anything it does not know, which is the same fallback
-            // `districtFor` uses a few lines up.
-            (departmentCode as DepartmentCode | undefined) ?? "HOME_URGENT",
-            theme === "HAIR" ? "HAIR" : "HOME"
-          )
-        : venues,
-    [touring, departmentCode, theme, venues]
+    () => (touring ? streetTour(tourDepartment, tourKind) : venues),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [tourKey]
   );
 
   const [sweepMs, setSweepMs] = useState(0);
