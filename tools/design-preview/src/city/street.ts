@@ -12,6 +12,7 @@ import {
   CITY_WALKER_IDS,
 } from "@pro-now/types";
 
+import { measureCycle, type Cycle } from "./sheet";
 import { asphalt, glow, neon, paving, plaster, wordmark } from "./textures";
 
 /**
@@ -252,7 +253,10 @@ function tiled(
   return tex;
 }
 
-const reliefCache = new Map<THREE.Texture, THREE.Texture | null>();
+const reliefCache = new Map<
+  THREE.Texture,
+  { normal: THREE.Texture; height: THREE.Texture } | null
+>();
 
 const DARK_SKY = 0x2a2448;
 
@@ -1058,6 +1062,38 @@ export function buildStreet(
      the load for a difference nobody can see.
      --------------------------------------------------------------- */
   function relief(tex: THREE.Texture | undefined): THREE.Texture | null {
+    return reliefMaps(tex)?.normal ?? null;
+  }
+
+  /**
+   * ---------------------------------------------------------------------
+   * AND THE SAME HEIGHTS, PUSHED INTO THE GEOMETRY FOR REAL
+   * ---------------------------------------------------------------------
+   * Amit, looking down at the street from the arrival shot: *"הבתים
+   * עדיין על הפנים ונראים שטוחים וקרטון."*
+   *
+   * He is right and the reason is the angle. Three layers 40cm apart
+   * separate beautifully at eye level — walk past and the balcony
+   * slides across the wall — and from above they are three stickers on
+   * the front of a box, because 40cm on a ten-metre building is
+   * nothing when you are looking down at it.
+   *
+   * A normal map has the same problem: it tilts the LIGHT and never
+   * moves a single vertex, so a silhouette stays a silhouette and a
+   * window stays level with the wall around it.
+   *
+   * A displacement map moves the vertices. The same height that the
+   * normal map is derived from, on a wall subdivided finely enough to
+   * carry it, pushes the windows a real 25 centimetres into the
+   * masonry and lifts the cornices out of it — and then the light and
+   * the geometry agree, which they never did before.
+   *
+   * Only the WALL layer. The balconies and the plants are cut-outs
+   * with holes in them, and displacing a hole tears it.
+   */
+  function reliefMaps(
+    tex: THREE.Texture | undefined
+  ): { normal: THREE.Texture; height: THREE.Texture } | null {
     if (!tex) return null;
     const cached = reliefCache.get(tex);
     if (cached !== undefined) return cached;
@@ -1130,8 +1166,113 @@ export function buildStreet(
     t.repeat.copy(tex.repeat);
     t.offset.copy(tex.offset);
     t.anisotropy = 4;
-    reliefCache.set(tex, t);
-    return t;
+
+    /*
+     * The height itself, as a picture, for the displacement.
+     *
+     * Blurred once with a five-tap box: the albedo carries paint
+     * detail as well as shape, and displacing on the paint makes a
+     * brick wall look like corrugated iron. Shape survives a blur;
+     * paint does not.
+     */
+    const hOut = document.createElement("canvas");
+    hOut.width = W;
+    hOut.height = H;
+    const hx = hOut.getContext("2d")!;
+    const hi = hx.createImageData(W, H);
+    for (let y = 0; y < H; y += 1) {
+      for (let x = 0; x < W; x += 1) {
+        const v =
+          (at(x, y) * 2 + at(x - 2, y) + at(x + 2, y) + at(x, y - 2) + at(x, y + 2)) / 6;
+        const i = (y * W + x) * 4;
+        const g2 = Math.round(v * 255);
+        hi.data[i] = g2;
+        hi.data[i + 1] = g2;
+        hi.data[i + 2] = g2;
+        hi.data[i + 3] = 255;
+      }
+    }
+    hx.putImageData(hi, 0, 0);
+    const h2 = new THREE.CanvasTexture(hOut);
+    h2.colorSpace = THREE.NoColorSpace;
+    h2.wrapS = tex.wrapS;
+    h2.wrapT = tex.wrapT;
+    h2.repeat.copy(tex.repeat);
+    h2.offset.copy(tex.offset);
+
+    const pair = { normal: t, height: h2 };
+    reliefCache.set(tex, pair);
+    return pair;
+  }
+
+  /**
+   * THE THING IN THE MIDDLE OF THE PICTURE, AND NOTHING ELSE IN IT.
+   *
+   * Amit, of a PRO NOW van parked on a roof: *"אוי ואבוי מה עשית."*
+   *
+   * The six roof props arrived as separate files cut out of one sheet,
+   * and every one of them carries a slice of its neighbours: `roof_ac`
+   * has a washing line in it, `roof_tank` has half a chimney, and
+   * `roof_rail` has the front of a delivery van. Drawn whole on a
+   * roof, that van is exactly as absurd as it sounds.
+   *
+   * What is reliable about these files is that the object the file is
+   * NAMED after is the one in the middle — the bleed is whatever got
+   * caught at the edges. So this takes the run of columns containing
+   * the centre of the canvas, and then the rows within it, and returns
+   * that window.
+   *
+   * It is a crop, not a repair: the right fix is a recut, and it is on
+   * the list to ask for.
+   */
+  function centrePiece(tex: THREE.Texture): { tex: THREE.Texture; aspect: number } {
+    const img = tex.image as HTMLImageElement | undefined;
+    if (!img || !img.width) return { tex, aspect: 0 };
+    const c = document.createElement("canvas");
+    c.width = img.width;
+    c.height = img.height;
+    const x2 = c.getContext("2d", { willReadFrequently: true });
+    if (!x2) return { tex, aspect: 0 };
+    x2.drawImage(img, 0, 0);
+    const d = x2.getImageData(0, 0, c.width, c.height).data;
+    const on = (x: number, y: number) => (d[(y * c.width + x) * 4 + 3] ?? 0) > 40;
+
+    const col = new Int32Array(c.width);
+    for (let x = 0; x < c.width; x += 1) {
+      let n = 0;
+      for (let y = 0; y < c.height; y += 1) if (on(x, y)) n += 1;
+      col[x] = n;
+    }
+    const mid = Math.floor(c.width / 2);
+    /* If the centre column is empty, walk out to the nearest column
+       that is not — the object is near the middle, not always on it. */
+    let seed = -1;
+    for (let k = 0; k < c.width; k += 1) {
+      if (mid - k >= 0 && col[mid - k]! > 2) { seed = mid - k; break; }
+      if (mid + k < c.width && col[mid + k]! > 2) { seed = mid + k; break; }
+    }
+    if (seed < 0) return { tex, aspect: 0 };
+    let x0 = seed;
+    let x1 = seed;
+    while (x0 > 0 && col[x0 - 1]! > 2) x0 -= 1;
+    while (x1 < c.width - 1 && col[x1 + 1]! > 2) x1 += 1;
+
+    let y0 = -1;
+    let y1 = -1;
+    for (let y = 0; y < c.height; y += 1) {
+      let n = 0;
+      for (let x = x0; x <= x1; x += 1) if (on(x, y)) { n += 1; if (n > 2) break; }
+      if (n > 2) { if (y0 < 0) y0 = y; y1 = y; }
+    }
+    if (y0 < 0 || x1 - x0 < 10 || y1 - y0 < 10) return { tex, aspect: 0 };
+
+    const t = tex.clone();
+    t.needsUpdate = true;
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
+    t.repeat.set((x1 - x0 + 1) / c.width, (y1 - y0 + 1) / c.height);
+    t.offset.set(x0 / c.width, (c.height - y1 - 1) / c.height);
+    return { tex: t, aspect: (x1 - x0 + 1) / (y1 - y0 + 1) };
   }
 
   /** A plain building, for the bays between his shops. */
@@ -1194,6 +1335,7 @@ export function buildStreet(
 
       const layer = (tex: THREE.Texture, z: number, lit: number) => {
         tex.colorSpace = THREE.SRGBColorSpace;
+        const maps = reliefMaps(tex);
         const m = new THREE.Mesh(
           new THREE.PlaneGeometry(w, h),
           new THREE.MeshStandardMaterial({
@@ -1201,8 +1343,34 @@ export function buildStreet(
             emissiveMap: tex,
             emissive: 0xffffff,
             emissiveIntensity: lit,
-            normalMap: relief(tex),
+            normalMap: maps?.normal ?? null,
             normalScale: new THREE.Vector2(1.2, 1.2),
+            /*
+             * -------------------------------------------------------
+             * NO DISPLACEMENT, AND THE REASON IS WORTH KEEPING
+             * -------------------------------------------------------
+             * This carried a real displacement map for one build, on
+             * the height derived from the drawing's own brightness —
+             * the same height the normal map uses. Measured on screen
+             * it was clearly worse, and the reason is specific to a
+             * NIGHT drawing:
+             *
+             * the brightest thing on a lit facade is a lit WINDOW, so
+             * brightness-as-height pushed every window OUT of the wall
+             * and left the plaster between them sunk. Windows bulging
+             * out of a building like blisters, at any scale, because
+             * the assumption behind the height map — bright means
+             * proud, dark means recessed — is true of daylight and
+             * false of a window with a lamp behind it.
+             *
+             * The normal map survives because it only tilts the light
+             * and a wrong tilt on a window reads as glass. Geometry
+             * cannot be wrong quietly.
+             *
+             * Real relief needs a real height map, which is a thing to
+             * ask the artist for, not to infer.
+             */
+            displacementScale: 0,
             transparent: true,
             alphaTest: 0.35,
             roughness: 0.88,
@@ -1270,7 +1438,8 @@ export function buildStreet(
         const heights = [2.4, 1.6, 1.3, 2.1, 1.5, 0.9];
         for (let i = 0; i < 2; i += 1) {
           const pick = (seed * 3 + i * 5) % roofKit.length;
-          const prop = cutout(roofKit[pick]!, heights[pick] ?? 1.6, 1);
+          const piece = centrePiece(roofKit[pick]!);
+          const prop = cutout(piece.tex, heights[pick] ?? 1.6, 1, piece.aspect);
           prop.position.set(
             (i === 0 ? -1 : 1) * (BAY * 0.22 + ((seed + i) % 3) * 0.4),
             h - 0.1,
@@ -1316,10 +1485,52 @@ export function buildStreet(
     block.castShadow = block.receiveShadow = true;
     g.add(block);
 
-    const parapet = new THREE.Mesh(new THREE.BoxGeometry(BAY + 0.5, 0.65, depth + 0.4), trimMat);
-    parapet.position.set(0, h + 0.3, -depth / 2 - 0.08);
-    parapet.castShadow = true;
-    g.add(parapet);
+    /*
+     * -----------------------------------------------------------------
+     * A ROOF, AND A PARAPET THAT STANDS ON IT
+     * -----------------------------------------------------------------
+     * Amit, looking down the street from the arrival shot: *"הבתים
+     * עדיין נראים שטוחים וקרטון."* From up there the giveaway is not
+     * the facade at all — it is the TOP. Every building was a box whose
+     * lid was a bare grey slab of the same plaster as its sides, all of
+     * them at the same height, forming one continuous shelf down the
+     * street.
+     *
+     * A real roof has a surface you can see — felt, tile, a screed —
+     * and a parapet standing PROUD of it rather than flush with the
+     * wall. This is both: a tiled deck, and a parapet that is a rail
+     * around the deck instead of a lid on a box.
+     */
+    const roofTex = textures["mat_stone"] ?? textures["mat_paving"];
+    if (roofTex) {
+      const rt = roofTex.clone();
+      rt.needsUpdate = true;
+      rt.wrapS = rt.wrapT = THREE.RepeatWrapping;
+      rt.repeat.set(3, 4);
+      rt.colorSpace = THREE.SRGBColorSpace;
+      const deck = new THREE.Mesh(
+        new THREE.PlaneGeometry(BAY + 0.44, depth + 0.34),
+        new THREE.MeshStandardMaterial({ map: rt, color: 0x9a8f96, roughness: 0.95 })
+      );
+      deck.rotation.x = -Math.PI / 2;
+      deck.position.set(0, h + 0.04, -depth / 2 - 0.08);
+      deck.receiveShadow = true;
+      g.add(deck);
+    }
+
+    /* The parapet as a rail round the edge, not a lid: four low walls
+       with the deck visible between them. */
+    for (const [dx, dz, bw, bd] of [
+      [0, (depth + 0.4) / 2 - 0.12, BAY + 0.5, 0.24],
+      [0, -(depth + 0.4) / 2 + 0.12, BAY + 0.5, 0.24],
+      [(BAY + 0.5) / 2 - 0.12, 0, 0.24, depth + 0.4],
+      [-(BAY + 0.5) / 2 + 0.12, 0, 0.24, depth + 0.4],
+    ] as const) {
+      const wallp = new THREE.Mesh(new THREE.BoxGeometry(bw, 0.62, bd), trimMat);
+      wallp.position.set(dx, h + 0.31, -depth / 2 - 0.08 + dz);
+      wallp.castShadow = true;
+      g.add(wallp);
+    }
 
     /*
      * THE GROUND FLOOR, AND WHY A THIRD OF THEM ARE OPEN.
@@ -2454,88 +2665,6 @@ export function buildStreet(
      in it is opaque, a run of such columns is a figure, and a run much
      wider than the median is two figures touching and is split.
      --------------------------------------------------------------- */
-  interface Cycle {
-    frames: THREE.Texture[];
-    /** Width of one frame's sampling window, over its height. */
-    aspect: number;
-  }
-
-  function cycle(tex: THREE.Texture | undefined, forceEven = 0): Cycle | null {
-    if (!tex) return null;
-    const img = tex.image as HTMLImageElement | undefined;
-    if (!img || !img.width) return null;
-    const c = document.createElement("canvas");
-    c.width = img.width;
-    c.height = img.height;
-    const x2 = c.getContext("2d", { willReadFrequently: true });
-    if (!x2) return null;
-    x2.drawImage(img, 0, 0);
-    const data = x2.getImageData(0, 0, c.width, c.height).data;
-
-    const rects: Array<[number, number]> = [];
-    if (forceEven > 0) {
-      /* `walk_dogwalker` is a person AND a dog per pose, and the gap
-         between the two is as wide as the gap between poses — so the
-         run rule finds a person here and a dog there. It is the one
-         sheet that is evenly spaced, and it says so here rather than
-         being guessed at. */
-      const w = c.width / forceEven;
-      for (let i = 0; i < forceEven; i += 1) {
-        rects.push([Math.round(i * w), Math.round((i + 1) * w) - 1]);
-      }
-    } else {
-      const col = new Int32Array(c.width);
-      for (let x = 0; x < c.width; x += 1) {
-        let n = 0;
-        for (let y = 0; y < c.height; y += 1) {
-          if ((data[(y * c.width + x) * 4 + 3] ?? 0) > 40) n += 1;
-        }
-        col[x] = n;
-      }
-      const runs: Array<[number, number]> = [];
-      let start = -1;
-      for (let x = 0; x < c.width; x += 1) {
-        if (col[x]! > 2 && start < 0) start = x;
-        else if (col[x]! <= 2 && start >= 0) { runs.push([start, x - 1]); start = -1; }
-      }
-      if (start >= 0) runs.push([start, c.width - 1]);
-      const keep = runs.filter(([a, z]) => z - a > 40);
-      if (keep.length === 0) return null;
-      const widths = keep.map(([a, z]) => z - a + 1).sort((a, b) => a - b);
-      const median = widths[Math.floor(widths.length / 2)]!;
-      for (const [a, z] of keep) {
-        const w = z - a + 1;
-        const parts = Math.max(1, Math.round(w / median));
-        for (let i = 0; i < parts; i += 1) {
-          rects.push([Math.round(a + (w * i) / parts), Math.round(a + (w * (i + 1)) / parts) - 1]);
-        }
-      }
-    }
-    if (rects.length === 0) return null;
-
-    /*
-     * ONE WINDOW WIDTH FOR THE WHOLE CYCLE.
-     *
-     * Each pose is a different number of pixels wide — a stride is
-     * wider than a stand — and giving every frame its own quad would
-     * make the figure grow and shrink as it walked. So the window is
-     * the widest frame, centred on each pose, and the quad never
-     * changes size. The pose moves inside it, which is what a pose
-     * does.
-     */
-    const unit = Math.max(...rects.map(([a, z]) => z - a + 1));
-    const frames = rects.map(([a, z]) => {
-      const t = tex.clone();
-      t.needsUpdate = true;
-      t.colorSpace = THREE.SRGBColorSpace;
-      t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
-      t.repeat.set(unit / c.width, 1);
-      t.offset.set(((a + z + 1) / 2 - unit / 2) / c.width, 0);
-      return t;
-    });
-    return { frames, aspect: unit / c.height };
-  }
-
   interface Walker {
     g: THREE.Group;
     speed: number;
@@ -2607,9 +2736,9 @@ export function buildStreet(
    * dog, and it belongs at the park — see `PLACED`.
    */
   const peopleCycles = [
-    cycle(textures["walk_man"]),
-    cycle(textures["walk_woman"]),
-    cycle(textures["walk_dogwalker"], 6),
+    measureCycle(textures["walk_man"]),
+    measureCycle(textures["walk_woman"]),
+    measureCycle(textures["walk_dogwalker"], 6),
   ].filter((c): c is Cycle => c !== null);
 
   for (let i = 0; i < 14; i += 1) {
@@ -2618,7 +2747,21 @@ export function buildStreet(
        which put one in the camera's lap every few seconds — and a
        background figure inspected at three metres stops being
        background. Out there they are what they are meant to be. */
-    const x = side * (KERB_X + 1.0 + Math.random() * 1.9);
+    /*
+     * A LANE OF THEIR OWN, BETWEEN THE TREES AND THE TABLES.
+     *
+     * Amit: *"שאר האנשים בשכונה הולכים דרך עצים ודברים."* They were
+     * spawned from 4.3 to 6.2 metres off the centre line, and the
+     * street lamps stand at 4.0 and the trees at 3.7 with a canopy
+     * five metres across — so every walker on the kerb side passed
+     * straight through a tree.
+     *
+     * The pavement runs from 3.3 to 9.7. The kerb furniture occupies
+     * up to about 4.4 and the tables, benches and planters start at
+     * 7.7, which leaves a clear corridor of three metres down the
+     * middle. That is where people walk in a real street, too.
+     */
+    const x = side * (5.4 + Math.random() * 1.7);
     /* Anywhere but standing on top of you at the moment you arrive. */
     let z = 0;
     do {
@@ -2640,8 +2783,21 @@ export function buildStreet(
    * is not a professional and nobody is waiting for you here.
    */
   {
-    const dog = cycle(textures["walk_dog"]);
-    if (dog) drawnWalker(FRONT_X - 2.6, 60.2, dog, 0.72, 1.1, 0);
+    /*
+     * BIG ENOUGH TO BE A DOG.
+     *
+     * Amit: *"חייב שיהיו כלבים יותר גדולים בגינת כלבים שיבינו שזה
+     * כלב."* At 0.72m — which is roughly a real dog — a drawing seen
+     * from across a park is a dark smudge on the grass, and the point
+     * of the park is that you can tell what it is at a glance. A
+     * metre and a bit reads as a dog from the pavement, and there are
+     * two of them, because one dog in a dog park is a lost dog.
+     */
+    const dog = measureCycle(textures["walk_dog"]);
+    if (dog) {
+      drawnWalker(FRONT_X - 2.6, 60.2, dog, 1.15, 1.1, 0);
+      drawnWalker(FRONT_X - 1.4, 63.4, dog, 1.0, 1.1, 0);
+    }
   }
 
   /* ---------------------------------------------------------------
@@ -3143,6 +3299,23 @@ export function buildStreet(
           g.add(t);
         }
       }
+      /*
+       * The drawn park, standing at the back of the built one.
+       *
+       * `place_dogpark` arrived as a wide strip — grass, a fence,
+       * agility hoops, a bench — which is a backdrop rather than a
+       * place you can walk around. So it stands against the wall and
+       * the geometry in front of it is what you actually walk into.
+       */
+      const parkArt = textures["place_dogpark"];
+      if (parkArt) {
+        const band = mainBand(parkArt);
+        const art = cutout(band.tex, 3.0, 1, band.aspect);
+        art.position.set(px + PW / 2 - 0.12, 0, pz);
+        art.rotation.y = -Math.PI / 2;
+        g.add(art);
+      }
+
       const benchTex = textures["prop_bench"];
       if (benchTex) {
         const bench = cutout(benchTex, 1.0);

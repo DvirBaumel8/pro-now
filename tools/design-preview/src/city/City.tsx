@@ -6,6 +6,7 @@ import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPa
 import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
 
 import { buildPlayer } from "./player";
+import { measureCycle } from "./sheet";
 import { SPONSOR_BADGE_HE, sponsorCtaHe, sponsorLeaveHe } from "@pro-now/types";
 /*
  * The type scale, which this file had been quietly outside of.
@@ -506,17 +507,34 @@ export function City({
        * cost one download and one upload to the GPU. No slicing tool,
        * no eight requests.
        */
-      const sheetFrames = async (id: string, n = 8) => {
+      /*
+       * -----------------------------------------------------------------
+       * AND THE SHEET IS MEASURED, NOT DIVIDED
+       * -----------------------------------------------------------------
+       * Amit, twice, with a screenshot each time: *"לא מבין לאן הדמות
+       * הלכה ומה הכתם הזה שנשאר פה"*, and then *"עדיין לא רואים את
+       * הדמות."* He was looking at his own character cut into ribbons
+       * and laid along the pavement.
+       *
+       * This divided the sheet into eight equal slices, which is right
+       * only if the poses were placed at equal intervals — and they
+       * were not. Measured: `avatar_01_back` is 1302 wide and
+       * `avatar_02_back` is 1287, not even the same canvas, and
+       * `avatar_02`'s one visible gap sits at 391 where an eighth would
+       * put a boundary at 161. So some slices held most of a figure,
+       * some held two halves, and one or two held almost nothing — and
+       * that empty one is the frame where the character vanishes and
+       * leaves the pale edge of the cut-out behind. That pale edge is
+       * the stain in his screenshot.
+       *
+       * The crowd in the street has been sliced by measurement for a
+       * day; the player was still being divided. One rule, one place,
+       * both callers — `measureCycle`.
+       */
+      const sheetFrames = async (id: string) => {
         const sheet = await load(id);
         sheet.colorSpace = THREE.SRGBColorSpace;
-        return Array.from({ length: n }, (_, i) => {
-          const f = sheet.clone();
-          f.needsUpdate = true;
-          f.wrapS = f.wrapT = THREE.ClampToEdgeWrapping;
-          f.repeat.set(1 / n, 1);
-          f.offset.set(i / n, 0);
-          return f;
-        });
+        return measureCycle(sheet);
       };
 
       let walk: THREE.Texture[];
@@ -526,10 +544,11 @@ export function City({
       const chosen = avatarNo ? String(avatarNo).padStart(2, "0") : null;
       try {
         if (!chosen) throw new Error("no avatar chosen");
-        walk = await sheetFrames(`avatar_${chosen}_back.webp`);
+        const cycle = await sheetFrames(`avatar_${chosen}_back.webp`);
+        if (!cycle) throw new Error("sheet could not be measured");
+        walk = cycle.frames;
         run = walk;
-        const img = walk[0]!.image as { width: number; height: number };
-        frameAspect = img.width / 8 / img.height;
+        frameAspect = cycle.aspect;
       } catch {
         walk = await Promise.all(WALK.map(load));
         run = await Promise.all(RUN.map(load)).catch(() => walk);
