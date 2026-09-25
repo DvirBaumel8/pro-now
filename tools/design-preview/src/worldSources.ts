@@ -88,6 +88,9 @@ export const worldSources: WorldAssetSources = {
   character_well_icon: { uri: "./world/character_well_icon.webp" },
   character_well_world: { uri: "./world/character_well_world.webp" },
   courier_scooter: { uri: "./world/courier_scooter.webp" },
+  /* The street's own palm and lamp, stood on the real map. */
+  prop_palm: { uri: "./world/m/prop_palm.webp" },
+  prop_lamp: { uri: "./world/m/prop_lamp.webp" },
   district_appliance: { uri: "./world/district_appliance.webp" },
   district_auto: { uri: "./world/district_auto.webp" },
   district_care: { uri: "./world/district_care.webp" },

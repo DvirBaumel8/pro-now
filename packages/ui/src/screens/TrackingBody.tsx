@@ -412,6 +412,8 @@ export function TrackingBody({
    * towards.
    */
   const [tick, setTick] = useState(() => Date.now());
+  /* The card that opens from the vehicle on the real map. */
+  const [proCard, setProCard] = useState(false);
   useEffect(() => {
     if (!animate) return;
     const id = setInterval(() => setTick(Date.now()), 1000);
@@ -545,12 +547,10 @@ export function TrackingBody({
                          * one street at eye level and the point there is
                          * watching somebody come down it.
                          */
-                        return plan
-                          ? {
-                              u: (at.u + CUSTOMER_POINT.u) / 2,
-                              v: (at.v + CUSTOMER_POINT.v) / 2,
-                            }
-                          : at;
+                        /* Amit: *"רק לראות איפה הוא ברכב שלו על המפה."*
+                           The vehicle is the subject of the tracking map,
+                           so the camera stays on it. */
+                        return at;
                       })()
               }
               /*
@@ -585,6 +585,7 @@ export function TrackingBody({
                   department={(departmentCode as never) ?? "HOME_URGENT"}
                   progress={tripProgress}
                   vehicleAssetId={vehicleAssetId}
+                  onPressTraveller={() => setProCard(true)}
                   /*
                    * A real extract is a street plan, so the traveller is
                    * a marker on it rather than a painted figure at a
@@ -668,6 +669,37 @@ export function TrackingBody({
             <Text style={styles.etaClockKm}>{(eta.distanceMeters / 1000).toFixed(1)} ק״מ</Text>
           ) : null}
           <Text style={styles.etaClockHint}>{geo ? "חזרה לעיר" : "איפה הוא ›"}</Text>
+        </Pressable>
+      ) : null}
+
+      {/*
+        * WHO IS IN THAT VAN.
+        *
+        * Opened by tapping the vehicle on the real map. Only what the
+        * server says about them: name, verifications, jobs and rating on
+        * PRO NOW (hidden until there is one), and the same ETA as the clock.
+        */}
+      {proCard ? (
+        <Pressable style={styles.proCardScrim} onPress={() => setProCard(false)} accessibilityRole="button" accessibilityLabel="סגירת פרטי המקצוען">
+          <Pressable style={styles.proCard} onPress={() => {}}>
+            <Text style={styles.proCardName}>{professional.displayName}</Text>
+            <Text style={styles.proCardLine}>{serviceNameHe}</Text>
+            {professional.verifications.length > 0 ? (
+              <Text style={styles.proCardVerified}>✓ מאומת ב-PRO NOW · {professional.verifications.length} בדיקות</Text>
+            ) : null}
+            {rating ? <Text style={styles.proCardLine}>★ {rating.rating} ({rating.count}) ב-PRO NOW</Text> : null}
+            {jobsLine ? <Text style={styles.proCardLine}>{jobsLine}</Text> : null}
+            {etaDisplay ? <Text style={styles.proCardEta}>מגיע בעוד {etaDisplay.value} {etaDisplay.unit}</Text> : null}
+            <View style={styles.proCardRow}>
+              {onCall ? (
+                <Pressable onPress={onCall} style={styles.proCardBtn} accessibilityRole="button"><Text style={styles.proCardBtnText}>שיחה</Text></Pressable>
+              ) : null}
+              {onMessage ? (
+                <Pressable onPress={onMessage} style={styles.proCardBtn} accessibilityRole="button"><Text style={styles.proCardBtnText}>הודעה</Text></Pressable>
+              ) : null}
+              <Pressable onPress={() => setProCard(false)} style={styles.proCardBtn} accessibilityRole="button"><Text style={styles.proCardBtnText}>סגירה</Text></Pressable>
+            </View>
+          </Pressable>
         </Pressable>
       ) : null}
 
@@ -953,6 +985,15 @@ function Act({
 }
 
 const styles = StyleSheet.create({
+  proCardScrim: { position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: "rgba(8,6,14,0.55)", justifyContent: "center", padding: 22, zIndex: 20 },
+  proCard: { backgroundColor: "#1b1624", borderRadius: 22, padding: 18, borderWidth: 1, borderColor: "rgba(255,255,255,0.12)" },
+  proCardName: { color: "#FFFFFF", fontSize: 24, fontWeight: "900", textAlign: "right", writingDirection: "rtl" },
+  proCardLine: { color: "rgba(247,243,250,0.8)", fontSize: 14, textAlign: "right", writingDirection: "rtl", marginTop: 4 },
+  proCardVerified: { color: "#7FE3BC", fontSize: 14, fontWeight: "700", textAlign: "right", writingDirection: "rtl", marginTop: 8 },
+  proCardEta: { color: "#FF9A6B", fontSize: 18, fontWeight: "800", textAlign: "right", writingDirection: "rtl", marginTop: 10 },
+  proCardRow: { flexDirection: "row-reverse", gap: 8, marginTop: 14 },
+  proCardBtn: { flex: 1, paddingVertical: 10, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.1)", alignItems: "center" },
+  proCardBtnText: { color: "#F7F3FA", fontWeight: "700" },
   etaClock: {
     position: "absolute", left: 12, width: 84, paddingVertical: 10, borderRadius: 18,
     alignItems: "center", backgroundColor: "rgba(23,18,31,0.88)",

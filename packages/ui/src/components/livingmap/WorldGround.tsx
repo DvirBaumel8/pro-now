@@ -195,6 +195,8 @@ export function WorldGround({
           drawProps={layer.material}
           paveSource={layer.pave}
           grassSource={layer.grass}
+          treeSource={(sources.prop_palm as { uri: string } | undefined) ?? null}
+          lampSource={(sources.prop_lamp as { uri: string } | undefined) ?? null}
           animate={animate}
         />
       </View>

@@ -56,6 +56,8 @@ export interface CategoryServiceItem {
 }
 
 export interface CategoryBodyProps {
+  /** Our world behind the trade, when the host can show it. Left out, the painted plate. */
+  backdrop?: React.ReactNode;
   category: CustomerCategory;
   services: CategoryServiceItem[];
   worldSources?: WorldAssetSources;
@@ -92,6 +94,7 @@ export interface CategoryBodyProps {
 }
 
 export function CategoryBody({
+  backdrop,
   category,
   services,
   worldSources,
@@ -111,13 +114,15 @@ export function CategoryBody({
     <View style={[styles.screen, { width, height }]}>
       {/* The world, standing in this trade's own street. Not the Living
           Map: no candidates, no venues, nothing that implies supply. */}
-      <WorldBackdrop
-        width={width}
-        height={height}
-        sources={worldSources}
-        departmentCode={category.faceDepartment}
-        animate={animate}
-      />
+      {backdrop ?? (
+        <WorldBackdrop
+          width={width}
+          height={height}
+          sources={worldSources}
+          departmentCode={category.faceDepartment}
+          animate={animate}
+        />
+      )}
       <Scrim width={width} height={height} />
 
       {/* The world is the background of this screen — see `BackButton`. */}

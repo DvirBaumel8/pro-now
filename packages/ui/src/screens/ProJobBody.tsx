@@ -197,10 +197,29 @@ const STAGE_COUNT = 7;
 function StageBand({ status }: { status: JobState }) {
   const st = STAGE[status];
   const enter = useRef(new Animated.Value(0)).current;
+  /* The bar grows from where the last step left it, so a step is seen
+     being completed rather than simply redrawn. */
+  const prev = useRef<JobState | null>(null);
+  const fill = useRef(new Animated.Value(st ? st.n / STAGE_COUNT : 0)).current;
+  const toast = useRef(new Animated.Value(0)).current;
+  const [doneHe, setDoneHe] = useState<string | null>(null);
   useEffect(() => {
+    const was = prev.current ? STAGE[prev.current] : undefined;
+    prev.current = status;
     enter.setValue(0);
     Animated.timing(enter, { toValue: 1, duration: 420, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
-  }, [status, enter]);
+    if (st) {
+      Animated.timing(fill, { toValue: st.n / STAGE_COUNT, duration: 650, easing: Easing.inOut(Easing.cubic), useNativeDriver: false }).start();
+    }
+    if (was && st && was.n < st.n) {
+      setDoneHe(was.titleHe.replace(/[!—].*$/, "").trim());
+      toast.setValue(1);
+      Animated.sequence([
+        Animated.delay(1100),
+        Animated.timing(toast, { toValue: 0, duration: 450, useNativeDriver: true }),
+      ]).start(() => setDoneHe(null));
+    }
+  }, [status, st, enter, fill, toast]);
   if (!st) return null;
   return (
     <Animated.View
@@ -210,6 +229,11 @@ function StageBand({ status }: { status: JobState }) {
         { opacity: enter, transform: [{ translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }] },
       ]}
     >
+      {doneHe ? (
+        <Animated.View style={[styles.stageDone, { opacity: toast }]} pointerEvents="none">
+          <Text style={styles.stageDoneText}>✓ {doneHe} — הושלם</Text>
+        </Animated.View>
+      ) : null}
       <View style={styles.stageTop}>
         <Text style={[styles.stageStep, { color: st.tint }]}>שלב {st.n} מתוך {STAGE_COUNT}</Text>
         <View style={[styles.stageGlyph, { backgroundColor: st.tint }]}>
@@ -219,7 +243,12 @@ function StageBand({ status }: { status: JobState }) {
       <Text style={styles.stageTitle}>{st.titleHe}</Text>
       <Text style={styles.stageDo}>{st.doHe}</Text>
       <View style={styles.stageTrack}>
-        <View style={[styles.stageFill, { width: `${(st.n / STAGE_COUNT) * 100}%`, backgroundColor: st.tint }]} />
+        <Animated.View
+          style={[
+            styles.stageFill,
+            { backgroundColor: st.tint, width: fill.interpolate({ inputRange: [0, 1], outputRange: ["0%", "100%"] }) },
+          ]}
+        />
       </View>
     </Animated.View>
   );
@@ -337,6 +366,10 @@ export function ProJobBody({
         {/* ---------------- 1. Where ---------------- */}
         <View style={styles.head}>
           <StageBand status={status} />
+          {/* The band says the step; the old pill, the dots and the
+              focus line said it three more times. They stay only for a
+              state the band does not know. */}
+          {STAGE[status] ? null : (
           <View style={styles.statusRow}>
             <View style={styles.statusPill}>
               <View style={styles.statusDot} />
@@ -347,7 +380,8 @@ export function ProJobBody({
             </View>
           </View>
 
-          <Text style={styles.service} numberOfLines={2}>
+          )}
+          <Text style={[styles.service, STAGE[status] ? styles.serviceSmall : null]} numberOfLines={2}>
             {serviceNameHe}
           </Text>
 
@@ -371,7 +405,7 @@ export function ProJobBody({
               in a product whose whole proposition is that both sides can
               trust what they are shown.
               ---------------------------------------------------------- */}
-          <VisitSteps status={status} accent={colors.trust} done={colors.trust} />
+          {STAGE[status] ? null : <VisitSteps status={status} accent={colors.trust} done={colors.trust} />}
 
           {/* ----------------------------------------------------------
               AND ONE LINE SAYING WHAT IS YOURS TO DO.
@@ -382,7 +416,7 @@ export function ProJobBody({
               machine, two readers, and it changes at every step, which
               is the thing he could not see.
               ---------------------------------------------------------- */}
-          {focusHe ? <Text style={styles.focus}>{focusHe}</Text> : null}
+          {focusHe && !STAGE[status] ? <Text style={styles.focus}>{focusHe}</Text> : null}
 
           <View style={styles.addressRow}>
             <PinMark size={15} color={colors.textSecondary} />
@@ -750,6 +784,7 @@ function Wave() {
 const styles = StyleSheet.create({
   screen: { backgroundColor: colors.bg, overflow: "hidden", borderRadius: radii.xl },
   scroll: { paddingBottom: 116 },
+  serviceSmall: { fontSize: 18, lineHeight: 24, marginTop: 0, color: "rgba(247,243,250,0.75)" },
   stage: { alignSelf: "stretch", borderRadius: radii.lg, borderWidth: 1, padding: spacing.lg, marginBottom: spacing.lg },
   stageTop: { flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center" },
   stageStep: { fontSize: 13, fontWeight: "800", letterSpacing: 0.3, writingDirection: "rtl" },
@@ -759,6 +794,8 @@ const styles = StyleSheet.create({
   stageDo: { color: "rgba(247,243,250,0.85)", fontSize: 15, lineHeight: 22, textAlign: "right", writingDirection: "rtl", marginTop: spacing.xs },
   stageTrack: { height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.12)", marginTop: spacing.md, overflow: "hidden", flexDirection: "row-reverse" },
   stageFill: { height: 6, borderRadius: 3 },
+  stageDone: { position: "absolute", top: -12, left: spacing.lg, right: spacing.lg, alignItems: "center", zIndex: 2 },
+  stageDoneText: { backgroundColor: "#2FBF8A", color: "#0d0a16", fontWeight: "800", fontSize: 13, paddingHorizontal: 12, paddingVertical: 5, borderRadius: 999, overflow: "hidden", writingDirection: "rtl" },
 
   head: { paddingHorizontal: spacing.lg, paddingTop: spacing.xxl, alignItems: "flex-end" },
   usual: {

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useMemo } from "react";
-import { Animated, Easing, StyleSheet, Text, View } from "react-native";
+import { Animated, Pressable, Easing, StyleSheet, Text, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 
 import {
@@ -109,6 +109,11 @@ export interface RouteLayerProps {
   progress: number | null;
   /** Which asset is travelling. A courier's scooter, a mover's van. */
   vehicleAssetId?: string;
+  /**
+   * Tapping the traveller on the real plan. Amit: *"שיהיה אפשר ללחוץ על
+   * הרכב — לעשות זום אין לפרטי המקצוען שבדרך."*
+   */
+  onPressTraveller?: () => void;
   /**
    * THE GROUND UNDERNEATH IS A REAL STREET PLAN, NOT OUR PAINTING.
    *
@@ -256,6 +261,7 @@ export function RouteLayer({
   department,
   progress,
   vehicleAssetId = "courier_scooter",
+  onPressTraveller,
   plan = false,
   travellerLabelHe,
   atWork = false,
@@ -505,9 +511,21 @@ export function RouteLayer({
   const workerW = w * 0.62;
   const workerH = workerW * 1.9;
 
+  /*
+   * ON THE REAL PLAN, THE TRADE'S OWN VEHICLE.
+   *
+   * Amit: *"במפה האמיתית — שהמסלול של המקצוען יראו בבירור את הרכב המתאים
+   * מתקדם במסלול."* A dot said "somebody"; the van with the trade's colours
+   * says who. Screen-sized for the same reason the dot was (see below), and
+   * it can be tapped.
+   */
+  const planVehicle = plan && Boolean(sources[vehicleAssetId]);
+  const PV_W = 74;
+  const PV_H = PV_W * shapeOf(vehicleAssetId);
+
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      <Svg width={width} height={height}>
+    <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+      <Svg width={width} height={height} pointerEvents="none">
         {/*
           THE ROUTE, LEGIBLE OVER A LIT CITY.
 
@@ -744,7 +762,52 @@ export function RouteLayer({
         </View>
       ) : null}
 
-      {plan ? (
+      {planVehicle ? (
+        <Animated.View
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            width: PV_W,
+            height: PV_H + 14,
+            transform: [
+              { translateX: driver.interpolate({ inputRange: steps, outputRange: route.map((s) => s.at.u * width - PV_W / 2) }) },
+              { translateY: driver.interpolate({ inputRange: steps, outputRange: route.map((s) => s.at.v * height - PV_H - 4) }) },
+            ],
+          }}
+        >
+          <Pressable
+            onPress={onPressTraveller}
+            disabled={!onPressTraveller}
+            accessibilityRole="button"
+            accessibilityLabel={travellerLabelHe ? `${travellerLabelHe} — פרטים` : "המקצוען בדרך — פרטים"}
+            style={{ width: PV_W, height: PV_H + 14, alignItems: "center" }}
+          >
+            <View
+              style={{
+                position: "absolute", bottom: 0, width: PV_W * 0.9, height: 16, borderRadius: 999,
+                backgroundColor: palette.signal300, opacity: 0.35,
+              }}
+            />
+            <AssetSlot
+              placement={{
+                key: "plan-vehicle",
+                assetId: vehicleAssetId,
+                item: {
+                  id: vehicleAssetId, file: "", intrinsicWidth: 1, intrinsicHeight: 1,
+                  anchor: { x: 0.5, y: 1 }, role: "VEHICLE", theme: "SHARED", defaultWidthRatio: 0.05, critical: false,
+                } as never,
+                layer: "WORLD_OBJECT", left: 0, top: 0, width: PV_W, height: PV_H, depthOrder: 0,
+              }}
+              sources={sources}
+              quiet
+              pending="none"
+            />
+          </Pressable>
+        </Animated.View>
+      ) : null}
+
+      {plan && !planVehicle ? (
         <Animated.View
           pointerEvents="none"
           style={{

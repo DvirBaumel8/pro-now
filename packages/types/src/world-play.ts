@@ -142,7 +142,9 @@ export function playDrawerActions(args: {
   // Once everything is found, "play more" becomes "wander", because
   // offering more of something there is no more of is a small lie.
   if (args.discoveries.available.length > 0) {
-    actions.push({ id: "PLAY_MORE", labelHe: all ? "לטייל בעולם" : "לשחק עוד" });
+    /* Amit: *"להמשיך לטייל בעולם ולראות עסקים נוספים"* — the offer is to
+       wander, found everything or not. */
+    actions.push({ id: "PLAY_MORE", labelHe: "לטייל בעולם" });
   }
   actions.push({
     id: "FOLLOW_PRO",

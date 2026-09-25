@@ -184,6 +184,16 @@ export interface CityProps {
    * also be a promise that the slide is interactive.
    */
   hud?: boolean;
+  /**
+   * THE SEARCH, FLOWN OVER OUR CITY.
+   *
+   * Amit: *"מסך זז של העיר בחיפוש אחר המקצוען, עם גלי איתור — וברגע שהוא
+   * מוצא, הוא נכנס לאט עם זווית מצלמה לתוך החנות."* While `phase` is
+   * "searching" the camera flies slowly high over the street with nobody
+   * walking; on "found" it comes down, at an angle, into the see-into
+   * window of the trade's shop (`shopId`).
+   */
+  search?: { shopId: string; phase: "searching" | "found" } | null;
   onExit?: () => void;
 }
 
@@ -253,6 +263,7 @@ export function City({
   avatarNo = null,
   shot = null,
   hud = true,
+  search = null,
   trades = null,
   onRequestService,
   onExit,
@@ -329,6 +340,8 @@ export function City({
 
   const shotRef = useRef<CityShot | null>(shot);
   shotRef.current = shot;
+  const searchRef = useRef(search);
+  searchRef.current = search;
   const nearTint =
     (nearId ? SHOPS.find((x) => x.id === nearId)?.neonColour : null) ?? "#FF6B4A";
   useEffect(() => {
@@ -971,6 +984,9 @@ export function City({
        * the camera without rebuilding the city — the whole point is
        * that the slides are demonstrably one place.
        */
+      const flight = { found: null as number | null, from: new THREE.Vector3(), aimFrom: new THREE.Vector3() };
+      const flightPos = new THREE.Vector3(0, 26, 60);
+      const flightAim = new THREE.Vector3(0, 0, 40);
       const SHOTS: Record<string, { dist: number; hgt: number; ahead: number; yaw: number }> = {
         wide:      { dist: 34, hgt: 23, ahead: 0.5, yaw: Math.PI },
         character: { dist: 4.6, hgt: 2.2, ahead: 1.1, yaw: Math.PI },
@@ -1284,6 +1300,44 @@ export function City({
           streetPass.scene = street.scene;
           streetPass.camera = camera;
         }
+
+        /* ---------- the search flight: see `search` ---------- */
+        const sr = searchRef.current;
+        if (sr) {
+          const tSec = now / 1000;
+          const target = street.shops.find((x) => x.id === sr.shopId) ?? street.shops[0]!;
+          const face = FRONT_X * target.side;
+          if (sr.phase === "searching") {
+            flight.found = null;
+            /* High and slow, drifting the length of the street and back. */
+            const z = Math.sin(tSec * 0.06) * 110;
+            flightPos.set(Math.sin(tSec * 0.11) * 4, 26, z + 30);
+            flightAim.set(0, 0, z - 6);
+          } else {
+            if (flight.found === null) {
+              flight.found = tSec;
+              flight.from.copy(camera.position);
+              flight.aimFrom.copy(flightAim);
+            }
+            /* Down and in at an angle, over four seconds, ending in front
+               of the window at eye height, looking into the shop. */
+            const k0 = Math.min(1, (tSec - flight.found) / 4.2);
+            const k = k0 * k0 * (3 - 2 * k0);
+            const end = new THREE.Vector3(face - target.side * 5.2, 2.3, target.z + 3.2);
+            const aimEnd = new THREE.Vector3(face + target.side * 2.5, 2.1, target.z);
+            const mid = flight.from.clone().lerp(end, 0.55).add(new THREE.Vector3(0, 6 * (1 - k), 0));
+            flightPos.copy(flight.from).lerp(mid, Math.min(1, k * 1.6)).lerp(end, k);
+            flightAim.copy(flight.aimFrom).lerp(aimEnd, Math.min(1, k * 1.3));
+          }
+          camera.position.lerp(flightPos, 1 - Math.pow(0.03, dt));
+          camera.lookAt(flightAim);
+          player.group.visible = false;
+          street.update(dt, tSec, camera);
+          composer.render();
+          raf = requestAnimationFrame(tick);
+          return;
+        }
+        player.group.visible = true;
 
         const scripted = shotRef.current ? SHOTS[shotRef.current] ?? null : null;
         const push = scripted ? 0 : Math.hypot(stick.x, stick.y);
@@ -1909,7 +1963,7 @@ export function City({
           both, for a week. */}
       {hud && ready && !walking && !room && arriving ? (
         <div style={S.hint}>הזיזו את הג׳ויסטיק כדי לרדת לרחוב</div>
-      ) : ready && !walking && !room && hint ? (
+      ) : hud && ready && !walking && !room && hint ? (
         <div style={S.hint}>גררו על המסך כדי להסתכל ימינה ושמאלה</div>
       ) : null}
 

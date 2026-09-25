@@ -1,5 +1,5 @@
 import React from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import {
   discoveryProgressHe,
@@ -47,6 +47,13 @@ export interface PlayDrawerProps {
   onAction?: (id: PlayDrawerActionId) => void;
 }
 
+const TILE_LOOK: Record<PlayDrawerActionId, { glyph: string; tint: string; subHe: string }> = {
+  PLAY_MORE: { glyph: "✦", tint: "#8B5CF6", subHe: "עוד עסקים ברחוב" },
+  FOLLOW_PRO: { glyph: "➜", tint: "#FF6B4A", subHe: "ברכב שלו, על המפה" },
+  JOB_DETAILS: { glyph: "☰", tint: "#2FBF8A", subHe: "מה הזמנת ומה סוכם" },
+  WHILE_YOU_WAIT: { glyph: "☕", tint: "#F59E0B", subHe: "בזמן שמחכים" },
+};
+
 export function PlayDrawer({ firstNameHe, etaMinutes, discoveries, hasJobDetails = true, onAction }: PlayDrawerProps) {
   const status = playDrawerStatusHe({ firstNameHe, etaMinutes });
   const progress = discoveryProgressHe(discoveries);
@@ -71,27 +78,37 @@ export function PlayDrawer({ firstNameHe, etaMinutes, discoveries, hasJobDetails
         </Text>
       ) : null}
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        // The document is LTR and the content is Hebrew, so the row is
-        // reversed and the scroll starts at the right-hand end.
-        contentContainerStyle={styles.actions}
-      >
-        {actions.map((a) => (
-          <Pressable
-            key={a.id}
-            onPress={() => onAction?.(a.id)}
-            accessibilityRole="button"
-            accessibilityLabel={a.labelHe}
-            style={({ pressed }) => [styles.chip, pressed && { opacity: 0.85 }]}
-          >
-            <Text style={styles.chipText} numberOfLines={1}>
-              {a.labelHe}
-            </Text>
-          </Pressable>
-        ))}
-      </ScrollView>
+      {/*
+        * THREE DOORS, NOT THREE CHIPS.
+        *
+        * Amit: *"הכפתורים למטה לא טובים וממורכזים, ובכלל לא מבינים מה
+        * הם רוצים — נראה זול."* Each is a tile with a sign and one line
+        * saying where it takes you, the same width, across the drawer.
+        */}
+      <View style={styles.actions}>
+        {actions.map((a) => {
+          const look = TILE_LOOK[a.id];
+          return (
+            <Pressable
+              key={a.id}
+              onPress={() => onAction?.(a.id)}
+              accessibilityRole="button"
+              accessibilityLabel={a.labelHe}
+              style={({ pressed }) => [styles.tile, { borderColor: look.tint + "66" }, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
+            >
+              <View style={[styles.tileGlyph, { backgroundColor: look.tint }]}>
+                <Text style={styles.tileGlyphText}>{look.glyph}</Text>
+              </View>
+              <Text style={styles.tileTitle} numberOfLines={2}>
+                {a.labelHe}
+              </Text>
+              <Text style={styles.tileSub} numberOfLines={2}>
+                {look.subHe}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
     </View>
   );
 }
@@ -127,6 +144,14 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   actions: { flexDirection: "row-reverse", gap: spacing.sm, paddingTop: spacing.sm },
+  tile: {
+    flex: 1, minHeight: 96, paddingVertical: spacing.sm, paddingHorizontal: 6, alignItems: "center",
+    borderRadius: radii.lg, borderWidth: 1, backgroundColor: "rgba(247,243,250,0.06)",
+  },
+  tileGlyph: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center", marginBottom: 6 },
+  tileGlyphText: { color: "#0d0a16", fontSize: 17, fontWeight: "900" },
+  tileTitle: { ...type.meta, fontWeight: "800", color: palette.nightText, textAlign: "center", writingDirection: "rtl" },
+  tileSub: { ...type.micro, color: palette.nightTextSoft, textAlign: "center", writingDirection: "rtl", marginTop: 2 },
   chip: {
     minHeight: 44,
     paddingHorizontal: spacing.md,

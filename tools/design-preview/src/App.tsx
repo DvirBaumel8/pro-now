@@ -1463,6 +1463,8 @@ function CustomerApp({
       { enableHighAccuracy: false, timeout: 8000, maximumAge: 60_000 }
     );
   }, []);
+  /* The "on the way" moment after accepting — see `OnTheWay`. */
+  const [onTheWayAt, setOnTheWayAt] = useState<number | null>(null);
   const [route, setRoute] = useState<CustomerRoute>(
     /*
      * A pin or a review cycle is an instruction about where to open and
@@ -1867,6 +1869,12 @@ const go = useCallback((r: CustomerRoute) => {
     if (r.name !== "home") setTab("home");
     pushHistory();
   }, []);
+  /* Following the professional is the real map, with his vehicle on the
+     route — Amit: *"מפת מעקב אחרי המקצוען, רק לראות איפה הוא ברכב שלו."* */
+  const followPro = useCallback(() => {
+    if (!realMap) onToggleRealMap();
+    go({ name: "tracking", stage: "enroute" });
+  }, [realMap, onToggleRealMap, go]);
 
   /**
    * Move to a tab, recording where you were so back can return there.
@@ -2433,6 +2441,7 @@ const go = useCallback((r: CustomerRoute) => {
         if (!category) return null;
         return (
           <CategoryBody
+            backdrop={<TradeBackdrop dept={category.faceDepartment} />}
             category={category}
             services={servicesForCategory(category).map((s2) => ({
               id: s2.id,
@@ -2688,11 +2697,18 @@ const go = useCallback((r: CustomerRoute) => {
         };
 
         return (
+          <View style={{ width, height: bodyH }}>
           <SearchingBody
             /* The city we built behind the search, not the old plate — the
                street itself, the same for every trade. */
-            backdrop={realMap ? undefined : <StreetScene />}
-            onOpenRealMap={onToggleRealMap}
+            backdrop={realMap ? undefined : route.phase === "ASSIGNED_ROUTE" ? <StreetScene /> : (
+              <SearchCity
+                dept={departmentCodeByServiceId[route.serviceId] ?? null}
+                found={route.phase !== "SEARCHING"}
+                proName="יוסי"
+              />
+            )}
+            onOpenRealMap={followPro}
             geo={geo}
             worldSources={art}
             /*
@@ -2746,10 +2762,13 @@ const go = useCallback((r: CustomerRoute) => {
                * anything.
                */
               if (action === "JOB_DETAILS") go({ name: "tracking", stage: "enroute" });
-              if (action === "FOLLOW_PRO") go({ name: "tracking", stage: "enroute" });
+              if (action === "FOLLOW_PRO") followPro();
               if (action === "PLAY_MORE" || action === "WHILE_YOU_WAIT") strollDoor?.();
             }}
-            onAccept={() => go({ name: "living", serviceId: route.serviceId, phase: "ASSIGNED_ROUTE" })}
+            onAccept={() => {
+              setOnTheWayAt(Date.now());
+              go({ name: "living", serviceId: route.serviceId, phase: "ASSIGNED_ROUTE" });
+            }}
             onAnother={
               isPersonFit(route.serviceId)
                 ? () => go({ name: "matchconfirm", serviceId: route.serviceId, index: 1 })
@@ -2796,6 +2815,15 @@ const go = useCallback((r: CustomerRoute) => {
             width={width}
             height={bodyH}
           />
+          {onTheWayAt ? (
+            <OnTheWay
+              dept={departmentCodeByServiceId[route.serviceId] ?? null}
+              proName="יוסי"
+              etaMinutes={Math.round((matchFixture.eta?.etaSeconds ?? 840) / 60)}
+              onDone={() => setOnTheWayAt(null)}
+            />
+          ) : null}
+          </View>
         );
       }
       case "matchconfirm": {
@@ -3034,9 +3062,12 @@ const go = useCallback((r: CustomerRoute) => {
              * scooter stays the honest fallback for everyone who really does
              * arrive on two wheels.
              */
-            vehicleAssetId={travelAssetFor(
-              (trackedService.id ? departmentCodeByServiceId[trackedService.id] : null) ?? "HOME_URGENT"
-            )}
+            vehicleAssetId={(() => {
+              const dep = (trackedService.id ? departmentCodeByServiceId[trackedService.id] : null) ?? "HOME_URGENT";
+              /* Home repairs have no van of their own drawn yet; the home
+                 services van is theirs rather than a figure on foot. */
+              return dep === "HOME_URGENT" ? "pn_electric_side" : travelAssetFor(dep);
+            })()}
             onCancelJob={() => go({ name: "home" })}
             /*
              * Leaving, not cancelling. `onCancelJob` above is the one that
@@ -3408,14 +3439,16 @@ const go = useCallback((r: CustomerRoute) => {
    * trailing control the first time the label grew a word.
    */
   const groundSwitch =
-    tab === "home" && GROUND_SCREENS.includes(route.name) ? (
+    tab === "home" && GROUND_SCREENS.includes(route.name) &&
+    /* "Follow the professional" means nothing before there is one. */
+    !(route.name === "living" && route.phase !== "ASSIGNED_ROUTE") ? (
       <Pressable
         onPress={onToggleRealMap}
         accessibilityRole="button"
         accessibilityLabel="החלפה בין המפה המצוירת לבין תוכנית רחובות אמיתית"
         style={styles.groundSwitch}
       >
-        <Text style={styles.standInText}>{realMap ? "▪ מפה אמיתית" : "▸ מפה אמיתית"}</Text>
+        <Text style={styles.standInText}>{realMap ? "▪ העיר שלנו" : "▸ עקוב אחרי המקצוען"}</Text>
       </Pressable>
     ) : null;
 
@@ -5719,12 +5752,149 @@ function FamilyScene() {
           <span style={{ color: "#F7F3FA", fontSize: 15, fontWeight: 800 }}>הצעת מחיר התקבלה</span>
           <span style={{ color: "rgba(247,243,250,.55)", fontSize: 11 }}>דוגמה</span>
         </div>
-        <div style={{ color: "rgba(247,243,250,.8)", fontSize: 13, marginTop: 4 }}>החלפת ברז במטבח · אצל סבא וסבתא</div>
+        <div style={{ color: "rgba(247,243,250,.8)", fontSize: 13, marginTop: 4 }}>אצל סבא וסבתא · יוסי, אינסטלציה</div>
+        {/* The same amount the demo quote carries elsewhere (₪250), marked
+            as an example — a line the way a real quote lists it. */}
+        <div style={{ marginTop: 8, padding: "8px 10px", borderRadius: 12, background: "rgba(255,255,255,.06)", display: "grid", gap: 4 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", color: "#F7F3FA", fontSize: 13 }}>
+            <span>החלפת אטם בברז המטבח</span><span>₪250</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", color: "#F7F3FA", fontSize: 14, fontWeight: 800, borderTop: "1px solid rgba(255,255,255,.12)", paddingTop: 4 }}>
+            <span>סה״כ לאישור</span><span>₪250</span>
+          </div>
+        </div>
         <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-          <span style={{ flex: 1, textAlign: "center", padding: "8px 0", borderRadius: 12, background: "#FF6B4A", color: "#1a0f0c", fontWeight: 800, fontSize: 14 }}>אישור ותשלום</span>
+          <span style={{ flex: 1, textAlign: "center", padding: "8px 0", borderRadius: 12, background: "#FF6B4A", color: "#1a0f0c", fontWeight: 800, fontSize: 14 }}>אישור · ₪250</span>
           <span style={{ flex: "0 0 34%", textAlign: "center", padding: "8px 0", borderRadius: 12, background: "rgba(255,255,255,.1)", color: "#F7F3FA", fontSize: 14 }}>שאלה</span>
         </div>
       </div>
+    </div>
+  );
+}
+
+/*
+ * THE SEARCH, WALKING OUR STREET.
+ *
+ * Amit: *"מסך האיתור צריך להיות חי ומונפש, כאילו הוא מטייל ברחוב ומאתר
+ * עסקים רלוונטיים — לא סטטי."* So while we look, the street of our own
+ * shopfronts slides past, vans drive both ways, people walk, a scanning
+ * light sweeps — and every shop of the trade that was asked for lights up
+ * as it passes, "checking". When somebody is found the street stops on
+ * that shop and the camera goes in to its door, where the professional is
+ * standing — and the card opens over it.
+ *
+ * Drawn with the delivered art and CSS only: no video, no WebGL, so it is
+ * instant on a phone.
+ */
+const DEPT_SHOP: Readonly<Record<string, string>> = {
+  HOME_URGENT: "home", APPLIANCES: "appliance", HOME_CARE: "care", BEAUTY: "hair", WELLNESS: "well",
+  PETS: "pets", VEHICLE: "auto", LOGISTICS: "move", TECH: "tech", ODD_JOBS: "help", IMPROVEMENT: "build",
+};
+/*
+ * A TRADE'S PAGE, IN FRONT OF ITS OWN SHOP.
+ *
+ * Amit: *"אחרי שאני בוחר קטגוריה, הדף הבא עדיין ברקע של העולם הישן."* The
+ * trade's shop from our street — drawn open with its professional in the
+ * doorway where that drawing exists, its street front otherwise — over our
+ * city at dusk, drifting slowly so the page is alive.
+ */
+function TradeBackdrop({ dept }: { dept: string | null }) {
+  const id = (dept && DEPT_SHOP[dept]) || "home";
+  const art = ["hair", "home", "nails"].includes(id) ? `./world/venue_${id}.webp` : `./world/m/shop_${id}.webp`;
+  return (
+    <div aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden", background: "#2a1838" }}>
+      <style>{CITY_HERO_CSS}</style>
+      <img src="./world/splash_city.webp" alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "60%", objectFit: "cover", objectPosition: "64% 40%", opacity: 0.7, animation: "pnCity 24s ease-in-out infinite alternate" }} />
+      <img src={art} alt="" style={{ position: "absolute", left: "-2%", top: "7%", width: "46%", height: "25%", objectFit: "contain", objectPosition: "left bottom", filter: "drop-shadow(0 18px 30px rgba(0,0,0,.55))" }} />
+    </div>
+  );
+}
+
+/*
+ * "HE'S ON HIS WAY" — THE MOMENT AFTER YES.
+ *
+ * Amit: *"אחרי שמצאנו מקצוען — משהו שיקפוץ שהמקצוען בדרך אלינו, עם פיצ'ר
+ * חדשני מגניב, ורק אחרי זה שיחזור לרחוב החי."* A full-screen beat: his
+ * shop on one side, your home on the other, and his van pulling out and
+ * driving the road between them while the minutes (the server's ETA) count
+ * on a ring. It leaves by itself after a few seconds, or on a tap.
+ */
+const OTW_CSS = `
+@keyframes pnOtwIn{from{opacity:0}to{opacity:1}}
+@keyframes pnOtwCard{from{opacity:0;transform:translateY(30px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes pnOtwVan{0%{left:14%}100%{left:66%}}
+@keyframes pnOtwDash{to{background-position:-40px 0}}
+@keyframes pnOtwRing{from{stroke-dashoffset:0}to{stroke-dashoffset:251}}
+@keyframes pnOtwPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+`;
+function OnTheWay({ dept, proName, etaMinutes, onDone }: { dept: string | null; proName: string; etaMinutes: number; onDone: () => void }) {
+  const shopId = (dept && DEPT_SHOP[dept]) || "home";
+  /* Once, on arrival: the host re-renders every second (the ETA clock),
+     and a timer keyed on a fresh callback would never get to fire. */
+  const done = useRef(onDone);
+  done.current = onDone;
+  useEffect(() => {
+    const t = setTimeout(() => done.current(), 5200);
+    return () => clearTimeout(t);
+  }, []);
+  return (
+    <div onClick={onDone} role="button" aria-label="המקצוען בדרך — המשך" style={{ position: "absolute", inset: 0, zIndex: 50, background: "radial-gradient(120% 80% at 50% 30%, rgba(80,40,90,.96), rgba(12,8,18,.98))", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", animation: "pnOtwIn .35s ease both", direction: "rtl", cursor: "pointer" }}>
+      <style>{OTW_CSS}</style>
+      <div style={{ position: "relative", width: 150, height: 150, animation: "pnOtwPulse 1.6s ease-in-out infinite" }}>
+        <svg width="150" height="150" viewBox="0 0 100 100" style={{ position: "absolute", inset: 0, transform: "rotate(-90deg)" }}>
+          <circle cx="50" cy="50" r="40" fill="none" stroke="rgba(255,255,255,.12)" strokeWidth="6" />
+          <circle cx="50" cy="50" r="40" fill="none" stroke="#FF6B4A" strokeWidth="6" strokeLinecap="round" strokeDasharray="251" style={{ animation: "pnOtwRing 5.2s linear both" }} />
+        </svg>
+        <img src={`./world/character_${shopId}_icon.webp`} alt="" style={{ position: "absolute", left: 25, top: 18, width: 100, height: 112, objectFit: "contain" }} />
+      </div>
+      <div style={{ marginTop: 18, color: "#fff", fontSize: 30, fontWeight: 900, animation: "pnOtwCard .6s .1s both" }}>{proName} יצא אליך!</div>
+      <div style={{ marginTop: 6, color: "#FF9A6B", fontSize: 20, fontWeight: 800, animation: "pnOtwCard .6s .2s both" }}>מגיע בעוד {etaMinutes} דק׳</div>
+      <div style={{ position: "relative", width: "86%", height: 120, marginTop: 26, animation: "pnOtwCard .6s .3s both" }}>
+        <div style={{ position: "absolute", left: "8%", right: "8%", top: 76, height: 6, borderRadius: 3, backgroundImage: "linear-gradient(90deg, rgba(255,154,107,.9) 50%, transparent 50%)", backgroundSize: "20px 6px", animation: "pnOtwDash .6s linear infinite" }} />
+        <img src={`./world/m/shop_${shopId}.webp`} alt="" style={{ position: "absolute", right: 0, top: 0, width: 88, height: 88, objectFit: "contain" }} />
+        <div style={{ position: "absolute", left: 0, top: 22, width: 64, height: 64, borderRadius: 16, background: "rgba(255,255,255,.1)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30 }}>⌂</div>
+        <img src="./world/m/van_side.webp" alt="" style={{ position: "absolute", top: 42, height: 44, animation: "pnOtwVan 5s cubic-bezier(.4,0,.2,1) both", transform: "scaleX(-1)" }} />
+        <div style={{ position: "absolute", right: 4, top: 96, color: "rgba(247,243,250,.7)", fontSize: 12 }}>החנות שלו</div>
+        <div style={{ position: "absolute", left: 8, top: 96, color: "rgba(247,243,250,.7)", fontSize: 12 }}>הבית שלך</div>
+      </div>
+      <div style={{ marginTop: 22, color: "rgba(247,243,250,.75)", fontSize: 14, animation: "pnOtwCard .6s .5s both" }}>אפשר לעקוב אחריו על המפה בכל רגע</div>
+    </div>
+  );
+}
+
+/*
+ * THE SEARCH, OVER OUR LIVING CITY.
+ *
+ * The 3D city itself, flown from above (see `search` on City), with the
+ * search drawn over it as radar waves spreading from the middle of the
+ * screen. When somebody is found the waves stop, the camera goes down into
+ * their shop, and the professional steps into the frame at the window.
+ */
+const RADAR_CSS = "@keyframes pnRadar{0%{transform:translate(-50%,-50%) scale(.15);opacity:.9}100%{transform:translate(-50%,-50%) scale(2.6);opacity:0}}@keyframes pnProIn{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}";
+function SearchCity({ dept, found, proName }: { dept: string | null; found: boolean; proName?: string }) {
+  const shopId = (dept && DEPT_SHOP[dept]) || "home";
+  const [arrived, setArrived] = useState(false);
+  useEffect(() => {
+    if (!found) { setArrived(false); return; }
+    const t = setTimeout(() => setArrived(true), 4300);
+    return () => clearTimeout(t);
+  }, [found]);
+  return (
+    <div aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden", background: "#1a1222" }}>
+      <style>{RADAR_CSS}</style>
+      <City hud={false} search={{ shopId, phase: found ? "found" : "searching" }} />
+      {!found ? [0, 1, 2].map((i) => (
+        <div key={i} style={{ position: "absolute", left: "50%", top: "46%", width: 320, height: 320, borderRadius: "50%", border: "2px solid rgba(255,154,107,.85)", boxShadow: "0 0 30px rgba(255,107,74,.45) inset", animation: `pnRadar 2.4s ease-out ${i * 0.8}s infinite`, pointerEvents: "none" }} />
+      )) : null}
+      {!found ? <div style={{ position: "absolute", left: "50%", top: "46%", width: 14, height: 14, borderRadius: "50%", background: "#FF6B4A", transform: "translate(-50%,-50%)", boxShadow: "0 0 20px #FF6B4A" }} /> : null}
+      {arrived ? (
+        <img src={`./world/character_${shopId}_world.webp`} alt="" onError={(e) => { e.currentTarget.style.display = "none"; }} style={{ position: "absolute", right: "6%", bottom: "30%", height: "38%", filter: "drop-shadow(0 16px 24px rgba(0,0,0,.55))", animation: "pnProIn .8s cubic-bezier(.2,.8,.2,1) both" }} />
+      ) : null}
+      {arrived && proName ? (
+        <div style={{ position: "absolute", right: "6%", bottom: "calc(30% + 38% + 8px)", padding: "6px 12px", borderRadius: 999, background: "#2FBF8A", color: "#0d0a16", fontWeight: 800, fontSize: 14, direction: "rtl", animation: "pnProIn .8s .2s both" }}>
+          ✓ {proName} · פנוי עכשיו
+        </div>
+      ) : null}
     </div>
   );
 }

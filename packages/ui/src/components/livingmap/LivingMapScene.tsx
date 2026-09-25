@@ -1042,7 +1042,9 @@ export function LivingMapScene({
    * MATCH_REVEAL stays still in both readings. From there the screen has
    * a subject: one person, in a sheet, with a decision attached.
    */
-  const mayWalk = canWalk && phase === "ASSIGNED_ROUTE" && !profileOpen && journeyMs === null;
+  /* Walking is for our world. The real map is for watching the
+     professional come — Amit: *"במפה האמיתית — מפת מעקב, לא מפה לטייל בה."* */
+  const mayWalk = canWalk && !geo && phase === "ASSIGNED_ROUTE" && !profileOpen && journeyMs === null;
 
   /*
    * THE LENS, NAMED ONCE.
@@ -1783,7 +1785,8 @@ export function LivingMapScene({
           * אליך" up here would be the same sentence twice with the ETA
           * drawn across it.
           */}
-        {phase === "ASSIGNED_ROUTE" ? (
+        {/* With the clock beside the city, the minutes are said once. */}
+        {phase === "ASSIGNED_ROUTE" && !(backdrop && onOpenRealMap) ? (
           etaMinutes !== null ? (
             <>
               <Text style={styles.eta}>{etaMinutes} דק׳</Text>
@@ -1830,7 +1833,7 @@ export function LivingMapScene({
           accessibilityLabel={bare ? "הצגת פרטי ההזמנה" : "הסתרת הכתוביות והצגת העולם בלבד"}
           style={[styles.bareToggle, topInset ? { top: spacing.xl + topInset } : null]}
         >
-          <Text style={styles.bareToggleText}>{bare ? "פרטים" : "רק המפה"}</Text>
+          <Text style={styles.bareToggleText}>{bare ? "פרטים" : "העיר שלנו"}</Text>
         </Pressable>
       ) : null}
 

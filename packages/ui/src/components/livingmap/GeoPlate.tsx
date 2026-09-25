@@ -190,6 +190,15 @@ export interface GeoPlateProps {
   /** Planted ground for the parks. Same idea as `paveSource`. */
   grassSource?: { uri: string } | null;
   /**
+   * OUR OWN TREES AND LAMPS ON THE REAL MAP.
+   *
+   * Amit: *"במקום נקודות וריבועים — עצים ומנורות, להשתמש במה שיש לנו."*
+   * Where the world's own palm and lamp art is available it stands on
+   * the real street instead of the drawn lobes and dots.
+   */
+  treeSource?: { uri: string } | null;
+  lampSource?: { uri: string } | null;
+  /**
    * The city's own furniture: trees, lamps, lit windows, crossings.
    *
    * On by default, and it is not decoration in the dismissible sense.
@@ -331,6 +340,8 @@ export function GeoPlate({
   paveSource = null,
   paveMetres = 14,
   grassSource = null,
+  treeSource = null,
+  lampSource = null,
 }: GeoPlateProps) {
   /*
    * PROPS FOLLOW THE GROUND, NOT THE MODE.
@@ -941,7 +952,13 @@ export function GeoPlate({
               read as a pin; the post is what says the light is three
               metres up and standing on this pavement.
             */}
-            {(props ? dressing.lamps : []).map((l, i) => (
+            {lampSource ? (props ? dressing.lamps : []).map((l, i) => {
+              const h = Math.max(22, l.r * 2.4 * sy), w = h * 0.36;
+              return (
+                <SvgImage key={`lpi${i}`} href={lampSource.uri} x={l.at.u * S - w / 2} y={l.at.v * sy - h} width={w} height={h} preserveAspectRatio="xMidYMax meet" />
+              );
+            }) : null}
+            {(props && !lampSource ? dressing.lamps : []).map((l, i) => (
               <G key={`lp${i}`}>
                 <Rect
                   x={l.at.u * S - Math.max(0.5, l.r * S * 0.025)}
@@ -1127,7 +1144,13 @@ export function GeoPlate({
             in the middle of it were the last thing on that screen that
             looked drawn.
           */}
-          {(props ? drawnTrees : []).map((t, i) => (
+          {treeSource ? (props ? drawnTrees : []).map((t, i) => {
+              const h = Math.max(30, t.r * 6 * sy), w = h * 0.8;
+              return (
+                <SvgImage key={`tri${i}`} href={treeSource.uri} x={t.at.u * S - w / 2} y={t.at.v * sy + t.r * sy * 0.6 - h} width={w} height={h} preserveAspectRatio="xMidYMax meet" />
+              );
+            }) : null}
+          {(props && !treeSource ? drawnTrees : []).map((t, i) => (
               <G key={`tr${i}`}>
                 {/*
                   A CONTACT SHADOW IS A CLOSE-UP DEVICE. Far away it is a
