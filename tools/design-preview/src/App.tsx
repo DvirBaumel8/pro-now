@@ -503,7 +503,9 @@ export function App() {
    * explanation that reappears every morning is not an explanation, it is
    * an obstacle.
    */
-  const introSeen = useRef(restored?.introSeen ?? false);
+  /* `introSeenV2`: the explainer was rewritten on 2026-09-25, so anybody
+     who saw the old one is shown the new one once. */
+  const introSeen = useRef(restored?.introSeenV2 ?? false);
   /**
    * Whether any avatar art has actually arrived.
    *
@@ -792,8 +794,9 @@ export function App() {
         {gate?.name === "welcome" ? (
           <WelcomeBody
             worldSources={art}
-            /* The whole city, as before — Amit: *"לא רוצה פתיחה של
-               המספרה, רוצה של העיר כולה."* */
+            /* The whole city — Amit: *"לא רוצה פתיחה של המספרה, רוצה של
+               העיר כולה"* — and ours, not the old painted street. */
+            background={<CityHero lift={14} />}
             onAdvertise={() => {
               /* A business owner is not asked to sign in to leave a lead. */
               setSide("customer");
@@ -923,7 +926,7 @@ export function App() {
              */
             onDone={() => {
               introSeen.current = true;
-              saveSession({ introSeen: true });
+              saveSession({ introSeenV2: true });
               const canAsk =
                 gate.side === "customer" && !avatarAnswered.current && avatarArtReady;
               setGate(canAsk ? { name: "avatar" } : null);
@@ -3277,7 +3280,7 @@ const go = useCallback((r: CustomerRoute) => {
         return (
           <CustomerHomeBody
             /* Our street behind the top of the page, not the old plate. */
-            backdrop={<Showcase lift={22} />}
+            backdrop={<CityHero />}
             /* Same door, same rule — see the closing screen above. */
             onStroll={strollDoor}
             /* The other doorway on this page, for a business owner. */
@@ -5565,6 +5568,32 @@ function Showcase({ shots = SHOW_ALL, focus = "50% 55%", lift = 0 }: { shots?: r
   );
 }
 
+/*
+ * THE WHOLE CITY, IN ITS OWN LIGHT.
+ *
+ * Amit, on the phone: *"אני סתם רואה ציור של רחוב מפעם"* — and before
+ * it, *"רוצה של העיר כולה"* and *"לא מסך כהה מדי"*. The picture the 3D
+ * city opens on is exactly that: the whole of it at dusk, sea, towers and
+ * the lit street, in our palette. It drifts slowly so it reads as a place.
+ */
+const CITY_HERO_CSS = "@keyframes pnCity{0%{transform:scale(1.02) translateX(0)}100%{transform:scale(1.12) translateX(-3%)}}";
+function CityHero({ lift = 0 }: { lift?: number }) {
+  return (
+    <div aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden", background: "#2a1838" }}>
+      <style>{CITY_HERO_CSS}</style>
+      <img
+        src="./world/splash_city.webp"
+        alt=""
+        style={{
+          position: "absolute", left: 0, right: 0, top: `${-lift}%`, width: "100%", height: "100%",
+          objectFit: "cover", objectPosition: "64% 50%", filter: "brightness(1.1) saturate(1.12)",
+          animation: "pnCity 22s ease-in-out infinite alternate",
+        }}
+      />
+    </div>
+  );
+}
+
 const PRO_LINEUP = ["home", "hair", "auto", "care", "tech", "pets", "appliance", "well", "move"] as const;
 function ProsLineup() {
   return (
@@ -5583,6 +5612,92 @@ function ProsLineup() {
     </div>
   );
 }
+/*
+ * "YOU KNOW WHO IS COMING" — AS THE CARD YOU WOULD ACTUALLY SEE.
+ *
+ * Amit: *"עדיף שיהיה שם איך נראה עסק של מקצוען עם כל פרטי האימות, שייתן
+ * הרגשה של ביטחון."* The professional in our drawn style on the card the
+ * match screen shows, and on it only what PRO NOW checks: identity, the
+ * credentials for this kind of work, approval for this service, the arrival
+ * and the price shown before you confirm. Marked as an example, because it
+ * is one — no real person, no invented rating.
+ */
+function TrustCard() {
+  const row = (t: string) => (
+    <div style={{ display: "flex", flexDirection: "row-reverse", alignItems: "center", gap: 8, color: "#F7F3FA", fontSize: 14, lineHeight: "20px" }}>
+      <span style={{ width: 20, height: 20, borderRadius: 10, background: "#2FBF8A", color: "#0d0a16", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, flex: "0 0 auto" }}>✓</span>
+      <span style={{ textAlign: "right" }}>{t}</span>
+    </div>
+  );
+  return (
+    <div aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden", background: "radial-gradient(120% 70% at 50% 28%, #6a3f73 0%, #2a1838 55%, #120c18 90%)" }}>
+      <img src="./world/splash_city.webp" alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "64% 50%", opacity: 0.25, filter: "blur(3px)" }} />
+      <div style={{ position: "absolute", left: "7%", right: "7%", top: "7%", borderRadius: 22, padding: "16px 16px 18px", background: "rgba(23,18,31,.82)", border: "1px solid rgba(255,255,255,.12)", boxShadow: "0 20px 50px rgba(0,0,0,.5)", direction: "rtl" }}>
+        <div style={{ display: "flex", flexDirection: "row", alignItems: "flex-end", gap: 12 }}>
+          <img src="./world/character_home_world.webp" alt="" style={{ height: 150, filter: "drop-shadow(0 8px 12px rgba(0,0,0,.5))" }} />
+          <div style={{ flex: 1, paddingBottom: 8 }}>
+            <div style={{ color: "#F7F3FA", fontSize: 20, fontWeight: 800 }}>יוסי · אינסטלציה</div>
+            <div style={{ color: "rgba(247,243,250,.62)", fontSize: 12, marginTop: 2 }}>דוגמה לכרטיס מקצוען</div>
+            <div style={{ display: "inline-block", marginTop: 8, padding: "4px 10px", borderRadius: 999, background: "rgba(47,191,138,.16)", color: "#7FE3BC", fontSize: 12, fontWeight: 700 }}>מאומת ב-PRO NOW</div>
+          </div>
+        </div>
+        <div style={{ display: "grid", gap: 9, marginTop: 14 }}>
+          {row("זהות אומתה")}
+          {row("תעודות נבדקו לסוג העבודה הזאת")}
+          {row("מאושר לשירות שביקשתם")}
+          {row("רואים מתי יגיע — לפני שמאשרים")}
+          {row("המחיר מוצג לפני שמתחילים לעבוד")}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/*
+ * "FOR THE PEOPLE YOU LOVE" — AND YOU STAY IN CONTROL FROM AFAR.
+ *
+ * Amit: *"סבא וסבתא, ורואים את המקצוען שלנו מתקן להם נזילה במטבח — ושולטים
+ * בהצעות המחיר ובתשלום גם מרחוק; להראות בקטן איך נראה אישור הצעת מחיר
+ * ותשלום."* The scene in our drawn style, and over it the card the person
+ * who sent the request sees on their own phone. An example, and marked as
+ * one: no amount is printed, because an invented price is the one number
+ * a demo must never show.
+ */
+function FamilyScene() {
+  return (
+    <div aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden", background: "radial-gradient(120% 70% at 50% 28%, #6a3f73 0%, #2a1838 55%, #120c18 90%)" }}>
+      <img src="./clips/kitchen.jpg" alt="" style={{ position: "absolute", left: 0, right: 0, top: "6%", width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 20%", filter: "saturate(1.08)" }} />
+      <div style={{ position: "absolute", left: "22%", right: "5%", top: "5%", borderRadius: 18, padding: "12px 14px", background: "rgba(23,18,31,.9)", border: "1px solid rgba(255,255,255,.14)", boxShadow: "0 16px 40px rgba(0,0,0,.55)", direction: "rtl" }}>
+        <div style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ color: "#F7F3FA", fontSize: 15, fontWeight: 800 }}>הצעת מחיר התקבלה</span>
+          <span style={{ color: "rgba(247,243,250,.55)", fontSize: 11 }}>דוגמה</span>
+        </div>
+        <div style={{ color: "rgba(247,243,250,.8)", fontSize: 13, marginTop: 4 }}>החלפת ברז במטבח · אצל סבא וסבתא</div>
+        <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+          <span style={{ flex: 1, textAlign: "center", padding: "8px 0", borderRadius: 12, background: "#FF6B4A", color: "#1a0f0c", fontWeight: 800, fontSize: 14 }}>אישור ותשלום</span>
+          <span style={{ flex: "0 0 34%", textAlign: "center", padding: "8px 0", borderRadius: 12, background: "rgba(255,255,255,.1)", color: "#F7F3FA", fontSize: 14 }}>שאלה</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* The city closer in — Amit: *"יותר זום אין, עם מכוניות של בעלי מקצוע
+   נוסעות בכביש ליד החנויות."* The welcome keeps the whole city; the first
+   slide comes down into one of its streets. */
+function StreetScene() {
+  return (
+    <div aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden", background: "#2a1838" }}>
+      <style>{CITY_HERO_CSS}</style>
+      <img
+        src="./clips/city_street.jpg"
+        alt=""
+        style={{ position: "absolute", left: 0, right: 0, top: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 30%", animation: "pnCity 24s ease-in-out infinite alternate" }}
+      />
+    </div>
+  );
+}
+
 function AvatarsLineup() {
   const ids = ["01", "06", "02", "09", "03", "07", "04", "11", "05", "08", "12", "10"];
   return (
@@ -5600,13 +5715,13 @@ function IntroBackdrop({ side, slide }: { side: "customer" | "pro"; slide: numbe
   if (side === "customer") {
     if (slide === 1) return <AvatarsLineup />;
     if (slide === 2) return <ProsLineup />;
-    if (slide === 3) return <Showcase shots={["salon_side", "lust_side"]} />;
-    if (slide === 4) return <Showcase shots={["salon_in", "lust_in"]} />;
-    /* "A whole city" is shown as the whole city: the painted plate. */
-    return null;
+    if (slide === 3) return <TrustCard />;
+    if (slide === 4) return <FamilyScene />;
+    /* "A whole city", from inside one of its streets. */
+    return <StreetScene />;
   }
   if (slide === 1) return <ProsLineup />;
-  return slide === 2 ? <Showcase shots={["salon_side", "lust_side"]} /> : null;
+  return slide === 2 ? <Showcase shots={["salon_side", "lust_side"]} /> : <StreetScene />;
 }
 
 function PreviewNote({ textHe }: { textHe: string }) {

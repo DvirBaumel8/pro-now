@@ -90,6 +90,8 @@ export interface SavedSession {
   avatarAnswered?: boolean;
   /** Whether the three-slide explanation has been through once. */
   introSeen?: boolean;
+  /** The rewritten explainer (2026-09-25) has been seen. */
+  introSeenV2?: boolean;
 }
 
 function storage(): Storage | null {
