@@ -199,6 +199,16 @@ export interface GeoPlateProps {
   treeSource?: { uri: string } | null;
   lampSource?: { uri: string } | null;
   /**
+   * OUR BUILDINGS ON THE REAL BLOCKS.
+   *
+   * Amit: *"שיראה שהוואן והעולם שלנו הוא המפה האמיתית, מושתל על המפות
+   * האמיתיות."* Where the city's own isometric buildings are available,
+   * each real footprint carries one of them — chosen by the block's id,
+   * so the same block always shows the same building — instead of a dark
+   * box. The street network, and so the route, stays the real one.
+   */
+  buildingSources?: ReadonlyArray<{ uri: string }>;
+  /**
    * The city's own furniture: trees, lamps, lit windows, crossings.
    *
    * On by default, and it is not decoration in the dismissible sense.
@@ -342,6 +352,7 @@ export function GeoPlate({
   grassSource = null,
   treeSource = null,
   lampSource = null,
+  buildingSources = [],
 }: GeoPlateProps) {
   /*
    * PROPS FOLLOW THE GROUND, NOT THE MODE.
@@ -813,7 +824,31 @@ export function GeoPlate({
           which is a wireframe and is what Amit was looking at when he
           said *"הכל נראה לא טוב"*.
         */}
-        {!props
+        {props && dressing && buildingSources.length > 0
+          ? [...dressing.blocks]
+              .sort((a, b) => Math.max(...a.foot.map((q) => q.v)) - Math.max(...b.foot.map((q) => q.v)))
+              .map((b) => {
+                const us = b.foot.map((q) => q.u), vs = b.foot.map((q) => q.v);
+                const u0 = Math.min(...us), u1 = Math.max(...us), v1 = Math.max(...vs);
+                const w = (u1 - u0) * S * 1.7;
+                const h = w * 0.72;
+                let hash = 0;
+                for (let k = 0; k < b.id.length; k++) hash = (hash * 31 + b.id.charCodeAt(k)) >>> 0;
+                const src = buildingSources[hash % buildingSources.length]!;
+                return (
+                  <SvgImage
+                    key={`bi${b.id}`}
+                    href={src.uri}
+                    x={((u0 + u1) / 2) * S - w / 2}
+                    y={v1 * sy - h}
+                    width={w}
+                    height={h}
+                    preserveAspectRatio="xMidYMax meet"
+                  />
+                );
+              })
+          : null}
+        {!props || buildingSources.length > 0
           ? null
           : dressing
           ? dressing.blocks.map((b) => (

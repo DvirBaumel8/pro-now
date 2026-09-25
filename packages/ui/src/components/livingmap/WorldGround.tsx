@@ -77,6 +77,12 @@ export interface WorldGroundProps {
   animate?: boolean;
 }
 
+/** Our isometric shop buildings, stood on the real map's blocks. */
+const MAP_BUILDING_IDS = [
+  "district_hair", "district_home", "district_nails", "district_pets", "district_auto",
+  "district_tech", "district_appliance",
+] as const;
+
 export function WorldGround({
   width,
   height,
@@ -197,6 +203,9 @@ export function WorldGround({
           grassSource={layer.grass}
           treeSource={(sources.prop_palm as { uri: string } | undefined) ?? null}
           lampSource={(sources.prop_lamp as { uri: string } | undefined) ?? null}
+          buildingSources={MAP_BUILDING_IDS.map((id) => sources[id] as { uri: string } | undefined).filter(
+            (x): x is { uri: string } => Boolean(x && x.uri)
+          )}
           animate={animate}
         />
       </View>
