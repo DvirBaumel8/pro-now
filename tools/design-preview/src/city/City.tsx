@@ -2114,7 +2114,7 @@ const DRAWN_INTERIORS: ReadonlySet<string> = new Set(["build", "help", "move", "
 /** The shops whose room has been built, and how many pieces of furniture each. */
 const BUILT_ROOMS: Readonly<Record<string, number>> = { hair: 5, lust: 3, home: 3, nails: 3 };
 /** The shops drawn open with their professional in the doorway (`venue_<id>`). */
-const VENUE_READY: ReadonlySet<string> = new Set(["hair", "home"]);
+const VENUE_READY: ReadonlySet<string> = new Set(["hair", "home", "nails"]);
 /*
  * A SPONSOR'S PRODUCTS PAGE: THE BOUTIQUE WITH ITS SALESWOMAN.
  *
@@ -2331,7 +2331,14 @@ function ShopRoom({
         src={picture}
         alt=""
         aria-hidden={!venue}
-        style={{ ...S.roomWash, ...(venue ? S.venueArt : null), opacity: shown ? 1 : 0 }}
+        style={{
+          ...S.roomWash,
+          ...(venue ? S.venueArt : null),
+          /* A short list leaves room for a bigger shop; a long one keeps
+             the options clear of the professional. */
+          ...(venue && (trade?.services.length ?? 0) <= 3 ? { height: "68%" } : null),
+          opacity: shown ? 1 : 0,
+        }}
       />
       <div style={{ ...S.roomWashVeil, ...(venue ? S.venueVeil : null), opacity: shown ? 1 : 0 }} />
 
