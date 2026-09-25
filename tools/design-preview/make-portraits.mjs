@@ -38,7 +38,31 @@ for (let n = 1; n <= 12; n++) {
     const side = Math.round(fh * 0.46);
     const cx = (x0 + x1) / 2;
     const o = document.createElement("canvas"); o.width = o.height = 512;
-    o.getContext("2d").drawImage(im, cx - side / 2, y0 - side * 0.04, side, side, 0, 0, 512, 512);
+    const og = o.getContext("2d", { willReadFrequently: true });
+    og.drawImage(im, cx - side / 2, y0 - side * 0.04, side, side, 0, 0, 512, 512);
+    /*
+     * THE WHITE RIM. Amit: *"יש להם לבן מסביב, נראה גזור."* The walk
+     * sheets were cut out of a white background, and the outermost pixels
+     * of every figure still carry some of it; enlarged for the picker, that
+     * pale line becomes an outline. The edge is eaten back two pixels
+     * wherever it is paler and greyer than the figure just inside it, and
+     * what is left is feathered.
+     */
+    const id = og.getImageData(0, 0, 512, 512), A = id.data;
+    const a = (x, y) => (x < 0 || y < 0 || x > 511 || y > 511 ? 0 : A[(y * 512 + x) * 4 + 3]);
+    for (let pass = 0; pass < 3; pass++) {
+      const kill = [];
+      for (let y = 0; y < 512; y++) for (let x = 0; x < 512; x++) {
+        const i = (y * 512 + x) * 4; if (A[i + 3] < 20) continue;
+        if (a(x + 1, y) > 40 && a(x - 1, y) > 40 && a(x, y + 1) > 40 && a(x, y - 1) > 40) continue;
+        const L = 0.299 * A[i] + 0.587 * A[i + 1] + 0.114 * A[i + 2];
+        const ch = Math.max(A[i], A[i + 1], A[i + 2]) - Math.min(A[i], A[i + 1], A[i + 2]);
+        if (L > 150 && ch < 70) kill.push(i);
+        else if (pass === 2) A[i + 3] = Math.min(A[i + 3], 150);
+      }
+      for (const i of kill) A[i + 3] = 0;
+    }
+    og.putImageData(id, 0, 0);
     return o.toDataURL("image/webp", 0.92);
   }, readFileSync(`${W}avatar_${id}_front.webp`).toString("base64"));
   writeFileSync(`${W}avatar_${id}_portrait.webp`, Buffer.from(url.split(",")[1], "base64"));

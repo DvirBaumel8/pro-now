@@ -1,0 +1,375 @@
+import * as THREE from "three";
+
+import type { PanoRoom } from "./panoRoom";
+
+/**
+ * A SHOP YOU CAN WALK AROUND IN: FOUR WALLS OF REAL SPACE.
+ *
+ * ---------------------------------------------------------------------
+ * WHY NOT THE PANORAMA
+ * ---------------------------------------------------------------------
+ * The 360 panorama was one drawing stretched round you: about two
+ * thousand pixels across 250 degrees, so a phone screen saw five hundred
+ * of them, and Amit saw exactly what that is — *"רחוק ממה שדיברנו"*: a
+ * soft picture wrapped round his head.
+ *
+ * Here every wall is its own full drawing — back, left, right, each
+ * 1536 wide and drawn straight-on — on a real box, with a floor and a
+ * ceiling. The PERSPECTIVE is no longer painted in; the engine makes it,
+ * so it is correct from wherever you stand, and the resolution on screen
+ * is four times what the panorama gave.
+ *
+ * The furniture stands IN the room, not on its walls: each piece is cut
+ * from its own drawing and placed at its own depth, with a shadow under
+ * it. Walk and it moves across the walls behind it. That is depth that no
+ * single picture can fake.
+ */
+export interface BoxRoomArt {
+  back: THREE.Texture;
+  left?: THREE.Texture;
+  right?: THREE.Texture;
+  floor?: THREE.Texture;
+  /** Pieces of furniture, already keyed out of their green, one per texture. */
+  props?: THREE.Texture[];
+}
+
+const W = 8; // wall to wall
+const D = 8; // front to back
+const EYE = 1.6;
+
+export const BOX_STAND = { x: 2.2, zNear: 3.4, zFar: 0.6 };
+
+export function buildBoxRoom(art: BoxRoomArt): PanoRoom {
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x0b0810);
+
+  const prep = (t: THREE.Texture) => {
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.anisotropy = 8;
+    return t;
+  };
+  const backImg = art.back.image as { width: number; height: number };
+  /* The room is as tall as the back wall's drawing says it is. */
+  const H = W / (backImg.width / Math.max(1, backImg.height));
+
+  /*
+   * NEON THAT IS LIT, NOT PAINTED.
+   *
+   * Amit: *"שלא ייראה תמונות, שייראה חי!"* The signs on these walls are
+   * drawn glowing, and a drawing of a glow is still a drawing. So the
+   * neon is FOUND — pixels that are both very bright and very saturated,
+   * which is what neon is and paint almost never is — and laid over the
+   * wall a second time, additively, at an intensity that breathes. The
+   * bloom pass does the rest: it spills light off the tubes the way a real
+   * sign does, and it flickers now and then, the way a real one does.
+   */
+  const glows: THREE.MeshBasicMaterial[] = [];
+  const reflect: THREE.Object3D[] = [];
+  const wall = (tex: THREE.Texture | undefined, w: number, pos: [number, number, number], ry: number, tint = 0xffffff) => {
+    /* A touch under full white: these drawings are already lit, and the
+       bloom pass would otherwise burn their brightest shelves to white. */
+    const m = new THREE.Mesh(
+      new THREE.PlaneGeometry(w, H),
+      new THREE.MeshBasicMaterial({ map: tex ? prep(tex) : null, color: tex ? 0xdedede : tint, toneMapped: false })
+    );
+    m.position.set(...pos);
+    m.rotation.y = ry;
+    scene.add(m);
+    reflect.push(m);
+    const mask = tex ? neonMask(tex) : null;
+    if (mask) {
+      const gm = new THREE.MeshBasicMaterial({
+        map: mask, transparent: true, blending: THREE.AdditiveBlending,
+        depthWrite: false, toneMapped: false, opacity: 0.6,
+      });
+      const g = new THREE.Mesh(new THREE.PlaneGeometry(w, H), gm);
+      g.position.set(...pos);
+      g.rotation.y = ry;
+      g.translateZ(0.01);
+      scene.add(g);
+      glows.push(gm);
+    }
+    return m;
+  };
+  /* A side wall with no drawing of its own borrows the back wall's colour
+     rather than showing a hole; see `edgeTint`. */
+  const tint = edgeTint(art.back);
+  wall(art.back, W, [0, H / 2, -D / 2], 0);
+  wall(art.left, D, [-W / 2, H / 2, 0], Math.PI / 2, tint);
+  wall(art.right, D, [W / 2, H / 2, 0], -Math.PI / 2, tint);
+
+  /* The floor, tiled at a metre and a half. */
+  const floorMat = new THREE.MeshBasicMaterial({ color: art.floor ? 0xffffff : 0x3a2a30, toneMapped: false });
+  if (art.floor) {
+    const f = prep(art.floor);
+    f.wrapS = f.wrapT = THREE.RepeatWrapping;
+    f.repeat.set(W / 2.6, D / 2.6);
+    floorMat.map = f;
+  }
+  /*
+   * A FLOOR THAT SHINES.
+   *
+   * Everything in the room is drawn once more, upside down, under the
+   * floor, and the floor is laid over it a little short of opaque: the
+   * signs and the furniture show in it the way they show in polished
+   * stone. It is the oldest trick there is, and it is most of what makes
+   * a painted room read as a lit one.
+   */
+  floorMat.transparent = true;
+  floorMat.opacity = 0.84;
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(W, D), floorMat);
+  floor.rotation.x = -Math.PI / 2;
+  floor.renderOrder = 2;
+  scene.add(floor);
+
+  /* Walls meet the floor in shadow, the way a room does. */
+  const skirt = new THREE.Mesh(
+    new THREE.PlaneGeometry(W, D),
+    new THREE.MeshBasicMaterial({ map: skirtShadow(), transparent: true, depthWrite: false })
+  );
+  skirt.rotation.x = -Math.PI / 2;
+  skirt.position.y = 0.005;
+  scene.add(skirt);
+
+  /* The ceiling: the back wall's top colour, darker towards the middle. */
+  const ceil = new THREE.Mesh(
+    new THREE.PlaneGeometry(W, D),
+    new THREE.MeshBasicMaterial({ color: new THREE.Color(tint).multiplyScalar(0.55), toneMapped: false })
+  );
+  ceil.rotation.x = Math.PI / 2;
+  ceil.position.y = H;
+  scene.add(ceil);
+
+  /*
+   * THE FURNITURE, STANDING IN THE ROOM.
+   *
+   * Widest piece is the counter and stands across the middle of the room;
+   * the rest are set either side at different depths so that no two are
+   * the same distance from you — which is what makes them move against
+   * each other as you walk.
+   */
+  const pieces = [...(art.props ?? [])].sort((a, b) => aspectOf(b) - aspectOf(a));
+  /*
+   * Where things stand: the two widest pieces (the counter, the sofa) in
+   * front either side, where they do not block the room; everything else
+   * — the chairs — in a row facing the back wall, where the mirrors are.
+   * Three depths, so walking moves them against each other and against
+   * the walls. [x, z, height in metres]
+   */
+  const back = pieces.slice(2);
+  const slots: Array<[number, number, number]> = [
+    [2.35, 1.3, 1.05],
+    [-2.4, 1.1, 0.95],
+    ...back.map((_, i): [number, number, number] => {
+      const n = back.length;
+      return [n === 1 ? 0 : -2.4 + (4.8 * i) / Math.max(1, n - 1), -2.7, 1.25];
+    }),
+  ];
+  const shadowTex = contactShadow();
+  pieces.slice(0, slots.length).forEach((tex, i) => {
+    const [x, z, h] = slots[i]!;
+    const w = h * aspectOf(tex);
+    const m = new THREE.Mesh(
+      new THREE.PlaneGeometry(w, h),
+      new THREE.MeshBasicMaterial({ map: prep(tex), transparent: true, alphaTest: 0.4, toneMapped: false })
+    );
+    m.position.set(x, h / 2, z);
+    scene.add(m);
+    reflect.push(m);
+    const s = new THREE.Mesh(
+      new THREE.PlaneGeometry(w * 1.15, 0.9),
+      new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false })
+    );
+    s.rotation.x = -Math.PI / 2;
+    s.position.set(x, 0.01, z + 0.05);
+    scene.add(s);
+  });
+
+  /* The mirror image under the floor. */
+  const mirror = new THREE.Group();
+  for (const o of reflect) {
+    const c = (o as THREE.Mesh).clone();
+    const mat = ((o as THREE.Mesh).material as THREE.MeshBasicMaterial).clone();
+    mat.color = mat.color.clone().multiplyScalar(0.55);
+    (c as THREE.Mesh).material = mat;
+    mirror.add(c);
+  }
+  mirror.scale.y = -1;
+  mirror.renderOrder = 0;
+  scene.add(mirror);
+
+  /* Dust in the light. */
+  const N = 220;
+  const pos = new Float32Array(N * 3);
+  const seed = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    pos[i * 3] = (Math.random() - 0.5) * W * 0.9;
+    pos[i * 3 + 1] = Math.random() * H * 0.9;
+    pos[i * 3 + 2] = (Math.random() - 0.5) * D * 0.9;
+    seed[i] = Math.random() * 100;
+  }
+  const dustGeo = new THREE.BufferGeometry();
+  dustGeo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  const dust = new THREE.Points(
+    dustGeo,
+    new THREE.PointsMaterial({
+      size: 0.03, map: dot(), transparent: true, opacity: 0.5,
+      depthWrite: false, blending: THREE.AdditiveBlending,
+    })
+  );
+  scene.add(dust);
+
+  const camera = new THREE.PerspectiveCamera(70, 1, 0.05, 60);
+  camera.rotation.order = "YXZ";
+
+  return {
+    scene,
+    camera,
+    /* Behind you is the door you came through. */
+    maxYaw: (125 / 180) * Math.PI,
+    update(dt, t, look, stand) {
+      /* `stand` arrives as a step from the middle of the doorway area. */
+      const x = Math.max(-BOX_STAND.x, Math.min(BOX_STAND.x, stand.x * 1.8));
+      const z = Math.max(BOX_STAND.zFar, Math.min(BOX_STAND.zNear, BOX_STAND.zNear + stand.z * 1.8));
+      camera.position.set(x, EYE + Math.sin(t * 0.9) * 0.01, z);
+      camera.rotation.y = look.yaw;
+      camera.rotation.x = look.pitch;
+      /* Breathing, with a real sign's occasional stutter. */
+      const flick = Math.sin(t * 23.0) > 0.985 ? 0.35 : 1;
+      const breathe = 0.45 + 0.2 * Math.sin(t * 2.1);
+      for (const g of glows) g.opacity = breathe * flick;
+      const p = dustGeo.attributes.position as THREE.BufferAttribute;
+      for (let i = 0; i < N; i++) {
+        const s = seed[i]!;
+        p.setY(i, p.getY(i) + Math.sin(t * 0.3 + s) * dt * 0.02 + dt * 0.006);
+        if (p.getY(i) > H * 0.95) p.setY(i, 0.1);
+      }
+      p.needsUpdate = true;
+    },
+    setAspect(a) {
+      camera.aspect = a;
+      camera.fov = a < 1 ? 78 : 62;
+      camera.updateProjectionMatrix();
+    },
+    dispose() {
+      scene.traverse((o) => {
+        const m = o as THREE.Mesh;
+        m.geometry?.dispose();
+        (m.material as THREE.Material | undefined)?.dispose();
+      });
+    },
+  };
+}
+
+/** Very bright AND very saturated: neon, and almost nothing else. */
+function neonMask(t: THREE.Texture): THREE.CanvasTexture | null {
+  const img = t.image as CanvasImageSource & { width: number; height: number };
+  const w = Math.min(512, img.width), h = Math.max(1, Math.round((img.height / img.width) * w));
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  const g = c.getContext("2d", { willReadFrequently: true });
+  if (!g) return null;
+  g.drawImage(img, 0, 0, w, h);
+  const id = g.getImageData(0, 0, w, h), d = id.data;
+  let lit = 0;
+  for (let i = 0; i < d.length; i += 4) {
+    const r = d[i]!, gg = d[i + 1]!, bl = d[i + 2]!;
+    const mx = Math.max(r, gg, bl), mn = Math.min(r, gg, bl);
+    const sat = mx ? (mx - mn) / mx : 0;
+    /*
+     * Neon's hues, not lamplight's. The first version took "bright and
+     * saturated" and caught every warmly-lit shelf too — the whole wall
+     * glowed and burned out. Lamplight is orange-to-yellow; the tubes on
+     * these walls are pink, violet and cyan. So warm hues are excluded.
+     */
+    let hue = 0;
+    if (mx !== mn) {
+      if (mx === r) hue = ((gg - bl) / (mx - mn)) * 60;
+      else if (mx === gg) hue = (2 + (bl - r) / (mx - mn)) * 60;
+      else hue = (4 + (r - gg) / (mx - mn)) * 60;
+      if (hue < 0) hue += 360;
+    }
+    const warm = hue > 15 && hue < 75;
+    /* 0.66: a pink WALL is pink too, but pale — (250,160,180) is 0.36;
+       a pink TUBE is (255,60,200), 0.76. */
+    if (mx > 235 && sat > 0.66 && !warm) { lit++; continue; }
+    d[i] = d[i + 1] = d[i + 2] = 0;
+  }
+  if (lit < w * h * 0.002) return null;
+  g.putImageData(id, 0, 0);
+  /* A soft halo round each tube, so the glow reaches past its edge. */
+  const halo = document.createElement("canvas");
+  halo.width = w; halo.height = h;
+  const hg = halo.getContext("2d")!;
+  hg.filter = "blur(6px)";
+  hg.drawImage(c, 0, 0);
+  hg.filter = "none";
+  hg.globalCompositeOperation = "lighter";
+  hg.drawImage(c, 0, 0);
+  const tex = new THREE.CanvasTexture(halo);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+function aspectOf(t: THREE.Texture): number {
+  const img = t.image as { width: number; height: number } | undefined;
+  if (!img || !img.height) return 1;
+  /* A cut piece carries its own window on the sheet in repeat. */
+  return (img.width * t.repeat.x) / (img.height * t.repeat.y);
+}
+
+/** The average colour of the top of a drawing, for walls and ceiling without art. */
+function edgeTint(t: THREE.Texture): number {
+  const img = t.image as CanvasImageSource & { width: number; height: number };
+  const c = document.createElement("canvas");
+  c.width = 32; c.height = 4;
+  const g = c.getContext("2d", { willReadFrequently: true });
+  if (!g) return 0x553344;
+  g.drawImage(img, 0, 0, img.width, Math.max(2, img.height * 0.08), 0, 0, 32, 4);
+  const d = g.getImageData(0, 0, 32, 4).data;
+  let r = 0, gg = 0, b = 0;
+  for (let i = 0; i < d.length; i += 4) { r += d[i]!; gg += d[i + 1]!; b += d[i + 2]!; }
+  const n = d.length / 4;
+  return (Math.round(r / n) << 16) | (Math.round(gg / n) << 8) | Math.round(b / n);
+}
+
+function skirtShadow(): THREE.CanvasTexture {
+  const c = document.createElement("canvas");
+  c.width = c.height = 128;
+  const g = c.getContext("2d")!;
+  const edge = (x0: number, y0: number, x1: number, y1: number) => {
+    const gr = g.createLinearGradient(x0, y0, x1, y1);
+    gr.addColorStop(0, "rgba(10,6,12,0.55)");
+    gr.addColorStop(1, "rgba(10,6,12,0)");
+    g.fillStyle = gr;
+    g.fillRect(0, 0, 128, 128);
+  };
+  edge(0, 0, 0, 22); // back
+  edge(0, 0, 22, 0); // left
+  edge(128, 0, 106, 0); // right
+  return new THREE.CanvasTexture(c);
+}
+
+function contactShadow(): THREE.CanvasTexture {
+  const c = document.createElement("canvas");
+  c.width = 128; c.height = 64;
+  const g = c.getContext("2d")!;
+  const gr = g.createRadialGradient(64, 32, 2, 64, 32, 60);
+  gr.addColorStop(0, "rgba(0,0,0,0.55)");
+  gr.addColorStop(1, "rgba(0,0,0,0)");
+  g.fillStyle = gr;
+  g.fillRect(0, 0, 128, 64);
+  return new THREE.CanvasTexture(c);
+}
+
+function dot(): THREE.CanvasTexture {
+  const c = document.createElement("canvas");
+  c.width = c.height = 32;
+  const g = c.getContext("2d")!;
+  const gr = g.createRadialGradient(16, 16, 0, 16, 16, 16);
+  gr.addColorStop(0, "rgba(255,226,170,1)");
+  gr.addColorStop(1, "rgba(255,226,170,0)");
+  g.fillStyle = gr;
+  g.fillRect(0, 0, 32, 32);
+  return new THREE.CanvasTexture(c);
+}

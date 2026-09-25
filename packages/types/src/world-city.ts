@@ -343,7 +343,38 @@ export const CITY_AVATAR_SHEET_IDS = Array.from({ length: 12 }, (_, i) => {
 export const CITY_ROOM_PANO_IDS = [
   "hair", "nails", "home", "appliance", "care", "tech", "auto", "move",
   "build", "help", "well", "pets", "vet", "lust",
-].flatMap((t) => [`room_${t}_pano`, `room_${t}_fore`]);
+].flatMap((t) => [
+  `room_${t}_pano`,
+  `room_${t}_fore`,
+  /* The real 3D room (boxRoom.ts, from the 2026-09-25 brief): three
+     straight-on walls, a floor, and up to six pieces of furniture cut
+     apart by ingest-shop.mjs — and the shop's own redrawn building for
+     the doorstep. */
+  `room_${t}_back`,
+  `room_${t}_left`,
+  `room_${t}_right`,
+  `room_${t}_floor`,
+  ...[1, 2, 3, 4, 5, 6].map((n) => `room_${t}_prop${n}`),
+  `hero_${t}`,
+]);
+
+const CITY_ROOM_TRADES = [
+  "hair", "nails", "home", "appliance", "care", "tech", "auto", "move",
+  "build", "help", "well", "pets", "vet", "lust",
+];
+
+/**
+ * THE REAL ROOMS (2026-09-25 brief): three walls drawn straight-on, a
+ * floor, and the furniture cut apart — `boxRoom.ts` builds a room of
+ * them. `ingest-shop.mjs` writes these names from the chat's seven files.
+ */
+export const CITY_ROOM_BOX_IDS = CITY_ROOM_TRADES.flatMap((t) => [
+  `room_${t}_back`, `room_${t}_left`, `room_${t}_right`, `room_${t}_floor`,
+  ...[1, 2, 3, 4, 5, 6].map((n) => `room_${t}_prop${n}`),
+]);
+
+/** Each shop's building at a three-quarter angle, shown at the door. */
+export const CITY_SHOP_HERO_IDS = CITY_ROOM_TRADES.map((t) => `hero_${t}`);
 
 /** The loading screen's own picture — see `S.load` in the city. */
 export const CITY_SPLASH_IDS = ["splash_city"] as const;
@@ -383,6 +414,8 @@ export const CITY_ASSET_IDS: readonly string[] = [
   ...CITY_SHOP_IDS,
   ...CITY_ROOM_LAYER_IDS,
   ...CITY_ROOM_PANO_IDS,
+  ...CITY_ROOM_BOX_IDS,
+  ...CITY_SHOP_HERO_IDS,
   ...CITY_SPLASH_IDS,
   ...CITY_AVATAR_SHEET_IDS,
 ];

@@ -23,6 +23,7 @@ import { scale } from "@pro-now/ui";
 
 import { PREVIEW_SPONSORS } from "../sponsors";
 import { buildPanoRoom, PANO_STAND_RADIUS, type PanoRoom } from "./panoRoom";
+import { buildBoxRoom } from "./boxRoom";
 import {
   buildStreet,
   FRONT_X,
@@ -231,6 +232,9 @@ const DOORSTEP_HERO: Readonly<Record<string, string>> = {
   pets: "pets_salon_hero.webp",
 };
 const DOORSTEP_MS = 2100;
+/* Shops whose own redrawn building (`hero_<id>`, from the 2026-09-25
+   brief) has arrived; they use it at the door instead of the old one. */
+const HERO_READY = new Set<string>();
 const DOORSTEP_DIR =
   typeof window !== "undefined" &&
   (window.matchMedia?.("(pointer: coarse)").matches || window.innerWidth < 768)
@@ -582,6 +586,20 @@ export function City({
          from it, the counter in front of you. See panoRoom.ts. */
       const panoWave = Promise.all(
         SHOPS.map(async (sh) => {
+          /* The real room: three walls, a floor, and the furniture cut
+             apart — see boxRoom.ts. Tried before the panorama, and only
+             where the back wall arrived. */
+          const box = ["back", "left", "right", "floor", "prop1", "prop2", "prop3", "prop4", "prop5", "prop6"];
+          await Promise.all(
+            box.map(async (part) => {
+              const f = `room_${sh.id}_${part}.webp`;
+              try { facades[f] = await load(f); } catch { /* not drawn */ }
+            })
+          );
+          try {
+            facades[`hero_${sh.id}.webp`] = await load(`hero_${sh.id}.webp`);
+            HERO_READY.add(sh.id);
+          } catch { /* the door keeps the older building */ }
           for (const part of ["pano", "fore"] as const) {
             const f = `room_${sh.id}_${part}.webp`;
             try {
@@ -689,6 +707,22 @@ export function City({
       const street = buildStreet(SHOPS, facades);
       const vrRooms = new Map<string, PanoRoom>();
       for (const sh of SHOPS) {
+        const back = facades[`room_${sh.id}_back.webp`];
+        if (back) {
+          const props = [1, 2, 3, 4, 5, 6]
+            .map((n) => facades[`room_${sh.id}_prop${n}.webp`])
+            .filter((t): t is THREE.Texture => Boolean(t));
+          const r = buildBoxRoom({
+            back,
+            left: facades[`room_${sh.id}_left.webp`],
+            right: facades[`room_${sh.id}_right.webp`],
+            floor: facades[`room_${sh.id}_floor.webp`],
+            props,
+          });
+          r.setAspect(el.clientWidth / el.clientHeight);
+          vrRooms.set(sh.id, r);
+          continue;
+        }
         const pano = facades[`room_${sh.id}_pano.webp`];
         if (!pano) continue;
         const r = buildPanoRoom(pano, facades[`room_${sh.id}_fore.webp`]);
@@ -876,6 +910,21 @@ export function City({
          not the street's sixty-degree glance. */
       let vrActive = false;
       let vrLook = 0;
+      /*
+       * TURNING ROUND.
+       *
+       * Amit: *"אי אפשר להסתובב עם הדמות לצד השני כשמגיעים לסוף הרחוב."*
+       * The stick walked forward, back and sideways and there was no way
+       * to change the direction you face at all — the drag turns only the
+       * head. So pulling the stick down now turns the figure round, over
+       * about two thirds of a second, and so does walking into either end
+       * of the street and keeping on pushing. `spin` is what is left of
+       * the half-turn; `spinArmed` waits for the stick to come back to
+       * centre, so one pull is one turn and not a spinning top.
+       */
+      let spin = 0;
+      let spinArmed = true;
+      let atEndFor = 0;
 
       /*
        * -----------------------------------------------------------
@@ -1237,7 +1286,21 @@ export function City({
            at speed and stopping dead. */
         const k = descend * descend * (3 - 2 * descend);
 
-        if (push > 0.08 && descend > 0.35) {
+        if (!insideRef.current && descend > 0.35) {
+          if (stick.y < 0.2 && push < 0.3) spinArmed = true;
+          if (spin <= 0 && spinArmed && stick.y > 0.55 && Math.abs(stick.x) < 0.6) {
+            spin = Math.PI;
+            spinArmed = false;
+            turn = 0;
+          }
+        }
+        if (spin > 0) {
+          const step = Math.min(spin, (dt * Math.PI) / 0.65);
+          yaw += step;
+          spin -= step;
+          /* the legs keep stepping through the turn */
+          walked += step * 0.35;
+        } else if (push > 0.08 && descend > 0.35 && !(stick.y > 0.55 && !insideRef.current)) {
           const speed = running ? 5.6 : 2.6;
           const fx = Math.sin(yaw), fz = Math.cos(yaw);
           /*
@@ -1285,7 +1348,13 @@ export function City({
                the previous clamp kept you on one pavement, which made
                half the shops in the world literally unreachable. */
             p.x = Math.max(-WALK_LIMIT, Math.min(WALK_LIMIT, p.x + dx));
-            p.z = Math.max(-STREET_LENGTH / 2 + 6, Math.min(STREET_LENGTH / 2 - 6, p.z + dz));
+            const zWant = p.z + dz;
+            p.z = Math.max(-STREET_LENGTH / 2 + 6, Math.min(STREET_LENGTH / 2 - 6, zWant));
+            /* At either end, still pushing forward: turn round for them. */
+            if (p.z !== zWant && stick.y < -0.4) {
+              atEndFor += dt;
+              if (atEndFor > 0.35 && spin <= 0) { spin = Math.PI; turn = 0; atEndFor = 0; }
+            } else atEndFor = 0;
           }
           walked += Math.hypot(dx, dz);
         }
@@ -1856,7 +1925,9 @@ export function City({
           onClick={() => {
             setWalking(true);
             const shop = SHOPS.find((x) => x.id === nearId);
-            const hero = nearId ? DOORSTEP_HERO[nearId] : undefined;
+            const hero = nearId
+              ? HERO_READY.has(nearId) ? `hero_${nearId}.webp` : DOORSTEP_HERO[nearId]
+              : undefined;
             if (hero && shop) {
               setDoorstep({ src: `${base}${DOORSTEP_DIR}${hero}`, he: shop.he, neon: shop.neonColour ?? "#FF6B4A" });
               window.setTimeout(() => setDoorstep(null), DOORSTEP_MS);

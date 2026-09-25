@@ -52,7 +52,7 @@ const r = await p.evaluate(async (b64) => {
    * and the green that bleeds into an object's edge is taken back out of
    * the colour, so nothing on the counter wears a green halo.
    */
-  const green = (i) => d[i + 1] > 150 && d[i + 1] > d[i] + 70 && d[i + 1] > d[i + 2] + 70;
+  const green = (i) => d[i + 1] > 190 && d[i] < 110 && d[i + 2] < 110 && d[i + 1] - Math.max(d[i], d[i + 2]) > 100;
   if (boundary < 0) {
     let gb = -1;
     for (let y = Math.floor(H * 0.35); y < H; y++) {
