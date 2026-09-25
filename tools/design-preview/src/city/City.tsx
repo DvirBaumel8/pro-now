@@ -566,6 +566,9 @@ export function City({
       const roomWave = Promise.all(
         SHOPS.map(async (sh) => {
           try {
+            /* Only the trades whose single interior was drawn — see
+               `DRAWN_INTERIORS`; the rest are asked for nothing. */
+            if (!DRAWN_INTERIORS.has(sh.id)) throw new Error("not drawn");
             const t = await load(`shop_${sh.id}_inside.webp`);
             (sh as { interior?: string }).interior = `shop_${sh.id}_inside.webp`;
             facades[`shop_${sh.id}_inside.webp`] = t;
@@ -584,37 +587,29 @@ export function City({
 
       /* The 360 rooms: a panorama of the whole room and, drawn apart
          from it, the counter in front of you. See panoRoom.ts. */
+      /*
+       * ONLY WHAT EXISTS.
+       *
+       * This wave used to ask for every room part, a three-quarter
+       * building, an order-sheet picture and a panorama for all fourteen
+       * shops — about two hundred requests, most of them for files never
+       * drawn, each one a round trip the phone waits on (the artifact host
+       * answers a missing file with a page, not a quick 404). Amit's rule
+       * for tonight: *"חשוב שהכל יעבוד בטלפון מהיר."* So the shops that
+       * have been built are listed, with how many pieces of furniture each
+       * has, and nothing else is asked for.
+       */
       const panoWave = Promise.all(
-        SHOPS.map(async (sh) => {
-          /* The real room: three walls, a floor, and the furniture cut
-             apart — see boxRoom.ts. Tried before the panorama, and only
-             where the back wall arrived. */
-          const box = ["back", "left", "right", "floor", "prop1", "prop2", "prop3", "prop4", "prop5", "prop6"];
+        SHOPS.filter((sh) => BUILT_ROOMS[sh.id] !== undefined).map(async (sh) => {
+          const props = BUILT_ROOMS[sh.id]!;
+          const box = ["back", "left", "right", "floor", ...Array.from({ length: props }, (_, n) => `prop${n + 1}`)];
           await Promise.all(
             box.map(async (part) => {
               const f = `room_${sh.id}_${part}.webp`;
               try { facades[f] = await load(f); } catch { /* not drawn */ }
             })
           );
-          try {
-            facades[`hero_${sh.id}.webp`] = await load(`hero_${sh.id}.webp`);
-            HERO_READY.add(sh.id);
-          } catch { /* the door keeps the older building */ }
-          /* The shop drawn open with its professional standing in it —
-             the order sheet's whole-page picture. See `VENUES`. */
-          try {
-            const v = await load(`venue_${sh.id}.webp`);
-            v.dispose();
-            VENUES.set(sh.id, `${base}venue_${sh.id}.webp`);
-          } catch { /* not drawn yet: the sheet shows the room */ }
-          for (const part of ["pano", "fore"] as const) {
-            const f = `room_${sh.id}_${part}.webp`;
-            try {
-              facades[f] = await load(f);
-            } catch {
-              /* not drawn yet: the shop keeps its box room */
-            }
-          }
+          if (VENUE_READY.has(sh.id)) VENUES.set(sh.id, `${base}venue_${sh.id}.webp`);
         })
       );
 
@@ -2114,6 +2109,12 @@ const ROOM_SHOTS = new Map<string, string>();
  * sit over its foot.
  */
 const VENUES = new Map<string, string>();
+/** The trades with a single drawn interior (`shop_<id>_inside`). */
+const DRAWN_INTERIORS: ReadonlySet<string> = new Set(["build", "help", "move", "nails", "pets", "tech", "vet", "well"]);
+/** The shops whose room has been built, and how many pieces of furniture each. */
+const BUILT_ROOMS: Readonly<Record<string, number>> = { hair: 5, lust: 3, home: 3, nails: 3 };
+/** The shops drawn open with their professional in the doorway (`venue_<id>`). */
+const VENUE_READY: ReadonlySet<string> = new Set(["hair", "home"]);
 /*
  * A SPONSOR'S PRODUCTS PAGE: THE BOUTIQUE WITH ITS SALESWOMAN.
  *

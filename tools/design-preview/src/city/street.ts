@@ -247,7 +247,9 @@ export const OPTIONAL_ART: readonly string[] = [
    * what closed the tab on Amit's phone.
    */
   ...CITY_FLEET_IDS.filter((id) => /_(front|back)$/.test(id)),
-  ...CITY_HEIGHT_IDS,
+  /* A shop redrawn with a see-into window has no relief map any more —
+     asking for one was three wasted round trips per shop on a phone. */
+  ...CITY_HEIGHT_IDS.filter((id) => !/^shop_(hair|home|nails|lust)_height$/.test(id)),
   ...CITY_LAYERED_BUILDING_IDS,
   ...CITY_ROOF_IDS,
   ...CITY_TREE_IDS,
