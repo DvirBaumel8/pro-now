@@ -111,6 +111,31 @@ const run = (file, { key, split }) =>
         bx.splice(j, 1); merged = true; break outer;
       }
     }
+    /*
+     * A ROW OF PIECES STANDING CLOSE.
+     *
+     * The briefs now ask for one row, and the pieces come back a few pixels
+     * apart — closer than the blob merge above tolerates, so four pieces
+     * became one. Where the sheet has clean empty columns between pieces,
+     * those gaps are the cut.
+     */
+    {
+      const col = new Uint16Array(W);
+      for (let x = 0; x < W; x++) for (let y = 0; y < H; y += 2) if (d[(y * W + x) * 4 + 3] > 60) col[x]++;
+      const segs = []; let st = -1;
+      for (let x = 0; x <= W; x++) {
+        const on = x < W && col[x] > 1;
+        if (on && st < 0) st = x;
+        if (!on && st >= 0) { if (x - st > W * 0.03) segs.push([st, x - 1]); st = -1; }
+      }
+      if (segs.length > bx.length) {
+        bx = segs.map(([a, z]) => {
+          let y0 = H, y1 = 0;
+          for (let y = 0; y < H; y++) for (let x = a; x <= z; x += 2) if (d[(y * W + x) * 4 + 3] > 60) { if (y < y0) y0 = y; if (y > y1) y1 = y; }
+          return { x0: Math.floor(a / S), y0: Math.floor(y0 / S), x1: Math.floor(z / S), y1: Math.floor(y1 / S), n: 1 };
+        });
+      }
+    }
     const parts = [];
     for (const r of bx) {
       const X0 = Math.max(0, r.x0 * S - 2), Y0 = Math.max(0, r.y0 * S - 2);

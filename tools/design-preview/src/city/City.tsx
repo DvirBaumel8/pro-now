@@ -2382,7 +2382,7 @@ function ShopRoom({
         </div>
       </div>
 
-      <div style={S.roomBar}>
+      <div style={venue ? { ...S.roomBar, ...S.venueBar } : S.roomBar}>
         <h2 style={S.roomName}>
           {shop.sponsor ? shop.he : `PRO NOW · ${shop.he}`}
         </h2>
@@ -2671,14 +2671,17 @@ const S: Record<string, React.CSSProperties> = {
     justifyContent: "flex-end",
     background: "radial-gradient(120% 80% at 50% 30%, #3a2130 0%, #120c16 70%)",
   },
+  /* The shop takes the top of the sheet and the options the bottom, so a
+     trade with eight services never lists them across the professional's
+     face — which is what the plumbing sheet did. */
   venueArt: {
-    inset: 0, width: "100%", height: "100%", objectFit: "contain",
-    objectPosition: "center 12%", filter: "drop-shadow(0 24px 50px rgba(0,0,0,.55))",
-    transform: "scale(1.04)",
+    inset: "2% 0 auto 0", width: "100%", height: "54%", objectFit: "contain",
+    objectPosition: "center top", filter: "drop-shadow(0 24px 50px rgba(0,0,0,.55))",
   },
   venueVeil: {
-    background: "linear-gradient(to bottom, rgba(5,4,12,0) 45%, rgba(5,4,12,.72) 68%, rgba(5,4,12,.92) 100%)",
+    background: "linear-gradient(to bottom, rgba(5,4,12,0) 40%, rgba(5,4,12,.85) 56%, rgba(5,4,12,.96) 100%)",
   },
+  venueBar: { maxHeight: "46%", overflowY: "auto" },
   /* The picture sits in whatever room the bar leaves it, centred. */
   roomStage: {
     position: "relative", flex: "0 0 auto", width: "100%", minHeight: 0,

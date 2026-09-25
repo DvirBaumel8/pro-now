@@ -1854,6 +1854,19 @@ export function buildStreet(
       pole: [226 / 1254, 850 / 1254],
       stripe: "#f25c86",
     },
+    home: {
+      glass: [203 / 1254, 1035 / 1254, 757 / 1254, 1170 / 1254],
+      awning: [150 / 1254, 1098 / 1254, 636 / 1254, 752 / 1254],
+      mullions: [343 / 1254, 626 / 1254, 908 / 1254],
+      stripe: "#2b4a8a",
+    },
+    nails: {
+      glass: [257 / 1254, 997 / 1254, 725 / 1254, 1166 / 1254],
+      awning: [94 / 1254, 1154 / 1254, 583 / 1254, 712 / 1254],
+      mullions: [508 / 1254, 744 / 1254],
+      door: 627 / 1254,
+      stripe: "#9b4fb0",
+    },
     lust: {
       glass: [309 / 1536, 1233 / 1536, 376 / 1024, 902 / 1024],
       canopy: [96 / 1536, 1428 / 1536, 368 / 1024],
@@ -3877,8 +3890,8 @@ export function buildStreet(
     x > 0 && Math.abs(z - 61.6) < 5.4 && x > FRONT_X - 4.6;
 
   for (let z = STREET_LENGTH / 2 - 24; z > -STREET_LENGTH / 2; z -= 31) {
-    if (!inPark(FRONT_X - 2.0, z)) cafe(FRONT_X - 2.0, z, flowerHues[Math.floor(Math.random() * 3)]!);
-    cafe(-FRONT_X + 2.0, z - 15, 0xffc07a);
+    if (!inPark(FRONT_X - 2.0, z) && clearOfWindow(FRONT_X, z, 7)) cafe(FRONT_X - 2.0, z, flowerHues[Math.floor(Math.random() * 3)]!);
+    if (clearOfWindow(-FRONT_X, z - 15, 7)) cafe(-FRONT_X + 2.0, z - 15, 0xffc07a);
     if (!inPark(FRONT_X - 1.3, z - 7)) planter(FRONT_X - 1.3, z - 7);
     planter(-FRONT_X + 1.3, z - 22);
     if (!inPark(FRONT_X - 1.6, z - 18)) furnish(FRONT_X - 1.6, z - 18, drawnBench, 1.0);
@@ -4114,6 +4127,8 @@ export function buildStreet(
       const tex = textures[id];
       if (!tex) continue;
       const side: -1 | 1 = pk % 2 ? 1 : -1;
+      /* Never parked across a shop window you can see into. */
+      if (!clearOfWindow(side * KERB_X, z, 8)) continue;
       const g = cutout(tex, h, 1);
       g.position.set(side * (KERB_X - 1.1), 0, z);
       /* Side views face across the road; rear views face down it. */
