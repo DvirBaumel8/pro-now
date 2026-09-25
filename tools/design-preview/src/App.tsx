@@ -696,6 +696,9 @@ export function App() {
    */
   const proMemory = useRef<ProMemory | null>(null);
 
+  /* The last quote's total, kept past its approval (which clears
+     `pendingQuote`) so the professional is paid what was approved. */
+  const [quoteTotal, setQuoteTotal] = useState<number | null>(null);
   const [pendingQuote, setPendingQuote] = useState<{
     sentAtMs: number;
     draft: { lines: { id: string; description: string; quantity: number; unitPriceMinorUnits: number; kind: string }[]; notesHe: string } | null;
@@ -1047,11 +1050,13 @@ export function App() {
             onTakeRequest={() => setLiveRequest(null)}
             pendingQuote={pendingQuote}
             sentQuoteLines={pendingQuote?.draft?.lines ?? null}
+            approvedQuoteTotal={quoteTotal}
             sentQuoteNotes={pendingQuote?.draft?.notesHe ?? ""}
             quoteDecision={quoteDecision}
             onSendQuote={(draft) => {
               setQuoteDecision(null);
               setPendingQuote({ sentAtMs: Date.now(), draft });
+              setQuoteTotal(draft ? draft.lines.reduce((sum, l) => sum + l.quantity * l.unitPriceMinorUnits, 0) : null);
             }}
             onQuoteSeen={() => setQuoteDecision(null)}
             /*
@@ -3847,6 +3852,7 @@ function ProApp({
   pendingQuote,
   quoteDecision,
   sentQuoteLines,
+  approvedQuoteTotal = null,
   sentQuoteNotes,
   onSendQuote,
   onQuoteSeen,
@@ -3888,6 +3894,8 @@ function ProApp({
   quoteDecision: "APPROVED" | "DECLINED" | null;
   /** The lines already sent, so an update opens them rather than a blank form. */
   sentQuoteLines: { id: string; description: string; quantity: number; unitPriceMinorUnits: number; kind: string }[] | null;
+  /** What the customer approved, in minor units — the payout. */
+  approvedQuoteTotal?: number | null;
   sentQuoteNotes: string;
   onSendQuote: (draft: { lines: { id: string; description: string; quantity: number; unitPriceMinorUnits: number; kind: string }[]; notesHe: string }) => void;
   onQuoteSeen: () => void;
@@ -4027,6 +4035,9 @@ function ProApp({
    * would withhold it.
    */
   const [onlineSince, setOnlineSince] = useState<number | null>(kept?.onlineSince ?? null);
+  /** The total of the quote that was sent — what the customer approves.
+      Remembered past the approval, which clears the pending quote. */
+  const approvedTotal = approvedQuoteTotal;
   const [shiftNow, setShiftNow] = useState(() => Date.now());
   /**
    * The shift's running totals. They start at zero and only move when a job
@@ -4329,7 +4340,13 @@ function ProApp({
        * it says out loud that they are available again so nobody has to
        * wonder whether to press something.
        */
-      const payout = 13400;
+      /*
+       * The amount the customer approved — not a fixed demo figure that
+       * disagreed with it. PRO NOW's commission is an open business
+       * decision (/CLAUDE.md §4), so nothing is deducted here: the number
+       * the professional sees is the approved total.
+       */
+      const payout = approvedTotal ?? 13400;
       setShiftNet((n) => n + payout);
       setShiftJobs((n) => n + 1);
       setSettled(payout);
@@ -4645,7 +4662,7 @@ function ProApp({
          */
         usualUpToMinorUnits={48000}
         usualSampleSize={14}
-        payoutMinorUnits={job === "DIAGNOSIS" || job === "WAITING_QUOTE_APPROVAL" ? null : 13400}
+        payoutMinorUnits={job === "DIAGNOSIS" || job === "WAITING_QUOTE_APPROVAL" ? null : approvedTotal ?? 13400}
         payoutIsEstimate={false}
         onAdvance={advanceJob}
         /*

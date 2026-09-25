@@ -172,6 +172,59 @@ const STATUS_HE: Partial<Record<JobState, string>> = {
   COMPLETION_PENDING: "ממתין לאישור סיום",
 };
 
+/*
+ * EVERY STEP LOOKS LIKE ITS OWN STEP.
+ *
+ * Amit, on the row of professional screens: *"כל עמוד נראה אותו דבר, כל
+ * לחיצה לא מבינים את ההתקדמות — חייב שינוי בתנועתיות, במלל, בשפה, בעמוד,
+ * במעברים בין השלבים."* The progress bar moved by one dot and the title
+ * stayed the job's name, so five screens read as one. Each state now opens
+ * with its own band: its own colour, its own big headline in the
+ * professional's words, the step number out of the whole visit, and one
+ * line on what to do now — and it slides in fresh at every step.
+ */
+const STAGE: Partial<Record<JobState, { n: number; titleHe: string; doHe: string; tint: string; glyph: string }>> = {
+  PRO_ASSIGNED: { n: 1, titleHe: "העבודה שלך!", doHe: "הלקוח כבר יודע שאתה מגיע. צא לדרך כשאתה מוכן.", tint: "#2FBF8A", glyph: "✓" },
+  PRO_EN_ROUTE: { n: 2, titleHe: "בדרך ללקוח", doHe: "הלקוח רואה אותך מתקדם. לחץ ״הגעתי״ כשאתה בכתובת.", tint: "#3B82F6", glyph: "➜" },
+  PRO_ARRIVED: { n: 3, titleHe: "הגעת", doHe: "הצג את עצמך, ותתחיל לבדוק את מה שהלקוח תיאר.", tint: "#8B5CF6", glyph: "⌂" },
+  DIAGNOSIS: { n: 4, titleHe: "בודקים מה צריך", doHe: "בסוף הבדיקה — הצעת מחיר ללקוח, והוא מאשר מהטלפון.", tint: "#F59E0B", glyph: "?" },
+  WAITING_QUOTE_APPROVAL: { n: 5, titleHe: "ההצעה אצל הלקוח", doHe: "מחכים לאישור. אי אפשר להתחיל לעבוד לפני שהוא מאשר.", tint: "#EC4899", glyph: "₪" },
+  IN_PROGRESS: { n: 6, titleHe: "ההצעה אושרה — עובדים", doHe: "עושים בדיוק את מה שאושר. לחץ ״סיימתי״ בסוף.", tint: "#FF6B4A", glyph: "⚒" },
+  COMPLETION_PENDING: { n: 7, titleHe: "סיימת!", doHe: "הלקוח מאשר שהעבודה הושלמה, ואז נסגר התשלום.", tint: "#2FBF8A", glyph: "★" },
+};
+const STAGE_COUNT = 7;
+
+function StageBand({ status }: { status: JobState }) {
+  const st = STAGE[status];
+  const enter = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    enter.setValue(0);
+    Animated.timing(enter, { toValue: 1, duration: 420, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+  }, [status, enter]);
+  if (!st) return null;
+  return (
+    <Animated.View
+      style={[
+        styles.stage,
+        { backgroundColor: st.tint + "26", borderColor: st.tint + "66" },
+        { opacity: enter, transform: [{ translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }] },
+      ]}
+    >
+      <View style={styles.stageTop}>
+        <Text style={[styles.stageStep, { color: st.tint }]}>שלב {st.n} מתוך {STAGE_COUNT}</Text>
+        <View style={[styles.stageGlyph, { backgroundColor: st.tint }]}>
+          <Text style={styles.stageGlyphText}>{st.glyph}</Text>
+        </View>
+      </View>
+      <Text style={styles.stageTitle}>{st.titleHe}</Text>
+      <Text style={styles.stageDo}>{st.doHe}</Text>
+      <View style={styles.stageTrack}>
+        <View style={[styles.stageFill, { width: `${(st.n / STAGE_COUNT) * 100}%`, backgroundColor: st.tint }]} />
+      </View>
+    </Animated.View>
+  );
+}
+
 export function ProJobBody({
   status,
   serviceNameHe,
@@ -214,6 +267,12 @@ export function ProJobBody({
    * screen arranges itself around the answer instead of showing
    * everything at every stage.
    */
+  /* Each step opens at its top, where its band is — not scrolled to
+     wherever the previous step was left. */
+  const scrollRef = useRef<ScrollView>(null);
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [status]);
   const focus = proJobFocusFor(status);
   const focusHe = proJobFocusHe(status);
 
@@ -274,9 +333,10 @@ export function ProJobBody({
 
   return (
     <View style={[styles.screen, { width, height }]}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+      <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         {/* ---------------- 1. Where ---------------- */}
         <View style={styles.head}>
+          <StageBand status={status} />
           <View style={styles.statusRow}>
             <View style={styles.statusPill}>
               <View style={styles.statusDot} />
@@ -690,6 +750,15 @@ function Wave() {
 const styles = StyleSheet.create({
   screen: { backgroundColor: colors.bg, overflow: "hidden", borderRadius: radii.xl },
   scroll: { paddingBottom: 116 },
+  stage: { alignSelf: "stretch", borderRadius: radii.lg, borderWidth: 1, padding: spacing.lg, marginBottom: spacing.lg },
+  stageTop: { flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center" },
+  stageStep: { fontSize: 13, fontWeight: "800", letterSpacing: 0.3, writingDirection: "rtl" },
+  stageGlyph: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
+  stageGlyphText: { color: "#0d0a16", fontSize: 20, fontWeight: "900" },
+  stageTitle: { color: "#FFFFFF", fontSize: 30, fontWeight: "900", textAlign: "right", writingDirection: "rtl", marginTop: spacing.sm },
+  stageDo: { color: "rgba(247,243,250,0.85)", fontSize: 15, lineHeight: 22, textAlign: "right", writingDirection: "rtl", marginTop: spacing.xs },
+  stageTrack: { height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.12)", marginTop: spacing.md, overflow: "hidden", flexDirection: "row-reverse" },
+  stageFill: { height: 6, borderRadius: 3 },
 
   head: { paddingHorizontal: spacing.lg, paddingTop: spacing.xxl, alignItems: "flex-end" },
   usual: {
