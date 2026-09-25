@@ -187,7 +187,8 @@ export function buildBoxRoom(art: BoxRoomArt): PanoRoom {
     );
     m.position.set(x, h / 2, z);
     scene.add(m);
-    reflect.push(m);
+    /* Not mirrored under the floor: Amit read the upside-down copies as
+       the furniture itself standing on its head — *"הרהיטים הפוכים"*. */
     facing.push(m);
     const s = new THREE.Mesh(
       new THREE.PlaneGeometry(w * 1.15, 0.9),
@@ -208,7 +209,7 @@ export function buildBoxRoom(art: BoxRoomArt): PanoRoom {
     mirror.add(c);
   }
   mirror.scale.y = -1;
-  const mirrorFacing = mirror.children.slice(mirror.children.length - facing.length) as THREE.Mesh[];
+  const mirrorFacing: THREE.Mesh[] = [];
   mirror.renderOrder = 0;
   scene.add(mirror);
 
@@ -282,7 +283,7 @@ export function buildBoxRoom(art: BoxRoomArt): PanoRoom {
 }
 
 /** Very bright AND very saturated: neon, and almost nothing else. */
-function neonMask(t: THREE.Texture): THREE.CanvasTexture | null {
+export function neonMask(t: THREE.Texture): THREE.CanvasTexture | null {
   const img = t.image as CanvasImageSource & { width: number; height: number };
   const w = Math.min(512, img.width), h = Math.max(1, Math.round((img.height / img.width) * w));
   const c = document.createElement("canvas");
@@ -370,7 +371,7 @@ function skirtShadow(): THREE.CanvasTexture {
   return new THREE.CanvasTexture(c);
 }
 
-function contactShadow(): THREE.CanvasTexture {
+export function contactShadow(): THREE.CanvasTexture {
   const c = document.createElement("canvas");
   c.width = 128; c.height = 64;
   const g = c.getContext("2d")!;

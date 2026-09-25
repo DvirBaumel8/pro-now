@@ -15,6 +15,7 @@ import {
   CITY_WALKER_IDS,
 } from "@pro-now/types";
 
+import { contactShadow, neonMask } from "./boxRoom";
 import { measureCycle, type Cycle } from "./sheet";
 import { asphalt, glow, neon, paving, plaster, wordmark } from "./textures";
 
@@ -181,7 +182,13 @@ export const STREET_LENGTH = 300;
  * street had a stranger standing inside the player — funny once, and
  * the first thing anybody sees.
  */
-export const SPAWN = { x: 6.3, z: STREET_LENGTH / 2 - 46 } as const;
+/*
+ * On the salon's pavement, twelve metres short of its door. Amit: *"אם
+ * המספרה אמורה להיות ראשונה, תמקם אותה בתחילת הרחוב, שאגיע אליה ראשון
+ * ולא אלך לחנות מתה."* The finished shop is the first thing you meet;
+ * the ones still being redrawn come after it.
+ */
+export const SPAWN = { x: -6.3, z: STREET_LENGTH / 2 - 50 } as const;
 /** One building's frontage along the street. */
 const BAY = 8.8;
 
@@ -1791,6 +1798,374 @@ export function buildStreet(
     scene.add(g);
   }
 
+  /** The redrawn buildings that turn to face the viewer. See shopBay. */
+  const heroFaces: Array<{ face: THREE.Mesh; group: THREE.Group }> = [];
+  /** Per-frame life for the redrawn shopfronts (their neon). */
+  const redrawnTicks: Array<(t: number) => void> = [];
+  const _heroLocal = new THREE.Vector3();
+
+  /*
+   * THE DEPTH A REDRAWN SHOPFRONT GETS IN FRONT OF ITS WALL.
+   *
+   * The drawing carries the awning, the sign and the roof as paint. Paint
+   * has no shadow and no edge, which is the flatness Amit keeps naming.
+   * So the three things that stick out of a real shopfront are built:
+   *   - the awning, striped, sloping out over the pavement, laid exactly
+   *     over the painted one so the drawing and the object agree;
+   *   - the neon, as light: a halo over the painted tubes that breathes;
+   *   - the roof, with the kit a Tel Aviv roof actually carries.
+   * Placed by fractions of the facade measured on the drawing, so the
+   * built awning covers the painted awning rather than floating near it.
+   */
+  /*
+   * A SHOP WINDOW YOU CAN SEE INTO.
+   *
+   * Amit: *"זה פשוט נראה כמו תמונה מודבקת על קיר ולא כמו חנות אמיתית
+   * שאפשר להיכנס דרכה."* A painted window is a picture of a room; walk
+   * past it and nothing inside moves. So where a shop's room has been
+   * built (room_<id>_back…), the glass is cut OUT of the drawing and the
+   * real room stands behind the hole — the same walls, mirrors and chairs
+   * you walk into — so the inside slides against the frame as you pass,
+   * which is the one thing a picture can never do. The awning becomes an
+   * object hanging out over the pavement, and the barber's pole turns.
+   *
+   * Fractions of the drawing, measured on the file: the glass between
+   * its outer frames, the painted awning, the mullions and the pole.
+   */
+  interface WindowSpec {
+    glass: [number, number, number, number]; // x0, x1, y0 (top), y1 (bottom)
+    awning: [number, number, number, number]; // x0, x1, y0, y1 — the painted one, painted over
+    mullions: number[];
+    pole?: [number, number]; // x, y of the barber's pole
+    stripe: string;
+  }
+  const SHOP_WINDOWS: Record<string, WindowSpec> = {
+    hair: {
+      glass: [243 / 1254, 1023 / 1254, 745 / 1254, 1172 / 1254],
+      awning: [205 / 1254, 1062 / 1254, 634 / 1254, 742 / 1254],
+      mullions: [332 / 1254, 627 / 1254, 920 / 1254],
+      pole: [226 / 1254, 850 / 1254],
+      stripe: "#f25c86",
+    },
+  };
+  const windowFacing: Array<{ m: THREE.Mesh; group: THREE.Group }> = [];
+  const windowSheens: Array<{ tex: THREE.Texture; group: THREE.Group }> = [];
+
+  /** The drawing with its glass cut out and its painted awning painted over. */
+  function punchWindow(tex: THREE.Texture, spec: WindowSpec): THREE.Texture {
+    const img = tex.image as CanvasImageSource & { width: number; height: number };
+    const c = document.createElement("canvas");
+    c.width = img.width; c.height = img.height;
+    const g = c.getContext("2d")!;
+    g.drawImage(img, 0, 0);
+    const W = c.width, H = c.height;
+    const [ax0, ax1, ay0, ay1] = spec.awning;
+    /* the wall just above the awning, drawn down over where it hung */
+    g.drawImage(c, ax0 * W, ay0 * H - H * 0.012, (ax1 - ax0) * W, H * 0.01, ax0 * W, ay0 * H, (ax1 - ax0) * W, (ay1 - ay0) * H);
+    const sh = g.createLinearGradient(0, ay0 * H, 0, ay1 * H);
+    sh.addColorStop(0, "rgba(60,20,30,0)");
+    sh.addColorStop(1, "rgba(60,20,30,0.45)");
+    g.fillStyle = sh;
+    g.fillRect(ax0 * W, ay0 * H, (ax1 - ax0) * W, (ay1 - ay0) * H);
+    const [gx0, gx1, gy0, gy1] = spec.glass;
+    g.clearRect(gx0 * W, gy0 * H, (gx1 - gx0) * W, (gy1 - gy0) * H);
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.anisotropy = 8;
+    return t;
+  }
+
+  function awningTex(colour: string, scallop: boolean): THREE.CanvasTexture {
+    const c = document.createElement("canvas");
+    c.width = 512; c.height = scallop ? 64 : 128;
+    const g = c.getContext("2d")!;
+    const n = 18, sw = c.width / n;
+    if (scallop) {
+      g.beginPath();
+      g.moveTo(0, 0); g.lineTo(c.width, 0); g.lineTo(c.width, 30);
+      for (let i = n - 1; i >= 0; i--) g.arc(i * sw + sw / 2, 30, sw / 2, 0, Math.PI, false);
+      g.closePath();
+      g.clip();
+    }
+    for (let i = 0; i < n; i++) {
+      g.fillStyle = i % 2 ? "#fff4ef" : colour;
+      g.fillRect(i * sw, 0, sw, c.height);
+    }
+    /* cloth: a soft sag between the ribs, lighter at the front edge */
+    const sag = g.createLinearGradient(0, 0, 0, c.height);
+    sag.addColorStop(0, "rgba(40,10,20,0.25)");
+    sag.addColorStop(1, "rgba(255,255,255,0.08)");
+    g.fillStyle = sag;
+    g.fillRect(0, 0, c.width, c.height);
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.anisotropy = 8;
+    return t;
+  }
+
+  function shopWindow(g: THREE.Group, s: ShopSpec, w: number, faceH: number, spec: WindowSpec) {
+    const X = (u: number) => (u - 0.5) * w;
+    const Y = (v: number) => (1 - v) * faceH;
+    const [gx0, gx1, gy0, gy1] = spec.glass;
+    const x0 = X(gx0), x1 = X(gx1), yTop = Y(gy0), yF = Y(gy1);
+    const FACE = 0.42, BACK = -0.05;
+    g.userData.hole = { x0, x1, y0: yF, y1: yTop };
+    g.userData.faceW = w;
+
+    /* ----- the room behind the glass ----- */
+    const back = textures[`room_${s.id}_back.webp`]!;
+    const bImg = back.image as { width: number; height: number };
+    const RW = x1 - x0 + 0.7, RD = 3.4, cx = (x0 + x1) / 2;
+    const RH = RW / (bImg.width / bImg.height);
+    const zb = BACK - RD;
+    /* Warm, and out of the street's haze: the inside of a lit shop at
+       night is the most saturated thing on the street, not the palest. */
+    const lit = (map: THREE.Texture | null, colour = 0xf2c8a8) =>
+      new THREE.MeshBasicMaterial({ map, color: colour, toneMapped: false, fog: false });
+    const prep = (t: THREE.Texture) => { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t; };
+    const room = new THREE.Group();
+    g.add(room);
+    const backWall = new THREE.Mesh(new THREE.PlaneGeometry(RW, RH), lit(prep(back)));
+    backWall.position.set(cx, yF + RH / 2, zb);
+    room.add(backWall);
+    const glow = neonMask(back);
+    if (glow) {
+      const gm = new THREE.MeshBasicMaterial({ map: glow, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, opacity: 0.55 });
+      const gl = new THREE.Mesh(new THREE.PlaneGeometry(RW, RH), gm);
+      gl.position.set(cx, yF + RH / 2, zb + 0.01);
+      room.add(gl);
+      redrawnTicks.push((t) => { gm.opacity = (0.45 + 0.2 * Math.sin(t * 2.1)) * (Math.sin(t * 23) > 0.985 ? 0.35 : 1); });
+    }
+    /* Side walls show the part of their drawing nearest the back wall:
+       the room is shallower than it is wide. */
+    const side = (id: "left" | "right") => {
+      const src = textures[`room_${s.id}_${id}.webp`];
+      const t = src ? prep(src.clone()) : null;
+      if (t) {
+        t.repeat.x = RD / RW;
+        t.offset.x = id === "left" ? 1 - RD / RW : 0;
+        t.needsUpdate = true;
+      }
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(RD, RH), lit(t, t ? 0xe8b898 : 0xc98a94));
+      m.position.set(id === "left" ? cx - RW / 2 : cx + RW / 2, yF + RH / 2, zb + RD / 2);
+      m.rotation.y = id === "left" ? Math.PI / 2 : -Math.PI / 2;
+      room.add(m);
+    };
+    side("left");
+    side("right");
+    const fsrc = textures[`room_${s.id}_floor.webp`];
+    const ft = fsrc ? prep(fsrc.clone()) : null;
+    if (ft) { ft.wrapS = ft.wrapT = THREE.RepeatWrapping; ft.repeat.set(RW / 2.4, RD / 2.4); ft.needsUpdate = true; }
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(RW, RD), lit(ft, 0xc89080));
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.set(cx, yF + 0.002, zb + RD / 2);
+    room.add(floor);
+    const ceil = new THREE.Mesh(new THREE.PlaneGeometry(RW, RD), lit(null, 0x6a3a44));
+    ceil.rotation.x = Math.PI / 2;
+    ceil.position.set(cx, yF + Math.min(RH, yTop - yF + 0.6), zb + RD / 2);
+    room.add(ceil);
+    /* pendant lights, warm, hanging in a row just inside the glass */
+    for (let i = 0; i < 3; i++) {
+      const l = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xffc98a, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }));
+      l.scale.set(0.9, 0.9, 1);
+      l.position.set(cx + (i - 1) * (x1 - x0) * 0.33, yTop - 0.35, BACK - 1.1);
+      room.add(l);
+    }
+    /* The furniture, standing on the floor at its own depth. */
+    const props = [1, 2, 3, 4, 5, 6].map((n) => textures[`room_${s.id}_prop${n}.webp`]).filter((t): t is THREE.Texture => Boolean(t));
+    const aspect = (t: THREE.Texture) => { const i = t.image as { width: number; height: number }; return i.width / i.height; };
+    const sorted = [...props].sort((a, b) => aspect(b) - aspect(a));
+    const wide = sorted.slice(0, 2), chairs = sorted.slice(2);
+    const shade = contactShadow();
+    const place = (t: THREE.Texture, x: number, z: number, h: number) => {
+      const pw = h * aspect(t);
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(pw, h), new THREE.MeshBasicMaterial({ map: prep(t), transparent: true, alphaTest: 0.4, toneMapped: false, fog: false, color: 0xf0c8b0 }));
+      m.position.set(x, yF + h / 2, z);
+      room.add(m);
+      windowFacing.push({ m, group: g });
+      const sd = new THREE.Mesh(new THREE.PlaneGeometry(pw * 1.1, 0.8), new THREE.MeshBasicMaterial({ map: shade, transparent: true, depthWrite: false }));
+      sd.rotation.x = -Math.PI / 2;
+      sd.position.set(x, yF + 0.01, z + 0.05);
+      room.add(sd);
+    };
+    chairs.slice(0, 3).forEach((t, i) => place(t, cx + (i - 1) * RW * 0.25, zb + 1.1, 1.1));
+    if (wide[0]) place(wide[0], cx + RW / 2 - 1.2, zb + 2.5, 1.05);
+
+    /* ----- the opening: the wall's thickness, the frames, the glass ----- */
+    const bronze = new THREE.MeshStandardMaterial({ color: 0x2a211d, metalness: 0.6, roughness: 0.4 });
+    const reveal = new THREE.MeshStandardMaterial({ color: 0xc88f98, roughness: 0.85, side: THREE.DoubleSide });
+    const deep = FACE - BACK;
+    const jamb = (wid: number, hei: number, pos: [number, number, number], rx: number, ry: number) => {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(wid, hei), reveal);
+      m.position.set(...pos); m.rotation.set(rx, ry, 0);
+      m.receiveShadow = true;
+      g.add(m);
+    };
+    jamb(deep, yTop - yF, [x0, (yTop + yF) / 2, (FACE + BACK) / 2], 0, Math.PI / 2);
+    jamb(deep, yTop - yF, [x1, (yTop + yF) / 2, (FACE + BACK) / 2], 0, -Math.PI / 2);
+    jamb(x1 - x0, deep, [cx, yTop, (FACE + BACK) / 2], Math.PI / 2, 0);
+    jamb(x1 - x0, deep, [cx, yF, (FACE + BACK) / 2], -Math.PI / 2, 0);
+    const zGlass = FACE - 0.14;
+    for (const u of spec.mullions) {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(0.1, yTop - yF, 0.08), bronze);
+      m.position.set(X(u), (yTop + yF) / 2, zGlass);
+      m.castShadow = true;
+      g.add(m);
+    }
+    for (const y of [yTop - 0.04, yF + 0.04]) {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, 0.08, 0.08), bronze);
+      m.position.set(cx, y, zGlass);
+      g.add(m);
+    }
+    /* the door: the middle mullion is where its two leaves meet */
+    const gold = new THREE.MeshStandardMaterial({ color: 0xe0b060, metalness: 0.9, roughness: 0.25, emissive: 0x7a5020, emissiveIntensity: 0.4 });
+    for (const d of [-0.09, 0.09]) {
+      const hdl = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.55, 10), gold);
+      hdl.position.set(X(spec.mullions[1] ?? 0.5) + d, yF + 1.05, zGlass + 0.07);
+      g.add(hdl);
+    }
+    /* Glass: almost nothing, and a sheen that slides as you move. */
+    const sheenC = document.createElement("canvas");
+    sheenC.width = 256; sheenC.height = 128;
+    const sg = sheenC.getContext("2d")!;
+    const band = sg.createLinearGradient(0, 128, 256, 0);
+    band.addColorStop(0.0, "rgba(255,255,255,0)");
+    band.addColorStop(0.42, "rgba(255,255,255,0)");
+    band.addColorStop(0.5, "rgba(255,240,245,0.55)");
+    band.addColorStop(0.56, "rgba(255,255,255,0)");
+    band.addColorStop(0.7, "rgba(255,255,255,0.18)");
+    band.addColorStop(0.74, "rgba(255,255,255,0)");
+    sg.fillStyle = band; sg.fillRect(0, 0, 256, 128);
+    const sheen = new THREE.CanvasTexture(sheenC);
+    const glass = new THREE.Mesh(
+      new THREE.PlaneGeometry(x1 - x0, yTop - yF),
+      new THREE.MeshBasicMaterial({ map: sheen, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false })
+    );
+    glass.position.set(cx, (yTop + yF) / 2, zGlass - 0.01);
+    g.add(glass);
+    /* the sheen moves with the viewer, which is what glass does */
+    windowSheens.push({ tex: sheen, group: g });
+
+    /* ----- the awning, out over the pavement ----- */
+    const [ax0, ax1, ay0] = spec.awning;
+    const awW = X(ax1) - X(ax0), awD = 1.35, slope = 0.42;
+    const pivotY = Y(ay0) - 0.05;
+    const awMat = new THREE.MeshStandardMaterial({ map: awningTex(spec.stripe, false), side: THREE.DoubleSide, roughness: 0.9, emissive: 0xffffff, emissiveIntensity: 0.18 });
+    awMat.emissiveMap = awMat.map;
+    const awning = new THREE.Mesh(new THREE.PlaneGeometry(awW, awD), awMat);
+    awning.rotation.x = slope - Math.PI / 2;
+    awning.position.set((X(ax0) + X(ax1)) / 2, pivotY - Math.sin(slope) * awD / 2, FACE + 0.02 + Math.cos(slope) * awD / 2);
+    awning.castShadow = true;
+    g.add(awning);
+    const valMat = new THREE.MeshStandardMaterial({ map: awningTex(spec.stripe, true), side: THREE.DoubleSide, transparent: true, alphaTest: 0.4, roughness: 0.9, emissive: 0xffffff, emissiveIntensity: 0.2 });
+    valMat.emissiveMap = valMat.map;
+    const valance = new THREE.Mesh(new THREE.PlaneGeometry(awW, 0.34), valMat);
+    valance.position.set((X(ax0) + X(ax1)) / 2, pivotY - Math.sin(slope) * awD - 0.17, FACE + 0.02 + Math.cos(slope) * awD);
+    valance.castShadow = true;
+    g.add(valance);
+    /* its two end cheeks, so from along the street it has a side */
+    const cheekShape = new THREE.Shape();
+    cheekShape.moveTo(0, 0);
+    cheekShape.lineTo(Math.cos(slope) * awD, -Math.sin(slope) * awD);
+    cheekShape.lineTo(Math.cos(slope) * awD, -Math.sin(slope) * awD - 0.34);
+    cheekShape.lineTo(0, -0.25);
+    cheekShape.closePath();
+    const cheekMat = new THREE.MeshStandardMaterial({ color: spec.stripe, side: THREE.DoubleSide, roughness: 0.9, emissive: spec.stripe, emissiveIntensity: 0.15 });
+    for (const ex of [X(ax0), X(ax1)]) {
+      const ch = new THREE.Mesh(new THREE.ShapeGeometry(cheekShape), cheekMat);
+      ch.rotation.y = -Math.PI / 2;
+      ch.position.set(ex, pivotY, FACE + 0.02);
+      g.add(ch);
+    }
+
+    /* ----- the barber's pole, turning ----- */
+    if (spec.pole) {
+      const pc = document.createElement("canvas");
+      pc.width = 64; pc.height = 256;
+      const pg = pc.getContext("2d")!;
+      pg.fillStyle = "#fbf6f2"; pg.fillRect(0, 0, 64, 256);
+      const cols = ["#d8283c", "#fbf6f2", "#2848b8", "#fbf6f2"];
+      for (let k = -8; k < 16; k++) {
+        pg.fillStyle = cols[((k % 4) + 4) % 4]!;
+        pg.beginPath();
+        pg.moveTo(0, k * 32); pg.lineTo(64, k * 32 - 64); pg.lineTo(64, k * 32 - 32); pg.lineTo(0, k * 32 + 32);
+        pg.closePath(); pg.fill();
+      }
+      const pt = new THREE.CanvasTexture(pc);
+      pt.colorSpace = THREE.SRGBColorSpace;
+      pt.wrapS = pt.wrapT = THREE.RepeatWrapping;
+      pt.repeat.set(2, 1.6);
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.8, 24, 1, true), new THREE.MeshBasicMaterial({ map: pt, toneMapped: false, color: 0xe8e8e8 }));
+      const [px, py] = spec.pole;
+      const at = new THREE.Vector3(X(px), Y(py), FACE + 0.26);
+      pole.position.copy(at);
+      g.add(pole);
+      const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.125, 0.125, 0.82, 24, 1, true), new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.18, roughness: 0.05, metalness: 0.2 }));
+      tube.position.copy(at);
+      g.add(tube);
+      for (const dy of [0.46, -0.46]) {
+        const cap = new THREE.Mesh(new THREE.CylinderGeometry(dy > 0 ? 0.08 : 0.14, dy > 0 ? 0.14 : 0.08, 0.12, 20), gold);
+        cap.position.set(at.x, at.y + dy, at.z);
+        g.add(cap);
+      }
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.26), gold);
+      arm.position.set(at.x, at.y + 0.3, FACE + 0.13);
+      g.add(arm);
+      redrawnTicks.push((t) => { pt.offset.y = (t * 0.35) % 1; });
+    }
+  }
+
+  function redrawnDepth(g: THREE.Group, s: ShopSpec, w: number, faceH: number, hasWindow = false) {
+    if (!hasWindow) {
+    const stripes = document.createElement("canvas");
+    stripes.width = 256; stripes.height = 8;
+    const sx = stripes.getContext("2d")!;
+    for (let i = 0; i < 16; i++) {
+      sx.fillStyle = i % 2 ? "#fff3ee" : (s.neonColour ?? "#ff6fa8");
+      sx.fillRect(i * 16, 0, 16, 8);
+    }
+    const stripeTex = new THREE.CanvasTexture(stripes);
+    stripeTex.colorSpace = THREE.SRGBColorSpace;
+    const awnW = w * 0.72, awnD = 1.25;
+    const awning = new THREE.Mesh(
+      new THREE.BoxGeometry(awnW, 0.07, awnD),
+      new THREE.MeshStandardMaterial({ map: stripeTex, roughness: 0.8, emissive: 0xffffff, emissiveMap: stripeTex, emissiveIntensity: 0.12 })
+    );
+    awning.position.set(0, faceH * 0.43, 0.42 + awnD / 2);
+    awning.rotation.x = 0.32;
+    awning.castShadow = true;
+    g.add(awning);
+    /* the scalloped front edge, the one line that says "awning" from afar */
+    const valance = new THREE.Mesh(
+      new THREE.BoxGeometry(awnW, 0.32, 0.04),
+      new THREE.MeshStandardMaterial({ map: stripeTex, roughness: 0.8, emissive: 0xffffff, emissiveMap: stripeTex, emissiveIntensity: 0.12 })
+    );
+    valance.position.set(0, faceH * 0.43 - Math.sin(0.32) * awnD / 2 - 0.16, 0.42 + Math.cos(0.32) * awnD);
+    g.add(valance);
+    }
+
+    /* The neon's own light over the painted scissors. */
+    const halo = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: glowTex, color: new THREE.Color(s.neonColour ?? "#ff6fa8"),
+      transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false,
+    }));
+    halo.scale.set(3.2, 3.2, 1);
+    halo.position.set(w * 0.13, faceH * 0.55, 0.7);
+    g.add(halo);
+    redrawnTicks.push((t: number) => { halo.material.opacity = 0.35 + 0.2 * Math.sin(t * 2.3) * (Math.sin(t * 17) > 0.97 ? 0.2 : 1); });
+
+    /* The roof: solar panels and a water heater, on top of the building. */
+    const roofKit = CITY_ROOF_IDS.map((id) => textures[id]).filter((t): t is THREE.Texture => Boolean(t));
+    [0, 3].forEach((pick, i) => {
+      const src = roofKit[pick % Math.max(1, roofKit.length)];
+      if (!src) return;
+      const piece = centrePiece(src);
+      const prop = cutout(piece.tex, i === 0 ? 1.9 : 1.5, 1, piece.aspect);
+      prop.position.set((i === 0 ? -1 : 1) * w * 0.22, faceH - 0.1, -1.2);
+      g.add(prop);
+    });
+  }
+
   /** One of his shops: the drawing is the building. */
   function shopBay(s: ShopSpec) {
     const g = new THREE.Group();
@@ -1798,7 +2173,39 @@ export function buildStreet(
     g.position.set(x, 0, s.z);
     g.rotation.y = s.side < 0 ? Math.PI / 2 : -Math.PI / 2;
 
-    const tex = textures[s.facade];
+    /*
+     * -----------------------------------------------------------------
+     * THE BUILDING HE CHOSE, STANDING IN THE STREET
+     * -----------------------------------------------------------------
+     * Amit, pointing at the pink salon drawn at three-quarters: *"זה
+     * מה שאני רוצה שיראו ברחוב!!! לא כתמונת מעבר!!! אני רוצה שיראו
+     * אותו ברחוב בערך כמו בתמונה."*
+     *
+     * Where a shop's redrawn building has arrived (`hero_<id>`), it IS
+     * the shop in the street: stood on the plot, a little taller than a
+     * flat front because it carries its own roof, and turning gently to
+     * keep its face to you as you walk — a drawing at three-quarters
+     * seen from its edge is exactly the cardboard he keeps pointing at.
+     * No carcass behind it and no ledges on it: the drawing has its own
+     * depth and its own cornice, and a box showing through its sky would
+     * undo both.
+     */
+    /*
+     * ...and then, measured from every angle, it was not. A drawing made
+     * at three-quarters from above is right from exactly one place — in
+     * front of the shop — and a sheet of card from every other. Amit, on
+     * the board of angles: *"נראה מעוות ולא טוב."*
+     *
+     * So a redrawn shop is built instead: its STRAIGHT facade (drawn
+     * face-on, so perspective is the engine's and correct from anywhere,
+     * the way the houses either side are), and in front of it the things
+     * that give a real shopfront its depth — an awning that stands out
+     * from the wall and throws a shadow, its neon breathing, and what
+     * lives on its roof. `isHero` now means "this shop has been redrawn".
+     */
+    const isHero = Boolean(textures[`hero_${s.id}.webp`]);
+    const win = SHOP_WINDOWS[s.id] && textures[`room_${s.id}_back.webp`] && textures[s.facade] ? SHOP_WINDOWS[s.id] : undefined;
+    const tex = win ? punchWindow(textures[s.facade]!, win) : textures[s.facade];
     /** The shopfront's own material, so the way in can fade it. */
     let faceMat: THREE.MeshStandardMaterial | null = null;
     let faceH = 8.4;
@@ -1860,7 +2267,7 @@ export function buildStreet(
        */
       /* The shopfronts get the same treatment as the houses — see the
          note on `wallHeight` in `ordinary`. */
-      const shopHeight = flatHeight(textures[`shop_${s.id}_height`]);
+      const shopHeight = isHero ? null : flatHeight(textures[`shop_${s.id}_height`]);
       const face = new THREE.Mesh(
         shopHeight
           ? new THREE.PlaneGeometry(w, faceH, 128, 128)
@@ -1891,7 +2298,7 @@ export function buildStreet(
        */
       emissiveIntensity: 0.18,
           /* The relief the drawing cannot have. See `relief`. */
-          normalMap: relief(tex),
+          normalMap: isHero ? null : relief(tex),
           normalScale: new THREE.Vector2(1.15, 1.15),
           displacementMap: shopHeight ?? null,
           displacementScale: shopHeight ? 0.44 : 0,
@@ -1906,6 +2313,10 @@ export function buildStreet(
       face.position.set(0, faceH / 2, 0.42);
       g.add(face);
       faceMat = face.material as THREE.MeshStandardMaterial;
+      /* Faces the street square, like the buildings either side of it.
+         Amit: *"ככה צריכים לראות, זה הזווית"* — standing in front of the
+         shop, the building filling the view. Turning it to follow the
+         camera made it lean at every angle except that one. */
 
       /*
        * A cornice at the top, and a canopy over the shop window — the
@@ -1917,7 +2328,9 @@ export function buildStreet(
       /* The canopy sits on the awning line every one of these
          shopfronts is drawn with, and its shadow falls straight down
          the glass — the most useful shadow on the street. */
-      ledge(g, faceH * 0.45, w + 0.06, 0.55, 0.14, canopyMat);
+      if (!isHero) ledge(g, faceH * 0.45, w + 0.06, 0.55, 0.14, canopyMat);
+      if (isHero) redrawnDepth(g, s, w, faceH, Boolean(win));
+      if (win) shopWindow(g, s, w, faceH, win);
     }
 
     /*
@@ -1934,11 +2347,27 @@ export function buildStreet(
        shopfront narrower than its bay would otherwise show the street
        a bare edge instead of a party wall. */
     const depth = 11;
+    /* Behind a see-into window the carcass's front is a wall with the
+       window's hole in it, so the room inside shows and nothing else. */
+    const hole = g.userData.hole as { x0: number; x1: number; y0: number; y1: number } | undefined;
+    const carcH = Math.max(3.4, faceH - 0.5);
     const carcass = new THREE.Mesh(
-      new THREE.BoxGeometry(BAY, Math.max(3.4, faceH - 0.5), depth),
-      wallMats[1]!
+      new THREE.BoxGeometry(BAY, carcH, depth),
+      hole
+        ? [0, 1, 2, 3, 4, 5].map((i) => (i === 4 ? new THREE.MeshBasicMaterial({ visible: false }) : wallMats[1]!))
+        : wallMats[1]!
     );
-    carcass.position.set(0, Math.max(3.4, faceH - 0.5) / 2, -depth / 2 - 0.05);
+    carcass.position.set(0, carcH / 2, -depth / 2 - 0.05);
+    if (hole) {
+      const front = new THREE.Shape();
+      front.moveTo(-BAY / 2, 0); front.lineTo(BAY / 2, 0); front.lineTo(BAY / 2, carcH); front.lineTo(-BAY / 2, carcH); front.closePath();
+      const h = new THREE.Path();
+      h.moveTo(hole.x0, hole.y0); h.lineTo(hole.x0, hole.y1); h.lineTo(hole.x1, hole.y1); h.lineTo(hole.x1, hole.y0); h.closePath();
+      front.holes.push(h);
+      const panel = new THREE.Mesh(new THREE.ShapeGeometry(front), wallMats[1]!);
+      panel.position.z = -0.05;
+      g.add(panel);
+    }
     carcass.castShadow = carcass.receiveShadow = true;
     g.add(carcass);
 
@@ -1993,7 +2422,7 @@ export function buildStreet(
 
       emit(x - s.side * 2.6, faceH + 2.4, s.z, c3, 210, 24);
       lamps.push(new THREE.Vector3(x, faceH + 2.4, s.z));
-    } else {
+    } else if (!isHero) {
       const sign = new THREE.Mesh(
         new THREE.PlaneGeometry(6.6, 1.65),
         new THREE.MeshBasicMaterial({
@@ -2043,12 +2472,17 @@ export function buildStreet(
      * down the middle of the word — a sign-maker would never, and a
      * screenshot showed exactly why.
      */
+    /* Beside a see-into window the blade hangs at the building's corner,
+       the way a real one does, not across the middle of the front —
+       where, seen head-on, its arm was a black stick over the balcony. */
+    const faceW = g.userData.faceW as number | undefined;
+    const signX = faceW ? faceW / 2 - 0.35 : 0;
     const ARM = 2.5;
     const bracket = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.09, ARM), trimMat);
-    bracket.position.set(0, 6.9, ARM / 2);
+    bracket.position.set(signX, 6.9, ARM / 2);
     g.add(bracket);
     const wallPlate = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.5, 0.18), trimMat);
-    wallPlate.position.set(0, 6.9, 0.12);
+    wallPlate.position.set(signX, 6.9, 0.12);
     g.add(wallPlate);
 
     const bladeH = s.sponsor ? 2.6 : 1.2;
@@ -2057,7 +2491,7 @@ export function buildStreet(
     const bladeTop = 6.72;
     for (const dz of [-bladeW / 2 + 0.16, bladeW / 2 - 0.16]) {
       const drop = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.36, 0.05), trimMat);
-      drop.position.set(0, bladeTop + 0.1, bladeZ + dz);
+      drop.position.set(signX, bladeTop + 0.1, bladeZ + dz);
       g.add(drop);
     }
 
@@ -2084,11 +2518,11 @@ export function buildStreet(
         })
       );
       blade.rotation.y = (Math.PI / 2) * face;
-      blade.position.set(0, bladeTop - bladeH / 2, bladeZ);
+      blade.position.set(signX, bladeTop - bladeH / 2, bladeZ);
       g.add(blade);
       faceFade(blade, 1);
     }
-    const blade = { position: new THREE.Vector3(0, bladeTop - bladeH / 2, bladeZ) };
+    const blade = { position: new THREE.Vector3(signX, bladeTop - bladeH / 2, bladeZ) };
 
     const bladeGlow = new THREE.Sprite(
       new THREE.SpriteMaterial({
@@ -2140,7 +2574,9 @@ export function buildStreet(
       new THREE.PlaneGeometry(13, 13),
       new THREE.MeshBasicMaterial({
         map: glowTex, color: s.sponsor ? 0xff6f86 : 0xffc07a, transparent: true,
-        opacity: 0.07, blending: THREE.AdditiveBlending, depthWrite: false,
+        /* A redrawn building is painted with its own glow; a pool of
+           light in front of it burned a white blob into the pavement. */
+        opacity: isHero ? 0.025 : 0.07, blending: THREE.AdditiveBlending, depthWrite: false,
       })
     );
     pool.rotation.x = -Math.PI / 2;
@@ -2188,7 +2624,19 @@ export function buildStreet(
        picture keeps its own proportions, and the walls are the same
        plaster the rest of the street is built from.
        --------------------------------------------------------------- */
-    const roomTex = s.interior ? textures[s.interior] : undefined;
+    /*
+     * A shop has a room if ANY room of it arrived — not only the old
+     * single interior picture. On the published site the salon's old
+     * picture was missing while its whole 3D room was there, and because
+     * the door was decided by the old picture alone, pressing "היכנס"
+     * opened the flat list instead of the room. Amit: *"איפה החנות? איפה
+     * התלת מימד?"* The box room and the panorama now open the door too;
+     * the old picture, where it exists, still lines the fallback box.
+     */
+    const roomTex =
+      (s.interior ? textures[s.interior] : undefined) ??
+      textures[`room_${s.id}_back.webp`] ??
+      textures[`room_${s.id}_pano.webp`];
     let fadeFace: ((k: number) => void) | null = null;
     let roomSpot: THREE.Vector3 | undefined;
     if (roomTex) {
@@ -2562,9 +3010,13 @@ export function buildStreet(
   }
   /** Where the street furniture stands: on the kerb, out of the way. */
   const FURNITURE_X = KERB_X + 0.7;
+  /* Nothing stands in front of a shop window you can see into: a lamp
+     post across the glass is exactly where the eye was meant to go. */
+  const clearOfWindow = (x: number, z: number, reach = 6.5) =>
+    !specs.some((sp) => SHOP_WINDOWS[sp.id] && Math.sign(x) === Math.sign(FRONT_X * sp.side) && Math.abs(z - sp.z) < reach);
   for (let z = STREET_LENGTH / 2 - 8; z > -STREET_LENGTH / 2; z -= 23) {
-    lamp(FURNITURE_X, z);
-    lamp(-FURNITURE_X, z - 11.5);
+    if (clearOfWindow(FURNITURE_X, z)) lamp(FURNITURE_X, z);
+    if (clearOfWindow(-FURNITURE_X, z - 11.5)) lamp(-FURNITURE_X, z - 11.5);
   }
 
   /* ---------------------------------------------------------------
@@ -3142,8 +3594,8 @@ export function buildStreet(
   /* Every 34 metres and no closer. A tree at every lamp is an avenue,
      and an avenue is a green tunnel you cannot see a shop through. */
   for (let z = STREET_LENGTH / 2 - 8; z > -STREET_LENGTH / 2; z -= 46) {
-    tree(FURNITURE_X - 0.3, z - 7, 0.94 + Math.random() * 0.12);
-    tree(-FURNITURE_X + 0.3, z - 18.5, 0.94 + Math.random() * 0.12);
+    if (clearOfWindow(FURNITURE_X, z - 7, 16)) tree(FURNITURE_X - 0.3, z - 7, 0.94 + Math.random() * 0.12);
+    if (clearOfWindow(-FURNITURE_X, z - 18.5, 16)) tree(-FURNITURE_X + 0.3, z - 18.5, 0.94 + Math.random() * 0.12);
   }
 
   /* ---------------------------------------------------------------
@@ -3666,6 +4118,27 @@ export function buildStreet(
   let lendClock = 1;
   const _focus = new THREE.Vector3();
   function update(dt: number, elapsed: number, camera: THREE.Camera) {
+    /* The redrawn buildings keep their face to you, within limits: past
+       about fifty degrees a three-quarter drawing stops reading as one. */
+    for (const f of redrawnTicks) f(elapsed);
+    /* Furniture behind a shop window keeps its face to you, like in the room. */
+    for (const f of windowFacing) {
+      _heroLocal.copy(camera.position);
+      f.group.worldToLocal(_heroLocal);
+      const a = Math.atan2(_heroLocal.x - f.m.position.x, _heroLocal.z - f.m.position.z);
+      f.m.rotation.y = Math.max(-1.0, Math.min(1.0, a));
+    }
+    for (const w of windowSheens) {
+      _heroLocal.copy(camera.position);
+      w.group.worldToLocal(_heroLocal);
+      w.tex.offset.x = -_heroLocal.x * 0.035 + _heroLocal.z * 0.01;
+    }
+    for (const h of heroFaces) {
+      _heroLocal.copy(camera.position);
+      h.group.worldToLocal(_heroLocal);
+      const a = Math.atan2(_heroLocal.x - h.face.position.x, _heroLocal.z - h.face.position.z);
+      h.face.rotation.y = Math.max(-0.9, Math.min(0.9, a));
+    }
     /*
      * The shadow box rides with the viewer — see the moon above. It
      * is aimed a few metres ahead of the camera rather than at it, so

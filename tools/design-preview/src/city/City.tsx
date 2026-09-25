@@ -1416,8 +1416,12 @@ export function City({
           while (d > Math.PI) d -= Math.PI * 2;
           while (d < -Math.PI) d += Math.PI * 2;
           const near = Math.max(0, Math.min(1, (9 - bd) / 4.5));
+          /* A shop whose building has been redrawn is looked at nearly
+             head-on once you stop — Amit: *"ככה צריכים לראות, זה
+             הזווית"* — the way you would stop and face a shopfront. */
+          const cap = HERO_READY.has(best.id) && push <= 0.08 ? 1.4 : 0.85;
           lookWant =
-            Math.max(-0.85, Math.min(0.85, d)) * near * (push > 0.08 ? 0.42 : 1);
+            Math.max(-cap, Math.min(cap, d)) * near * (push > 0.08 ? 0.42 : 1);
         }
         /* Frame-rate independent easing, and slow: the drift is the
            point. Snapping to a shop as you pass reads as a bug. */
@@ -1444,6 +1448,11 @@ export function City({
          * something; walk on and the camera comes back in behind you.
          */
         const wantFrame = best && push < 0.08 ? Math.max(0, Math.min(1, (9 - bd) / 4)) : 0;
+        /* A shop you can see into is framed CLOSE, at about head height,
+           the way Amit's favourite shot has it: the window fills the
+           screen and the room behind it is the thing you are looking at,
+           not a facade seen from across the road. */
+        const closeUp = Boolean(best && HERO_READY.has(best.id));
         frame += (wantFrame - frame) * (1 - Math.pow(0.08, dt));
 
         let camYaw = yaw + look + turn;
@@ -1480,7 +1489,7 @@ export function City({
          */
         player.group.rotation.y = camYaw + Math.PI;
 
-        const follow = 6.2 + pitch * 3.0 + frame * 5.2;
+        const follow = 6.2 + pitch * 3.0 + frame * (closeUp ? 1.6 : 5.2);
         const wide = scripted
           ? scripted.dist
           : WIDE.dist + (follow - WIDE.dist) * k;
@@ -1557,7 +1566,7 @@ export function City({
          */
         const hgt = scripted
           ? scripted.hgt
-          : WIDE.hgt + (1.2 + dist * 0.33 + frame * 1.1 - WIDE.hgt) * k;
+          : WIDE.hgt + (1.2 + dist * 0.33 + frame * (closeUp ? -0.6 : 1.1) - WIDE.hgt) * k;
         const ahead = scripted ? dist * scripted.ahead : dist * 1.55 * (0.45 + 0.55 * k);
         camPos.set(
           player.group.position.x - fx * dist,
@@ -1567,7 +1576,7 @@ export function City({
         camera.position.lerp(camPos, 1 - Math.pow(0.002, dt));
         aim.set(
           player.group.position.x + fx * ahead,
-          (1.1 + dist * 0.16) * k + 2.6 * (1 - k),
+          (1.1 + dist * 0.16 + (closeUp ? frame * 1.3 : 0)) * k + 2.6 * (1 - k),
           player.group.position.z + fz * ahead
         );
         camera.lookAt(aim);
@@ -1928,10 +1937,11 @@ export function City({
             const hero = nearId
               ? HERO_READY.has(nearId) ? `hero_${nearId}.webp` : DOORSTEP_HERO[nearId]
               : undefined;
-            if (hero && shop) {
-              setDoorstep({ src: `${base}${DOORSTEP_DIR}${hero}`, he: shop.he, neon: shop.neonColour ?? "#FF6B4A" });
-              window.setTimeout(() => setDoorstep(null), DOORSTEP_MS);
-            }
+            /* No doorstep picture any more. Amit: *"זה המבנה שצריכים לראות
+               כשמטיילים ברחוב — שנכנסים לחנות צריך ישר להיכנס לחנות התלת
+               מימד."* The building now stands in the street itself (see
+               `heroFaces` in street.ts); the door goes straight in. */
+            void hero; void shop; void setDoorstep; void DOORSTEP_DIR; void DOORSTEP_MS;
             enterRef.current?.();
           }}
         >
