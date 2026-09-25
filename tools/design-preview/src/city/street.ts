@@ -13,6 +13,7 @@ import {
   CITY_ROOF_IDS,
   CITY_VEHICLE_IDS,
   CITY_WALKER_IDS,
+  CITY_PARK_IDS,
 } from "@pro-now/types";
 
 import { contactShadow, neonMask } from "./boxRoom";
@@ -255,6 +256,7 @@ export const OPTIONAL_ART: readonly string[] = [
   ...CITY_TREE_IDS,
   ...CITY_VEHICLE_IDS,
   ...CITY_WALKER_IDS,
+  ...CITY_PARK_IDS,
 ];
 
 
@@ -1806,6 +1808,8 @@ export function buildStreet(
   const heroFaces: Array<{ face: THREE.Mesh; group: THREE.Group }> = [];
   /** Per-frame life for the redrawn shopfronts (their neon). */
   const redrawnTicks: Array<(t: number) => void> = [];
+  /** Per-frame life that needs the camera — the dog park's dogs. */
+  const parkTicks: Array<(dt: number, t: number, camera: THREE.Camera) => void> = [];
   const _heroLocal = new THREE.Vector3();
 
   /*
@@ -3577,7 +3581,7 @@ export function buildStreet(
      * metre and a bit reads as a dog from the pavement, and there are
      * two of them, because one dog in a dog park is a lost dog.
      */
-    const dog = measureCycle(textures["walk_dog"]);
+    const dog = textures["park_dog1"] ? null : measureCycle(textures["walk_dog"]);
     if (dog) {
       drawnWalker(FRONT_X - 2.6, 60.2, dog, 1.15, 1.1, 0);
       drawnWalker(FRONT_X - 1.4, 63.4, dog, 1.0, 1.1, 0);
@@ -4109,6 +4113,95 @@ export function buildStreet(
       }
       scene.add(g);
 
+      /*
+       * THE PARK, WITH DOGS IN IT DOING DOG THINGS.
+       *
+       * Amit: *"גינת הכלבים צריכה שדרוג משמעותי — כלבים גדולים ותנועה,
+       * ובני אדם ששומרים עליהם."* The dogs are drawn from the side, so they
+       * read as dogs from the pavement. Three run their own loops inside
+       * the fence, one leaps now and then, one stands wagging, one lies and
+       * breathes; the people stand at the rail, and a ball flies between
+       * one of them and the running golden. Each figure turns to face the
+       * camera and faces the way it is going.
+       */
+      const figure = (tex: THREE.Texture, h: number) => {
+        const img = tex.image as { width: number; height: number };
+        const m = new THREE.Mesh(
+          new THREE.PlaneGeometry(h * (img.width / img.height), h),
+          new THREE.MeshStandardMaterial({ map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 0.22, transparent: true, alphaTest: 0.4, roughness: 0.9, side: THREE.DoubleSide })
+        );
+        m.geometry.translate(0, h / 2, 0);
+        const holder = new THREE.Group();
+        holder.add(m);
+        const sh = new THREE.Mesh(
+          new THREE.PlaneGeometry(h * 1.1, h * 0.35),
+          new THREE.MeshBasicMaterial({ map: glowTex, color: 0x000000, transparent: true, opacity: 0.4, depthWrite: false })
+        );
+        sh.rotation.x = -Math.PI / 2;
+        sh.position.y = 0.02;
+        holder.add(sh);
+        scene.add(holder);
+        return { holder, m };
+      };
+      const tx = (id: string) => textures[id];
+      const runners: Array<{ f: ReturnType<typeof figure>; rx: number; rz: number; w: number; ph: number; leap: boolean }> = [];
+      const loopR = [[PW / 2 - 0.5, PL / 2 - 0.8], [PW / 2 - 0.9, PL / 2 - 2.0], [PW / 2 - 0.7, PL / 2 - 1.3]];
+      ["park_dog1", "park_dog2", "park_dog3"].forEach((id, i) => {
+        const t = tx(id);
+        if (!t) return;
+        const f = figure(t, i === 1 ? 1.55 : 1.45);
+        runners.push({ f, rx: loopR[i]![0]!, rz: loopR[i]![1]!, w: [0.55, 0.42, 0.7][i]!, ph: i * 2.1, leap: i === 1 });
+      });
+      const still: Array<{ f: ReturnType<typeof figure>; kind: "wag" | "breathe" | "stand" }> = [];
+      const place = (id: string, h: number, x: number, z: number, kind: "wag" | "breathe" | "stand") => {
+        const t = tx(id);
+        if (!t) return null;
+        const f = figure(t, h);
+        f.holder.position.set(x, 0, z);
+        still.push({ f, kind });
+        return f;
+      };
+      place("park_dog4", 1.5, px + 0.9, pz + PL / 2 - 1.2, "wag");
+      place("park_dog5", 1.05, px + 1.1, pz - PL / 2 + 1.4, "breathe");
+      const thrower = place("park_person1", 1.76, px - PW / 2 + 0.35, pz + 1.6, "stand");
+      place("park_person2", 1.7, px + 1.5, pz + PL / 2 - 0.6, "stand");
+      place("park_person3", 1.3, px - PW / 2 + 0.45, pz - 2.2, "stand");
+      const ball = new THREE.Mesh(new THREE.SphereGeometry(0.11, 12, 10), new THREE.MeshStandardMaterial({ color: 0xd8f24a, emissive: 0x9aad20, emissiveIntensity: 0.5, roughness: 0.6 }));
+      ball.visible = Boolean(thrower && runners[0]);
+      scene.add(ball);
+      const camRight = new THREE.Vector3();
+      parkTicks.push((dt, t, camera) => {
+        camRight.setFromMatrixColumn(camera.matrixWorld, 0);
+        const face = (f: ReturnType<typeof figure>, vx: number, vz: number) => {
+          f.m.rotation.y = Math.atan2(camera.position.x - f.holder.position.x, camera.position.z - f.holder.position.z);
+          /* The drawings face left; mirror while the dog runs to screen right. */
+          const toRight = vx * camRight.x + vz * camRight.z > 0;
+          f.m.scale.x = toRight ? -1 : 1;
+        };
+        for (const r of runners) {
+          const a = t * r.w + r.ph;
+          const x = px + Math.cos(a) * r.rx, z = pz + Math.sin(a) * r.rz;
+          const vx = -Math.sin(a) * r.rx, vz = Math.cos(a) * r.rz;
+          const hop = r.leap ? Math.max(0, Math.sin(t * 1.6 + r.ph)) ** 6 * 1.1 : Math.abs(Math.sin(t * 9 + r.ph)) * 0.08;
+          r.f.holder.position.set(x, 0, z);
+          r.f.m.position.y = hop;
+          face(r.f, vx, vz);
+        }
+        for (const s of still) {
+          face(s.f, 1, 0);
+          if (s.kind === "wag") s.f.m.rotation.z = Math.sin(t * 7) * 0.05;
+          if (s.kind === "breathe") s.f.m.scale.y = 1 + Math.sin(t * 2.2) * 0.03;
+          if (s.kind === "stand") s.f.m.position.y = Math.sin(t * 1.3 + s.f.holder.position.z) * 0.015;
+        }
+        if (ball.visible && thrower && runners[0]) {
+          /* Thrown to the golden, over and over: an arc every 2.2 s. */
+          const k = (t % 2.2) / 2.2;
+          const from = thrower.holder.position, to = runners[0].f.holder.position;
+          ball.position.set(from.x + (to.x - from.x) * k, 1.3 + Math.sin(k * Math.PI) * 2.2 - k * 0.9, from.z + (to.z - from.z) * k);
+        }
+        void dt;
+      });
+
       places.push({
         id: "dogpark",
         he: "גינת הכלבים",
@@ -4184,6 +4277,7 @@ export function buildStreet(
     /* The redrawn buildings keep their face to you, within limits: past
        about fifty degrees a three-quarter drawing stops reading as one. */
     for (const f of redrawnTicks) f(elapsed);
+    for (const f of parkTicks) f(dt, elapsed, camera);
     /* Furniture behind a shop window keeps its face to you, like in the room. */
     for (const f of windowFacing) {
       _heroLocal.copy(camera.position);

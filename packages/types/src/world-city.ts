@@ -382,6 +382,12 @@ export const CITY_VENUE_IDS = CITY_ROOM_TRADES.map((t) => `venue_${t}`);
 /** The loading screen's own picture — see `S.load` in the city. */
 export const CITY_SPLASH_IDS = ["splash_city"] as const;
 
+/** The dog park's life: big dogs seen from the side, and the people with them. */
+export const CITY_PARK_IDS = [
+  "park_dog1", "park_dog2", "park_dog3", "park_dog4", "park_dog5",
+  "park_person1", "park_person2", "park_person3",
+] as const;
+
 /**
  * Rooms in three layers, the same way the buildings are.
  *
@@ -421,5 +427,6 @@ export const CITY_ASSET_IDS: readonly string[] = [
   ...CITY_SHOP_HERO_IDS,
   ...CITY_VENUE_IDS,
   ...CITY_SPLASH_IDS,
+  ...CITY_PARK_IDS,
   ...CITY_AVATAR_SHEET_IDS,
 ];

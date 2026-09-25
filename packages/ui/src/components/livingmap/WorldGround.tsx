@@ -80,7 +80,7 @@ export interface WorldGroundProps {
 /** Our isometric shop buildings, stood on the real map's blocks. */
 const MAP_BUILDING_IDS = [
   "district_hair", "district_home", "district_nails", "district_pets", "district_auto",
-  "district_tech", "district_appliance",
+  "district_tech", "district_appliance", "district_well",
 ] as const;
 
 export function WorldGround({
