@@ -166,6 +166,18 @@ export function buildBoxRoom(art: BoxRoomArt): PanoRoom {
     }),
   ];
   const shadowTex = contactShadow();
+  /*
+   * EACH PIECE TURNS TO FACE YOU.
+   *
+   * Amit: *"הרהיטים לא עומדים נכון."* A piece of furniture is one drawing
+   * seen from the front, and standing it in a room as a fixed card meant
+   * that walking past it showed it from the side — a pink sofa as thin as
+   * a sheet of card, a counter bent into a trapezoid. So each piece turns
+   * about its own upright to face the camera every frame: it keeps its
+   * place in the room, and so all of its parallax, and never shows the
+   * edge that would give it away. Their reflections turn with them.
+   */
+  const facing: THREE.Mesh[] = [];
   pieces.slice(0, slots.length).forEach((tex, i) => {
     const [x, z, h] = slots[i]!;
     const w = h * aspectOf(tex);
@@ -176,6 +188,7 @@ export function buildBoxRoom(art: BoxRoomArt): PanoRoom {
     m.position.set(x, h / 2, z);
     scene.add(m);
     reflect.push(m);
+    facing.push(m);
     const s = new THREE.Mesh(
       new THREE.PlaneGeometry(w * 1.15, 0.9),
       new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false })
@@ -195,6 +208,7 @@ export function buildBoxRoom(art: BoxRoomArt): PanoRoom {
     mirror.add(c);
   }
   mirror.scale.y = -1;
+  const mirrorFacing = mirror.children.slice(mirror.children.length - facing.length) as THREE.Mesh[];
   mirror.renderOrder = 0;
   scene.add(mirror);
 
@@ -234,6 +248,12 @@ export function buildBoxRoom(art: BoxRoomArt): PanoRoom {
       camera.position.set(x, EYE + Math.sin(t * 0.9) * 0.01, z);
       camera.rotation.y = look.yaw;
       camera.rotation.x = look.pitch;
+      for (let i = 0; i < facing.length; i++) {
+        const m = facing[i]!;
+        const ry = Math.atan2(camera.position.x - m.position.x, camera.position.z - m.position.z);
+        m.rotation.y = ry;
+        if (mirrorFacing[i]) mirrorFacing[i]!.rotation.y = ry;
+      }
       /* Breathing, with a real sign's occasional stutter. */
       const flick = Math.sin(t * 23.0) > 0.985 ? 0.35 : 1;
       const breathe = 0.45 + 0.2 * Math.sin(t * 2.1);
