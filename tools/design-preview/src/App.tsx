@@ -3458,14 +3458,33 @@ const go = useCallback((r: CustomerRoute) => {
     tab === "home" && GROUND_SCREENS.includes(route.name) &&
     /* "Follow the professional" means nothing before there is one. */
     !(route.name === "living" && route.phase !== "ASSIGNED_ROUTE") ? (
-      <Pressable
-        onPress={onToggleRealMap}
-        accessibilityRole="button"
-        accessibilityLabel="החלפה בין המפה המצוירת לבין תוכנית רחובות אמיתית"
-        style={styles.groundSwitch}
-      >
-        <Text style={styles.standInText}>{realMap ? "▪ העיר שלנו" : "▸ עקוב אחרי המקצוען"}</Text>
-      </Pressable>
+      /*
+       * Once he is at the door there is nobody to follow — Amit: *"אין
+       * סיבה לעקוב, הוא כבר מטפל בבעיה."* From then on the same place
+       * offers a walk round our city while the work is done.
+       */
+      route.name === "tracking" && route.stage !== "assigned" && route.stage !== "enroute" ? (
+        <Pressable
+          onPress={() => {
+            if (realMap) onToggleRealMap();
+            strollDoor?.();
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="סיור בעיר שלנו"
+          style={styles.groundSwitch}
+        >
+          <Text style={styles.standInText}>✦ סיור בעיר שלנו</Text>
+        </Pressable>
+      ) : (
+        <Pressable
+          onPress={onToggleRealMap}
+          accessibilityRole="button"
+          accessibilityLabel="החלפה בין המפה המצוירת לבין תוכנית רחובות אמיתית"
+          style={styles.groundSwitch}
+        >
+          <Text style={styles.standInText}>{realMap ? "▪ העיר שלנו" : "▸ עקוב אחרי המקצוען"}</Text>
+        </Pressable>
+      )
     ) : null;
 
   /*
@@ -4402,7 +4421,16 @@ function ProApp({
       setJob(null);
       return;
     }
-    setJob(next);
+    /*
+     * ONE TAP FROM THE DOOR TO THE CHECK.
+     *
+     * Amit: *"עמוד מיותר אחד עד שלב הצעת המחיר."* "הגעתי" landed on a
+     * screen whose only content was a button to start checking. The job
+     * still passes through PRO_ARRIVED — the state machine is unchanged and
+     * the customer is told he has arrived — but the professional's tap
+     * carries straight on to the diagnosis.
+     */
+    setJob(next === "PRO_ARRIVED" ? "DIAGNOSIS" : next);
   };
 
   /**

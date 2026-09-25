@@ -204,6 +204,24 @@ export interface TrackingBodyProps {
   height?: number;
 }
 
+function CustomerWorkClock({ status, top }: { status: JobState; top: number }) {
+  const [since] = useState(() => Date.now());
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const sec = Math.max(0, Math.floor((now - since) / 1000));
+  const mm = String(Math.floor(sec / 60)).padStart(2, "0"), ss = String(sec % 60).padStart(2, "0");
+  return (
+    <View style={[styles.etaClock, { top, borderColor: "rgba(47,191,138,0.6)" }]} pointerEvents="none">
+      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#2FBF8A", opacity: sec % 2 ? 0.35 : 1, marginBottom: 4 }} />
+      <Text style={[styles.etaClockMin, { fontSize: 22 }]}>{mm}:{ss}</Text>
+      <Text style={styles.etaClockHint}>{status === "DIAGNOSIS" ? "בבדיקה" : "בעבודה"}</Text>
+    </View>
+  );
+}
+
 export function TrackingBody({
   backdrop,
   onOpenRealMap,
@@ -719,6 +737,15 @@ export function TrackingBody({
             </View>
           </Pressable>
         </Pressable>
+      ) : null}
+
+      {/*
+        * THE WORK, TIMED — on the customer's side too, so the visit never
+        * sits still while he waits. A stopwatch from when this step began
+        * on this screen; not a price and not an estimate.
+        */}
+      {status === "IN_PROGRESS" || status === "DIAGNOSIS" ? (
+        <CustomerWorkClock status={status} top={Math.round(mapH * 0.22)} />
       ) : null}
 
       {onBack ? <BackButton onPress={onBack} tone="dark" /> : null}

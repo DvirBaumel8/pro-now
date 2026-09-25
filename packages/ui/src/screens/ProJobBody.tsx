@@ -242,6 +242,8 @@ function StageBand({ status }: { status: JobState }) {
       </View>
       <Text style={styles.stageTitle}>{st.titleHe}</Text>
       <Text style={styles.stageDo}>{st.doHe}</Text>
+      {status === "IN_PROGRESS" || status === "DIAGNOSIS" ? <WorkClock status={status} tint={st.tint} /> : null}
+      {status === "WAITING_QUOTE_APPROVAL" ? <QuoteInFlight tint={st.tint} /> : null}
       <View style={styles.stageTrack}>
         <Animated.View
           style={[
@@ -251,6 +253,87 @@ function StageBand({ status }: { status: JobState }) {
         />
       </View>
     </Animated.View>
+  );
+}
+
+/*
+ * THE CLOCK WHILE HE WORKS.
+ *
+ * Amit: *"בזמן עבודה צריך שעון שמראה כמה זמן הוא עובד — לא יכול להיות
+ * עמוד סטטי."* Counted from the moment this step began on this screen, and
+ * labelled as time on the job — it is a stopwatch, not a price.
+ */
+function WorkClock({ status, tint }: { status: JobState; tint: string }) {
+  const [since] = useState(() => Date.now());
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const sec = Math.max(0, Math.floor((now - since) / 1000));
+  const mm = String(Math.floor(sec / 60)).padStart(2, "0"), ss = String(sec % 60).padStart(2, "0");
+  const pulse = sec % 2 === 0;
+  return (
+    <View style={styles.clockRow}>
+      <View style={[styles.clockDot, { backgroundColor: tint, opacity: pulse ? 1 : 0.35 }]} />
+      <Text style={[styles.clockText, { color: "#FFFFFF" }]}>{mm}:{ss}</Text>
+      <Text style={styles.clockLabel}>{status === "DIAGNOSIS" ? "בבדיקה" : "זמן עבודה"}</Text>
+    </View>
+  );
+}
+
+/*
+ * THE QUOTE, ON ITS WAY AND WAITING.
+ *
+ * Amit: *"בזמן שממתין להצעת המחיר צריך משהו מגניב — נשלחה הצעה וממתין
+ * לתשובה."* The quote flies from his side to the customer's phone, lands,
+ * and the phone pulses while the answer is awaited; three dots breathe
+ * under it. It says only what is true: sent, and not yet answered.
+ */
+function QuoteInFlight({ tint }: { tint: string }) {
+  const fly = useRef(new Animated.Value(0)).current;
+  const ring = useRef(new Animated.Value(0)).current;
+  const [dots, setDots] = useState(1);
+  useEffect(() => {
+    Animated.timing(fly, { toValue: 1, duration: 1300, easing: Easing.inOut(Easing.cubic), useNativeDriver: true }).start();
+    const loop = Animated.loop(Animated.timing(ring, { toValue: 1, duration: 1600, easing: Easing.out(Easing.quad), useNativeDriver: true }));
+    loop.start();
+    const t = setInterval(() => setDots((d) => (d % 3) + 1), 500);
+    return () => { loop.stop(); clearInterval(t); };
+  }, [fly, ring]);
+  return (
+    <View style={styles.flightRow}>
+      <View style={styles.flightLane}>
+        <View style={[styles.flightTrack, { borderColor: tint + "77" }]} />
+        <Animated.View
+          style={[
+            styles.flightPaper,
+            { backgroundColor: tint },
+            {
+              opacity: fly.interpolate({ inputRange: [0, 0.85, 1], outputRange: [1, 1, 0] }),
+              transform: [
+                { translateX: fly.interpolate({ inputRange: [0, 1], outputRange: [0, -168] }) },
+                { translateY: fly.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, -18, 0] }) },
+                { rotate: fly.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "-12deg"] }) },
+              ],
+            },
+          ]}
+        >
+          <Text style={styles.flightPaperText}>₪</Text>
+        </Animated.View>
+        <View style={styles.flightPhone}>
+          <Animated.View
+            style={[
+              styles.flightRing,
+              { borderColor: tint },
+              { opacity: ring.interpolate({ inputRange: [0, 1], outputRange: [0.8, 0] }), transform: [{ scale: ring.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1.9] }) }] },
+            ]}
+          />
+          <Text style={styles.flightPhoneText}>📱</Text>
+        </View>
+      </View>
+      <Text style={styles.flightLabel}>ההצעה אצל הלקוח · ממתינים לתשובה{".".repeat(dots)}</Text>
+    </View>
   );
 }
 
@@ -794,6 +877,19 @@ const styles = StyleSheet.create({
   stageDo: { color: "rgba(247,243,250,0.85)", fontSize: 15, lineHeight: 22, textAlign: "right", writingDirection: "rtl", marginTop: spacing.xs },
   stageTrack: { height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.12)", marginTop: spacing.md, overflow: "hidden", flexDirection: "row-reverse" },
   stageFill: { height: 6, borderRadius: 3 },
+  clockRow: { flexDirection: "row-reverse", alignItems: "center", gap: 8, marginTop: spacing.md },
+  clockDot: { width: 10, height: 10, borderRadius: 5 },
+  clockText: { fontSize: 34, fontWeight: "900", ...tabular },
+  clockLabel: { color: "rgba(247,243,250,0.7)", fontSize: 14, writingDirection: "rtl" },
+  flightRow: { marginTop: spacing.md },
+  flightLane: { height: 64, justifyContent: "center" },
+  flightTrack: { position: "absolute", left: 30, right: 30, top: 31, borderTopWidth: 2, borderStyle: "dashed" },
+  flightPaper: { position: "absolute", right: 8, top: 18, width: 34, height: 28, borderRadius: 6, alignItems: "center", justifyContent: "center" },
+  flightPaperText: { color: "#0d0a16", fontWeight: "900", fontSize: 16 },
+  flightPhone: { position: "absolute", left: 8, top: 10, width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+  flightRing: { position: "absolute", width: 44, height: 44, borderRadius: 22, borderWidth: 2 },
+  flightPhoneText: { fontSize: 26 },
+  flightLabel: { color: "rgba(247,243,250,0.85)", fontSize: 14, textAlign: "right", writingDirection: "rtl", marginTop: 4 },
   stageDone: { position: "absolute", top: -12, left: spacing.lg, right: spacing.lg, alignItems: "center", zIndex: 2 },
   stageDoneText: { backgroundColor: "#2FBF8A", color: "#0d0a16", fontWeight: "800", fontSize: 13, paddingHorizontal: 12, paddingVertical: 5, borderRadius: 999, overflow: "hidden", writingDirection: "rtl" },
 
