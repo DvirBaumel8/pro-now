@@ -98,6 +98,18 @@ export interface TrackingBodyProps {
    * until the route comes from a route and not from a drawing.
    */
   geo?: WorldGeo | null;
+  /**
+   * The city behind the visit, when the host can show it — our street
+   * rather than the painted plate. Left out, the plate. Ignored on the
+   * real map (`geo`), which is the map, not a picture.
+   */
+  backdrop?: React.ReactNode;
+  /**
+   * The clock on the map opens the real map, where the professional's
+   * vehicle is drawn on the route. Amit: *"שעון בצד שמראה זמן וקילומטר,
+   * ולחיצה על השעון — לראות איפה הוא במפה האמיתית ברכב שבנינו."*
+   */
+  onOpenRealMap?: () => void;
   status: JobState;
   serviceNameHe: string;
   professional: ProfessionalSummaryView;
@@ -190,6 +202,8 @@ export interface TrackingBodyProps {
 }
 
 export function TrackingBody({
+  backdrop,
+  onOpenRealMap,
   geo = null,
   status,
   serviceNameHe,
@@ -440,7 +454,9 @@ export function TrackingBody({
           the map says so, and it stays until a maps vendor is chosen.
           --------------------------------------------------------------- */}
       <View style={{ width, height: mapH, overflow: "hidden" }}>
-        {worldSources ? (
+        {backdrop && !geo ? (
+          backdrop
+        ) : worldSources ? (
           <>
             <WorldBackdrop
               width={width}
@@ -630,6 +646,30 @@ export function TrackingBody({
           <RealMapSurface assigned={assigned} width={width} height={mapH} tone="dark" geo={geo} />
         )}
       </View>
+
+      {/*
+        * THE CLOCK ON THE MAP.
+        *
+        * Minutes and distance exactly as the server's ETA gives them —
+        * nothing computed here — while the professional is on the way.
+        * Tapping it swaps to the real map, where the vehicle is on the
+        * route; tapping again comes back to the city.
+        */}
+      {(status === "PRO_ASSIGNED" || status === "PRO_EN_ROUTE") && eta && onOpenRealMap ? (
+        <Pressable
+          onPress={onOpenRealMap}
+          accessibilityRole="button"
+          accessibilityLabel={geo ? "חזרה לעיר" : "איפה הוא עכשיו — מפה אמיתית"}
+          style={({ pressed }) => [styles.etaClock, { top: Math.round(mapH * 0.22) }, pressed && { opacity: 0.85 }]}
+        >
+          <Text style={styles.etaClockMin}>{Math.max(1, Math.round(eta.etaSeconds / 60))}</Text>
+          <Text style={styles.etaClockUnit}>דק׳</Text>
+          {eta.distanceMeters !== null ? (
+            <Text style={styles.etaClockKm}>{(eta.distanceMeters / 1000).toFixed(1)} ק״מ</Text>
+          ) : null}
+          <Text style={styles.etaClockHint}>{geo ? "חזרה לעיר" : "איפה הוא ›"}</Text>
+        </Pressable>
+      ) : null}
 
       {onBack ? <BackButton onPress={onBack} tone="dark" /> : null}
 
@@ -913,6 +953,15 @@ function Act({
 }
 
 const styles = StyleSheet.create({
+  etaClock: {
+    position: "absolute", left: 12, width: 84, paddingVertical: 10, borderRadius: 18,
+    alignItems: "center", backgroundColor: "rgba(23,18,31,0.88)",
+    borderWidth: 1, borderColor: "rgba(255,107,74,0.55)",
+  },
+  etaClockMin: { color: "#FFFFFF", fontSize: 30, fontWeight: "800", lineHeight: 34 },
+  etaClockUnit: { color: "rgba(247,243,250,0.8)", fontSize: 12, marginTop: -2 },
+  etaClockKm: { color: "#FF9A6B", fontSize: 13, fontWeight: "700", marginTop: 6 },
+  etaClockHint: { color: "rgba(247,243,250,0.7)", fontSize: 11, marginTop: 6 },
   statusPill: {
     position: "absolute",
     top: spacing.lg,

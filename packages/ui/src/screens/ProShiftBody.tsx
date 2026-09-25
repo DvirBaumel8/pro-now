@@ -81,6 +81,8 @@ export interface ShiftServiceChip {
 }
 
 export interface ProShiftBodyProps {
+  /** The city behind the status band, when the host can show it. Left out, the painted plate. */
+  backdrop?: React.ReactNode;
   /** A real street plan, when there is one. See `WorldGround`. */
   geo?: WorldGeo | null;
 
@@ -128,6 +130,7 @@ export interface ProShiftBodyProps {
 }
 
 export function ProShiftBody({
+  backdrop,
   geo = null,
   displayNameHe,
   presenceState,
@@ -191,7 +194,7 @@ export function ProShiftBody({
       <View style={styles.mapBand}>
         {hasWorld ? (
           <>
-            <WorldBackdrop
+            {backdrop ?? <WorldBackdrop
               width={width}
               height={MAP_BAND_HEIGHT}
               sources={worldSources}
@@ -204,7 +207,7 @@ export function ProShiftBody({
                * with the same names.
                */
               geo={geo}
-            />
+            />}
             {/*
               * The state, in words, over the city — with its own plate,
               * because the plate is lit paving and white type on lit

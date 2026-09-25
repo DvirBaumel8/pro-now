@@ -2686,7 +2686,8 @@ const go = useCallback((r: CustomerRoute) => {
           <SearchingBody
             /* The city we built behind the search, not the old plate — the
                street itself, the same for every trade. */
-            backdrop={<Showcase />}
+            backdrop={realMap ? undefined : <StreetScene />}
+            onOpenRealMap={onToggleRealMap}
             geo={geo}
             worldSources={art}
             /*
@@ -2938,6 +2939,9 @@ const go = useCallback((r: CustomerRoute) => {
       case "tracking":
         return (
           <TrackingBody
+            /* Our street behind the visit; the clock opens the real map. */
+            backdrop={<StreetScene />}
+            onOpenRealMap={onToggleRealMap}
             geo={geo}
             status={
               route.stage === "assigned"
@@ -3107,6 +3111,8 @@ const go = useCallback((r: CustomerRoute) => {
         return (
           <View style={{ width, height: bodyH }}>
             <TrackingBody
+              backdrop={<StreetScene />}
+              onOpenRealMap={onToggleRealMap}
               geo={geo}
               // He is in the room and diagnosing; the price is what he
               // came out of the diagnosis with.
@@ -4177,6 +4183,28 @@ function ProApp({
     }
   }, [presence]);
 
+  /*
+   * ARRIVING AT THE RIGHT STEP.
+   *
+   * Amit: *"שלא יעביר אותי לצד של המקצוען לשלב ההתחלתי — שיעביר אותי לשלב
+   * הנכון."* Crossing over while the customer's request is waiting used to
+   * land on an offline professional behind an explainer, with a demo bar
+   * to press twice before the request appeared. Now the professional is
+   * already on shift and the request is on his screen, waiting for accept —
+   * the step the story is actually at.
+   */
+  useEffect(() => {
+    if (!request || job !== null || offerAt !== null) return;
+    setProSheet(null);
+    if (presence !== "AVAILABLE") {
+      setPresence("AVAILABLE");
+      setOnlineSince(Date.now());
+    }
+    setTakenRequest(request);
+    onTakeRequest();
+    setOfferAt(Date.now());
+  }, [request, job, offerAt, presence, onTakeRequest]);
+
   /**
    * The offer, built from the customer's actual request when there is one.
    *
@@ -4703,6 +4731,8 @@ function ProApp({
       />
     ) : (
       <ProShiftBody
+        /* The professional's city is ours, not the old plate. */
+        backdrop={<CityHero />}
         geo={proGeo}
         displayNameHe="דוגמה ד׳ (תצוגה)"
         presenceState={presence}

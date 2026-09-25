@@ -118,6 +118,8 @@ export interface LivingMapSceneProps {
    * of the real street in place of the painted plate. Left out, the plate.
    */
   backdrop?: React.ReactNode;
+  /** The clock on the city opens the real map, where the vehicle is on the route. */
+  onOpenRealMap?: () => void;
   /**
    * A real street plan to put the dispatch on.
    *
@@ -283,6 +285,7 @@ const RECENTRE_ON: readonly LivingMapPhase[] = [
 
 export function LivingMapScene({
   backdrop,
+  onOpenRealMap,
   geo = null,
   state,
   etaMinutes,
@@ -1917,7 +1920,28 @@ export function LivingMapScene({
         * label is the thing it will do next rather than a state it is
         * currently in.
         */}
-      {mayWalk ? (
+      {/*
+        * THE CLOCK BESIDE THE CITY.
+        *
+        * Amit: *"כשקוראים לטכנאי — שתיפתח המפה שלנו עם שעון בצד שמראה זמן,
+        * ולחיצה על השעון לראות איפה הוא במפה האמיתית ברכב שבנינו."* Over
+        * our street, while he is on his way: the minutes the server gave,
+        * and a tap that opens the real map with his vehicle on the route.
+        */}
+      {backdrop && onOpenRealMap && phase === "ASSIGNED_ROUTE" && etaMinutes !== null ? (
+        <Pressable
+          onPress={onOpenRealMap}
+          accessibilityRole="button"
+          accessibilityLabel="איפה הוא עכשיו — מפה אמיתית"
+          style={({ pressed }) => [styles.etaClock, { top: Math.round(height * 0.3) }, pressed && { opacity: 0.85 }]}
+        >
+          <Text style={styles.etaClockMin}>{etaMinutes}</Text>
+          <Text style={styles.etaClockUnit}>דק׳</Text>
+          <Text style={styles.etaClockHint}>איפה הוא ›</Text>
+        </Pressable>
+      ) : null}
+
+      {mayWalk && !backdrop ? (
         <Pressable
           onPress={() => setWide((w) => !w)}
           accessibilityRole="button"
@@ -1942,7 +1966,7 @@ export function LivingMapScene({
         * It appears only while there is a street to walk down and somebody
         * to walk it. See `mayWalk`.
         */}
-      {mayWalk ? (
+      {mayWalk && !backdrop ? (
         <View
           /*
            * Above the drawer, which owns the bottom of this screen during
@@ -2017,6 +2041,14 @@ const HUD_SHARE = 0.17;
 const SHEET_SHARE = 0.26;
 
 const styles = StyleSheet.create({
+  etaClock: {
+    position: "absolute", left: 12, width: 84, paddingVertical: 10, borderRadius: 18,
+    alignItems: "center", backgroundColor: "rgba(23,18,31,0.88)",
+    borderWidth: 1, borderColor: "rgba(255,107,74,0.55)",
+  },
+  etaClockMin: { color: "#FFFFFF", fontSize: 30, fontWeight: "800", lineHeight: 34 },
+  etaClockUnit: { color: "rgba(247,243,250,0.8)", fontSize: 12, marginTop: -2 },
+  etaClockHint: { color: "rgba(247,243,250,0.7)", fontSize: 11, marginTop: 6 },
   /*
    * The dark the room is framed against. Near-black rather than the
    * street, because the street is not behind you any more — the beat is
