@@ -8,6 +8,7 @@
  *
  *   <id>_street.png     → shop_<id>.webp            the facade in the street
  *   <id>_hero.png       → hero_<id>.webp            the building at the door
+ *   <id>_venue.png      → venue_<id>.webp           the shop open, its pro inside (order sheet)
  *   <id>_wall_back.png  → room_<id>_back.webp       the room, a real box
  *   <id>_wall_left.png  → room_<id>_left.webp
  *   <id>_wall_right.png → room_<id>_right.webp
@@ -124,6 +125,7 @@ const run = (file, { key, split }) =>
 const plan = [
   [`${id}_street.png`, [`shop_${id}.webp`], { key: true }],
   [`${id}_hero.png`, [`hero_${id}.webp`], { key: true }],
+  [`${id}_venue.png`, [`venue_${id}.webp`], { key: true }],
   [`${id}_wall_back.png`, [`room_${id}_back.webp`], {}],
   [`${id}_wall_left.png`, [`room_${id}_left.webp`], {}],
   [`${id}_wall_right.png`, [`room_${id}_right.webp`], {}],

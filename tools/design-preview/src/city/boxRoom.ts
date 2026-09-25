@@ -31,13 +31,26 @@ export interface BoxRoomArt {
   floor?: THREE.Texture;
   /** Pieces of furniture, already keyed out of their green, one per texture. */
   props?: THREE.Texture[];
+  /** The trade's professional, standing at work in the room. */
+  pro?: THREE.Texture;
 }
 
-const W = 8; // wall to wall
-const D = 8; // front to back
+/*
+ * A SALON-SIZED ROOM.
+ *
+ * It was eight metres by eight, and the walls stand as tall as their
+ * drawings make them — so the counter under the mirrors came out nearly
+ * two metres high, and the walker beside it looked like a child. Amit:
+ * *"תעשה פרופורציה נכונה, זה נראה מוזר מאוד."* At 4.6 metres wide the
+ * ceiling is three metres and the counter is at hip height, which is a
+ * real shop; everything placed in it is scaled by `K`.
+ */
+const W = 4.6; // wall to wall
+const D = 5.0; // front to back
+const K = W / 8;
 const EYE = 1.6;
 
-export const BOX_STAND = { x: 2.2, zNear: 3.4, zFar: 0.6 };
+export const BOX_STAND = { x: 2.2 * K, zNear: 3.4 * (D / 8), zFar: 0.6 * K };
 
 export function buildBoxRoom(art: BoxRoomArt): PanoRoom {
   const scene = new THREE.Scene();
@@ -158,11 +171,12 @@ export function buildBoxRoom(art: BoxRoomArt): PanoRoom {
    */
   const back = pieces.slice(2);
   const slots: Array<[number, number, number]> = [
-    [2.35, 1.3, 1.05],
-    [-2.4, 1.1, 0.95],
+    [2.35 * K, 1.3 * K, 0.95],
+    [-2.4 * K, 1.1 * K, 0.85],
     ...back.map((_, i): [number, number, number] => {
       const n = back.length;
-      return [n === 1 ? 0 : -2.4 + (4.8 * i) / Math.max(1, n - 1), -2.7, 1.25];
+      /* A lone piece stands off to one side, not dead behind the walker. */
+      return [n === 1 ? W * 0.28 : (-2.4 + (4.8 * i) / Math.max(1, n - 1)) * K, -D / 2 + 0.95, 1.0];
     }),
   ];
   const shadowTex = contactShadow();
@@ -179,7 +193,10 @@ export function buildBoxRoom(art: BoxRoomArt): PanoRoom {
    */
   const facing: THREE.Mesh[] = [];
   pieces.slice(0, slots.length).forEach((tex, i) => {
-    const [x, z, h] = slots[i]!;
+    const [x, z, h0] = slots[i]!;
+    /* A tall narrow piece — a display column, a plant — stands taller
+       than a chair; its drawing says so by its shape. */
+    const h = aspectOf(tex) < 0.6 ? 1.55 : h0;
     const w = h * aspectOf(tex);
     const m = new THREE.Mesh(
       new THREE.PlaneGeometry(w, h),
@@ -198,6 +215,16 @@ export function buildBoxRoom(art: BoxRoomArt): PanoRoom {
     s.position.set(x, 0.01, z + 0.05);
     scene.add(s);
   });
+
+  /*
+   * THE PROFESSIONAL, AT WORK IN HIS OWN SHOP.
+   *
+   * Amit: *"בא לי פה את המקצוען בחנות שלו."* The trade's figure stands
+   * in front of the middle mirrors, between the chairs, turning to face
+   * you like the furniture does, with a shadow at his feet.
+   */
+  /* No professional in the room: Amit wants only his own figure inside
+     — *"בתוך החנות תשאיר רק את הדמות שלי."* */
 
   /* The mirror image under the floor. */
   const mirror = new THREE.Group();
@@ -228,7 +255,7 @@ export function buildBoxRoom(art: BoxRoomArt): PanoRoom {
   const dust = new THREE.Points(
     dustGeo,
     new THREE.PointsMaterial({
-      size: 0.03, map: dot(), transparent: true, opacity: 0.5,
+      size: 0.014, map: dot(), transparent: true, opacity: 0.45,
       depthWrite: false, blending: THREE.AdditiveBlending,
     })
   );
@@ -236,19 +263,75 @@ export function buildBoxRoom(art: BoxRoomArt): PanoRoom {
 
   const camera = new THREE.PerspectiveCamera(70, 1, 0.05, 60);
   camera.rotation.order = "YXZ";
+  let avatar: THREE.Object3D | null = null;
 
   return {
     scene,
     camera,
     /* Behind you is the door you came through. */
     maxYaw: (125 / 180) * Math.PI,
+    follow(obj) {
+      if (avatar) scene.remove(avatar);
+      avatar = obj;
+      if (obj) scene.add(obj);
+    },
+    snapshot(renderer, w, h) {
+      /* The room as the order sheet shows it: from just inside the door,
+         a little back, the professional among his mirrors and shelves. */
+      const cam = new THREE.PerspectiveCamera(56, w / h, 0.05, 60);
+      cam.position.set(0.2, 1.65, 1.5);
+      cam.lookAt(0.95, 1.25, -2.4);
+      for (const m of facing) m.rotation.y = Math.atan2(cam.position.x - m.position.x, cam.position.z - m.position.z);
+      const hidden = avatar;
+      if (hidden) hidden.visible = false;
+      const rt = new THREE.WebGLRenderTarget(w, h, { colorSpace: THREE.SRGBColorSpace });
+      const prev = renderer.getRenderTarget();
+      renderer.setRenderTarget(rt);
+      renderer.render(scene, cam);
+      const px = new Uint8Array(w * h * 4);
+      renderer.readRenderTargetPixels(rt, 0, 0, w, h, px);
+      renderer.setRenderTarget(prev);
+      rt.dispose();
+      if (hidden) hidden.visible = true;
+      const c = document.createElement("canvas");
+      c.width = w; c.height = h;
+      const g = c.getContext("2d")!;
+      const img = g.createImageData(w, h);
+      for (let y = 0; y < h; y++) img.data.set(px.subarray((h - 1 - y) * w * 4, (h - y) * w * 4), y * w * 4);
+      g.putImageData(img, 0, 0);
+      return c.toDataURL("image/jpeg", 0.88);
+    },
     update(dt, t, look, stand) {
       /* `stand` arrives as a step from the middle of the doorway area. */
-      const x = Math.max(-BOX_STAND.x, Math.min(BOX_STAND.x, stand.x * 1.8));
-      const z = Math.max(BOX_STAND.zFar, Math.min(BOX_STAND.zNear, BOX_STAND.zNear + stand.z * 1.8));
-      camera.position.set(x, EYE + Math.sin(t * 0.9) * 0.01, z);
-      camera.rotation.y = look.yaw;
-      camera.rotation.x = look.pitch;
+      if (avatar) {
+        /*
+         * YOU, IN THE ROOM.
+         *
+         * Amit: *"שירגיש שהדמות בפנים ויראו אותה קצת מהזווית של
+         * המצלמה."* The figure stands where you stand and the camera is
+         * behind it and a little above, as in the street — kept inside the
+         * walls, so near the door it comes in over your shoulder.
+         */
+        const ax = Math.max(-W / 2 + 0.6, Math.min(W / 2 - 0.6, stand.x * 1.4));
+        const az = Math.max(-D / 2 + 1.3, Math.min(D / 2 - 1.0, 0.2 + stand.z * 1.4));
+        avatar.position.set(ax, 0, az);
+        avatar.rotation.y = look.yaw;
+        const fx = -Math.sin(look.yaw), fz = -Math.cos(look.yaw);
+        const back = 2.4;
+        camera.position.set(
+          Math.max(-W / 2 + 0.25, Math.min(W / 2 - 0.25, ax - fx * back)),
+          2.2 + Math.sin(t * 0.9) * 0.01,
+          Math.max(-D / 2 + 0.25, Math.min(D / 2 - 0.15, az - fz * back))
+        );
+        camera.rotation.y = look.yaw;
+        camera.rotation.x = look.pitch - 0.2;
+      } else {
+        const x = Math.max(-BOX_STAND.x, Math.min(BOX_STAND.x, stand.x * 1.8));
+        const z = Math.max(BOX_STAND.zFar, Math.min(BOX_STAND.zNear, BOX_STAND.zNear + stand.z * 1.8));
+        camera.position.set(x, EYE + Math.sin(t * 0.9) * 0.01, z);
+        camera.rotation.y = look.yaw;
+        camera.rotation.x = look.pitch;
+      }
       for (let i = 0; i < facing.length; i++) {
         const m = facing[i]!;
         const ry = Math.atan2(camera.position.x - m.position.x, camera.position.z - m.position.z);

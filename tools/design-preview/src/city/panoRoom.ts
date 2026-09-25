@@ -40,6 +40,10 @@ export interface PanoRoom {
   update(dt: number, t: number, look: { yaw: number; pitch: number }, stand: { x: number; z: number }): void;
   setAspect(aspect: number): void;
   dispose(): void;
+  /** Put the walker in the room, seen from behind (box rooms only). */
+  follow?(obj: THREE.Object3D | null): void;
+  /** A still of the room for the order sheet (box rooms only). */
+  snapshot?(renderer: THREE.WebGLRenderer, w: number, h: number): string;
 }
 
 /** How far the room reaches around you. Behind you is the door. */

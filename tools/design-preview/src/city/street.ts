@@ -109,6 +109,8 @@ export interface ShopSpec {
 
 export interface StreetHandles {
   scene: THREE.Scene;
+  /** Shops whose window you can see into — framed close when you stop. */
+  windowShops: Set<string>;
   shops: Array<
     ShopSpec & {
       doorway: THREE.Vector3;
@@ -1834,8 +1836,13 @@ export function buildStreet(
    */
   interface WindowSpec {
     glass: [number, number, number, number]; // x0, x1, y0 (top), y1 (bottom)
-    awning: [number, number, number, number]; // x0, x1, y0, y1 — the painted one, painted over
+    /** A striped awning: the painted one is painted over and built. */
+    awning?: [number, number, number, number]; // x0, x1, y0, y1
+    /** A flat canopy (a boutique's): built as a slab under the painted fascia. */
+    canopy?: [number, number, number]; // x0, x1, y of its underside
     mullions: number[];
+    /** Where the two door leaves meet, if not the middle mullion. */
+    door?: number;
     pole?: [number, number]; // x, y of the barber's pole
     stripe: string;
   }
@@ -1847,8 +1854,16 @@ export function buildStreet(
       pole: [226 / 1254, 850 / 1254],
       stripe: "#f25c86",
     },
+    lust: {
+      glass: [309 / 1536, 1233 / 1536, 376 / 1024, 902 / 1024],
+      canopy: [96 / 1536, 1428 / 1536, 368 / 1024],
+      mullions: [599 / 1536, 990 / 1536],
+      door: 795 / 1536,
+      stripe: "#7a0f24",
+    },
   };
   const windowFacing: Array<{ m: THREE.Mesh; group: THREE.Group }> = [];
+  const windowShops = new Set<string>();
   const windowSheens: Array<{ tex: THREE.Texture; group: THREE.Group }> = [];
 
   /** The drawing with its glass cut out and its painted awning painted over. */
@@ -1859,6 +1874,7 @@ export function buildStreet(
     const g = c.getContext("2d")!;
     g.drawImage(img, 0, 0);
     const W = c.width, H = c.height;
+    if (spec.awning) {
     const [ax0, ax1, ay0, ay1] = spec.awning;
     /* the wall just above the awning, drawn down over where it hung */
     g.drawImage(c, ax0 * W, ay0 * H - H * 0.012, (ax1 - ax0) * W, H * 0.01, ax0 * W, ay0 * H, (ax1 - ax0) * W, (ay1 - ay0) * H);
@@ -1867,6 +1883,7 @@ export function buildStreet(
     sh.addColorStop(1, "rgba(60,20,30,0.45)");
     g.fillStyle = sh;
     g.fillRect(ax0 * W, ay0 * H, (ax1 - ax0) * W, (ay1 - ay0) * H);
+    }
     const [gx0, gx1, gy0, gy1] = spec.glass;
     g.clearRect(gx0 * W, gy0 * H, (gx1 - gx0) * W, (gy1 - gy0) * H);
     const t = new THREE.CanvasTexture(c);
@@ -2021,7 +2038,7 @@ export function buildStreet(
     const gold = new THREE.MeshStandardMaterial({ color: 0xe0b060, metalness: 0.9, roughness: 0.25, emissive: 0x7a5020, emissiveIntensity: 0.4 });
     for (const d of [-0.09, 0.09]) {
       const hdl = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.55, 10), gold);
-      hdl.position.set(X(spec.mullions[1] ?? 0.5) + d, yF + 1.05, zGlass + 0.07);
+      hdl.position.set(X(spec.door ?? spec.mullions[1] ?? 0.5) + d, yF + 1.05, zGlass + 0.07);
       g.add(hdl);
     }
     /* Glass: almost nothing, and a sheen that slides as you move. */
@@ -2046,7 +2063,27 @@ export function buildStreet(
     /* the sheen moves with the viewer, which is what glass does */
     windowSheens.push({ tex: sheen, group: g });
 
+    /* ----- a boutique's canopy: a slab with a light strip under it ----- */
+    if (spec.canopy) {
+      const [cx0, cx1, cy] = spec.canopy;
+      const slab = new THREE.Mesh(
+        new THREE.BoxGeometry(X(cx1) - X(cx0), 0.14, 0.95),
+        new THREE.MeshStandardMaterial({ color: spec.stripe, roughness: 0.55, metalness: 0.15 })
+      );
+      slab.position.set((X(cx0) + X(cx1)) / 2, Y(cy) + 0.07, FACE + 0.47);
+      slab.castShadow = true;
+      g.add(slab);
+      const strip = new THREE.Mesh(
+        new THREE.PlaneGeometry(X(cx1) - X(cx0) - 0.3, 0.06),
+        new THREE.MeshBasicMaterial({ color: 0xffd9b0, toneMapped: false })
+      );
+      strip.rotation.x = Math.PI / 2;
+      strip.position.set((X(cx0) + X(cx1)) / 2, Y(cy) - 0.005, FACE + 0.8);
+      g.add(strip);
+    }
+
     /* ----- the awning, out over the pavement ----- */
+    if (spec.awning) {
     const [ax0, ax1, ay0] = spec.awning;
     const awW = X(ax1) - X(ax0), awD = 1.35, slope = 0.42;
     const pivotY = Y(ay0) - 0.05;
@@ -2076,6 +2113,7 @@ export function buildStreet(
       ch.rotation.y = -Math.PI / 2;
       ch.position.set(ex, pivotY, FACE + 0.02);
       g.add(ch);
+    }
     }
 
     /* ----- the barber's pole, turning ----- */
@@ -2151,7 +2189,9 @@ export function buildStreet(
     }));
     halo.scale.set(3.2, 3.2, 1);
     halo.position.set(w * 0.13, faceH * 0.55, 0.7);
-    g.add(halo);
+    /* Laid over the salon's painted scissors; another shop's neon is
+       somewhere else, so it gets no halo rather than one in the wrong place. */
+    if (s.id === "hair" || !hasWindow) g.add(halo);
     redrawnTicks.push((t: number) => { halo.material.opacity = 0.35 + 0.2 * Math.sin(t * 2.3) * (Math.sin(t * 17) > 0.97 ? 0.2 : 1); });
 
     /* The roof: solar panels and a water heater, on top of the building. */
@@ -2203,8 +2243,11 @@ export function buildStreet(
      * from the wall and throws a shadow, its neon breathing, and what
      * lives on its roof. `isHero` now means "this shop has been redrawn".
      */
-    const isHero = Boolean(textures[`hero_${s.id}.webp`]);
     const win = SHOP_WINDOWS[s.id] && textures[`room_${s.id}_back.webp`] && textures[s.facade] ? SHOP_WINDOWS[s.id] : undefined;
+    /* A shop with a see-into window is a redrawn shop, whether or not a
+       three-quarter drawing of it exists. */
+    const isHero = Boolean(textures[`hero_${s.id}.webp`]) || Boolean(win);
+    if (win) windowShops.add(s.id);
     const tex = win ? punchWindow(textures[s.facade]!, win) : textures[s.facade];
     /** The shopfront's own material, so the way in can fade it. */
     let faceMat: THREE.MeshStandardMaterial | null = null;
@@ -2420,7 +2463,8 @@ export function buildStreet(
         halo.material.opacity = 0.34 + k * 0.22;
       });
 
-      emit(x - s.side * 2.6, faceH + 2.4, s.z, c3, 210, 24);
+      /* Softer over a see-into window, so the shop is the brightest thing, not the street. */
+      emit(x - s.side * 2.6, faceH + 2.4, s.z, c3, g.userData.hole ? 80 : 210, g.userData.hole ? 16 : 24);
       lamps.push(new THREE.Vector3(x, faceH + 2.4, s.z));
     } else if (!isHero) {
       const sign = new THREE.Mesh(
@@ -2536,7 +2580,9 @@ export function buildStreet(
     g.add(bladeGlow);
 
     /* ----- the light the shop throws onto its own pavement ----- */
-    emit(x - s.side * 2.4, 2.7, s.z, s.sponsor ? 0xff6f86 : 0xffc07a, 42, 11);
+    /* A see-into window lights its pavement warm, like a lit shop: the
+       sponsor's red on everything turned the whole street pink. */
+    emit(x - s.side * 2.4, 2.7, s.z, s.sponsor && !g.userData.hole ? 0xff6f86 : 0xffc07a, g.userData.hole ? 26 : 42, 11);
 
     /*
      * -----------------------------------------------------------------
@@ -4220,7 +4266,7 @@ export function buildStreet(
     }
   }
 
-  return { scene, shops, places, lamps, update };
+  return { scene, shops, places, lamps, update, windowShops };
 }
 
 export { neon, glow };

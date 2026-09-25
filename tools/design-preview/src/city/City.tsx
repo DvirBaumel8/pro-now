@@ -79,7 +79,7 @@ const SHOPS: ShopSpec[] = [
    * came back in its place twice. `sponsor_lust_hero` stays the
    * picture the product sheet uses; this is the place you stand in.
    */
-  { id: "lust",      he: "Lust",           facade: "sponsor_lust_venue.webp", z:   35.2, side:  1, interior: "sponsor_lust_inside.webp",  sponsor: true, neonColour: "#ff3d63" },
+  { id: "lust",      he: "Lust",           facade: "shop_lust.webp", z:   35.2, side:  1, interior: "sponsor_lust_inside.webp",  sponsor: true, neonColour: "#ff3d63" },
   { id: "tech",      he: "מחשבים וסלולר",  facade: "district_tech.webp",      z:   17.6, side: -1, neonColour: "#7ad7ff" , department: "TECH" },
   { id: "auto",      he: "רכב ודרך",       facade: "district_auto.webp",      z:    0, side:  1, interior: "auto_garage_hero.webp",     neonColour: "#ff9b3d" , department: "VEHICLE" },
   { id: "well",      he: "בריאות וכושר",   facade: "district_well.webp",      z:  -17.6, side: -1, neonColour: "#6affc6" , department: "WELLNESS" },
@@ -600,6 +600,13 @@ export function City({
             facades[`hero_${sh.id}.webp`] = await load(`hero_${sh.id}.webp`);
             HERO_READY.add(sh.id);
           } catch { /* the door keeps the older building */ }
+          /* The shop drawn open with its professional standing in it —
+             the order sheet's whole-page picture. See `VENUES`. */
+          try {
+            const v = await load(`venue_${sh.id}.webp`);
+            v.dispose();
+            VENUES.set(sh.id, `${base}venue_${sh.id}.webp`);
+          } catch { /* not drawn yet: the sheet shows the room */ }
           for (const part of ["pano", "fore"] as const) {
             const f = `room_${sh.id}_${part}.webp`;
             try {
@@ -731,6 +738,15 @@ export function City({
       }
       const player = buildPlayer(walk, run, 1.78, frameAspect);
       street.scene.add(player.group);
+      /* The same walker, in whichever room you are in — see `follow`. */
+      const roomPlayer = buildPlayer(walk, run, 1.78, frameAspect);
+      let roomWalked = 0;
+      /* The order sheet's picture: each room as a still, with its
+         professional in it, rendered once now that its art is on the GPU. */
+      for (const [id, r] of vrRooms) {
+        const shot = r.snapshot?.(renderer, 900, 780);
+        if (shot) ROOM_SHOTS.set(id, shot);
+      }
       /* Facing down the street, on the right-hand pavement, with the
          first shopfront a short walk ahead rather than underfoot.
          `spawn` exists so a screenshot can be taken standing in front
@@ -1228,7 +1244,10 @@ export function City({
         const vrShop = insideRef.current ? vrRooms.get(insideRef.current.id) : undefined;
         if (vrShop && insideRef.current) {
           if (vrFor !== insideRef.current.id) {
+            if (vrFor) vrRooms.get(vrFor)?.follow?.(null);
             vrFor = insideRef.current.id;
+            vrShop.follow?.(roomPlayer.group);
+            roomWalked = 0;
             stand.x = 0; stand.z = 0;
             vrFade = 0;
             vrLook = 0;
@@ -1243,12 +1262,14 @@ export function City({
             const rx = -fz, rz = fx;
             stand.x += (-stick.y * fx + stick.x * rx) * 1.1 * dt;
             stand.z += (-stick.y * fz + stick.x * rz) * 1.1 * dt;
+            roomWalked += Math.hypot(stick.x, stick.y) * 1.1 * 2.2 * dt;
             const d = Math.hypot(stand.x, stand.z);
             if (d > PANO_STAND_RADIUS) {
               stand.x *= PANO_STAND_RADIUS / d;
               stand.z *= PANO_STAND_RADIUS / d;
             }
           }
+          roomPlayer.setDistance(roomWalked, false);
           vrShop.update(dt, now / 1000, { yaw: look, pitch: lookPitch }, stand);
           /* The door's colour lifts off you as you arrive. */
           if (vrFade < 1) {
@@ -1262,6 +1283,7 @@ export function City({
           return;
         }
         if (vrFor) {
+          vrRooms.get(vrFor)?.follow?.(null);
           vrFor = null;
           vrActive = false;
           streetPass.scene = street.scene;
@@ -1419,7 +1441,7 @@ export function City({
           /* A shop whose building has been redrawn is looked at nearly
              head-on once you stop — Amit: *"ככה צריכים לראות, זה
              הזווית"* — the way you would stop and face a shopfront. */
-          const cap = HERO_READY.has(best.id) && push <= 0.08 ? 1.4 : 0.85;
+          const cap = (HERO_READY.has(best.id) || street.windowShops.has(best.id)) && push <= 0.08 ? 1.4 : 0.85;
           lookWant =
             Math.max(-cap, Math.min(cap, d)) * near * (push > 0.08 ? 0.42 : 1);
         }
@@ -1452,7 +1474,7 @@ export function City({
            the way Amit's favourite shot has it: the window fills the
            screen and the room behind it is the thing you are looking at,
            not a facade seen from across the road. */
-        const closeUp = Boolean(best && HERO_READY.has(best.id));
+        const closeUp = Boolean(best && (HERO_READY.has(best.id) || street.windowShops.has(best.id)));
         frame += (wantFrame - frame) * (1 - Math.pow(0.08, dt));
 
         let camYaw = yaw + look + turn;
@@ -2080,6 +2102,33 @@ export function City({
  * says the next tap leaves PRO NOW, in the same spirit as the maps
  * handoff. We hand over a link and claim nothing about the other side.
  */
+/** Stills of the built rooms, by shop id, for the order sheet. */
+const ROOM_SHOTS = new Map<string, string>();
+/*
+ * THE SHOP, OPEN, WITH ITS PROFESSIONAL IN THE DOORWAY.
+ *
+ * Amit, of the Lust boutique with its saleswoman standing inside: that
+ * is the picture he wants on every order sheet — *"בעמוד של האפשרויות
+ * שים את איש המקצוע שבנינו … ותגדיל על כל העמוד."* Where a shop's
+ * `venue_<id>` drawing has arrived it fills the sheet, and the options
+ * sit over its foot.
+ */
+const VENUES = new Map<string, string>();
+/*
+ * A SPONSOR'S PRODUCTS PAGE: THE BOUTIQUE WITH ITS SALESWOMAN.
+ *
+ * Amit: *"שעוברים למוצרים — תמונה יותר רחבה של החנות עם הדמות המצויירת
+ * שעשינו להם."* The page shows the boutique drawn open with its figure
+ * inside, and each product's sparkle sits on that product in THIS
+ * picture — [x, y] as fractions of it, in the order of `things`.
+ */
+const SPONSOR_VENUE: Readonly<Record<string, { file: string; spots: ReadonlyArray<readonly [number, number]> }>> = {
+  lust: {
+    file: "sponsor_lust_venue.webp",
+    spots: [[0.87, 0.62], [0.13, 0.62], [0.46, 0.73], [0.25, 0.6]],
+  },
+};
+
 function ShopRoom({
   base,
   shop,
@@ -2097,6 +2146,11 @@ function ShopRoom({
   /* Called once the walk back out has finished, so the stick returns. */
   onStreet: () => void;
 }) {
+  /* A sponsor's picture carries its tappable products at fixed places,
+     so it keeps its drawing; every other shop shows its built room. */
+  const venue = shop.sponsor ? undefined : VENUES.get(shop.id);
+  const sponsorVenue = shop.sponsor ? SPONSOR_VENUE[shop.id] : undefined;
+  const picture = venue || (sponsorVenue && base + sponsorVenue.file) || (!shop.sponsor && ROOM_SHOTS.get(shop.id)) || base + shop.interior;
   const sponsor = shop.sponsor
     ? PREVIEW_SPONSORS.find((x) => x.id === shop.id) ?? null
     : null;
@@ -2269,19 +2323,20 @@ function ShopRoom({
   const tint = shop.neonColour ?? "#FF6B4A";
 
   return (
-    <div style={S.room}>
-      {/* The shop's own colour and light, behind everything. */}
+    <div style={venue ? { ...S.room, ...S.roomVenue } : S.room}>
+      {/* The shop's own colour and light, behind everything — or, where
+          the shop has been drawn open, the shop itself, page-high. */}
       <img
-        src={base + shop.interior}
+        src={picture}
         alt=""
-        aria-hidden
-        style={{ ...S.roomWash, opacity: shown ? 1 : 0 }}
+        aria-hidden={!venue}
+        style={{ ...S.roomWash, ...(venue ? S.venueArt : null), opacity: shown ? 1 : 0 }}
       />
-      <div style={{ ...S.roomWashVeil, opacity: shown ? 1 : 0 }} />
+      <div style={{ ...S.roomWashVeil, ...(venue ? S.venueVeil : null), opacity: shown ? 1 : 0 }} />
 
       <div
         ref={stage}
-        style={{ ...S.roomStage, height: box ? box.h : "40%" }}
+        style={{ ...S.roomStage, height: box ? box.h : "40%", ...(venue ? { display: "none" } : null) }}
         onPointerDown={down2}
         onPointerMove={move2}
         onPointerUp={up2}
@@ -2303,7 +2358,7 @@ function ShopRoom({
           }}
         >
           <img
-            src={base + shop.interior}
+            src={picture}
             alt=""
             style={S.roomImg}
             onLoad={(e) => fit(e.currentTarget)}
@@ -2313,8 +2368,8 @@ function ShopRoom({
               key={t.titleHe}
               style={{
                 ...S.spot,
-                left: `${t.x * 100}%`,
-                top: `${t.y * 100}%`,
+                left: `${(sponsorVenue?.spots[i]?.[0] ?? t.x) * 100}%`,
+                top: `${(sponsorVenue?.spots[i]?.[1] ?? t.y) * 100}%`,
                 animationDelay: `${i * 0.45}s`,
               }}
               data-spark=""
@@ -2610,6 +2665,19 @@ const S: Record<string, React.CSSProperties> = {
   room: {
     position: "absolute", inset: 0, overflow: "hidden",
     display: "flex", flexDirection: "column", justifyContent: "center",
+  },
+  /* A drawn-open shop fills the sheet; the options sit over its foot. */
+  roomVenue: {
+    justifyContent: "flex-end",
+    background: "radial-gradient(120% 80% at 50% 30%, #3a2130 0%, #120c16 70%)",
+  },
+  venueArt: {
+    inset: 0, width: "100%", height: "100%", objectFit: "contain",
+    objectPosition: "center 12%", filter: "drop-shadow(0 24px 50px rgba(0,0,0,.55))",
+    transform: "scale(1.04)",
+  },
+  venueVeil: {
+    background: "linear-gradient(to bottom, rgba(5,4,12,0) 45%, rgba(5,4,12,.72) 68%, rgba(5,4,12,.92) 100%)",
   },
   /* The picture sits in whatever room the bar leaves it, centred. */
   roomStage: {
