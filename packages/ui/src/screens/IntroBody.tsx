@@ -100,24 +100,43 @@ interface Slide {
 const CUSTOMER_SLIDES: readonly Slide[] = [
   {
     titleHe: "עיר שלמה של בעלי מקצוע",
-    bodyHe: "כל מקצוען הוא עסק ברחוב שלנו, עם השם שלו על החזית. לא מחפשים ברשימה — נכנסים לעיר.",
+    bodyHe: "לא עוד רשימות, דירוגים ומספרי טלפון שצריך להתקשר אליהם לבד. כל תחום וכל בעיה — ברחוב אחד.",
     focus: { u: 0.5, v: 0.45 },
     zoom: 0.42,
   },
   {
     titleHe: "בוחרים דמות ומטיילים",
-    bodyHe: "הדמות שלכם הולכת ברחוב בזמן שאנחנו מחפשים מי פנוי עכשיו באזור שלכם. אפשר גם לדלג.",
+    bodyHe: "נכנסים לחנויות ורואים מה אפשר להזמין. אפשר גם לדלג ישר לקריאה.",
     focus: WALK_START,
     zoom: 0.72,
   },
   {
-    titleHe: "ומזמינים עד הבית, עכשיו",
-    bodyHe: "שולחים קריאה, ומי שפנוי ומאושר לעבודה הזאת יוצא אליכם. רואים אותו בדרך, עד הדלת.",
+    titleHe: "מעכשיו לעכשיו",
+    bodyHe: "שולחים קריאה, ומי שפנוי עכשיו ומאושר לעבודה יוצא אליכם. בלי לחכות להצעות מחיר.",
     // The customer's own door, at the bottom of the street. The camera
     // clamps before the plate's edge, so this reads as the end of the
     // road rather than as the edge of a picture.
     focus: CUSTOMER_POINT,
     zoom: 0.95,
+  },
+  /*
+   * Amit: *"להסביר את הביטחון והאימותים, ושמישהו יכול להזמין מקצוען לבת
+   * שלו או לסבא שלו — והוא שולט בהצעת המחיר ובתשלום."* Only what the
+   * product does: verification per kind of work, the profile and the
+   * arrival shown before confirming, the quote approved and paid by the
+   * person who sent the request, to whatever address they choose.
+   */
+  {
+    titleHe: "יודעים מי מגיע",
+    bodyHe: "כל מקצוען עובר אימות זהות ותעודות לפי סוג העבודה. רואים מי הוא, מתי יגיע ומה המחיר — לפני שמאשרים.",
+    focus: CUSTOMER_POINT,
+    zoom: 0.8,
+  },
+  {
+    titleHe: "גם בשביל מי שאוהבים",
+    bodyHe: "לסבא, לבת בדירה, להורים — שולחים לכתובת שלהם, ואתם מאשרים את הצעת המחיר והתשלום מהטלפון שלכם.",
+    focus: WALK_START,
+    zoom: 0.6,
   },
 ];
 

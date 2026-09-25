@@ -120,6 +120,8 @@ export interface HomeRecentItem {
 }
 
 export interface CustomerHomeBodyProps {
+  /** The city behind the top of the page, when the host can play it. Left out, the painted plate. */
+  backdrop?: React.ReactNode;
   /** Short greeting, e.g. "ערב טוב". Locale/time logic lives in the app. */
   greetingHe: string;
   /**
@@ -254,6 +256,7 @@ export interface CustomerHomeBodyProps {
 const ALL = "הכול";
 
 export function CustomerHomeBody({
+  backdrop,
   greetingHe,
   addressLabelHe,
   services,
@@ -592,7 +595,7 @@ export function CustomerHomeBody({
           supply. Just the fact that this product happens somewhere.
           --------------------------------------------------------------- */}
       <View style={[styles.backdrop, { width }]} pointerEvents="none">
-        <WorldBackdrop width={width} height={HOME_WORLD_HEIGHT} sources={worldSources} />
+        {backdrop ?? <WorldBackdrop width={width} height={HOME_WORLD_HEIGHT} sources={worldSources} />}
         {/* The page coming up over the world, as one gradient. Bands with
             hard edges were what made the welcome screen look like artwork
             printed on strips of tape. */}

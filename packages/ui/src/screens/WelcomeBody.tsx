@@ -76,6 +76,13 @@ export interface WelcomeBodyProps {
   animate?: boolean;
   onCustomer?: () => void;
   onProfessional?: () => void;
+  /** A business that wants its shop in the city. Left out, the door is not drawn. */
+  onAdvertise?: () => void;
+  /**
+   * What to show behind the promise. Left out, the painted plate; a host
+   * that can play the real city (a short clip of it) passes it here.
+   */
+  background?: React.ReactNode;
   width?: number;
   height?: number;
 }
@@ -85,6 +92,8 @@ export function WelcomeBody({
   animate = true,
   onCustomer,
   onProfessional,
+  onAdvertise,
+  background,
   width = 390,
   height = 780,
 }: WelcomeBodyProps) {
@@ -118,7 +127,7 @@ export function WelcomeBody({
         * file lands, which is why this screen currently shows a street with
         * no signs on it.
         */}
-      <WorldBackdrop
+      {background ?? <WorldBackdrop
         width={width}
         height={height}
         sources={worldSources}
@@ -133,7 +142,7 @@ export function WelcomeBody({
         daylight={false}
         fallbackGroundAssetId={ROAD_PLATE_ASSET_ID}
         focus={WELCOME_VIEW.focus}
-      />
+      />}
 
       {/*
         * THE SCRIM.
@@ -189,6 +198,17 @@ export function WelcomeBody({
             <Text style={styles.doorSecondaryTitle}>אני בעל מקצוע</Text>
             <Text style={styles.doorSecondarySub}>הרשמה וקבלת עבודות באזור שלך</Text>
           </Pressable>
+
+          {onAdvertise ? (
+            <Pressable
+              onPress={onAdvertise}
+              accessibilityRole="button"
+              accessibilityLabel="יש לי עסק — חנות משלי בעיר"
+              style={({ pressed }) => [styles.advertise, pressed && styles.pressed]}
+            >
+              <Text style={styles.advertiseText}>יש לך עסק? חנות משלך בעיר ›</Text>
+            </Pressable>
+          ) : null}
         </View>
       </ScrollView>
     </View>
@@ -258,6 +278,8 @@ const styles = StyleSheet.create({
   },
 
   doors: { marginTop: spacing.xxl, gap: spacing.md },
+  advertise: { alignSelf: "center", paddingVertical: spacing.sm, paddingHorizontal: spacing.lg, minHeight: 44, justifyContent: "center" },
+  advertiseText: { ...type.body, color: palette.signal300, textAlign: "center", writingDirection: "rtl" },
   door: { borderRadius: radii.lg, paddingVertical: spacing.lg, minHeight: 72, justifyContent: "center", alignItems: "center" },
   doorPrimary: { backgroundColor: colors.action },
   doorPrimaryTitle: { ...type.h3, color: colors.onAction, writingDirection: "rtl" },

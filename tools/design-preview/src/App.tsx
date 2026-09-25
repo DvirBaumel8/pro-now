@@ -653,6 +653,8 @@ export function App() {
    */
   const pickingForStroll = useRef(false);
   const [openStrollOnce, setOpenStrollOnce] = useState(false);
+  const [openAdvertiseOnce, setOpenAdvertiseOnce] = useState(false);
+  const [introSlide, setIntroSlide] = useState(0);
   /** The same one-shot for the other wait: "is the work finished?" */
   const [openCompletionOnce, setOpenCompletionOnce] = useState(false);
 
@@ -790,6 +792,14 @@ export function App() {
         {gate?.name === "welcome" ? (
           <WelcomeBody
             worldSources={art}
+            /* The whole city, as before — Amit: *"לא רוצה פתיחה של
+               המספרה, רוצה של העיר כולה."* */
+            onAdvertise={() => {
+              /* A business owner is not asked to sign in to leave a lead. */
+              setSide("customer");
+              setGate(null);
+              setOpenAdvertiseOnce(true);
+            }}
             /*
              * Straight in if this device has signed in on that side before.
              * The welcome screen itself is kept — it is the screen Amit
@@ -851,6 +861,10 @@ export function App() {
         ) : gate?.name === "intro" ? (
           <IntroBody
             side={gate.side === "pro" ? "PRO" : "CUSTOMER"}
+            /* Called, not mounted: `null` must reach IntroBody so that the
+               whole-city slide falls back to its painted plate. */
+            background={IntroBackdrop({ side: gate.side === "pro" ? "pro" : "customer", slide: introSlide }) ?? undefined}
+            onSlide={setIntroSlide}
             sources={gate.side === "pro" ? proWorldSources : art}
             /*
              * THE REAL CITY BEHIND THE THREE SENTENCES.
@@ -990,6 +1004,8 @@ export function App() {
             }
             openStrollOnce={openStrollOnce}
             onStrollOpened={() => setOpenStrollOnce(false)}
+            openAdvertiseOnce={openAdvertiseOnce}
+            onAdvertiseOpened={() => setOpenAdvertiseOnce(false)}
             memory={customerMemory}
             onConfirmCompletion={() => {
               setCompletionConfirmed(true);
@@ -1232,6 +1248,8 @@ function CustomerApp({
   onPickAvatar,
   openStrollOnce,
   onStrollOpened,
+  openAdvertiseOnce,
+  onAdvertiseOpened,
   memory,
   returnToPro,
   onReturnToPro,
@@ -1282,6 +1300,9 @@ function CustomerApp({
   /** A figure was just chosen because the street was asked for. */
   openStrollOnce?: boolean;
   onStrollOpened?: () => void;
+  /** Open the advertiser's page once, from the welcome's business door. */
+  openAdvertiseOnce?: boolean;
+  onAdvertiseOpened?: () => void;
   /**
    * Where this side was the last time it was mounted — see the shell.
    * Held above because crossing to the professional unmounts all of this.
@@ -1900,6 +1921,12 @@ const go = useCallback((r: CustomerRoute) => {
     setSheet("released");
     go({ name: "living", serviceId: lastRequestedId ?? "svc-leak", phase: "SEARCHING" });
   }, [jobReleased, onReleaseSeen, lastRequestedId, go]);
+
+  useEffect(() => {
+    if (!openAdvertiseOnce) return;
+    onAdvertiseOpened?.();
+    go({ name: "advertise" });
+  }, [openAdvertiseOnce, onAdvertiseOpened, go]);
 
   useEffect(() => {
     if (!openStrollOnce) return;
@@ -2654,6 +2681,9 @@ const go = useCallback((r: CustomerRoute) => {
 
         return (
           <SearchingBody
+            /* The city we built behind the search, not the old plate — the
+               street itself, the same for every trade. */
+            backdrop={<Showcase />}
             geo={geo}
             worldSources={art}
             /*
@@ -3246,6 +3276,8 @@ const go = useCallback((r: CustomerRoute) => {
       default:
         return (
           <CustomerHomeBody
+            /* Our street behind the top of the page, not the old plate. */
+            backdrop={<Showcase lift={22} />}
             /* Same door, same rule — see the closing screen above. */
             onStroll={strollDoor}
             /* The other doorway on this page, for a business owner. */
@@ -5488,6 +5520,95 @@ const styles = StyleSheet.create({
  * happened. A silent no-op would look exactly like a working button,
  * which is the failure this note exists to prevent.
  */
+/*
+ * EVERYONE, NOT ONE TRADE.
+ *
+ * Amit: *"אל תתמקד במקצוע אחד של מספרה — הסבר כללי לכולם."* So the
+ * explaining slides show the whole of it: the city from above and down
+ * its street past every shop, the twelve figures you can walk as, and
+ * the professionals of every trade standing together.
+ */
+/*
+ * THE BRIGHT SIDE OF THE CITY.
+ *
+ * Amit: *"במסך הראשון צריך שיהיה משהו יותר שמח, לא מסך כהה מדי — זוויות
+ * יפות של העולם שלנו."* The night street is moody and the words sit on
+ * the dark part of every screen, so the top of the welcome and the home
+ * page now cycle through the brightest places in the city — the pink
+ * salon from the front and from the side, the boutique, and the rooms
+ * inside them — each held for four seconds, drifting slowly, warmed a
+ * touch. Stills taken from this build, not paintings of it.
+ */
+const SHOW_ALL = ["salon_front", "lust_front", "salon_in", "salon_side", "lust_in", "lust_side"] as const;
+const SHOW_CSS =
+  "@keyframes pnShow{0%{opacity:0;transform:scale(1.1)}5%{opacity:1}17%{opacity:1}22%{opacity:0;transform:scale(1.0)}100%{opacity:0}}";
+function Showcase({ shots = SHOW_ALL, focus = "50% 55%", lift = 0 }: { shots?: readonly string[]; focus?: string; lift?: number }) {
+  const per = 4;
+  const cycle = shots.length * per;
+  return (
+    <div aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden", background: "#2a1830" }}>
+      <style>{SHOW_CSS.replace("17%", `${Math.round((per / cycle) * 100)}%`).replace("22%", `${Math.round(((per + 1) / cycle) * 100)}%`)}</style>
+      {shots.map((n, i) => (
+        <img
+          key={n}
+          src={`./clips/show_${n}.jpg`}
+          alt=""
+          style={{
+            position: "absolute", left: 0, right: 0, top: `${-lift}%`, width: "100%", height: "100%", objectFit: "cover", objectPosition: focus,
+            filter: "brightness(1.12) saturate(1.18)",
+            opacity: i === 0 ? 1 : 0,
+            animation: `pnShow ${cycle}s linear ${i * per - 0.01}s infinite`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+const PRO_LINEUP = ["home", "hair", "auto", "care", "tech", "pets", "appliance", "well", "move"] as const;
+function ProsLineup() {
+  return (
+    <div aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden", background: "radial-gradient(120% 70% at 50% 28%, #6a3f73 0%, #2a1838 55%, #120c18 90%)" }}>
+      <img src="./clips/show_salon_side.jpg" alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.3, filter: "blur(2px)" }} />
+      <div style={{ position: "absolute", left: 0, right: 0, top: "9%", height: "50%", display: "flex", flexWrap: "wrap", justifyContent: "center", alignItems: "flex-end", gap: "0 2px", padding: "0 6px" }}>
+        {PRO_LINEUP.map((id, i) => (
+          <img
+            key={id}
+            src={`./world/character_${id}_world.webp`}
+            alt=""
+            style={{ height: i < 4 ? "46%" : "50%", marginTop: i < 4 ? 0 : -18, filter: "drop-shadow(0 10px 14px rgba(0,0,0,.55))" }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+function AvatarsLineup() {
+  const ids = ["01", "06", "02", "09", "03", "07", "04", "11", "05", "08", "12", "10"];
+  return (
+    <div aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden", background: "radial-gradient(120% 70% at 50% 28%, #6a3f73 0%, #2a1838 55%, #120c18 90%)" }}>
+      <img src="./clips/show_salon_in.jpg" alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.3, filter: "blur(2px)" }} />
+      <div style={{ position: "absolute", left: "6%", right: "6%", top: "8%", display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
+        {ids.map((id) => (
+          <img key={id} src={`./world/avatar_${id}_portrait.webp`} alt="" style={{ width: "100%", aspectRatio: "1", objectFit: "cover", borderRadius: 18, background: "rgba(255,255,255,.06)", boxShadow: "0 8px 20px rgba(0,0,0,.45)" }} />
+        ))}
+      </div>
+    </div>
+  );
+}
+function IntroBackdrop({ side, slide }: { side: "customer" | "pro"; slide: number }) {
+  if (side === "customer") {
+    if (slide === 1) return <AvatarsLineup />;
+    if (slide === 2) return <ProsLineup />;
+    if (slide === 3) return <Showcase shots={["salon_side", "lust_side"]} />;
+    if (slide === 4) return <Showcase shots={["salon_in", "lust_in"]} />;
+    /* "A whole city" is shown as the whole city: the painted plate. */
+    return null;
+  }
+  if (slide === 1) return <ProsLineup />;
+  return slide === 2 ? <Showcase shots={["salon_side", "lust_side"]} /> : null;
+}
+
 function PreviewNote({ textHe }: { textHe: string }) {
   return (
     <View

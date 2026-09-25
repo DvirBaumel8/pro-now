@@ -114,6 +114,11 @@ import { Walker } from "./Walker";
 
 export interface LivingMapSceneProps {
   /**
+   * The city behind the search, when the host can play it — a short film
+   * of the real street in place of the painted plate. Left out, the plate.
+   */
+  backdrop?: React.ReactNode;
+  /**
    * A real street plan to put the dispatch on.
    *
    * This is the screen somebody actually watches — the search, the
@@ -277,6 +282,7 @@ const RECENTRE_ON: readonly LivingMapPhase[] = [
 ];
 
 export function LivingMapScene({
+  backdrop,
   geo = null,
   state,
   etaMinutes,
@@ -1242,6 +1248,9 @@ export function LivingMapScene({
           and a camera by construction rather than by three call sites
           agreeing with each other.
           --------------------------------------------------------------- */}
+      {backdrop ? (
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">{backdrop}</View>
+      ) : (
       <WorldViewport
         width={width}
         height={height}
@@ -1569,6 +1578,7 @@ export function LivingMapScene({
           </>
         )}
       </WorldViewport>
+      )}
 
       {/* ---------------------------------------------------------------
           THE CARD FOR ONE OF THE NEIGHBOURHOOD'S OWN SHOPS.

@@ -376,6 +376,9 @@ export const CITY_ROOM_BOX_IDS = CITY_ROOM_TRADES.flatMap((t) => [
 /** Each shop's building at a three-quarter angle, shown at the door. */
 export const CITY_SHOP_HERO_IDS = CITY_ROOM_TRADES.map((t) => `hero_${t}`);
 
+/** Each shop drawn open with its professional in the doorway — the order sheet's picture. */
+export const CITY_VENUE_IDS = CITY_ROOM_TRADES.map((t) => `venue_${t}`);
+
 /** The loading screen's own picture — see `S.load` in the city. */
 export const CITY_SPLASH_IDS = ["splash_city"] as const;
 
@@ -416,6 +419,7 @@ export const CITY_ASSET_IDS: readonly string[] = [
   ...CITY_ROOM_PANO_IDS,
   ...CITY_ROOM_BOX_IDS,
   ...CITY_SHOP_HERO_IDS,
+  ...CITY_VENUE_IDS,
   ...CITY_SPLASH_IDS,
   ...CITY_AVATAR_SHEET_IDS,
 ];

@@ -44,6 +44,8 @@ import { LivingMapScene } from "../components/livingmap/LivingMapScene";
  */
 
 export interface SearchingBodyProps {
+  /** The real city behind the search, when the host can play it. See `LivingMapScene`. */
+  backdrop?: React.ReactNode;
   /**
    * A real street plan for the dispatch screen.
    *
@@ -137,6 +139,7 @@ export interface SearchingBodyProps {
 }
 
 export function SearchingBody({
+  backdrop,
   geo = null,
   serviceNameHe,
   theme = "HOME",
@@ -199,6 +202,7 @@ export function SearchingBody({
         />
       ) : null}
       <LivingMapScene
+        backdrop={backdrop}
         geo={geo}
         onOpenProfile={onOpenProfile}
         enterVenueId={enterVenueId}
