@@ -5841,7 +5841,7 @@ function TradeBackdrop({ dept }: { dept: string | null }) {
 const OTW_CSS = `
 @keyframes pnOtwIn{from{opacity:0}to{opacity:1}}
 @keyframes pnOtwCard{from{opacity:0;transform:translateY(30px) scale(.96)}to{opacity:1;transform:none}}
-@keyframes pnOtwVan{0%{left:14%}100%{left:66%}}
+@keyframes pnOtwVan{0%{left:66%}100%{left:16%}}
 @keyframes pnOtwDash{to{background-position:-40px 0}}
 @keyframes pnOtwRing{from{stroke-dashoffset:0}to{stroke-dashoffset:251}}
 @keyframes pnOtwPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
@@ -5872,7 +5872,8 @@ function OnTheWay({ shop, proName, etaMinutes, onDone }: { shop: string; proName
         <div style={{ position: "absolute", left: "8%", right: "8%", top: 76, height: 6, borderRadius: 3, backgroundImage: "linear-gradient(90deg, rgba(255,154,107,.9) 50%, transparent 50%)", backgroundSize: "20px 6px", animation: "pnOtwDash .6s linear infinite" }} />
         <img src={`./world/m/shop_${shopId}.webp`} alt="" style={{ position: "absolute", right: 0, top: 0, width: 88, height: 88, objectFit: "contain" }} />
         <div style={{ position: "absolute", left: 0, top: 22, width: 64, height: 64, borderRadius: 16, background: "rgba(255,255,255,.1)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30 }}>⌂</div>
-        <img src="./world/m/van_side.webp" alt="" style={{ position: "absolute", top: 42, height: 44, animation: "pnOtwVan 5s cubic-bezier(.4,0,.2,1) both", transform: "scaleX(-1)" }} />
+        {/* From his shop (right) to your home (left), nose first. */}
+        <img src="./world/m/van_side.webp" alt="" style={{ position: "absolute", top: 42, height: 44, animation: "pnOtwVan 5s cubic-bezier(.4,0,.2,1) both" }} />
         <div style={{ position: "absolute", right: 4, top: 96, color: "rgba(247,243,250,.7)", fontSize: 12 }}>החנות שלו</div>
         <div style={{ position: "absolute", left: 8, top: 96, color: "rgba(247,243,250,.7)", fontSize: 12 }}>הבית שלך</div>
       </div>
