@@ -208,6 +208,35 @@ interface Trade {
 
 /** Avatar walk sheets whose frames have been checked by eye. See the
     player's loader for why this starts empty. */
+/*
+ * -----------------------------------------------------------------------
+ * THE SHOP BEFORE YOU ENTER IT
+ * -----------------------------------------------------------------------
+ * Amit, of the pink salon building: *"זה הכיוון שאני רוצה שתראה חנות לפני
+ * שנכנסים — שמחה, חיה, נושמת, צעירה, עתידנית, זווית פרופורציונלית."*
+ *
+ * These are the trades' own illustrated buildings, drawn at a
+ * three-quarter angle. In the street that baked angle argues with the
+ * camera, which is why the street uses flat elevations — but as the
+ * moment of arrival, full-screen, it is exactly the picture he means: you
+ * press "היכנס", the building you are walking into fills the screen, its
+ * neon breathes, the view pushes in towards the door, and you are inside.
+ */
+const DOORSTEP_HERO: Readonly<Record<string, string>> = {
+  hair: "hair_barbershop_hero.webp",
+  home: "home_workshop_hero.webp",
+  auto: "auto_garage_hero.webp",
+  appliance: "appliance_workshop_hero.webp",
+  care: "care_studio_hero.webp",
+  pets: "pets_salon_hero.webp",
+};
+const DOORSTEP_MS = 2100;
+const DOORSTEP_DIR =
+  typeof window !== "undefined" &&
+  (window.matchMedia?.("(pointer: coarse)").matches || window.innerWidth < 768)
+    ? "s/"
+    : "m/";
+
 const VERIFIED_AVATAR_SHEETS = new Set<string>([
   /* 2026-09-25: yesterday's twelve, from PRO_NOW_AVATAR_NN_3_DIRECTIONS,
      each sliced to exactly eight poses and looked at frame by frame. */
@@ -229,6 +258,7 @@ export function City({
   const [nearName, setNearName] = useState<string | null>(null);
   const [nearId, setNearId] = useState<string | null>(null);
   const [room, setRoom] = useState<ShopSpec | null>(null);
+  const [doorstep, setDoorstep] = useState<{ src: string; he: string; neon: string } | null>(null);
   /*
    * The shop you are STANDING IN, as opposed to the one whose picture
    * is filling the screen. Amit: *"שיהיה אפשר לעשות צעד פנימה לתוך
@@ -1825,6 +1855,12 @@ export function City({
           style={S.enter}
           onClick={() => {
             setWalking(true);
+            const shop = SHOPS.find((x) => x.id === nearId);
+            const hero = nearId ? DOORSTEP_HERO[nearId] : undefined;
+            if (hero && shop) {
+              setDoorstep({ src: `${base}${DOORSTEP_DIR}${hero}`, he: shop.he, neon: shop.neonColour ?? "#FF6B4A" });
+              window.setTimeout(() => setDoorstep(null), DOORSTEP_MS);
+            }
             enterRef.current?.();
           }}
         >
@@ -1848,6 +1884,16 @@ export function City({
       {onBackButton(onExit)}
 
       {/* The brand's colour, rising as the door opens. */}
+      {doorstep ? (
+        <div style={S.door} aria-hidden>
+          <div style={{ ...S.doorGlow, background: `radial-gradient(60% 45% at 50% 55%, ${doorstep.neon}55 0%, rgba(11,8,16,0) 70%)` }} />
+          <img src={doorstep.src} alt="" style={S.doorArt} />
+          <div style={S.doorName}>
+            <span style={{ color: doorstep.neon }}>●</span> {doorstep.he}
+          </div>
+        </div>
+      ) : null}
+
       <div
         style={{
           ...S.veil,
@@ -2446,6 +2492,26 @@ const S: Record<string, React.CSSProperties> = {
     background: "rgba(16,11,22,.9)", border: "1px solid rgba(247,243,250,.55)",
     color: "#F7F3FA", fontSize: scale.body, cursor: "pointer", lineHeight: 1,
   },
+  door: {
+    position: "absolute", inset: 0, zIndex: 30, pointerEvents: "none",
+    background: "radial-gradient(120% 90% at 50% 40%, #2a1a33 0%, #0b0810 70%)",
+    display: "grid", placeItems: "center", overflow: "hidden",
+    animation: `pnDoor ${DOORSTEP_MS}ms ease-in-out forwards`,
+  },
+  doorGlow: {
+    position: "absolute", inset: 0,
+    animation: "pnBreathe 1.4s ease-in-out infinite alternate",
+  },
+  doorArt: {
+    position: "relative", width: "92%", maxWidth: 560, height: "auto",
+    filter: "drop-shadow(0 18px 40px rgba(0,0,0,.55))",
+    animation: `pnPush ${DOORSTEP_MS}ms cubic-bezier(.5,0,.75,1) forwards`,
+  },
+  doorName: {
+    position: "absolute", bottom: "14%", left: 0, right: 0, textAlign: "center",
+    color: "#F7F3FA", fontSize: scale.title, fontWeight: 800, letterSpacing: 0.5,
+    textShadow: "0 4px 18px rgba(0,0,0,.6)",
+  },
   veil: {
     position: "absolute", inset: 0, pointerEvents: "none",
     transition: "opacity 460ms ease",
@@ -2631,6 +2697,10 @@ if (typeof document !== "undefined" && !document.getElementById("pn-city-css")) 
        sweeps rather than pretending to measure progress it does not
        have. A fake percentage is a lie told in the first second. */
     "@keyframes pnDrift{from{transform:scale(1.06) translateX(-1.5%)}to{transform:scale(1.14) translateX(1.5%)}}" +
-    "@keyframes pnFill{0%{transform:translateX(-120%)}100%{transform:translateX(320%)}}";
+    "@keyframes pnFill{0%{transform:translateX(-120%)}100%{transform:translateX(320%)}}" +
+    /* The doorstep: in, a breath, a push towards the door, and through. */
+    "@keyframes pnDoor{0%{opacity:0}14%{opacity:1}82%{opacity:1}100%{opacity:0}}" +
+    "@keyframes pnPush{0%{transform:scale(.9) translateY(3%)}22%{transform:scale(1) translateY(0)}100%{transform:scale(1.9) translateY(-9%)}}" +
+    "@keyframes pnBreathe{from{opacity:.55}to{opacity:1}}";
   document.head.appendChild(tag);
 }
