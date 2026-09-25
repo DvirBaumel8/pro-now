@@ -984,7 +984,7 @@ export function City({
        * the camera without rebuilding the city — the whole point is
        * that the slides are demonstrably one place.
        */
-      const flight = { found: null as number | null, from: new THREE.Vector3(), aimFrom: new THREE.Vector3() };
+      const flight = { started: false, target: "", found: null as number | null, from: new THREE.Vector3(), aimFrom: new THREE.Vector3() };
       const flightPos = new THREE.Vector3(0, 26, 60);
       const flightAim = new THREE.Vector3(0, 0, 40);
       const SHOTS: Record<string, { dist: number; hgt: number; ahead: number; yaw: number }> = {
@@ -1309,13 +1309,22 @@ export function City({
           const face = FRONT_X * target.side;
           if (sr.phase === "searching") {
             flight.found = null;
-            /* High and slow, drifting the length of the street and back. */
-            const z = Math.sin(tSec * 0.06) * 110;
-            flightPos.set(Math.sin(tSec * 0.11) * 4, 26, z + 30);
-            flightAim.set(0, 0, z - 6);
+            /* High and slow over the lit street, looking steeply down on
+               the roofs and the road — never from under it. */
+            const z = Math.sin(tSec * 0.06) * 100;
+            flightPos.set(Math.sin(tSec * 0.11) * 3, 30, z + 16);
+            flightAim.set(0, 0, z - 4);
+            if (!flight.started) {
+              flight.started = true;
+              camera.position.copy(flightPos);
+            }
           } else {
+            /* A new shop while already found (the customer turned the
+               first one down): lift and go again, from wherever we are. */
+            if (flight.found !== null && flight.target !== target.id) flight.found = null;
             if (flight.found === null) {
               flight.found = tSec;
+              flight.target = target.id;
               flight.from.copy(camera.position);
               flight.aimFrom.copy(flightAim);
             }
@@ -1325,7 +1334,7 @@ export function City({
             const k = k0 * k0 * (3 - 2 * k0);
             const end = new THREE.Vector3(face - target.side * 5.2, 2.3, target.z + 3.2);
             const aimEnd = new THREE.Vector3(face + target.side * 2.5, 2.1, target.z);
-            const mid = flight.from.clone().lerp(end, 0.55).add(new THREE.Vector3(0, 6 * (1 - k), 0));
+            const mid = flight.from.clone().lerp(end, 0.55).add(new THREE.Vector3(0, 9 * (1 - k), 0));
             flightPos.copy(flight.from).lerp(mid, Math.min(1, k * 1.6)).lerp(end, k);
             flightAim.copy(flight.aimFrom).lerp(aimEnd, Math.min(1, k * 1.3));
           }

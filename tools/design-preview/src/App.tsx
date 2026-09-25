@@ -1465,6 +1465,8 @@ function CustomerApp({
   }, []);
   /* The "on the way" moment after accepting — see `OnTheWay`. */
   const [onTheWayAt, setOnTheWayAt] = useState<number | null>(null);
+  /* Which of the found professionals is on the card — see `onAnother`. */
+  const [pick, setPick] = useState(0);
   const [route, setRoute] = useState<CustomerRoute>(
     /*
      * A pin or a review cycle is an instruction about where to open and
@@ -2636,11 +2638,22 @@ const go = useCallback((r: CustomerRoute) => {
          * counts the same array, so the number on screen and the number of
          * people can never disagree.
          */
+        /* The name follows the drawn figure standing in that shop, so a
+           card never says "מאיה" over a man in overalls. */
+        const shopOf = (i: number) => {
+          const d = departmentCodeByServiceId[route.serviceId] ?? "";
+          const l = DEPT_SHOPS[d] ?? [DEPT_SHOP[d] ?? "home"];
+          return l[i % l.length]!;
+        };
+        const FEMALE_FIGURE = new Set(["hair", "nails", "pets", "well"]);
+        const namesFor = (i: number) =>
+          (FEMALE_FIGURE.has(shopOf(i)) ? ["מאיה", "נועה", "שירה"] : ["יוסי", "איתי", "רון"])[i % 3]!;
         const cands: CandidatePresence[] = demoCandidatesFor(route.serviceId, 3).map((c, i) => ({
           candidateId: `demo-cand-${i}`,
-          displayNameHe: c.displayNameHe,
+          displayNameHe: `${namesFor(i)} (תצוגה)`,
           professionHe: c.headlineHe,
-          photoUri: null,
+          /* The trade's own drawn professional, so the card has a face. */
+          photoUri: `./world/character_${shopOf(i)}_icon.webp`,
           /*
            * Carried through from the fixture rather than invented here. A
            * derived candidate has no rating and no jobs, so `matchFactsHe`
@@ -2653,7 +2666,7 @@ const go = useCallback((r: CustomerRoute) => {
           state:
             route.phase === "SEARCHING"
               ? ("CHECKING" as const)
-              : i === 0 && (route.phase === "MATCH_REVEAL" || route.phase === "ASSIGNED_ROUTE")
+              : i === pick % 3 && (route.phase === "MATCH_REVEAL" || route.phase === "ASSIGNED_ROUTE")
                 ? ("CHOSEN" as const)
                 : ("ELIGIBLE" as const),
         }));
@@ -2705,7 +2718,8 @@ const go = useCallback((r: CustomerRoute) => {
               <SearchCity
                 dept={departmentCodeByServiceId[route.serviceId] ?? null}
                 found={route.phase !== "SEARCHING"}
-                proName="יוסי"
+                pick={pick}
+                proName={(cands[pick % cands.length]?.displayNameHe ?? "").split(" ")[0]}
               />
             )}
             onOpenRealMap={followPro}
@@ -2772,7 +2786,8 @@ const go = useCallback((r: CustomerRoute) => {
             onAnother={
               isPersonFit(route.serviceId)
                 ? () => go({ name: "matchconfirm", serviceId: route.serviceId, index: 1 })
-                : undefined
+                : /* Turned down: the camera lifts and goes into the next shop. */
+                  () => setPick((n) => n + 1)
             }
             onSafety={() => setSheet("safety")}
             onOpenProfile={(id) => setOpenVenue(id)}
@@ -2817,8 +2832,8 @@ const go = useCallback((r: CustomerRoute) => {
           />
           {onTheWayAt ? (
             <OnTheWay
-              dept={departmentCodeByServiceId[route.serviceId] ?? null}
-              proName="יוסי"
+              shop={shopOf(pick)}
+              proName={namesFor(pick)}
               etaMinutes={Math.round((matchFixture.eta?.etaSeconds ?? 840) / 60)}
               onDone={() => setOnTheWayAt(null)}
             />
@@ -5786,6 +5801,10 @@ function FamilyScene() {
  * Drawn with the delivered art and CSS only: no video, no WebGL, so it is
  * instant on a phone.
  */
+/* The next shops to try in the same line of work, when one is turned down. */
+const DEPT_SHOPS: Readonly<Record<string, readonly string[]>> = {
+  HOME_URGENT: ["home", "help", "build"], BEAUTY: ["hair", "nails"], PETS: ["pets", "vet"],
+};
 const DEPT_SHOP: Readonly<Record<string, string>> = {
   HOME_URGENT: "home", APPLIANCES: "appliance", HOME_CARE: "care", BEAUTY: "hair", WELLNESS: "well",
   PETS: "pets", VEHICLE: "auto", LOGISTICS: "move", TECH: "tech", ODD_JOBS: "help", IMPROVEMENT: "build",
@@ -5827,8 +5846,8 @@ const OTW_CSS = `
 @keyframes pnOtwRing{from{stroke-dashoffset:0}to{stroke-dashoffset:251}}
 @keyframes pnOtwPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
 `;
-function OnTheWay({ dept, proName, etaMinutes, onDone }: { dept: string | null; proName: string; etaMinutes: number; onDone: () => void }) {
-  const shopId = (dept && DEPT_SHOP[dept]) || "home";
+function OnTheWay({ shop, proName, etaMinutes, onDone }: { shop: string; proName: string; etaMinutes: number; onDone: () => void }) {
+  const shopId = shop;
   /* Once, on arrival: the host re-renders every second (the ETA clock),
      and a timer keyed on a fresh callback would never get to fire. */
   const done = useRef(onDone);
@@ -5871,18 +5890,24 @@ function OnTheWay({ dept, proName, etaMinutes, onDone }: { dept: string | null; 
  * their shop, and the professional steps into the frame at the window.
  */
 const RADAR_CSS = "@keyframes pnRadar{0%{transform:translate(-50%,-50%) scale(.15);opacity:.9}100%{transform:translate(-50%,-50%) scale(2.6);opacity:0}}@keyframes pnProIn{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}";
-function SearchCity({ dept, found, proName }: { dept: string | null; found: boolean; proName?: string }) {
-  const shopId = (dept && DEPT_SHOP[dept]) || "home";
+function SearchCity({ dept, found, proName, pick = 0 }: { dept: string | null; found: boolean; proName?: string; pick?: number }) {
+  const list = (dept && DEPT_SHOPS[dept]) || [(dept && DEPT_SHOP[dept]) || "home"];
+  const shopId = list[pick % list.length]!;
   const [arrived, setArrived] = useState(false);
   useEffect(() => {
-    if (!found) { setArrived(false); return; }
+    setArrived(false);
+    if (!found) return;
     const t = setTimeout(() => setArrived(true), 4300);
     return () => clearTimeout(t);
-  }, [found]);
+  }, [found, pick]);
   return (
     <div aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden", background: "#1a1222" }}>
       <style>{RADAR_CSS}</style>
-      <City hud={false} search={{ shopId, phase: found ? "found" : "searching" }} />
+      {/* Brighter while searching: the night street is moody at eye level
+          and simply dark from this high up. */}
+      <div style={{ position: "absolute", inset: 0, filter: found ? "none" : "brightness(1.45) saturate(1.15)", transition: "filter 1.2s ease" }}>
+        <City hud={false} search={{ shopId, phase: found ? "found" : "searching" }} />
+      </div>
       {!found ? [0, 1, 2].map((i) => (
         <div key={i} style={{ position: "absolute", left: "50%", top: "46%", width: 320, height: 320, borderRadius: "50%", border: "2px solid rgba(255,154,107,.85)", boxShadow: "0 0 30px rgba(255,107,74,.45) inset", animation: `pnRadar 2.4s ease-out ${i * 0.8}s infinite`, pointerEvents: "none" }} />
       )) : null}
