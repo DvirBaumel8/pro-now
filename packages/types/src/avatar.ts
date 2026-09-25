@@ -77,7 +77,14 @@ import type { Gait } from "./world-motion";
  * walking does. Reading it from the roster keeps those three facts in one
  * place instead of in three `if` statements at three call sites.
  */
-export type AvatarPresentation = "WOMAN" | "MAN" | "UNSPECIFIED" | "ANIMAL" | "VEHICLE";
+/*
+ * CREATURE: an upright character in clothes — the dog-person, the robot,
+ * the dragon with a backpack. Not an ANIMAL (on four legs, knee height)
+ * and not a person, so it gets its own word rather than borrowing either
+ * one's rules: it walks at close to a person's height and is labelled by
+ * what it is.
+ */
+export type AvatarPresentation = "WOMAN" | "MAN" | "UNSPECIFIED" | "ANIMAL" | "CREATURE" | "VEHICLE";
 
 export interface AvatarOption {
   /** Stable id. What gets stored; never a description of a person. */
@@ -149,25 +156,34 @@ export interface AvatarOption {
  * the screen fun.
  */
 export const AVATARS: readonly AvatarOption[] = [
-  { id: "av_01", portraitAssetId: "avatar_01_portrait", worldAssetId: "avatar_01_world_back", presentation: "WOMAN", heightRatio: 1, labelHe: "דמות 1" },
-  { id: "av_02", portraitAssetId: "avatar_02_portrait", worldAssetId: "avatar_02_world_back", presentation: "WOMAN", heightRatio: 1, labelHe: "דמות 2" },
-  { id: "av_03", portraitAssetId: "avatar_03_portrait", worldAssetId: "avatar_03_world_back", presentation: "WOMAN", heightRatio: 1, labelHe: "דמות 3 · כיסוי ראש" },
-  { id: "av_04", portraitAssetId: "avatar_04_portrait", worldAssetId: "avatar_04_world_back", presentation: "WOMAN", heightRatio: 1, labelHe: "דמות 4" },
-  { id: "av_05", portraitAssetId: "avatar_05_portrait", worldAssetId: "avatar_05_world_back", presentation: "WOMAN", heightRatio: 1, labelHe: "דמות 5" },
-  { id: "av_06", portraitAssetId: "avatar_06_portrait", worldAssetId: "avatar_06_world_back", presentation: "MAN", heightRatio: 1, labelHe: "דמות 6" },
-  { id: "av_07", portraitAssetId: "avatar_07_portrait", worldAssetId: "avatar_07_world_back", presentation: "MAN", heightRatio: 1, labelHe: "דמות 7" },
-  { id: "av_08", portraitAssetId: "avatar_08_portrait", worldAssetId: "avatar_08_world_back", presentation: "MAN", heightRatio: 1, labelHe: "דמות 8 · כיסוי ראש" },
-  { id: "av_09", portraitAssetId: "avatar_09_portrait", worldAssetId: "avatar_09_world_back", presentation: "MAN", heightRatio: 1, labelHe: "דמות 9" },
-  { id: "av_10", portraitAssetId: "avatar_10_portrait", worldAssetId: "avatar_10_world_back", presentation: "MAN", heightRatio: 1, labelHe: "דמות 10" },
   /*
-   * The two animals. Shorter, and the number is the whole of what the
-   * renderer needs to know about them: `Walker` multiplies the standing
-   * height by it and the contact shadow, the depth scale and the gait all
-   * follow from there. ChatGPT: *"הכלב והחתול יקבלו כמובן אותה לוגיקה
-   * בגובה ובפרופורציה שלהם."*
+   * YESTERDAY'S TWELVE: FIVE PEOPLE AND SEVEN CREATURES.
+   *
+   * Amit asked for it in so many words — *"שיעשה אווטרים מגניבים, חיות,
+   * יצורים מיוחדים... גם בני אדם אבל גם דברים מיוחדים"* — and the set was
+   * drawn on 2026-09-24 in three directions each (front, side, back), eight
+   * walking poses per direction. It replaced an older roster of ten people
+   * and a dog and a cat, and for a day the picker kept showing the old faces
+   * while the street was given the new bodies, so whatever you chose,
+   * somebody else walked. The portraits are now cut from each character's
+   * own front sheet (`make-portraits.mjs`), so the two cannot drift again.
+   *
+   * The creatures walk upright at close to a person's height — they are
+   * characters in clothes with backpacks, not pets — so they share the
+   * people's ruler, a touch shorter.
    */
-  { id: "av_11", portraitAssetId: "avatar_11_portrait", worldAssetId: "avatar_11_world_back", presentation: "ANIMAL", heightRatio: 0.46, labelHe: "כלב" },
-  { id: "av_12", portraitAssetId: "avatar_12_portrait", worldAssetId: "avatar_12_world_back", presentation: "ANIMAL", heightRatio: 0.38, labelHe: "חתול" },
+  { id: "av_01", portraitAssetId: "avatar_01_portrait", worldAssetId: "avatar_01_world_back", presentation: "MAN", heightRatio: 1, labelHe: "דמות 1" },
+  { id: "av_02", portraitAssetId: "avatar_02_portrait", worldAssetId: "avatar_02_world_back", presentation: "WOMAN", heightRatio: 1, labelHe: "דמות 2" },
+  { id: "av_03", portraitAssetId: "avatar_03_portrait", worldAssetId: "avatar_03_world_back", presentation: "MAN", heightRatio: 1, labelHe: "דמות 3" },
+  { id: "av_04", portraitAssetId: "avatar_04_portrait", worldAssetId: "avatar_04_world_back", presentation: "WOMAN", heightRatio: 1, labelHe: "דמות 4" },
+  { id: "av_05", portraitAssetId: "avatar_05_portrait", worldAssetId: "avatar_05_world_back", presentation: "MAN", heightRatio: 1, labelHe: "דמות 5" },
+  { id: "av_06", portraitAssetId: "avatar_06_portrait", worldAssetId: "avatar_06_world_back", presentation: "CREATURE", heightRatio: 0.92, labelHe: "כלב" },
+  { id: "av_07", portraitAssetId: "avatar_07_portrait", worldAssetId: "avatar_07_world_back", presentation: "CREATURE", heightRatio: 0.92, labelHe: "חתול" },
+  { id: "av_08", portraitAssetId: "avatar_08_portrait", worldAssetId: "avatar_08_world_back", presentation: "CREATURE", heightRatio: 0.92, labelHe: "שועל" },
+  { id: "av_09", portraitAssetId: "avatar_09_portrait", worldAssetId: "avatar_09_world_back", presentation: "CREATURE", heightRatio: 0.95, labelHe: "רובוט" },
+  { id: "av_10", portraitAssetId: "avatar_10_portrait", worldAssetId: "avatar_10_world_back", presentation: "CREATURE", heightRatio: 0.9, labelHe: "חייזר" },
+  { id: "av_11", portraitAssetId: "avatar_11_portrait", worldAssetId: "avatar_11_world_back", presentation: "CREATURE", heightRatio: 0.95, labelHe: "דרקון" },
+  { id: "av_12", portraitAssetId: "avatar_12_portrait", worldAssetId: "avatar_12_world_back", presentation: "CREATURE", heightRatio: 0.92, labelHe: "דוב" },
 
   /*
    * THE THREE THINGS YOU CAN RIDE, AND WHY THEY CARRY THE WORDMARK.
@@ -311,11 +327,18 @@ export function avatarViolations(roster: readonly AvatarOption[] = AVATARS): str
     out.push("there are too many figures to choose between in twenty seconds");
   }
 
-  // Nobody should have to pick somebody who presents as another gender to
-  // find a figure at all. Counted against the PEOPLE rather than against
-  // the whole roster, so adding an animal can never make this fail.
+  /*
+   * Nobody should have to pick somebody who presents as another gender to
+   * find a figure at all. Counted against the PEOPLE rather than against
+   * the whole roster, so adding an animal can never make this fail.
+   *
+   * Two, not three, since 2026-09-25: Amit chose five people and seven
+   * creatures, and the creatures are the half of the grid that asks
+   * nothing about who you are — a robot is a fine answer for anybody. Two
+   * is still a choice rather than a token; one would be a token.
+   */
   for (const p of ["WOMAN", "MAN"] as const) {
-    if (roster.filter((a) => a.presentation === p).length < 3) {
+    if (roster.filter((a) => a.presentation === p).length < 2) {
       out.push(`too few options presenting as ${p}`);
     }
   }
@@ -341,13 +364,18 @@ export function avatarViolations(roster: readonly AvatarOption[] = AVATARS): str
      * `VEHICLE_OF_PERSON`).
      */
     const maxHeight = a.presentation === "VEHICLE" ? 1.6 : 1;
+    /* A creature stands among people: shorter by a little, never by half,
+       or the dragon you picked is a toy at their knees. */
+    if (a.presentation === "CREATURE" && (a.heightRatio < 0.8 || a.heightRatio > 1)) {
+      out.push(`"${a.id}" is a creature drawn at the wrong height`);
+    }
     if (a.heightRatio > maxHeight) out.push(`"${a.id}" is taller than it can be`);
     // An animal drawn at a person's height is the specific mistake this
     // field exists to prevent.
     if (a.presentation === "ANIMAL" && a.heightRatio >= 0.8) {
       out.push(`"${a.id}" is an animal drawn at human height`);
     }
-    if (a.presentation !== "ANIMAL" && a.presentation !== "VEHICLE" && a.heightRatio !== 1) {
+    if (a.presentation !== "ANIMAL" && a.presentation !== "VEHICLE" && a.presentation !== "CREATURE" && a.heightRatio !== 1) {
       out.push(`"${a.id}" is a person and must be a person's height`);
     }
     // A ride that does not ride would be steered with a walking gait,

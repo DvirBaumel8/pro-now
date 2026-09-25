@@ -62,6 +62,52 @@ export function measureCycle(
   const data = x2.getImageData(0, 0, c.width, c.height).data;
   const opaque = (x: number, y: number) => (data[(y * c.width + x) * 4 + 3] ?? 0) > 40;
 
+  /*
+   * ---------------------------------------------------------------------
+   * FIRST THE BAND THE FIGURES STAND IN, NOT THE WHOLE CANVAS
+   * ---------------------------------------------------------------------
+   * Amit: *"האווטאר כפול 4 ולא מציאותי."* Measured: `avatar_01_back` is
+   * four figures walking shoulder to shoulder, arms touching, with the
+   * bottom of a palm trunk from the neighbouring drawing above their
+   * heads. With no empty column between the bodies the sheet read as
+   * ONE figure, so the player was all four people and a tree trunk,
+   * squeezed into one person's space.
+   *
+   * So: the rows first. The band with the most drawing in it is the
+   * figures; anything separated from it by an empty strip — a trunk, a
+   * shadow, a label — is somebody else's.
+   */
+  const rowN = new Int32Array(c.height);
+  for (let y = 0; y < c.height; y += 1) {
+    let n = 0;
+    for (let x = 0; x < c.width; x += 1) if (opaque(x, y)) n += 1;
+    rowN[y] = n;
+  }
+  const gapRows = Math.max(2, Math.round(c.height * 0.01));
+  let by0 = 0;
+  let by1 = c.height - 1;
+  {
+    let best = -1;
+    let s0 = -1;
+    let mass = 0;
+    let gap = 0;
+    const close = (end: number) => {
+      if (s0 >= 0 && mass > best) { best = mass; by0 = s0; by1 = end; }
+    };
+    for (let y = 0; y < c.height; y += 1) {
+      if (rowN[y]! > 2) {
+        if (s0 < 0) { s0 = y; mass = 0; }
+        mass += rowN[y]!;
+        gap = 0;
+      } else if (s0 >= 0 && ++gap >= gapRows) {
+        close(y - gap);
+        s0 = -1;
+      }
+    }
+    close(c.height - 1);
+  }
+  const bandH = by1 - by0 + 1;
+
   const rects: Array<[number, number]> = [];
   if (forceEven > 0) {
     const w = c.width / forceEven;
@@ -72,7 +118,7 @@ export function measureCycle(
     const col = new Int32Array(c.width);
     for (let x = 0; x < c.width; x += 1) {
       let n = 0;
-      for (let y = 0; y < c.height; y += 1) if (opaque(x, y)) n += 1;
+      for (let y = by0; y <= by1; y += 1) if (opaque(x, y)) n += 1;
       col[x] = n;
     }
     const runs: Array<[number, number]> = [];
@@ -85,7 +131,45 @@ export function measureCycle(
       }
     }
     if (start >= 0) runs.push([start, c.width - 1]);
-    const keep = runs.filter(([a, z]) => z - a > 40);
+
+    /*
+     * AND FIGURES THAT TOUCH ARE SPLIT AT THE WAIST, NOT IN HALF.
+     *
+     * Two bodies touching at the hands still have much less drawing in
+     * the columns between them than through either torso. So a run is
+     * cut wherever the column count falls to under half of the torsos
+     * on both sides — a valley — and never closer than a fifth of the
+     * figure's height to the last cut, which is narrower than any body.
+     */
+    const k = Math.max(2, Math.round(bandH * 0.015));
+    const sm = new Float32Array(c.width);
+    for (let x = 0; x < c.width; x += 1) {
+      let t = 0;
+      let n = 0;
+      for (let j = Math.max(0, x - k); j <= Math.min(c.width - 1, x + k); j += 1) { t += col[j]!; n += 1; }
+      sm[x] = t / n;
+    }
+    const reach = Math.round(bandH * 0.22);
+    const minPart = Math.round(bandH * 0.2);
+    const split: Array<[number, number]> = [];
+    for (const [a, z] of runs) {
+      let from = a;
+      for (let x = a + minPart; x <= z - minPart; x += 1) {
+        if (x - from < minPart) continue;
+        if (!(sm[x]! <= sm[x - 1]! && sm[x]! < sm[x + 1]!)) continue;
+        let left = 0;
+        let right = 0;
+        for (let j = Math.max(a, x - reach); j < x; j += 1) left = Math.max(left, sm[j]!);
+        for (let j = x + 1; j <= Math.min(z, x + reach); j += 1) right = Math.max(right, sm[j]!);
+        if (sm[x]! < 0.5 * Math.min(left, right)) {
+          split.push([from, x - 1]);
+          from = x;
+        }
+      }
+      split.push([from, z]);
+    }
+
+    const keep = split.filter(([a, z]) => z - a > Math.max(12, bandH * 0.08));
     if (keep.length === 0) return null;
     const widths = keep.map(([a, z]) => z - a + 1).sort((a, b) => a - b);
     const median = widths[Math.floor(widths.length / 2)]!;
@@ -120,11 +204,11 @@ export function measureCycle(
    * while its limbs do the moving.
    */
   const unit = Math.max(...rects.map(([a, z]) => z - a + 1));
-  const footTop = Math.floor(c.height * 0.88);
+  const footTop = Math.floor(by1 - bandH * 0.12);
   const frames = rects.map(([a, z]) => {
     let lo = z;
     let hi = a;
-    for (let y = footTop; y < c.height; y += 1) {
+    for (let y = footTop; y <= by1; y += 1) {
       for (let x = a; x <= z; x += 1) {
         if (!opaque(x, y)) continue;
         if (x < lo) lo = x;
@@ -138,9 +222,11 @@ export function measureCycle(
     t.needsUpdate = true;
     t.colorSpace = THREE.SRGBColorSpace;
     t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
-    t.repeat.set(unit / c.width, 1);
-    t.offset.set((centre - unit / 2) / c.width, 0);
+    /* Only the band: a texture's v runs bottom-up, so the band's
+       offset is measured from the bottom of the canvas. */
+    t.repeat.set(unit / c.width, bandH / c.height);
+    t.offset.set((centre - unit / 2) / c.width, (c.height - 1 - by1) / c.height);
     return t;
   });
-  return { frames, aspect: unit / c.height };
+  return { frames, aspect: unit / bandH };
 }

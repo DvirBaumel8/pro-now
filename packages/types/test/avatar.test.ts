@@ -29,7 +29,7 @@ describe("the avatar roster", () => {
 
   it("gives nobody a reason to pick a figure that is not them", () => {
     for (const p of ["WOMAN", "MAN"] as const) {
-      expect(AVATARS.filter((a) => a.presentation === p).length).toBeGreaterThanOrEqual(3);
+      expect(AVATARS.filter((a) => a.presentation === p).length).toBeGreaterThanOrEqual(2);
     }
   });
 
@@ -94,9 +94,9 @@ describe("an avatar is not identity", () => {
 
   it("labels the drawing, never the person", () => {
     for (const a of AVATARS) {
-      if (a.presentation === "ANIMAL" || a.presentation === "VEHICLE") {
-        // An animal or a van is labelled by WHAT IT IS, which is still a
-        // fact about the picture rather than about the customer.
+      if (a.presentation === "ANIMAL" || a.presentation === "CREATURE" || a.presentation === "VEHICLE") {
+        // An animal, a robot or a van is labelled by WHAT IT IS, which is
+        // still a fact about the picture rather than about the customer.
         expect(a.labelHe.length).toBeGreaterThan(0);
         continue;
       }
@@ -105,28 +105,28 @@ describe("an avatar is not identity", () => {
   });
 });
 
-describe("ten people and two animals", () => {
+describe("five people and seven creatures", () => {
   /*
-   * ChatGPT, closing this: *"הייתי נועל 10 אנשים + 2 חיות. לא מוסיף עכשיו
-   * עוד שתי דמויות רק בשביל סימטריית 6/6, במיוחד אחרי שהחלטנו שהבחירה
-   * עצמה לא שואלת מגדר."* The picker shows a grid and takes a tap; there
-   * is no gender question to balance.
+   * Amit, 2026-09-24: *"שיעשה אווטרים מגניבים, חיות, יצורים מיוחדים... גם
+   * בני אדם אבל גם דברים מיוחדים."* The set drawn that night is five people
+   * and seven upright creatures — a dog, a cat, a fox, a robot, an alien,
+   * a dragon and a bear, in clothes, with backpacks.
    */
-  it("keeps the grid mostly people", () => {
-    const animals = AVATARS.filter((a) => a.presentation === "ANIMAL");
+  it("holds five people and seven creatures", () => {
+    const creatures = AVATARS.filter((a) => a.presentation === "CREATURE");
     const rides = AVATARS.filter((a) => a.presentation === "VEHICLE");
-    expect(animals.length).toBe(2);
-    expect(AVATARS.length - animals.length - rides.length).toBe(10);
+    const animals = AVATARS.filter((a) => a.presentation === "ANIMAL");
+    expect(creatures.length).toBe(7);
+    expect(animals.length).toBe(0);
+    expect(AVATARS.length - creatures.length - rides.length).toBe(5);
   });
 
-  it("draws an animal shorter than a person", () => {
+  it("stands every figure at its own height", () => {
     for (const a of AVATARS) {
-      if (a.presentation === "ANIMAL") {
-        expect(a.heightRatio).toBeLessThan(0.8);
-        expect(a.heightRatio).toBeGreaterThan(0);
+      if (a.presentation === "CREATURE") {
+        expect(a.heightRatio).toBeGreaterThanOrEqual(0.8);
+        expect(a.heightRatio).toBeLessThanOrEqual(1);
       } else if (a.presentation === "VEHICLE") {
-        // A van is taller than the person driving it, and still below the
-        // roofline of the shops it drives past.
         expect(a.heightRatio).toBeGreaterThanOrEqual(1);
         expect(a.heightRatio).toBeLessThanOrEqual(1.6);
       } else {
@@ -135,9 +135,15 @@ describe("ten people and two animals", () => {
     }
   });
 
+  it("refuses a creature shrunk to a pet", () => {
+    const wrong = AVATARS.map((a) => (a.presentation === "CREATURE" ? { ...a, heightRatio: 0.4 } : a));
+    expect(avatarViolations(wrong).join(" ")).toContain("creature drawn at the wrong height");
+  });
+
   it("refuses an animal drawn at human height", () => {
-    const wrong = AVATARS.map((a) =>
-      a.presentation === "ANIMAL" ? { ...a, heightRatio: 1 } : a
+    // The roster has no animals today; the rule stays for the day it does.
+    const wrong = AVATARS.map((a, i) =>
+      i === 0 ? { ...a, presentation: "ANIMAL" as const, heightRatio: 1 } : a
     );
     expect(avatarViolations(wrong).join(" ")).toContain("human height");
   });

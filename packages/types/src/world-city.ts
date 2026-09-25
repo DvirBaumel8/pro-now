@@ -334,6 +334,17 @@ export const CITY_AVATAR_SHEET_IDS = Array.from({ length: 12 }, (_, i) => {
   return [`avatar_${n}_back`, `avatar_${n}_front`, `avatar_${n}_side`];
 }).flat();
 
+/**
+ * The 360 rooms: a panorama of the whole room and, drawn apart from it,
+ * the counter in front of you (tools/design-preview/src/city/panoRoom.ts).
+ * One pair per shop, cut from the one image the chat draws by
+ * `cut-room.mjs`.
+ */
+export const CITY_ROOM_PANO_IDS = [
+  "hair", "nails", "home", "appliance", "care", "tech", "auto", "move",
+  "build", "help", "well", "pets", "vet", "lust",
+].flatMap((t) => [`room_${t}_pano`, `room_${t}_fore`]);
+
 /** The loading screen's own picture — see `S.load` in the city. */
 export const CITY_SPLASH_IDS = ["splash_city"] as const;
 
@@ -371,6 +382,7 @@ export const CITY_ASSET_IDS: readonly string[] = [
   ...CITY_WALKER_IDS,
   ...CITY_SHOP_IDS,
   ...CITY_ROOM_LAYER_IDS,
+  ...CITY_ROOM_PANO_IDS,
   ...CITY_SPLASH_IDS,
   ...CITY_AVATAR_SHEET_IDS,
 ];

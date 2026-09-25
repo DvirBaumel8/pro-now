@@ -22,6 +22,7 @@ import { SPONSOR_BADGE_HE, sponsorCtaHe, sponsorLeaveHe } from "@pro-now/types";
 import { scale } from "@pro-now/ui";
 
 import { PREVIEW_SPONSORS } from "../sponsors";
+import { buildPanoRoom, PANO_STAND_RADIUS, type PanoRoom } from "./panoRoom";
 import {
   buildStreet,
   FRONT_X,
@@ -205,6 +206,14 @@ interface Trade {
   }>;
 }
 
+/** Avatar walk sheets whose frames have been checked by eye. See the
+    player's loader for why this starts empty. */
+const VERIFIED_AVATAR_SHEETS = new Set<string>([
+  /* 2026-09-25: yesterday's twelve, from PRO_NOW_AVATAR_NN_3_DIRECTIONS,
+     each sliced to exactly eight poses and looked at frame by frame. */
+  "01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12",
+]);
+
 export function City({
   base = "./world/",
   spawn,
@@ -234,6 +243,7 @@ export function City({
    * they read this.
    */
   const insideRef = useRef<{
+    id: string;
     side: -1 | 1;
     x: number;
     z: number;
@@ -538,6 +548,21 @@ export function City({
         })
       );
 
+      /* The 360 rooms: a panorama of the whole room and, drawn apart
+         from it, the counter in front of you. See panoRoom.ts. */
+      const panoWave = Promise.all(
+        SHOPS.map(async (sh) => {
+          for (const part of ["pano", "fore"] as const) {
+            const f = `room_${sh.id}_${part}.webp`;
+            try {
+              facades[f] = await load(f);
+            } catch {
+              /* not drawn yet: the shop keeps its box room */
+            }
+          }
+        })
+      );
+
       const artWave = Promise.all(
         OPTIONAL_ART.map(async (id) => {
           try {
@@ -548,7 +573,7 @@ export function City({
         })
       );
 
-      await Promise.all([facadeWave, roomWave, artWave]);
+      await Promise.all([facadeWave, roomWave, artWave, panoWave]);
 
       /*
        * ---------------------------------------------------------------
@@ -601,6 +626,25 @@ export function City({
       const chosen = avatarNo ? String(avatarNo).padStart(2, "0") : null;
       try {
         if (!chosen) throw new Error("no avatar chosen");
+        /*
+         * ONLY SHEETS THAT HAVE BEEN LOOKED AT.
+         *
+         * Amit: *"האווטאר כפול 4 ולא מציאותי."* Measured on 2026-09-25:
+         * the twelve `avatar_NN_back` files were cut out of one big
+         * sheet one cell out of step. `avatar_02` holds half of 01 and
+         * another woman, `avatar_09` is a dog with a stranger's arm,
+         * and `avatar_11` is a delivery scooter — so a customer who
+         * picked a character walked the street as four people, or as a
+         * scooter. No slicing rule can fix a file that holds the wrong
+         * drawing.
+         *
+         * So a sheet is used only once it is on this list, which means
+         * somebody has seen its frames. Until the redrawn sheets arrive
+         * and pass, the player walks with the street's own cycle, which
+         * is whole and walks properly — the wrong person is better than
+         * a scooter, and it is honest about being a stand-in.
+         */
+        if (!VERIFIED_AVATAR_SHEETS.has(chosen)) throw new Error("sheet not verified");
         const cycle = await sheetFrames(`avatar_${chosen}_back.webp`);
         if (!cycle) throw new Error("sheet could not be measured");
         walk = cycle.frames;
@@ -613,6 +657,14 @@ export function City({
       if (disposed) return;
 
       const street = buildStreet(SHOPS, facades);
+      const vrRooms = new Map<string, PanoRoom>();
+      for (const sh of SHOPS) {
+        const pano = facades[`room_${sh.id}_pano.webp`];
+        if (!pano) continue;
+        const r = buildPanoRoom(pano, facades[`room_${sh.id}_fore.webp`]);
+        r.setAspect(el.clientWidth / el.clientHeight);
+        vrRooms.set(sh.id, r);
+      }
       const player = buildPlayer(walk, run, 1.78, frameAspect);
       street.scene.add(player.group);
       /* Facing down the street, on the right-hand pavement, with the
@@ -666,7 +718,8 @@ export function City({
         0.1,
         400
       );
-      composer.addPass(new RenderPass(street.scene, camera));
+      const streetPass = new RenderPass(street.scene, camera);
+      composer.addPass(streetPass);
       composer.addPass(bloom);
       /*
        * -----------------------------------------------------------------
@@ -789,6 +842,10 @@ export function City({
       let look = 0;
       /* And the head YOU turn, by dragging. It decays when you walk. */
       let turn = 0;
+      /* Inside a 360 room the drag turns YOU, across the whole room,
+         not the street's sixty-degree glance. */
+      let vrActive = false;
+      let vrLook = 0;
 
       /*
        * -----------------------------------------------------------
@@ -870,7 +927,8 @@ export function City({
          * apart. The day the side-view sheets arrive this opens to
          * ninety.
          */
-        turn = Math.max(-1.05, Math.min(1.05, turn - (e.clientX - lastX) * 0.0055));
+        if (vrActive) vrLook -= (e.clientX - lastX) * 0.0055;
+        else turn = Math.max(-1.05, Math.min(1.05, turn - (e.clientX - lastX) * 0.0055));
         pitch = Math.max(0.05, Math.min(0.75, pitch + (e.clientY - lastY) * 0.0035));
         lastX = e.clientX;
         lastY = e.clientY;
@@ -933,12 +991,22 @@ export function City({
       const walkTo = new THREE.Vector3();
       let lastNear: string | null = null;
       let lastPlace: string | null = null;
+      /* Inside a 360 room: where you stand and how the view eases in. */
+      const stand = { x: 0, z: 0 };
+      let vrFor: string | null = null;
+      let vrFade = 0;
 
       const tick = (now: number) => {
         const dt = Math.min(0.05, (now - last) / 1000);
         last = now;
 
         if (entry) {
+          if (vrFor) {
+            vrFor = null;
+            vrActive = false;
+            streetPass.scene = street.scene;
+            streetPass.camera = camera;
+          }
           const raw = Math.min(1, (now - entry.startedAt) / ENTRY_MS);
           /* smoothstep: a linear push-in reads as a slide, not a step. */
           const k0 = raw * raw * (3 - 2 * raw);
@@ -1009,7 +1077,11 @@ export function City({
           /* The brand's colour, last third only — and only when the
              screen is about to be replaced by a picture. Walking into
              a room needs no curtain: you can see where you are going. */
-          setVeil(shop.roomSpot ? 0 : Math.min(1, Math.max(0, (k - 0.6) / 0.34)));
+          setVeil(
+            shop.roomSpot && !(entry.dir > 0 && vrRooms.has(shop.id))
+              ? 0
+              : Math.min(1, Math.max(0, (k - 0.6) / 0.34))
+          );
 
           street.update(dt, now / 1000, camera);
           composer.render();
@@ -1033,6 +1105,7 @@ export function City({
                  */
                 setWalking(false);
                 insideRef.current = {
+                  id: shop.id,
                   side: shop.side,
                   x: shop.roomSpot.x,
                   z: shop.doorway.z,
@@ -1062,6 +1135,58 @@ export function City({
           }
           raf = requestAnimationFrame(tick);
           return;
+        }
+
+        /*
+         * -----------------------------------------------------------
+         * INSIDE A 360 ROOM THE STREET IS NOT DRAWN AT ALL
+         * -----------------------------------------------------------
+         * The same drag that turns your head on the street turns it in
+         * the room, and the same stick moves you — a step or so, which
+         * is enough for the counter to slide across the shelves behind
+         * it. See panoRoom.ts for why that step is the whole point.
+         */
+        const vrShop = insideRef.current ? vrRooms.get(insideRef.current.id) : undefined;
+        if (vrShop && insideRef.current) {
+          if (vrFor !== insideRef.current.id) {
+            vrFor = insideRef.current.id;
+            stand.x = 0; stand.z = 0;
+            vrFade = 0;
+            vrLook = 0;
+          }
+          vrActive = true;
+          /* Clamp the drag itself, so turning back starts at once. */
+          vrLook = Math.max(-vrShop.maxYaw, Math.min(vrShop.maxYaw, vrLook));
+          const look = vrLook;
+          const lookPitch = -(pitch - 0.26) * 0.7;
+          if (Math.hypot(stick.x, stick.y) > 0.08) {
+            const fx = -Math.sin(look), fz = -Math.cos(look);
+            const rx = -fz, rz = fx;
+            stand.x += (-stick.y * fx + stick.x * rx) * 1.1 * dt;
+            stand.z += (-stick.y * fz + stick.x * rz) * 1.1 * dt;
+            const d = Math.hypot(stand.x, stand.z);
+            if (d > PANO_STAND_RADIUS) {
+              stand.x *= PANO_STAND_RADIUS / d;
+              stand.z *= PANO_STAND_RADIUS / d;
+            }
+          }
+          vrShop.update(dt, now / 1000, { yaw: look, pitch: lookPitch }, stand);
+          /* The door's colour lifts off you as you arrive. */
+          if (vrFade < 1) {
+            vrFade = Math.min(1, vrFade + dt / 0.7);
+            setVeil(1 - vrFade);
+          }
+          streetPass.scene = vrShop.scene;
+          streetPass.camera = vrShop.camera;
+          composer.render();
+          raf = requestAnimationFrame(tick);
+          return;
+        }
+        if (vrFor) {
+          vrFor = null;
+          vrActive = false;
+          streetPass.scene = street.scene;
+          streetPass.camera = camera;
         }
 
         const scripted = shotRef.current ? SHOTS[shotRef.current] ?? null : null;
@@ -1480,6 +1605,7 @@ export function City({
         renderer.setSize(el.clientWidth, el.clientHeight);
         composer.setSize(el.clientWidth, el.clientHeight);
         bloom.setSize(el.clientWidth, el.clientHeight);
+        for (const r of vrRooms.values()) r.setAspect(el.clientWidth / el.clientHeight);
         gradeAspect();
       };
       window.addEventListener("resize", resize);
