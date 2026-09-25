@@ -22,6 +22,9 @@ import {
   buildRoadGraph,
   CUSTOMER_POINT,
   frontageNear,
+  groundProject,
+  metresAcrossAt,
+  pitchForMetres,
   planWorld,
   plotSpotsFromGeo,
   pruneDeadEnds,
@@ -296,7 +299,22 @@ export function TrackingBody({
     );
     for (const from of byDistance) {
       const route = routeAlongRoads(graph, from, to.at);
-      if (route && route.metres > 0) return { path: route.path, metres: route.metres };
+      /* The first leg is the plot's connector to the kerb — between the
+         houses, not along a street. The van is shown from the road on. */
+      if (route && route.metres > 0) {
+        /*
+         * ON THE ROADS AS THEY ARE DRAWN.
+         *
+         * The plate draws its streets in a gentle 3/4 perspective
+         * (`groundProject`, at the pitch its lens implies); the route was
+         * laid over it flat, so the van drifted off the streets and over
+         * the houses — Amit: *"הניידת נוסעת על הבתים ולא על שום כביש."*
+         * The same projection, at the same pitch, puts it back on them.
+         */
+        const pitch = pitchForMetres(metresAcrossAt(worldZoomFor("ROUTE"), cleaned.bounds));
+        const raw = route.path.length > 3 ? route.path.slice(1) : route.path;
+        return { path: raw.map((q) => groundProject(q, pitch)), metres: route.metres };
+      }
     }
     return null;
   }, [geo, departmentCode]);

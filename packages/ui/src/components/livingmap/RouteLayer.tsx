@@ -772,7 +772,19 @@ export function RouteLayer({
             height: PV_H + 14,
             transform: [
               { translateX: driver.interpolate({ inputRange: steps, outputRange: route.map((s) => s.at.u * width - PV_W / 2) }) },
-              { translateY: driver.interpolate({ inputRange: steps, outputRange: route.map((s) => s.at.v * height - PV_H - 4) }) },
+              /* Wheels on the road line, not parked above it on the roofs. */
+              { translateY: driver.interpolate({ inputRange: steps, outputRange: route.map((s) => s.at.v * height - PV_H * 0.72) }) },
+              /* Nose first: the drawing faces left, so it is mirrored while
+                 the road runs to the right. */
+              {
+                scaleX: driver.interpolate({
+                  inputRange: steps,
+                  outputRange: route.map((s, i) => {
+                    const a = route[Math.max(0, i - 1)]!.at.u, b2 = route[Math.min(route.length - 1, i + 1)]!.at.u;
+                    return b2 - a > 0.0005 ? -1 : 1;
+                  }),
+                }),
+              },
             ],
           }}
         >

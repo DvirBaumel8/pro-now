@@ -829,8 +829,11 @@ export function GeoPlate({
               .sort((a, b) => Math.max(...a.foot.map((q) => q.v)) - Math.max(...b.foot.map((q) => q.v)))
               .map((b) => {
                 const us = b.foot.map((q) => q.u), vs = b.foot.map((q) => q.v);
-                const u0 = Math.min(...us), u1 = Math.max(...us), v1 = Math.max(...vs);
-                const w = (u1 - u0) * S * 1.7;
+                const u0 = Math.min(...us), u1 = Math.max(...us), v0 = Math.min(...vs), v1 = Math.max(...vs);
+                /* Inside its own block: a building that spills over the
+                   kerb puts the road — and the van on it — under a roof. */
+                const bw = (u1 - u0) * S, bh = (v1 - v0) * sy;
+                const w = Math.min(bw * 1.12, bh * 1.9);
                 const h = w * 0.72;
                 let hash = 0;
                 for (let k = 0; k < b.id.length; k++) hash = (hash * 31 + b.id.charCodeAt(k)) >>> 0;
