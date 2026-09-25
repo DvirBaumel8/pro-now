@@ -319,8 +319,27 @@ export function City({
     if (!el) return;
 
     let disposed = false;
-    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    /*
+     * -----------------------------------------------------------------
+     * A PHONE IS NOT A SMALL DESKTOP
+     * -----------------------------------------------------------------
+     * Amit: *"בטלפון המפה לא נטענת, זה זורק אותי החוצה."* Safari gives
+     * a tab a fixed slice of GPU memory and kills the tab when it runs
+     * out — no error, the page just goes. Measured on a 390px screen
+     * at the old settings: 161MB of it went on multisampled render
+     * targets alone, before a single drawing had been uploaded.
+     *
+     * So on a phone: a pixel ratio of 1.5 rather than 2 (the eye cannot
+     * tell on a screen this size at arm's length, and it is 44% fewer
+     * pixels to shade every frame), two samples rather than four, and
+     * no multisampled default framebuffer at all, because nothing is
+     * ever drawn to it — the composer renders into its own target and
+     * `antialias: true` was reserving a second copy for nothing.
+     */
+    const phone =
+      window.matchMedia?.("(pointer: coarse)").matches || window.innerWidth < 768;
+    const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, phone ? 1.5 : 2));
     renderer.setSize(el.clientWidth, el.clientHeight);
     /* On again, over a small box that rides with the player — see the
        moon in street.ts for why that is affordable and why it was a
@@ -391,7 +410,7 @@ export function City({
     const aa = new THREE.WebGLRenderTarget(
       el.clientWidth * renderer.getPixelRatio(),
       el.clientHeight * renderer.getPixelRatio(),
-      { type: THREE.HalfFloatType, samples: 4 }
+      { type: THREE.HalfFloatType, samples: phone ? 2 : 4 }
     );
     const composer = new EffectComposer(renderer, aa);
     composer.setPixelRatio(renderer.getPixelRatio());
@@ -404,14 +423,53 @@ export function City({
     );
 
     const loader = new THREE.TextureLoader();
+    /*
+     * THE LIGHT EDITION FIRST.
+     *
+     * `public/world/m/` holds every drawing capped at 1024px on its long
+     * edge (walk sheets by their short edge) — see `make-light.mjs`.
+     * The full 2048px files cost four times the download, decode and GPU
+     * memory, and a shopfront on a phone is a few hundred pixels wide:
+     * the extra resolution was paid for on every visit and seen on none.
+     * Measured: 70MB of art became 25MB, and the wait before the first
+     * step was 26 seconds on localhost, where the network is free.
+     *
+     * `?hd=1` asks for the originals, for reviewing the art itself. A
+     * drawing with no light copy yet falls back to the original rather
+     * than to nothing, so a new file works before anybody runs the tool.
+     */
+    const hd = new URLSearchParams(window.location.search).has("hd");
+    const fetchTex = (url: string) =>
+      new Promise<THREE.Texture>((res, rej) => loader.load(url, res, undefined, rej));
+    /*
+     * And a phone takes `s/`, the 640px edition, first. At 1024 the
+     * street was still 455MB of GPU textures on a 390px screen —
+     * around 160 different drawings, none of them duplicates — which
+     * is past what Safari allows a tab. See `make-light.mjs`.
+     */
+    const editions = hd ? [""] : phone ? ["s/", "m/", ""] : ["m/", ""];
     const load = (f: string) =>
-      new Promise<THREE.Texture>((res, rej) => loader.load(base + f, res, undefined, rej));
+      editions.reduce<Promise<THREE.Texture>>(
+        (p, dir) => p.catch(() => fetchTex(base + dir + f)),
+        Promise.reject(new Error("start"))
+      );
 
     let stop = () => {};
 
     (async () => {
       const facades: Record<string, THREE.Texture | undefined> = {};
-      await Promise.all(
+      /*
+       * ONE WAVE, NOT FOUR.
+       *
+       * These were four `await Promise.all`s in a row — every facade,
+       * THEN every interior, THEN every room, THEN everything else — so
+       * the slowest facade held up the first interior, and the loading
+       * screen waited for the sum of four slowest files instead of the
+       * slowest one. None of them needs another's result except a room,
+       * which needs to know its interior's name, and that is now worked
+       * out inside the same shop's own chain.
+       */
+      const facadeWave = Promise.all(
         SHOPS.map(async (s) => {
           /*
            * `shop_<id>` FIRST, `district_<id>` AFTER.
@@ -449,17 +507,6 @@ export function City({
        * another clock.
        */
       /* The redrawn interiors, one per trade, where they exist. */
-      await Promise.all(
-        SHOPS.map(async (sh) => {
-          try {
-            const t = await load(`shop_${sh.id}_inside.webp`);
-            (sh as { interior?: string }).interior = `shop_${sh.id}_inside.webp`;
-            facades[`shop_${sh.id}_inside.webp`] = t;
-          } catch {
-            /* keep whatever interior the roster already names */
-          }
-        })
-      );
 
       /*
        * AND THE ROOMS THEMSELVES, AS TEXTURES.
@@ -472,8 +519,16 @@ export function City({
        * existence had been confirmed. They are the back wall of a real
        * room now, so the street needs them as textures.
        */
-      await Promise.all(
+      const roomWave = Promise.all(
         SHOPS.map(async (sh) => {
+          try {
+            const t = await load(`shop_${sh.id}_inside.webp`);
+            (sh as { interior?: string }).interior = `shop_${sh.id}_inside.webp`;
+            facades[`shop_${sh.id}_inside.webp`] = t;
+            return;
+          } catch {
+            /* keep whatever interior the roster already names */
+          }
           if (!sh.interior || facades[sh.interior]) return;
           try {
             facades[sh.interior] = await load(sh.interior);
@@ -483,7 +538,7 @@ export function City({
         })
       );
 
-      await Promise.all(
+      const artWave = Promise.all(
         OPTIONAL_ART.map(async (id) => {
           try {
             facades[id] = await load(`${id}.webp`);
@@ -492,6 +547,8 @@ export function City({
           }
         })
       );
+
+      await Promise.all([facadeWave, roomWave, artWave]);
 
       /*
        * ---------------------------------------------------------------

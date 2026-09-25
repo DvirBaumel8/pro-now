@@ -47,6 +47,24 @@ export const worldSources: WorldAssetSources = {
   avatar_10_portrait: { uri: "./world/avatar_10_portrait.webp" },
   avatar_11_portrait: { uri: "./world/avatar_11_portrait.webp" },
   avatar_12_portrait: { uri: "./world/avatar_12_portrait.webp" },
+  /*
+   * THE PRO NOW FLEET — the side views the tracking route draws.
+   *
+   * These were drawn, installed, measured and registered in the world
+   * manifest, and the route still showed a delivery scooter, because
+   * this file is what decides whether an id has a picture. An asset can
+   * be finished in five places and absent in the one that matters.
+   */
+  pn_appliance_side: { uri: "./world/pn_appliance_side.webp" },
+  pn_beauty_side: { uri: "./world/pn_beauty_side.webp" },
+  pn_clean_side: { uri: "./world/pn_clean_side.webp" },
+  pn_courier_side: { uri: "./world/pn_courier_side.webp" },
+  pn_electric_side: { uri: "./world/pn_electric_side.webp" },
+  pn_tech_side: { uri: "./world/pn_tech_side.webp" },
+  pn_tow_side: { uri: "./world/pn_tow_side.webp" },
+  pn_vet_side: { uri: "./world/pn_vet_side.webp" },
+  pn_well_side: { uri: "./world/pn_well_side.webp" },
+
   character_appliance_icon: { uri: "./world/character_appliance_icon.webp" },
   character_appliance_world: { uri: "./world/character_appliance_world.webp" },
   character_auto_icon: { uri: "./world/character_auto_icon.webp" },

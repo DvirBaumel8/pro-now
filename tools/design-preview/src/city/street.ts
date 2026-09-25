@@ -228,7 +228,16 @@ export const OPTIONAL_ART: readonly string[] = [
   ...CITY_MATERIAL_IDS,
   ...CITY_PROP_IDS,
   ...CITY_PLACE_IDS,
-  ...CITY_FLEET_IDS,
+  /*
+   * Front and back only. The fleet also has side and top views, and
+   * they are for other places — the side for the route on the waiting
+   * screen, the top for its map — and nothing in this street draws
+   * them. Loading them here anyway was eighteen large drawings, the
+   * top views the largest in the set, uploaded to a phone's GPU for
+   * nothing: about a hundred megabytes of the budget whose overrun is
+   * what closed the tab on Amit's phone.
+   */
+  ...CITY_FLEET_IDS.filter((id) => /_(front|back)$/.test(id)),
   ...CITY_HEIGHT_IDS,
   ...CITY_LAYERED_BUILDING_IDS,
   ...CITY_ROOF_IDS,
@@ -258,6 +267,48 @@ function tiled(
   return tex;
 }
 
+/*
+ * THE PICTURE'S PIXELS, READ ONCE AND SMALL.
+ *
+ * `mainBand` and `centrePiece` both need to know where a drawing is
+ * opaque, and both used to copy the whole image into a canvas and read
+ * it back at full size — on every call, for every clone. Profiled, the
+ * two of them and the little `on` test inside were two and a half
+ * seconds of the load. They only ever return FRACTIONS of the picture
+ * (a band's top and bottom, a column run's edges), and a fraction is
+ * the same at 512 as at 2048, so the read is done once per image at
+ * 512 on its long edge and shared.
+ */
+const scanByImage = new WeakMap<
+  object,
+  { c: { width: number; height: number }; d: Uint8ClampedArray } | null
+>();
+function scanAlpha(
+  img: HTMLImageElement
+): { c: { width: number; height: number }; d: Uint8ClampedArray } | null {
+  const hit = scanByImage.get(img);
+  if (hit !== undefined) return hit;
+  const k = Math.min(1, 512 / Math.max(img.width, img.height));
+  const w = Math.max(1, Math.round(img.width * k));
+  const h = Math.max(1, Math.round(img.height * k));
+  const cv = document.createElement("canvas");
+  cv.width = w;
+  cv.height = h;
+  const g = cv.getContext("2d", { willReadFrequently: true });
+  let out: { c: { width: number; height: number }; d: Uint8ClampedArray } | null = null;
+  if (g) {
+    g.drawImage(img, 0, 0, w, h);
+    out = { c: { width: w, height: h }, d: g.getImageData(0, 0, w, h).data };
+  }
+  scanByImage.set(img, out);
+  return out;
+}
+
+/* Keyed by the decoded picture, which every clone of a texture shares. */
+const reliefByImage = new WeakMap<
+  object,
+  { normal: THREE.Texture; height: THREE.Texture } | null
+>();
 const reliefCache = new Map<
   THREE.Texture,
   { normal: THREE.Texture; height: THREE.Texture } | null
@@ -976,13 +1027,9 @@ export function buildStreet(
   function mainBand(tex: THREE.Texture): { tex: THREE.Texture; aspect: number } {
     const img = tex.image as HTMLImageElement | undefined;
     if (!img || !img.width) return { tex, aspect: 0 };
-    const c = document.createElement("canvas");
-    c.width = img.width;
-    c.height = img.height;
-    const x2 = c.getContext("2d", { willReadFrequently: true });
-    if (!x2) return { tex, aspect: 0 };
-    x2.drawImage(img, 0, 0);
-    const d = x2.getImageData(0, 0, c.width, c.height).data;
+    const scanned = scanAlpha(img);
+    if (!scanned) return { tex, aspect: 0 };
+    const { c, d } = scanned;
     /*
      * THE BIGGEST BAND, NOT THE FIRST ONE.
      *
@@ -1017,7 +1064,10 @@ export function buildStreet(
         if (runStart < 0) runStart = y;
         gap = 0;
         if (y - runStart > y1 - y0) { y0 = runStart; y1 = y; }
-      } else if (runStart >= 0 && ++gap > 12) {
+      } else if (runStart >= 0 && ++gap > Math.max(4, Math.round(c.height * 0.006))) {
+        /* Proportional, not 12 rows: the light edition is half the
+           height, and a fixed gap would merge bands that the full-size
+           file keeps apart. 0.006 of 2048 is the old 12. */
         runStart = -1;
       }
     }
@@ -1105,13 +1155,53 @@ export function buildStreet(
     const img = tex.image as HTMLImageElement | undefined;
     if (!img || !img.width) { reliefCache.set(tex, null); return null; }
 
-    const W = Math.min(1024, img.width);
+    /*
+     * ONCE PER DRAWING, NOT ONCE PER USE.
+     *
+     * This was cached by TEXTURE, and almost nothing reaches here as
+     * the texture that was loaded: `mainBand`, `centrePiece` and
+     * `tiled` all hand over clones, so one facade used in three layers
+     * and two roof props was Sobel-filtered five times. Profiled, this
+     * function and its inner loop were four of the eight seconds
+     * between the last download and the first step. The maps now hang
+     * off the IMAGE, and each use gets a clone of them dressed with its
+     * own tiling — a clone shares the pixels, so it is free.
+     */
+    let made = reliefByImage.get(img);
+    if (made === undefined) {
+      made = computeRelief(img);
+      reliefByImage.set(img, made);
+    }
+    if (!made) { reliefCache.set(tex, null); return null; }
+    const dress = (from: THREE.Texture) => {
+      const t = from.clone();
+      t.wrapS = tex.wrapS;
+      t.wrapT = tex.wrapT;
+      /* A tiled floor tiles its relief too, or the stones light up in
+         one square metre and nowhere else. */
+      t.repeat.copy(tex.repeat);
+      t.offset.copy(tex.offset);
+      return t;
+    };
+    const pair = { normal: dress(made.normal), height: dress(made.height) };
+    pair.normal.anisotropy = 4;
+    reliefCache.set(tex, pair);
+    return pair;
+  }
+
+  function computeRelief(
+    img: HTMLImageElement
+  ): { normal: THREE.Texture; height: THREE.Texture } | null {
+    /* 512, not 1024: a normal map carries angles, not detail, and the
+       displacement it feeds is a 128-square grid. Four times fewer
+       pixels through a Sobel filter for nothing anybody can see. */
+    const W = Math.min(512, img.width);
     const H = Math.max(1, Math.round((img.height / img.width) * W));
     const src = document.createElement("canvas");
     src.width = W;
     src.height = H;
     const sx = src.getContext("2d", { willReadFrequently: true });
-    if (!sx) { reliefCache.set(tex, null); return null; }
+    if (!sx) return null;
     sx.drawImage(img, 0, 0, W, H);
     const d = sx.getImageData(0, 0, W, H).data;
 
@@ -1135,8 +1225,23 @@ export function buildStreet(
        a canyon; this is the value at which a window frame reads as a
        frame and a brick stays a brick. */
     const STRENGTH = 2.6;
-    const at = (x: number, y: number) =>
-      hgt[Math.min(H - 1, Math.max(0, y)) * W + Math.min(W - 1, Math.max(0, x))]!;
+    /*
+     * The heights with a two-pixel border copied out from the edge, so
+     * a tap never needs clamping. The clamp was four Math.min/max per
+     * tap, fourteen taps per pixel, and profiled it was most of the
+     * cost of this whole function; the arithmetic it guarded is
+     * trivial.
+     */
+    const PAD = 2;
+    const PW = W + PAD * 2;
+    const padded = new Float32Array(PW * (H + PAD * 2));
+    for (let y = -PAD; y < H + PAD; y += 1) {
+      const sy = Math.min(H - 1, Math.max(0, y));
+      for (let x = -PAD; x < W + PAD; x += 1) {
+        padded[(y + PAD) * PW + x + PAD] = hgt[sy * W + Math.min(W - 1, Math.max(0, x))]!;
+      }
+    }
+    const at = (x: number, y: number) => padded[(y + PAD) * PW + x + PAD]!;
     for (let y = 0; y < H; y += 1) {
       for (let x = 0; x < W; x += 1) {
         /* Sobel, which is the cheapest gradient that is not noisy. */
@@ -1164,13 +1269,6 @@ export function buildStreet(
     /* A normal map is DATA, never colour — tagging it sRGB bends every
        angle in it towards the flat. */
     t.colorSpace = THREE.NoColorSpace;
-    t.wrapS = tex.wrapS;
-    t.wrapT = tex.wrapT;
-    /* A tiled floor tiles its relief too, or the stones light up in
-       one square metre and nowhere else. */
-    t.repeat.copy(tex.repeat);
-    t.offset.copy(tex.offset);
-    t.anisotropy = 4;
 
     /*
      * The height itself, as a picture, for the displacement.
@@ -1200,14 +1298,7 @@ export function buildStreet(
     hx.putImageData(hi, 0, 0);
     const h2 = new THREE.CanvasTexture(hOut);
     h2.colorSpace = THREE.NoColorSpace;
-    h2.wrapS = tex.wrapS;
-    h2.wrapT = tex.wrapT;
-    h2.repeat.copy(tex.repeat);
-    h2.offset.copy(tex.offset);
-
-    const pair = { normal: t, height: h2 };
-    reliefCache.set(tex, pair);
-    return pair;
+    return { normal: t, height: h2 };
   }
 
   /**
@@ -1233,13 +1324,9 @@ export function buildStreet(
   function centrePiece(tex: THREE.Texture): { tex: THREE.Texture; aspect: number } {
     const img = tex.image as HTMLImageElement | undefined;
     if (!img || !img.width) return { tex, aspect: 0 };
-    const c = document.createElement("canvas");
-    c.width = img.width;
-    c.height = img.height;
-    const x2 = c.getContext("2d", { willReadFrequently: true });
-    if (!x2) return { tex, aspect: 0 };
-    x2.drawImage(img, 0, 0);
-    const d = x2.getImageData(0, 0, c.width, c.height).data;
+    const scanned = scanAlpha(img);
+    if (!scanned) return { tex, aspect: 0 };
+    const { c, d } = scanned;
     const on = (x: number, y: number) => (d[(y * c.width + x) * 4 + 3] ?? 0) > 40;
 
     const col = new Int32Array(c.width);

@@ -1,4 +1,6 @@
 import React from "react";
+
+import { travelAssetFor } from "@pro-now/types";
 import { View, Text, StyleSheet, ScrollView, useWindowDimensions } from "react-native";
 
 import {ActiveJobCapsule, CustomerHomeBody, CustomerProfileBody, customerTheme, JobClosedBody, JobCompleteBody, MatchCard, MatchCardSkeleton, OfferCard, OfferCardSkeleton, Persona, PersonaStack, ProJobBody, ProOfferBody, ProOnlineBody, ProProfileBody, ProQuoteBuilderBody, ProShiftBody, proTheme, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, spacing, TrackingBody, type as t } from "@pro-now/ui";
@@ -283,7 +285,17 @@ export function Gallery() {
              */
             worldSources={worldSources}
             status="PRO_EN_ROUTE"
-            serviceNameHe="תיקון נזילה בברז"
+            serviceNameHe="תיקון מחשב בבית"
+            /*
+             * A TRADE, SO THE VEHICLE IS THAT TRADE'S.
+             *
+             * Amit: *"שיבינו שזה רכב של הבעל מקצוע הרלוונטיייי."* With
+             * no department the screen falls back to a delivery
+             * scooter, which is the exact thing he objected to — so
+             * the gallery's own example now names one.
+             */
+            departmentCode="TECH"
+            vehicleAssetId={travelAssetFor("TECH")}
             professional={matchFixture.professional}
             eta={matchFixture.eta}
             money={{ visitFeeHe: "₪179" }}

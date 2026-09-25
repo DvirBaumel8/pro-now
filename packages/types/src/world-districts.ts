@@ -99,6 +99,21 @@ export interface WorldDistrict {
    */
   travelAssetId?: string;
   /**
+   * THE PRO NOW VEHICLE THIS TRADE DRIVES.
+   *
+   * Amit: *"שיבינו שזה רכב של הבעל מקצוע הרלוונטיייי, ואז במפה
+   * שממתינים אני רוצה שיראו את הרכב הזה נוסע אליו לבית במסלול."*
+   *
+   * This is not the scooter argument again. The scooter was wrong
+   * because ONE picture stood in for eleven trades, so it said nothing
+   * about who was coming — these say the trade out loud: a plumber's
+   * pod has pipe on the roof, the vet's has a kennel hatch, the tow has
+   * a bed. A vehicle that names the trade is the thing he asked for
+   * both times, and the figure on foot stays for any trade that has no
+   * vehicle drawn yet rather than borrowing another trade's.
+   */
+  travelVehicleAssetId?: string;
+  /**
    * Other shopfronts belonging to this same trade.
    *
    * Amit, more than once: *"רוצה שיטיילו ברחובות ויהיו מגוון אפשרויות מכל
@@ -156,6 +171,7 @@ export const WORLD_DISTRICTS: Readonly<Record<DepartmentCode, WorldDistrict>> = 
   },
   APPLIANCES: {
     department: "APPLIANCES",
+    travelVehicleAssetId: "pn_appliance_side",
     brandHe: "מכשירי חשמל",
     labelHe: "מכשירי חשמל ומיזוג",
     venueAssetId: "district_appliance",
@@ -165,6 +181,7 @@ export const WORLD_DISTRICTS: Readonly<Record<DepartmentCode, WorldDistrict>> = 
   },
   HOME_CARE: {
     department: "HOME_CARE",
+    travelVehicleAssetId: "pn_clean_side",
     brandHe: "ניקיון",
     labelHe: "ניקיון ותחזוקת בית",
     venueAssetId: "district_care",
@@ -174,6 +191,7 @@ export const WORLD_DISTRICTS: Readonly<Record<DepartmentCode, WorldDistrict>> = 
   },
   BEAUTY: {
     department: "BEAUTY",
+    travelVehicleAssetId: "pn_beauty_side",
     brandHe: "שיער",
     labelHe: "טיפוח ויופי",
     venueAssetId: "district_hair",
@@ -186,6 +204,7 @@ export const WORLD_DISTRICTS: Readonly<Record<DepartmentCode, WorldDistrict>> = 
   },
   WELLNESS: {
     department: "WELLNESS",
+    travelVehicleAssetId: "pn_well_side",
     brandHe: "כושר",
     labelHe: "בריאות וכושר",
     venueAssetId: "district_well",
@@ -195,6 +214,7 @@ export const WORLD_DISTRICTS: Readonly<Record<DepartmentCode, WorldDistrict>> = 
   },
   PETS: {
     department: "PETS",
+    travelVehicleAssetId: "pn_vet_side",
     brandHe: "חיות",
     labelHe: "בעלי חיים",
     venueAssetId: "district_pets",
@@ -205,6 +225,7 @@ export const WORLD_DISTRICTS: Readonly<Record<DepartmentCode, WorldDistrict>> = 
   },
   VEHICLE: {
     department: "VEHICLE",
+    travelVehicleAssetId: "pn_tow_side",
     brandHe: "רכב",
     labelHe: "שירותים לרכב",
     venueAssetId: "district_auto",
@@ -225,6 +246,7 @@ export const WORLD_DISTRICTS: Readonly<Record<DepartmentCode, WorldDistrict>> = 
   },
   TECH: {
     department: "TECH",
+    travelVehicleAssetId: "pn_tech_side",
     brandHe: "מחשבים",
     labelHe: "מחשבים וסלולר",
     venueAssetId: "district_tech",
@@ -348,7 +370,24 @@ export function venueAssetFor(district: WorldDistrict, index: number): string {
  */
 export function travelAssetFor(department: DepartmentCode): string {
   const district = WORLD_DISTRICTS[department];
-  return district.travelAssetId ?? district.characterWorldAssetId;
+  /*
+   * The vehicle first, now that there is one per trade rather than one
+   * for all of them. Where a trade has no vehicle drawn yet this falls
+   * through to exactly what it did before, which is why the roads do
+   * not empty out while the rest of the fleet is being drawn.
+   */
+  return (
+    district.travelVehicleAssetId ??
+    district.travelAssetId ??
+    district.characterWorldAssetId
+  );
+}
+
+/** Trades whose vehicle has not been drawn yet. The honest list. */
+export function tradesWithoutVehicle(): DepartmentCode[] {
+  return (Object.keys(WORLD_DISTRICTS) as DepartmentCode[]).filter(
+    (d) => !WORLD_DISTRICTS[d].travelVehicleAssetId
+  );
 }
 
 /**

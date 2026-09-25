@@ -757,6 +757,115 @@ export const HAIR_PACK_V0: WorldAssetManifest = Object.freeze({
     defaultWidthRatio: 0.22,
   }),
 
+  /*
+   * -----------------------------------------------------------------
+   * THE PRO NOW FLEET, IN PROFILE
+   * -----------------------------------------------------------------
+   * Amit: *"שיבינו שזה רכב של הבעל מקצוע הרלוונטיייי."*
+   *
+   * These are the side views, which is the one angle a route needs:
+   * the trip runs across the screen, so a vehicle seen from the front
+   * would be driving at the camera for the whole journey.
+   *
+   * The intrinsic sizes are MEASURED from the alpha box rather than
+   * taken from the canvas, because every one of these files is padded
+   * — 2048 wide with the vehicle inside it — and using the canvas
+   * would have drawn each van inside an invisible margin, sitting
+   * above the road it is meant to be on.
+   *
+   * They are all drawn facing LEFT, which is what `RouteLayer` assumes
+   * before it decides whether to flip.
+   */
+  pn_appliance_side: asset({
+    id: "pn_appliance_side",
+    file: "pn_appliance_side.webp",
+    role: "VEHICLE",
+    intrinsicWidth: 2015,
+    intrinsicHeight: 1383,
+    anchor: { x: 0.5, y: 1 },
+    defaultWidthRatio: 0.26,
+  }),
+
+  pn_beauty_side: asset({
+    id: "pn_beauty_side",
+    file: "pn_beauty_side.webp",
+    role: "VEHICLE",
+    intrinsicWidth: 2015,
+    intrinsicHeight: 1380,
+    anchor: { x: 0.5, y: 1 },
+    defaultWidthRatio: 0.26,
+  }),
+
+  pn_clean_side: asset({
+    id: "pn_clean_side",
+    file: "pn_clean_side.webp",
+    role: "VEHICLE",
+    intrinsicWidth: 2015,
+    intrinsicHeight: 1381,
+    anchor: { x: 0.5, y: 1 },
+    defaultWidthRatio: 0.26,
+  }),
+
+  pn_courier_side: asset({
+    id: "pn_courier_side",
+    file: "pn_courier_side.webp",
+    role: "VEHICLE",
+    intrinsicWidth: 2015,
+    intrinsicHeight: 1324,
+    anchor: { x: 0.5, y: 1 },
+    defaultWidthRatio: 0.26,
+  }),
+
+  pn_electric_side: asset({
+    id: "pn_electric_side",
+    file: "pn_electric_side.webp",
+    role: "VEHICLE",
+    intrinsicWidth: 2015,
+    intrinsicHeight: 1192,
+    anchor: { x: 0.5, y: 1 },
+    defaultWidthRatio: 0.26,
+  }),
+
+  pn_tech_side: asset({
+    id: "pn_tech_side",
+    file: "pn_tech_side.webp",
+    role: "VEHICLE",
+    intrinsicWidth: 2015,
+    intrinsicHeight: 1273,
+    anchor: { x: 0.5, y: 1 },
+    defaultWidthRatio: 0.26,
+  }),
+
+  pn_tow_side: asset({
+    id: "pn_tow_side",
+    file: "pn_tow_side.webp",
+    role: "VEHICLE",
+    intrinsicWidth: 2015,
+    intrinsicHeight: 1383,
+    anchor: { x: 0.5, y: 1 },
+    defaultWidthRatio: 0.26,
+  }),
+
+  pn_vet_side: asset({
+    id: "pn_vet_side",
+    file: "pn_vet_side.webp",
+    role: "VEHICLE",
+    intrinsicWidth: 2015,
+    intrinsicHeight: 1266,
+    anchor: { x: 0.5, y: 1 },
+    defaultWidthRatio: 0.26,
+  }),
+
+  pn_well_side: asset({
+    id: "pn_well_side",
+    file: "pn_well_side.webp",
+    role: "VEHICLE",
+    intrinsicWidth: 2015,
+    intrinsicHeight: 1384,
+    anchor: { x: 0.5, y: 1 },
+    defaultWidthRatio: 0.26,
+  }),
+
   /** הובלות — המשאית שיוצאת לדרך. */
   moving_van: asset({
     id: "moving_van",

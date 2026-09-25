@@ -1394,6 +1394,27 @@ export const VEHICLE_OF_PERSON: Readonly<Record<string, number>> = {
   courier_scooter: 1.1,
   moving_van: 1.3,
   tow_truck: 1.55,
+  /*
+   * The PRO NOW fleet, on the same ruler.
+   *
+   * These are deliberately exaggerated drawings — Amit: *"אין לי בעיה
+   * שהרכבים יהיו מוגזמים בצורה שלהם, רק שישדר את המקצוע"* — but the
+   * exaggeration is in the SHAPE, not the scale. A pod you cannot fit
+   * a person into stops being a vehicle and becomes a toy, so each one
+   * is still sized as a thing its driver climbs out of.
+   */
+  pn_pod_side: 1.15,
+  pn_plumber_side: 1.3,
+  pn_electric_side: 1.25,
+  pn_tech_side: 1.15,
+  pn_beauty_side: 1.15,
+  pn_clean_side: 1.25,
+  pn_well_side: 1.2,
+  pn_vet_side: 1.3,
+  pn_courier_side: 1.05,
+  pn_appliance_side: 1.35,
+  pn_tow_side: 1.55,
+  pn_move_side: 1.45,
 };
 
 /** What an unlisted traveller is worth: a small van, and no taller. */
