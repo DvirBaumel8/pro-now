@@ -57,6 +57,13 @@ const colors = customerTheme.colors;
 
 export interface QuoteApprovalBodyProps {
   quote: QuoteView;
+  /**
+   * True on a visit-and-quote job: the approved quote REPLACES the visit
+   * fee — it is already inside this total (Amit, 2026-09-26; the server's
+   * `settlement.ts` reads it the same way). Said on the screen, so nobody
+   * thinks they are paying the visit on top.
+   */
+  includesVisitFee?: boolean;
   serviceNameHe: string;
   professionalDisplayName: string;
   professionalPhotoUrl?: string | null;
@@ -125,6 +132,7 @@ const KIND_LABEL_HE: Record<string, string> = {
 
 export function QuoteApprovalBody({
   quote,
+  includesVisitFee = false,
   serviceNameHe,
   professionalDisplayName,
   professionalPhotoUrl = null,
@@ -184,7 +192,9 @@ export function QuoteApprovalBody({
           <Text style={styles.total} numberOfLines={1}>
             {formatMoney(money(quote.totalMinorUnits, "ILS"))}
           </Text>
-          <Text style={styles.totalNote}>כולל מע״מ · הסכום הסופי לעבודה הזו</Text>
+          <Text style={styles.totalNote}>
+            {includesVisitFee ? "כולל מע״מ ודמי הביקור · הסכום הסופי לעבודה הזו" : "כולל מע״מ · הסכום הסופי לעבודה הזו"}
+          </Text>
         </View>
 
         {/* ----------------------------------------------------------------

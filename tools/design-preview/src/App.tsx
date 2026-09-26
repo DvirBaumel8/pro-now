@@ -3203,6 +3203,7 @@ const go = useCallback((r: CustomerRoute) => {
               height={bodyH}
             >
               <QuoteApprovalBody
+                includesVisitFee={trackedService.price?.priceModel === "VISIT_QUOTE"}
                 /*
                  * THE QUOTE THE PROFESSIONAL ACTUALLY WROTE.
                  *
@@ -4657,6 +4658,7 @@ function ProApp({
      */
     ) : proView === "quote" ? (
       <ProQuoteBuilderBody
+        includesVisitFee={!agreedPrice && (!takenRequest || takenRequest.priceModel === "VISIT_QUOTE")}
         /*
          * The lines already sent, when there are any — so "עדכון ההצעה"
          * opens what was sent rather than an empty form.

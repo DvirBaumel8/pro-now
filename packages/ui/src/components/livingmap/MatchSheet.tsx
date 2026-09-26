@@ -127,7 +127,7 @@ export function MatchSheet({ candidate, etaMinutes, arrivalClockHe, visitFeeHe =
 
       {visitFeeHe ? (
         <Text style={styles.fee}>
-          דמי הביקור של {candidate.displayNameHe.split(" ")[0]}: {visitFeeHe} · התיקון עצמו בהצעת מחיר לאישורכם
+          דמי הביקור של {candidate.displayNameHe.split(" ")[0]}: {visitFeeHe} · אם תאשרו הצעת מחיר — הם כלולים בה
         </Text>
       ) : null}
 

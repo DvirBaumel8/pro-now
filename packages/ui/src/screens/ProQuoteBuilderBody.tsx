@@ -69,6 +69,8 @@ const KIND_HE: Record<QuoteLineKind, string> = {
 
 export interface ProQuoteBuilderBodyProps {
   serviceNameHe: string;
+  /** Visit-and-quote: the quote's total includes the visit fee. See `QuoteApprovalBody`. */
+  includesVisitFee?: boolean;
   /** What the customer said is wrong, so it can be quoted against. */
   symptomsHe?: string[];
   customerTextHe?: string | null;
@@ -120,6 +122,7 @@ function emptyLine(n: number): QuoteDraftLine {
 
 export function ProQuoteBuilderBody({
   serviceNameHe,
+  includesVisitFee = false,
   symptomsHe = [],
   customerTextHe = null,
   agreedPriceNoteHe = null,
@@ -401,6 +404,9 @@ export function ProQuoteBuilderBody({
           * customer approves the HASH — so the screen must not imply its
           * own total is the contract.
           */}
+        {includesVisitFee ? (
+          <Text style={styles.serverNote}>דמי הביקור כלולים בהצעה: אם הלקוח יאשר, זה כל מה שישולם על העבודה.</Text>
+        ) : null}
         <Text style={styles.serverNote}>הסכום נקבע מהשורות בשרת, והלקוח מאשר בדיוק את הגרסה הזו.</Text>
 
         <Pressable

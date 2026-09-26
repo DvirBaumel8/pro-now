@@ -205,11 +205,23 @@ decides** ("כל אחד מחליט"). So the service page and the catalogue tile
 say "דמי ביקור לפי המקצוען" and name no figure (`priceExplainer(…,
 { stage: "service" })`, `catalogAdapter.priceHint`), and the fee is shown
 on the person — the match sheet and the match confirmation — before the
-customer accepts. Still open under it: whether PRO NOW bounds the fee
-(a floor/ceiling per service), and where the professional sets it
+customer accepts. Not bounded either (Amit, same day): *"לא מגבילים כל
+אחד לעצמו, ברגע שנראה שמישהו גונב ומרמה נחסום אותו"* — no floor or
+ceiling; abuse is a trust-and-safety matter handled by blocking the
+professional. Still open: where the professional sets the fee
 (`ProPricingBody` exists as a screen; the server field does not).
 
-### TBD — does an approved quote replace the visit fee or add to it?
+### DECIDED 2026-09-26 — an approved quote INCLUDES the visit fee
+
+Amit: *"דמי ביקור מתקזזים מהתיקון, אם מאשרים הצעת מחיר זה יהיה כולל."*
+This is the REPLACING reading below, which `settlement.ts` and
+`pro-jobs.ts` already implement. The screens now say it: the service page
+and match sheet ("אם תאשרו הצעת מחיר — הם כלולים בה"), the approval total
+("כולל מע״מ ודמי הביקור"), and the professional's quote builder ("דמי
+הביקור כלולים בהצעה"). A customer who declines the quote owes the visit
+fee alone.
+
+### (resolved above) — does an approved quote replace the visit fee or add to it?
 
 `settlement.ts` reads it as REPLACING. `/docs/02-UX-FLOWS.md` C12 shows
 the customer a quote with its own total and asks them to approve it, and
