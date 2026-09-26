@@ -73,6 +73,7 @@ export function MatchSheet({ candidate, etaMinutes, arrivalClockHe, onAccept, on
       ]}
       pointerEvents="box-none"
       onLayout={drag.measure}
+      {...drag.bindBody}
     >
       {/* The grab handle — it drags. See `useSheetDrag`. */}
       <View {...drag.bind} style={styles.dragZone}>
@@ -118,6 +119,34 @@ export function MatchSheet({ candidate, etaMinutes, arrivalClockHe, onAccept, on
         </View>
       </View>
 
+      {/*
+        * PULLED UP: WHO THIS IS.
+        *
+        * Only what exists: what every professional offered here has
+        * passed, and this one's own record on PRO NOW. No written reviews
+        * are shown because none are sent yet — and none are invented.
+        */}
+      {drag.expanded ? (
+        <View style={styles.more}>
+          <Text style={styles.moreHead}>כל מי שמוצע לך עבר</Text>
+          {["זהות אומתה", "תעודות נבדקו לסוג העבודה", "אושר לשירות שביקשת"].map((t) => (
+            <View key={t} style={styles.moreRow}>
+              <Text style={styles.moreTick}>✓</Text>
+              <Text style={styles.moreText}>{t}</Text>
+            </View>
+          ))}
+          <Text style={[styles.moreHead, { marginTop: 12 }]}>ב-PRO NOW</Text>
+          <Text style={styles.moreText}>
+            {candidate.ratingAverage !== null && candidate.ratingCount > 0
+              ? `★ ${candidate.ratingAverage.toFixed(1)} · ${candidate.ratingCount} דירוגים`
+              : "עוד אין דירוגים — חדש ב-PRO NOW"}
+          </Text>
+          {candidate.completedJobs ? <Text style={styles.moreText}>{candidate.completedJobs} עבודות דרך PRO NOW</Text> : null}
+        </View>
+      ) : (
+        <Text style={styles.pullHint}>↑ משכו למעלה לפרטים על {candidate.displayNameHe.split(" ")[0]}</Text>
+      )}
+
       <Pressable
         onPress={onAccept}
         accessibilityRole="button"
@@ -138,8 +167,16 @@ export function MatchSheet({ candidate, etaMinutes, arrivalClockHe, onAccept, on
 
 const styles = StyleSheet.create({
   dragZone: { alignSelf: "stretch", alignItems: "center", paddingVertical: 8, marginTop: -8, minHeight: 28 },
+  pullHint: { color: "rgba(247,243,250,0.55)", fontSize: 12, textAlign: "center", marginTop: 6, writingDirection: "rtl" },
+  more: { marginTop: 12, padding: 12, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.06)" },
+  moreHead: { color: "#7FE3BC", fontSize: 13, fontWeight: "800", textAlign: "right", writingDirection: "rtl", marginBottom: 4 },
+  moreRow: { flexDirection: "row-reverse", alignItems: "center", gap: 6, marginTop: 3 },
+  moreTick: { color: "#2FBF8A", fontWeight: "900" },
+  moreText: { color: "#F7F3FA", fontSize: 14, textAlign: "right", writingDirection: "rtl" },
   sheet: {
     position: "absolute",
+    /* In front of the map's own notes — see `useSheetDrag`, it can grow over them. */
+    zIndex: 20,
     left: spacing.md,
     right: spacing.md,
     bottom: spacing.md,

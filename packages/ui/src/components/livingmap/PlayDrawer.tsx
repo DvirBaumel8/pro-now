@@ -52,18 +52,22 @@ const TILE_LOOK: Record<PlayDrawerActionId, { glyph: string; tint: string; subHe
   PLAY_MORE: { glyph: "✦", tint: "#8B5CF6", subHe: "עוד עסקים ברחוב" },
   FOLLOW_PRO: { glyph: "➜", tint: "#FF6B4A", subHe: "ברכב שלו, על המפה" },
   JOB_DETAILS: { glyph: "☰", tint: "#2FBF8A", subHe: "מה הזמנת ומה סוכם" },
-  WHILE_YOU_WAIT: { glyph: "☕", tint: "#F59E0B", subHe: "בזמן שמחכים" },
+  WHILE_YOU_WAIT: { glyph: "☕", tint: "#F59E0B", subHe: "חנויות מומלצות ברחוב" },
 };
 
 export function PlayDrawer({ firstNameHe, etaMinutes, discoveries, hasJobDetails = true, onAction }: PlayDrawerProps) {
   const status = playDrawerStatusHe({ firstNameHe, etaMinutes });
   const progress = discoveryProgressHe(discoveries);
-  const actions = playDrawerActions({ firstNameHe, discoveries, hasJobDetails });
+  const base = playDrawerActions({ firstNameHe, discoveries, hasJobDetails });
 
   /* Pull down to fold it to its headline and see the city; up to open. */
   const drag = useSheetDrag({ peek: 58 });
+  /* Pulled up, it opens a second row: the sponsors' shops to visit while waiting. */
+  const actions = drag.expanded && !base.some((a) => a.id === "WHILE_YOU_WAIT")
+    ? [...base, { id: "WHILE_YOU_WAIT" as const, labelHe: "בזמן שמחכים" }]
+    : base;
   return (
-    <Animated.View style={[styles.drawer, { transform: [{ translateY: drag.y }] }]} pointerEvents="box-none" onLayout={drag.measure}>
+    <Animated.View style={[styles.drawer, { transform: [{ translateY: drag.y }] }]} pointerEvents="box-none" onLayout={drag.measure} {...drag.bindBody}>
       <View {...drag.bind} style={styles.dragZone}>
         <View style={styles.handle} />
       </View>
@@ -121,6 +125,8 @@ export function PlayDrawer({ firstNameHe, etaMinutes, discoveries, hasJobDetails
 const styles = StyleSheet.create({
   drawer: {
     position: "absolute",
+    /* In front of the map's own notes — see `useSheetDrag`, it can grow over them. */
+    zIndex: 20,
     left: spacing.md,
     right: spacing.md,
     bottom: spacing.md,
@@ -149,9 +155,9 @@ const styles = StyleSheet.create({
     writingDirection: "rtl",
     marginTop: 2,
   },
-  actions: { flexDirection: "row-reverse", gap: spacing.sm, paddingTop: spacing.sm },
+  actions: { flexDirection: "row-reverse", flexWrap: "wrap", gap: spacing.sm, paddingTop: spacing.sm },
   tile: {
-    flex: 1, minHeight: 96, paddingVertical: spacing.sm, paddingHorizontal: 6, alignItems: "center",
+    flexGrow: 1, flexBasis: "30%", minHeight: 96, paddingVertical: spacing.sm, paddingHorizontal: 6, alignItems: "center",
     borderRadius: radii.lg, borderWidth: 1, backgroundColor: "rgba(247,243,250,0.06)",
   },
   tileGlyph: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center", marginBottom: 6 },

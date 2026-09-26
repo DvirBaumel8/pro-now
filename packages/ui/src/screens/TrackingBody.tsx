@@ -807,7 +807,8 @@ export function TrackingBody({
       <Animated.View
         style={[
           styles.sheet,
-          { maxHeight: height - mapH * (plan && !atWork && tripProgress !== null ? 0.9 : 0.42) },
+          /* Pulled up, the visit takes nearly the whole screen. */
+          { maxHeight: sheetDrag.expanded ? height - 90 : height - mapH * (plan && !atWork && tripProgress !== null ? 0.9 : 0.42) },
           { transform: [{ translateY: sheetDrag.y }] },
         ]}
         onLayout={sheetDrag.measure}
