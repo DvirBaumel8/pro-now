@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { elevation, radii, scale, spacing, type } from "../theme";
 import type { ThemeColors } from "./primitives";
+import { useSheetDrag } from "./useSheetDrag";
 
 /**
  * A modal sheet that rises from the bottom.
@@ -38,6 +39,8 @@ export function Sheet({
 }) {
   const v = useRef(new Animated.Value(0)).current;
   const [mounted, setMounted] = useState(visible);
+  /* Pull the handle down to close — see `useSheetDrag`. */
+  const drag = useSheetDrag({ onDismiss: onClose });
 
   /*
    * THE EXIT HAS TO OUTLIVE THE PROP.
@@ -94,11 +97,16 @@ export function Sheet({
           elevation(3, dark),
           {
             opacity: v,
-            transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [360, 0] }) }],
+            transform: [
+              { translateY: Animated.add(v.interpolate({ inputRange: [0, 1], outputRange: [360, 0] }), drag.y) },
+            ],
           },
         ]}
+        onLayout={drag.measure}
       >
-        <View style={[styles.grabber, { backgroundColor: colors.border }]} />
+        <View {...drag.bind} style={styles.dragZone}>
+          <View style={[styles.grabber, { backgroundColor: colors.border }]} />
+        </View>
         <View style={styles.headRow}>
           <Pressable
             onPress={onClose}
@@ -112,7 +120,10 @@ export function Sheet({
             {titleHe}
           </Text>
         </View>
-        {children}
+        {/* Longer than the screen allows: it scrolls, as it looks like it would. */}
+        <ScrollView style={{ maxHeight: Math.round(height * 0.72) }} showsVerticalScrollIndicator={false}>
+          {children}
+        </ScrollView>
       </Animated.View>
     </View>
   );
@@ -131,7 +142,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xxl,
   },
-  grabber: { alignSelf: "center", width: 38, height: 4, borderRadius: 2, marginBottom: spacing.md },
+  grabber: { alignSelf: "center", width: 38, height: 4, borderRadius: 2 },
+  dragZone: { alignSelf: "stretch", alignItems: "center", paddingTop: 4, paddingBottom: spacing.md, minHeight: 28 },
   headRow: {
     flexDirection: "row-reverse",
     alignItems: "center",

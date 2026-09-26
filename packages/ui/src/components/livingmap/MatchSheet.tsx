@@ -1,6 +1,8 @@
 import React from "react";
 import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 
+import { useSheetDrag } from "../useSheetDrag";
+
 import { matchFactsHe, noReputationYetHe, type CandidatePresence } from "@pro-now/types";
 
 import { palette, radii, spacing, tabular, type } from "../../theme";
@@ -45,6 +47,8 @@ export interface MatchSheetProps {
 
 export function MatchSheet({ candidate, etaMinutes, arrivalClockHe, onAccept, onAnother, progress }: MatchSheetProps) {
   const facts = matchFactsHe(candidate);
+  /* The handle folds the card down to see the shop behind it, and back up. */
+  const drag = useSheetDrag({ peek: 44 });
 
   return (
     <Animated.View
@@ -55,19 +59,25 @@ export function MatchSheet({ candidate, etaMinutes, arrivalClockHe, onAccept, on
               opacity: progress,
               transform: [
                 {
-                  translateY: (progress as Animated.Value).interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [180, 0],
-                  }),
+                  translateY: Animated.add(
+                    (progress as Animated.Value).interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [180, 0],
+                    }),
+                    drag.y
+                  ),
                 },
               ],
             }
-          : null,
+          : { transform: [{ translateY: drag.y }] },
       ]}
       pointerEvents="box-none"
+      onLayout={drag.measure}
     >
-      {/* The grab handle. It does not drag yet; it says the sheet is a sheet. */}
-      <View style={styles.handle} />
+      {/* The grab handle — it drags. See `useSheetDrag`. */}
+      <View {...drag.bind} style={styles.dragZone}>
+        <View style={styles.handle} />
+      </View>
 
       <View style={styles.row}>
         <ProviderPortrait
@@ -127,6 +137,7 @@ export function MatchSheet({ candidate, etaMinutes, arrivalClockHe, onAccept, on
 }
 
 const styles = StyleSheet.create({
+  dragZone: { alignSelf: "stretch", alignItems: "center", paddingVertical: 8, marginTop: -8, minHeight: 28 },
   sheet: {
     position: "absolute",
     left: spacing.md,

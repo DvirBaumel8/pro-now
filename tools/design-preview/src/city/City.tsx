@@ -925,7 +925,9 @@ export function City({
       gradeAspect();
 
       /* ----- controls ----- */
-      let yaw = Math.PI, pitch = 0.26;
+      let yaw = Math.PI;
+      /* The camera's tilt; a drag used to change it, the finger walks now. */
+      const pitch = 0.26;
       /* The camera's head, turned toward whatever shop you are beside. */
       let look = 0;
       /* And the head YOU turn, by dragging. It decays when you walk. */
@@ -1001,48 +1003,72 @@ export function City({
       };
       (el as unknown as { __stick?: typeof onStick }).__stick = onStick;
 
-      let dragging = false, lastX = 0, lastY = 0;
+      /*
+       * ------------------------------------------------------------
+       * THE WHOLE SCREEN IS THE STICK
+       * ------------------------------------------------------------
+       * Amit, after watching people play: *"כולם אינטואיטיבית ניסו לגלול
+       * עם האצבעות כמו בטלפון מגע, ולא דווקא על הג׳ויסטיק."* So a finger
+       * anywhere on the city walks: put it down, and pushing up walks
+       * forward, down walks back, sideways steps across the street — the
+       * further from where it landed, the faster. A soft ring appears
+       * under the finger so it is clear what is being held. Inside a shop
+       * sideways turns the view instead, because there you look around.
+       */
+      let dragging = false, startX = 0, startY = 0, lastX = 0;
+      const R = 64;
+      const ring = document.createElement("div");
+      const knob = document.createElement("div");
+      Object.assign(ring.style, {
+        position: "absolute", width: `${R * 2}px`, height: `${R * 2}px`, borderRadius: "50%",
+        border: "2px solid rgba(255,255,255,.35)", background: "rgba(20,14,28,.18)",
+        pointerEvents: "none", display: "none", transform: "translate(-50%,-50%)", zIndex: "5",
+      });
+      Object.assign(knob.style, {
+        position: "absolute", width: "46px", height: "46px", borderRadius: "50%",
+        background: "rgba(255,255,255,.85)", boxShadow: "0 4px 14px rgba(0,0,0,.35)",
+        pointerEvents: "none", display: "none", transform: "translate(-50%,-50%)", zIndex: "6",
+      });
+      el.appendChild(ring);
+      el.appendChild(knob);
+      const hostRect = () => el.getBoundingClientRect();
       const down = (e: PointerEvent) => {
         dragging = true;
-        lastX = e.clientX;
-        lastY = e.clientY;
+        startX = lastX = e.clientX;
+        startY = e.clientY;
+        const r = hostRect();
+        ring.style.left = knob.style.left = `${startX - r.left}px`;
+        ring.style.top = knob.style.top = `${startY - r.top}px`;
+        ring.style.display = knob.style.display = "block";
+        try { renderer.domElement.setPointerCapture(e.pointerId); } catch { /* not all pointers */ }
       };
       const move = (e: PointerEvent) => {
         if (!dragging) return;
-        /*
-         * -----------------------------------------------------------
-         * A DRAG TURNS THE HEAD, NOT THE BODY
-         * -----------------------------------------------------------
-         * Amit: *"צריך שתהיה אפשרות רק להסתובב עם המבט ימינה שמאלה."*
-         *
-         * It turned `yaw`, which is the direction you WALK. So looking
-         * right also pointed your feet right, and there was no way to
-         * glance at a shop without setting off towards it, or into the
-         * wall behind it.
-         *
-         * A person walking a street does not turn their body to look
-         * in a window. They turn their head. `turn` is that head: it
-         * is added to the camera and to nothing else, so the stick,
-         * the heading and the feet are untouched by it.
-         *
-         * Clamped to 1.05 radians, about sixty degrees, for a reason
-         * that is about the artwork and not taste: the figure is a
-         * BACK-VIEW drawing on a plane that faces the camera. Past
-         * sixty you are looking at somebody back while they walk
-         * sideways, and the illusion the whole scene rests on comes
-         * apart. The day the side-view sheets arrive this opens to
-         * ninety.
-         */
-        if (vrActive) vrLook -= (e.clientX - lastX) * 0.0055;
-        else turn = Math.max(-1.05, Math.min(1.05, turn - (e.clientX - lastX) * 0.0055));
-        pitch = Math.max(0.05, Math.min(0.75, pitch + (e.clientY - lastY) * 0.0035));
+        let dx = e.clientX - startX, dy = e.clientY - startY;
+        const len = Math.hypot(dx, dy) || 1;
+        if (len > R) { dx = (dx / len) * R; dy = (dy / len) * R; }
+        const r = hostRect();
+        knob.style.left = `${startX - r.left + dx}px`;
+        knob.style.top = `${startY - r.top + dy}px`;
+        if (vrActive) {
+          vrLook -= (e.clientX - lastX) * 0.006;
+          onStick(0, dy / R);
+        } else {
+          onStick(dx / R, dy / R);
+        }
         lastX = e.clientX;
-        lastY = e.clientY;
       };
-      const up = () => { dragging = false; };
+      const up = () => {
+        if (!dragging) return;
+        dragging = false;
+        ring.style.display = knob.style.display = "none";
+        onStick(0, 0);
+      };
+      renderer.domElement.style.touchAction = "none";
       renderer.domElement.addEventListener("pointerdown", down);
       window.addEventListener("pointermove", move);
       window.addEventListener("pointerup", up);
+      window.addEventListener("pointercancel", up);
 
       /* -----------------------------------------------------------
          GOING IN
@@ -1804,6 +1830,9 @@ export function City({
         renderer.domElement.removeEventListener("pointerdown", down);
         window.removeEventListener("pointermove", move);
         window.removeEventListener("pointerup", up);
+        window.removeEventListener("pointercancel", up);
+        ring.remove();
+        knob.remove();
         player.dispose();
         composer.dispose();
         renderer.dispose();
@@ -1971,9 +2000,9 @@ export function City({
           the same as a control that is not there — and this one was
           both, for a week. */}
       {hud && ready && !walking && !room && arriving ? (
-        <div style={S.hint}>הזיזו את הג׳ויסטיק כדי לרדת לרחוב</div>
+        <div style={S.hint}>גררו באצבע על המסך כדי ללכת</div>
       ) : hud && ready && !walking && !room && hint ? (
-        <div style={S.hint}>גררו על המסך כדי להסתכל ימינה ושמאלה</div>
+        <div style={S.hint}>גררו באצבע למעלה כדי ללכת, לצדדים כדי לעבור צד</div>
       ) : null}
 
       {/*
@@ -2035,7 +2064,9 @@ export function City({
           ...S.pad,
           /* Nothing from the street shows through the loading screen —
              a joystick under a splash is the seam showing. */
-          opacity: !hud || walking || !ready ? 0 : 1,
+          /* Invisible now — the whole screen is the stick — but kept
+             where a thumb rests, and it behaves the same. */
+          opacity: 0,
           pointerEvents: hud && ready ? "auto" : "none",
         }}
       >

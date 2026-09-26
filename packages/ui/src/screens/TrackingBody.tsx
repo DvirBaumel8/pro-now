@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useMemo } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Animated, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import {
   assessArrival,
@@ -33,6 +33,7 @@ import {
 
 import { formatCompletedJobs, formatEta, formatProNowRating } from "../format";
 import { BackButton } from "../components/BackButton";
+import { useSheetDrag } from "../components/useSheetDrag";
 import { customerDarkTheme, depth, palette, radii, scale, spacing, tabular, type } from "../theme";
 import { ArrivalPromise } from "../components/ArrivalPromise";
 import { ProviderPortrait } from "../components/ProviderPortrait";
@@ -450,6 +451,7 @@ export function TrackingBody({
   const [tick, setTick] = useState(() => Date.now());
   /* The card that opens from the vehicle on the real map. */
   const [proCard, setProCard] = useState(false);
+  const sheetDrag = useSheetDrag({ peek: 70 });
   useEffect(() => {
     if (!animate) return;
     const id = setInterval(() => setTick(Date.now()), 1000);
@@ -802,13 +804,18 @@ export function TrackingBody({
           the map is a house with somebody working in it and the sheet is
           the screen.
           ---------------------------------------------------------------- */}
-      <View
+      <Animated.View
         style={[
           styles.sheet,
           { maxHeight: height - mapH * (plan && !atWork && tripProgress !== null ? 0.9 : 0.42) },
+          { transform: [{ translateY: sheetDrag.y }] },
         ]}
+        onLayout={sheetDrag.measure}
       >
-        <View style={styles.grabber} />
+        {/* Pull down to see the whole map; up to bring the visit back. */}
+        <View {...sheetDrag.bind} style={styles.sheetDragZone}>
+          <View style={styles.grabber} />
+        </View>
 
         {/*
           * THE PROMISE IS THE SHEET'S FIRST LINE, not a number in a corner.
@@ -1001,7 +1008,7 @@ export function TrackingBody({
           />
         ) : null}
         </ScrollView>
-      </View>
+      </Animated.View>
     </ScreenShell>
   );
 }
@@ -1030,6 +1037,7 @@ function Act({
 }
 
 const styles = StyleSheet.create({
+  sheetDragZone: { alignSelf: "stretch", alignItems: "center", paddingVertical: 6, minHeight: 26 },
   proCardScrim: { position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: "rgba(8,6,14,0.55)", justifyContent: "center", padding: 22, zIndex: 20 },
   proCard: { backgroundColor: "#1b1624", borderRadius: 22, padding: 18, borderWidth: 1, borderColor: "rgba(255,255,255,0.12)" },
   proCardName: { color: "#FFFFFF", fontSize: 24, fontWeight: "900", textAlign: "right", writingDirection: "rtl" },

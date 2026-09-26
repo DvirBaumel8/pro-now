@@ -1,5 +1,5 @@
 import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 
 import {
   discoveryProgressHe,
@@ -10,6 +10,7 @@ import {
 } from "@pro-now/types";
 
 import { palette, radii, spacing, type } from "../../theme";
+import { useSheetDrag } from "../useSheetDrag";
 
 /**
  * PLAY DRAWER — the answer to "it gets stuck and there is nothing to do".
@@ -59,9 +60,13 @@ export function PlayDrawer({ firstNameHe, etaMinutes, discoveries, hasJobDetails
   const progress = discoveryProgressHe(discoveries);
   const actions = playDrawerActions({ firstNameHe, discoveries, hasJobDetails });
 
+  /* Pull down to fold it to its headline and see the city; up to open. */
+  const drag = useSheetDrag({ peek: 58 });
   return (
-    <View style={styles.drawer} pointerEvents="box-none">
-      <View style={styles.handle} />
+    <Animated.View style={[styles.drawer, { transform: [{ translateY: drag.y }] }]} pointerEvents="box-none" onLayout={drag.measure}>
+      <View {...drag.bind} style={styles.dragZone}>
+        <View style={styles.handle} />
+      </View>
 
       <Text style={styles.status} numberOfLines={1}>
         {status}
@@ -109,7 +114,7 @@ export function PlayDrawer({ firstNameHe, etaMinutes, discoveries, hasJobDetails
           );
         })}
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -127,6 +132,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: "rgba(247,243,250,0.1)",
   },
+  dragZone: { alignSelf: "stretch", alignItems: "center", paddingVertical: 6, marginTop: -6, minHeight: 26 },
   handle: {
     alignSelf: "center",
     width: 38,

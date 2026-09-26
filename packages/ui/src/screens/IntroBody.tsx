@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from "react";
-import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Animated, Easing, PanResponder, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { CUSTOMER_POINT, venueSlots, WALK_START } from "@pro-now/types";
 
@@ -246,8 +246,35 @@ export function IntroBody({
     );
   };
 
+  const back = () => {
+    if (i === 0) return;
+    setI((n) => Math.max(0, n - 1));
+  };
+  /*
+   * A SWIPE TURNS THE PAGE.
+   *
+   * Amit: *"במסכי ההסבר נראה כאילו אפשר לעשות סוויפ שמאלה, אבל בעצם אפשר
+   * רק ללחוץ הבא."* The dots say "pages", so the pages turn under a
+   * finger: left for the next, right for the one before. "הבא" still works.
+   */
+  const nav = useRef({ next, back });
+  nav.current = { next, back };
+  const swipe = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 14 && Math.abs(g.dx) > Math.abs(g.dy) * 1.4,
+        /* Capture, so a swipe that starts on the words or a button still turns the page. */
+        onMoveShouldSetPanResponderCapture: (_, g) => Math.abs(g.dx) > 14 && Math.abs(g.dx) > Math.abs(g.dy) * 1.4,
+        onPanResponderRelease: (_, g) => {
+          if (g.dx < -40 || g.vx < -0.5) nav.current.next();
+          else if (g.dx > 40 || g.vx > 0.5) nav.current.back();
+        },
+      }),
+    []
+  );
+
   return (
-    <View style={[styles.screen, { width, height, backgroundColor: colors.bg }]}>
+    <View style={[styles.screen, { width, height, backgroundColor: colors.bg }]} {...swipe.panHandlers}>
       {/*
         * THE WORLD BEHIND THE WORDS — AND IT CAN BE THE REAL ONE.
         *
