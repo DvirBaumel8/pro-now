@@ -49,7 +49,7 @@ import {
   ROAD_PLATE_ASSET_ID,
 } from "@pro-now/types";
 
-import { palette, radii, spacing, tabular, type } from "../../theme";
+import { palette, radii, scale, spacing, tabular, type } from "../../theme";
 import { DemoCity } from "./DemoCity";
 import { HAIR_PACK_V0, HAIR_SCENE } from "./hairPack";
 import { WorldGround } from "./WorldGround";
@@ -2049,9 +2049,9 @@ const styles = StyleSheet.create({
     alignItems: "center", backgroundColor: "rgba(23,18,31,0.88)",
     borderWidth: 1, borderColor: "rgba(255,107,74,0.55)",
   },
-  etaClockMin: { color: "#FFFFFF", fontSize: 30, fontWeight: "800", lineHeight: 34 },
-  etaClockUnit: { color: "rgba(247,243,250,0.8)", fontSize: 12, marginTop: -2 },
-  etaClockHint: { color: "rgba(247,243,250,0.7)", fontSize: 11, marginTop: 6 },
+  etaClockMin: { color: "#FFFFFF", fontSize: scale.title, fontWeight: "800", lineHeight: 34 },
+  etaClockUnit: { color: "rgba(247,243,250,0.8)", fontSize: scale.micro, marginTop: -2 },
+  etaClockHint: { color: "rgba(247,243,250,0.7)", fontSize: scale.micro, marginTop: 6 },
   /*
    * The dark the room is framed against. Near-black rather than the
    * street, because the street is not behind you any more — the beat is

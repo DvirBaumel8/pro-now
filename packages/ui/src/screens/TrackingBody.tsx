@@ -217,7 +217,7 @@ function CustomerWorkClock({ status, top }: { status: JobState; top: number }) {
   return (
     <View style={[styles.etaClock, { top, borderColor: "rgba(47,191,138,0.6)" }]} pointerEvents="none">
       <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#2FBF8A", opacity: sec % 2 ? 0.35 : 1, marginBottom: 4 }} />
-      <Text style={[styles.etaClockMin, { fontSize: 22 }]}>{mm}:{ss}</Text>
+      <Text style={[styles.etaClockMin, { fontSize: scale.section }]}>{mm}:{ss}</Text>
       <Text style={styles.etaClockHint}>{status === "DIAGNOSIS" ? "בבדיקה" : "בעבודה"}</Text>
     </View>
   );
@@ -1041,10 +1041,10 @@ const styles = StyleSheet.create({
   sheetDragZone: { alignSelf: "stretch", alignItems: "center", paddingVertical: 6, minHeight: 26 },
   proCardScrim: { position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: "rgba(8,6,14,0.55)", justifyContent: "center", padding: 22, zIndex: 20 },
   proCard: { backgroundColor: "#1b1624", borderRadius: 22, padding: 18, borderWidth: 1, borderColor: "rgba(255,255,255,0.12)" },
-  proCardName: { color: "#FFFFFF", fontSize: 24, fontWeight: "900", textAlign: "right", writingDirection: "rtl" },
-  proCardLine: { color: "rgba(247,243,250,0.8)", fontSize: 14, textAlign: "right", writingDirection: "rtl", marginTop: 4 },
-  proCardVerified: { color: "#7FE3BC", fontSize: 14, fontWeight: "700", textAlign: "right", writingDirection: "rtl", marginTop: 8 },
-  proCardEta: { color: "#FF9A6B", fontSize: 18, fontWeight: "800", textAlign: "right", writingDirection: "rtl", marginTop: 10 },
+  proCardName: { color: "#FFFFFF", fontSize: scale.section, fontWeight: "900", textAlign: "right", writingDirection: "rtl" },
+  proCardLine: { color: "rgba(247,243,250,0.8)", fontSize: scale.meta, textAlign: "right", writingDirection: "rtl", marginTop: 4 },
+  proCardVerified: { color: "#7FE3BC", fontSize: scale.meta, fontWeight: "700", textAlign: "right", writingDirection: "rtl", marginTop: 8 },
+  proCardEta: { color: "#FF9A6B", fontSize: scale.body, fontWeight: "800", textAlign: "right", writingDirection: "rtl", marginTop: 10 },
   proCardRow: { flexDirection: "row-reverse", gap: 8, marginTop: 14 },
   proCardBtn: { flex: 1, paddingVertical: 10, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.1)", alignItems: "center" },
   proCardBtnText: { color: "#F7F3FA", fontWeight: "700" },
@@ -1053,10 +1053,10 @@ const styles = StyleSheet.create({
     alignItems: "center", backgroundColor: "rgba(23,18,31,0.88)",
     borderWidth: 1, borderColor: "rgba(255,107,74,0.55)",
   },
-  etaClockMin: { color: "#FFFFFF", fontSize: 30, fontWeight: "800", lineHeight: 34 },
-  etaClockUnit: { color: "rgba(247,243,250,0.8)", fontSize: 12, marginTop: -2 },
-  etaClockKm: { color: "#FF9A6B", fontSize: 13, fontWeight: "700", marginTop: 6 },
-  etaClockHint: { color: "rgba(247,243,250,0.7)", fontSize: 11, marginTop: 6 },
+  etaClockMin: { color: "#FFFFFF", fontSize: scale.title, fontWeight: "800", lineHeight: 34 },
+  etaClockUnit: { color: "rgba(247,243,250,0.8)", fontSize: scale.micro, marginTop: -2 },
+  etaClockKm: { color: "#FF9A6B", fontSize: scale.meta, fontWeight: "700", marginTop: 6 },
+  etaClockHint: { color: "rgba(247,243,250,0.7)", fontSize: scale.micro, marginTop: 6 },
   statusPill: {
     position: "absolute",
     top: spacing.lg,

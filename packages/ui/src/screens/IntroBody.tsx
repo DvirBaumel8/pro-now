@@ -255,7 +255,10 @@ export function IntroBody({
    *
    * Amit: *"במסכי ההסבר נראה כאילו אפשר לעשות סוויפ שמאלה, אבל בעצם אפשר
    * רק ללחוץ הבא."* The dots say "pages", so the pages turn under a
-   * finger: left for the next, right for the one before. "הבא" still works.
+   * finger. In Hebrew the book opens to the left, so a finger pulled to
+   * the RIGHT turns to the next page and one pulled left goes back —
+   * Amit, after trying it the other way: *"הסוויפ הפוך, ימינה מעביר
+   * שמאלה ולהפך."* "הבא" still works.
    */
   const nav = useRef({ next, back });
   nav.current = { next, back };
@@ -266,8 +269,8 @@ export function IntroBody({
         /* Capture, so a swipe that starts on the words or a button still turns the page. */
         onMoveShouldSetPanResponderCapture: (_, g) => Math.abs(g.dx) > 14 && Math.abs(g.dx) > Math.abs(g.dy) * 1.4,
         onPanResponderRelease: (_, g) => {
-          if (g.dx < -40 || g.vx < -0.5) nav.current.next();
-          else if (g.dx > 40 || g.vx > 0.5) nav.current.back();
+          if (g.dx > 40 || g.vx > 0.5) nav.current.next();
+          else if (g.dx < -40 || g.vx < -0.5) nav.current.back();
         },
       }),
     []

@@ -5,7 +5,7 @@ import { useSheetDrag } from "../useSheetDrag";
 
 import { matchFactsHe, noReputationYetHe, type CandidatePresence } from "@pro-now/types";
 
-import { palette, radii, spacing, tabular, type } from "../../theme";
+import { palette, radii, scale, spacing, tabular, type } from "../../theme";
 import { ProviderPortrait } from "../ProviderPortrait";
 
 /**
@@ -144,7 +144,19 @@ export function MatchSheet({ candidate, etaMinutes, arrivalClockHe, onAccept, on
           {candidate.completedJobs ? <Text style={styles.moreText}>{candidate.completedJobs} עבודות דרך PRO NOW</Text> : null}
         </View>
       ) : (
-        <Text style={styles.pullHint}>↑ משכו למעלה לפרטים על {candidate.displayNameHe.split(" ")[0]}</Text>
+        /*
+         * A button, not only a gesture. A tester, choosing: *"כשבוחרים בעל
+         * מקצוע צריכה להיות אפשרות להיכנס לפרטים שלו לפני הבחירה."* The
+         * details were there, behind a pull nobody guessed.
+         */
+        <Pressable
+          onPress={drag.expand}
+          accessibilityRole="button"
+          accessibilityLabel={`פרטים על ${candidate.displayNameHe}`}
+          style={styles.detailsBtn}
+        >
+          <Text style={styles.detailsText}>פרטים על {candidate.displayNameHe.split(" ")[0]} ↑</Text>
+        </Pressable>
       )}
 
       <Pressable
@@ -167,12 +179,16 @@ export function MatchSheet({ candidate, etaMinutes, arrivalClockHe, onAccept, on
 
 const styles = StyleSheet.create({
   dragZone: { alignSelf: "stretch", alignItems: "center", paddingVertical: 8, marginTop: -8, minHeight: 28 },
-  pullHint: { color: "rgba(247,243,250,0.55)", fontSize: 12, textAlign: "center", marginTop: 6, writingDirection: "rtl" },
+  detailsBtn: {
+    alignSelf: "center", marginTop: 8, paddingVertical: 7, paddingHorizontal: 16, borderRadius: 999,
+    borderWidth: 1, borderColor: "rgba(247,243,250,0.28)", backgroundColor: "rgba(255,255,255,0.06)",
+  },
+  detailsText: { color: "#F7F3FA", fontSize: scale.meta, fontWeight: "700", textAlign: "center", writingDirection: "rtl" },
   more: { marginTop: 12, padding: 12, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.06)" },
-  moreHead: { color: "#7FE3BC", fontSize: 13, fontWeight: "800", textAlign: "right", writingDirection: "rtl", marginBottom: 4 },
+  moreHead: { color: "#7FE3BC", fontSize: scale.meta, fontWeight: "800", textAlign: "right", writingDirection: "rtl", marginBottom: 4 },
   moreRow: { flexDirection: "row-reverse", alignItems: "center", gap: 6, marginTop: 3 },
   moreTick: { color: "#2FBF8A", fontWeight: "900" },
-  moreText: { color: "#F7F3FA", fontSize: 14, textAlign: "right", writingDirection: "rtl" },
+  moreText: { color: "#F7F3FA", fontSize: scale.meta, textAlign: "right", writingDirection: "rtl" },
   sheet: {
     position: "absolute",
     /* In front of the map's own notes — see `useSheetDrag`, it can grow over them. */

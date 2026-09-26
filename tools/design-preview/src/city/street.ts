@@ -1873,6 +1873,15 @@ export function buildStreet(
       door: 627 / 1254,
       stripe: "#9b4fb0",
     },
+    /* Measured on `shop_tech.webp` (3400 x 3509): the display window
+       and its door inside the dark frame, the awning bar above. */
+    tech: {
+      glass: [700 / 3400, 2940 / 3400, 1950 / 3509, 3330 / 3509],
+      awning: [560 / 3400, 3020 / 3400, 1720 / 3509, 1900 / 3509],
+      mullions: [1670 / 3400],
+      door: 2710 / 3400,
+      stripe: "#2c3e66",
+    },
     lust: {
       glass: [309 / 1536, 1233 / 1536, 376 / 1024, 902 / 1024],
       canopy: [96 / 1536, 1428 / 1536, 368 / 1024],
@@ -3159,11 +3168,112 @@ export function buildStreet(
     const trade = CITY_FLEET_TRADES[
       Math.abs(Math.round(z / 7) + (dir > 0 ? 3 : 0)) % CITY_FLEET_TRADES.length
     ]!;
-    const drawnVan = textures[`pn_${trade}_${away ? "back" : "front"}`];
-    if (drawnVan) {
-      const body = cutout(drawnVan, away ? 2.3 : 2.45, 1);
-      if (!away) body.rotation.y = Math.PI;
-      g.add(body);
+    const drawnFront = textures[`pn_${trade}_front`];
+    const drawnBack = textures[`pn_${trade}_back`];
+    if (drawnFront && drawnBack) {
+      /*
+       * ---------------------------------------------------------------
+       * A VAN HAS A LENGTH
+       * ---------------------------------------------------------------
+       * Amit: *"המכוניות עדיין קרטון, אין נפח."* One drawing on one
+       * plane is a van only from dead astern; from the pavement, at an
+       * angle, it was a sheet of card sliding down the road.
+       *
+       * So the van is built the way a model maker would build it from
+       * three drawings: the rear drawing on the tail, the front drawing
+       * on the nose, the side drawing along its left flank, and between
+       * them a body in the drawing's own paint with the coral band and
+       * the wordmark on the right flank, four wheels that turn, and a
+       * body that rides on its springs. Every face reads the right way
+       * round — the side drawing has its cab on the left, which is the
+       * van's left side, so that is where it goes; mirroring it for the
+       * other flank would print PRO NOW backwards.
+       *
+       * Built nose-to-minus-z and turned to face the way it drives.
+       */
+      const H = 2.3;
+      const sideTex = textures[`pn_${trade}_side`] ?? textures["van_side"];
+      const sideImg = sideTex?.image as { width: number; height: number } | undefined;
+      const L = sideImg ? H * (sideImg.width / sideImg.height) : 3.6;
+      const Wd = H * 0.96;
+      const ride = new THREE.Group();
+      const tailFace = cutout(drawnBack, H, 1);
+      tailFace.position.z = L / 2;
+      ride.add(tailFace);
+      const noseFace = cutout(drawnFront, H, 1);
+      noseFace.rotation.y = Math.PI;
+      noseFace.position.z = -L / 2;
+      ride.add(noseFace);
+      if (sideTex) {
+        const flank = cutout(sideTex, H, 1);
+        flank.rotation.y = -Math.PI / 2;
+        flank.position.x = -Wd * 0.43;
+        ride.add(flank);
+      }
+      const paint = new THREE.MeshStandardMaterial({ color: PRONOW.body, roughness: 0.5, metalness: 0.08 });
+      const shell = new THREE.Mesh(new THREE.BoxGeometry(Wd * 0.84, 1.5, L * 0.9), paint);
+      shell.position.y = 1.18;
+      shell.castShadow = true;
+      ride.add(shell);
+      const roof = new THREE.Mesh(new THREE.BoxGeometry(Wd * 0.8, 0.3, L * 0.72), paint);
+      roof.position.set(0, 2.02, L * 0.06);
+      roof.castShadow = true;
+      ride.add(roof);
+      /* The right flank: band, glass over the cab, and the wordmark. */
+      const band = new THREE.Mesh(
+        new THREE.PlaneGeometry(L * 0.88, 0.24),
+        new THREE.MeshStandardMaterial({ color: PRONOW.band, roughness: 0.5 })
+      );
+      band.rotation.y = Math.PI / 2;
+      band.position.set(Wd * 0.42 + 0.005, 0.72, 0);
+      ride.add(band);
+      const glass = new THREE.Mesh(
+        new THREE.PlaneGeometry(L * 0.26, 0.62),
+        new THREE.MeshStandardMaterial({ color: 0x14111d, roughness: 0.16, emissive: 0x2a2440, emissiveIntensity: 0.5 })
+      );
+      glass.rotation.y = Math.PI / 2;
+      glass.position.set(Wd * 0.42 + 0.006, 1.55, -L * 0.3);
+      ride.add(glass);
+      const mark = new THREE.Mesh(
+        new THREE.PlaneGeometry(1.9, 0.6),
+        new THREE.MeshStandardMaterial({ map: markTex, transparent: true, color: 0x1a1522, roughness: 0.6 })
+      );
+      mark.rotation.y = Math.PI / 2;
+      mark.position.set(Wd * 0.42 + 0.007, 1.3, L * 0.14);
+      ride.add(mark);
+      /* A dark skirt over the wheels, a door seam and a second window,
+         so the plain flank reads as a van's side and not a crate's. */
+      const trim = new THREE.MeshStandardMaterial({ color: 0x2a2530, roughness: 0.7 });
+      const skirt = new THREE.Mesh(new THREE.BoxGeometry(Wd * 0.86, 0.3, L * 0.92), trim);
+      skirt.position.y = 0.5;
+      ride.add(skirt);
+      const seam = new THREE.Mesh(new THREE.PlaneGeometry(0.03, 1.1), trim);
+      seam.rotation.y = Math.PI / 2;
+      seam.position.set(Wd * 0.42 + 0.006, 1.2, -L * 0.1);
+      ride.add(seam);
+      const rearGlass = glass.clone();
+      rearGlass.scale.set(0.55, 0.8, 1);
+      rearGlass.position.set(Wd * 0.42 + 0.006, 1.6, L * 0.32);
+      ride.add(rearGlass);
+      g.add(ride);
+      const tyre = new THREE.MeshStandardMaterial({ color: 0x16131b, roughness: 0.85 });
+      const hub = new THREE.MeshStandardMaterial({ color: 0x9a96a4, roughness: 0.4, metalness: 0.3 });
+      const wheels: THREE.Object3D[] = [];
+      for (const wz of [-L / 2 + 0.62, L / 2 - 0.62]) {
+        for (const wx of [-Wd * 0.36, Wd * 0.36]) {
+          const w = new THREE.Group();
+          const t = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.28, 18), tyre);
+          t.rotation.z = Math.PI / 2;
+          w.add(t);
+          const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.3, 12), hub);
+          cap.rotation.z = Math.PI / 2;
+          w.add(cap);
+          w.position.set(wx, 0.36, wz);
+          g.add(w);
+          wheels.push(w);
+        }
+      }
+      if (dir > 0) g.rotation.y = Math.PI;
       /* Tail lamps are IN the drawing, so what is added here is only
          what a drawing cannot hold: the red wash they throw back at
          you, and the pool the headlights lay down out of sight ahead. */
@@ -3176,7 +3286,9 @@ export function buildStreet(
       tail.scale.set(3.6, 2.2, 1);
       tail.material.color.set(away ? 0xff3b30 : 0xfff0cc);
       tail.material.opacity = away ? 0.3 : 0.4;
-      tail.position.set(0, 1.0, away ? 0.5 : -0.5);
+      /* In the van's own frame the tail is always +z; the group is
+         turned to face the way it drives. */
+      tail.position.set(0, 1.0, L / 2 + 0.4);
       g.add(tail);
       emitters.push({
         pos: new THREE.Vector3(),
@@ -3187,7 +3299,7 @@ export function buildStreet(
         offsetZ: dir * 6.4,
       });
       g.position.set(lane, 0, z);
-      g.userData = { dir, speed };
+      g.userData = { dir, speed, ride, wheels, phase: Math.abs(z) % 6.28 };
       scene.add(g);
       cars.push(g);
       return;
@@ -4309,8 +4421,17 @@ export function buildStreet(
     moon.updateMatrixWorld();
 
     for (const c of cars) {
-      const { dir, speed } = c.userData as { dir: 1 | -1; speed: number };
+      const { dir, speed, ride, wheels, phase } = c.userData as {
+        dir: 1 | -1; speed: number; ride?: THREE.Object3D; wheels?: THREE.Object3D[]; phase?: number;
+      };
       c.position.z += dir * speed * dt;
+      /* A van on its springs, and wheels that turn with the road. */
+      if (ride) {
+        const tt = performance.now() / 1000 + (phase ?? 0);
+        ride.position.y = 0.03 * Math.sin(tt * 7.3) + 0.015 * Math.sin(tt * 13.1);
+        ride.rotation.z = 0.008 * Math.sin(tt * 3.7);
+      }
+      if (wheels) for (const w of wheels) w.rotation.x -= (speed * dt) / 0.36;
       if (c.position.z > HALF) c.position.z = -HALF;
       if (c.position.z < -HALF) c.position.z = HALF;
     }

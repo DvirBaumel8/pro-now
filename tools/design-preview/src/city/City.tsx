@@ -1784,23 +1784,39 @@ export function City({
       };
       /* Coming back out is the same move with the sign flipped. */
       leaveRef.current = () => {
-        const shop = street.shops.find((x) => x.id === lastNear);
-        if (!shop) return;
+        /*
+         * THE SHOP YOU ARE IN, NOT THE LAST ONE THE PAVEMENT NAMED.
+         *
+         * A tester: *"כשאני בתוך חנות ולוחץ על חזרה לרחוב הוא מסתובב אבל
+         * נשאר בתוך החנות."* This looked the shop up by `lastNear`, which
+         * the proximity check keeps rewriting — so the way out could
+         * belong to a neighbour, or to nothing, and the room stayed.
+         */
+        const inId = insideRef.current?.id ?? lastNear;
+        const shop = street.shops.find((x) => x.id === inId);
+        if (!shop) {
+          insideRef.current = null;
+          setVeil(0);
+          return;
+        }
+        const wall = FRONT_X * shop.side;
         if (shop.roomSpot) {
+          /*
+           * The way out ENDS on the pavement. The exit plays the walk-in
+           * backwards, so `from` is where it finishes — and it was the
+           * room itself, which left the figure standing behind the glass
+           * with the street's buttons back on: "he turns round but stays
+           * in the shop."
+           */
           entry = {
             shop,
             startedAt: performance.now(),
             dir: -1,
-            from: shop.roomSpot.clone(),
-            aimFrom: new THREE.Vector3(
-              shop.roomSpot.x - shop.side * 3.6,
-              1.95,
-              shop.doorway.z + 0.6
-            ),
+            from: new THREE.Vector3(wall - shop.side * 2.4, 0, shop.doorway.z + 1.2),
+            aimFrom: new THREE.Vector3(wall - shop.side * 6.6, 2.6, shop.doorway.z + 4.6),
           };
           return;
         }
-        const wall = FRONT_X * shop.side;
         entry = {
           shop,
           startedAt: performance.now(),
@@ -2206,7 +2222,10 @@ const VENUES = new Map<string, string>();
 /** The trades with a single drawn interior (`shop_<id>_inside`). */
 const DRAWN_INTERIORS: ReadonlySet<string> = new Set(["build", "help", "move", "nails", "pets", "tech", "vet", "well"]);
 /** The shops whose room has been built, and how many pieces of furniture each. */
-const BUILT_ROOMS: Readonly<Record<string, number>> = { hair: 5, lust: 3, home: 3, nails: 3 };
+/* `tech` has no furniture cut out yet: its room is the drawn interior
+   taken apart into walls (the back wall straight from the drawing, the
+   side walls from its own shelving units), with nothing standing in it. */
+const BUILT_ROOMS: Readonly<Record<string, number>> = { hair: 5, lust: 3, home: 3, nails: 3, tech: 0 };
 /** The shops drawn open with their professional in the doorway (`venue_<id>`). */
 const VENUE_READY: ReadonlySet<string> = new Set(["hair", "home", "nails"]);
 /*

@@ -95,7 +95,6 @@ export function useSheetDrag({ peek = 64, onDismiss }: { peek?: number; onDismis
         onPanResponderRelease: (_, g) => releaseRef.current(g, true),
         onPanResponderTerminate: (_, g) => releaseRef.current(g, false),
       }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
   const body = useMemo(
@@ -106,7 +105,6 @@ export function useSheetDrag({ peek = 64, onDismiss }: { peek?: number; onDismis
         onPanResponderRelease: (_, g) => releaseRef.current(g, false),
         onPanResponderTerminate: (_, g) => releaseRef.current(g, false),
       }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
 
@@ -122,6 +120,11 @@ export function useSheetDrag({ peek = 64, onDismiss }: { peek?: number; onDismis
     folded,
     expanded,
     open: () => settle(0),
+    /* The same as pulling up — for a button that says so out loud. */
+    expand: () => {
+      setExp(true);
+      settle(0);
+    },
     collapse: () => {
       setExp(false);
       settle(0);

@@ -3272,8 +3272,18 @@ const go = useCallback((r: CustomerRoute) => {
             mark={trackedService.mark}
             professionalDisplayName={matchFixture.professional.displayName}
             whenHe="היום, 14:20 · 55 דקות"
-            receiptLines={receiptLines}
-            totalChargedMinorUnits={44500}
+            /*
+             * The receipt is the quote that was approved on this visit —
+             * the same lines and the same total the customer agreed to a
+             * minute ago. The fixture only speaks when no visit is behind
+             * the screen (a deep link reviewing the layout).
+             */
+            receiptLines={
+              approvedLines
+                ? approvedLines.map((l) => ({ id: l.id, labelHe: l.descriptionHe, amountMinorUnits: l.totalMinorUnits }))
+                : receiptLines
+            }
+            totalChargedMinorUnits={approvedTotalMinor ?? 44500}
             paymentMethodLabelHe="ויזה · 4417"
             // The rating travels with the navigation, so the closing
             // screen can speak about what they actually left rather than
@@ -5748,8 +5758,8 @@ function ProsLineup() {
  */
 function TrustCard() {
   const row = (t: string) => (
-    <div style={{ display: "flex", flexDirection: "row-reverse", alignItems: "center", gap: 8, color: "#F7F3FA", fontSize: 14, lineHeight: "20px" }}>
-      <span style={{ width: 20, height: 20, borderRadius: 10, background: "#2FBF8A", color: "#0d0a16", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, flex: "0 0 auto" }}>✓</span>
+    <div style={{ display: "flex", flexDirection: "row-reverse", alignItems: "center", gap: 8, color: "#F7F3FA", fontSize: scale.meta, lineHeight: "20px" }}>
+      <span style={{ width: 20, height: 20, borderRadius: 10, background: "#2FBF8A", color: "#0d0a16", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: scale.meta, fontWeight: 800, flex: "0 0 auto" }}>✓</span>
       <span style={{ textAlign: "right" }}>{t}</span>
     </div>
   );
@@ -5760,9 +5770,9 @@ function TrustCard() {
         <div style={{ display: "flex", flexDirection: "row", alignItems: "flex-end", gap: 12 }}>
           <img src="./world/character_home_world.webp" alt="" style={{ height: 150, filter: "drop-shadow(0 8px 12px rgba(0,0,0,.5))" }} />
           <div style={{ flex: 1, paddingBottom: 8 }}>
-            <div style={{ color: "#F7F3FA", fontSize: 20, fontWeight: 800 }}>יוסי · אינסטלציה</div>
-            <div style={{ color: "rgba(247,243,250,.62)", fontSize: 12, marginTop: 2 }}>דוגמה לכרטיס מקצוען</div>
-            <div style={{ display: "inline-block", marginTop: 8, padding: "4px 10px", borderRadius: 999, background: "rgba(47,191,138,.16)", color: "#7FE3BC", fontSize: 12, fontWeight: 700 }}>מאומת ב-PRO NOW</div>
+            <div style={{ color: "#F7F3FA", fontSize: scale.body, fontWeight: 800 }}>יוסי · אינסטלציה</div>
+            <div style={{ color: "rgba(247,243,250,.62)", fontSize: scale.micro, marginTop: 2 }}>דוגמה לכרטיס מקצוען</div>
+            <div style={{ display: "inline-block", marginTop: 8, padding: "4px 10px", borderRadius: 999, background: "rgba(47,191,138,.16)", color: "#7FE3BC", fontSize: scale.micro, fontWeight: 700 }}>מאומת ב-PRO NOW</div>
           </div>
         </div>
         <div style={{ display: "grid", gap: 9, marginTop: 14 }}>
@@ -5793,23 +5803,23 @@ function FamilyScene() {
       <img src="./clips/kitchen.jpg" alt="" style={{ position: "absolute", left: 0, right: 0, top: "6%", width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 20%", filter: "saturate(1.08)" }} />
       <div style={{ position: "absolute", left: "22%", right: "5%", top: "5%", borderRadius: 18, padding: "12px 14px", background: "rgba(23,18,31,.9)", border: "1px solid rgba(255,255,255,.14)", boxShadow: "0 16px 40px rgba(0,0,0,.55)", direction: "rtl" }}>
         <div style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ color: "#F7F3FA", fontSize: 15, fontWeight: 800 }}>הצעת מחיר התקבלה</span>
-          <span style={{ color: "rgba(247,243,250,.55)", fontSize: 11 }}>דוגמה</span>
+          <span style={{ color: "#F7F3FA", fontSize: scale.meta, fontWeight: 800 }}>הצעת מחיר התקבלה</span>
+          <span style={{ color: "rgba(247,243,250,.55)", fontSize: scale.micro }}>דוגמה</span>
         </div>
-        <div style={{ color: "rgba(247,243,250,.8)", fontSize: 13, marginTop: 4 }}>אצל סבא וסבתא · יוסי, אינסטלציה</div>
+        <div style={{ color: "rgba(247,243,250,.8)", fontSize: scale.meta, marginTop: 4 }}>אצל סבא וסבתא · יוסי, אינסטלציה</div>
         {/* The same amount the demo quote carries elsewhere (₪250), marked
             as an example — a line the way a real quote lists it. */}
         <div style={{ marginTop: 8, padding: "8px 10px", borderRadius: 12, background: "rgba(255,255,255,.06)", display: "grid", gap: 4 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", color: "#F7F3FA", fontSize: 13 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", color: "#F7F3FA", fontSize: scale.meta }}>
             <span>החלפת אטם בברז המטבח</span><span>₪250</span>
           </div>
-          <div style={{ display: "flex", justifyContent: "space-between", color: "#F7F3FA", fontSize: 14, fontWeight: 800, borderTop: "1px solid rgba(255,255,255,.12)", paddingTop: 4 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", color: "#F7F3FA", fontSize: scale.meta, fontWeight: 800, borderTop: "1px solid rgba(255,255,255,.12)", paddingTop: 4 }}>
             <span>סה״כ לאישור</span><span>₪250</span>
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-          <span style={{ flex: 1, textAlign: "center", padding: "8px 0", borderRadius: 12, background: "#FF6B4A", color: "#1a0f0c", fontWeight: 800, fontSize: 14 }}>אישור · ₪250</span>
-          <span style={{ flex: "0 0 34%", textAlign: "center", padding: "8px 0", borderRadius: 12, background: "rgba(255,255,255,.1)", color: "#F7F3FA", fontSize: 14 }}>שאלה</span>
+          <span style={{ flex: 1, textAlign: "center", padding: "8px 0", borderRadius: 12, background: "#FF6B4A", color: "#1a0f0c", fontWeight: 800, fontSize: scale.meta }}>אישור · ₪250</span>
+          <span style={{ flex: "0 0 34%", textAlign: "center", padding: "8px 0", borderRadius: 12, background: "rgba(255,255,255,.1)", color: "#F7F3FA", fontSize: scale.meta }}>שאלה</span>
         </div>
       </div>
     </div>
@@ -5895,18 +5905,18 @@ function OnTheWay({ shop, proName, etaMinutes, onDone }: { shop: string; proName
         </svg>
         <img src={`./world/character_${shopId}_icon.webp`} alt="" style={{ position: "absolute", left: 25, top: 18, width: 100, height: 112, objectFit: "contain" }} />
       </div>
-      <div style={{ marginTop: 18, color: "#fff", fontSize: 30, fontWeight: 900, animation: "pnOtwCard .6s .1s both" }}>{proName} יצא אליך!</div>
-      <div style={{ marginTop: 6, color: "#FF9A6B", fontSize: 20, fontWeight: 800, animation: "pnOtwCard .6s .2s both" }}>מגיע בעוד {etaMinutes} דק׳</div>
+      <div style={{ marginTop: 18, color: "#fff", fontSize: scale.title, fontWeight: 900, animation: "pnOtwCard .6s .1s both" }}>{proName} יצא אליך!</div>
+      <div style={{ marginTop: 6, color: "#FF9A6B", fontSize: scale.body, fontWeight: 800, animation: "pnOtwCard .6s .2s both" }}>מגיע בעוד {etaMinutes} דק׳</div>
       <div style={{ position: "relative", width: "86%", height: 120, marginTop: 26, animation: "pnOtwCard .6s .3s both" }}>
         <div style={{ position: "absolute", left: "8%", right: "8%", top: 76, height: 6, borderRadius: 3, backgroundImage: "linear-gradient(90deg, rgba(255,154,107,.9) 50%, transparent 50%)", backgroundSize: "20px 6px", animation: "pnOtwDash .6s linear infinite" }} />
         <img src={`./world/m/shop_${shopId}.webp`} alt="" style={{ position: "absolute", right: 0, top: 0, width: 88, height: 88, objectFit: "contain" }} />
-        <div style={{ position: "absolute", left: 0, top: 22, width: 64, height: 64, borderRadius: 16, background: "rgba(255,255,255,.1)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30 }}>⌂</div>
+        <div style={{ position: "absolute", left: 0, top: 22, width: 64, height: 64, borderRadius: 16, background: "rgba(255,255,255,.1)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: scale.title }}>⌂</div>
         {/* From his shop (right) to your home (left), nose first. */}
         <img src="./world/m/van_side.webp" alt="" style={{ position: "absolute", top: 42, height: 44, animation: "pnOtwVan 5s cubic-bezier(.4,0,.2,1) both" }} />
-        <div style={{ position: "absolute", right: 4, top: 96, color: "rgba(247,243,250,.7)", fontSize: 12 }}>החנות שלו</div>
-        <div style={{ position: "absolute", left: 8, top: 96, color: "rgba(247,243,250,.7)", fontSize: 12 }}>הבית שלך</div>
+        <div style={{ position: "absolute", right: 4, top: 96, color: "rgba(247,243,250,.7)", fontSize: scale.micro }}>החנות שלו</div>
+        <div style={{ position: "absolute", left: 8, top: 96, color: "rgba(247,243,250,.7)", fontSize: scale.micro }}>הבית שלך</div>
       </div>
-      <div style={{ marginTop: 22, color: "rgba(247,243,250,.75)", fontSize: 14, animation: "pnOtwCard .6s .5s both" }}>אפשר לעקוב אחריו על המפה בכל רגע</div>
+      <div style={{ marginTop: 22, color: "rgba(247,243,250,.75)", fontSize: scale.meta, animation: "pnOtwCard .6s .5s both" }}>אפשר לעקוב אחריו על המפה בכל רגע</div>
     </div>
   );
 }
@@ -5971,7 +5981,7 @@ function SearchCity({ dept, found, proName, pick = 0 }: { dept: string | null; f
         <img src={`./world/character_${shopId}_world.webp`} alt="" onError={(e) => { e.currentTarget.style.display = "none"; }} style={{ position: "absolute", right: "6%", bottom: "30%", height: "38%", filter: "drop-shadow(0 16px 24px rgba(0,0,0,.55))", animation: "pnProIn .8s cubic-bezier(.2,.8,.2,1) both" }} />
       ) : null}
       {arrived && proName ? (
-        <div style={{ position: "absolute", right: "6%", bottom: "calc(30% + 38% + 8px)", padding: "6px 12px", borderRadius: 999, background: "#2FBF8A", color: "#0d0a16", fontWeight: 800, fontSize: 14, direction: "rtl", animation: "pnProIn .8s .2s both" }}>
+        <div style={{ position: "absolute", right: "6%", bottom: "calc(30% + 38% + 8px)", padding: "6px 12px", borderRadius: 999, background: "#2FBF8A", color: "#0d0a16", fontWeight: 800, fontSize: scale.meta, direction: "rtl", animation: "pnProIn .8s .2s both" }}>
           ✓ {proName} · פנוי עכשיו
         </div>
       ) : null}

@@ -9,7 +9,7 @@ import {
   type PlayDrawerActionId,
 } from "@pro-now/types";
 
-import { palette, radii, spacing, type } from "../../theme";
+import { palette, radii, scale, spacing, type } from "../../theme";
 import { useSheetDrag } from "../useSheetDrag";
 
 /**
@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.lg, borderWidth: 1, backgroundColor: "rgba(247,243,250,0.06)",
   },
   tileGlyph: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center", marginBottom: 6 },
-  tileGlyphText: { color: "#0d0a16", fontSize: 17, fontWeight: "900" },
+  tileGlyphText: { color: "#0d0a16", fontSize: scale.body, fontWeight: "900" },
   tileTitle: { ...type.meta, fontWeight: "800", color: palette.nightText, textAlign: "center", writingDirection: "rtl" },
   tileSub: { ...type.micro, color: palette.nightTextSoft, textAlign: "center", writingDirection: "rtl", marginTop: 2 },
   chip: {

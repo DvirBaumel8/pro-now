@@ -136,11 +136,8 @@ export function playDrawerActions(args: {
   discoveries: DiscoveryState;
   hasJobDetails: boolean;
 }): PlayDrawerAction[] {
-  const all = args.discoveries.found.length >= args.discoveries.available.length;
   const actions: PlayDrawerAction[] = [];
 
-  // Once everything is found, "play more" becomes "wander", because
-  // offering more of something there is no more of is a small lie.
   if (args.discoveries.available.length > 0) {
     /* Amit: *"להמשיך לטייל בעולם ולראות עסקים נוספים"* — the offer is to
        wander, found everything or not. */

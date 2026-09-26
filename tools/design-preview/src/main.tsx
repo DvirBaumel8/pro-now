@@ -1,11 +1,11 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 
 import { App } from "./App";
 import { Gallery } from "./Gallery";
 import { catalogServicePages, departmentCodeByServiceId } from "@pro-now/ui";
 
-import { City, CITY_SHOP_DEPARTMENTS } from "./city/City";
+import { City, CITY_SHOP_DEPARTMENTS, type CityShot } from "./city/City";
 
 /**
  * Two entry points, one bundle.
@@ -69,15 +69,40 @@ const cityTradesForReview = (() => {
   return out;
 })();
 
+/*
+ * `?city=1&fly=hair&found=5` plays the search flight on its own — the
+ * drift over the roofs, then the dive into that shop after `found`
+ * seconds (or when a recorder calls `__found()`) — and `&shot=wide` holds one of the scripted camera shots.
+ * Both exist for filming the city at a size no phone has.
+ */
+const flyTo = query.get("fly");
+const cityShot = (query.get("shot") as CityShot | null) ?? null;
+function CityForReview() {
+  const [phase, setPhase] = useState<"searching" | "found">("searching");
+  useEffect(() => {
+    if (!flyTo) return;
+    /* A recorder calls `__found()` itself, so the dive lands on its cue. */
+    (window as unknown as { __found?: () => void }).__found = () => setPhase("found");
+    if (!query.has("found")) return;
+    const t = setTimeout(() => setPhase("found"), Number(query.get("found")) * 1000);
+    return () => clearTimeout(t);
+  }, []);
+  return (
+    <City
+      spawn={citySpawn}
+      avatarNo={query.has("av") ? Number(query.get("av")) : null}
+      trades={cityTradesForReview}
+      search={flyTo ? { shopId: flyTo, phase } : null}
+      shot={cityShot}
+    />
+  );
+}
+
 const root = document.getElementById("root");
 if (!root) throw new Error("#root missing");
 
 createRoot(root).render(
   <React.StrictMode>
-    {showCity ? <City
-        spawn={citySpawn}
-        avatarNo={query.has("av") ? Number(query.get("av")) : null}
-        trades={cityTradesForReview}
-      /> : showGallery ? <Gallery /> : <App />}
+    {showCity ? <CityForReview /> : showGallery ? <Gallery /> : <App />}
   </React.StrictMode>
 );
