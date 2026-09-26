@@ -132,6 +132,8 @@ export interface LivingMapSceneProps {
   /** Already formatted by the caller from a real ETA. Null when unknown. */
   etaMinutes: number | null;
   arrivalClockHe: string | null;
+  /** The matched professional's own visit fee — each sets their own. */
+  visitFeeHe?: string | null;
   serviceNameHe: string;
   /** True once the server is checking eligibility — drives the sub-line. */
   checkingEligibility?: boolean;
@@ -290,6 +292,7 @@ export function LivingMapScene({
   state,
   etaMinutes,
   arrivalClockHe,
+  visitFeeHe = null,
   serviceNameHe,
   checkingEligibility = false,
   departmentCode,
@@ -1858,6 +1861,7 @@ export function LivingMapScene({
           candidate={chosen}
           etaMinutes={etaMinutes}
           arrivalClockHe={arrivalClockHe}
+          visitFeeHe={visitFeeHe}
           onAccept={onAccept}
           onAnother={onAnother}
           progress={sheet}

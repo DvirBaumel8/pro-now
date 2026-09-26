@@ -197,6 +197,18 @@ and no screen achieves it: *"מחיר נח לכל כיס עם מקצוענים �
 supply-and-price-level strategy. Fairness is the part that can be built
 without inventing a business rule.
 
+### DECIDED 2026-09-26 — each professional sets their own visit fee
+
+Amit, answering a tester who asked of the figure on the service page
+*"של מי המחיר? לבעלי המקצוע יש מחירים שונים"*: **each professional
+decides** ("כל אחד מחליט"). So the service page and the catalogue tiles
+say "דמי ביקור לפי המקצוען" and name no figure (`priceExplainer(…,
+{ stage: "service" })`, `catalogAdapter.priceHint`), and the fee is shown
+on the person — the match sheet and the match confirmation — before the
+customer accepts. Still open under it: whether PRO NOW bounds the fee
+(a floor/ceiling per service), and where the professional sets it
+(`ProPricingBody` exists as a screen; the server field does not).
+
 ### TBD — does an approved quote replace the visit fee or add to it?
 
 `settlement.ts` reads it as REPLACING. `/docs/02-UX-FLOWS.md` C12 shows

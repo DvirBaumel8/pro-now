@@ -131,7 +131,7 @@ export function ServiceDetailBody({
   width = 390,
   height = 780,
 }: ServiceDetailBodyProps) {
-  const explainer = priceExplainer(price);
+  const explainer = priceExplainer(price, { stage: "service" });
   const canDispatch = !comingSoon && availableNowCount !== null && availableNowCount > 0;
   const [picked, setPicked] = useState<string[]>([]);
   const [note, setNote] = useState("");

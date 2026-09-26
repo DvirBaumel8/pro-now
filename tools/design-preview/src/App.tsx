@@ -2758,6 +2758,16 @@ const go = useCallback((r: CustomerRoute) => {
             living={living}
             etaMinutes={route.phase === "SEARCHING" ? null : etaMin}
             arrivalClockHe={route.phase === "SEARCHING" ? null : arrivalClockHe}
+            /*
+             * The fee on the person, once there is a person. Each
+             * professional sets their own (Amit, 2026-09-26); the preview
+             * has one figure per service, shown as this one's.
+             */
+            visitFeeHe={
+              route.phase !== "SEARCHING" && page?.price?.priceModel === "VISIT_QUOTE" && page.price.visitFeeMinorUnits
+                ? formatMoney(money(page.price.visitFeeMinorUnits, "ILS"))
+                : null
+            }
             checkingEligibility={route.phase !== "SEARCHING"}
             discoveries={discoveries}
             onFound={(id) => setDiscoveries((d) => discover(d, id))}

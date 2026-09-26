@@ -136,7 +136,9 @@ function priceHint(s: CatalogServiceDef): string {
     case "FIXED":
       return p?.fixedTotalMinorUnits ? `מחיר קבוע ₪${p.fixedTotalMinorUnits / 100}` : "מחיר קבוע";
     case "VISIT_QUOTE":
-      return p?.visitFeeMinorUnits ? `דמי ביקור ₪${p.visitFeeMinorUnits / 100}` : "דמי ביקור";
+      /* Each professional sets their own visit fee (2026-09-26), so a
+         tile has no one figure to show. */
+      return "דמי ביקור לפי המקצוען";
     case "HOURLY":
       return p?.hourlyRateMinorUnits ? `₪${p.hourlyRateMinorUnits / 100} לשעה` : "תעריף שעתי";
     case "DISTANCE_TIME":

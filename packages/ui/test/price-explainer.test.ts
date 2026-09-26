@@ -38,6 +38,19 @@ describe("priceExplainer", () => {
     expect(out.detail).not.toContain("מחיר קבוע");
   });
 
+  it("before anyone is found, names no visit fee — each professional sets their own", () => {
+    const out = priceExplainer({ priceModel: "VISIT_QUOTE", currency: "ILS", visitFeeMinorUnits: 17900 }, { stage: "service" });
+    expect(out.headline).not.toContain("179");
+    expect(out.headline).toContain("לפי המקצוען");
+    expect(out.detail).toContain("הצעת מחיר");
+  });
+
+  it("on the match, the fee is that professional's", () => {
+    const out = priceExplainer({ priceModel: "VISIT_QUOTE", currency: "ILS", visitFeeMinorUnits: 17900 }, { proFirstNameHe: "יוסי" });
+    expect(out.headline).toContain("179");
+    expect(out.detail).toContain("של יוסי");
+  });
+
   it("names the HOURLY minimum, because it is the number people are surprised by", () => {
     const price: PriceQuoteView = {
       priceModel: "HOURLY",

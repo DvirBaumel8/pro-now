@@ -7,7 +7,16 @@ import { formatMinimumBillable } from "./format";
  * Kept as a pure function so each pricing model's wording is a testable
  * assertion rather than JSX buried in a branch.
  */
-export function priceExplainer(price: PriceQuoteView): { headline: string; detail: string } {
+export function priceExplainer(
+  price: PriceQuoteView,
+  /**
+   * `service` is the page before anybody is found. A visit fee is set by
+   * each professional (Amit, 2026-09-26), so there it has no one figure —
+   * a tester asked, of the number that used to sit there, *"של מי המחיר?
+   * לבעלי המקצוע יש מחירים שונים."* It is shown on the person instead.
+   */
+  opts: { stage?: "service" | "match"; proFirstNameHe?: string | null } = {}
+): { headline: string; detail: string } {
   const m = (v: number | null | undefined) =>
     v === null || v === undefined ? null : formatMoney(money(v, "ILS"));
 
@@ -22,11 +31,19 @@ export function priceExplainer(price: PriceQuoteView): { headline: string; detai
       };
     }
     case "VISIT_QUOTE": {
+      if (opts.stage === "service") {
+        return {
+          headline: "דמי ביקור לפי המקצוען",
+          detail:
+            "כל מקצוען קובע את דמי הביקור והאבחון שלו — ותראו אותם אצל מי שנמצא, לפני שאתם מאשרים. עלות התיקון עצמו תישלח כהצעת מחיר לאישורכם לפני תחילת העבודה.",
+        };
+      }
       const fee = m(price.visitFeeMinorUnits);
+      const whose = opts.proFirstNameHe ? `דמי הביקור והאבחון של ${opts.proFirstNameHe}.` : "דמי ביקור ואבחון.";
       return {
         headline: fee ?? "—",
         detail: fee
-          ? "דמי ביקור ואבחון. עלות התיקון עצמו תישלח כהצעת מחיר לאישורך לפני תחילת העבודה."
+          ? `${whose} עלות התיקון עצמו תישלח כהצעת מחיר לאישורך לפני תחילת העבודה.`
           : "דמי הביקור טרם הוגדרו לשירות זה.",
       };
     }

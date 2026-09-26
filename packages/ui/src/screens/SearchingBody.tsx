@@ -65,6 +65,8 @@ export interface SearchingBodyProps {
   elapsedSeconds?: number;
   etaMinutes?: number | null;
   arrivalClockHe?: string | null;
+  /** The matched professional's own visit fee, formatted. See `MatchSheet`. */
+  visitFeeHe?: string | null;
   checkingEligibility?: boolean;
   /** Decides which trade's district the world shows. */
   departmentCode?: string;
@@ -149,6 +151,7 @@ export function SearchingBody({
   living,
   etaMinutes = null,
   arrivalClockHe = null,
+  visitFeeHe = null,
   checkingEligibility = false,
   departmentCode,
   worldSources,
@@ -218,6 +221,7 @@ export function SearchingBody({
         serviceNameHe={serviceNameHe}
         etaMinutes={etaMinutes}
         arrivalClockHe={arrivalClockHe}
+        visitFeeHe={visitFeeHe}
         checkingEligibility={checkingEligibility}
         departmentCode={departmentCode}
         onAccept={onAccept}

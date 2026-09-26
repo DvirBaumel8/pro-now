@@ -210,7 +210,7 @@ export function MatchConfirmBody({
   width = 390,
   height = 780,
 }: MatchConfirmBodyProps) {
-  const explain = priceExplainer(price);
+  const explain = priceExplainer(price, { proFirstNameHe: displayNameHe.split(" ")[0] });
   const etaMinutes = eta ? Math.round(eta.etaSeconds / 60) : null;
   /*
    * The hero is sized around the portrait rather than the other way round.

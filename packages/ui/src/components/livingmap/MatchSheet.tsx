@@ -39,13 +39,19 @@ export interface MatchSheetProps {
   candidate: CandidatePresence;
   etaMinutes: number | null;
   arrivalClockHe?: string | null;
+  /**
+   * This professional's visit fee. Each professional sets their own
+   * (Amit, 2026-09-26), so it is shown here — on the person, before the
+   * customer says yes — and nowhere earlier as if it were the service's.
+   */
+  visitFeeHe?: string | null;
   onAccept?: () => void;
   onAnother?: () => void;
   /** 0 hidden, 1 fully up. Drives the fold-away on confirm. */
   progress?: Animated.AnimatedInterpolation<number> | Animated.Value;
 }
 
-export function MatchSheet({ candidate, etaMinutes, arrivalClockHe, onAccept, onAnother, progress }: MatchSheetProps) {
+export function MatchSheet({ candidate, etaMinutes, arrivalClockHe, visitFeeHe = null, onAccept, onAnother, progress }: MatchSheetProps) {
   const facts = matchFactsHe(candidate);
   /* The handle folds the card down to see the shop behind it, and back up. */
   const drag = useSheetDrag({ peek: 44 });
@@ -119,6 +125,12 @@ export function MatchSheet({ candidate, etaMinutes, arrivalClockHe, onAccept, on
         </View>
       </View>
 
+      {visitFeeHe ? (
+        <Text style={styles.fee}>
+          דמי הביקור של {candidate.displayNameHe.split(" ")[0]}: {visitFeeHe} · התיקון עצמו בהצעת מחיר לאישורכם
+        </Text>
+      ) : null}
+
       {/*
         * PULLED UP: WHO THIS IS.
         *
@@ -179,6 +191,7 @@ export function MatchSheet({ candidate, etaMinutes, arrivalClockHe, onAccept, on
 
 const styles = StyleSheet.create({
   dragZone: { alignSelf: "stretch", alignItems: "center", paddingVertical: 8, marginTop: -8, minHeight: 28 },
+  fee: { color: "#FFD2C4", fontSize: scale.micro, fontWeight: "700", textAlign: "right", writingDirection: "rtl", marginTop: 8 },
   detailsBtn: {
     alignSelf: "center", marginTop: 8, paddingVertical: 7, paddingHorizontal: 16, borderRadius: 999,
     borderWidth: 1, borderColor: "rgba(247,243,250,0.28)", backgroundColor: "rgba(255,255,255,0.06)",
