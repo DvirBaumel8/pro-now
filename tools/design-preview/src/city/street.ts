@@ -420,8 +420,11 @@ function perfumeSign(colour: string): THREE.Texture {
 
 export function buildStreet(
   specs: readonly ShopSpec[],
-  textures: Record<string, THREE.Texture | undefined>
+  textures: Record<string, THREE.Texture | undefined>,
+  /** Daylight: see `daylight.ts`. The street is built for the evening. */
+  opts: { day?: boolean } = {}
 ): StreetHandles {
+  const day = opts.day === true;
   const scene = new THREE.Scene();
   const glowTex = glow();
   const lamps: THREE.Vector3[] = [];
@@ -463,6 +466,8 @@ export function buildStreet(
     offsetZ?: number;
   }
   const emitters: Emitter[] = [];
+  /* Lamps are still on in the morning, but nobody sees their pools. */
+  const lampScale = day ? 0.18 : 1;
   function emit(
     x: number, y: number, z: number,
     colour: THREE.ColorRepresentation, intensity: number, distance: number
@@ -557,18 +562,26 @@ export function buildStreet(
      * rather than black, and twice as many shopfronts with their
      * lights on.
      */
-    g.addColorStop(0, "#0b1030");
-    g.addColorStop(0.42, "#1d2050");
-    g.addColorStop(0.72, "#4a3364");
-    g.addColorStop(0.9, "#8a4f63");
-    g.addColorStop(1, "#c07a5e");
+    if (day) {
+      /* Morning: a clear Mediterranean sky, paler to the horizon. */
+      g.addColorStop(0, "#3f86d6");
+      g.addColorStop(0.45, "#76b1ea");
+      g.addColorStop(0.8, "#bcdcf4");
+      g.addColorStop(1, "#f1e6cf");
+    } else {
+      g.addColorStop(0, "#0b1030");
+      g.addColorStop(0.42, "#1d2050");
+      g.addColorStop(0.72, "#4a3364");
+      g.addColorStop(0.9, "#8a4f63");
+      g.addColorStop(1, "#c07a5e");
+    }
     x.fillStyle = g;
     x.fillRect(0, 0, 4, 256);
   }
   const skyTex = new THREE.CanvasTexture(sky);
   skyTex.colorSpace = THREE.SRGBColorSpace;
   scene.background = skyTex;
-  scene.fog = new THREE.FogExp2(DARK_SKY, 0.0125);
+  scene.fog = day ? new THREE.FogExp2(0xc4d8ec, 0.0075) : new THREE.FogExp2(DARK_SKY, 0.0125);
 
   /*
    * STARS AND A CITY BEYOND THE END OF THE STREET.
@@ -597,7 +610,7 @@ export function buildStreet(
         transparent: true, opacity: 0.75, depthWrite: false, fog: false,
       })
     );
-    scene.add(stars);
+    if (!day) scene.add(stars);
 
     /* The towers. Flat boxes with lit windows painted on, far enough
        away that nobody ever gets to see they have no sides. */
@@ -605,11 +618,14 @@ export function buildStreet(
       const c = document.createElement("canvas");
       c.width = 64; c.height = 256;
       const x = c.getContext("2d")!;
-      x.fillStyle = "#0a0814";
+      x.fillStyle = day ? "#8fa3bd" : "#0a0814";
       x.fillRect(0, 0, 64, 256);
       for (let r = 0; r < 30; r += 1)
         for (let col = 0; col < 6; col += 1)
-          if (Math.random() > 0.55) {
+          if (day) {
+            x.fillStyle = "rgba(210,228,245,0.55)";
+            x.fillRect(4 + col * 10, 6 + r * 8, 6, 4);
+          } else if (Math.random() > 0.55) {
             x.fillStyle = `rgba(255,${180 + Math.random() * 60},${110 + Math.random() * 80},${0.4 + Math.random() * 0.5})`;
             x.fillRect(4 + col * 10, 6 + r * 8, 6, 4);
           }
@@ -680,9 +696,11 @@ export function buildStreet(
    * So the budget halves. This is not a taste change; it is the
    * arithmetic of having replaced a 0.2 albedo with a 0.7 one.
    */
-  scene.add(new THREE.HemisphereLight(0x8290d0, 0x3d3140, 0.95));
-  const moon = new THREE.DirectionalLight(0xb9c4ee, 0.8);
-  moon.position.set(-34, 50, 26);
+  /* By day the sky does the lighting and the sun casts the shadows; the
+     lamps and shop spill are turned down to a glow (`lampScale`). */
+  scene.add(day ? new THREE.HemisphereLight(0xdcebff, 0x9c8a74, 1.9) : new THREE.HemisphereLight(0x8290d0, 0x3d3140, 0.95));
+  const moon = day ? new THREE.DirectionalLight(0xfff1da, 2.9) : new THREE.DirectionalLight(0xb9c4ee, 0.8);
+  moon.position.set(-34, day ? 70 : 50, 26);
   /*
    * ---------------------------------------------------------------
    * SHADOWS COME BACK, IN A BOX THAT FOLLOWS YOU
@@ -4481,7 +4499,7 @@ export function buildStreet(
         if (!e) { l.intensity = 0; continue; }
         l.position.copy(e.pos);
         l.color.copy(e.colour);
-        l.intensity = e.intensity;
+        l.intensity = e.intensity * lampScale;
         l.distance = e.distance;
       }
     }
@@ -4498,6 +4516,14 @@ export function buildStreet(
     }
   }
 
+  /* By day a halo is a smudge in the sky, not a light: the additive
+     glows (lamp haloes, neon wash, tail-light spill) are kept faint. */
+  if (day) {
+    scene.traverse((o) => {
+      const m = (o as THREE.Sprite).material as THREE.SpriteMaterial | undefined;
+      if ((o as THREE.Sprite).isSprite && m && m.blending === THREE.AdditiveBlending) m.opacity *= 0.3;
+    });
+  }
   return { scene, shops, places, lamps, update, windowShops };
 }
 

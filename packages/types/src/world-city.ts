@@ -380,7 +380,9 @@ export const CITY_SHOP_HERO_IDS = CITY_ROOM_TRADES.map((t) => `hero_${t}`);
 export const CITY_VENUE_IDS = CITY_ROOM_TRADES.map((t) => `venue_${t}`);
 
 /** The loading screen's own picture — see `S.load` in the city. */
-export const CITY_SPLASH_IDS = ["splash_city"] as const;
+/* `splash_city_day` is the same place by daylight, photographed from our
+   own street in its morning light (see `tools/design-preview/src/daylight.ts`). */
+export const CITY_SPLASH_IDS = ["splash_city", "splash_city_day"] as const;
 
 /** The dog park's life: big dogs seen from the side, and the people with them. */
 export const CITY_PARK_IDS = [

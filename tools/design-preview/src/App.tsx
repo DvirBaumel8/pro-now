@@ -1,3 +1,4 @@
+import { isDaytime } from "./daylight";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, Linking, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 
@@ -5723,16 +5724,28 @@ function Showcase({ shots = SHOW_ALL, focus = "50% 55%", lift = 0 }: { shots?: r
  * the lit street, in our palette. It drifts slowly so it reads as a place.
  */
 const CITY_HERO_CSS = "@keyframes pnCity{0%{transform:scale(1.02) translateX(0)}100%{transform:scale(1.12) translateX(-3%)}}";
+/*
+ * MORNING OR EVENING, BY THE PHONE'S CLOCK (see `daylight.ts`).
+ *
+ * The painted skyline and the painted street are evenings; by day the
+ * same places are shown as our own city photographs them in daylight.
+ */
+const DAY = isDaytime();
+const CITY_BG = DAY
+  ? { src: "./world/splash_city_day.webp", pos: "50% 40%" }
+  : { src: "./world/splash_city.webp", pos: "64% 50%" };
+const STREET_BG = DAY ? "./clips/city_street_day.jpg" : "./clips/city_street.jpg";
+
 function CityHero({ lift = 0 }: { lift?: number }) {
   return (
     <div aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden", background: "#2a1838" }}>
       <style>{CITY_HERO_CSS}</style>
       <img
-        src="./world/splash_city.webp"
+        src={CITY_BG.src}
         alt=""
         style={{
           position: "absolute", left: 0, right: 0, top: `${-lift}%`, width: "100%", height: "100%",
-          objectFit: "cover", objectPosition: "64% 50%", filter: "brightness(1.1) saturate(1.12)",
+          objectFit: "cover", objectPosition: CITY_BG.pos, filter: "brightness(1.1) saturate(1.12)",
           animation: "pnCity 22s ease-in-out infinite alternate",
         }}
       />
@@ -5777,7 +5790,7 @@ function TrustCard() {
   );
   return (
     <div aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden", background: "radial-gradient(120% 70% at 50% 28%, #6a3f73 0%, #2a1838 55%, #120c18 90%)" }}>
-      <img src="./world/splash_city.webp" alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "64% 50%", opacity: 0.25, filter: "blur(3px)" }} />
+      <img src={CITY_BG.src} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: CITY_BG.pos, opacity: 0.25, filter: "blur(3px)" }} />
       <div style={{ position: "absolute", left: "7%", right: "7%", top: "7%", borderRadius: 22, padding: "16px 16px 18px", background: "rgba(23,18,31,.82)", border: "1px solid rgba(255,255,255,.12)", boxShadow: "0 20px 50px rgba(0,0,0,.5)", direction: "rtl" }}>
         <div style={{ display: "flex", flexDirection: "row", alignItems: "flex-end", gap: 12 }}>
           <img src="./world/character_home_world.webp" alt="" style={{ height: 150, filter: "drop-shadow(0 8px 12px rgba(0,0,0,.5))" }} />
@@ -5874,7 +5887,7 @@ function TradeBackdrop({ dept }: { dept: string | null }) {
   return (
     <div aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden", background: "#2a1838" }}>
       <style>{CITY_HERO_CSS}</style>
-      <img src="./world/splash_city.webp" alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "60%", objectFit: "cover", objectPosition: "64% 40%", opacity: 0.7, animation: "pnCity 24s ease-in-out infinite alternate" }} />
+      <img src={CITY_BG.src} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "60%", objectFit: "cover", objectPosition: DAY ? "50% 40%" : "64% 40%", opacity: 0.7, animation: "pnCity 24s ease-in-out infinite alternate" }} />
       <img src={art} alt="" style={{ position: "absolute", left: "-2%", top: "7%", width: "46%", height: "25%", objectFit: "contain", objectPosition: "left bottom", filter: "drop-shadow(0 18px 30px rgba(0,0,0,.55))" }} />
     </div>
   );
@@ -6061,8 +6074,9 @@ function StreetScene() {
     <div ref={box} aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden", background: "#2a1838" }}>
       <style>{CITY_HERO_CSS + STREET_CSS}</style>
       <div style={{ position: "absolute", left, top, width: iw, height: ih, animation: "pnCity 24s ease-in-out infinite alternate", transformOrigin: "50% 40%" }}>
-        <img src="./clips/city_street.jpg" alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
-        {STREET_GLOWS.map((g, i) => (
+        <img src={STREET_BG} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
+        {/* The glows sit on the painting's own lamps and signs, so they belong to the evening picture only. */}
+        {(DAY ? [] : STREET_GLOWS).map((g, i) => (
           <div
             key={i}
             style={{
@@ -6074,7 +6088,7 @@ function StreetScene() {
           />
         ))}
       </div>
-      {specks.map((p, i) => (
+      {(DAY ? [] : specks).map((p, i) => (
         <div key={i} style={{ position: "absolute", left: `${p.x}%`, top: `${p.y}%`, width: 4, height: 4, borderRadius: "50%", background: "rgba(255,210,150,.9)", boxShadow: "0 0 8px rgba(255,190,120,.9)", animation: `pnSpeck ${p.d}s linear ${p.delay}s infinite` }} />
       ))}
     </div>

@@ -1,3 +1,4 @@
+import { isDaytime } from "../daylight";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
@@ -474,7 +475,7 @@ export function City({
     composer.setSize(el.clientWidth, el.clientHeight);
     const bloom = new UnrealBloomPass(
       new THREE.Vector2(el.clientWidth, el.clientHeight),
-      /* strength */ 0.3,
+      /* strength */ isDaytime() ? 0.12 : 0.3,
       /* radius   */ 0.5,
       /* threshold*/ 0.96
     );
@@ -719,7 +720,7 @@ export function City({
       }
       if (disposed) return;
 
-      const street = buildStreet(SHOPS, facades);
+      const street = buildStreet(SHOPS, facades, { day: isDaytime() });
       const vrRooms = new Map<string, PanoRoom>();
       for (const sh of SHOPS) {
         const back = facades[`room_${sh.id}_back.webp`];
@@ -1923,7 +1924,7 @@ export function City({
           <div
             style={{
               ...S.loadArt,
-              backgroundImage: `url(${base}splash_city.webp)`,
+              backgroundImage: `url(${base}${isDaytime() ? "splash_city_day" : "splash_city"}.webp)`,
             }}
           />
           <div style={S.loadVeil} />
