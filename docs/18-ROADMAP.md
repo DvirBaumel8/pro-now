@@ -197,6 +197,17 @@ and no screen achieves it: *"מחיר נח לכל כיס עם מקצוענים �
 supply-and-price-level strategy. Fairness is the part that can be built
 without inventing a business rule.
 
+### BUILT 2026-09-28 — every shop in the street is a real shop
+
+Amit: *"אני צריך שכל החנויות יראו כמו המספרה."* All fourteen houses now have
+what the barbershop has: a straight-on facade whose window you can see into,
+a room you walk into (back and side walls, floor, furniture), and the
+professional standing in the open doorway on the order sheet. Drawn in the
+chat (ChatGPT) one piece at a time and installed with `ingest-shop.mjs`; the
+renovation and odd-jobs professionals, who wore photographs, were redrawn in
+the illustrated style (`ingest-character.py`). The old drawings are kept in
+`public/world/_retired/`.
+
 ### BUILT 2026-09-27 — a fixed or hourly price follows the customer's answers
 
 Amit: *"באיפור היה 350 שקל לא משנה מה בחרתי."* A fixed or hourly service now
