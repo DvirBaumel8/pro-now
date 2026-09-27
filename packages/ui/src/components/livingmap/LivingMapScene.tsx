@@ -134,6 +134,7 @@ export interface LivingMapSceneProps {
   arrivalClockHe: string | null;
   /** The matched professional's own visit fee — each sets their own. */
   visitFeeHe?: string | null;
+  availableInHe?: string | null;
   serviceNameHe: string;
   /** True once the server is checking eligibility — drives the sub-line. */
   checkingEligibility?: boolean;
@@ -293,6 +294,7 @@ export function LivingMapScene({
   etaMinutes,
   arrivalClockHe,
   visitFeeHe = null,
+  availableInHe = null,
   serviceNameHe,
   checkingEligibility = false,
   departmentCode,
@@ -1862,6 +1864,7 @@ export function LivingMapScene({
           etaMinutes={etaMinutes}
           arrivalClockHe={arrivalClockHe}
           visitFeeHe={visitFeeHe}
+          availableInHe={availableInHe}
           onAccept={onAccept}
           onAnother={onAnother}
           progress={sheet}

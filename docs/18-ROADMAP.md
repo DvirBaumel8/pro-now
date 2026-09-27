@@ -197,6 +197,24 @@ and no screen achieves it: *"מחיר נח לכל כיס עם מקצוענים �
 supply-and-price-level strategy. Fairness is the part that can be built
 without inventing a business rule.
 
+### DECIDED 2026-09-27 — "available in XX minutes" is availability; future booking is the next stage
+
+Amit, from tester feedback: a professional finishing another job can mark
+**"פנוי בעוד XX דקות"** (15/30/45/60). To the customer he counts as
+available now: he is offered, the card says "פנוי בעוד 30 דק׳", and the wait
+is inside the arrival time (wait + travel) — nobody is told ten minutes.
+When the time comes he is on shift without pressing anything. Built in the
+preview (`ProShiftBody.availableAtMs`, `MatchSheet.availableInHe`); the server
+side is a presence field and a dispatch-eligibility rule, not yet built.
+
+Future booking was discussed and **deferred on purpose**. The MVP stays
+NOW-only (§3 of CLAUDE.md). The agreed next stage is "request for a later
+time": the customer picks a date and hour and sends it; professionals in the
+area accept if it suits them; the customer sees who accepted and confirms.
+It needs no calendar from professionals and invents no availability. A full
+availability calendar was rejected for now: it adds work for professionals
+and moves away from "now", which is the product's edge.
+
 ### DECIDED 2026-09-26 — each professional sets their own visit fee
 
 Amit, answering a tester who asked of the figure on the service page

@@ -45,13 +45,18 @@ export interface MatchSheetProps {
    * customer says yes — and nowhere earlier as if it were the service's.
    */
   visitFeeHe?: string | null;
+  /**
+   * When he is finishing something else: "פנוי בעוד 30 דק׳". Said on the
+   * card, and already inside `etaMinutes`, so nobody expects him in ten.
+   */
+  availableInHe?: string | null;
   onAccept?: () => void;
   onAnother?: () => void;
   /** 0 hidden, 1 fully up. Drives the fold-away on confirm. */
   progress?: Animated.AnimatedInterpolation<number> | Animated.Value;
 }
 
-export function MatchSheet({ candidate, etaMinutes, arrivalClockHe, visitFeeHe = null, onAccept, onAnother, progress }: MatchSheetProps) {
+export function MatchSheet({ candidate, etaMinutes, arrivalClockHe, visitFeeHe = null, availableInHe = null, onAccept, onAnother, progress }: MatchSheetProps) {
   const facts = matchFactsHe(candidate);
   /* The handle folds the card down to see the shop behind it, and back up. */
   const drag = useSheetDrag({ peek: 44 });
@@ -125,6 +130,11 @@ export function MatchSheet({ candidate, etaMinutes, arrivalClockHe, visitFeeHe =
         </View>
       </View>
 
+      {availableInHe ? (
+        <View style={styles.soon}>
+          <Text style={styles.soonText}>⏱ {availableInHe} — זמן ההגעה כבר כולל את זה</Text>
+        </View>
+      ) : null}
       {visitFeeHe ? (
         <Text style={styles.fee}>
           דמי הביקור של {candidate.displayNameHe.split(" ")[0]}: {visitFeeHe} · אם תאשרו הצעת מחיר — הם כלולים בה
@@ -191,6 +201,8 @@ export function MatchSheet({ candidate, etaMinutes, arrivalClockHe, visitFeeHe =
 
 const styles = StyleSheet.create({
   dragZone: { alignSelf: "stretch", alignItems: "center", paddingVertical: 8, marginTop: -8, minHeight: 28 },
+  soon: { alignSelf: "flex-end", marginTop: 8, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, backgroundColor: "rgba(255,176,32,0.16)" },
+  soonText: { color: "#FFC766", fontSize: scale.micro, fontWeight: "800", writingDirection: "rtl" },
   fee: { color: "#FFD2C4", fontSize: scale.micro, fontWeight: "700", textAlign: "right", writingDirection: "rtl", marginTop: 8 },
   detailsBtn: {
     alignSelf: "center", marginTop: 8, paddingVertical: 7, paddingHorizontal: 16, borderRadius: 999,

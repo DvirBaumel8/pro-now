@@ -83,3 +83,50 @@ export function installBackGesture(): () => void {
   window.addEventListener("popstate", onPop);
   return () => window.removeEventListener("popstate", onPop);
 }
+
+/**
+ * The on-screen back arrow, routed through the same path as the phone's.
+ *
+ * A tester: *"כפתור החזרה לא תמיד עקבי — לפעמים חוזר מסך אחורה ולפעמים
+ * קופץ למסך פתיחה. כפתור החזור של אנדרואיד מתפקד נכון."* The phone's back
+ * popped the screens actually visited; the arrows sent each screen to a
+ * fixed place. Now the arrow pops the same history — one entry, one step.
+ * Returns false when there is nothing to go back to.
+ */
+export function goBack(): boolean {
+  if (typeof window === "undefined" || !handler) return false;
+  const st = window.history.state as { proNow?: boolean } | null;
+  if (st?.proNow) {
+    window.history.back();
+    return true;
+  }
+  return handler();
+}
+
+/*
+ * WHERE YOU WERE ON THE PAGE.
+ *
+ * "בחזרה גם רצוי לחזור לאותו מקום בדף הקודם ממנו הגענו (אם גללנו לאמצע)."
+ * The deepest scrolled element on screen is remembered when a screen is
+ * left, and put back when it is returned to.
+ */
+export function readScroll(): number {
+  if (typeof document === "undefined") return 0;
+  let best = 0;
+  for (const el of Array.from(document.querySelectorAll<HTMLElement>("div"))) {
+    if (el.scrollTop > best && el.scrollHeight > el.clientHeight + 20) best = el.scrollTop;
+  }
+  return best;
+}
+export function restoreScroll(top: number): void {
+  if (typeof document === "undefined" || top <= 0) return;
+  const put = () => {
+    const els = Array.from(document.querySelectorAll<HTMLElement>("div")).filter(
+      (el) => el.scrollHeight > el.clientHeight + 20 && getComputedStyle(el).overflowY !== "visible"
+    );
+    const target = els.sort((a, b) => b.scrollHeight - a.scrollHeight)[0];
+    if (target) target.scrollTop = top;
+  };
+  setTimeout(put, 60);
+  setTimeout(put, 380);
+}

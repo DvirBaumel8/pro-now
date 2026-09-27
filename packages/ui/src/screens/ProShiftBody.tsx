@@ -10,7 +10,7 @@ import {
   ROAD_PLATE_ASSET_ID,
 } from "@pro-now/types";
 
-import { proTheme, radii, spacing, tabular, tint, type } from "../theme";
+import { proTheme, radii, spacing, tabular, tint, type, scale } from "../theme";
 import { MapSurface } from "../components/MapSurface";
 import { WorldBackdrop } from "../components/livingmap/WorldBackdrop";
 import type { WorldAssetSources } from "../components/livingmap/AssetSlot";
@@ -111,6 +111,15 @@ export interface ProShiftBodyProps {
   /** Injected so the screen is deterministic in tests and in the gallery. */
   nowMs?: number;
   onToggleOnline?: () => void;
+  /**
+   * "פנוי בעוד XX דקות" — Amit, 2026-09-27: a professional finishing
+   * another job can say when he will be free; to a customer he already
+   * counts as available, with that wait inside his arrival time.
+   * `availableAtMs` is when that is; null when not set.
+   */
+  availableAtMs?: number | null;
+  onAvailableIn?: (minutes: number) => void;
+  onCancelAvailableIn?: () => void;
   onOpenEarnings?: () => void;
   onManageServices?: () => void;
   /**
@@ -153,6 +162,9 @@ export function ProShiftBody({
   services,
   nowMs,
   onToggleOnline,
+  availableAtMs = null,
+  onAvailableIn,
+  onCancelAvailableIn,
   onOpenEarnings,
   onManageServices,
   onOpenPricing,
@@ -502,6 +514,34 @@ export function ProShiftBody({
 
       {/* The one decision on this screen keeps its own space at the bottom. */}
       <View style={styles.ctaBar}>
+        {!isOnline && availableAtMs !== null ? (
+          <View style={styles.soonCard}>
+            <Text style={styles.soonTitle}>
+              פנוי בעוד {Math.max(1, Math.round((availableAtMs - (nowMs ?? Date.now())) / 60_000))} דק׳
+            </Text>
+            <Text style={styles.soonSub}>לקוחות כבר יכולים להזמין אותך — זמן ההמתנה נכלל בזמן ההגעה שהם רואים.</Text>
+            {onCancelAvailableIn ? (
+              <Pressable onPress={onCancelAvailableIn} accessibilityRole="button" style={styles.soonCancel}>
+                <Text style={styles.soonCancelText}>ביטול</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        ) : !isOnline && onAvailableIn && liveServices.length > 0 ? (
+          <View style={styles.soonRow}>
+            <Text style={styles.soonLabel}>או: פנוי בעוד</Text>
+            {[15, 30, 45, 60].map((m) => (
+              <Pressable
+                key={m}
+                onPress={() => onAvailableIn(m)}
+                accessibilityRole="button"
+                accessibilityLabel={`אהיה פנוי בעוד ${m} דקות`}
+                style={({ pressed }) => [styles.soonChip, pressed && { opacity: 0.8 }]}
+              >
+                <Text style={styles.soonChipText}>{m} דק׳</Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
         <Pressable
           onPress={onToggleOnline}
           disabled={isTransitioning || (!isOnline && liveServices.length === 0)}
@@ -515,7 +555,7 @@ export function ProShiftBody({
           ]}
         >
           <Text style={[styles.ctaText, { color: isOnline ? colors.textPrimary : colors.onAction }]}>
-            {isTransitioning ? "רגע…" : isOnline ? "סיום משמרת" : "התחלת משמרת"}
+            {isTransitioning ? "רגע…" : isOnline ? "סיום משמרת" : availableAtMs !== null ? "אני פנוי כבר עכשיו" : "התחלת משמרת"}
           </Text>
         </Pressable>
       </View>
@@ -697,6 +737,15 @@ const styles = StyleSheet.create({
   },
   earningsLinkText: { ...type.body, color: colors.textPrimary },
 
+  soonRow: { flexDirection: "row-reverse", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 10 },
+  soonLabel: { color: "rgba(247,243,250,0.75)", fontSize: scale.meta, writingDirection: "rtl" },
+  soonChip: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: 999, borderWidth: 1, borderColor: "rgba(247,243,250,0.3)" },
+  soonChipText: { color: "#F7F3FA", fontSize: scale.meta, fontWeight: "700" },
+  soonCard: { padding: 12, borderRadius: 16, backgroundColor: "rgba(47,191,138,0.14)", marginBottom: 10 },
+  soonTitle: { color: "#7FE3BC", fontSize: scale.body, fontWeight: "800", textAlign: "right", writingDirection: "rtl" },
+  soonSub: { color: "rgba(247,243,250,0.8)", fontSize: scale.meta, textAlign: "right", writingDirection: "rtl", marginTop: 2 },
+  soonCancel: { alignSelf: "flex-start", marginTop: 6, paddingVertical: 4, paddingHorizontal: 10 },
+  soonCancelText: { color: "#F7F3FA", fontSize: scale.meta, textDecorationLine: "underline" },
   ctaBar: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,

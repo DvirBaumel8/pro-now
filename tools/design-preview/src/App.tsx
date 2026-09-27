@@ -69,7 +69,7 @@ import { canHandOffToMaps, categoryAsksForPerson, mapsHandoffUrl, buildIntakeBri
 import type { IntakeAnswer, IntakeBriefLine, MapsPlatform, OfferCardView, PriceModel } from "@pro-now/types";
 import type { JobState, ProPresenceState } from "@pro-now/types";
 
-import { installBackGesture, pushBackEntry, setBackHandler } from "./backGesture";
+import { goBack, installBackGesture, pushBackEntry, readScroll, restoreScroll, setBackHandler } from "./backGesture";
 import { matchFixture, offerFixture } from "./fixtures";
 import {
   catalogHomeServices,
@@ -689,6 +689,8 @@ export function App() {
    */
   const customerMemory = useRef<CustomerMemory | null>(null);
   const [proJobState, setProJobState] = useState<JobState | null>(null);
+  /* "פנוי בעוד XX דקות", set on the professional's side and read on the customer's. */
+  const [proAvailableAt, setProAvailableAt] = useState<number | null>(null);
 
   /**
    * And the professional's, for exactly the same reason and a worse
@@ -1017,6 +1019,7 @@ export function App() {
             onAdvertiseOpened={() => setOpenAdvertiseOnce(false)}
             memory={customerMemory}
             proJobState={proJobState}
+            proAvailableAtMs={proAvailableAt}
             onConfirmCompletion={() => {
               setCompletionConfirmed(true);
               setReturnToPro(true);
@@ -1087,6 +1090,8 @@ export function App() {
             completionConfirmed={completionConfirmed}
             onCompletionSeen={() => setCompletionConfirmed(false)}
             onJobChange={setProJobState}
+            availableAtMs={proAvailableAt}
+            onAvailableAtChange={setProAvailableAt}
             onSeeAsCustomer={(what) => {
               /*
                * Two waits, two destinations. The quote is a screen of its
@@ -1261,6 +1266,7 @@ function CustomerApp({
   onPickAvatar,
   openStrollOnce,
   proJobState = null,
+  proAvailableAtMs = null,
   onStrollOpened,
   openAdvertiseOnce,
   onAdvertiseOpened,
@@ -1317,6 +1323,8 @@ function CustomerApp({
    * something the customer would see at the door.
    */
   proJobState?: JobState | null;
+  /** When the professional said he will be free, if he did. */
+  proAvailableAtMs?: number | null;
   /** A figure was just chosen because the street was asked for. */
   openStrollOnce?: boolean;
   onStrollOpened?: () => void;
@@ -1878,11 +1886,25 @@ const go = useCallback((r: CustomerRoute) => {
      * *"איך חוזרים אחורה במסכים של הלקוח?"* — was still only half answered:
      * there was a control on every screen, and it did not reliably go back.
      */
-    backStack.current = [...backStack.current, { route: hereRef.current, tab: tabRef.current }].slice(-40);
+    backStack.current = [...backStack.current, { route: hereRef.current, tab: tabRef.current, scroll: readScroll() }].slice(-40);
     setRoute(r);
     if (r.name !== "home") setTab("home");
     pushHistory();
   }, []);
+  /*
+   * THE ARROW GOES WHERE YOU CAME FROM.
+   *
+   * Every screen used to send its arrow to a fixed place — the service
+   * page to home, the chat to the route map — while the phone's back went
+   * to the screen actually visited. Now both pop the same history; the
+   * fixed place is only the fallback for a screen opened with nothing
+   * behind it.
+   */
+  const back = useCallback((fallback: CustomerRoute) => {
+    if (backStack.current.length > 0 && goBack()) return;
+    setRoute(fallback);
+  }, []);
+
   /* Following the professional is the real map, with his vehicle on the
      route — Amit: *"מפת מעקב אחרי המקצוען, רק לראות איפה הוא ברכב שלו."* */
   const followPro = useCallback(() => {
@@ -2028,7 +2050,7 @@ const go = useCallback((r: CustomerRoute) => {
    * URL-encoded route would survive locally and silently break in the one
    * place Amit actually looks at it.
    */
-  const backStack = useRef<{ route: CustomerRoute; tab: CustomerTab }[]>([]);
+  const backStack = useRef<{ route: CustomerRoute; tab: CustomerTab; scroll?: number }[]>([]);
   /*
    * Where we are RIGHT NOW, readable from a callback that was created on
    * the first render. `go` is memoised with no dependencies on purpose —
@@ -2055,6 +2077,7 @@ const go = useCallback((r: CustomerRoute) => {
         const previous = backStack.current.pop();
         if (previous) {
           setRoute(previous.route);
+          restoreScroll(previous.scroll ?? 0);
           // The tab comes back too. Going back from a screen opened out of
           // the calls list used to land on the home tab, which is a
           // different place from the one you left.
@@ -2439,7 +2462,7 @@ const go = useCallback((r: CustomerRoute) => {
             onUseLiveLocation={askLocation}
             onSelect={setAddressId}
             onConfirm={() => go({ name: "home" })}
-            onBack={() => go({ name: "home" })}
+            onBack={() => back({ name: "home" })}
             width={width}
             height={bodyH}
           />
@@ -2468,7 +2491,7 @@ const go = useCallback((r: CustomerRoute) => {
               const category = categoryForDepartment(department);
               if (category) go({ name: "category", categoryId: category.id });
             }}
-            onBack={() => go({ name: "home" })}
+            onBack={() => back({ name: "home" })}
             onEnterCity={() => go({ name: "city" })}
             width={width}
             height={bodyH}
@@ -2513,7 +2536,7 @@ const go = useCallback((r: CustomerRoute) => {
                 .map((s2) => pilotServiceById[s2.id])
                 .filter((s2): s2 is NonNullable<typeof s2> => Boolean(s2))
             )}
-            onSelectService={(id) => go({ name: "service", serviceId: id })}
+            onSelectService={(id) => { if (SERVICE_PAGES[id]) go({ name: "service", serviceId: id }); }}
             /*
              * TYPED, NOT TAPPED.
              *
@@ -2544,7 +2567,7 @@ const go = useCallback((r: CustomerRoute) => {
               setHomeQuery(textHe);
               go({ name: "home" });
             }}
-            onBack={() => go({ name: "home" })}
+            onBack={() => back({ name: "home" })}
             width={width}
             height={bodyH}
           />
@@ -2572,7 +2595,7 @@ const go = useCallback((r: CustomerRoute) => {
             availableNowCount={reading.count}
             width={width}
             height={bodyH}
-            onBack={() => go({ name: "home" })}
+            onBack={() => back({ name: "home" })}
             onRequestNow={(symptomsHe, noteHe) => {
               // What they typed on the service page IS the description.
               // Carrying it means the describe screen opens with their own
@@ -2597,7 +2620,7 @@ const go = useCallback((r: CustomerRoute) => {
             quickRepliesHe={customerQuickReplies}
             onSend={(t) => setChat((c) => [...c, { id: `m${c.length}`, from: "customer", textHe: t, atHe: nowHHMM() }])}
             onCall={() => setSheet("call")}
-            onBack={() => go({ name: "tracking", stage: "enroute" })}
+            onBack={() => back({ name: "tracking", stage: "enroute" })}
             width={width}
             height={bodyH}
           />
@@ -2627,7 +2650,7 @@ const go = useCallback((r: CustomerRoute) => {
             onStartRecord={capture.startRecord}
             onStopRecord={capture.stopRecord}
             onDeleteVoice={capture.deleteVoice}
-            onBack={() => go({ name: "service", serviceId: route.serviceId })}
+            onBack={() => back({ name: "service", serviceId: route.serviceId })}
             onSend={() => {
               /*
                * Everything the customer gave, packed once and handed over.
@@ -2708,7 +2731,10 @@ const go = useCallback((r: CustomerRoute) => {
         }));
 
         const page = SERVICE_PAGES[route.serviceId];
-        const etaMin = matchFixture.eta ? Math.round(matchFixture.eta.etaSeconds / 60) : null;
+        /* He said "free in XX": the wait is part of when he arrives. */
+        const waitMin = proAvailableAtMs !== null ? Math.max(0, Math.ceil((proAvailableAtMs - Date.now()) / 60_000)) : 0;
+        const travelMin = matchFixture.eta ? Math.round(matchFixture.eta.etaSeconds / 60) : null;
+        const etaMin = travelMin === null ? null : travelMin + waitMin;
         const arrival = etaMin === null ? null : new Date(Date.now() + etaMin * 60_000);
         const arrivalClockHe =
           arrival === null
@@ -2798,6 +2824,7 @@ const go = useCallback((r: CustomerRoute) => {
              * professional sets their own (Amit, 2026-09-26); the preview
              * has one figure per service, shown as this one's.
              */
+            availableInHe={waitMin > 0 && route.phase !== "SEARCHING" ? `פנוי בעוד ${waitMin} דק׳` : null}
             visitFeeHe={
               route.phase !== "SEARCHING" && page?.price?.priceModel === "VISIT_QUOTE" && page.price.visitFeeMinorUnits
                 ? formatMoney(money(page.price.visitFeeMinorUnits, "ILS"))
@@ -2968,7 +2995,7 @@ const go = useCallback((r: CustomerRoute) => {
             onAnother={() =>
               go({ name: "matchconfirm", serviceId: route.serviceId, index: route.index + 1 })
             }
-            onBack={() => go({ name: "service", serviceId: route.serviceId })}
+            onBack={() => back({ name: "service", serviceId: route.serviceId })}
             width={width}
             height={bodyH}
           />
@@ -3138,7 +3165,7 @@ const go = useCallback((r: CustomerRoute) => {
              * professional stays on the way — the distinction the customer
              * has to be able to feel before tapping.
              */
-            onBack={() => go({ name: "home" })}
+            onBack={() => back({ name: "home" })}
             /*
              * THE FACTS, NOT THE SENTENCE.
              *
@@ -3190,7 +3217,7 @@ const go = useCallback((r: CustomerRoute) => {
             onMessage={() => go({ name: "chat" })}
             onShare={() => setSheet("safety")}
             onReport={() => setSheet("safety")}
-            onBack={() => go({ name: "tracking", stage: "arrived" })}
+            onBack={() => back({ name: "tracking", stage: "arrived" })}
             width={width}
             height={bodyH}
           />
@@ -3448,7 +3475,7 @@ const go = useCallback((r: CustomerRoute) => {
             }}
             width={width}
             worldSources={art}
-            onSelectService={(id) => go({ name: "service", serviceId: id })}
+            onSelectService={(id) => { if (SERVICE_PAGES[id]) go({ name: "service", serviceId: id }); }}
             /*
              * A category does not open a category page. It takes the
              * customer into that part of the world, which is Amit's own
@@ -3986,6 +4013,8 @@ function ProApp({
   onSeeAsCustomer,
   completionConfirmed,
   onJobChange,
+  availableAtMs = null,
+  onAvailableAtChange,
   onCompletionSeen,
   onReleaseJob,
   customerFaceUri,
@@ -4046,6 +4075,8 @@ function ProApp({
   onCompletionSeen?: () => void;
   /** Tells the shell where the visit is, so the customer's side can follow. */
   onJobChange?: (job: JobState | null) => void;
+  availableAtMs?: number | null;
+  onAvailableAtChange?: (at: number | null) => void;
   /** The professional gave the job back. The customer has to be told. */
   onReleaseJob?: () => void;
   /**
@@ -4326,6 +4357,16 @@ function ProApp({
       setOfferAt(null);
     }
   }, [presence]);
+
+  /* When the time he gave comes, he is on shift — nobody has to press it. */
+  useEffect(() => {
+    if (availableAtMs === null || presence !== "OFFLINE") return;
+    const t = setTimeout(() => {
+      onAvailableAtChange?.(null);
+      toggle();
+    }, Math.max(0, availableAtMs - Date.now()));
+    return () => clearTimeout(t);
+  }, [availableAtMs, presence, toggle, onAvailableAtChange]);
 
   /*
    * ARRIVING AT THE RIGHT STEP.
@@ -4920,7 +4961,13 @@ function ProApp({
           live: s.enabled && !s.blockedReasonHe && (armed[s.id] ?? true),
         }))}
         nowMs={shiftNow}
-        onToggleOnline={toggle}
+        onToggleOnline={() => {
+          onAvailableAtChange?.(null);
+          toggle();
+        }}
+        availableAtMs={presence === "OFFLINE" ? availableAtMs : null}
+        onAvailableIn={(m) => onAvailableAtChange?.(Date.now() + m * 60_000)}
+        onCancelAvailableIn={() => onAvailableAtChange?.(null)}
         onOpenEarnings={() => goProTab("earnings")}
         /*
          * STRAIGHT TO THE SERVICES, NOT TO A SCREEN THAT HAS THEM.

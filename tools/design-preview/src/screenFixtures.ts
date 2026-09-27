@@ -84,9 +84,13 @@ export const homeServices: HomeServiceItem[] = [
   },
 ];
 
+/*
+ * The id is the SERVICE the row reorders, so a tap opens that service.
+ * It was "r1" and "r2" — ids of nothing — and the tap opened an empty page.
+ */
 export const homeRecent: HomeRecentItem[] = [
-  { id: "r1", nameHe: "תיקון נזילה בברז", mark: "plumbing", metaHe: "לפני שבועיים · הושלם" },
-  { id: "r2", nameHe: "התקנת מזגן", mark: "climate", metaHe: "מאי · הושלם" },
+  { id: "svc-tap", nameHe: "החלפת ברז או מיכל הדחה", mark: "plumbing", metaHe: "לפני שבועיים · הושלם" },
+  { id: "svc-ac", nameHe: "מזגן לא מקרר או מטפטף", mark: "climate", metaHe: "מאי · הושלם" },
 ];
 
 export const proServices: ProServiceToggle[] = [

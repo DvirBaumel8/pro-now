@@ -67,6 +67,8 @@ export interface SearchingBodyProps {
   arrivalClockHe?: string | null;
   /** The matched professional's own visit fee, formatted. See `MatchSheet`. */
   visitFeeHe?: string | null;
+  /** "פנוי בעוד 30 דק׳" when the matched professional is not free yet. See `MatchSheet`. */
+  availableInHe?: string | null;
   checkingEligibility?: boolean;
   /** Decides which trade's district the world shows. */
   departmentCode?: string;
@@ -152,6 +154,7 @@ export function SearchingBody({
   etaMinutes = null,
   arrivalClockHe = null,
   visitFeeHe = null,
+  availableInHe = null,
   checkingEligibility = false,
   departmentCode,
   worldSources,
@@ -222,6 +225,7 @@ export function SearchingBody({
         etaMinutes={etaMinutes}
         arrivalClockHe={arrivalClockHe}
         visitFeeHe={visitFeeHe}
+        availableInHe={availableInHe}
         checkingEligibility={checkingEligibility}
         departmentCode={departmentCode}
         onAccept={onAccept}
