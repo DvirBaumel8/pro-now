@@ -19,7 +19,7 @@ import {
   type DiscoveryState,
   type WorldGeo,
 } from "@pro-now/types";
-import { AVATARS, avatarById, formatMoney, greetingAt, money, screenKey, travelAssetFor, VISIT_ORDER, type AvatarChoice } from "@pro-now/types";
+import { AVATARS, avatarById, formatMoney, greetingAt, money, screenKey, travelAssetFor, VISIT_ORDER, withAfterHours, type AvatarChoice, type PriceListItem } from "@pro-now/types";
 import { matchServicesByText } from "@pro-now/ui";
 import { canSaveSession, clearSession, loadSession, saveSession, savedAgoHe } from "./session";
 import { HAIR_DISCOVERY_IDS } from "@pro-now/ui";
@@ -705,6 +705,10 @@ export function App() {
   /* "פנוי בעוד XX דקות", set on the professional's side and read on the customer's. */
   const [proAvailableAt, setProAvailableAt] = useState<number | null>(null);
   const [proName, setProName] = useState<string | null>(null);
+  /* The professional's own prices, as he set them — what the customer is shown. */
+  const [proPrices, setProPrices] = useState<{ byService: Record<string, number | null>; afterHoursPct: number | null }>({ byService: {}, afterHoursPct: null });
+  /* A price agreed before he came (fixed/hourly): it is the job's total. */
+  const [agreedTotal, setAgreedTotal] = useState<{ amount: number; nameHe: string } | null>(null);
 
   /**
    * And the professional's, for exactly the same reason and a worse
@@ -818,7 +822,9 @@ export function App() {
             worldSources={art}
             /* The whole city — Amit: *"לא רוצה פתיחה של המספרה, רוצה של
                העיר כולה"* — and ours, not the old painted street. */
-            background={<CityHero lift={14} />}
+            /* The painted street of our shops with their neon — Amit's pick
+               for the first picture, day or night. */
+            background={<WelcomeScene />}
             onAdvertise={() => {
               /* A business owner is not asked to sign in to leave a lead. */
               setSide("customer");
@@ -1035,6 +1041,8 @@ export function App() {
             proJobState={proJobState}
             proAvailableAtMs={proAvailableAt}
             onProName={setProName}
+            proPrices={proPrices}
+            agreedTotal={agreedTotal}
             onConfirmCompletion={() => {
               setCompletionConfirmed(true);
               setReturnToPro(true);
@@ -1108,6 +1116,11 @@ export function App() {
             availableAtMs={proAvailableAt}
             onAvailableAtChange={setProAvailableAt}
             selfNameHe={proName}
+            onPricesChange={setProPrices}
+            onAgreedStart={(amount, nameHe) => {
+              setQuoteTotal(amount);
+              setAgreedTotal({ amount, nameHe });
+            }}
             onSeeAsCustomer={(what) => {
               /*
                * Two waits, two destinations. The quote is a screen of its
@@ -1284,6 +1297,8 @@ function CustomerApp({
   proJobState = null,
   proAvailableAtMs = null,
   onProName,
+  proPrices = { byService: {}, afterHoursPct: null },
+  agreedTotal = null,
   onStrollOpened,
   openAdvertiseOnce,
   onAdvertiseOpened,
@@ -1344,6 +1359,8 @@ function CustomerApp({
   proAvailableAtMs?: number | null;
   /** The name of the professional the customer accepted, for the other side. */
   onProName?: (name: string | null) => void;
+  proPrices?: { byService: Record<string, number | null>; afterHoursPct: number | null };
+  agreedTotal?: { amount: number; nameHe: string } | null;
   /** A figure was just chosen because the street was asked for. */
   openStrollOnce?: boolean;
   onStrollOpened?: () => void;
@@ -1972,6 +1989,13 @@ const go = useCallback((r: CustomerRoute) => {
     go({ name: "tracking", stage: "enroute" });
   }, [realMap, onToggleRealMap, go]);
 
+  /* A fixed or hourly price agreed before he came is what is paid. */
+  useEffect(() => {
+    if (!agreedTotal) return;
+    setApprovedTotalMinor(agreedTotal.amount);
+    setApprovedLines([{ id: "agreed", descriptionHe: agreedTotal.nameHe, totalMinorUnits: agreedTotal.amount }]);
+  }, [agreedTotal]);
+
   /*
    * WHEN HE KNOCKS, THE CUSTOMER'S SCREEN KNOWS.
    *
@@ -1983,6 +2007,11 @@ const go = useCallback((r: CustomerRoute) => {
   useEffect(() => {
     if (proJobState === "COMPLETION_PENDING" && route.name === "tracking" && route.stage === "working") {
       go({ name: "tracking", stage: "done" });
+      return;
+    }
+    /* Straight to work at an agreed price: no quote step to wait at. */
+    if (proJobState === "IN_PROGRESS" && route.name === "tracking" && (route.stage === "arrived" || route.stage === "diagnosis")) {
+      go({ name: "tracking", stage: "working" });
       return;
     }
     if (proJobState !== "PRO_ARRIVED" && proJobState !== "DIAGNOSIS") return;
@@ -2916,11 +2945,34 @@ const go = useCallback((r: CustomerRoute) => {
              * has one figure per service, shown as this one's.
              */
             availableInHe={waitMin > 0 && route.phase !== "SEARCHING" ? `פנוי בעוד ${waitMin} דק׳` : null}
-            visitFeeHe={
-              route.phase !== "SEARCHING" && page?.price?.priceModel === "VISIT_QUOTE" && page.price.visitFeeMinorUnits
-                ? formatMoney(money(page.price.visitFeeMinorUnits, "ILS"))
-                : null
-            }
+            /*
+             * THIS PROFESSIONAL'S PRICE, in one sentence. The demo pro (the
+             * first candidate) shows what he set on his own pricing screen,
+             * with his night/Shabbat surcharge when it applies; the others
+             * show the catalogue's example figure.
+             */
+            visitFeeHe={(() => {
+              if (route.phase === "SEARCHING" || !page?.price) return null;
+              const cand = cands[pick % cands.length];
+              const first = (cand?.displayNameHe ?? "").split(" ")[0] ?? "";
+              const isDemoPro = pick % cands.length === 0;
+              const pm = page.price.priceModel;
+              const base =
+                (isDemoPro ? proPrices.byService[route.serviceId] ?? null : null) ??
+                (pm === "VISIT_QUOTE" ? page.price.visitFeeMinorUnits : pm === "FIXED" ? page.price.fixedTotalMinorUnits : pm === "HOURLY" ? page.price.hourlyRateMinorUnits : null) ??
+                null;
+              if (base === null || base === undefined) return null;
+              const { amountMinorUnits, surchargePercent } = withAfterHours(base, isDemoPro ? proPrices.afterHoursPct : null, new Date());
+              const amt = formatMoney(money(amountMinorUnits, "ILS"));
+              const extra = surchargePercent > 0 ? ` · כולל תוספת לילה/שבת ${surchargePercent}%` : "";
+              return pm === "FIXED"
+                ? `המחיר של ${first}: ${amt} לעבודה — מחיר סגור${extra}`
+                : pm === "HOURLY"
+                  ? `התעריף של ${first}: ${amt} לשעה${extra}`
+                  : pm === "VISIT_QUOTE"
+                    ? `דמי הביקור של ${first}: ${amt}${extra} · אם תאשרו הצעת מחיר — הם כלולים בה`
+                    : null;
+            })()}
             checkingEligibility={route.phase !== "SEARCHING"}
             discoveries={discoveries}
             onFound={(id) => setDiscoveries((d) => discover(d, id))}
@@ -2951,12 +3003,13 @@ const go = useCallback((r: CustomerRoute) => {
               setOnTheWayAt(Date.now());
               go({ name: "living", serviceId: route.serviceId, phase: "ASSIGNED_ROUTE" });
             }}
-            onAnother={
-              isPersonFit(route.serviceId)
-                ? () => go({ name: "matchconfirm", serviceId: route.serviceId, index: 1 })
-                : /* Turned down: the camera lifts and goes into the next shop. */
-                  () => setPick((n) => n + 1)
-            }
+            /*
+             * Turned down: the camera lifts and goes into the next shop —
+             * for every service. A person-fit service used to swap to a
+             * separate confirmation card instead, which read as choosing the
+             * person rather than moving on (a tester, on "הראה לי התאמה אחרת").
+             */
+            onAnother={() => setPick((n) => n + 1)}
             onSafety={() => setSheet("safety")}
             onOpenProfile={(id) => setOpenVenue(id)}
             /*
@@ -3087,9 +3140,11 @@ const go = useCallback((r: CustomerRoute) => {
               setHasLiveJob(true);
               go({ name: "tracking", stage: "assigned" });
             }}
-            onAnother={() =>
-              go({ name: "matchconfirm", serviceId: route.serviceId, index: route.index + 1 })
-            }
+            onAnother={() => {
+              /* Back onto the street, into the next shop — the same move as the card's. */
+              setPick((n) => n + 1);
+              go({ name: "living", serviceId: route.serviceId, phase: "MATCH_REVEAL" });
+            }}
             onBack={() => back({ name: "service", serviceId: route.serviceId })}
             width={width}
             height={bodyH}
@@ -4114,6 +4169,8 @@ function ProApp({
   availableAtMs = null,
   onAvailableAtChange,
   selfNameHe = null,
+  onPricesChange,
+  onAgreedStart,
   onCompletionSeen,
   onReleaseJob,
   customerFaceUri,
@@ -4178,6 +4235,10 @@ function ProApp({
   onAvailableAtChange?: (at: number | null) => void;
   /** Who this professional is, as the customer saw him. */
   selfNameHe?: string | null;
+  /** His prices, for the customer's side to show. */
+  onPricesChange?: (p: { byService: Record<string, number | null>; afterHoursPct: number | null }) => void;
+  /** Work starts at a price agreed in advance: tell the shell what it is. */
+  onAgreedStart?: (amountMinorUnits: number, nameHe: string) => void;
   /** The professional gave the job back. The customer has to be told. */
   onReleaseJob?: () => void;
   /**
@@ -4277,6 +4338,15 @@ function ProApp({
    * treats an unset price as not dispatchable, so the shift screen cannot
    * offer a service nobody has put a number on.
    */
+  /* Night/Shabbat surcharge and the price list — his, set on "המחירים שלך". */
+  const [afterHoursPct, setAfterHoursPct] = useState<number | null>(null);
+  /* The demo account's own list, so a quote can be built from it out of the box. */
+  const [priceList, setPriceList] = useState<PriceListItem[]>(() => [
+    { id: "d1", nameHe: "החלפת אטם בברז", amountMinorUnits: 18000 },
+    { id: "d2", nameHe: "החלפת סיפון", amountMinorUnits: 25000 },
+    { id: "d3", nameHe: "פתיחת סתימה בכיור", amountMinorUnits: 30000 },
+    { id: "d4", nameHe: "החלפת ברז מטבח", amountMinorUnits: 32000 },
+  ]);
   const [pricing, setPricing] = useState<ProPricingRow[]>(() => {
     // The prices a professional typed are theirs and are tedious to retype;
     // the eligibility that sits beside them is the server's and is rebuilt
@@ -4599,6 +4669,32 @@ function ProApp({
     };
   }, [takenRequest]);
 
+  useEffect(() => {
+    onPricesChange?.({ byService: Object.fromEntries(pricing.map((r) => [r.serviceId, r.amountMinorUnits])), afterHoursPct });
+  }, [pricing, afterHoursPct, onPricesChange]);
+
+  /*
+   * A PRICE AGREED BEFORE HE CAME — fixed or hourly. His own price for the
+   * service if he set one, the catalogue's example figure otherwise, with
+   * his night/Shabbat surcharge when it applies. Then there is no quote to
+   * wait for: the check leads straight to work (Amit, 2026-09-27).
+   */
+  const agreedStart = useMemo(() => {
+    const id = takenRequest?.serviceId ?? null;
+    const pm = takenRequest?.priceModel ?? null;
+    if (!id || (pm !== "FIXED" && pm !== "HOURLY")) return null;
+    const own = pricing.find((r) => r.serviceId === id)?.amountMinorUnits ?? null;
+    const cat = SERVICE_PAGES[id]?.price;
+    const base = own ?? (pm === "FIXED" ? cat?.fixedTotalMinorUnits : cat?.hourlyRateMinorUnits) ?? null;
+    if (!base) return null;
+    const { amountMinorUnits } = withAfterHours(base, afterHoursPct, new Date());
+    return {
+      amount: amountMinorUnits,
+      labelHe: pm === "FIXED" ? `${formatMoney(money(amountMinorUnits, "ILS"))} כפי שסוכם` : `${formatMoney(money(amountMinorUnits, "ILS"))} לשעה`,
+      nameHe: takenRequest?.serviceNameHe ?? "",
+    };
+  }, [takenRequest, pricing, afterHoursPct]);
+
   const JOB_FLOW: JobState[] = [...VISIT_ORDER, "COMPLETED"];
   const advanceJob = () => {
     if (!job) return;
@@ -4844,6 +4940,7 @@ function ProApp({
      */
     ) : proView === "quote" ? (
       <ProQuoteBuilderBody
+        priceList={priceList}
         includesVisitFee={!agreedPrice && (!takenRequest || takenRequest.priceModel === "VISIT_QUOTE")}
         /*
          * The lines already sent, when there are any — so "עדכון ההצעה"
@@ -4950,6 +5047,16 @@ function ProApp({
         payoutMinorUnits={job === "DIAGNOSIS" || job === "WAITING_QUOTE_APPROVAL" ? null : approvedTotal ?? 13400}
         payoutIsEstimate={false}
         onAdvance={advanceJob}
+        agreedPriceHe={agreedStart?.labelHe ?? null}
+        onStartAgreed={
+          agreedStart
+            ? () => {
+                /* Hourly: the first hour is the minimum, as the catalogue says. */
+                onAgreedStart?.(agreedStart.amount, agreedStart.nameHe);
+                setJob("IN_PROGRESS");
+              }
+            : undefined
+        }
         /*
          * OPENS THE FORM RATHER THAN SENDING A FIXTURE.
          *
@@ -5022,6 +5129,10 @@ function ProApp({
       <ProPricingBody
         rows={pricingRows}
         commissionPercent={null}
+        afterHoursPercent={afterHoursPct}
+        onAfterHoursChange={setAfterHoursPct}
+        priceList={priceList}
+        onPriceListChange={setPriceList}
         onChange={(serviceId, amountMinorUnits) =>
           setPricing((prev) =>
             prev.map((r) => (r.serviceId === serviceId ? { ...r, amountMinorUnits } : r))
@@ -5199,6 +5310,11 @@ function ProApp({
             t: "אמרת לא — לא קרה כלום",
             d: "הקריאה עוברת לבעל מקצוע אחר. אין קנס, אין ציון, אין פגיעה בך.",
           },
+          {
+            n: "5",
+            t: "אתה קובע את המחירים שלך",
+            d: "לפני שמתחילים מגדירים ב״המחירים שלך״: מחיר קבוע, תעריף לשעה או מחיר ביקור ואבחון — לפי השירות — ומחירון של העבודות שאתה עושה. אפשר גם תוספת לילה ושבת. הלקוח רואה את המחיר שלך לפני שהוא מזמין; שירות בלי מחיר לא מקבל קריאות.",
+          },
         ].map((x) => (
           <View key={x.n} style={styles.howRow}>
             <View style={styles.howNum}>
@@ -5210,8 +5326,18 @@ function ProApp({
             </View>
           </View>
         ))}
-        <Pressable style={styles.sheetPrimary} onPress={() => setProSheet(null)}>
-          <Text style={styles.sheetPrimaryText}>הבנתי, בוא נתחיל</Text>
+        <Pressable
+          accessibilityRole="button"
+          style={[styles.sheetPrimary, { marginBottom: 8 }]}
+          onPress={() => {
+            setProSheet(null);
+            goPro("pricing");
+          }}
+        >
+          <Text style={styles.sheetPrimaryText}>להגדרת המחירים שלי</Text>
+        </Pressable>
+        <Pressable onPress={() => setProSheet(null)} accessibilityRole="button" style={{ alignSelf: "center", padding: 8 }}>
+          <Text style={styles.howBody}>הבנתי, אגדיר אחר כך</Text>
         </Pressable>
       </Sheet>
 
@@ -5925,7 +6051,6 @@ const DAY = isDaytime();
 const CITY_BG = DAY
   ? { src: "./world/splash_city_day.webp", pos: "50% 40%" }
   : { src: "./world/splash_city.webp", pos: "64% 50%" };
-const STREET_BG = DAY ? "./clips/city_street_day.jpg" : "./clips/city_street.jpg";
 
 function CityHero({ lift = 0 }: { lift?: number }) {
   return (
@@ -6242,7 +6367,46 @@ const STREET_CSS = `
 @keyframes pnHead{0%,100%{opacity:.55;transform:translate(-50%,-50%) scale(1)}50%{opacity:1;transform:translate(-50%,-50%) scale(1.35)}}
 @keyframes pnSpeck{0%{transform:translateY(0);opacity:0}15%{opacity:.9}100%{transform:translateY(-140px);opacity:0}}
 `;
-function StreetScene() {
+/*
+ * THE FIRST PICTURE: OUR SHOPS, AND OUR PEOPLE IN FRONT OF THEM.
+ *
+ * Amit: *"תמונה של המקצוענים שלנו על רקע החנויות עם הנאונים — שיהיה ברור
+ * יותר."* The painted street of neon shops, and a line of the trades' own
+ * drawn professionals standing on its pavement, each gently breathing.
+ */
+const WELCOME_PROS = ["hair", "home", "tech", "pets", "appliance", "move"] as const;
+function WelcomeScene() {
+  return (
+    <div aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden", background: "#2a1838" }}>
+      <style>{`@keyframes pnProBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}`}</style>
+      {/* Lifted, so the signs sit clear above the people. */}
+      <div style={{ position: "absolute", left: 0, right: 0, top: "-9%", height: "100%" }}>
+        <StreetScene painted />
+      </div>
+      <div style={{ position: "absolute", left: 0, right: 0, top: "25%", height: "19%", display: "flex", justifyContent: "center", alignItems: "flex-end", gap: 0 }}>
+        {WELCOME_PROS.map((id, i) => (
+          <img
+            key={id}
+            src={`./world/character_${id}_world.webp`}
+            alt=""
+            style={{
+              height: i % 2 ? "92%" : "100%",
+              marginInline: "-2.2%",
+              filter: "drop-shadow(0 10px 14px rgba(0,0,0,.55)) saturate(1.05)",
+              animation: `pnProBob ${2.6 + i * 0.3}s ease-in-out ${-i * 0.4}s infinite`,
+              zIndex: i % 2 ? 1 : 2,
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* `painted`: always the painted street of neon shops, whatever the hour — the
+   welcome's picture (Amit: "תמונה של חנויות ונאונים"). */
+function StreetScene({ painted = false }: { painted?: boolean } = {}) {
+  const day = DAY && !painted;
   const box = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 390, h: 700 });
   useEffect(() => {
@@ -6265,9 +6429,9 @@ function StreetScene() {
     <div ref={box} aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden", background: "#2a1838" }}>
       <style>{CITY_HERO_CSS + STREET_CSS}</style>
       <div style={{ position: "absolute", left, top, width: iw, height: ih, animation: "pnCity 24s ease-in-out infinite alternate", transformOrigin: "50% 40%" }}>
-        <img src={STREET_BG} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
+        <img src={day ? "./clips/city_street_day.jpg" : "./clips/city_street.jpg"} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
         {/* The glows sit on the painting's own lamps and signs, so they belong to the evening picture only. */}
-        {(DAY ? [] : STREET_GLOWS).map((g, i) => (
+        {(day ? [] : STREET_GLOWS).map((g, i) => (
           <div
             key={i}
             style={{
@@ -6279,7 +6443,7 @@ function StreetScene() {
           />
         ))}
       </div>
-      {(DAY ? [] : specks).map((p, i) => (
+      {(day ? [] : specks).map((p, i) => (
         <div key={i} style={{ position: "absolute", left: `${p.x}%`, top: `${p.y}%`, width: 4, height: 4, borderRadius: "50%", background: "rgba(255,210,150,.9)", boxShadow: "0 0 8px rgba(255,190,120,.9)", animation: `pnSpeck ${p.d}s linear ${p.delay}s infinite` }} />
       ))}
     </div>

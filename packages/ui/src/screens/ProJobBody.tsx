@@ -121,6 +121,13 @@ export interface ProJobBodyProps {
   onAdvance?: () => void;
   onSendQuote?: () => void;
   /**
+   * A price agreed before he came — a fixed-price or hourly service. Then
+   * the check leads straight to work at that price ("מתחיל לעבוד · ₪120"),
+   * and a quote is only for something extra the customer must approve.
+   */
+  agreedPriceHe?: string | null;
+  onStartAgreed?: () => void;
+  /**
    * GIVING THE JOB BACK.
    *
    * Amit, on this screen right after accepting: *"אחרי שהוא רשם כן אני
@@ -364,10 +371,14 @@ export function ProJobBody({
   onMessage,
   onAdvance,
   onSendQuote,
+  agreedPriceHe = null,
+  onStartAgreed,
   width = 390,
   height = 780,
 }: ProJobBodyProps) {
-  const action = nextAction(status);
+  const baseAction = nextAction(status);
+  const agreed = status === "DIAGNOSIS" && agreedPriceHe && onStartAgreed;
+  const action = agreed ? { label: `מתחיל לעבוד · ${agreedPriceHe}`, kind: "agreed" as const } : baseAction;
   const photos = media.filter((m) => m.kind === "PHOTO");
   const voice = media.find((m) => m.kind === "VOICE");
 
@@ -681,12 +692,17 @@ export function ProJobBody({
       {action ? (
         <View style={styles.cta}>
           <Pressable
-            onPress={action.kind === "quote" ? onSendQuote : onAdvance}
+            onPress={action.kind === "quote" ? onSendQuote : action.kind === "agreed" ? onStartAgreed : onAdvance}
             accessibilityRole="button"
             style={({ pressed }) => [styles.ctaBtn, pressed && { opacity: 0.88 }]}
           >
             <Text style={styles.ctaLabel}>{action.label}</Text>
           </Pressable>
+          {action.kind === "agreed" && onSendQuote ? (
+            <Pressable onPress={onSendQuote} accessibilityRole="button" style={styles.extraLink}>
+              <Text style={styles.extraLinkText}>יש עבודה נוספת? הצעת מחיר לתוספת — הלקוח יאשר</Text>
+            </Pressable>
+          ) : null}
         </View>
       ) : status === "WAITING_QUOTE_APPROVAL" ? (
         /*
@@ -865,6 +881,8 @@ function Wave() {
 }
 
 const styles = StyleSheet.create({
+  extraLink: { alignSelf: "center", paddingVertical: spacing.sm, marginTop: spacing.xs },
+  extraLinkText: { ...type.captionStrong, color: colors.textSecondary, textDecorationLine: "underline", textAlign: "center" },
   screen: { backgroundColor: colors.bg, overflow: "hidden", borderRadius: radii.xl },
   scroll: { paddingBottom: 116 },
   serviceSmall: { fontSize: scale.body, lineHeight: 24, marginTop: 0, color: "rgba(247,243,250,0.75)" },

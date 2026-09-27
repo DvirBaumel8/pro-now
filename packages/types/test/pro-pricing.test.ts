@@ -107,3 +107,21 @@ describe("what the professional is told about their own take", () => {
     expect(p?.netHe).toBe("₪153");
   });
 });
+
+import { isAfterHours, withAfterHours } from "../src/pro-pricing";
+
+describe("after-hours surcharge (the professional's own)", () => {
+  it("counts nights, Friday afternoon and Saturday — and not a weekday afternoon", () => {
+    expect(isAfterHours(new Date(2026, 8, 28, 22, 0))).toBe(true); // Mon 22:00
+    expect(isAfterHours(new Date(2026, 8, 28, 6, 30))).toBe(true); // Mon 06:30
+    expect(isAfterHours(new Date(2026, 8, 28, 14, 0))).toBe(false); // Mon 14:00
+    expect(isAfterHours(new Date(2026, 9, 2, 16, 0))).toBe(true); // Fri 16:00
+    expect(isAfterHours(new Date(2026, 9, 3, 12, 0))).toBe(true); // Sat 12:00
+  });
+  it("adds his percent only when it applies, and never more than 100%", () => {
+    expect(withAfterHours(20000, 50, new Date(2026, 8, 28, 22, 0)).amountMinorUnits).toBe(30000);
+    expect(withAfterHours(20000, 50, new Date(2026, 8, 28, 14, 0)).amountMinorUnits).toBe(20000);
+    expect(withAfterHours(20000, 300, new Date(2026, 8, 28, 22, 0)).amountMinorUnits).toBe(40000);
+    expect(withAfterHours(20000, null, new Date(2026, 8, 28, 22, 0)).surchargePercent).toBe(0);
+  });
+});

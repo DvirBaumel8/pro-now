@@ -377,6 +377,15 @@ export function DescribeFaultBody({
               ? "פרט אחד יישלח · לא מחויב עד שתאשר"
               : `${added} פרטים יישלחו · לא מחויב עד שתאשר`}
         </Text>
+        {/*
+          * WHAT THESE DETAILS DO NOT DO: set the price. A tester added
+          * detail after detail and watched the price stay put, and asked
+          * what decides it. The professional's own price does — shown before
+          * you accept him — and on work that needs a look, his quote.
+          */}
+        <Text style={styles.ctaNote}>
+          הפרטים עוזרים למקצוען להגיע מוכן. המחיר — של המקצוען עצמו, ותראו אותו לפני שתאשרו.
+        </Text>
       </View>
     </View>
   );

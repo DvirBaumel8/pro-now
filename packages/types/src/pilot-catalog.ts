@@ -177,7 +177,14 @@ const lockout: CatalogServiceDef = {
   mark: "locksmith",
   keywordsHe: ["ננעלתי", "נעול", "מפתח", "נשאר בפנים", "לא נכנס", "דלת נעולה", "פריצת דלת"],
   symptomsHe: ["המפתח נשאר בפנים", "המפתח נשבר במנעול", "הדלת ננעלה מאחוריי", "ננעלתי מחוץ לרכב"],
-  pricingModel: "VISIT_QUOTE",
+  /*
+   * FIXED, not visit-and-quote (Amit, 2026-09-27, checked against how
+   * locksmiths in Israel publish prices): opening a door is priced per lock
+   * type in advance — a slammed door, a cylinder, a multi-bolt — and the
+   * customer can say which from a photo. A new cylinder is an extra the
+   * customer approves on the spot.
+   */
+  pricingModel: "FIXED",
   fulfillmentProfile: "URGENT_NOW",
   activationStatus: "ACTIVE",
   trustProfile: "ENHANCED",

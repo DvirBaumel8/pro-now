@@ -4023,7 +4023,7 @@ export function buildStreet(
    * what else is there.
    */
   const inPark = (x: number, z: number) =>
-    x > 0 && Math.abs(z - 61.6) < 5.4 && x > FRONT_X - 4.6;
+    x > 0 && Math.abs(z - 58.4) < 5.4 && x > FRONT_X - 4.6;
 
   for (let z = STREET_LENGTH / 2 - 24; z > -STREET_LENGTH / 2; z -= 31) {
     if (!inPark(FRONT_X - 2.0, z) && clearOfWindow(FRONT_X, z, 7)) cafe(FRONT_X - 2.0, z, flowerHues[Math.floor(Math.random() * 3)]!);
@@ -4167,7 +4167,9 @@ export function buildStreet(
        * after. Four metres against the wall leaves two and a bit to
        * walk past on, and the gate still faces the pavement.
        */
-      const pz = 61.6;
+      /* A gap of pavement between the park and the pet shop (Amit: "צמודה
+         מדי לחנות חיות") — the shop starts at about z 64.4. */
+      const pz = 58.4;
       const px = FRONT_X - 2.2;
       const PW = 4.0;
       const PL = 8.0;

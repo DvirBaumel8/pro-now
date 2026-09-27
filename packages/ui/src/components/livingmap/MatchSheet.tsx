@@ -40,9 +40,9 @@ export interface MatchSheetProps {
   etaMinutes: number | null;
   arrivalClockHe?: string | null;
   /**
-   * This professional's visit fee. Each professional sets their own
-   * (Amit, 2026-09-26), so it is shown here — on the person, before the
-   * customer says yes — and nowhere earlier as if it were the service's.
+   * This professional's price, as one sentence composed by the host —
+   * the visit fee, the fixed price or the hourly rate, whichever the
+   * service is priced by. Each professional sets their own (2026-09-26).
    */
   visitFeeHe?: string | null;
   /**
@@ -137,7 +137,7 @@ export function MatchSheet({ candidate, etaMinutes, arrivalClockHe, visitFeeHe =
       ) : null}
       {visitFeeHe ? (
         <Text style={styles.fee}>
-          דמי הביקור של {candidate.displayNameHe.split(" ")[0]}: {visitFeeHe} · אם תאשרו הצעת מחיר — הם כלולים בה
+          {visitFeeHe}
         </Text>
       ) : null}
 

@@ -68,17 +68,30 @@ export interface CustomerCategory {
 /**
  * The front door. Eight ways in, in the order they are offered.
  *
- * Eight and not eleven, and not thirty. The order is by how often people
+ * Eleven — one per field and per drawn professional — and not thirty. The order is by how often people
  * need them rather than alphabetically, because the first two are what most
  * people came for and everything below the fold is for everyone else.
  */
 export const CUSTOMER_CATEGORIES: readonly CustomerCategory[] = [
+  /*
+   * ELEVEN, ONE FOR EACH OF OUR PROFESSIONALS (Amit, 2026-09-27: "בנינו עוד
+   * דמויות, צריך להשתמש בכולם"). "לבית" held four fields behind one face,
+   * so the appliance technician, the renovator and the helper were never
+   * seen — and people left thinking the service was not there.
+   */
   {
     id: "home",
-    labelHe: "לבית",
-    noteHe: "נזילה, חשמל, מזגן, התקנות ותיקונים",
-    departments: ["HOME_URGENT", "APPLIANCES", "IMPROVEMENT", "ODD_JOBS"],
+    labelHe: "תיקונים בבית",
+    noteHe: "נזילה, סתימה, חשמל, מנעולן",
+    departments: ["HOME_URGENT"],
     faceDepartment: "HOME_URGENT",
+  },
+  {
+    id: "appliances",
+    labelHe: "מזגנים ומכשירים",
+    noteHe: "מזגן, מקרר, מכונת כביסה",
+    departments: ["APPLIANCES"],
+    faceDepartment: "APPLIANCES",
   },
   {
     id: "beauty",
@@ -128,6 +141,20 @@ export const CUSTOMER_CATEGORIES: readonly CustomerCategory[] = [
     noteHe: "תיקון, התקנה, גיבוי",
     departments: ["TECH"],
     faceDepartment: "TECH",
+  },
+  {
+    id: "improvement",
+    labelHe: "שיפוץ והתקנות",
+    noteHe: "צבע, ריצוף, נגרות, תליית טלוויזיה",
+    departments: ["IMPROVEMENT"],
+    faceDepartment: "IMPROVEMENT",
+  },
+  {
+    id: "oddjobs",
+    labelHe: "עזרה ועבודות קטנות",
+    noteHe: "הנדימן, זוג ידיים, שיעור פרטי",
+    departments: ["ODD_JOBS"],
+    faceDepartment: "ODD_JOBS",
   },
 ];
 

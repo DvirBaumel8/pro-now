@@ -65,6 +65,42 @@ export const CALL_OUT_FEE_BOUNDS = { minMinorUnits: 0, maxMinorUnits: 200_000 } 
 /** The bounds on an hourly rate. Same reasoning, different magnitude. */
 export const HOURLY_RATE_BOUNDS = { minMinorUnits: 2_000, maxMinorUnits: 100_000 } as const;
 
+/**
+ * NIGHT, SHABBAT AND HOLIDAY SURCHARGE — the professional's own.
+ *
+ * Amit, 2026-09-27: each professional may set one, and the customer sees it
+ * inside the price before they order. Locksmiths and plumbers in Israel
+ * commonly add 50–100% at night and on Shabbat; the bound is a typo guard.
+ */
+export const AFTER_HOURS_BOUNDS = { minPercent: 0, maxPercent: 100 } as const;
+
+/**
+ * Whether `at` is after hours: 20:00–07:00, and Friday 15:00 to Saturday
+ * 20:00. Holidays follow the same rule once a holiday calendar is chosen —
+ * until then they are not detected, and nothing claims they are.
+ */
+export function isAfterHours(at: Date): boolean {
+  const h = at.getHours();
+  const d = at.getDay(); // 5 = Friday, 6 = Saturday
+  if (h >= 20 || h < 7) return true;
+  if (d === 5 && h >= 15) return true;
+  if (d === 6) return true;
+  return false;
+}
+
+/** A price with the professional's after-hours surcharge applied, when it applies. */
+export function withAfterHours(amountMinorUnits: number, percent: number | null, at: Date): { amountMinorUnits: number; surchargePercent: number } {
+  const pct = percent && isAfterHours(at) ? Math.max(AFTER_HOURS_BOUNDS.minPercent, Math.min(AFTER_HOURS_BOUNDS.maxPercent, percent)) : 0;
+  return { amountMinorUnits: Math.round(amountMinorUnits * (1 + pct / 100)), surchargePercent: pct };
+}
+
+/** One line of a professional's price list: a job they do and what it costs. */
+export interface PriceListItem {
+  id: string;
+  nameHe: string;
+  amountMinorUnits: number;
+}
+
 /** What the professional is asked for, for one service. */
 export type PricingField =
   /** "What does it cost for you to come and look?" */

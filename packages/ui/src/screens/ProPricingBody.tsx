@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import {
   customerPriceLineHe,
@@ -74,6 +74,12 @@ export interface ProPricingBodyProps {
    */
   commissionPercent?: number | null;
   onChange?: (serviceId: string, amountMinorUnits: number | null) => void;
+  /** Night/Shabbat surcharge, in percent. Null: none. */
+  afterHoursPercent?: number | null;
+  onAfterHoursChange?: (percent: number | null) => void;
+  /** The jobs he does and what each costs — his quotes are built from these. */
+  priceList?: readonly { id: string; nameHe: string; amountMinorUnits: number }[];
+  onPriceListChange?: (list: { id: string; nameHe: string; amountMinorUnits: number }[]) => void;
   onBack?: () => void;
   width?: number;
   height?: number;
@@ -100,6 +106,10 @@ export function ProPricingBody({
   rows,
   commissionPercent = null,
   onChange,
+  afterHoursPercent = null,
+  onAfterHoursChange,
+  priceList = [],
+  onPriceListChange,
   onBack,
   width = 390,
   height = 780,
@@ -118,6 +128,17 @@ export function ProPricingBody({
       rows.map((r) => [r.serviceId, r.amountMinorUnits === null ? "" : String(r.amountMinorUnits / 100)])
     )
   );
+
+  const [ahDraft, setAhDraft] = useState(afterHoursPercent === null ? "" : String(afterHoursPercent));
+  const [newName, setNewName] = useState("");
+  const [newPrice, setNewPrice] = useState("");
+  const addItem = () => {
+    const amount = readShekels(newPrice);
+    if (!newName.trim() || amount === null || amount === undefined || amount <= 0) return;
+    onPriceListChange?.([...priceList, { id: `i${Date.now()}`, nameHe: newName.trim(), amountMinorUnits: amount }]);
+    setNewName("");
+    setNewPrice("");
+  };
 
   const readyCount = useMemo(
     () =>
@@ -142,8 +163,9 @@ export function ProPricingBody({
 
         <Text style={styles.title}>המחירים שלך</Text>
         <Text style={styles.lede}>
-          אתה קובע כמה עולה להגיע. את ההצעה לעבודה עצמה שולחים אחרי שרואים את התקלה, והעבודה
-          מתחילה רק אחרי ששני הצדדים מאשרים.
+          כל המחירים שלך — אתה קובע אותם, והלקוח רואה אותם לפני שהוא מזמין. בשירות במחיר קבוע
+          זה המחיר לעבודה; בשירות עם אבחון זה מחיר הביקור, ואת העבודה עצמה מתמחרים אחרי שרואים
+          את התקלה — מהמחירון שלך למטה.
         </Text>
 
         {/*
@@ -248,6 +270,76 @@ export function ProPricingBody({
           );
         })}
 
+        {/* ---------------- After hours ---------------- */}
+        <SectionHeader title="תוספת לילה ושבת" colors={colors} />
+        <Surface kind="raised" colors={colors} style={styles.card}>
+          <Text style={styles.fieldLabel}>אחוז תוספת (20:00–07:00, ומשישי 15:00 עד מוצ״ש)</Text>
+          <View style={styles.inputRow}>
+            <Text style={styles.currency}>%</Text>
+            <TextInput
+              value={ahDraft}
+              onChangeText={(t) => {
+                setAhDraft(t);
+                const n = t.trim() === "" ? null : Number(t.replace(/[^\d]/g, ""));
+                if (n === null) onAfterHoursChange?.(null);
+                else if (Number.isFinite(n)) onAfterHoursChange?.(Math.max(0, Math.min(100, n)));
+              }}
+              keyboardType="number-pad"
+              placeholder="בלי תוספת"
+              placeholderTextColor={colors.textSecondary}
+              accessibilityLabel="אחוז תוספת לילה ושבת"
+              style={styles.input}
+            />
+          </View>
+          <Text style={styles.help}>
+            הלקוח רואה את המחיר כולל התוספת, בשעות שהיא חלה, לפני שהוא מזמין. עד 100%.
+          </Text>
+        </Surface>
+
+        {/* ---------------- The price list ---------------- */}
+        <SectionHeader title="המחירון שלך" colors={colors} />
+        <Surface kind="raised" colors={colors} style={styles.card}>
+          <Text style={styles.help}>
+            העבודות שאתה עושה ומה כל אחת עולה. כשאתה שולח הצעת מחיר, לחיצה על פריט מוסיפה אותו להצעה.
+          </Text>
+          {priceList.map((it) => (
+            <View key={it.id} style={styles.listRow}>
+              <Text style={styles.listName} numberOfLines={1}>{it.nameHe}</Text>
+              <Text style={styles.listPrice}>₪{(it.amountMinorUnits / 100).toLocaleString("he-IL")}</Text>
+              <Pressable
+                onPress={() => onPriceListChange?.(priceList.filter((x) => x.id !== it.id))}
+                accessibilityRole="button"
+                accessibilityLabel={`הסרת ${it.nameHe} מהמחירון`}
+                style={styles.listRemove}
+              >
+                <Text style={styles.listRemoveText}>×</Text>
+              </Pressable>
+            </View>
+          ))}
+          <View style={styles.addRow}>
+            <TextInput
+              value={newName}
+              onChangeText={setNewName}
+              placeholder="עבודה — למשל החלפת סיפון"
+              placeholderTextColor={colors.textSecondary}
+              accessibilityLabel="שם העבודה החדשה במחירון"
+              style={[styles.addInput, { flex: 2 }]}
+            />
+            <TextInput
+              value={newPrice}
+              onChangeText={setNewPrice}
+              keyboardType="decimal-pad"
+              placeholder="₪"
+              placeholderTextColor={colors.textSecondary}
+              accessibilityLabel="מחיר העבודה החדשה"
+              style={[styles.addInput, { flex: 1 }]}
+            />
+          </View>
+          <Pressable onPress={addItem} accessibilityRole="button" accessibilityLabel="הוספה למחירון" style={styles.addBtn}>
+            <Text style={styles.addBtnText}>+ הוספה למחירון</Text>
+          </Pressable>
+        </Surface>
+
         {/*
           * The three steps, restated at the bottom where a professional who
           * has just typed a number is asking "and then what". It is the
@@ -278,6 +370,26 @@ const styles = StyleSheet.create({
   readyLine: { ...type.captionStrong, color: colors.trust, textAlign: "right" },
 
   card: { padding: spacing.lg, gap: spacing.sm },
+  listRow: { flexDirection: "row-reverse", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.xs },
+  listName: { ...type.body, color: colors.textPrimary, flex: 1, textAlign: "right" },
+  listPrice: { ...type.bodyStrong, color: colors.trust },
+  listRemove: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
+  listRemoveText: { ...type.h3, color: colors.textSecondary },
+  addRow: { flexDirection: "row-reverse", gap: spacing.sm },
+  addInput: {
+    ...type.body,
+    minWidth: 0,
+    flexShrink: 1,
+    color: colors.textPrimary,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: "rgba(247,243,250,0.14)",
+    paddingHorizontal: spacing.md,
+    minHeight: 44,
+    textAlign: "right",
+  },
+  addBtn: { alignSelf: "flex-end", paddingVertical: spacing.sm },
+  addBtnText: { ...type.bodyStrong, color: colors.trust },
   cardHead: { flexDirection: "row-reverse", alignItems: "center", gap: spacing.sm },
   cardTitle: { ...type.h3, color: colors.textPrimary, flex: 1, textAlign: "right" },
 

@@ -69,6 +69,13 @@ const KIND_HE: Record<QuoteLineKind, string> = {
 
 export interface ProQuoteBuilderBodyProps {
   serviceNameHe: string;
+  /**
+   * The professional's own price list. Each one is a tap that adds a line
+   * at its price, so a quote is built from prices he set in advance and the
+   * total moves as work is added (a tester: "לא משנה כמה דברים הוספתי המחיר
+   * נשאר קבוע").
+   */
+  priceList?: readonly { id: string; nameHe: string; amountMinorUnits: number }[];
   /** Visit-and-quote: the quote's total includes the visit fee. See `QuoteApprovalBody`. */
   includesVisitFee?: boolean;
   /** What the customer said is wrong, so it can be quoted against. */
@@ -122,6 +129,7 @@ function emptyLine(n: number): QuoteDraftLine {
 
 export function ProQuoteBuilderBody({
   serviceNameHe,
+  priceList = [],
   includesVisitFee = false,
   symptomsHe = [],
   customerTextHe = null,
@@ -331,6 +339,39 @@ export function ProQuoteBuilderBody({
           </Surface>
         ))}
 
+        {priceList.length > 0 ? (
+          <View style={styles.listWrap}>
+            <Text style={styles.fieldLabel}>מהמחירון שלך — לחיצה מוסיפה לשורה</Text>
+            <View style={styles.listChips}>
+              {priceList.map((it) => (
+                <Pressable
+                  key={it.id}
+                  onPress={() =>
+                    setLines((cur) => {
+                      const blank = cur.length === 1 && !cur[0]!.description.trim() && cur[0]!.unitPriceMinorUnits === 0;
+                      const line: QuoteDraftLine = {
+                        id: `p${Date.now()}`,
+                        description: it.nameHe,
+                        quantity: 1,
+                        unitPriceMinorUnits: it.amountMinorUnits,
+                        kind: "LABOR",
+                      };
+                      return blank ? [line] : [...cur, line];
+                    })
+                  }
+                  accessibilityRole="button"
+                  accessibilityLabel={`הוספת ${it.nameHe} מהמחירון`}
+                  style={({ pressed }) => [styles.listChip, pressed && { opacity: 0.8 }]}
+                >
+                  <Text style={styles.listChipText}>
+                    {it.nameHe} · {formatMoney(money(it.amountMinorUnits, "ILS"))}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ) : null}
+
         <Pressable
           onPress={() => setLines((cur) => [...cur, emptyLine(cur.length + 1)])}
           accessibilityRole="button"
@@ -532,6 +573,16 @@ const styles = StyleSheet.create({
   },
   lineTotal: { ...type.bodyStrong, ...tabular, color: colors.textPrimary, textAlign: "right" },
 
+  listWrap: { gap: spacing.sm },
+  listChips: { flexDirection: "row-reverse", flexWrap: "wrap", gap: spacing.sm },
+  listChip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: colors.trust,
+  },
+  listChipText: { ...type.captionStrong, color: colors.trust },
   addLine: {
     minHeight: 48,
     borderRadius: radii.lg,

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import type { AreaAvailabilityView } from "@pro-now/types";
 
@@ -347,6 +347,16 @@ export function CustomerHomeBody({
    * catalogue, so it opens the full list.
    */
   const [showAllDepts, setShowAllDepts] = useState(false);
+  /*
+   * EVERY SERVICE, ONE TAP AWAY.
+   *
+   * Amit: *"רואים רק 8 מקצוענים בעמוד הראשי — מה עם כל השאר? שאנשים לא
+   * ייכנסו וייצאו כי יחשבו שאין את השירות."* Eight faces are the eight
+   * fields; the services are many more. So under the faces there is a door
+   * that says how many, and it opens all of them, searchable.
+   */
+  const [showAllServices, setShowAllServices] = useState(false);
+  const [filter, setFilter] = useState("");
   const listed = useMemo(
     () => (dept === ALL ? services : services.filter((s) => s.departmentHe === dept)),
     [services, dept]
@@ -418,6 +428,56 @@ export function CustomerHomeBody({
    * into groups with their own headings, and the reachable ones are
    * physically bigger. See ServiceListRow's `emphasis`.
    */
+  if (showAllServices) {
+    const f = filter.trim();
+    const shown = f ? services.filter((s2) => s2.nameHe.includes(f) || (s2.descriptionHe ?? "").includes(f)) : services;
+    const groups = Array.from(new Set(shown.map((s2) => s2.departmentHe ?? "עוד"))).map((d) => ({
+      d,
+      items: shown.filter((s2) => (s2.departmentHe ?? "עוד") === d),
+    }));
+    return (
+      <ScrollView style={[styles.screen, { width }]} contentContainerStyle={{ paddingBottom: spacing.xxl }}>
+        <View style={{ paddingHorizontal: gutter, paddingTop: spacing.md }}>
+          <Pressable onPress={() => { setShowAllServices(false); setFilter(""); }} accessibilityRole="button" accessibilityLabel="חזרה" style={styles.back}>
+            <Text style={styles.backText}>חזרה ›</Text>
+          </Pressable>
+          <Text style={styles.deptTitle}>כל {services.length} השירותים</Text>
+          <TextInput
+            value={filter}
+            onChangeText={setFilter}
+            placeholder="חיפוש — למשל מזגן, תספורת, מנעול"
+            placeholderTextColor="rgba(247,243,250,0.45)"
+            accessibilityLabel="חיפוש שירות"
+            style={styles.allSearch}
+            textAlign="right"
+          />
+          {groups.length === 0 ? (
+            <Text style={styles.allEmpty}>לא מצאנו שירות בשם הזה. אפשר לחזור ולתאר במילים שלכם — נתאים את המקצוען.</Text>
+          ) : null}
+          {groups.map((g) => (
+            <View key={g.d} style={{ marginTop: spacing.lg }}>
+              <Text style={styles.groupTitleQuiet}>{g.d}</Text>
+              <View style={styles.rows}>
+                {g.items.map((s2) => (
+                  <Pressable
+                    key={s2.id}
+                    onPress={() => onSelectService?.(s2.id)}
+                    accessibilityRole="button"
+                    accessibilityLabel={s2.nameHe}
+                    style={({ pressed }) => [styles.liveRow, pressed && { opacity: 0.75 }]}
+                  >
+                    <Text style={styles.liveName} numberOfLines={1}>{s2.nameHe}</Text>
+                    <Text style={styles.liveSoft} numberOfLines={1}>{s2.priceHint ?? ""}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          ))}
+        </View>
+      </ScrollView>
+    );
+  }
+
   if (showAllDepts && dept === ALL) {
     return (
       <ScrollView
@@ -759,12 +819,21 @@ export function CustomerHomeBody({
         ) : null}
 
         <View style={{ marginTop: spacing.xl }}>
-          <Text style={styles.orPick}>או בחרו לפי סוג</Text>
+          <Text style={styles.orPick}>או בחרו לפי תחום — {services.length} שירותים ב־8 תחומים</Text>
           <CategoryFaces
             width={inner}
             sources={worldSources}
             onSelect={(id) => onSelectCategory?.(id)}
           />
+          <Pressable
+            onPress={() => setShowAllServices(true)}
+            accessibilityRole="button"
+            accessibilityLabel={`כל ${services.length} השירותים`}
+            style={({ pressed }) => [styles.allBtn, pressed && { opacity: 0.85 }]}
+          >
+            <Text style={styles.allBtnText}>כל {services.length} השירותים ›</Text>
+            <Text style={styles.allBtnSub}>מזגן, מנעולן, צבע, טכנאי מחשבים, מאמן כושר, וטרינר ועוד — עם חיפוש</Text>
+          </Pressable>
         </View>
 
         {/* ---------------------------------------------------------------
@@ -933,6 +1002,31 @@ const styles = StyleSheet.create({
   },
 
   captureWrap: { marginTop: spacing.lg, alignItems: "center" },
+  allBtn: {
+    marginTop: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255,107,74,0.55)",
+    backgroundColor: "rgba(255,107,74,0.10)",
+    alignItems: "flex-end",
+  },
+  allBtnText: { ...type.bodyStrong, color: "#FF8A6E", writingDirection: "rtl", textAlign: "right" },
+  allBtnSub: { ...type.caption, color: "rgba(247,243,250,0.7)", writingDirection: "rtl", textAlign: "right", marginTop: 2 },
+  allSearch: {
+    ...type.body,
+    marginTop: spacing.md,
+    color: "#F7F3FA",
+    backgroundColor: depth.panel.mid,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: "rgba(247,243,250,0.12)",
+    paddingHorizontal: spacing.md,
+    minHeight: 48,
+    writingDirection: "rtl",
+  },
+  allEmpty: { ...type.body, color: "rgba(247,243,250,0.7)", textAlign: "right", writingDirection: "rtl", marginTop: spacing.lg },
   orPick: {
     ...type.bodyStrong,
     color: colors.textPrimary,

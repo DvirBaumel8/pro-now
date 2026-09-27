@@ -172,6 +172,12 @@ const PRO_SLIDES: readonly Slide[] = [
     focus: CUSTOMER_POINT,
     zoom: 0.95,
   },
+  {
+    titleHe: "המחירים — שלך",
+    bodyHe: "אתה קובע: מחיר קבוע, תעריף לשעה או מחיר ביקור ואבחון, מחירון לעבודות, ותוספת לילה ושבת. הלקוח רואה את המחיר שלך לפני שהוא מזמין.",
+    focus: SHOPFRONT,
+    zoom: 0.6,
+  },
 ];
 
 export interface IntroBodyProps {
