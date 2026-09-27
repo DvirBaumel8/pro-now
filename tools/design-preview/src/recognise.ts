@@ -67,3 +67,41 @@ export async function recognisePhoto(
     return null;
   }
 }
+
+/**
+ * WHAT THE WORDS MEAN. Amit typed "נחנחק לי החתול" and the screen said it
+ * did not understand. The keyword match now knows that sentence, but people
+ * will always find one it does not — so where the page runs inside Claude,
+ * a sentence the keywords missed is read for meaning, and the answer is
+ * again only ever ids from our own list. Outside Claude this resolves null
+ * and the screen offers the full list instead.
+ */
+const understood = new Map<string, string[]>();
+
+export async function understandText(
+  text: string,
+  services: ReadonlyArray<{ id: string; nameHe: string }>
+): Promise<string[] | null> {
+  const key = text.trim();
+  if (understood.has(key)) return understood.get(key)!;
+  const s = await getSample();
+  if (!s || !key) return null;
+  const list = services.map((x) => `${x.id} — ${x.nameHe}`).join("\n");
+  const prompt =
+    "A customer in Israel typed this into a home-services app, describing what they need right now:\n\n" +
+    `"${key.slice(0, 300)}"\n\n` +
+    "Which services from this list fit best? Understand typos, slang and everyday Hebrew " +
+    "(e.g. a choking cat → the vet; 'the car won't start' → jump start). Give at most two, best first, " +
+    "and an empty list if none fits or the text is not a request.\n\nServices (id — Hebrew name):\n" + list +
+    '\n\nReply with only JSON: {"serviceIds": string[]}';
+  try {
+    const out = await s.json<{ serviceIds?: unknown }>(prompt, { modelTier: "quick" });
+    const ids = Array.isArray(out?.serviceIds)
+      ? (out.serviceIds.filter((id) => typeof id === "string" && services.some((x) => x.id === id)) as string[]).slice(0, 2)
+      : [];
+    understood.set(key, ids);
+    return ids;
+  } catch {
+    return null;
+  }
+}

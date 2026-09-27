@@ -1,4 +1,5 @@
 import { CUSTOMER_CATEGORIES, WORLD_DISTRICTS, type DepartmentCode } from "@pro-now/types";
+import { lowestChoicePrice, previewChoicePrices } from "./choicePrices";
 import type { ProPricingRow } from "../screens/ProPricingBody";
 import {
   allServices,
@@ -146,7 +147,11 @@ function priceHint(s: CatalogServiceDef): string {
   const p = previewPrices[s.id];
   switch (s.pricingModel) {
     case "FIXED":
-      return p?.fixedTotalMinorUnits ? `מחיר קבוע ₪${p.fixedTotalMinorUnits / 100}` : "מחיר קבוע";
+      if (!p?.fixedTotalMinorUnits) return "מחיר קבוע";
+      /* Where the price follows the answers, the tile says where it starts. */
+      return previewChoicePrices[s.id]
+        ? `מחיר קבוע · החל מ־₪${lowestChoicePrice(s.id, p.fixedTotalMinorUnits) / 100}`
+        : `מחיר קבוע ₪${p.fixedTotalMinorUnits / 100}`;
     case "VISIT_QUOTE":
       /* Each professional sets their own visit fee (2026-09-26), so a
          tile has no one figure to show. */
@@ -441,9 +446,15 @@ export const demoOpenServiceIds: ReadonlySet<string> = new Set(
     .map((s) => s.id)
 );
 
+/**
+ * Every service is searchable, open or not. "נחנק לי החתול" found nothing
+ * while the vet was marked coming-soon, and "we did not understand" is a
+ * worse answer than the true one: the right service, with its state beside
+ * it ("בקרוב"). The customer learns what exists; nothing is dispatched to a
+ * service that is not open, because that is decided on the service page.
+ */
 export const catalogMatchRules: ServiceMatchRule[] = allServices(pilotCatalog)
-  .filter((s) => s.activationStatus !== "INACTIVE")
-  .map((s) => ({ serviceId: s.id, keywords: s.keywordsHe }));
+  .map((s) => ({ serviceId: s.id, keywords: [...s.keywordsHe, ...s.symptomsHe] }));
 
 /**
  * The professional's side, derived from the same tree: which services a

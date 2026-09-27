@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { matchServicesByText, type ServiceMatchRule } from "../src/service-match";
+import { matchServicesByText, urgentCareFor, type ServiceMatchRule } from "../src/service-match";
 import { catalogMatchRules } from "../src/catalog/catalogAdapter";
 
 /**
@@ -121,5 +121,61 @@ describe("a sentence typed in one category", () => {
     for (let i = 1; i < hits.length; i += 1) {
       expect(hits[i - 1]!.score).toBeGreaterThanOrEqual(hits[i]!.score);
     }
+  });
+});
+
+/**
+ * Sentences real people typed. The first is Amit's: "נחנחק לי החתול" — a
+ * typo, a particle, a possessive — and the screen answered "לא זיהינו".
+ */
+describe("everyday Hebrew, typed in a hurry", () => {
+  const top = (q: string) => matchServicesByText(q, catalogMatchRules)[0]?.serviceId;
+  const cases: Array<[string, string]> = [
+    ["נחנחק לי החתול", "svc-vet"],
+    ["נחנק לי החתול", "svc-vet"],
+    ["החתול שלי לא אוכל כבר יומיים", "svc-vet"],
+    ["הכלב צולע", "svc-vet"],
+    ["הכלבה שלי מדממת מהרגל", "svc-vet"],
+    ["צריך מישהו שיוציא את הכלב", "svc-dog-walk"],
+    ["נוסעת לחו״ל מי ישמור על החתולה", "svc-pet-sit"],
+    ["הכלב צריך מקלחת ותספורת", "svc-pet-groom"],
+    ["לילד יש חום", "svc-doctor"],
+    ["המזגן מטפטף", "svc-ac"],
+    ["חם נורא בבית", "svc-ac"],
+    ["נטרקה לי הדלת והמפתח בפנים", "svc-lock"],
+    ["ננעלתי ברכב", "svc-car-lockout"],
+    ["האוטו לא מתניע", "svc-jump-start"],
+    ["הטלפון נפל ונשבר המסך", "svc-phone-fix"],
+    ["יש ריח של גז", "svc-gas"],
+    ["כואב לי הגב", "svc-massage"],
+    ["צריך עזרה להרים מקרר", "svc-hands"],
+  ];
+  for (const [q, id] of cases) {
+    it(`"${q}" → ${id}`, () => expect(top(q)).toBe(id));
+  }
+
+  it("does not let one word in three spellings vote three times", () => {
+    const [m] = matchServicesByText("הכלב", catalogMatchRules);
+    expect(m!.score).toBe(1);
+  });
+
+  it("forgives one slipped letter, but not a swap that makes another word", () => {
+    expect(top("נחנחק לי החתול")).toBe("svc-vet");
+    expect(matchServicesByText("יש לי חתונה מחר", catalogMatchRules).map((m) => m.serviceId)).not.toContain("svc-pet-sit");
+  });
+});
+
+describe("when the answer is not a service", () => {
+  it("sends a person in danger to 101", () => {
+    expect(urgentCareFor("הילד נחנק")).toBe("person");
+    expect(urgentCareFor("אבא שלי לא נושם")).toBe("person");
+  });
+  it("tells an animal emergency apart, so the vet is still offered", () => {
+    expect(urgentCareFor("נחנחק לי החתול")).toBe("animal");
+  });
+  it("stays quiet on the ordinary", () => {
+    expect(urgentCareFor("הילד חולה")).toBeNull();
+    expect(urgentCareFor("יש לכלב חום")).toBeNull();
+    expect(urgentCareFor("המזגן מטפטף")).toBeNull();
   });
 });

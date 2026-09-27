@@ -91,6 +91,7 @@ export * from "./components/ServiceListRow";
 export * from "./components/Scrim";
 export * from "./screens/StrollBody";
 export * from "./catalog/catalogAdapter";
+export * from "./catalog/choicePrices";
 export { ShopInterior } from "./components/livingmap/ShopInterior";
 export * from "./screens/SponsorShopBody";
 export * from "./screens/AdvertiseBody";

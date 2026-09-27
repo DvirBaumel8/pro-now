@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import type { AreaAvailabilityView } from "@pro-now/types";
 
 import { prosFreeShort } from "../lexicon";
-import { matchServicesByText, type ServiceMatchRule } from "../service-match";
+import { matchServicesByText, urgentCareFor, type ServiceMatchRule } from "../service-match";
 import { resolveHomeSupply } from "../home-supply";
 import { customerDarkTheme, customerTheme, depth, elevation, radii, spacing, tabular, tint, type } from "../theme";
 import { type MarkName } from "../components/marks";
@@ -158,6 +158,13 @@ export interface CustomerHomeBodyProps {
   photoMatch?: { serviceId: string | null; seenHe: string } | null;
   /** A photo is being recognised. */
   recognising?: boolean;
+  /**
+   * When the words match no keyword, ask something that reads Hebrew to
+   * name the service ("understand" resolves the ids, best first, or null
+   * where no such reader is available). The keyword match always answers
+   * first and alone when it can — it is instant and free.
+   */
+  understand?: (text: string) => Promise<string[] | null>;
   /** Total professionals online, for callers with no snapshot yet. */
   totalAvailableNow?: number | null;
   onSelectService?: (id: string) => void;
@@ -276,6 +283,7 @@ export function CustomerHomeBody({
   injectedText = null,
   photoMatch = null,
   recognising = false,
+  understand,
   totalAvailableNow,
   onSelectService,
   onChangeAddress,
@@ -367,13 +375,52 @@ export function CustomerHomeBody({
     // Only a new injection moves the box, never a re-render.
   }, [injectedText?.n]);
 
+  const fromText = useMemo(
+    () => (matchRules && query.trim().length >= 2 ? matchServicesByText(query, matchRules).map((m) => m.serviceId) : []),
+    [query, matchRules]
+  );
+
+  /**
+   * THE WORDS NO KEYWORD KNEW. Once the customer stops typing for a moment
+   * and the keyword match found nothing, the sentence is read for meaning.
+   * The answer belongs to the sentence it was asked about, so typing on
+   * makes a stale answer disappear rather than linger under new words.
+   */
+  const [understood, setUnderstood] = useState<{ text: string; ids: string[] } | null>(null);
+  const [understanding, setUnderstanding] = useState(false);
+  const q = query.trim();
+  useEffect(() => {
+    if (!understand || q.length < 4 || fromText.length > 0 || understood?.text === q) return;
+    let live = true;
+    const t = setTimeout(() => {
+      setUnderstanding(true);
+      understand(q)
+        .then((ids) => {
+          if (live) setUnderstood({ text: q, ids: ids ?? [] });
+        })
+        .catch(() => {
+          if (live) setUnderstood({ text: q, ids: [] });
+        })
+        .finally(() => {
+          if (live) setUnderstanding(false);
+        });
+    }, 800);
+    return () => {
+      live = false;
+      clearTimeout(t);
+      setUnderstanding(false);
+    };
+  }, [understand, q, fromText.length, understood?.text]);
+
   const matched = useMemo(() => {
     const fromPhoto = photoMatch?.serviceId ? [photoMatch.serviceId] : [];
-    const fromText = matchRules && query.trim().length >= 2 ? matchServicesByText(query, matchRules).map((m) => m.serviceId) : [];
-    if (fromPhoto.length === 0 && (!matchRules || query.trim().length < 2)) return null;
-    const ids = [...fromPhoto, ...fromText.filter((id) => !fromPhoto.includes(id))];
+    const fromMeaning = fromText.length === 0 && understood?.text === q ? understood.ids : [];
+    if (fromPhoto.length === 0 && (!matchRules || q.length < 2)) return null;
+    const ids = [...fromPhoto, ...fromText, ...fromMeaning].filter((id, i, all) => all.indexOf(id) === i);
     return ids.map((id) => services.find((s) => s.id === id)).filter(Boolean) as HomeServiceItem[];
-  }, [query, matchRules, services, photoMatch]);
+  }, [q, fromText, understood, matchRules, services, photoMatch]);
+
+  const urgent = useMemo(() => (q.length >= 3 ? urgentCareFor(q) : null), [q]);
 
   /**
    * The match, dressed with live supply.
@@ -430,7 +477,12 @@ export function CustomerHomeBody({
    */
   if (showAllServices) {
     const f = filter.trim();
-    const shown = f ? services.filter((s2) => s2.nameHe.includes(f) || (s2.descriptionHe ?? "").includes(f)) : services;
+    // The list's own search understands the same sentences the home box
+    // does — "הכלב צולע" finds the vet here too, not only "וטרינר".
+    const meant = f && matchRules ? new Set(matchServicesByText(f, matchRules).map((m) => m.serviceId)) : null;
+    const shown = f
+      ? services.filter((s2) => s2.nameHe.includes(f) || (s2.descriptionHe ?? "").includes(f) || meant?.has(s2.id))
+      : services;
     const groups = Array.from(new Set(shown.map((s2) => s2.departmentHe ?? "עוד"))).map((d) => ({
       d,
       items: shown.filter((s2) => (s2.departmentHe ?? "עוד") === d),
@@ -760,6 +812,24 @@ export function CustomerHomeBody({
           </View>
         ) : null}
 
+        {urgent === "person" ? (
+          <Pressable
+            onPress={() => void Linking.openURL("tel:101")}
+            accessibilityRole="button"
+            accessibilityLabel="חיוג למד״א 101"
+            style={({ pressed }) => [styles.urgent, pressed && { opacity: 0.85 }]}
+          >
+            <Text style={styles.urgentTitle}>מצב מסכן חיים? חייגו עכשיו למד״א — 101</Text>
+            <Text style={styles.urgentSub}>לחיצה כאן מחייגת. אל תחכו לאף שירות.</Text>
+          </Pressable>
+        ) : urgent === "animal" ? (
+          <View style={styles.urgentSoft}>
+            <Text style={styles.urgentSoftText}>
+              אם החיה לא נושמת או איבדה הכרה — כל דקה חשובה: סעו גם למוקד וטרינרי לחירום הקרוב.
+            </Text>
+          </View>
+        ) : null}
+
         {suggestions !== null || hasMedia ? (
           <View style={{ marginTop: spacing.lg }}>
             <IntentSuggestions
@@ -768,9 +838,11 @@ export function CustomerHomeBody({
               hasText={hasText}
               hasMedia={hasMedia}
               recognising={recognising}
+              understanding={understanding}
               seenHe={photoMatch?.seenHe ?? null}
               onPick={(id) => onSelectService?.(id)}
-              onBrowse={() => setQuery("")}
+              onBrowse={() => setShowAllServices(true)}
+              browseLabelHe={`כל ${services.length} השירותים ›`}
             />
           </View>
         ) : null}
@@ -819,7 +891,7 @@ export function CustomerHomeBody({
         ) : null}
 
         <View style={{ marginTop: spacing.xl }}>
-          <Text style={styles.orPick}>או בחרו לפי תחום — {services.length} שירותים ב־8 תחומים</Text>
+          <Text style={styles.orPick}>או בחרו לפי תחום</Text>
           <CategoryFaces
             width={inner}
             sources={worldSources}
@@ -919,6 +991,24 @@ export function CustomerHomeBody({
 const HOME_WORLD_HEIGHT = 300;
 
 const styles = StyleSheet.create({
+  urgent: {
+    marginTop: spacing.lg,
+    padding: spacing.md,
+    borderRadius: radii.md,
+    backgroundColor: "#B3261E",
+    gap: 2,
+  },
+  urgentTitle: { ...type.bodyStrong, color: "#FFFFFF", textAlign: "right", writingDirection: "rtl" },
+  urgentSub: { ...type.meta, color: "rgba(255,255,255,0.86)", textAlign: "right", writingDirection: "rtl" },
+  urgentSoft: {
+    marginTop: spacing.lg,
+    padding: spacing.md,
+    borderRadius: radii.md,
+    backgroundColor: tint.neutralDark(0.07),
+    borderRightWidth: 3,
+    borderRightColor: "#E5484D",
+  },
+  urgentSoftText: { ...type.meta, color: colors.textPrimary, textAlign: "right", writingDirection: "rtl" },
   stroll: {
     marginTop: spacing.xl,
     paddingVertical: spacing.md,

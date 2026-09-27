@@ -42,54 +42,163 @@ export interface ServiceMatch {
 /** Hebrew prefixes that would otherwise defeat a plain substring match. */
 const PREFIXES = ["ה", "ו", "ב", "כ", "ל", "מ", "ש"];
 
+/**
+ * Endings a Hebrew word grows that do not change what it is about:
+ * "חתולה", "חתולים", "כלבה", "מזגנים". Stripped only while at least three
+ * letters remain, so "דלת" never becomes "דל".
+ */
+const SUFFIXES = ["ים", "ות", "ית", "ה", "ת", "י"];
+
 function normalise(text: string): string {
   return text
     .toLowerCase()
     // Strip niqqud and punctuation; keep Hebrew, Latin and digits.
-    .replace(/[֑-ׇ]/g, "")
+    .replace(/[\u0591-\u05C7]/g, "")
+    .replace(/[׳']/g, "")
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
 
-function tokens(text: string): string[] {
-  const words = normalise(text).split(" ").filter(Boolean);
-  const out = new Set<string>();
-  for (const w of words) {
-    out.add(w);
-    // "הברז" should match a rule written as "ברז".
-    for (const p of PREFIXES) {
-      if (w.length > p.length + 1 && w.startsWith(p)) out.add(w.slice(p.length));
+/** The word, and the word without up to two leading particles ("וה", "שה"). */
+function unprefixed(w: string): string[] {
+  const out = [w];
+  for (const p of PREFIXES) {
+    // "הגב" → "גב", "לגז" → "גז": two letters may remain after one particle.
+    if (w.length > p.length + 1 && w.startsWith(p)) {
+      const once = w.slice(p.length);
+      out.push(once);
+      for (const q of PREFIXES) {
+        if (once.length > q.length + 2 && once.startsWith(q)) out.push(once.slice(q.length));
+      }
     }
   }
-  return [...out];
+  return out;
+}
+
+function unsuffixed(w: string): string[] {
+  const out = [w];
+  for (const s of SUFFIXES) {
+    if (w.length - s.length >= 3 && w.endsWith(s)) out.push(w.slice(0, -s.length));
+  }
+  return out;
+}
+
+interface TypedWord {
+  /** As typed, and with up to two particles off. */
+  words: string[];
+  /** Every form, including the ending-stripped ones. */
+  forms: Set<string>;
+}
+
+interface Typed {
+  seq: TypedWord[];
+  flat: string;
+}
+
+function read(text: string): Typed {
+  const flat = normalise(text);
+  const seq = flat
+    .split(" ")
+    .filter(Boolean)
+    .map((w) => {
+      const words = unprefixed(w);
+      const forms = new Set<string>();
+      for (const u of words) for (const f of unsuffixed(u)) forms.add(f);
+      return { words, forms };
+    });
+  return { seq, flat: " " + flat + " " };
 }
 
 /**
- * Services that plausibly fit the text, best first.
- *
- * Returns an empty array rather than a weak guess: sending someone to the
- * wrong trade wastes a call-out fee and a morning, and "we are not sure,
- * here is everything" is a better answer than a confident mistake.
+ * ONE SLIP OF THE FINGER. "נחנחק" is "נחנק" typed on a phone in a hurry,
+ * and the hurry is exactly when this box matters. One inserted or dropped
+ * letter is forgiven from four letters up; a swapped letter only from six,
+ * because below that a swap turns one real word into another ("נורה" /
+ * "נורא", "מקרר" / "מקרן", "חתונה" / "חתולה").
+ */
+function oneSlip(a: string, b: string): boolean {
+  if (a === b) return false;
+  const la = a.length;
+  const lb = b.length;
+  if (Math.abs(la - lb) > 1) return false;
+  if (la === lb) {
+    if (la < 6) return false;
+    let diff = 0;
+    for (let i = 0; i < la; i++) if (a[i] !== b[i] && ++diff > 1) return false;
+    return diff === 1;
+  }
+  const [s, l] = la < lb ? [a, b] : [b, a];
+  if (s.length < 4) return false;
+  let i = 0;
+  let j = 0;
+  let skipped = false;
+  while (i < s.length && j < l.length) {
+    if (s[i] === l[j]) {
+      i++;
+      j++;
+    } else if (skipped) {
+      return false;
+    } else {
+      skipped = true;
+      j++;
+    }
+  }
+  return true;
+}
+
+/** Which typed words this one keyword accounts for (by position). */
+function wordHits(k: string, typed: Typed): number[] {
+  const kForms = unsuffixed(k);
+  const out: number[] = [];
+  typed.seq.forEach((w, i) => {
+    if (
+      kForms.some((f) => w.forms.has(f)) ||
+      w.words.some((t) => (t.length > 3 && k.length > 3 && t.includes(k)) || oneSlip(t, k))
+    ) {
+      out.push(i);
+    }
+  });
+  return out;
+}
+
+function sameWord(w: TypedWord, part: string): boolean {
+  return unsuffixed(part).some((f) => w.forms.has(f));
+}
+
+/** The typed words a phrase covers: the same words side by side, each in any form. */
+function phraseHits(k: string, typed: Typed): number[] {
+  const parts = k.split(" ");
+  for (let at = 0; at + parts.length <= typed.seq.length; at++) {
+    if (parts.every((part, i) => sameWord(typed.seq[at + i]!, part))) {
+      return parts.map((_, i) => at + i);
+    }
+  }
+  return [];
+}
+
+function hitsOf(keyword: string, typed: Typed): number[] {
+  const k = normalise(keyword);
+  if (!k) return [];
+  return k.includes(" ") ? phraseHits(k, typed) : wordHits(k, typed);
+}
+
+/**
+ * THE SCORE IS HOW MUCH OF THE SENTENCE A SERVICE EXPLAINS — the number of
+ * typed words its keywords account for, each word counted once. Counting
+ * keywords instead let "כלב", "כלבה" and "כלבים" vote three times for one
+ * typed "הכלב", and a service with a long word list out-shouted the one
+ * whose list held the word that actually mattered ("נחנק").
  */
 export function matchServicesByText(text: string, rules: ServiceMatchRule[]): ServiceMatch[] {
-  const typed = tokens(text);
-  if (typed.length === 0) return [];
+  const typed = read(text);
+  if (typed.seq.length === 0) return [];
 
   const scored: ServiceMatch[] = [];
   for (const rule of rules) {
-    let score = 0;
-    for (const keyword of rule.keywords) {
-      const k = normalise(keyword);
-      if (!k) continue;
-      // A multi-word keyword must appear as a phrase; a single word may match
-      // any typed token, including one that had a prefix stripped.
-      const hit = k.includes(" ")
-        ? normalise(text).includes(k)
-        : typed.some((t) => t === k || (t.length > 3 && k.length > 3 && t.includes(k)));
-      if (hit) score += 1;
-    }
-    if (score > 0) scored.push({ serviceId: rule.serviceId, score });
+    const covered = new Set<number>();
+    for (const keyword of rule.keywords) for (const i of hitsOf(keyword, typed)) covered.add(i);
+    if (covered.size > 0) scored.push({ serviceId: rule.serviceId, score: covered.size });
   }
 
   const ranked = scored.sort((a, b) => b.score - a.score || a.serviceId.localeCompare(b.serviceId));
@@ -119,4 +228,42 @@ export function matchServicesByText(text: string, rules: ServiceMatchRule[]): Se
   const top = ranked[0]?.score ?? 0;
   const floor = top >= 2 ? Math.max(2, Math.ceil(top / 2)) : 1;
   return ranked.filter((m) => m.score >= floor);
+}
+
+/**
+ * WHEN THE ANSWER IS NOT A SERVICE.
+ *
+ * "הילד נחנק" typed into a service app has one right answer, and it is not
+ * a professional eleven minutes away: it is מד״א, 101, now. The same words
+ * about a cat still lead to the vet — that is what the customer asked for —
+ * but with one line saying that when every minute counts, an emergency
+ * clinic is the faster door.
+ *
+ * Deliberately narrow: only the words that mean a life is at stake, so the
+ * banner is never noise on "הילד חולה" or "יש לכלב חום".
+ */
+const LIFE_AT_STAKE = [
+  "נחנק", "נחנקת", "נחנקה", "נחנקים", "נחנקו", "נחנקתי",
+  "לא נושם", "לא נושמת", "לא נושמים", "קשה לנשום", "קשיי נשימה",
+  "איבד הכרה", "איבדה הכרה", "מחוסר הכרה", "חסר הכרה", "התעלף", "התעלפה",
+  "דום לב", "כאבים בחזה", "כאב בחזה", "לחץ בחזה",
+  "מפרכס", "מפרכסת", "פרכוס", "פרכוסים",
+  "דימום חזק", "מדמם הרבה", "מדממת הרבה",
+  "הורעל", "הורעלה", "הרעלה", "בלע כדורים", "בלעה כדורים",
+  "התחשמל", "התחשמלה", "שבץ", "אלרגיה קשה", "התנפח",
+];
+
+const ANIMAL_WORDS = [
+  "חתול", "חתולה", "חתלתול", "כלב", "כלבה", "גור", "גורה", "ארנב", "ארנבת",
+  "תוכי", "ציפור", "אוגר", "שרקן", "צב", "חמוס", "חיה", "חיית", "בעל חיים",
+];
+
+export type UrgentCare = "person" | "animal";
+
+export function urgentCareFor(text: string): UrgentCare | null {
+  const typed = read(text);
+  if (typed.seq.length === 0) return null;
+  const hit = (k: string) => hitsOf(k, typed).length > 0;
+  if (!LIFE_AT_STAKE.some(hit)) return null;
+  return ANIMAL_WORDS.some(hit) ? "animal" : "person";
 }

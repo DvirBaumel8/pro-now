@@ -1,4 +1,4 @@
-import { recognisePhoto } from "./recognise";
+import { recognisePhoto, understandText } from "./recognise";
 import { isDaytime } from "./daylight";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, Linking, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
@@ -77,6 +77,7 @@ import {
   demoOpenServiceIds,
   catalogHiddenServices,
   catalogMatchRules,
+  priceForChoices,
   catalogServicePages,
   departmentCodeByMark,
   departmentCodeByServiceId,
@@ -168,6 +169,8 @@ export interface LiveRequest {
   markName: string;
   priceModel: PriceModel;
   intakeBrief: IntakeBriefLine[];
+  /** The answers themselves, for the price that follows them (choicePrices.ts). */
+  answers?: IntakeAnswer[];
   textHe: string;
   photos: number;
   voiceSeconds: number | null;
@@ -368,6 +371,10 @@ const SERVICE_PAGES: typeof catalogServicePages = Object.fromEntries(
 const HOME_SERVICES = [...catalogHomeServices, ...catalogHiddenServices].map((s2) =>
   demoOpenServiceIds.has(s2.id) ? { ...s2, comingSoon: false, scheduledOnly: false, notInMarket: false } : s2
 );
+
+/** A sentence the keywords missed, read for meaning (see recognise.ts). */
+const understandHome = (text: string) =>
+  understandText(text, HOME_SERVICES.map((x) => ({ id: x.id, nameHe: x.nameHe })));
 
 /**
  * What the professional in this prototype has actually had verified.
@@ -1646,6 +1653,38 @@ function CustomerApp({
   const answerIntake = useCallback((a: IntakeAnswer) => {
     setIntakeAnswers((prev) => [...prev.filter((p) => p.questionId !== a.questionId), a]);
   }, []);
+  /*
+   * WHICH SERVICE THE ANSWERS BELONG TO. They were kept across services,
+   * and two services share question ids ("hours", "size") — so the answers
+   * given for a cleaner priced the dog walk. A new service starts clean.
+   */
+  const [intakeFor, setIntakeFor] = useState<string | null>(saved?.lastServiceId ?? null);
+  const startIntakeFor = useCallback(
+    (serviceId: string) => {
+      if (intakeFor === serviceId) return;
+      setIntakeAnswers([]);
+      setIntakeFor(serviceId);
+    },
+    [intakeFor]
+  );
+  /**
+   * The example price for what this customer chose, for one service: the
+   * professional's own base when given (`own`), scaled across the table.
+   */
+  const choicePrice = useCallback(
+    (serviceId: string, own: number | null) => {
+      const p = SERVICE_PAGES[serviceId]?.price;
+      if (!p) return null;
+      const pm = p.priceModel;
+      const cat = pm === "FIXED" ? p.fixedTotalMinorUnits : pm === "HOURLY" ? p.hourlyRateMinorUnits : null;
+      if (!cat) return null;
+      return {
+        pm,
+        ...priceForChoices(serviceId, pm, own ?? cat, intakeFor === serviceId ? intakeAnswers : [], cat),
+      };
+    },
+    [intakeAnswers, intakeFor]
+  );
   const [elapsed, setElapsed] = useState(0);
   /*
    * The waiting game is OPT-IN and off by default. It is a hypothesis test,
@@ -2716,6 +2755,7 @@ const go = useCallback((r: CustomerRoute) => {
               // words already in it, rather than asking the same question
               // one screen later and throwing the first answer away.
               if (noteHe) setFaultText((cur) => (cur ? cur : noteHe));
+              startIntakeFor(route.serviceId);
               go({ name: "describe", serviceId: route.serviceId, symptomsHe });
             }}
             onRecheck={() => go({ name: "home" })}
@@ -2750,6 +2790,17 @@ const go = useCallback((r: CustomerRoute) => {
             intake={pilotIntakeByService[route.serviceId]}
             answers={intakeAnswers}
             onAnswer={answerIntake}
+            livePriceHe={(() => {
+              const c = choicePrice(route.serviceId, null);
+              if (!c) return null;
+              const amt = formatMoney(money(c.amountMinorUnits, "ILS"));
+              if (c.pm === "HOURLY") {
+                return c.estimateMinorUnits
+                  ? `${amt} לשעה · כ־${c.hours} שעות ≈ ${formatMoney(money(c.estimateMinorUnits, "ILS"))}`
+                  : `${amt} לשעה`;
+              }
+              return c.fromChoices ? `לפי מה שבחרתם: ${amt} · מחיר סגור` : `מחיר קבוע: ${amt} · משתנה לפי הבחירות`;
+            })()}
             text={faultText}
             onChangeText={setFaultText}
             photos={capture.photos}
@@ -2785,6 +2836,7 @@ const go = useCallback((r: CustomerRoute) => {
                   pilotIntakeByService[route.serviceId],
                   intakeAnswers
                 ),
+                answers: intakeAnswers,
                 textHe: faultText,
                 photos: capture.photos.length,
                 voiceSeconds: capture.voice?.seconds ?? null,
@@ -2957,8 +3009,12 @@ const go = useCallback((r: CustomerRoute) => {
               const first = (cand?.displayNameHe ?? "").split(" ")[0] ?? "";
               const isDemoPro = pick % cands.length === 0;
               const pm = page.price.priceModel;
+              const own = isDemoPro ? proPrices.byService[route.serviceId] ?? null : null;
+              /* Fixed and hourly work are priced by what was chosen. */
+              const chosen = pm === "FIXED" || pm === "HOURLY" ? choicePrice(route.serviceId, own) : null;
               const base =
-                (isDemoPro ? proPrices.byService[route.serviceId] ?? null : null) ??
+                chosen?.amountMinorUnits ??
+                own ??
                 (pm === "VISIT_QUOTE" ? page.price.visitFeeMinorUnits : pm === "FIXED" ? page.price.fixedTotalMinorUnits : pm === "HOURLY" ? page.price.hourlyRateMinorUnits : null) ??
                 null;
               if (base === null || base === undefined) return null;
@@ -2968,7 +3024,7 @@ const go = useCallback((r: CustomerRoute) => {
               return pm === "FIXED"
                 ? `המחיר של ${first}: ${amt} לעבודה — מחיר סגור${extra}`
                 : pm === "HOURLY"
-                  ? `התעריף של ${first}: ${amt} לשעה${extra}`
+                  ? `התעריף של ${first}: ${amt} לשעה${extra}${chosen?.hours ? ` · כ־${chosen.hours} שעות` : ""}`
                   : pm === "VISIT_QUOTE"
                     ? `דמי הביקור של ${first}: ${amt}${extra} · אם תאשרו הצעת מחיר — הם כלולים בה`
                     : null;
@@ -3333,7 +3389,15 @@ const go = useCallback((r: CustomerRoute) => {
                   : null,
               fixedTotalHe:
                 trackedService.price?.priceModel === "FIXED" && trackedService.price.fixedTotalMinorUnits
-                  ? formatMoney(money(trackedService.price.fixedTotalMinorUnits, "ILS"))
+                  ? formatMoney(
+                      money(
+                        (trackedService.id
+                          ? choicePrice(trackedService.id, proPrices.byService[trackedService.id] ?? null)?.amountMinorUnits
+                          : null) ??
+                          trackedService.price.fixedTotalMinorUnits,
+                        "ILS"
+                      )
+                    )
                   : null,
               pendingTotalHe: writtenQuote ? formatMoney(money(writtenQuote.totalMinorUnits, "ILS")) : null,
               approvedTotalHe:
@@ -3600,6 +3664,7 @@ const go = useCallback((r: CustomerRoute) => {
             injectedText={dictated}
             photoMatch={photoMatch}
             recognising={recognising}
+            understand={understandHome}
             /*
              * The microphone and the camera are REAL here — the same
              * `useCapture` the describe screen uses, so what the customer
@@ -4571,6 +4636,25 @@ function ProApp({
    * paraphrases a real payload is a fixture that will eventually disagree
    * with it.
    */
+  /*
+   * WHAT THIS JOB PAYS, from what the customer chose and his own price
+   * list — not the sample offer's figure carried across to every service.
+   * PRO NOW's commission is undecided (/CLAUDE.md §4), so this is the
+   * price the customer pays, with nothing invented taken off it.
+   */
+  const offerPayout = (() => {
+    if (!takenRequest || takenRequest.priceModel === "VISIT_QUOTE") return null;
+    const id = takenRequest.serviceId;
+    const pm = takenRequest.priceModel;
+    const cat = SERVICE_PAGES[id]?.price;
+    const catBase = (pm === "FIXED" ? cat?.fixedTotalMinorUnits : pm === "HOURLY" ? cat?.hourlyRateMinorUnits : null) ?? null;
+    if (!catBase) return offerFixture.expectedPayoutMinorUnits;
+    const own = pricing.find((r) => r.serviceId === id)?.amountMinorUnits ?? null;
+    const c = priceForChoices(id, pm, own ?? catBase, takenRequest.answers ?? [], catBase);
+    const amount = pm === "HOURLY" ? c.estimateMinorUnits ?? c.amountMinorUnits : c.amountMinorUnits;
+    return withAfterHours(amount, afterHoursPct, new Date()).amountMinorUnits;
+  })();
+
   const offer: OfferCardView | null = offerAt
     ? takenRequest
       ? {
@@ -4596,8 +4680,7 @@ function ProApp({
           // VISIT_QUOTE means the payout genuinely is not knowable yet, and
           // the card must say so rather than carry the fixture's number
           // across to a different service.
-          expectedPayoutMinorUnits:
-            takenRequest.priceModel === "VISIT_QUOTE" ? null : offerFixture.expectedPayoutMinorUnits,
+          expectedPayoutMinorUnits: offerPayout,
           payoutIsEstimate: takenRequest.priceModel !== "FIXED",
         }
       : {
@@ -4651,8 +4734,9 @@ function ProApp({
   const agreedPrice = useMemo(() => {
     const id = takenRequest?.serviceId ?? null;
     const price = id ? SERVICE_PAGES[id]?.price : undefined;
-    if (!price || price.priceModel !== "FIXED" || !price.fixedTotalMinorUnits) return null;
-    const amount = price.fixedTotalMinorUnits;
+    if (!price || price.priceModel !== "FIXED" || !price.fixedTotalMinorUnits || !id) return null;
+    /* What the customer chose, priced by the table (choicePrices.ts). */
+    const amount = priceForChoices(id, "FIXED", price.fixedTotalMinorUnits, takenRequest?.answers ?? []).amountMinorUnits;
     return {
       lines: [
         {
@@ -4685,7 +4769,11 @@ function ProApp({
     if (!id || (pm !== "FIXED" && pm !== "HOURLY")) return null;
     const own = pricing.find((r) => r.serviceId === id)?.amountMinorUnits ?? null;
     const cat = SERVICE_PAGES[id]?.price;
-    const base = own ?? (pm === "FIXED" ? cat?.fixedTotalMinorUnits : cat?.hourlyRateMinorUnits) ?? null;
+    const catBase = (pm === "FIXED" ? cat?.fixedTotalMinorUnits : cat?.hourlyRateMinorUnits) ?? null;
+    /* His own price scales the example table; the customer's answers pick the line in it. */
+    const base = catBase
+      ? priceForChoices(id, pm, own ?? catBase, takenRequest?.answers ?? [], catBase).amountMinorUnits
+      : own;
     if (!base) return null;
     const { amountMinorUnits } = withAfterHours(base, afterHoursPct, new Date());
     return {

@@ -73,7 +73,7 @@ import {
  */
 const SHOPS: ShopSpec[] = [
   { id: "hair",      he: "טיפוח ויופי",    facade: "district_hair.webp",      z:   88, side: -1, interior: "hair_barbershop_hero.webp", neonColour: "#ff7ac2" , department: "BEAUTY", services: ["svc-haircut", "svc-makeup"] },
-  { id: "pets",      he: "בעלי חיים",      facade: "district_pets.webp",      z:   70.4, side:  1, interior: "shop_pets_inside.webp",     neonColour: "#8ce06a" , department: "PETS", services: ["svc-pet-sit", "svc-pet-groom"] },
+  { id: "pets",      he: "בעלי חיים",      facade: "district_pets.webp",      z:   70.4, side:  1, interior: "shop_pets_inside.webp",     neonColour: "#8ce06a" , department: "PETS", services: ["svc-pet-sit", "svc-pet-groom", "svc-dog-walk"] },
   { id: "home",      he: "תיקונים דחופים", facade: "district_home.webp",      z:   52.8, side: -1, interior: "home_workshop_hero.webp",   neonColour: "#ffb45e" , department: "HOME_URGENT" },
   /*
    * The sponsor's own room, at the fourth time of asking — the facade
@@ -1759,6 +1759,16 @@ export function City({
           enterRef.current = target?.interior
             ? () => {
                 if (entry) return;
+                /*
+                 * PRESSED BEFORE THE FIRST STEP. The city opens seen
+                 * from above, with the nearest shop's "היכנס" already
+                 * showing — and pressing it there left the camera in
+                 * the air: every room without a 360 picture was shown
+                 * from over the rooftops. Going in is coming down.
+                 */
+                descend = 1;
+                leaving = true;
+                setArriving(false);
                 entry = {
                   shop: target,
                   startedAt: performance.now(),

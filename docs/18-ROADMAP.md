@@ -197,6 +197,33 @@ and no screen achieves it: *"מחיר נח לכל כיס עם מקצוענים �
 supply-and-price-level strategy. Fairness is the part that can be built
 without inventing a business rule.
 
+### BUILT 2026-09-27 — a fixed or hourly price follows the customer's answers
+
+Amit: *"באיפור היה 350 שקל לא משנה מה בחרתי."* A fixed or hourly service now
+carries a price table keyed by its own intake answers
+(`packages/ui/src/catalog/choicePrices.ts`): the kind of job sets the price,
+extras add to it, "how many" multiplies it; for hourly work the answers
+estimate the hours. The customer sees the price move as they answer, and the
+same figure reaches the match card, the professional's offer and "מתחיל לעבוד".
+The tables are the preview's **example price list** — professionals set their
+own prices (below), and a professional's own base scales the whole table. How
+a professional edits a per-answer price list is still to design; the server
+has no such table yet. Visit-and-quote services are untouched on purpose: the
+only price before the visit is the visit fee.
+
+### BUILT 2026-09-27 — free-text search understands everyday Hebrew
+
+Amit typed *"נחנחק לי החתול"* and the app said it did not understand. The
+matcher (`service-match.ts`) now reads words in any form (particles, endings),
+forgives one slipped letter, scores by how much of the sentence a service
+explains, and searches every service's symptoms and a much larger vocabulary.
+Where it still finds nothing, the preview asks Claude to read the sentence for
+meaning (only when framed inside Claude; ids from our own list only), and
+otherwise opens the full list — never a dead end. A life-threatening sentence
+about a person shows "חייגו למד״א 101" above any service; about an animal, one
+line pointing to an emergency vet as well. In production the fallback
+classifier is a server feature, not yet built.
+
 ### DECIDED 2026-09-27 — "available in XX minutes" is availability; future booking is the next stage
 
 Amit, from tester feedback: a professional finishing another job can mark

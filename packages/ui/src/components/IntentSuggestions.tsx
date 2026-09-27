@@ -44,6 +44,10 @@ export interface IntentSuggestionsProps {
   hasText?: boolean;
   /** A photo is being looked at right now. */
   recognising?: boolean;
+  /** The sentence is being read for meaning (no keyword matched). */
+  understanding?: boolean;
+  /** The label of the door to the whole list, when nothing was found. */
+  browseLabelHe?: string;
   /** What was seen in the photo, in one sentence — shown above the match. */
   seenHe?: string | null;
   onPick?: (serviceId: string) => void;
@@ -56,7 +60,9 @@ export function IntentSuggestions({
   hasMedia = false,
   hasText = false,
   recognising = false,
+  understanding = false,
   seenHe = null,
+  browseLabelHe = "כל השירותים ›",
   onPick,
   onBrowse,
   width,
@@ -66,11 +72,13 @@ export function IntentSuggestions({
 
   if (!best && !hasText && !hasMedia) return null;
 
-  if (!best && recognising) {
+  if (!best && (recognising || understanding)) {
     return (
       <View style={[styles.wrap, { width }]}>
-        <Text style={styles.lead}>מזהים מה בתמונה…</Text>
-        <Text style={styles.note}>שנייה — מסתכלים על הצילום ומתאימים את השירות.</Text>
+        <Text style={styles.lead}>{recognising ? "מזהים מה בתמונה…" : "מבינים מה כתבתם…"}</Text>
+        <Text style={styles.note}>
+          {recognising ? "שנייה — מסתכלים על הצילום ומתאימים את השירות." : "שנייה — מתאימים את השירות לתיאור שלכם."}
+        </Text>
       </View>
     );
   }
@@ -79,16 +87,16 @@ export function IntentSuggestions({
     return (
       <View style={[styles.wrap, { width }]}>
         <Text style={styles.lead}>
-          {hasText ? "לא זיהינו לפי מה שכתבתם." : "יש לנו את מה שצילמתם והקלטתם."}
+          {hasText ? "עוד לא בטוחים איזה שירות מתאים." : "יש לנו את מה שצילמתם והקלטתם."}
         </Text>
         <Text style={styles.note}>
           {hasMedia
-            ? "ההקלטה והתמונות יישלחו יחד עם הקריאה, והמקצוען יראה אותן לפני שהוא יוצא. אפשר לבחור את השירות מהקטגוריות למטה."
-            : "אפשר לנסח אחרת, או לבחור קטגוריה למטה."}
+            ? "ההקלטה והתמונות יישלחו יחד עם הקריאה, והמקצוען יראה אותן לפני שהוא יוצא. בחרו את השירות מהרשימה."
+            : "הוסיפו מילה על מה שקרה (למשל ״נוזל מים מהתקרה״, ״החתול לא אוכל״) — או בחרו מהרשימה."}
         </Text>
         {onBrowse ? (
           <Pressable onPress={onBrowse} accessibilityRole="button" style={styles.browse}>
-            <Text style={styles.browseText}>בחירה מהקטגוריות</Text>
+            <Text style={styles.browseText}>{browseLabelHe}</Text>
           </Pressable>
         ) : null}
       </View>

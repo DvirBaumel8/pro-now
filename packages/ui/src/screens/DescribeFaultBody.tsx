@@ -118,6 +118,12 @@ export interface DescribeFaultBodyProps {
   onDeleteVoice?: () => void;
   onSend?: () => void;
   onBack?: () => void;
+  /**
+   * The example price for what has been chosen so far, in one line — for
+   * a fixed or hourly service whose price follows the answers. Null where
+   * the price does not depend on them (a visit fee).
+   */
+  livePriceHe?: string | null;
   width?: number;
   height?: number;
 }
@@ -146,6 +152,7 @@ export function DescribeFaultBody({
   onDeleteVoice,
   onSend,
   onBack,
+  livePriceHe = null,
   width = 390,
   height = 780,
 }: DescribeFaultBodyProps) {
@@ -354,6 +361,11 @@ export function DescribeFaultBody({
       </ScrollView>
 
       <View style={styles.cta}>
+        {livePriceHe ? (
+          <View style={styles.livePrice} accessibilityLiveRegion="polite">
+            <Text style={styles.livePriceText}>{livePriceHe}</Text>
+          </View>
+        ) : null}
         <Pressable
           onPress={onSend}
           accessibilityRole="button"
@@ -384,7 +396,9 @@ export function DescribeFaultBody({
           * you accept him — and on work that needs a look, his quote.
           */}
         <Text style={styles.ctaNote}>
-          הפרטים עוזרים למקצוען להגיע מוכן. המחיר — של המקצוען עצמו, ותראו אותו לפני שתאשרו.
+          {livePriceHe
+            ? "המחיר משתנה לפי מה שבחרתם. כל מקצוען קובע את המחירון שלו — ותראו את המחיר שלו לפני שתאשרו."
+            : "הפרטים עוזרים למקצוען להגיע מוכן. המחיר — של המקצוען עצמו, ותראו אותו לפני שתאשרו."}
         </Text>
       </View>
     </View>
@@ -688,6 +702,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   ctaLabel: { ...type.bodyStrong, fontSize: scale.body, color: colors.onAction },
+  livePrice: {
+    marginBottom: spacing.sm,
+    alignSelf: "center",
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: tint.neutralDark(0.07),
+  },
+  livePriceText: { ...type.metaStrong, color: colors.actionText, textAlign: "center", writingDirection: "rtl" },
   ctaNote: {
     ...type.caption,
     color: colors.textSecondary,
