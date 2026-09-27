@@ -688,6 +688,7 @@ export function App() {
    * the customer moved between their own screens.
    */
   const customerMemory = useRef<CustomerMemory | null>(null);
+  const [proJobState, setProJobState] = useState<JobState | null>(null);
 
   /**
    * And the professional's, for exactly the same reason and a worse
@@ -1015,6 +1016,7 @@ export function App() {
             openAdvertiseOnce={openAdvertiseOnce}
             onAdvertiseOpened={() => setOpenAdvertiseOnce(false)}
             memory={customerMemory}
+            proJobState={proJobState}
             onConfirmCompletion={() => {
               setCompletionConfirmed(true);
               setReturnToPro(true);
@@ -1084,6 +1086,7 @@ export function App() {
             })()}
             completionConfirmed={completionConfirmed}
             onCompletionSeen={() => setCompletionConfirmed(false)}
+            onJobChange={setProJobState}
             onSeeAsCustomer={(what) => {
               /*
                * Two waits, two destinations. The quote is a screen of its
@@ -1257,6 +1260,7 @@ function CustomerApp({
   onReleaseSeen,
   onPickAvatar,
   openStrollOnce,
+  proJobState = null,
   onStrollOpened,
   openAdvertiseOnce,
   onAdvertiseOpened,
@@ -1307,6 +1311,12 @@ function CustomerApp({
    * somebody who skipped it can answer again.
    */
   onPickAvatar?: () => void;
+  /**
+   * Where the professional's side of the visit is, mirrored by the shell.
+   * Only used to move the customer's screen on when the professional does
+   * something the customer would see at the door.
+   */
+  proJobState?: JobState | null;
   /** A figure was just chosen because the street was asked for. */
   openStrollOnce?: boolean;
   onStrollOpened?: () => void;
@@ -1879,6 +1889,30 @@ const go = useCallback((r: CustomerRoute) => {
     if (!realMap) onToggleRealMap();
     go({ name: "tracking", stage: "enroute" });
   }, [realMap, onToggleRealMap, go]);
+
+  /*
+   * WHEN HE KNOCKS, THE CUSTOMER'S SCREEN KNOWS.
+   *
+   * Amit, of the customer's screen still showing the van "on the way"
+   * after the professional had pressed "הגעתי": it cannot be. The shell
+   * mirrors the professional's side (`proJobState`), and the moment the
+   * visit is at the door the customer's wait turns into the visit.
+   */
+  useEffect(() => {
+    if (proJobState === "COMPLETION_PENDING" && route.name === "tracking" && route.stage === "working") {
+      go({ name: "tracking", stage: "done" });
+      return;
+    }
+    if (proJobState !== "PRO_ARRIVED" && proJobState !== "DIAGNOSIS") return;
+    const stillWaiting =
+      (route.name === "living" && route.phase === "ASSIGNED_ROUTE") ||
+      (route.name === "tracking" && (route.stage === "assigned" || route.stage === "enroute"));
+    if (stillWaiting) {
+      if (realMap) onToggleRealMap();
+      go({ name: "tracking", stage: "diagnosis" });
+    }
+    // Only the professional's move triggers this, not every route change.
+  }, [proJobState]);
 
   /**
    * Move to a tab, recording where you were so back can return there.
@@ -3002,6 +3036,8 @@ const go = useCallback((r: CustomerRoute) => {
             /* Our street behind the visit; the clock opens the real map. */
             backdrop={<StreetScene />}
             onOpenRealMap={onToggleRealMap}
+            /* The trade's own figure, in the work scene while he is in the home. */
+            proFigureUri={`./world/character_${DEPT_SHOP[departmentCodeByServiceId[trackedService.id ?? ""] ?? ""] ?? "home"}_icon.webp`}
             geo={geo}
             status={
               route.stage === "assigned"
@@ -3176,6 +3212,7 @@ const go = useCallback((r: CustomerRoute) => {
             <TrackingBody
               backdrop={<StreetScene />}
               onOpenRealMap={onToggleRealMap}
+              proFigureUri={`./world/character_${DEPT_SHOP[departmentCodeByServiceId[trackedService.id ?? ""] ?? ""] ?? "home"}_icon.webp`}
               geo={geo}
               // He is in the room and diagnosing; the price is what he
               // came out of the diagnosis with.
@@ -3948,6 +3985,7 @@ function ProApp({
   onQuoteSeen,
   onSeeAsCustomer,
   completionConfirmed,
+  onJobChange,
   onCompletionSeen,
   onReleaseJob,
   customerFaceUri,
@@ -4006,6 +4044,8 @@ function ProApp({
    */
   completionConfirmed?: boolean;
   onCompletionSeen?: () => void;
+  /** Tells the shell where the visit is, so the customer's side can follow. */
+  onJobChange?: (job: JobState | null) => void;
   /** The professional gave the job back. The customer has to be told. */
   onReleaseJob?: () => void;
   /**
@@ -4030,6 +4070,9 @@ function ProApp({
   const [offerAt, setOfferAt] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [job, setJob] = useState<JobState | null>(kept?.job ?? null);
+  useEffect(() => {
+    onJobChange?.(job);
+  }, [job]);
   const [proChat, setProChat] = useState<ChatMessage[]>(chatSeed);
   const [proView, setProView] = useState<null | "chat" | "presence" | "pricing" | "quote">(
     kept?.proView ?? null

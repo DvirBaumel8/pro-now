@@ -80,6 +80,20 @@ export interface ShiftServiceChip {
   live: boolean;
 }
 
+function ShiftClock({ baseMinutes, style }: { baseMinutes: number; style: object }) {
+  const [start] = React.useState(() => Date.now() - Math.max(0, baseMinutes) * 60_000);
+  const [now, setNow] = React.useState(() => Date.now());
+  React.useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const sec = Math.max(0, Math.floor((now - start) / 1000));
+  const hh = String(Math.floor(sec / 3600)).padStart(2, "0");
+  const mm = String(Math.floor((sec % 3600) / 60)).padStart(2, "0");
+  const ss = String(sec % 60).padStart(2, "0");
+  return <Text style={[style, { fontVariant: ["tabular-nums"] }]}>{hh}:{mm}:{ss}</Text>;
+}
+
 export interface ProShiftBodyProps {
   /** The city behind the status band, when the host can show it. Left out, the painted plate. */
   backdrop?: React.ReactNode;
@@ -273,7 +287,13 @@ export function ProShiftBody({
           <>
             <View style={styles.bigCard}>
               <Text style={styles.bigLabel}>מחובר כבר</Text>
-              <Text style={styles.bigValue}>{formatOnlineDuration(reading.onlineMinutes)}</Text>
+              {/*
+               * A clock that runs. Amit: *"שהוא עולה לזמינות יהיה שעון שרץ
+               * ולא שיהיה רשום פחות מדקה."* Seconds from the moment the shift
+               * is seen online, seeded with the minutes the reading already has.
+               */}
+              <ShiftClock baseMinutes={reading.onlineMinutes} style={styles.bigValue} />
+              {reading.onlineMinutes >= 1 ? <Text style={styles.bigSub}>{formatOnlineDuration(reading.onlineMinutes)}</Text> : null}
               <Text style={styles.bigSub}>
                 {reading.inProgressJobs > 0
                   ? "עבודה פעילה עכשיו — תיסגר בסיום"

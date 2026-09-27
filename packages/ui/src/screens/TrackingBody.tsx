@@ -108,6 +108,8 @@ export interface TrackingBodyProps {
    * real map (`geo`), which is the map, not a picture.
    */
   backdrop?: React.ReactNode;
+  /** The professional's trade figure, shown in the work scene while they are in the home. */
+  proFigureUri?: string | null;
   /**
    * The clock on the map opens the real map, where the professional's
    * vehicle is drawn on the route. Amit: *"שעון בצד שמראה זמן וקילומטר,
@@ -205,25 +207,88 @@ export interface TrackingBodyProps {
   height?: number;
 }
 
-function CustomerWorkClock({ status, top }: { status: JobState; top: number }) {
-  const [since] = useState(() => Date.now());
+/*
+ * ---------------------------------------------------------------------
+ * WHILE HE IS IN YOUR HOME, THE SCREEN IS ABOUT THE WORK
+ * ---------------------------------------------------------------------
+ * Amit, on the map that kept showing the van "on the way" during the
+ * repair: *"לא יכול להיות בזמן המתנה לעבודה רואים אותו עדיין בדרך אלייך.
+ * צריך להיות שם מסך של תהליך עבודה."* From arrival to the customer's
+ * sign-off the top of the screen is the visit itself: who is there, what
+ * step it is at, a running clock, and the steps still to come.
+ */
+const ON_SITE: readonly JobState[] = ["PRO_ARRIVED", "DIAGNOSIS", "WAITING_QUOTE_APPROVAL", "IN_PROGRESS", "COMPLETION_PENDING"];
+function workHeadlineHe(status: JobState, first: string): { title: string; sub: string } {
+  switch (status) {
+    case "PRO_ARRIVED": return { title: `${first} הגיע אליכם`, sub: "עוד רגע מתחילים לבדוק" };
+    case "DIAGNOSIS": return { title: `${first} בודק את התקלה`, sub: "בסוף הבדיקה תקבלו הצעת מחיר מפורטת" };
+    case "WAITING_QUOTE_APPROVAL": return { title: "הצעת מחיר מחכה לאישורכם", sub: "העבודה מתחילה רק אחרי שתאשרו" };
+    case "IN_PROGRESS": return { title: "עובדים על התיקון", sub: "לפי ההצעה שאישרתם" };
+    default: return { title: "העבודה הסתיימה", sub: "מחכה לאישור שלכם" };
+  }
+}
+/* When the professional came in — kept across the visit's screens, so the
+   clock counts the whole time in the home and not each step afresh. */
+const visitStart = { at: 0 };
+function WorkScene({ status, firstName, figureUri, width, height }: { status: JobState; firstName: string; figureUri: string | null; width: number; height: number }) {
+  const [since] = useState(() => {
+    if (!visitStart.at) visitStart.at = Date.now();
+    return visitStart.at;
+  });
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
+  const pulse = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const a = Animated.loop(Animated.sequence([
+      Animated.timing(pulse, { toValue: 1, duration: 1200, useNativeDriver: true }),
+      Animated.timing(pulse, { toValue: 0, duration: 1200, useNativeDriver: true }),
+    ]));
+    a.start();
+    return () => a.stop();
+  }, [pulse]);
   const sec = Math.max(0, Math.floor((now - since) / 1000));
-  const mm = String(Math.floor(sec / 60)).padStart(2, "0"), ss = String(sec % 60).padStart(2, "0");
+  const clock = `${String(Math.floor(sec / 60)).padStart(2, "0")}:${String(sec % 60).padStart(2, "0")}`;
+  const { title, sub } = workHeadlineHe(status, firstName);
+  const done = status === "COMPLETION_PENDING";
+  /* The trade's waist-up portrait: it reads at this size, and a full
+     figure's feet would sit under the sheet anyway. */
+  const figH = Math.round(height * 0.5);
   return (
-    <View style={[styles.etaClock, { top, borderColor: "rgba(47,191,138,0.6)" }]} pointerEvents="none">
-      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#2FBF8A", opacity: sec % 2 ? 0.35 : 1, marginBottom: 4 }} />
-      <Text style={[styles.etaClockMin, { fontSize: scale.section }]}>{mm}:{ss}</Text>
-      <Text style={styles.etaClockHint}>{status === "DIAGNOSIS" ? "בבדיקה" : "בעבודה"}</Text>
+    <View style={[styles.work, { width, height }]}>
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.workGlow, { opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.35, 0.7] }) }]}
+      />
+      {figureUri ? (
+        <Animated.Image
+          source={{ uri: figureUri }}
+          resizeMode="contain"
+          style={{
+            position: "absolute", left: 6, top: Math.round(height * 0.2), width: Math.round(figH * 0.68), height: figH,
+            transform: [{ translateY: pulse.interpolate({ inputRange: [0, 1], outputRange: [0, -4] }) }],
+          }}
+        />
+      ) : null}
+      <View style={[styles.workText, { left: figureUri ? Math.round(figH * 0.68) + 8 : 18 }]}>
+        <View style={styles.workChip}>
+          <Text style={styles.workChipText}>{done ? "✓ בבית שלכם" : "● בבית שלכם עכשיו"}</Text>
+        </View>
+        <Text style={styles.workTitle}>{title}</Text>
+        <Text style={styles.workSub}>{sub}</Text>
+        <View style={styles.workClockRow}>
+          <Text style={styles.workClock}>{clock}</Text>
+          <Text style={styles.workClockHint}>{done ? "זמן הביקור" : "זמן בבית שלכם"}</Text>
+        </View>
+      </View>
     </View>
   );
 }
 
 export function TrackingBody({
+  proFigureUri = null,
   backdrop,
   onOpenRealMap,
   geo = null,
@@ -493,8 +558,17 @@ export function TrackingBody({
           trip, and where they physically are is not claimed. The line under
           the map says so, and it stays until a maps vendor is chosen.
           --------------------------------------------------------------- */}
+      {ON_SITE.includes(status) ? null : ((visitStart.at = 0), null)}
       <View style={{ width, height: mapH, overflow: "hidden" }}>
-        {backdrop && !geo ? (
+        {ON_SITE.includes(status) ? (
+          <WorkScene
+            status={status}
+            firstName={professional.displayName.split(" ")[0] ?? ""}
+            figureUri={proFigureUri}
+            width={width}
+            height={mapH}
+          />
+        ) : backdrop && !geo ? (
           backdrop
         ) : worldSources ? (
           <>
@@ -746,9 +820,7 @@ export function TrackingBody({
         * sits still while he waits. A stopwatch from when this step began
         * on this screen; not a price and not an estimate.
         */}
-      {status === "IN_PROGRESS" || status === "DIAGNOSIS" ? (
-        <CustomerWorkClock status={status} top={Math.round(mapH * 0.22)} />
-      ) : null}
+      {/* On site the work scene carries the clock — see `WorkScene`. */}
 
       {onBack ? <BackButton onPress={onBack} tone="dark" /> : null}
 
@@ -808,7 +880,9 @@ export function TrackingBody({
         style={[
           styles.sheet,
           /* Pulled up, the visit takes nearly the whole screen. */
-          { maxHeight: sheetDrag.expanded ? height - 90 : height - mapH * (plan && !atWork && tripProgress !== null ? 0.9 : 0.42) },
+          /* On site the work scene above is the news, so the sheet starts low
+             enough to leave it on screen (it still scrolls and pulls up). */
+          { maxHeight: sheetDrag.expanded ? height - 90 : height - mapH * ((plan && !atWork && tripProgress !== null) || ON_SITE.includes(status) ? 0.9 : 0.42) },
           { transform: [{ translateY: sheetDrag.y }] },
         ]}
         onLayout={sheetDrag.measure}
@@ -1038,6 +1112,19 @@ function Act({
 }
 
 const styles = StyleSheet.create({
+  work: { backgroundColor: "#1B1226", overflow: "hidden" },
+  workGlow: {
+    position: "absolute", left: -60, top: -40, width: 320, height: 320, borderRadius: 160,
+    backgroundColor: "rgba(47,191,138,0.18)",
+  },
+  workText: { position: "absolute", right: 16, top: 66, alignItems: "flex-end" },
+  workChip: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, backgroundColor: "rgba(47,191,138,0.18)", marginBottom: 8 },
+  workChipText: { color: "#7FE3BC", fontSize: scale.micro, fontWeight: "800", writingDirection: "rtl" },
+  workTitle: { color: "#FFFFFF", fontSize: scale.section, fontWeight: "900", textAlign: "right", writingDirection: "rtl" },
+  workSub: { color: "rgba(247,243,250,0.75)", fontSize: scale.meta, textAlign: "right", writingDirection: "rtl", marginTop: 4 },
+  workClockRow: { marginTop: 12, alignItems: "flex-end" },
+  workClock: { color: "#FFFFFF", fontSize: scale.hero, fontWeight: "900", fontVariant: ["tabular-nums"] },
+  workClockHint: { color: "#7FE3BC", fontSize: scale.micro, fontWeight: "700", writingDirection: "rtl" },
   sheetDragZone: { alignSelf: "stretch", alignItems: "center", paddingVertical: 6, minHeight: 26 },
   proCardScrim: { position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: "rgba(8,6,14,0.55)", justifyContent: "center", padding: 22, zIndex: 20 },
   proCard: { backgroundColor: "#1b1624", borderRadius: 22, padding: 18, borderWidth: 1, borderColor: "rgba(255,255,255,0.12)" },
