@@ -2236,9 +2236,9 @@ const DRAWN_INTERIORS: ReadonlySet<string> = new Set(["build", "help", "move", "
 /* `tech` has no furniture cut out yet: its room is the drawn interior
    taken apart into walls (the back wall straight from the drawing, the
    side walls from its own shelving units), with nothing standing in it. */
-const BUILT_ROOMS: Readonly<Record<string, number>> = { hair: 5, lust: 3, home: 3, nails: 3, tech: 0, pets: 2, auto: 3 };
+const BUILT_ROOMS: Readonly<Record<string, number>> = { hair: 5, lust: 3, home: 3, nails: 3, tech: 0, pets: 2, auto: 3, appliance: 3 };
 /** The shops drawn open with their professional in the doorway (`venue_<id>`). */
-const VENUE_READY: ReadonlySet<string> = new Set(["hair", "home", "nails", "pets", "auto"]);
+const VENUE_READY: ReadonlySet<string> = new Set(["hair", "home", "nails", "pets", "auto", "appliance"]);
 /*
  * A SPONSOR'S PRODUCTS PAGE: THE BOUTIQUE WITH ITS SALESWOMAN.
  *
