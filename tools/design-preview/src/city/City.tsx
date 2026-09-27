@@ -505,7 +505,10 @@ export function City({
      * around 160 different drawings, none of them duplicates — which
      * is past what Safari allows a tab. See `make-light.mjs`.
      */
-    const editions = hd ? [""] : phone ? ["s/", "m/", ""] : ["m/", ""];
+    /* The desktop falls back to the phone edition too. A published
+       artifact holds at most 512 files, so the rooms added on
+       2026-09-28 are published in `s/` only (see make-light.mjs). */
+    const editions = hd ? [""] : phone ? ["s/", "m/", ""] : ["m/", "s/", ""];
     const load = (f: string) =>
       editions.reduce<Promise<THREE.Texture>>(
         (p, dir) => p.catch(() => fetchTex(base + dir + f)),
@@ -579,6 +582,19 @@ export function City({
        */
       const roomWave = Promise.all(
         SHOPS.map(async (sh) => {
+          /*
+           * A BUILT ROOM NEEDS NO POSTER. Every shop now has its own
+           * walls, floor and furniture (`BUILT_ROOMS`), and the single
+           * drawn interior was only the back wall of the fallback box —
+           * which now takes `room_<id>_back` instead. Not asking for it
+           * saves a large texture per shop, and a phone's memory is
+           * exactly what the rooms cost.
+           */
+          if (BUILT_ROOMS[sh.id] !== undefined) {
+            /* `interior` is also what says "this door walks you in". */
+            (sh as { interior?: string }).interior ??= `room_${sh.id}_back.webp`;
+            return;
+          }
           try {
             /* Only the trades whose single interior was drawn — see
                `DRAWN_INTERIORS`; the rest are asked for nothing. */
