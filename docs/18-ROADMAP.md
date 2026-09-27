@@ -215,6 +215,17 @@ It needs no calendar from professionals and invents no availability. A full
 availability calendar was rejected for now: it adds work for professionals
 and moves away from "now", which is the product's edge.
 
+### DECIDED 2026-09-27 — the preview demonstrates every service
+
+Amit: *"שיהיה אפשר לעשות הדגמה על כל חלקי האפליקציה — שלא יבחרו משהו לדוגמה
+ואז לא יעבוד."* The browser preview (`tools/design-preview`) opens every
+service for ordering — the pilot ones, the booked-for-later ones and the
+licensed ones (`demoOpenServiceIds`). This is a demonstration setting in the
+preview only: the catalogue's `activationStatus` is unchanged, the apps and
+the server still refuse them, and each still needs its decision before it is
+real (verification policy for personal-contact services, the request-for-later
+stage for scheduled work, licences for gas/doctor/vet/towing).
+
 ### DECIDED 2026-09-26 — each professional sets their own visit fee
 
 Amit, answering a tester who asked of the figure on the service page

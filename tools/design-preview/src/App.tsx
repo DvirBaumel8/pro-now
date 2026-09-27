@@ -1,3 +1,4 @@
+import { recognisePhoto } from "./recognise";
 import { isDaytime } from "./daylight";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, Linking, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
@@ -73,6 +74,8 @@ import { goBack, installBackGesture, pushBackEntry, readScroll, restoreScroll, s
 import { matchFixture, offerFixture } from "./fixtures";
 import {
   catalogHomeServices,
+  demoOpenServiceIds,
+  catalogHiddenServices,
   catalogMatchRules,
   catalogServicePages,
   departmentCodeByMark,
@@ -354,7 +357,17 @@ const REVIEW_PHASE_MS = 9000;
  * every service can also produce a page for every service, so the fallback
  * is gone along with the bug.
  */
-const SERVICE_PAGES = catalogServicePages;
+const SERVICE_PAGES: typeof catalogServicePages = Object.fromEntries(
+  Object.entries(catalogServicePages).map(([id, page]) => [
+    id,
+    /* A demonstration opens everything — see `demoOpenServiceIds`. */
+    demoOpenServiceIds.has(id) ? { ...page, comingSoon: false, scheduledOnly: false } : page,
+  ])
+);
+/* The same opening for the lists the service pages are reached from. */
+const HOME_SERVICES = [...catalogHomeServices, ...catalogHiddenServices].map((s2) =>
+  demoOpenServiceIds.has(s2.id) ? { ...s2, comingSoon: false, scheduledOnly: false, notInMarket: false } : s2
+);
 
 /**
  * What the professional in this prototype has actually had verified.
@@ -691,6 +704,7 @@ export function App() {
   const [proJobState, setProJobState] = useState<JobState | null>(null);
   /* "פנוי בעוד XX דקות", set on the professional's side and read on the customer's. */
   const [proAvailableAt, setProAvailableAt] = useState<number | null>(null);
+  const [proName, setProName] = useState<string | null>(null);
 
   /**
    * And the professional's, for exactly the same reason and a worse
@@ -1020,6 +1034,7 @@ export function App() {
             memory={customerMemory}
             proJobState={proJobState}
             proAvailableAtMs={proAvailableAt}
+            onProName={setProName}
             onConfirmCompletion={() => {
               setCompletionConfirmed(true);
               setReturnToPro(true);
@@ -1092,6 +1107,7 @@ export function App() {
             onJobChange={setProJobState}
             availableAtMs={proAvailableAt}
             onAvailableAtChange={setProAvailableAt}
+            selfNameHe={proName}
             onSeeAsCustomer={(what) => {
               /*
                * Two waits, two destinations. The quote is a screen of its
@@ -1267,6 +1283,7 @@ function CustomerApp({
   openStrollOnce,
   proJobState = null,
   proAvailableAtMs = null,
+  onProName,
   onStrollOpened,
   openAdvertiseOnce,
   onAdvertiseOpened,
@@ -1325,6 +1342,8 @@ function CustomerApp({
   proJobState?: JobState | null;
   /** When the professional said he will be free, if he did. */
   proAvailableAtMs?: number | null;
+  /** The name of the professional the customer accepted, for the other side. */
+  onProName?: (name: string | null) => void;
   /** A figure was just chosen because the street was asked for. */
   openStrollOnce?: boolean;
   onStrollOpened?: () => void;
@@ -1363,6 +1382,35 @@ function CustomerApp({
   const supply = readAvailability(snapshot, Date.now());
   const [tab, setTab] = useState<CustomerTab>("home");
   const capture = useCapture();
+  /* What the recording said, into the text box (see useCapture). */
+  const [dictated, setDictated] = useState<{ text: string; n: number } | null>(null);
+  useEffect(() => {
+    if (capture.transcript) setDictated((d) => ({ text: capture.transcript, n: (d?.n ?? 0) + 1 }));
+  }, [capture.transcript]);
+  /* What the photo shows, recognised (see recognise.ts). */
+  const [photoMatch, setPhotoMatch] = useState<{ serviceId: string | null; seenHe: string } | null>(null);
+  const [recognising, setRecognising] = useState(false);
+  const photoCount = capture.photos.length;
+  useEffect(() => {
+    if (photoCount === 0) {
+      setPhotoMatch(null);
+      return;
+    }
+    const files = capture.photos.map((ph) => ph.file).filter((f): f is Blob => !!f);
+    if (files.length === 0) return;
+    let live = true;
+    setRecognising(true);
+    void recognisePhoto(files, HOME_SERVICES.map((x) => ({ id: x.id, nameHe: x.nameHe }))).then((r) => {
+      if (!live) return;
+      setRecognising(false);
+      if (r) setPhotoMatch({ serviceId: r.serviceId, seenHe: r.problemHe });
+      if (r?.problemHe) setDictated((d) => ({ text: r.problemHe, n: (d?.n ?? 0) + 1 }));
+    });
+    return () => {
+      live = false;
+    };
+    // A new photo is the trigger; the list itself is read inside.
+  }, [photoCount]);
   /*
    * The last review session, read once. Everything seeded from it below is
    * an INPUT the person supplied; nothing about a live job is restored.
@@ -1487,6 +1535,18 @@ function CustomerApp({
   const [onTheWayAt, setOnTheWayAt] = useState<number | null>(null);
   /* Which of the found professionals is on the card — see `onAnother`. */
   const [pick, setPick] = useState(0);
+  /*
+   * ONE PROFESSIONAL, ONE NAME, ON EVERY SCREEN.
+   *
+   * The match card said "יוסי", the visit screens said "דוגמה א׳" and the
+   * professional's own app said "דוגמה ד׳" — three names for the person
+   * the customer had just said yes to. The name on the card they accepted
+   * is the name, everywhere after.
+   */
+  const [matchedName, setMatchedName] = useState<string | null>(null);
+  /* The name the first candidate had — the demo professional. */
+  const matchedFirstRef = useRef<string | null>(null);
+
   const [route, setRoute] = useState<CustomerRoute>(
     /*
      * A pin or a review cycle is an instruction about where to open and
@@ -1869,7 +1929,7 @@ function CustomerApp({
  * tap on one is to show what it contains and ask.
  */
 function servicesForCategory(category: { departments: readonly string[] }) {
-  return catalogHomeServices.filter((s2) =>
+  return HOME_SERVICES.filter((s2) =>
     category.departments.includes(departmentCodeByServiceId[s2.id] ?? "")
   );
 }
@@ -2199,14 +2259,39 @@ const go = useCallback((r: CustomerRoute) => {
    * photo, the server sends it and this is never consulted.
    */
   const trackedProfessional = useMemo(() => {
-    const base = matchFixture.professional;
+    /* The accepted professional's own record: the demo pro's if it was him, new otherwise. */
+    const isDemoPro = !matchedName || matchedName === matchedFirstRef.current;
+    const base = matchedName
+      ? {
+          ...matchFixture.professional,
+          displayName: matchedName,
+          ...(isDemoPro ? {} : { proNowRatingAverage: null, proNowRatingCount: 0, proNowCompletedJobs: 0 }),
+        }
+      : matchFixture.professional;
     const dept = trackedService.id ? departmentCodeByServiceId[trackedService.id] : null;
     const id = dept ? WORLD_DISTRICTS[dept]?.characterPortraitAssetId : null;
     const src = id ? art[id] : undefined;
     const uri =
       src && typeof src === "object" && "uri" in src && typeof src.uri === "string" ? src.uri : null;
     return uri ? { ...base, profilePhotoUrl: uri } : base;
-  }, [trackedService, art]);
+  }, [trackedService, art, matchedName]);
+
+  /*
+   * WHEN THE VISIT WAS, AND HOW LONG — measured, not written in. The
+   * receipt said "היום, 14:20 · 55 דקות" at every hour of the day.
+   */
+  const visitStartRef = useRef<number | null>(null);
+  if (route.name === "tracking" && route.stage !== "assigned" && route.stage !== "enroute" && visitStartRef.current === null) {
+    visitStartRef.current = Date.now();
+  }
+  if (route.name === "home") visitStartRef.current = null;
+  const visitWhenHe = (() => {
+    const start = visitStartRef.current;
+    if (start === null) return "היום";
+    const d = new Date(start);
+    const mins = Math.max(1, Math.round((Date.now() - start) / 60_000));
+    return `היום, ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")} · ${mins === 1 ? "דקה" : `${mins} דקות`}`;
+  })();
 
   /**
    * WHICH SHOP IS NEXT ALONG THE STREET.
@@ -2719,9 +2804,15 @@ const go = useCallback((r: CustomerRoute) => {
            * returns nothing and the sheet shows "חדש ב-PRO NOW" — which is
            * true of a professional nobody has hired yet.
            */
-          ratingAverage: c.ratingAverage,
-          ratingCount: c.ratingCount,
-          completedJobs: c.completedJobs,
+          /*
+           * The first candidate IS the demo professional — the one whose
+           * profile, tracking card and own app the demo then shows — so he
+           * carries that record here too. The card said "חדש ב-PRO NOW"
+           * about a man whose profile says 342 jobs. The others stay new.
+           */
+          ratingAverage: i === 0 ? matchFixture.professional.proNowRatingAverage : c.ratingAverage,
+          ratingCount: i === 0 ? matchFixture.professional.proNowRatingCount : c.ratingCount,
+          completedJobs: i === 0 ? matchFixture.professional.proNowCompletedJobs : c.completedJobs,
           state:
             route.phase === "SEARCHING"
               ? ("CHECKING" as const)
@@ -2853,6 +2944,10 @@ const go = useCallback((r: CustomerRoute) => {
               if (action === "PLAY_MORE" || action === "WHILE_YOU_WAIT") strollDoor?.();
             }}
             onAccept={() => {
+              const chosen = cands[pick % cands.length]?.displayNameHe ?? null;
+              matchedFirstRef.current = cands[0]?.displayNameHe ?? null;
+              setMatchedName(chosen);
+              onProName?.(chosen);
               setOnTheWayAt(Date.now());
               go({ name: "living", serviceId: route.serviceId, phase: "ASSIGNED_ROUTE" });
             }}
@@ -3347,7 +3442,7 @@ const go = useCallback((r: CustomerRoute) => {
             serviceNameHe={trackedService.nameHe}
             mark={trackedService.mark}
             professionalDisplayName={matchFixture.professional.displayName}
-            whenHe="היום, 14:20 · 55 דקות"
+            whenHe={visitWhenHe}
             /*
              * The receipt is the quote that was approved on this visit —
              * the same lines and the same total the customer agreed to a
@@ -3377,7 +3472,7 @@ const go = useCallback((r: CustomerRoute) => {
             serviceNameHe={trackedService.nameHe}
             mark={trackedService.mark}
             professionalDisplayName={matchFixture.professional.displayName}
-            whenHe="היום, 14:20 · 55 דקות"
+            whenHe={visitWhenHe}
             /*
              * THE AMOUNT THAT WAS APPROVED, not a number on this screen.
              *
@@ -3442,11 +3537,14 @@ const go = useCallback((r: CustomerRoute) => {
             greetingHe={greetingAt(new Date())}
             addressLabelHe={addressLabel}
             onChangeAddress={() => go({ name: "address" })}
-            services={catalogHomeServices}
+            services={HOME_SERVICES}
             recent={homeRecent}
             availability={snapshot}
             nowMs={Date.now()}
             matchRules={catalogMatchRules}
+            injectedText={dictated}
+            photoMatch={photoMatch}
+            recognising={recognising}
             /*
              * The microphone and the camera are REAL here — the same
              * `useCapture` the describe screen uses, so what the customer
@@ -3493,7 +3591,7 @@ const go = useCallback((r: CustomerRoute) => {
             liveLineHe={liveAreaLineHe({
               fresh: supply.fresh,
               areaLabel: supply.areaLabel,
-              services: catalogHomeServices.map((s2) => ({
+              services: HOME_SERVICES.map((s2) => ({
                 hasSupply: (supply.supplyFor(s2.id).count ?? 0) > 0,
               })),
             })}
@@ -4015,6 +4113,7 @@ function ProApp({
   onJobChange,
   availableAtMs = null,
   onAvailableAtChange,
+  selfNameHe = null,
   onCompletionSeen,
   onReleaseJob,
   customerFaceUri,
@@ -4077,6 +4176,8 @@ function ProApp({
   onJobChange?: (job: JobState | null) => void;
   availableAtMs?: number | null;
   onAvailableAtChange?: (at: number | null) => void;
+  /** Who this professional is, as the customer saw him. */
+  selfNameHe?: string | null;
   /** The professional gave the job back. The customer has to be told. */
   onReleaseJob?: () => void;
   /**
@@ -4711,7 +4812,7 @@ function ProApp({
       />
     ) : (
     <ProVerificationBody
-      displayNameHe="דוגמה ד׳ (תצוגה)"
+      displayNameHe={selfNameHe ?? "יוסי (תצוגה)"}
       steps={verificationSteps}
       services={proEligibility}
       onOpenStep={(id) => setOpenStepId(id)}
@@ -4898,7 +4999,7 @@ function ProApp({
        */
       <ProOnlineBody
         presenceState={presence}
-        displayNameHe="דוגמה ד׳ (תצוגה)"
+        displayNameHe={selfNameHe ?? "יוסי (תצוגה)"}
         todayNetMinorUnits={presence === "AVAILABLE" ? 48200 : 0}
         todayJobCount={presence === "AVAILABLE" ? 3 : 0}
         services={proServices}
@@ -4935,7 +5036,7 @@ function ProApp({
         /* The professional's city is ours, not the old plate. */
         backdrop={<CityHero />}
         geo={proGeo}
-        displayNameHe="דוגמה ד׳ (תצוגה)"
+        displayNameHe={selfNameHe ?? "יוסי (תצוגה)"}
         presenceState={presence}
         shift={{
           onlineSinceMs: onlineSince,

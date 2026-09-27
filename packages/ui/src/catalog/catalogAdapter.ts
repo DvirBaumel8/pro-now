@@ -265,7 +265,8 @@ const departmentMarkOf: Record<string, MarkName> = Object.fromEntries(
   )
 );
 
-export const catalogHomeServices: HomeServiceItem[] = [...live, ...browse].map((s) => ({
+function toHomeItem(s: CatalogServiceDef): HomeServiceItem {
+  return {
   id: s.id,
   nameHe: s.nameHe,
   mark: s.mark as MarkName,
@@ -284,7 +285,19 @@ export const catalogHomeServices: HomeServiceItem[] = [...live, ...browse].map((
   notInMarket: notInMarketIds.has(s.id),
   availableNowCount: null,
   priceHint: priceHint(s),
-}));
+  };
+}
+
+export const catalogHomeServices: HomeServiceItem[] = [...live, ...browse].map(toHomeItem);
+
+/**
+ * The services the customer lists leave out (INACTIVE: gas, doctor, vet,
+ * towing), for a DEMONSTRATION that shows every part of the product — see
+ * `demoOpenServiceIds`. Never part of the real lists.
+ */
+export const catalogHiddenServices: HomeServiceItem[] = allServices(pilotCatalog)
+  .filter((s) => !catalogHomeServices.some((h) => h.id === s.id))
+  .map(toHomeItem);
 
 /** Only the NOW services, for the compact "what can I get right now" grid. */
 export const catalogNowServices: HomeServiceItem[] = catalogHomeServices.filter((s) =>
@@ -383,7 +396,12 @@ export const catalogServicePages: Record<string, ServicePage> = Object.fromEntri
       price: priceFor(s),
       availableNowCount: null,
       requiredCredentialsHe: credentialsHe(s),
-      comingSoon: s.activationStatus === "PILOT" && s.fulfillmentProfile !== "SCHEDULED_ONLY",
+      /* INACTIVE too: a licensed service nobody has signed up for is not
+         something to dispatch just because its supply is unknown. */
+      comingSoon:
+        (s.activationStatus === "PILOT" && s.fulfillmentProfile !== "SCHEDULED_ONLY") ||
+        s.activationStatus === "INACTIVE",
+      scheduledOnly: s.fulfillmentProfile === "SCHEDULED_ONLY",
     } satisfies ServicePage,
   ])
 );
@@ -396,6 +414,21 @@ export const catalogServicePages: Record<string, ServicePage> = Object.fromEntri
  * and the app routes them to a service that is no longer offered — or to
  * nothing at all, while the service sits right there on the home screen.
  */
+/**
+ * Every service a DEMONSTRATION opens although it is not open for real.
+ *
+ * Amit, 2026-09-27: *"שיהיה אפשר לעשות הדגמה על כל חלקי האפליקציה — שלא
+ * יבחרו משהו לדוגמה ואז לא יעבוד."* So the preview dispatches every
+ * service now. The catalogue is unchanged: which checks a pilot service
+ * needs is still an open decision (/CLAUDE.md §4), booked-for-later work
+ * waits for the next stage, and licensed services wait for their licences.
+ */
+export const demoOpenServiceIds: ReadonlySet<string> = new Set(
+  allServices(pilotCatalog)
+    .filter((s) => s.activationStatus !== "ACTIVE")
+    .map((s) => s.id)
+);
+
 export const catalogMatchRules: ServiceMatchRule[] = allServices(pilotCatalog)
   .filter((s) => s.activationStatus !== "INACTIVE")
   .map((s) => ({ serviceId: s.id, keywords: s.keywordsHe }));

@@ -42,6 +42,10 @@ export interface IntentSuggestionsProps {
   /** True when a recording or a photo is held but nothing matched. */
   hasMedia?: boolean;
   hasText?: boolean;
+  /** A photo is being looked at right now. */
+  recognising?: boolean;
+  /** What was seen in the photo, in one sentence — shown above the match. */
+  seenHe?: string | null;
   onPick?: (serviceId: string) => void;
   onBrowse?: () => void;
   width: number;
@@ -51,6 +55,8 @@ export function IntentSuggestions({
   matches,
   hasMedia = false,
   hasText = false,
+  recognising = false,
+  seenHe = null,
   onPick,
   onBrowse,
   width,
@@ -60,6 +66,15 @@ export function IntentSuggestions({
 
   if (!best && !hasText && !hasMedia) return null;
 
+  if (!best && recognising) {
+    return (
+      <View style={[styles.wrap, { width }]}>
+        <Text style={styles.lead}>מזהים מה בתמונה…</Text>
+        <Text style={styles.note}>שנייה — מסתכלים על הצילום ומתאימים את השירות.</Text>
+      </View>
+    );
+  }
+
   if (!best) {
     return (
       <View style={[styles.wrap, { width }]}>
@@ -68,7 +83,7 @@ export function IntentSuggestions({
         </Text>
         <Text style={styles.note}>
           {hasMedia
-            ? "ההקלטה והתמונות יישלחו יחד עם הקריאה, והמקצוען יראה אותן לפני שהוא יוצא. התאמה אוטומטית מתוך קול ותמונה עוד לא פעילה — בינתיים בוחרים קטגוריה."
+            ? "ההקלטה והתמונות יישלחו יחד עם הקריאה, והמקצוען יראה אותן לפני שהוא יוצא. אפשר לבחור את השירות מהקטגוריות למטה."
             : "אפשר לנסח אחרת, או לבחור קטגוריה למטה."}
         </Text>
         {onBrowse ? (
@@ -82,6 +97,7 @@ export function IntentSuggestions({
 
   return (
     <View style={[styles.wrap, { width }]}>
+      {seenHe ? <Text style={styles.note}>בתמונה: {seenHe}</Text> : null}
       <Text style={styles.lead}>נראה שזה:</Text>
 
       <PrimaryAction

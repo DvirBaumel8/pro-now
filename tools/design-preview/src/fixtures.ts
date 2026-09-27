@@ -22,7 +22,7 @@ export const matchFixture: JobMatchView = {
   serviceNameHe: "תיקון נזילה בברז",
   professional: {
     id: "pro_preview_1",
-    displayName: "דוגמה א׳ (תצוגה)",
+    displayName: "יוסי (תצוגה)",
     profilePhotoUrl: null,
     verifications: ["IDENTITY_VERIFIED", "BUSINESS_VERIFIED", "LICENSE_VERIFIED"],
     proNowCompletedJobs: 342,

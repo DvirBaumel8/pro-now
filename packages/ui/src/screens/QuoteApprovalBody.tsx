@@ -366,7 +366,7 @@ export function QuoteApprovalBody({
 
         {/* Provenance, in the smallest type the system has. */}
         <Text style={styles.hashText} numberOfLines={2}>
-          גרסה {quote.version} · {quote.versionHash.slice(0, 10)} — האישור נצמד לגרסה הזו בלבד.
+          גרסה {quote.version} של ההצעה — האישור שלכם הוא לגרסה הזו בלבד. אם המקצוען ישנה משהו, תתבקשו לאשר שוב.
         </Text>
 
       </ScrollView>

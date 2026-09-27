@@ -24,6 +24,21 @@ export interface CapturedPhoto {
   id: string;
   uri: string | null;
   subjectHe: string;
+  /** The picture itself, for recognising what is in it. */
+  file?: Blob;
+}
+
+/* The browser's own speech-to-text, where it has one (Chrome, Safari). */
+type SpeechRec = {
+  lang: string; continuous: boolean; interimResults: boolean;
+  onresult: ((e: { resultIndex: number; results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal: boolean }> }) => void) | null;
+  onerror: (() => void) | null; onend: (() => void) | null;
+  start: () => void; stop: () => void;
+};
+function speechCtor(): (new () => SpeechRec) | null {
+  if (typeof window === "undefined") return null;
+  const w = window as unknown as { SpeechRecognition?: new () => SpeechRec; webkitSpeechRecognition?: new () => SpeechRec };
+  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
 }
 
 export interface CapturedVoice {
@@ -36,6 +51,18 @@ export function useCapture() {
   const [voice, setVoice] = useState<CapturedVoice | null>(null);
   const [recording, setRecording] = useState(false);
   const [recordSeconds, setRecordSeconds] = useState(0);
+  /*
+   * WHAT WAS SAID, IN WORDS.
+   *
+   * Amit: *"כולל זיהוי קולי של ההקלטות — שיהיה אפשר להקליט מה הבעיה."* While
+   * the recording runs, the browser's speech recogniser (Hebrew) writes it
+   * out, and the words go where typing would — so the recording finds its
+   * service the same way a typed sentence does. Where the browser has no
+   * recogniser the recording is still kept, and nothing pretends.
+   */
+  const [transcript, setTranscript] = useState("");
+  const canTranscribe = speechCtor() !== null;
+  const speechRef = useRef<SpeechRec | null>(null);
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
@@ -121,6 +148,30 @@ export function useCapture() {
       setRecordSeconds(0);
       rec.start();
       setRecording(true);
+      const Ctor = speechCtor();
+      if (Ctor) {
+        try {
+          const sr = new Ctor();
+          sr.lang = "he-IL";
+          sr.continuous = true;
+          sr.interimResults = true;
+          let finalText = "";
+          sr.onresult = (ev) => {
+            let interim = "";
+            for (let i = ev.resultIndex; i < ev.results.length; i++) {
+              const r = ev.results[i]!;
+              if (r.isFinal) finalText += r[0]!.transcript + " ";
+              else interim += r[0]!.transcript;
+            }
+            setTranscript((finalText + interim).trim());
+          };
+          sr.onerror = () => {};
+          sr.start();
+          speechRef.current = sr;
+        } catch {
+          speechRef.current = null;
+        }
+      }
     } catch (e) {
       // Permission refused, or no microphone. Saying which is the whole
       // point: "לא אושרה גישה" is something a person can act on, and a
@@ -155,12 +206,17 @@ export function useCapture() {
   }, [canRecord, recordBlockedHe]);
 
   const stopRecord = useCallback(() => {
+    try { speechRef.current?.stop(); } catch { /* already stopped */ }
+    speechRef.current = null;
     recorderRef.current?.stop();
     recorderRef.current = null;
     setRecording(false);
   }, []);
 
-  const deleteVoice = useCallback(() => setVoice(null), []);
+  const deleteVoice = useCallback(() => {
+    setVoice(null);
+    setTranscript("");
+  }, []);
 
   /**
    * Open this page in a tab of its own.
@@ -237,7 +293,7 @@ export function useCapture() {
           ...files.map((file, i) => {
             const url = URL.createObjectURL(file);
             objectUrls.current.push(url);
-            return { id: `${Date.now()}-${i}`, uri: url, subjectHe: "תמונה מהגלריה" };
+            return { id: `${Date.now()}-${i}`, uri: url, subjectHe: "תמונה מהגלריה", file };
           }),
         ]);
         return;
@@ -267,6 +323,7 @@ export function useCapture() {
           id: `${Date.now()}-${i}`,
           uri: url,
           subjectHe: source === "camera" ? "תמונה שצילמת" : "תמונה מהגלריה",
+          file,
         };
       });
       setPhotos((cur) => [...cur, ...added]);
@@ -288,11 +345,14 @@ export function useCapture() {
   const reset = useCallback(() => {
     setPhotos([]);
     setVoice(null);
+    setTranscript("");
     setRecordSeconds(0);
     setRecordError(null);
   }, []);
 
   return {
+    transcript,
+    canTranscribe,
     photos,
     voice,
     recording,

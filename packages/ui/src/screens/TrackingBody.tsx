@@ -881,8 +881,10 @@ export function TrackingBody({
           styles.sheet,
           /* Pulled up, the visit takes nearly the whole screen. */
           /* On site the work scene above is the news, so the sheet starts low
-             enough to leave it on screen (it still scrolls and pulls up). */
-          { maxHeight: sheetDrag.expanded ? height - 90 : height - mapH * ((plan && !atWork && tripProgress !== null) || ON_SITE.includes(status) ? 0.9 : 0.42) },
+             enough to leave it on screen (it still scrolls and pulls up) —
+             except at the end, when the sheet holds the one thing to do:
+             confirm and pay. On a small phone that button sat under the fold. */
+          { maxHeight: sheetDrag.expanded ? height - 90 : height - mapH * ((plan && !atWork && tripProgress !== null) || (ON_SITE.includes(status) && status !== "COMPLETION_PENDING") ? 0.9 : 0.42) },
           { transform: [{ translateY: sheetDrag.y }] },
         ]}
         onLayout={sheetDrag.measure}

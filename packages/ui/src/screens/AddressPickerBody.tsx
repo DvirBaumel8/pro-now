@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 
-import { BackButton } from "../components/BackButton";
+import { BackButton, BACK_BUTTON_CLEARANCE } from "../components/BackButton";
 import { customerTheme, elevation, radii, scale, spacing, tint, type } from "../theme";
 import { ClockMark, PinMark, ShieldCheckMark } from "../components/marks";
 import { Persona } from "../components/Persona";
@@ -302,7 +302,8 @@ const styles = StyleSheet.create({
   screen: { backgroundColor: colors.bg, overflow: "hidden", borderRadius: radii.xl },
   scroll: { paddingBottom: 116 },
 
-  head: { paddingHorizontal: spacing.lg, paddingTop: spacing.xxl, alignItems: "flex-end" },
+  /* Clear of the back button, which sat on the title's last word. */
+  head: { paddingHorizontal: spacing.lg, paddingTop: BACK_BUTTON_CLEARANCE, alignItems: "flex-end" },
   // 44x44 minimum. A 25px chevron is a control most thumbs miss, which
   // is the same defect that made the demo bar unhittable.
   title: { ...type.h1, color: colors.textPrimary, writingDirection: "rtl", textAlign: "right" },

@@ -324,8 +324,10 @@ export const availabilitySnapshot: AreaAvailabilityView = {
     // Thin supply, said plainly rather than dressed up as plenty.
     { serviceId: "svc-lock", state: "LIMITED", availableProviderCount: 1, nearestRouteEtaMinutes: 22 },
     { serviceId: "svc-washer", state: "LIMITED", availableProviderCount: 1, nearestRouteEtaMinutes: 35 },
-    // Checked, and there is genuinely nobody — different from unknown.
-    { serviceId: "svc-ac", state: "UNAVAILABLE", availableProviderCount: 0, reasonCode: "NO_ELIGIBLE_SUPPLY" },
+    { serviceId: "svc-ac", state: "AVAILABLE", availableProviderCount: 2, nearestRouteEtaMinutes: 28 },
+    // No service is reported as "nobody available" in the demo: Amit wants
+    // every choice to work end to end. The UNAVAILABLE state is still
+    // rendered and tested (packages/ui tests, the gallery).
     // Deliberately left out of the snapshot entirely: svc-pest. The server
     // did not report it, which must read as "לא ידוע" and never as zero.
   ],

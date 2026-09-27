@@ -149,6 +149,15 @@ export interface CustomerHomeBodyProps {
    * entirely — a search that matches nothing is worse than no search.
    */
   matchRules?: ServiceMatchRule[];
+  /**
+   * Words that arrived from outside the text box — what a recording said,
+   * written out. Each new `n` replaces the text with `text`.
+   */
+  injectedText?: { text: string; n: number } | null;
+  /** A service recognised from a photo, first in the suggestions. */
+  photoMatch?: { serviceId: string | null; seenHe: string } | null;
+  /** A photo is being recognised. */
+  recognising?: boolean;
   /** Total professionals online, for callers with no snapshot yet. */
   totalAvailableNow?: number | null;
   onSelectService?: (id: string) => void;
@@ -264,6 +273,9 @@ export function CustomerHomeBody({
   availability,
   nowMs,
   matchRules,
+  injectedText = null,
+  photoMatch = null,
+  recognising = false,
   totalAvailableNow,
   onSelectService,
   onChangeAddress,
@@ -340,11 +352,18 @@ export function CustomerHomeBody({
     [services, dept]
   );
 
+  useEffect(() => {
+    if (injectedText && injectedText.text) setQuery(injectedText.text);
+    // Only a new injection moves the box, never a re-render.
+  }, [injectedText?.n]);
+
   const matched = useMemo(() => {
-    if (!matchRules || query.trim().length < 2) return null;
-    const ids = matchServicesByText(query, matchRules).map((m) => m.serviceId);
+    const fromPhoto = photoMatch?.serviceId ? [photoMatch.serviceId] : [];
+    const fromText = matchRules && query.trim().length >= 2 ? matchServicesByText(query, matchRules).map((m) => m.serviceId) : [];
+    if (fromPhoto.length === 0 && (!matchRules || query.trim().length < 2)) return null;
+    const ids = [...fromPhoto, ...fromText.filter((id) => !fromPhoto.includes(id))];
     return ids.map((id) => services.find((s) => s.id === id)).filter(Boolean) as HomeServiceItem[];
-  }, [query, matchRules, services]);
+  }, [query, matchRules, services, photoMatch]);
 
   /**
    * The match, dressed with live supply.
@@ -688,6 +707,8 @@ export function CustomerHomeBody({
               matches={suggestions}
               hasText={hasText}
               hasMedia={hasMedia}
+              recognising={recognising}
+              seenHe={photoMatch?.seenHe ?? null}
               onPick={(id) => onSelectService?.(id)}
               onBrowse={() => setQuery("")}
             />

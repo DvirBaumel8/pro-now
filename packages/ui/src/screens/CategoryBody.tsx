@@ -284,7 +284,17 @@ const styles = StyleSheet.create({
   // Was `marginTop`, when this block was the last thing on the screen.
   // Leading instead, it needs the space BELOW it — between itself and the
   // list it is an alternative to.
-  other: { marginBottom: spacing.xl, gap: spacing.sm },
+  /* On its own panel: the street art behind it showed through the box and
+     the send button, and the shopkeeper stood behind "שליחה". */
+  other: {
+    marginBottom: spacing.xl,
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radii.xl,
+    backgroundColor: "rgba(18,12,26,0.86)",
+    borderWidth: 1,
+    borderColor: "rgba(247,243,250,0.08)",
+  },
   otherLabel: { ...type.captionStrong, color: colors.textSecondary, textAlign: "right", writingDirection: "rtl" },
   otherRow: { flexDirection: "row-reverse", alignItems: "flex-end", gap: spacing.sm },
   otherInput: {
@@ -309,7 +319,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  otherSendOff: { opacity: 0.4 },
+  otherSendOff: { backgroundColor: "rgba(255,107,74,0.35)" },
   otherSendText: { ...type.bodyStrong, color: palette.night900 },
   otherHint: { ...type.caption, color: colors.textSecondary, textAlign: "right", writingDirection: "rtl" },
   screen: { backgroundColor: palette.night900, overflow: "hidden", borderRadius: radii.xl },

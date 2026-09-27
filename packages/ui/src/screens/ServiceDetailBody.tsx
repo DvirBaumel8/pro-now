@@ -91,6 +91,13 @@ export interface ServiceDetailBodyProps {
    */
   comingSoon?: boolean;
   /**
+   * Work that is booked for a time, not dispatched now (painting, tiling,
+   * mounting a TV). Ordering for a chosen time is the agreed next stage
+   * (ROADMAP, 2026-09-27), so until it is built the page says so plainly
+   * instead of dispatching somebody "now" to lay tiles.
+   */
+  scheduledOnly?: boolean;
+  /**
    * Receives the tapped symptoms and anything typed beside them.
    *
    * The chips were the ONLY vocabulary this screen had, and a closed list
@@ -124,7 +131,8 @@ export function ServiceDetailBody({
   price,
   availableNowCount,
   requiredCredentialsHe,
-  comingSoon,
+  comingSoon: comingSoonIn,
+  scheduledOnly = false,
   onRequestNow,
   onRecheck,
   onBack,
@@ -132,7 +140,14 @@ export function ServiceDetailBody({
   height = 780,
 }: ServiceDetailBodyProps) {
   const explainer = priceExplainer(price, { stage: "service" });
-  const canDispatch = !comingSoon && availableNowCount !== null && availableNowCount > 0;
+  const comingSoon = comingSoonIn || scheduledOnly;
+  /*
+   * Unknown is not zero. The page says "נבדוק זמינות כששולחים" when the
+   * server has not reported this service — and offered no way to send, so
+   * the promise led nowhere. Unknown dispatches and the search checks;
+   * only a reported zero stops here.
+   */
+  const canDispatch = !comingSoon && (availableNowCount === null || availableNowCount > 0);
   const [picked, setPicked] = useState<string[]>([]);
   const [note, setNote] = useState("");
   const toggle = (sx: string) =>
@@ -187,7 +202,7 @@ export function ServiceDetailBody({
           {/* Supply — real or absent, never implied. */}
           {availableNowCount === null ? (
             <Text style={styles.supplyQuiet}>
-              {comingSoon ? "השירות ייפתח בקרוב" : "נבדוק זמינות כששולחים"}
+              {scheduledOnly ? "שירות בתיאום מראש — ההזמנה לשעה שתבחרו נפתחת בקרוב" : comingSoon ? "השירות ייפתח בקרוב" : "נבדוק זמינות כששולחים"}
             </Text>
           ) : availableNowCount === 0 ? (
             <Text style={[styles.supplyQuiet, { color: colors.statusWarningText }]}>
@@ -372,7 +387,9 @@ export function ServiceDetailBody({
         <Text style={styles.ctaNote}>
           {canDispatch
             ? "לא מחויב עד שתאשר את ההתאמה"
-            : comingSoon
+            : scheduledOnly
+              ? "עבודה שמתאמים מראש — לא שולחים מקצוען ״עכשיו״"
+              : comingSoon
               ? "השירות קיים בקטלוג ועדיין לא נפתח להזמנה"
               : "הזמינות משתנה לאורך היום"}
         </Text>
