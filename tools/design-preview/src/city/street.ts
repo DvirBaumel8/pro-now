@@ -250,7 +250,7 @@ export const OPTIONAL_ART: readonly string[] = [
   ...CITY_FLEET_IDS.filter((id) => /_(front|back)$/.test(id)),
   /* A shop redrawn with a see-into window has no relief map any more —
      asking for one was three wasted round trips per shop on a phone. */
-  ...CITY_HEIGHT_IDS.filter((id) => !/^shop_(hair|home|nails|lust)_height$/.test(id)),
+  ...CITY_HEIGHT_IDS.filter((id) => !/^shop_(hair|home|nails|lust|pets)_height$/.test(id)),
   ...CITY_LAYERED_BUILDING_IDS,
   ...CITY_ROOF_IDS,
   ...CITY_TREE_IDS,
@@ -1899,6 +1899,14 @@ export function buildStreet(
       mullions: [1670 / 3400],
       door: 2710 / 3400,
       stripe: "#2c3e66",
+    },
+    /* Measured on `shop_pets.webp` (1254 x 1254). */
+    pets: {
+      glass: [230 / 1254, 1028 / 1254, 770 / 1254, 1182 / 1254],
+      awning: [188 / 1254, 1066 / 1254, 675 / 1254, 772 / 1254],
+      mullions: [505 / 1254, 752 / 1254],
+      door: 627 / 1254,
+      stripe: "#2f6b4a",
     },
     lust: {
       glass: [309 / 1536, 1233 / 1536, 376 / 1024, 902 / 1024],
