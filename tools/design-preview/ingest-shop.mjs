@@ -34,12 +34,34 @@ const p = await b.newPage();
 await p.goto("about:blank");
 
 /** key: remove green; split: cut into pieces by empty columns. */
-const run = (file, { key, split }) =>
-  p.evaluate(async ({ b64, key, split }) => {
+const run = (file, { key, split, trim }) =>
+  p.evaluate(async ({ b64, key, split, trim }) => {
     const im = new Image(); im.src = "data:image/png;base64," + b64; await im.decode();
-    const W = im.naturalWidth, H = im.naturalHeight;
-    const c = document.createElement("canvas"); c.width = W; c.height = H;
-    const g = c.getContext("2d", { willReadFrequently: true }); g.drawImage(im, 0, 0);
+    let W = im.naturalWidth, H = im.naturalHeight;
+    let c = document.createElement("canvas"); c.width = W; c.height = H;
+    let g = c.getContext("2d", { willReadFrequently: true }); g.drawImage(im, 0, 0);
+    /*
+     * A WALL WITH A GREEN HEM. The chat, asked for a wall right after a
+     * sheet on #00FF00, sometimes paints a band of that green along an
+     * edge — and in the room it showed as a neon-green strip under the
+     * ceiling. Rows and columns that are screen green are cut off.
+     */
+    if (trim) {
+      const d0 = g.getImageData(0, 0, W, H).data;
+      const isG = (x, y) => { const i = (y * W + x) * 4; return d0[i + 1] > 190 && d0[i] < 110 && d0[i + 2] < 110; };
+      const rowG = (y) => { let n = 0; for (let x = 0; x < W; x += 8) n += isG(x, y); return n / (W / 8); };
+      const colG = (x) => { let n = 0; for (let y = 0; y < H; y += 8) n += isG(x, y); return n / (H / 8); };
+      let t = 0, b2 = H - 1, l = 0, r = W - 1;
+      while (t < H / 4 && rowG(t) > 0.02) t++;
+      while (b2 > H * 3 / 4 && rowG(b2) > 0.02) b2--;
+      while (l < W / 4 && colG(l) > 0.02) l++;
+      while (r > W * 3 / 4 && colG(r) > 0.02) r--;
+      if (t || l || b2 < H - 1 || r < W - 1) {
+        const c2 = document.createElement("canvas"); c2.width = r - l + 1; c2.height = b2 - t + 1;
+        c2.getContext("2d").drawImage(c, l, t, c2.width, c2.height, 0, 0, c2.width, c2.height);
+        c = c2; W = c.width; H = c.height; g = c.getContext("2d", { willReadFrequently: true });
+      }
+    }
     const img = g.getImageData(0, 0, W, H); const d = img.data;
     let greenPx = 0;
     if (key) {
@@ -145,16 +167,16 @@ const run = (file, { key, split }) =>
       parts.push(enc(cv));
     }
     return { W, H, shares, parts };
-  }, { b64: readFileSync(file).toString("base64"), key, split });
+  }, { b64: readFileSync(file).toString("base64"), key, split, trim });
 
 const plan = [
   [`${id}_street.png`, [`shop_${id}.webp`], { key: true }],
   [`${id}_hero.png`, [`hero_${id}.webp`], { key: true }],
   [`${id}_venue.png`, [`venue_${id}.webp`], { key: true }],
-  [`${id}_wall_back.png`, [`room_${id}_back.webp`], {}],
-  [`${id}_wall_left.png`, [`room_${id}_left.webp`], {}],
-  [`${id}_wall_right.png`, [`room_${id}_right.webp`], {}],
-  [`${id}_floor.png`, [`room_${id}_floor.webp`], {}],
+  [`${id}_wall_back.png`, [`room_${id}_back.webp`], { trim: true }],
+  [`${id}_wall_left.png`, [`room_${id}_left.webp`], { trim: true }],
+  [`${id}_wall_right.png`, [`room_${id}_right.webp`], { trim: true }],
+  [`${id}_floor.png`, [`room_${id}_floor.webp`], { trim: true }],
   [`${id}_props.png`, null, { key: true, split: true }],
 ];
 for (const [name, outs, opt] of plan) {
