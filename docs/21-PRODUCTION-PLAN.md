@@ -1,0 +1,457 @@
+# 21 — Production Plan: from demo to a live web app
+
+Status: **APPROVED 2026-09-29** (decisions in §5). W0 in progress. Written after reading the
+code as it stands at `53ed69f`.
+
+## 0. Framing
+
+**Decision (2026-09-29):** creating the vendor accounts (Neon, Render,
+Cloudflare, Resend), the Google OAuth client and the domain moves to
+**Phase 2**.
+
+Consequence: the MVP is **production-ready code that runs locally on a
+production-shaped stack**. Every external service has a local stand-in that
+speaks the same protocol as the real one, so going live is configuration,
+not code:
+
+| Real service (Phase 2) | Local stand-in (MVP) | Protocol | Switch |
+|---|---|---|---|
+| Neon Postgres + PostGIS | `postgis/postgis:16-3.4` (already in compose) | Postgres | `DATABASE_URL` |
+| Cloudflare R2 | MinIO | S3 API | `S3_ENDPOINT`, keys, bucket |
+| Resend | Mailpit (catches every email, has a web UI and an API) | SMTP | `SMTP_URL` |
+| Google sign-in | `oauth2-mock-server` (a local OIDC issuer) | OpenID Connect | `GOOGLE_CLIENT_ID/SECRET`, issuer |
+| Render | `node dist/server.js` serving API + web app | HTTP/WS | `render.yaml` |
+| Web Push | VAPID keys we generate ourselves (no account needed) | Web Push | `VAPID_*` |
+| OpenStreetMap Nominatim (geocoding) | **real** (free, no account), plus a fixture adapter for tests | HTTP | none |
+| OpenFreeMap tiles (map) | **real** (free, no key) | HTTP | none |
+
+Nothing here is a mock presented as production (CLAUDE.md §3). Each
+stand-in is a real implementation of the same protocol, and each adapter
+is picked by env var, with a startup check that refuses to boot in
+`NODE_ENV=production` while a stand-in is configured.
+
+## 1. What exists and what it is missing
+
+| Part | Today | Gap for production |
+|---|---|---|
+| `tools/design-preview` | The full demo. `App.tsx` (~6,600 lines) holds all state client-side on fixtures. | Not a product: no server, no auth. **Stays the investor demo.** |
+| `packages/ui` | 38 screens, props-driven, react-native + react-native-web. | Reused by the new web app as-is. |
+| `apps/api` | Fastify + Prisma, 50+ table schema, baseline migration, routes for catalog/jobs/offers/quotes/pro/reviews, dispatch engine with a proven row lock. | Auth is a JWT plus an OTP stub whose code is always `123456`. No uploads, no geocoding, WS is an echo scaffold, and Redis is required. |
+| `packages/api-client` | 41 lines. | A typed client for every route. |
+| `apps/admin` | ~320-line Next.js scaffold, no auth. | Verification queue, job inspector, roles. |
+| `apps/*-mobile` | Expo, never built for a device. | Phase 3. |
+
+## 2. Architecture for the MVP
+
+```
+ iPhone Safari / desktop browser
+        │  same origin: https://<host>/          (web app, PWA)
+        │                https://<host>/api/*    (REST)
+        │                wss://<host>/api/ws/*   (realtime)
+        ▼
+ ┌──────────────────── one Node process (Render web service) ───────────────┐
+ │ Fastify                                                                  │
+ │  ├─ @fastify/static  → apps/web/dist (SPA + service worker + manifest)   │
+ │  ├─ Better Auth      → /api/auth/*  (Google OIDC + email link, cookies)  │
+ │  ├─ domain routes    → /api/v1/*    (existing, plus the new ones below)  │
+ │  ├─ websocket        → /api/ws/jobs/:id  (in-process event bus)          │
+ │  └─ workers (in-process, Postgres-backed): dispatch sweeper, email       │
+ │     outbox, upload cleanup                                               │
+ └────────┬───────────────────┬──────────────────┬──────────────────────────┘
+          │                   │                  │
+     Postgres+PostGIS     S3 (R2/MinIO)     SMTP (Resend/Mailpit)
+```
+
+The decisions behind this shape:
+
+1. **One origin for the app and the API.** Safari blocks third-party
+   cookies. With the app on `*.pages.dev` and the API on `*.onrender.com`,
+   the session cookie would be third-party, and sign-in would fail on
+   exactly the phone we prioritise. Serving the SPA from the API process
+   makes the cookie first-party with no CORS and one deploy. Cloudflare
+   Pages becomes an option later, once a custom domain puts `app.` and
+   `api.` on the same site.
+2. **No Redis in the MVP.** It is only a latency shortcut in
+   `atomic-accept.ts`. Correctness comes from `SELECT … FOR UPDATE`
+   (proven by `verify:rowlock`). The Redis lock becomes an optional
+   adapter behind a `JobLock` interface, used when `REDIS_URL` is set.
+   One fewer free-tier service to run.
+3. **Background work runs in-process, with Postgres as the queue**
+   (`SELECT … FOR UPDATE SKIP LOCKED`). The existing dispatch sweeper
+   already lives in-process. The Phase 3 exit is a separate worker
+   process reading the same tables.
+4. **The realtime bus is in-process.** It is correct with one instance
+   (the free plan). The interface allows swapping in Postgres
+   `LISTEN/NOTIFY` when we run more than one instance. Clients always
+   re-sync from REST on reconnect (already the rule in `job-socket.ts`).
+5. **New `apps/web`**, built the way `design-preview` is built (Vite with
+   `react-native` aliased to `react-native-web`) and rendering the shared
+   `packages/ui` screens. The design-preview `App.tsx` is **not**
+   promoted: it is a fixture orchestrator. The web app gets a thin,
+   per-route orchestrator driven by server data (TanStack Query). This
+   also answers the reviewer's "split App.tsx" point for the code that
+   ships.
+6. **Admin moves into `apps/web` under `/admin`** (role-guarded), replacing
+   the 320-line Next.js scaffold. The reasons: one auth system, one
+   origin, one deploy. This is an architecture change: it needs approval,
+   and `04-TECH-ARCHITECTURE.md` must be updated with it.
+
+`04-TECH-ARCHITECTURE.md` and `16-DEPLOYMENT.md` get updated as part of
+W0/W10 to record decisions 1–6.
+
+## 3. Epics (in build order)
+
+Each epic follows CLAUDE.md §5: plan → build → tests → **manual UI pass in
+the browser at iPhone 15 size (393×852) with a written findings list** →
+docs → commit → report. Sizes are relative (S/M/L), not dates.
+
+### W0 — Foundation (M)
+- `docker-compose.yml`: add MinIO, Mailpit and oauth2-mock-server. Redis
+  becomes an optional profile.
+- `packages/config/env.ts`: a zod schema for every new variable, and a
+  startup refusal to boot when production is combined with a stand-in
+  (`S3_ENDPOINT` on localhost, `SMTP_URL` pointing at Mailpit, the mock
+  OIDC issuer, the OTP sandbox).
+- `JobLock` interface with a `NoopJobLock` (default) and a `RedisJobLock`.
+  `atomic-accept` tests run against both.
+- **Delete the fixed-code OTP path from production builds.** It becomes a
+  dev-only plugin, registered only when `NODE_ENV !== "production"`.
+- GitHub Actions CI (free minutes): install, lint, typecheck, unit tests,
+  `prisma migrate diff` check, then Playwright against the compose stack.
+- Playwright projects: **WebKit + `devices["iPhone 15"]`** (primary), and
+  Chromium desktop.
+- **Acceptance:** `docker compose up && npm run dev` gives a working stack,
+  and CI is green on a PR.
+
+### W1 — Accounts and authorization (L)
+- **Library: Better Auth** (Prisma adapter, mounted at `/api/auth/*`).
+  - Handles OAuth state/PKCE, CSRF, email verification, session rotation
+    and rate limiting.
+  - Picked over hand-rolled auth because those are the parts that go
+    wrong.
+- **Sign-in methods:** Google (OIDC), and email magic link (a one-time,
+  hashed, 15-minute, single-use token). No passwords in the MVP, so there
+  is nothing to leak and no reset flow.
+- **Session:** an httpOnly, `Secure`, `SameSite=Lax` cookie, rotated on
+  sign-in. The existing bearer JWT is removed from the web path.
+- **Migration `1_auth`:**
+  - `users`: `phone` becomes nullable (still unique); add `email_verified`,
+    `name`, `image_url`, `deleted_at`.
+  - New tables: `sessions`, `accounts` (OAuth links), `verifications`.
+  - New `user_roles` (CUSTOMER | PROFESSIONAL | ADMIN; a user can hold
+    several).
+  - `admin_users.role` stays for the admin sub-roles.
+- **Account linking** happens only on a *verified* email: a Google account
+  and an email-link account with the same verified address become one
+  user.
+- **Authorization:**
+  - A single `requireRole()` / `requireOwnership()` layer replaces
+    `auth-context.ts`.
+  - Every existing route is audited, and every route gets an
+    **access-to-another-user's-record (IDOR) test**: user A can never
+    read or act on B's job, address, media or offer.
+- **Admin bootstrap:** an `ADMIN_EMAILS` env allowlist. The first sign-in
+  of a listed, verified email is granted ADMIN, and the grant is written
+  to `audit_log`.
+- `@fastify/rate-limit` on `/api/auth/*`: per IP and per email.
+- Sign out, sign out everywhere, and delete my account (soft delete plus
+  anonymisation; the retention period is TBD, §5).
+- **Acceptance:**
+  - An E2E test signs in by email: Playwright reads the link from
+    Mailpit's API.
+  - An E2E test signs in with Google through the mock issuer.
+  - The IDOR suite passes.
+  - Cookie flags are checked by a test.
+
+### W2 — Web app shell (M)
+- `apps/web`: Vite, react-native-web, react-router, TanStack Query and
+  `packages/api-client`.
+- The api-client is generated from the zod schemas in
+  `packages/validation`, so client and server share one contract.
+- **PWA:** manifest (Hebrew name, icons, `display: standalone`), plus a
+  service worker via `vite-plugin-pwa` that caches the app shell only,
+  never API data. This is also the prerequisite for Web Push on iOS.
+- **iPhone specifics:**
+  - `dir="rtl" lang="he"`.
+  - `viewport-fit=cover` with safe-area insets.
+  - `100dvh`, not `100vh`.
+  - Inputs ≥16px, so Safari does not zoom.
+  - No hover-only affordances.
+- **Every data screen has loading, empty, error and offline states**
+  (CLAUDE.md §6), driven by the query status, not hand-set flags.
+- Sign-in and onboarding screens: the `packages/ui` sign-in screens,
+  adapted from phone OTP to "Google / email".
+- Fastify serves `apps/web/dist`, with a history fallback to `index.html`.
+- **Acceptance:** on WebKit/iPhone 15, a user signs in, lands on home,
+  reloads and stays signed in. Lighthouse PWA "installable" passes.
+
+### W3 — Location and addresses (M)
+- `GeocodingProvider` interface in `packages/types/providers`, with two
+  adapters:
+  - **Nominatim** (real; `User-Agent` and contact email set; at most
+    1 request/s through a server-side queue).
+  - **Fixture** (for tests).
+- `GET /api/v1/geo/reverse?lat&lng` and `GET /api/v1/geo/search?q`.
+  - Proxied and cached in a `geocode_cache` table: rounded coordinates or
+    normalised query, 30 days.
+  - Nominatim's usage policy forbids calling it on every keystroke, so
+    search runs on submit, or after a ≥800 ms pause, and at least 3
+    characters.
+- Client flow:
+  1. The browser Geolocation API asks for permission, with an explanation
+     screen first.
+  2. Reverse-geocode the position.
+  3. **Confirm the pin on a map**: MapLibre GL with OpenFreeMap tiles (no
+     key), a draggable pin, and the address shown in Hebrew.
+  4. Save it as an `Address` with a PostGIS `geography(Point)`.
+- **Permission denied or no fix:** fall back to address search. The
+  hard-coded "רמת אביב" is gone; the home screen shows the real saved
+  address or "בחרו כתובת" (choose an address).
+- **Acceptance:** Playwright with `geolocation` + `permissions` set shows
+  the right street. The denied path works. The Nominatim adapter has a
+  contract test that is marked and skipped in CI (no network).
+
+### W4 — Photos, recordings and text (M)
+- A `StorageProvider` interface with one **S3-compatible adapter**
+  (`@aws-sdk/client-s3` + presigner). It points at MinIO now and R2 later.
+- **Upload flow** (the file never passes through our server):
+  1. `POST /api/v1/uploads {kind, mime, bytes}`.
+     - The server checks kind/mime against an allowlist and bytes
+       against a per-kind cap: photo ≤ 1.5 MB after compression, voice
+       ≤ 1.5 MB / 90 s, document ≤ 5 MB.
+     - It creates an `uploads` row (PENDING) and returns a presigned PUT
+       valid for 5 min, with the Content-Type and Content-Length it
+       signed for.
+  2. The client PUTs the file straight to storage.
+  3. `POST /api/v1/uploads/:id/complete`.
+     - The server does a HEAD request to check size and type, and
+       sniffs the magic bytes of the first KB.
+     - The row becomes READY, and it is attached to a job or document.
+- **Reading:** only through `GET /api/v1/media/:id`, which checks
+  ownership or assignment and redirects to a presigned GET valid for
+  2 min. The bucket is private, with no public URLs.
+- **Client-side shrinking:**
+  - Photos: `createImageBitmap`, resized to 1600 px on the long edge,
+    then canvas to JPEG at q≈0.8 (≈200–400 KB). Re-encoding drops EXIF,
+    **including GPS**, which protects the customer's location.
+  - Voice: `MediaRecorder`. iOS Safari produces `audio/mp4` (AAC). The
+    mime type is feature-detected and the recording is capped at 90 s.
+- **Migration `2_media`:**
+  - New `uploads` table: id, owner, kind, mime, bytes, sha256, status,
+    width/height/duration, storage key, created_at.
+  - `job_media` references `uploads`.
+  - `professional_documents` references `uploads`.
+- **Cleanup worker:** PENDING uploads older than 24 h are deleted, from
+  the bucket and the row. A retention sweep with a configurable number of
+  days is built but **disabled until the retention period is decided**
+  (§5).
+- **Text** stays in Postgres (`jobs.description`, chat later).
+- **Capacity:**
+  - The average item is ≈0.3 MB, so R2's free 10 GB holds ≈30k items.
+  - R2 charges nothing for downloads.
+  - An admin KPI shows bucket usage, so we see the limit coming.
+- **Acceptance:**
+  - E2E: attach 3 photos and a voice note to a request; the assigned
+    professional can see them and another professional gets 403.
+  - Oversize and wrong-type uploads are rejected.
+  - A test proves EXIF is gone.
+
+### W5 — Understanding the request (M) — accuracy we can stand behind
+- Move `service-match.ts` from `packages/ui` to `packages/types`, so the
+  server and the client use one matcher.
+- `POST /api/v1/match {text}` returns
+  `{candidates:[{serviceId, confidence}], urgentCare, clarify?}`.
+- A `RequestClassifier` chain:
+  1. **KeywordClassifier** (real, free): today's matcher plus the fixes
+     below.
+  2. **LlmClassifier**: an interface with an adapter behind a flag, **off
+     until the model/vendor is decided** (§5). It is constrained to our
+     service ids, returns a confidence, and never picks a professional.
+- **Fixes to the matcher, each driven by a failing golden sentence:**
+  - Negation: "לא צריך חשמלאי" (not an electrician) must remove
+    electrician, not add it.
+  - Context words: "רכב" (car) blocks the appliance meaning of "דלת …
+    לא נפתחת" (door won't open).
+  - Ambiguous nouns ("עכבר" = computer mouse or rodent) resolve by their
+    neighbours (מחשב = computer → mouse), otherwise **ask**.
+- **Confidence to UI rule:**
+  - ≥ high: one suggestion, "נראה שזה…" (looks like…) with a confirm
+    button.
+  - Middle: two options.
+  - Low or none: **one short clarifying question**, or the category
+    list. The customer always confirms before dispatch.
+- **The golden set:** `packages/types/test/fixtures/match-golden.he.json`
+  - 300–500 real sentences with the expected service or services,
+    collected with Amit.
+  - The matching test prints top-1, top-2 and "confidently wrong" rates.
+  - CI fails if any rate gets worse than the recorded baseline. From then
+    on, accuracy is a number rather than a handful of examples.
+- **Feedback loop:** a `match_feedback` table (text, suggested ids, chosen
+  id, and whether the professional flagged "wrong service" on arrival).
+  Reviewed in admin, fed back into the golden set. Retention TBD.
+- **Voice to text:** where available, the Web Speech API (`he-IL`) on the
+  device, free. It **must be verified on a real iPhone**; if Hebrew
+  dictation is unavailable, the recording is attached and nothing is
+  transcribed.
+- **Acceptance:** the golden set is in CI with a baseline, and the three
+  failing sentences from 2026-09-29 pass.
+
+### W6 — Customer flow on real data (L)
+- Catalogue, then describe (text / photo / voice), then intake answers,
+  then the price shown, all calculated on the server by the existing
+  pricing adapters.
+- Then: create the job, see "looking for a professional" (real supply
+  only), assignment, live status over the WebSocket, the quote, approval
+  (by the orderer only, DECIDED 2026-09-28), completion and the review.
+- Order for someone else: the on-site page becomes a signed, expiring link
+  (`/s/:token`). The door code is issued by the server at assignment,
+  replacing the preview's fixed code. The SMS to the person at home is TBD
+  (vendor); in the MVP the orderer shares the link themselves (the
+  browser share sheet).
+- **Payment in the MVP:** no money moves through the app. How the
+  professional is paid is a business decision (§5), and the flow ends at
+  "completed" plus a receipt summary.
+- **Acceptance:** `verify:journey`, rewritten as a Playwright test, walks
+  a customer and a professional (two browser contexts) from sign-in to
+  review, on WebKit/iPhone 15.
+
+### W7 — The professional's side and real supply (L)
+- **Onboarding:**
+  1. Profile: name and photo (through W4).
+  2. Services chosen from the catalogue. Each becomes a
+     `ProfessionalService` in PENDING_VERIFICATION, **per service**
+     (CLAUDE.md §3).
+  3. Their own visit fee and optional night/Shabbat surcharge.
+  4. Work area: a centre plus a radius, stored as a `ServiceArea`.
+  5. Documents uploaded per service requirement.
+- **Shifts:** online/offline. While online and in the foreground, the
+  location is sent every 15–30 s (`watchPosition`).
+- **A hard platform limit, stated honestly:** a web page on iOS cannot
+  track location or wake up in the background. In the MVP a professional
+  has to keep the app open while online. The app says so, and goes offline
+  automatically when the heartbeat stops (the server already owns
+  presence). Phase 2 adds Web Push to wake them; Phase 3 native apps
+  remove the limit.
+- **Offer screen:** the server-held countdown, and the expected earnings
+  before accepting (CLAUDE.md §3). Accept goes through the existing atomic
+  accept.
+- **Navigation:** Waze
+  (`https://waze.com/ul?ll=<lat>,<lng>&navigate=yes`) and Google Maps deep
+  links. The ETA shown is straight-line distance ÷ an urban speed, labelled
+  "משוער" (estimated), until a routing provider is chosen (§5).
+- **Acceptance:**
+  - E2E: a new professional completes onboarding, and an admin approves
+    one of their services.
+  - Only that service receives offers.
+  - The heartbeat timeout takes them offline.
+
+### W8 — Admin (M)
+- `/admin`, requiring the ADMIN role:
+  - The **verification queue** per professional-service: documents,
+    approve or reject with a reason, and every action written to
+    `audit_log`.
+  - The job inspector (from the Next.js scaffold): the timeline from
+    `job_events`.
+  - Users and roles.
+  - `MarketActivation` switches (service × area).
+  - Match-feedback review (W5).
+  - Storage and DB usage against the free-tier limits.
+- **Acceptance:**
+  - Every admin mutation writes an audit row, covered by a test.
+  - A non-admin gets 403 on every `/api/v1/admin/*` route.
+
+### W9 — Realtime and notifications (M)
+- WebSocket fan-out for job state, offers, quotes and professional
+  location, through an in-process `EventBus`, with authorisation per job.
+  Reconnect with backoff, then re-sync over REST.
+- A **`NotificationProvider` fan-out** with three channels:
+  1. **In-app** (the existing `notifications` table and an inbox screen).
+  2. **Email** (through an outbox table and a worker, SMTP).
+  3. **Web Push**, through the `web-push` library with our own VAPID
+     keys, a new `push_subscriptions` table and a service-worker `push`
+     handler.
+- Each event type has one channel policy. Example: an offer to a
+  professional goes to socket + push; "your professional arrived" goes to
+  socket + push + in-app.
+- Push is built and tested on desktop Chromium locally. **iOS push can
+  only be verified in Phase 2**: it needs HTTPS and the app installed on
+  the home screen.
+- SMS is an interface only (vendor TBD).
+- **Acceptance:** E2E where the customer's screen updates live as the
+  professional moves through the states. A push test with Chromium shows
+  a subscription and a received message.
+
+### W10 — Hardening and go-live readiness (M)
+- **Security:**
+  - `@fastify/helmet`: CSP (self plus the tile host plus the storage
+    host), HSTS, frame-ancestors none.
+  - zod validation on every body/query.
+  - Request size limits.
+  - Logs without personal data (phone and email redacted).
+  - `npm audit` in CI.
+- **Health and monitoring:**
+  - `/api/health` (liveness) and `/api/ready` (DB + storage).
+  - Sentry adapter (enabled only when a `SENTRY_DSN` is set).
+- **`render.yaml`:** a free web service.
+  - Build: `npm ci && prisma generate && npm run build -w apps/web -w apps/api`.
+  - Start: `prisma migrate deploy && node apps/api/dist/server.js`.
+- **Neon runbook:** pooled URL for the app, direct URL for migrations,
+  and PostGIS enabled by the migration.
+- A backup/restore drill against a local dump, written up in `docs/16`.
+- A security review note (CLAUDE.md §7), and `docs/11-SECURITY.md`
+  updated.
+- **Acceptance:** a full E2E suite green on a production build
+  (`NODE_ENV=production` against the compose stand-ins, with the
+  stand-in guard relaxed only by an explicit `ALLOW_LOCAL_STANDINS=1`).
+
+## 4. Phase 2 — go live (after W10)
+
+Amit (≈1 hour, with step-by-step instructions from us):
+1. Accounts: Neon, Render, Cloudflare (R2), Resend. A Google OAuth client
+   (consent screen and redirect URI).
+2. Optional domain (≈$10/yr). Without one, the address is
+   `*.onrender.com`.
+
+Us:
+1. Fill the env vars on Render, deploy, run `prisma migrate deploy` and
+   seed the catalogue.
+2. Smoke-test the production URL.
+3. **Amit tests on a real iPhone**: sign-in, location, camera, voice,
+   add to home screen, push.
+4. Uptime monitor.
+
+Then, in Phase 2 proper (≈50 jobs/day):
+- Render paid plan (the free one sleeps after 15 min and wakes in
+  ≈1 min, which is unacceptable for live dispatch).
+- iOS Web Push verified.
+- The LLM classifier switched on, once decided.
+- A routing provider for real ETAs.
+- Product analytics (vendor TBD).
+- SMS for the person at home.
+- The payment flow, once decided.
+
+## 5. Decisions we must not invent (added to 18-ROADMAP §Open Decisions)
+
+| # | Decision | Needed by | Default until decided |
+|---|---|---|---|
+| D1 | How the professional is paid in the MVP | W6 | **DECIDED 2026-09-29: no money in the app for now; "auto approved".** Which approval is automatic (the quote, or the professional's verification) is to be confirmed |
+| D2 | AI model/vendor for understanding requests (cost and privacy of photos) | Phase 2 | Keyword matcher + customer confirmation |
+| D3 | Retention period for photos, voice, text and match feedback | W4 | **DECIDED 2026-09-29: a few days.** The exact number of days is a setting, to be confirmed |
+| D4 | SMS vendor (person at home, phone verification) | Phase 2 | Orderer shares the link |
+| D5 | Routing/ETA provider | Phase 2 | Straight-line estimate, labelled |
+| D6 | Is the 3D city part of the product app? | W2 | **DECIDED 2026-09-29: no, outside the product app.** It stays the investor demo |
+| D7 | Admin inside `apps/web` instead of Next.js (§2.6) | W8 | Proposed yes |
+| D8 | Which documents are mandatory per service | W7 | Admin decides case by case, recorded |
+
+## 6. Definition of done for every epic (in addition to CLAUDE.md §7)
+
+1. Lint, typecheck and unit tests green; Playwright on WebKit/iPhone 15
+   and Chromium green.
+2. **Manual pass in the built-in browser at 393×852**:
+   - Walk the new flows as a real user, and try to break them: back
+     button, double taps, reloading mid-flow, going offline, permission
+     denied, long Hebrew text, empty states.
+   - Findings recorded in `docs/qa/W<n>.md` with screenshots, each one
+     fixed or explicitly deferred.
+3. Docs updated, and the epic report states plainly what was **not**
+   verified (most often: a real iPhone).

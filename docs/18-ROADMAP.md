@@ -41,6 +41,12 @@ geography · pilot services beyond the seeded candidates · support hours/
 SLA · data retention periods · chat/call masking vendor · analytics vendor
 · cloud hosting vendor · final brand/trademark/domain clearance.
 
+Added 2026-09-29 by `/docs/21-PRODUCTION-PLAN.md §5` (D1–D8): how the
+professional is paid in the MVP · AI model/vendor for understanding
+requests · retention of photos/voice/text · SMS vendor · routing/ETA
+provider · whether the 3D city is in the product app · admin inside
+`apps/web` · mandatory documents per service.
+
 The maps one has its numbers written down below — see *The maps vendor,
 with the numbers*. The decision is still a decision; what is no longer
 missing is the price of each option and what each one costs us in
