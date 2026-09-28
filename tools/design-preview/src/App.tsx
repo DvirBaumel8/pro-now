@@ -6456,37 +6456,18 @@ const STREET_CSS = `
 @keyframes pnSpeck{0%{transform:translateY(0);opacity:0}15%{opacity:.9}100%{transform:translateY(-140px);opacity:0}}
 `;
 /*
- * THE FIRST PICTURE: OUR SHOPS, AND OUR PEOPLE IN FRONT OF THEM.
+ * THE FIRST PICTURE: OUR SHOPS.
  *
- * Amit: *"תמונה של המקצוענים שלנו על רקע החנויות עם הנאונים — שיהיה ברור
- * יותר."* The painted street of neon shops, and a line of the trades' own
- * drawn professionals standing on its pavement, each gently breathing.
+ * The painted street of neon shops. A row of the trades' professionals
+ * stood on its pavement for a while, gently bobbing — Amit, 2026-09-28:
+ * *"תוריד את הדמויות המרחפות בהתחלה, זה מוזר — שיישארו בחנויות."* Each
+ * professional now stands in the doorway of their own shop in the city,
+ * which is where they belong.
  */
-const WELCOME_PROS = ["hair", "home", "tech", "pets", "appliance", "move"] as const;
 function WelcomeScene() {
   return (
     <div aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden", background: "#2a1838" }}>
-      <style>{`@keyframes pnProBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}`}</style>
-      {/* Lifted, so the signs sit clear above the people. */}
-      <div style={{ position: "absolute", left: 0, right: 0, top: "-9%", height: "100%" }}>
-        <StreetScene painted />
-      </div>
-      <div style={{ position: "absolute", left: 0, right: 0, top: "25%", height: "19%", display: "flex", justifyContent: "center", alignItems: "flex-end", gap: 0 }}>
-        {WELCOME_PROS.map((id, i) => (
-          <img
-            key={id}
-            src={`./world/character_${id}_world.webp`}
-            alt=""
-            style={{
-              height: i % 2 ? "92%" : "100%",
-              marginInline: "-2.2%",
-              filter: "drop-shadow(0 10px 14px rgba(0,0,0,.55)) saturate(1.05)",
-              animation: `pnProBob ${2.6 + i * 0.3}s ease-in-out ${-i * 0.4}s infinite`,
-              zIndex: i % 2 ? 1 : 2,
-            }}
-          />
-        ))}
-      </div>
+      <StreetScene painted />
     </div>
   );
 }
