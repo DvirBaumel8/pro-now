@@ -1731,7 +1731,21 @@ export function City({
          * screen — a shop you go INTO, a place you are MET at — but
          * which one you are at is a distance, not a precedence.
          */
-        if (bestPlace && best && pd < bd) best = null;
+        /*
+         * …BUT A SHOP YOU ARE STANDING AT IS THE SHOP. The places sit
+         * 8.8m from shop doors (the pull-in bay by the garage, the
+         * courier point by the nail bar, the bench by the vet), and on
+         * the frontage between them the nearer one used to win — so in
+         * front of a shop's own window Amit got the place's "מה אפשר
+         * להזמין כאן" and no way in: *"פה אין לי אפשרות להיכנס לחנות."*
+         * Within a shop's frontage (a bay is 8.8m) the door wins;
+         * beyond it, distance.
+         */
+        const atFrontage =
+          best !== null &&
+          Math.abs(player.group.position.z - best.doorway.z) < 4.2 &&
+          Math.sign(player.group.position.x) === best.side;
+        if (bestPlace && best && pd < bd && !atFrontage) best = null;
         const placeId = bestPlace ? bestPlace.id : null;
         if (placeId !== lastPlace) {
           lastPlace = placeId;
