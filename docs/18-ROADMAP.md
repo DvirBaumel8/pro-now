@@ -217,8 +217,11 @@ person at home; now the rest of the visit knows about them:
 Not built, and needed before production: sending the SMS (NotificationProvider
 — vendor TBD, see Open Decisions), a short-lived signed link for the page, and
 the door code issued by the server with the assignment (the preview shows one
-fixed code). Whether the person at home may also approve a quote is a product
-decision for Amit; today only the orderer can.
+fixed code).
+
+**DECIDED 2026-09-28 (Amit): only the person who ordered approves.** The quote,
+the approval and the payment belong to the orderer alone; the person at home is
+never asked to approve or pay anything, and their page says so.
 
 ### BUILT 2026-09-28 — every shop in the street is a real shop
 
