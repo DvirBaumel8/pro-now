@@ -14,11 +14,14 @@ product decisions in `docs/18-ROADMAP.md` (sections marked **DECIDED** and
   Hebrew only**, so every answer to him is in Hebrew, short, and free of
   jargon. He decides the product; Claude Code writes, tests, documents and
   publishes. His standing preferences are in §6.
-- **Amit's friend, the reviewer**, is a senior software engineer (7 years at
+- **Dvir (דביר), Amit's friend and reviewer**, is a senior software engineer (7 years at
   Lemonade). He writes in **English** and is reviewing the codebase: how the
   work is done, security, and cost (tokens). His brief is
   `docs/REVIEW-BRIEF.md` (Hebrew, written for him). Answer him in English,
   technically and precisely.
+- **Who is typing:** assume Amit unless the person says it is Dvir. When Dvir
+  says it's him, continue his review where it stopped; when Amit is back,
+  return to Hebrew and the usual way of working.
 
 ## 2. Phase and goal
 
