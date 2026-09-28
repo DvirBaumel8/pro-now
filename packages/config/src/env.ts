@@ -13,7 +13,14 @@ export const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(4000),
 
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
-  REDIS_URL: z.string().min(1, "REDIS_URL is required"),
+  /**
+   * Optional. Only a latency shortcut in front of the accept's row lock
+   * (apps/api/src/domain/dispatch/job-lock.ts); the MVP runs without it.
+   */
+  REDIS_URL: z
+    .string()
+    .optional()
+    .transform((v) => (v ? v : undefined)),
 
   JWT_SECRET: z.string().min(16, "JWT_SECRET must be at least 16 chars"),
 
@@ -25,6 +32,31 @@ export const envSchema = z.object({
   EXTERNAL_REPUTATION_PROVIDER: z.enum(["sandbox", "google"]).default("sandbox"),
 
   GOOGLE_MAPS_API_KEY: z.string().optional(),
+
+  /*
+   * External services (/docs/21-PRODUCTION-PLAN.md §0). Locally each one
+   * points at a stand-in that speaks the same protocol — MinIO for S3,
+   * Mailpit for SMTP, a mock OpenID issuer for Google — and going live is
+   * changing these values, not code. `assertNoLocalStandIns` refuses to
+   * boot staging/production while any of them still points at this machine.
+   */
+  PUBLIC_URL: z.string().url().optional(),
+  S3_ENDPOINT: z.string().url().optional(),
+  S3_REGION: z.string().default("auto"),
+  S3_BUCKET: z.string().optional(),
+  S3_ACCESS_KEY_ID: z.string().optional(),
+  S3_SECRET_ACCESS_KEY: z.string().optional(),
+  SMTP_URL: z.string().optional(),
+  EMAIL_FROM: z.string().optional(),
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  /** Only set for the local mock issuer; real Google needs no override. */
+  GOOGLE_ISSUER_URL: z.string().url().optional(),
+  /**
+   * The one escape hatch: a production BUILD run against local stand-ins,
+   * for the W10 end-to-end suite. Never set on a deployed service.
+   */
+  ALLOW_LOCAL_STANDINS: z.enum(["0", "1"]).default("0"),
 
   DISPATCH_OFFER_TIMEOUT_SECONDS: z.coerce.number().int().positive().default(30),
   /**
@@ -47,5 +79,48 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     const issues = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("\n");
     throw new Error(`Invalid environment configuration:\n${issues}`);
   }
+  assertNoLocalStandIns(parsed.data);
   return parsed.data;
+}
+
+const LOCAL_HOST = /^(localhost|127\.\d+\.\d+\.\d+|\[::1\]|::1|0\.0\.0\.0|[^.]+\.localhost|[^.]+\.test)$/i;
+
+function hostOf(value: string): string | null {
+  try {
+    return new URL(value).hostname;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * A deployed environment must never talk to something on its own machine
+ * that stands in for a real vendor. A stand-in behind a production flag is
+ * exactly the "mock presented as production" CLAUDE.md §3 forbids, and
+ * the likeliest way to ship one is a forgotten env var.
+ */
+export function assertNoLocalStandIns(env: Env): void {
+  if (env.NODE_ENV !== "production" && env.NODE_ENV !== "staging") return;
+  if (env.ALLOW_LOCAL_STANDINS === "1") return;
+
+  const checked: Array<[string, string | undefined]> = [
+    ["DATABASE_URL", env.DATABASE_URL],
+    ["REDIS_URL", env.REDIS_URL],
+    ["S3_ENDPOINT", env.S3_ENDPOINT],
+    ["SMTP_URL", env.SMTP_URL],
+    ["GOOGLE_ISSUER_URL", env.GOOGLE_ISSUER_URL],
+    ["PUBLIC_URL", env.PUBLIC_URL],
+  ];
+  const local = checked
+    .filter(([, v]) => v)
+    .filter(([, v]) => {
+      const host = hostOf(v!);
+      return host !== null && LOCAL_HOST.test(host);
+    })
+    .map(([k]) => k);
+  if (local.length > 0) {
+    throw new Error(
+      `Refusing to start ${env.NODE_ENV} with local stand-ins: ${local.join(", ")} point at this machine.`
+    );
+  }
 }

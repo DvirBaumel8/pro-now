@@ -18,6 +18,16 @@ export function verifySession(token: string, secret: string): SessionClaims {
  * A production build would replace this with an SMS provider adapter
  * (vendor TBD) — never a hard dependency baked into route handlers.
  */
+/**
+ * The sandbox OTP accepts one fixed code, so on any deployed environment it
+ * would let anyone sign in as any phone number. Its routes exist only on a
+ * developer machine and in tests; real sign-in is W1 (Google + email link,
+ * /docs/21-PRODUCTION-PLAN.md).
+ */
+export function sandboxOtpAllowed(nodeEnv: string): boolean {
+  return nodeEnv === "local" || nodeEnv === "test";
+}
+
 const otpStore = new Map<string, { code: string; expiresAt: number }>();
 
 export function issueOtp(phone: string): string {

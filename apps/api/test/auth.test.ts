@@ -96,3 +96,13 @@ describe("sandbox OTP", () => {
     expect(verifyOtp("+972500000099", code)).toBe(false);
   });
 });
+
+describe("sandbox OTP is never deployed", () => {
+  it("exists on a developer machine and in tests only", async () => {
+    const { sandboxOtpAllowed } = await import("../src/lib/auth");
+    expect(sandboxOtpAllowed("local")).toBe(true);
+    expect(sandboxOtpAllowed("test")).toBe(true);
+    expect(sandboxOtpAllowed("staging")).toBe(false);
+    expect(sandboxOtpAllowed("production")).toBe(false);
+  });
+});

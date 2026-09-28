@@ -1,12 +1,15 @@
 # 16 — Deployment
 
 ## Environments
-`local` (docker-compose Postgres+PostGIS+Redis) → `test` (CI, ephemeral) →
+`local` (Postgres+PostGIS; Redis optional) → `test` (CI, ephemeral) →
 `staging` → `production`. Each has fully separate vendor keys, databases,
 buckets, push credentials and webhook endpoints. **Staging can never send a
 production payout or push notification.**
 
 ## CI (on every PR)
+Built 2026-09-29: `.github/workflows/ci.yml` — lint, typecheck, unit
+tests and `verify:domain`; plus migrations, `verify:rowlock` and
+`db:verify` against a PostGIS service container. The rest below is the target.
 Install locked deps → lint → typecheck → unit tests → integration tests
 where feasible → migration validation → security/dependency scan → build
 affected apps only (workspace-aware).

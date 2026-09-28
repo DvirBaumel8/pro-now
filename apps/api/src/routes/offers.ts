@@ -20,11 +20,7 @@ export default async function offersRoutes(app: FastifyInstance) {
 
     try {
       const result = await acceptOffer(
-        {
-          prisma: app.prisma,
-          redis: app.redis,
-          log: (message, err) => app.log.warn({ err, offerId: id }, message),
-        },
+        { prisma: app.prisma, lock: app.jobLock },
         id,
         professional.id,
         requestId

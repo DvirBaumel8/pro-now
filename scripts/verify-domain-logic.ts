@@ -47,6 +47,7 @@ import {
 } from "../apps/api/src/domain/pricing/pricing-adapter";
 import { money, addMoney, formatMoney } from "../packages/types/src/money";
 import { acceptOffer, OfferNoLongerAvailableError } from "../apps/api/src/domain/dispatch/atomic-accept";
+import { RedisJobLock } from "../apps/api/src/domain/dispatch/job-lock";
 
 let passed = 0;
 function check(name: string, fn: () => void) {
@@ -324,8 +325,8 @@ async function runConcurrencyTest() {
 
   // Two different professionals racing to accept the SAME offer/job at once.
   const [resultA, resultB] = await Promise.allSettled([
-    acceptOffer({ prisma: fakePrisma, redis: fakeRedis }, "offer-1", "pro-A", "req-A"),
-    acceptOffer({ prisma: fakePrisma, redis: fakeRedis }, "offer-1", "pro-A", "req-B"),
+    acceptOffer({ prisma: fakePrisma, lock: new RedisJobLock(fakeRedis) }, "offer-1", "pro-A", "req-A"),
+    acceptOffer({ prisma: fakePrisma, lock: new RedisJobLock(fakeRedis) }, "offer-1", "pro-A", "req-B"),
   ]);
 
   const fulfilled = [resultA, resultB].filter((r) => r.status === "fulfilled");

@@ -22,6 +22,7 @@ services:
       retries: 10
 
   redis:
+    profiles: ["redis"]  # optional; see apps/api/src/domain/dispatch/job-lock.ts
     image: redis:7-alpine
     container_name: pro-now-redis
     restart: unless-stopped

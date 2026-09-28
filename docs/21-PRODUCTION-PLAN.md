@@ -106,6 +106,13 @@ the browser at iPhone 15 size (393×852) with a written findings list** →
 docs → commit → report. Sizes are relative (S/M/L), not dates.
 
 ### W0 — Foundation (M)
+**Status 2026-09-29:** Redis optional (`JobLock`), env schema + stand-in
+guard, sandbox OTP local/test only, CI workflow — done and tested locally
+(CI itself not yet run on GitHub). Not done: compose stand-ins (no Docker
+on this Mac; each arrives with the epic that uses it — Mailpit in W1,
+MinIO in W4, via Homebrew locally and service containers in CI) and the
+Playwright harness (moves to W2, the first epic with a UI to test).
+
 - `docker-compose.yml`: add MinIO, Mailpit and oauth2-mock-server. Redis
   becomes an optional profile.
 - `packages/config/env.ts`: a zod schema for every new variable, and a

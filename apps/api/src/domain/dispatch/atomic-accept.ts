@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
-import type Redis from "ioredis";
+import type { JobLock } from "./job-lock";
 
 /**
  * Atomic offer acceptance — see /docs/05-DATABASE.md §Atomic accept and
@@ -11,12 +11,10 @@ import type Redis from "ioredis";
  * in test/dispatch.atomic-accept.test.ts via a concurrency test, not by
  * inspection.
  *
- * Strategy: a short-lived Redis lock keyed by jobId guards the
- * check-then-act race at the application level (fast path, avoids two
- * requests both starting a DB transaction that would serialize anyway),
- * and the DB transaction's row lock (`SELECT ... FOR UPDATE` via
- * `$queryRaw` inside `$transaction`) is the actual source of correctness
- * — the Redis lock is a latency optimization, not the safety mechanism.
+ * Strategy: an optional job lock (`job-lock.ts`; Redis when configured,
+ * none in the MVP) guards the check-then-act race as a fast path, and the
+ * DB transaction's row lock (`SELECT ... FOR UPDATE` via `$queryRaw`
+ * inside `$transaction`) is the actual source of correctness.
  */
 
 export class OfferNoLongerAvailableError extends Error {
@@ -25,125 +23,22 @@ export class OfferNoLongerAvailableError extends Error {
   }
 }
 
-const JOB_LOCK_TTL_MS = 5000;
-
-/**
- * How long the fast path is allowed to take before it stops being fast.
- *
- * Stepping over an unreachable Redis was not enough on its own. ioredis
- * retries a request twenty times before it gives up, so with Redis down
- * every accept sat waiting for that whole backoff BEFORE the catch below
- * ran — seconds, on the one request in this product that is racing a
- * thirty-second offer window. Offers expired while the optimisation was
- * still trying to help.
- *
- * A lock that takes longer to acquire than the work it protects is worse
- * than no lock. Two hundred and fifty milliseconds is far more than a
- * healthy Redis on the same machine needs and far less than a customer
- * would notice; past it, the row lock — which is the actual guarantee —
- * takes over.
- */
-const LOCK_ATTEMPT_TIMEOUT_MS = 250;
-
-class LockAttemptTimeout extends Error {}
-
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new LockAttemptTimeout()), ms);
-    promise.then(
-      (value) => {
-        clearTimeout(timer);
-        resolve(value);
-      },
-      (err) => {
-        clearTimeout(timer);
-        reject(err);
-      }
-    );
-  });
-}
-
-/**
- * The lock is an optimization, so its absence is not a failure.
- *
- * The paragraph above says it plainly — the row lock is the source of
- * correctness and Redis only saves two requests from both opening a
- * transaction that would serialize anyway. The implementation did not
- * agree: with Redis unreachable, `redis.set` exhausted ioredis's twenty
- * retries and threw, and a professional tapping ACCEPT got "Internal
- * Server Error". An optimization had become a hard dependency, and the
- * one irreplaceable moment in this product — the accept — was the thing
- * it took down.
- *
- * So a Redis that will not answer is stepped over, loudly. What is NOT
- * stepped over is a Redis that answers "somebody else holds this": that
- * is a real race and still refuses the accept.
- */
-async function withJobLock<T>(
-  redis: Redis,
-  jobId: string,
-  log: ((message: string, err: unknown) => void) | undefined,
-  fn: () => Promise<T>
-): Promise<T> {
-  const lockKey = `pronow:lock:job:${jobId}`;
-  const token = Math.random().toString(36).slice(2);
-
-  let held = false;
-  try {
-    const acquired = await withTimeout(
-      redis.set(lockKey, token, "PX", JOB_LOCK_TTL_MS, "NX"),
-      LOCK_ATTEMPT_TIMEOUT_MS
-    );
-    if (!acquired) {
-      // Redis answered, and the answer was no. Another accept is in flight.
-      throw new OfferNoLongerAvailableError(jobId);
-    }
-    held = true;
-  } catch (err) {
-    if (err instanceof OfferNoLongerAvailableError) throw err;
-    log?.("job lock unavailable — proceeding on the database row lock alone", err);
-  }
-
-  try {
-    return await fn();
-  } finally {
-    if (held) {
-      try {
-        // Only release if we still own it (best-effort; TTL is the real
-        // backstop). Time-boxed for the same reason as the acquire: a
-        // slow release would delay the response after the work is done.
-        const current = await withTimeout(redis.get(lockKey), LOCK_ATTEMPT_TIMEOUT_MS);
-        if (current === token) await withTimeout(redis.del(lockKey), LOCK_ATTEMPT_TIMEOUT_MS);
-      } catch (err) {
-        log?.("job lock release failed — the TTL will clear it", err);
-      }
-    }
-  }
-}
-
 export interface AcceptOfferDeps {
   prisma: PrismaClient;
-  redis: Redis;
-  /**
-   * Optional, so the domain does not depend on a logger — but a lock that
-   * was skipped must not be skipped silently. Losing the fast path costs
-   * latency under contention, and an operator should be able to see that
-   * it happened.
-   */
-  log?: (message: string, err: unknown) => void;
+  lock: JobLock;
 }
 
 export async function acceptOffer(deps: AcceptOfferDeps, offerId: string, professionalId: string, requestId: string) {
-  const { prisma, redis, log } = deps;
+  const { prisma, lock } = deps;
 
   const offer = await prisma.dispatchOffer.findUnique({ where: { id: offerId } });
   if (!offer) throw new OfferNoLongerAvailableError(offerId);
   if (offer.professionalId !== professionalId) throw new OfferNoLongerAvailableError(offerId);
 
-  return withJobLock(redis, offer.jobId, log, async () => {
+  return lock.run(offer.jobId, async () => {
     return prisma.$transaction(async (tx) => {
-      // Row-lock the job so a concurrent transaction (should the Redis lock
-      // ever be bypassed, e.g. in a Redis outage) still cannot double-assign.
+      // Row-lock the job so a concurrent transaction cannot double-assign,
+      // whether or not a job lock ran in front of this one.
       const [job] = await tx.$queryRawUnsafe<Array<{ id: string; status: string }>>(
         `SELECT id, status FROM jobs WHERE id = $1 FOR UPDATE`,
         offer.jobId
@@ -200,5 +95,7 @@ export async function acceptOffer(deps: AcceptOfferDeps, offerId: string, profes
 
       return { jobId: offer.jobId, professionalId };
     });
+  }, () => {
+    throw new OfferNoLongerAvailableError(offerId);
   });
 }

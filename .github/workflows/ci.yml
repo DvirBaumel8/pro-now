@@ -1,0 +1,67 @@
+# Runs on every push and pull request (/docs/16-DEPLOYMENT.md §CI).
+# Free for this repository within GitHub's monthly Actions minutes.
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Lint, typecheck, unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      # Nothing in apps/api compiles until the Prisma client exists.
+      - run: npm run db:generate -w apps/api
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run verify:domain
+
+  database:
+    name: Migrations and row lock on real Postgres + PostGIS
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: pronow
+          POSTGRES_PASSWORD: pronow_ci_only
+          POSTGRES_DB: pronow
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U pronow"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://pronow:pronow_ci_only@localhost:5432/pronow
+      NODE_ENV: test
+      JWT_SECRET: ci-only-secret-not-used-anywhere
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: npm ci
+      - run: npm run db:generate -w apps/api
+      - run: npm run db:migrate:deploy -w apps/api
+      - run: npm run verify:rowlock
+      - run: pip install psycopg2-binary && npm run db:verify

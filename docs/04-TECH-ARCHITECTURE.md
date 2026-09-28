@@ -9,7 +9,7 @@
 | Backend API | Node.js + TypeScript (Fastify) |
 | Database | PostgreSQL + PostGIS |
 | ORM | Prisma |
-| Cache / presence / dispatch locks | Redis |
+| Cache / presence / dispatch locks | Postgres row locks; Redis optional (latency only, off in the MVP — see 21-PRODUCTION-PLAN §2.2) |
 | Realtime | WebSockets (push is fallback/wakeup only) |
 | Object storage | S3-compatible |
 | Push | FCM + APNs |
@@ -78,7 +78,7 @@ that could be mistaken for a duration.
 apps/customer-mobile   React Native + Expo + TS
 apps/pro-mobile         React Native + Expo + TS
 apps/admin              Next.js + TS
-apps/api                Node.js + TS (Fastify), Prisma, PostGIS, Redis, WS
+apps/api                Node.js + TS (Fastify), Prisma, PostGIS, optional Redis, WS
 packages/ui             design system components (packages/ui/src/theme.ts = tokens)
 packages/types          domain types + provider interfaces
 packages/config          shared env schema (zod)
@@ -98,7 +98,7 @@ shortlist, never for the entire online supply pool on every request.
   assignment. Clients render; they never decide truth.
 - Idempotency keys required on: create-job, accept-offer, quote approval,
   payment mutation, completion.
-- Atomic job assignment — a Redis lock plus a DB transaction guarantees
+- Atomic job assignment — a DB transaction with a `FOR UPDATE` row lock (plus an optional Redis fast-path lock, `job-lock.ts`) guarantees
   exactly one professional per job even under simultaneous accepts.
 - Immutable, append-only `job_events` audit trail for every state-relevant
   action.

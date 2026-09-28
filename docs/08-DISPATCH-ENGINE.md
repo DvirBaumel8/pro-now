@@ -37,7 +37,7 @@ This is core IP. Implemented in `apps/api/src/domain/dispatch/*`.
    Offer has a server-configurable timeout; expiry is server-authoritative,
    never trusted from the client's countdown UI.
 6. **Atomic assignment** — see `/docs/05-DATABASE.md §Atomic accept`. Uses a
-   Redis lock keyed by `job_id` plus a DB transaction so two simultaneous
+   optional Redis lock keyed by `job_id` (latency only; none in the MVP) plus a DB transaction so two simultaneous
    accepts can never produce two assignments. Uses idempotency keys for
    accept/retry.
 7. **Fallback** — expired/declined offer → next eligible candidate by

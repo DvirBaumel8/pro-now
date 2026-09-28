@@ -6,7 +6,7 @@ import { loadEnv } from "@pro-now/config";
 
 import corsPlugin from "./plugins/cors";
 import prismaPlugin from "./plugins/prisma";
-import redisPlugin from "./plugins/redis";
+import jobLockPlugin from "./plugins/job-lock";
 import providersPlugin from "./plugins/providers";
 import dispatchSweeperPlugin from "./plugins/dispatch-sweeper";
 import authContextPlugin from "./plugins/auth-context";
@@ -24,6 +24,7 @@ import proServicesRoutes from "./routes/pro-services";
 import quotesRoutes from "./routes/quotes";
 import reviewsRoutes from "./routes/reviews";
 import { registerJobSocket } from "./realtime/job-socket";
+import { sandboxOtpAllowed } from "./lib/auth";
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -61,7 +62,7 @@ export async function buildServer() {
   await app.register(corsPlugin);
   await app.register(websocketPlugin);
   await app.register(prismaPlugin);
-  await app.register(redisPlugin);
+  await app.register(jobLockPlugin);
   await app.register(providersPlugin);
   // After providers and prisma: the sweep needs both.
   await app.register(dispatchSweeperPlugin);
@@ -121,7 +122,7 @@ export async function buildServer() {
     });
   });
 
-  await app.register(authRoutes);
+  if (sandboxOtpAllowed(config.NODE_ENV)) await app.register(authRoutes);
   await app.register(catalogRoutes);
   await app.register(addressesRoutes);
   await app.register(jobsRoutes);
