@@ -17,3 +17,10 @@ tools/design-preview/dist/
 # Python bytecode from tools/prisma-ddl
 __pycache__/
 *.pyc
+
+# Film pipeline output and QA screenshots (tools/design-preview/film, /qa)
+tools/design-preview/film/*/
+tools/design-preview/film/*.mp4
+tools/design-preview/film/still_*.jpg
+tools/design-preview/qa/out/
+tools/design-preview/qa/*.log

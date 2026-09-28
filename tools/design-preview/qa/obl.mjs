@@ -1,0 +1,10 @@
+import { launchChromium } from '../browser.mjs';
+const [x, z, name, sx, t] = process.argv.slice(2);
+const b = await launchChromium();
+const p = await b.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+await p.goto(`http://127.0.0.1:4421/?city=1&time=night&x=${x}&z=${z}`, { waitUntil: 'networkidle' }); await p.waitForTimeout(5000);
+const stick = (x, y) => p.evaluate(([x, y]) => { for (const el of document.querySelectorAll('div')) if (el.__stick) { el.__stick(x, y); return true; } return false; }, [x, y]);
+await stick(0, -0.2); await p.waitForTimeout(300); await stick(0, 0); await p.waitForTimeout(2000);
+await stick(Number(sx), -0.35); await p.waitForTimeout(Number(t)); await stick(0, 0); await p.waitForTimeout(2500);
+await p.screenshot({ path: `out/obl_${name}.png` });
+await b.close();

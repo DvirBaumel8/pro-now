@@ -124,6 +124,10 @@ blocks the epic's stated acceptance criteria.
 
 ## 9. Current status
 
+**Start with `/docs/CURRENT-STATE.md`** — who Amit and the reviewer are,
+where the demo, films and tools live, how to publish, the latest
+decisions and the next steps. The rest of this section is older history.
+
 See `/docs/EPIC-0-REPORT.md` for the as-built state, contradictions found
 between source documents, and the recommended next epic.
 
