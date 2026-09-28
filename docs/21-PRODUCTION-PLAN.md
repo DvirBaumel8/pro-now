@@ -249,9 +249,7 @@ Playwright harness (moves to W2, the first epic with a UI to test).
   - `job_media` references `uploads`.
   - `professional_documents` references `uploads`.
 - **Cleanup worker:** PENDING uploads older than 24 h are deleted, from
-  the bucket and the row. A retention sweep with a configurable number of
-  days is built but **disabled until the retention period is decided**
-  (§5).
+  the bucket and the row. A retention sweep deletes media after **4 days** (D3, a setting).
 - **Text** stays in Postgres (`jobs.description`, chat later).
 - **Capacity:**
   - The average item is ≈0.3 MB, so R2's free 10 GB holds ≈30k items.
@@ -441,9 +439,9 @@ Then, in Phase 2 proper (≈50 jobs/day):
 
 | # | Decision | Needed by | Default until decided |
 |---|---|---|---|
-| D1 | How the professional is paid in the MVP | W6 | **DECIDED 2026-09-29: no money in the app for now; "auto approved".** Which approval is automatic (the quote, or the professional's verification) is to be confirmed |
+| D1 | How the professional is paid in the MVP | W6 | **DECIDED 2026-09-29: no money in the app for now, and the quote is approved automatically** (no approval step for the orderer in the MVP; the rule "only the orderer approves" returns with payments) |
 | D2 | AI model/vendor for understanding requests (cost and privacy of photos) | Phase 2 | Keyword matcher + customer confirmation |
-| D3 | Retention period for photos, voice, text and match feedback | W4 | **DECIDED 2026-09-29: a few days.** The exact number of days is a setting, to be confirmed |
+| D3 | Retention period for photos, voice, text and match feedback | W4 | **DECIDED 2026-09-29: 4 days**, then deleted by the retention sweep (a setting, default 4) |
 | D4 | SMS vendor (person at home, phone verification) | Phase 2 | Orderer shares the link |
 | D5 | Routing/ETA provider | Phase 2 | Straight-line estimate, labelled |
 | D6 | Is the 3D city part of the product app? | W2 | **DECIDED 2026-09-29: no, outside the product app.** It stays the investor demo |
