@@ -135,6 +135,9 @@ export interface LivingMapSceneProps {
   /** The matched professional's own visit fee — each sets their own. */
   visitFeeHe?: string | null;
   availableInHe?: string | null;
+  /** The call is for someone else — see PlayDrawer. */
+  onSiteNameHe?: string | null;
+  onOpenOnSite?: () => void;
   serviceNameHe: string;
   /** True once the server is checking eligibility — drives the sub-line. */
   checkingEligibility?: boolean;
@@ -295,6 +298,8 @@ export function LivingMapScene({
   arrivalClockHe,
   visitFeeHe = null,
   availableInHe = null,
+  onSiteNameHe = null,
+  onOpenOnSite,
   serviceNameHe,
   checkingEligibility = false,
   departmentCode,
@@ -1221,7 +1226,9 @@ export function LivingMapScene({
         : phase === "MATCH_REVEAL"
           ? "מצאנו לך התאמה"
           : chosen
-            ? `${firstName(chosen.displayNameHe)} בדרך אליך`
+            ? onSiteNameHe
+              ? `${firstName(chosen.displayNameHe)} בדרך אל ${onSiteNameHe.replace(/ \(תצוגה\)$/, "")}`
+              : `${firstName(chosen.displayNameHe)} בדרך אליך`
             : "בדרך אליך";
 
   const detail =
@@ -1882,6 +1889,8 @@ export function LivingMapScene({
           etaMinutes={etaMinutes}
           discoveries={discoveries ?? { available: [], found: [] }}
           onAction={onPlayAction}
+          onSiteNameHe={onSiteNameHe}
+          onOpenOnSite={onOpenOnSite}
         />
       ) : null}
 

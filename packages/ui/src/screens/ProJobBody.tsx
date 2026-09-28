@@ -104,6 +104,11 @@ export interface ProJobBodyProps {
   usualSampleSize?: number;
   /** Set when the call was placed for someone else who is at the address. */
   onSiteContactNameHe?: string | null;
+  /**
+   * The code this professional says at the door. The customer (or the
+   * person at home) asks for it; only the assigned professional has it.
+   */
+  doorCodeHe?: string | null;
   /** The symptoms the customer tapped on the service page. */
   symptomsHe: string[];
   descriptionHe: string | null;
@@ -358,6 +363,7 @@ export function ProJobBody({
   usualUpToMinorUnits = null,
   usualSampleSize = 0,
   onSiteContactNameHe = null,
+  doorCodeHe = null,
   symptomsHe,
   descriptionHe,
   media,
@@ -585,6 +591,15 @@ export function ProJobBody({
                 )}
               </View>
             </View>
+
+            {doorCodeHe && (status === "PRO_ASSIGNED" || status === "PRO_EN_ROUTE" || status === "PRO_ARRIVED") ? (
+              <View style={styles.doorCode}>
+                <Text style={styles.doorCodeLabel}>
+                  הקוד שלך לדלת — {onSiteContactNameHe ?? customerNameHe} יבקש אותו
+                </Text>
+                <Text style={styles.doorCodeDigits}>{doorCodeHe.split("").join(" ")}</Text>
+              </View>
+            ) : null}
 
             <View style={styles.contactRow}>
               <Pressable onPress={onCall} accessibilityRole="button" style={styles.contactBtn}>
@@ -881,6 +896,16 @@ function Wave() {
 }
 
 const styles = StyleSheet.create({
+  doorCode: {
+    marginTop: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radii.md,
+    backgroundColor: tint.neutralDark(0.06),
+    alignItems: "center",
+    gap: 2,
+  },
+  doorCodeLabel: { ...type.meta, color: colors.textSecondary, textAlign: "center", writingDirection: "rtl" },
+  doorCodeDigits: { ...type.section, color: colors.textPrimary, letterSpacing: 4, ...tabular },
   extraLink: { alignSelf: "center", paddingVertical: spacing.sm, marginTop: spacing.xs },
   extraLinkText: { ...type.captionStrong, color: colors.textSecondary, textDecorationLine: "underline", textAlign: "center" },
   screen: { backgroundColor: colors.bg, overflow: "hidden", borderRadius: radii.xl },

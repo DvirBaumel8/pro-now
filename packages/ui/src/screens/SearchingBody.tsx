@@ -69,6 +69,8 @@ export interface SearchingBodyProps {
   visitFeeHe?: string | null;
   /** "פנוי בעוד 30 דק׳" when the matched professional is not free yet. See `MatchSheet`. */
   availableInHe?: string | null;
+  onSiteNameHe?: string | null;
+  onOpenOnSite?: () => void;
   checkingEligibility?: boolean;
   /** Decides which trade's district the world shows. */
   departmentCode?: string;
@@ -155,6 +157,8 @@ export function SearchingBody({
   arrivalClockHe = null,
   visitFeeHe = null,
   availableInHe = null,
+  onSiteNameHe = null,
+  onOpenOnSite,
   checkingEligibility = false,
   departmentCode,
   worldSources,
@@ -226,6 +230,8 @@ export function SearchingBody({
         arrivalClockHe={arrivalClockHe}
         visitFeeHe={visitFeeHe}
         availableInHe={availableInHe}
+        onSiteNameHe={onSiteNameHe}
+        onOpenOnSite={onOpenOnSite}
         checkingEligibility={checkingEligibility}
         departmentCode={departmentCode}
         onAccept={onAccept}

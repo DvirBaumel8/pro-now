@@ -46,6 +46,9 @@ export interface PlayDrawerProps {
   discoveries: DiscoveryState;
   hasJobDetails?: boolean;
   onAction?: (id: PlayDrawerActionId) => void;
+  /** The call is for someone else: who is at the door, and what they were sent. */
+  onSiteNameHe?: string | null;
+  onOpenOnSite?: () => void;
 }
 
 const TILE_LOOK: Record<PlayDrawerActionId, { glyph: string; tint: string; subHe: string }> = {
@@ -55,8 +58,11 @@ const TILE_LOOK: Record<PlayDrawerActionId, { glyph: string; tint: string; subHe
   WHILE_YOU_WAIT: { glyph: "☕", tint: "#F59E0B", subHe: "חנויות מומלצות ברחוב" },
 };
 
-export function PlayDrawer({ firstNameHe, etaMinutes, discoveries, hasJobDetails = true, onAction }: PlayDrawerProps) {
-  const status = playDrawerStatusHe({ firstNameHe, etaMinutes });
+export function PlayDrawer({ firstNameHe, etaMinutes, discoveries, hasJobDetails = true, onAction, onSiteNameHe = null, onOpenOnSite }: PlayDrawerProps) {
+  const onSiteFirst = onSiteNameHe ? onSiteNameHe.replace(/ \(תצוגה\)$/, "") : null;
+  const status = onSiteFirst && firstNameHe
+    ? `${firstNameHe} בדרך אל ${onSiteFirst}${etaMinutes !== null ? ` · ${etaMinutes} דק׳` : ""}`
+    : playDrawerStatusHe({ firstNameHe, etaMinutes });
   const progress = discoveryProgressHe(discoveries);
   const base = playDrawerActions({ firstNameHe, discoveries, hasJobDetails });
 
@@ -75,6 +81,14 @@ export function PlayDrawer({ firstNameHe, etaMinutes, discoveries, hasJobDetails
       <Text style={styles.status} numberOfLines={1}>
         {status}
       </Text>
+
+      {onSiteNameHe ? (
+        <Pressable onPress={onOpenOnSite} accessibilityRole="button" accessibilityLabel={`מה ${onSiteNameHe.split(" ")[0]} רואה`} style={styles.onSite}>
+          <Text style={styles.onSiteText} numberOfLines={1}>
+            {onSiteNameHe.split(" ")[0]} קיבל הודעה עם הפרטים וקוד לדלת · <Text style={styles.onSiteGo}>מה {onSiteNameHe.split(" ")[0]} רואה ›</Text>
+          </Text>
+        </Pressable>
+      ) : null}
 
       {/*
         * The counter appears only once someone has found something. Before
@@ -148,6 +162,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   status: { ...type.bodyStrong, color: palette.nightText, textAlign: "center", writingDirection: "rtl" },
+  onSite: { minHeight: 36, justifyContent: "center", alignSelf: "center" },
+  onSiteText: { ...type.meta, color: palette.nightText, opacity: 0.85, textAlign: "center", writingDirection: "rtl" },
+  onSiteGo: { ...type.metaStrong, color: "#FF9A6B" },
   progress: {
     ...type.micro,
     color: palette.nightTextSoft,

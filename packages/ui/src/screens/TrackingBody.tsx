@@ -34,7 +34,7 @@ import {
 import { formatCompletedJobs, formatEta, formatProNowRating } from "../format";
 import { BackButton } from "../components/BackButton";
 import { useSheetDrag } from "../components/useSheetDrag";
-import { customerDarkTheme, depth, palette, radii, scale, spacing, tabular, type } from "../theme";
+import { customerDarkTheme, depth, palette, radii, scale, spacing, tabular, tint, type } from "../theme";
 import { ArrivalPromise } from "../components/ArrivalPromise";
 import { ProviderPortrait } from "../components/ProviderPortrait";
 import { RealMapSurface } from "../components/RealMapSurface";
@@ -163,6 +163,14 @@ export interface TrackingBodyProps {
   onCall?: () => void;
   onMessage?: () => void;
   onSafety?: () => void;
+  /**
+   * THE CALL IS FOR SOMEBODY ELSE. The person at the door (grandpa, a
+   * partner at home) is named on the sheet, and the customer — who is
+   * somewhere else — can open exactly what that person was sent.
+   */
+  onSiteNameHe?: string | null;
+  onSiteStatusHe?: string | null;
+  onOpenOnSiteView?: () => void;
   /**
    * Leave the tracking screen. The job keeps running.
    *
@@ -306,6 +314,9 @@ export function TrackingBody({
   onCall,
   onMessage,
   onSafety,
+  onSiteNameHe = null,
+  onSiteStatusHe = null,
+  onOpenOnSiteView,
   onBack,
   worldSources,
   departmentCode = null,
@@ -929,6 +940,23 @@ export function TrackingBody({
           */}
         {progressHe ? <Text style={styles.progress}>{progressHe}</Text> : null}
 
+        {onSiteNameHe ? (
+          <Pressable
+            onPress={onOpenOnSiteView}
+            accessibilityRole="button"
+            accessibilityLabel={`מה ${onSiteNameHe} רואה בטלפון`}
+            style={({ pressed }) => [styles.onSite, pressed && { opacity: 0.85 }]}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={styles.onSiteTitle} numberOfLines={1}>הקריאה בשביל {onSiteNameHe}</Text>
+              <Text style={styles.onSiteSub} numberOfLines={2}>
+                {onSiteStatusHe ?? `${onSiteNameHe} קיבל/ה הודעה עם פרטי המקצוען וקוד לדלת`}
+              </Text>
+            </View>
+            <Text style={styles.onSiteGo}>מה {onSiteNameHe.split(" ")[0]} רואה ›</Text>
+          </Pressable>
+        ) : null}
+
         {/* ----------------------------------------------------------------
             WHERE THAT SENTENCE SITS IN THE WHOLE VISIT.
 
@@ -1114,6 +1142,19 @@ function Act({
 }
 
 const styles = StyleSheet.create({
+  onSite: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+    marginHorizontal: spacing.lg,
+    padding: spacing.md,
+    borderRadius: radii.md,
+    backgroundColor: tint.neutralDark(0.05),
+  },
+  onSiteTitle: { ...type.metaStrong, color: colors.textPrimary, textAlign: "right", writingDirection: "rtl" },
+  onSiteSub: { ...type.meta, color: colors.textSecondary, textAlign: "right", writingDirection: "rtl" },
+  onSiteGo: { ...type.metaStrong, color: colors.actionText, writingDirection: "rtl" },
   work: { backgroundColor: "#1B1226", overflow: "hidden" },
   workGlow: {
     position: "absolute", left: -60, top: -40, width: 320, height: 320, borderRadius: 160,

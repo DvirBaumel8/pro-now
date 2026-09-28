@@ -63,7 +63,7 @@ const proWorldSources: WorldAssetSources = Object.fromEntries(
 
 import fixtureGeo from "../geo/fixture_grid.json";
 
-import { ActiveJobCapsule, AddressPickerBody, AppHeader, AppMenuBody, AvatarPickerBody, IntroBody, customerDarkTheme, FocusSheet, ScreenTransition, ArrivalVerifyBody, CallsListBody, CAPSULE_HEIGHT, ChatBody, ConnectionBanner, CategoryBody, CustomerHomeBody, CustomerProfileBody, customerTheme, DescribeFaultBody, JobClosedBody, JobCompleteBody, MatchConfirmBody, NavGlyph, Persona, PhoneAuthBody, ProEarningsBody, ProJobBody, ProJobSettledBody, ProOfferBody, ProOnlineBody, ProPricingBody, ProProfileBody, ProQuoteBuilderBody, ProServicesBody, ProShiftBody, proTheme, ProVerificationBody, ProVerificationStepBody, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, SponsorShopBody, AdvertiseBody, StrollBody, Sheet, spacing, tint, TrackingBody, type as t, WelcomeBody } from "@pro-now/ui";
+import { ActiveJobCapsule, AddressPickerBody, AppHeader, AppMenuBody, AvatarPickerBody, IntroBody, customerDarkTheme, FocusSheet, ScreenTransition, ArrivalVerifyBody, OnSiteBody, CallsListBody, CAPSULE_HEIGHT, ChatBody, ConnectionBanner, CategoryBody, CustomerHomeBody, CustomerProfileBody, customerTheme, DescribeFaultBody, JobClosedBody, JobCompleteBody, MatchConfirmBody, NavGlyph, Persona, PhoneAuthBody, ProEarningsBody, ProJobBody, ProJobSettledBody, ProOfferBody, ProOnlineBody, ProPricingBody, ProProfileBody, ProQuoteBuilderBody, ProServicesBody, ProShiftBody, proTheme, ProVerificationBody, ProVerificationStepBody, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, SponsorShopBody, AdvertiseBody, StrollBody, Sheet, spacing, tint, TrackingBody, type as t, WelcomeBody } from "@pro-now/ui";
 import type { JobMediaItem, LiveLocationState, MarkName, NavGlyphName, ProPricingRow } from "@pro-now/ui";
 import type { AuthStage, ChatMessage, ConnectionState } from "@pro-now/ui";
 import { canHandOffToMaps, categoryAsksForPerson, mapsHandoffUrl, buildIntakeBrief, pilotIntakeByService, pilotServiceById, readAvailability } from "@pro-now/types";
@@ -171,6 +171,10 @@ export interface LiveRequest {
   intakeBrief: IntakeBriefLine[];
   /** The answers themselves, for the price that follows them (choicePrices.ts). */
   answers?: IntakeAnswer[];
+  /** Set when the call is for someone else, who is the one at the door. */
+  onSiteNameHe?: string | null;
+  /** The address as saved: "רמת גן · קומה 1, דירה 4". */
+  addressHe?: string | null;
   textHe: string;
   photos: number;
   voiceSeconds: number | null;
@@ -277,6 +281,7 @@ type CustomerRoute =
    * so the visit ends somewhere instead of circling.
    */
   | { name: "tracking"; stage: "assigned" | "enroute" | "arrived" | "diagnosis" | "working" | "done" }
+  | { name: "onsite"; stage: "assigned" | "enroute" | "arrived" | "diagnosis" | "working" | "done" }
   /** The minute before the knock. See ArrivalVerifyBody. */
   | { name: "arrival" }
   | { name: "quote" }
@@ -368,6 +373,14 @@ const SERVICE_PAGES: typeof catalogServicePages = Object.fromEntries(
   ])
 );
 /* The same opening for the lists the service pages are reached from. */
+/**
+ * The code the professional says at the door. In production it comes from
+ * the server with the assignment — a code a client can derive is a code an
+ * impostor's client can derive — so the preview carries one fixed code and
+ * shows the same one on all three screens that need it.
+ */
+const DOOR_CODE = "4821";
+
 const HOME_SERVICES = [...catalogHomeServices, ...catalogHiddenServices].map((s2) =>
   demoOpenServiceIds.has(s2.id) ? { ...s2, comingSoon: false, scheduledOnly: false, notInMarket: false } : s2
 );
@@ -1526,10 +1539,17 @@ function CustomerApp({
   const [live, setLive] = useState<LiveLocationState>({ status: "idle" });
 
   const chosen = savedAddresses.find((a) => a.id === addressId) ?? savedAddresses[0]!;
+  /*
+   * THE PERSON AT THE DOOR, when the call is for someone else — typed on
+   * the address screen, or carried by a saved address such as "אצל סבא".
+   */
+  const [onSiteTyped, setOnSiteTyped] = useState<{ forId: string | null; nameHe: string } | null>(null);
+  const onSiteNameHe =
+    onSiteTyped && onSiteTyped.forId === addressId ? onSiteTyped.nameHe : chosen.forSomeoneElseNameHe ?? null;
   // The label on the home screen says whose door this is. Forgetting that a
   // call is for someone else is how a professional ends up at the wrong flat.
-  const addressLabel = chosen.forSomeoneElseNameHe
-    ? `${chosen.labelHe} · עבור ${chosen.forSomeoneElseNameHe}`
+  const addressLabel = onSiteNameHe
+    ? `${chosen.labelHe} · עבור ${onSiteNameHe}`
     : chosen.formattedHe.split(" · ")[0] ?? chosen.labelHe;
 
   /*
@@ -2614,7 +2634,10 @@ const go = useCallback((r: CustomerRoute) => {
             liveLocation={live}
             onUseLiveLocation={askLocation}
             onSelect={setAddressId}
-            onConfirm={() => go({ name: "home" })}
+            onConfirm={(r) => {
+              setOnSiteTyped(r.forSomeoneElse && r.recipientNameHe ? { forId: r.addressId ?? addressId, nameHe: r.recipientNameHe } : null);
+              go({ name: "home" });
+            }}
             onBack={() => back({ name: "home" })}
             width={width}
             height={bodyH}
@@ -2837,6 +2860,8 @@ const go = useCallback((r: CustomerRoute) => {
                   intakeAnswers
                 ),
                 answers: intakeAnswers,
+                onSiteNameHe,
+                addressHe: chosen.formattedHe,
                 textHe: faultText,
                 photos: capture.photos.length,
                 voiceSeconds: capture.voice?.seconds ?? null,
@@ -2997,6 +3022,8 @@ const go = useCallback((r: CustomerRoute) => {
              * has one figure per service, shown as this one's.
              */
             availableInHe={waitMin > 0 && route.phase !== "SEARCHING" ? `פנוי בעוד ${waitMin} דק׳` : null}
+            onSiteNameHe={route.phase === "ASSIGNED_ROUTE" ? onSiteNameHe : null}
+            onOpenOnSite={() => go({ name: "onsite", stage: "enroute" })}
             /*
              * THIS PROFESSIONAL'S PRICE, in one sentence. The demo pro (the
              * first candidate) shows what he set on his own pricing screen,
@@ -3112,6 +3139,7 @@ const go = useCallback((r: CustomerRoute) => {
               shop={shopOf(pick)}
               proName={namesFor(pick)}
               etaMinutes={Math.round((matchFixture.eta?.etaSeconds ?? 840) / 60)}
+              onSiteNameHe={onSiteNameHe}
               onDone={() => setOnTheWayAt(null)}
             />
           ) : null}
@@ -3319,6 +3347,19 @@ const go = useCallback((r: CustomerRoute) => {
               return `${String(at.getHours()).padStart(2, "0")}:${String(at.getMinutes()).padStart(2, "0")}`;
             })()}
             onGetHelp={() => setSheet("safety")}
+            onSiteNameHe={onSiteNameHe}
+            onSiteStatusHe={
+              onSiteNameHe
+                ? route.stage === "assigned" || route.stage === "enroute"
+                  ? `${onSiteNameHe} קיבל/ה הודעה עם פרטי המקצוען וקוד לדלת`
+                  : route.stage === "arrived"
+                    ? `${trackedProfessional.displayName.split(" ")[0]} בדלת של ${onSiteNameHe} — הקוד נבדק שם`
+                    : route.stage === "done"
+                      ? `העבודה אצל ${onSiteNameHe} הסתיימה — נשאר רק האישור שלך`
+                      : `${trackedProfessional.displayName.split(" ")[0]} אצל ${onSiteNameHe}. המחיר והאישור אצלך.`
+                : null
+            }
+            onOpenOnSiteView={() => go({ name: "onsite", stage: route.stage })}
             /*
              * THE TAP THAT ENDS THE JOB.
              *
@@ -3410,6 +3451,35 @@ const go = useCallback((r: CustomerRoute) => {
             height={bodyH}
           />
         );
+      case "onsite": {
+        const clock = (() => {
+          if (!matchFixture.eta) return null;
+          const at = new Date(Date.now() + Math.round(matchFixture.eta.etaSeconds / 60) * 60_000);
+          return `${String(at.getHours()).padStart(2, "0")}:${String(at.getMinutes()).padStart(2, "0")}`;
+        })();
+        const st = route.stage;
+        return (
+          <OnSiteBody
+            ordererNameHe="אמית"
+            onSiteNameHe={onSiteNameHe ?? "סבא"}
+            serviceNameHe={trackedService.nameHe}
+            proNameHe={trackedProfessional.displayName}
+            proPhotoUri={`./world/character_${DEPT_SHOP[departmentCodeByServiceId[trackedService.id ?? ""] ?? ""] ?? "home"}_icon.webp`}
+            verifiedHe={[...new Set(["זהות מאומתת", ...((trackedService.id ? SERVICE_PAGES[trackedService.id]?.requiredCredentialsHe : null) ?? [])])].slice(0, 3)}
+            stage={st === "assigned" || st === "enroute" ? "coming" : st === "arrived" ? "at_door" : st === "done" ? "done" : "inside"}
+            arrivalClockHe={clock}
+            minutesAway={matchFixture.eta ? Math.round(matchFixture.eta.etaSeconds / 60) : null}
+            codeHe={DOOR_CODE}
+            vehicleHe="יונדאי i20 לבנה"
+            onCallOrderer={() => setSheet("call")}
+            onCallPro={() => setSheet("call")}
+            onHelp={() => setSheet("safety")}
+            onBack={() => back({ name: "tracking", stage: st })}
+            width={width}
+            height={bodyH}
+          />
+        );
+      }
       case "arrival":
         return (
           <ArrivalVerifyBody
@@ -3423,7 +3493,8 @@ const go = useCallback((r: CustomerRoute) => {
              * can derive, so it is never computed here — the prototype
              * carries a fixed one and says nothing that implies otherwise.
              */
-            codeHe="4821"
+            codeHe={DOOR_CODE}
+            onSiteNameHe={onSiteNameHe}
             vehicleHe="יונדאי i20 לבנה"
             plateTailHe="47"
             etaMinutes={2}
@@ -5096,11 +5167,13 @@ function ProApp({
          */
         serviceNameHe={takenRequest?.serviceNameHe ?? "תיקון נזילה בברז"}
         mark={(takenRequest?.markName as MarkName) ?? "plumbing"}
-        addressHe="רחוב הברזל 12, רמת אביב, תל אביב"
-        accessNoteHe="קומה 3, דירה 9 · קוד כניסה 1408"
+        addressHe={takenRequest?.addressHe ? takenRequest.addressHe.split(" · ")[0]! : "רחוב הברזל 12, רמת אביב, תל אביב"}
+        accessNoteHe={takenRequest?.addressHe ? takenRequest.addressHe.split(" · ").slice(1).join(" · ") || null : "קומה 3, דירה 9 · קוד כניסה 1408"}
         routeEtaMinutes={9}
         distanceHe="2.4 ק״מ"
         customerNameHe="אמית (תצוגה)"
+        onSiteContactNameHe={takenRequest?.onSiteNameHe ?? null}
+        doorCodeHe={DOOR_CODE}
         customerSeed="cust_demo_1"
         /*
          * THE FIGURE THE CUSTOMER ACTUALLY CHOSE.
@@ -6314,7 +6387,7 @@ const OTW_CSS = `
 @keyframes pnOtwRing{from{stroke-dashoffset:0}to{stroke-dashoffset:251}}
 @keyframes pnOtwPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
 `;
-function OnTheWay({ shop, proName, etaMinutes, onDone }: { shop: string; proName: string; etaMinutes: number; onDone: () => void }) {
+function OnTheWay({ shop, proName, etaMinutes, onSiteNameHe = null, onDone }: { shop: string; proName: string; etaMinutes: number; onSiteNameHe?: string | null; onDone: () => void }) {
   const shopId = shop;
   /* Once, on arrival: the host re-renders every second (the ETA clock),
      and a timer keyed on a fresh callback would never get to fire. */
@@ -6334,7 +6407,7 @@ function OnTheWay({ shop, proName, etaMinutes, onDone }: { shop: string; proName
         </svg>
         <img src={`./world/character_${shopId}_icon.webp`} alt="" style={{ position: "absolute", left: 25, top: 18, width: 100, height: 112, objectFit: "contain" }} />
       </div>
-      <div style={{ marginTop: 18, color: "#fff", fontSize: scale.title, fontWeight: 900, animation: "pnOtwCard .6s .1s both" }}>{proName} יצא אליך!</div>
+      <div style={{ marginTop: 18, color: "#fff", fontSize: scale.title, fontWeight: 900, animation: "pnOtwCard .6s .1s both" }}>{onSiteNameHe ? `${proName} יצא אל ${onSiteNameHe.replace(/ \(תצוגה\)$/, "")}!` : `${proName} יצא אליך!`}</div>
       <div style={{ marginTop: 6, color: "#FF9A6B", fontSize: scale.body, fontWeight: 800, animation: "pnOtwCard .6s .2s both" }}>מגיע בעוד {etaMinutes} דק׳</div>
       <div style={{ position: "relative", width: "86%", height: 120, marginTop: 26, animation: "pnOtwCard .6s .3s both" }}>
         <div style={{ position: "absolute", left: "8%", right: "8%", top: 76, height: 6, borderRadius: 3, backgroundImage: "linear-gradient(90deg, rgba(255,154,107,.9) 50%, transparent 50%)", backgroundSize: "20px 6px", animation: "pnOtwDash .6s linear infinite" }} />
@@ -6343,9 +6416,9 @@ function OnTheWay({ shop, proName, etaMinutes, onDone }: { shop: string; proName
         {/* From his shop (right) to your home (left), nose first. */}
         <img src="./world/m/van_side.webp" alt="" style={{ position: "absolute", top: 42, height: 44, animation: "pnOtwVan 5s cubic-bezier(.4,0,.2,1) both" }} />
         <div style={{ position: "absolute", right: 4, top: 96, color: "rgba(247,243,250,.7)", fontSize: scale.micro }}>החנות שלו</div>
-        <div style={{ position: "absolute", left: 8, top: 96, color: "rgba(247,243,250,.7)", fontSize: scale.micro }}>הבית שלך</div>
+        <div style={{ position: "absolute", left: 8, top: 96, color: "rgba(247,243,250,.7)", fontSize: scale.micro }}>{onSiteNameHe ? `אצל ${onSiteNameHe.split(" ")[0]}` : "הבית שלך"}</div>
       </div>
-      <div style={{ marginTop: 22, color: "rgba(247,243,250,.75)", fontSize: scale.meta, animation: "pnOtwCard .6s .5s both" }}>אפשר לעקוב אחריו על המפה בכל רגע</div>
+      <div style={{ marginTop: 22, color: "rgba(247,243,250,.75)", fontSize: scale.meta, animation: "pnOtwCard .6s .5s both" }}>{onSiteNameHe ? `${onSiteNameHe.split(" ")[0]} קיבל הודעה עם הפרטים שלו וקוד לדלת` : "אפשר לעקוב אחריו על המפה בכל רגע"}</div>
     </div>
   );
 }

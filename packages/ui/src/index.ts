@@ -31,6 +31,7 @@ export * from "./screens/SearchingBody";
 export * from "./screens/TrackingBody";
 export * from "./screens/ProOnlineBody";
 export * from "./screens/ArrivalVerifyBody";
+export * from "./screens/OnSiteBody";
 export * from "./screens/MatchConfirmBody";
 export * from "./screens/ProQuoteBuilderBody";
 export * from "./screens/ProServicesBody";

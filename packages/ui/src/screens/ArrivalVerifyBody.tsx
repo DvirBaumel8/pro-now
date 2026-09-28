@@ -56,6 +56,8 @@ export interface ArrivalVerifyBodyProps {
   plateTailHe?: string | null;
   /** Minutes away. Null once they have arrived. */
   etaMinutes: number | null;
+  /** Set when the call is for someone else, who is the one at the door. */
+  onSiteNameHe?: string | null;
   onCall?: () => void;
   onMessage?: () => void;
   onShare?: () => void;
@@ -74,6 +76,7 @@ export function ArrivalVerifyBody({
   vehicleHe,
   plateTailHe,
   etaMinutes,
+  onSiteNameHe = null,
   onCall,
   onMessage,
   onShare,
@@ -138,7 +141,9 @@ export function ArrivalVerifyBody({
             <Text style={styles.codePending}>הקוד יונפק רגע לפני ההגעה</Text>
           )}
           <Text style={styles.codeNote}>
-            בקשו את הקוד בדלת. רק מי שקיבל את הקריאה יודע אותו.
+            {onSiteNameHe
+              ? `הקוד נשלח גם ל${onSiteNameHe} בהודעה, והוא/היא יבקשו אותו בדלת. רק מי שקיבל את הקריאה יודע אותו.`
+              : "בקשו את הקוד בדלת. רק מי שקיבל את הקריאה יודע אותו."}
           </Text>
         </View>
 

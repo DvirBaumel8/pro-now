@@ -197,6 +197,29 @@ and no screen achieves it: *"מחיר נח לכל כיס עם מקצוענים �
 supply-and-price-level strategy. Fairness is the part that can be built
 without inventing a business rule.
 
+### BUILT 2026-09-28 (preview) — ordering for someone else, including the door
+
+Amit's headline case: a plumber for grandpa, ordered and paid from the
+grandson's phone. The address screen already took the name and number of the
+person at home; now the rest of the visit knows about them:
+
+- **The person at home** gets one text message with a link — no app, no
+  account — to a page (`OnSiteBody`) that says who is coming, what was
+  verified, when, and the single thing to do: ask for the door code before
+  opening ("if he does not know it — do not open, call the orderer"). It says
+  plainly that nothing is paid or approved at the door.
+- **The professional** sees who is at the door and who ordered, and the code
+  he must say (`ProJobBody.doorCodeHe`), and the address is the recipient's.
+- **The orderer** sees "יוסי יצא אל סבא יוסף", a line on the waiting and
+  tracking screens with what the person at home was sent, and keeps the
+  quote, the approval and the payment.
+
+Not built, and needed before production: sending the SMS (NotificationProvider
+— vendor TBD, see Open Decisions), a short-lived signed link for the page, and
+the door code issued by the server with the assignment (the preview shows one
+fixed code). Whether the person at home may also approve a quote is a product
+decision for Amit; today only the orderer can.
+
 ### BUILT 2026-09-28 — every shop in the street is a real shop
 
 Amit: *"אני צריך שכל החנויות יראו כמו המספרה."* All fourteen houses now have
