@@ -144,14 +144,64 @@ export function buildBoxRoom(art: BoxRoomArt): PanoRoom {
   skirt.position.y = 0.005;
   scene.add(skirt);
 
-  /* The ceiling: the back wall's top colour, darker towards the middle. */
+  /*
+   * A CEILING, NOT A LID.
+   *
+   * Amit: *"גם החזית וגם הבפנים כמו קרטון."* Measured on every shop: the
+   * top quarter of the screen inside was one flat colour — the walls
+   * stopped and a plain slab sat on them, which is exactly a cardboard
+   * box with its flaps folded in. A real shop's ceiling is where its light
+   * comes from, so this one is panelled, has recessed downlights that the
+   * bloom pass makes glow, a warm cove of LED light along the top of every
+   * wall, and soft shafts of light falling from the lamps into the room.
+   * None of it is drawn per shop: it takes the shop's own colour.
+   */
   const ceil = new THREE.Mesh(
     new THREE.PlaneGeometry(W, D),
-    new THREE.MeshBasicMaterial({ color: new THREE.Color(tint).multiplyScalar(0.55), toneMapped: false })
+    new THREE.MeshBasicMaterial({ map: ceilingTex(new THREE.Color(tint)), toneMapped: false })
   );
   ceil.rotation.x = Math.PI / 2;
   ceil.position.y = H;
   scene.add(ceil);
+
+  /* The corner where wall meets ceiling, in shadow, and a line of light under it. */
+  const cove = coveTex();
+  for (const [w, pos, ry] of [
+    [W, [0, H - 0.09, -D / 2 + 0.02], 0],
+    [D, [-W / 2 + 0.02, H - 0.09, 0], Math.PI / 2],
+    [D, [W / 2 - 0.02, H - 0.09, 0], -Math.PI / 2],
+  ] as Array<[number, [number, number, number], number]>) {
+    const cm = new THREE.MeshBasicMaterial({
+      map: cove, transparent: true, depthWrite: false, toneMapped: false,
+      blending: THREE.AdditiveBlending, opacity: 0.9,
+    });
+    const strip = new THREE.Mesh(new THREE.PlaneGeometry(w, 0.18), cm);
+    strip.position.set(...pos);
+    strip.rotation.y = ry;
+    scene.add(strip);
+    const shade = new THREE.Mesh(
+      new THREE.PlaneGeometry(w, 0.35),
+      new THREE.MeshBasicMaterial({ map: shadeTex(), transparent: true, depthWrite: false, toneMapped: false })
+    );
+    shade.position.set(pos[0], H - 0.175, pos[2]);
+    shade.rotation.y = ry;
+    shade.translateZ(0.005);
+    scene.add(shade);
+  }
+
+  /* Light falling from the downlights: faint cones, brighter at the lamp. */
+  const shaftTex = shaftGradient();
+  for (const [x, z] of [[-W * 0.3, -D * 0.28], [W * 0.3, -D * 0.28]] as Array<[number, number]>) {
+    const cone = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.1, 0.95, H - 0.05, 24, 1, true),
+      new THREE.MeshBasicMaterial({
+        map: shaftTex, transparent: true, depthWrite: false, side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending, opacity: 0.055, toneMapped: false,
+      })
+    );
+    cone.position.set(x, (H - 0.05) / 2, z);
+    scene.add(cone);
+  }
 
   /*
    * THE FURNITURE, STANDING IN THE ROOM.
@@ -336,6 +386,16 @@ export function buildBoxRoom(art: BoxRoomArt): PanoRoom {
         const m = facing[i]!;
         const ry = Math.atan2(camera.position.x - m.position.x, camera.position.z - m.position.z);
         m.rotation.y = ry;
+        /*
+         * A piece the camera is almost standing in shows as a giant cut
+         * edge across the bottom of the screen — the paper giving itself
+         * away. Closer than a metre and a half it lets you see through it,
+         * and closer than eighty centimetres it steps out of the way.
+         */
+        const near = Math.hypot(camera.position.x - m.position.x, camera.position.z - m.position.z);
+        const mm = m.material as THREE.MeshBasicMaterial;
+        m.visible = near > 0.8;
+        mm.opacity = near >= 1.5 ? 1 : 0.45 + 0.55 * ((near - 0.8) / 0.7);
         if (mirrorFacing[i]) mirrorFacing[i]!.rotation.y = ry;
       }
       /* Breathing, with a real sign's occasional stutter. */
@@ -475,5 +535,85 @@ function dot(): THREE.CanvasTexture {
   gr.addColorStop(1, "rgba(255,226,170,0)");
   g.fillStyle = gr;
   g.fillRect(0, 0, 32, 32);
+  return new THREE.CanvasTexture(c);
+}
+
+/** Panelled ceiling in the shop's own colour, with recessed downlights. */
+function ceilingTex(base: THREE.Color): THREE.CanvasTexture {
+  const c = document.createElement("canvas");
+  c.width = 512; c.height = 560;
+  const g = c.getContext("2d")!;
+  const dark = base.clone().multiplyScalar(0.42);
+  const mid = base.clone().multiplyScalar(0.6);
+  const css = (col: THREE.Color, a = 1) =>
+    `rgba(${Math.round(col.r * 255)},${Math.round(col.g * 255)},${Math.round(col.b * 255)},${a})`;
+  const bg = g.createRadialGradient(256, 280, 40, 256, 280, 360);
+  bg.addColorStop(0, css(mid));
+  bg.addColorStop(1, css(dark));
+  g.fillStyle = bg;
+  g.fillRect(0, 0, c.width, c.height);
+  /* panels */
+  g.strokeStyle = "rgba(0,0,0,0.28)";
+  g.lineWidth = 3;
+  for (let x = 0; x <= 512; x += 128) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, 560); g.stroke(); }
+  for (let y = 0; y <= 560; y += 140) { g.beginPath(); g.moveTo(0, y); g.lineTo(512, y); g.stroke(); }
+  g.strokeStyle = "rgba(255,255,255,0.06)";
+  g.lineWidth = 2;
+  for (let x = 2; x <= 512; x += 128) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, 560); g.stroke(); }
+  /* downlights, each with a warm halo on the ceiling around it */
+  for (const [x, y] of [[128, 150], [384, 150], [256, 420], [128, 420], [384, 420], [256, 150]] as Array<[number, number]>) {
+    const halo = g.createRadialGradient(x, y, 4, x, y, 70);
+    halo.addColorStop(0, "rgba(255,226,170,0.55)");
+    halo.addColorStop(1, "rgba(255,226,170,0)");
+    g.fillStyle = halo;
+    g.fillRect(x - 70, y - 70, 140, 140);
+    g.fillStyle = "rgba(40,30,25,0.9)";
+    g.beginPath(); g.arc(x, y, 15, 0, Math.PI * 2); g.fill();
+    g.fillStyle = "#fff4dc";
+    g.beginPath(); g.arc(x, y, 10, 0, Math.PI * 2); g.fill();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+/** A line of warm LED light, strongest in the middle of its height. */
+function coveTex(): THREE.CanvasTexture {
+  const c = document.createElement("canvas");
+  c.width = 4; c.height = 64;
+  const g = c.getContext("2d")!;
+  const gr = g.createLinearGradient(0, 0, 0, 64);
+  gr.addColorStop(0, "rgba(255,214,150,0)");
+  gr.addColorStop(0.45, "rgba(255,226,175,0.95)");
+  gr.addColorStop(0.55, "rgba(255,226,175,0.95)");
+  gr.addColorStop(1, "rgba(255,214,150,0)");
+  g.fillStyle = gr;
+  g.fillRect(0, 0, 4, 64);
+  return new THREE.CanvasTexture(c);
+}
+
+/** The shadow a wall has just under the ceiling. */
+function shadeTex(): THREE.CanvasTexture {
+  const c = document.createElement("canvas");
+  c.width = 4; c.height = 64;
+  const g = c.getContext("2d")!;
+  const gr = g.createLinearGradient(0, 0, 0, 64);
+  gr.addColorStop(0, "rgba(0,0,0,0.55)");
+  gr.addColorStop(1, "rgba(0,0,0,0)");
+  g.fillStyle = gr;
+  g.fillRect(0, 0, 4, 64);
+  return new THREE.CanvasTexture(c);
+}
+
+/** Bright at the lamp, gone by the floor. */
+function shaftGradient(): THREE.CanvasTexture {
+  const c = document.createElement("canvas");
+  c.width = 4; c.height = 128;
+  const g = c.getContext("2d")!;
+  const gr = g.createLinearGradient(0, 0, 0, 128);
+  gr.addColorStop(0, "rgba(255,230,185,1)");
+  gr.addColorStop(1, "rgba(255,230,185,0)");
+  g.fillStyle = gr;
+  g.fillRect(0, 0, 4, 128);
   return new THREE.CanvasTexture(c);
 }

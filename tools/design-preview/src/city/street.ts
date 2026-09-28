@@ -984,6 +984,8 @@ export function buildStreet(
    * street's lamps on top. A fully unlit cut-out is the thing that
    * made the shopfronts look like decals (see `shopBay`).
    */
+  const canopies: THREE.Object3D[] = [];
+  const _canopyAt = new THREE.Vector3();
   function cutout(
     tex: THREE.Texture,
     height: number,
@@ -3813,6 +3815,15 @@ export function buildStreet(
   );
   let treeTurn = 0;
 
+  /*
+   * A TREE THE CAMERA IS STANDING IN GETS OUT OF THE WAY.
+   *
+   * The follow camera rides a couple of metres behind and above you, and
+   * past a tree on the kerb it went straight through the crown — the
+   * whole screen became flat purple petals, which is the cut-out giving
+   * itself away more completely than anything else in the street. Within
+   * a couple of metres of the camera a tree is hidden; you are under it.
+   */
   function tree(x: number, z: number, scale = 1) {
     if (drawnTrees.length > 0) {
       const t = drawnTrees[treeTurn++ % drawnTrees.length]!;
@@ -3827,6 +3838,7 @@ export function buildStreet(
       g.position.set(x, 0, z);
       g.rotation.y = Math.random() * Math.PI;
       scene.add(g);
+      canopies.push(g);
       return;
     }
     const g = new THREE.Group();
@@ -4189,6 +4201,7 @@ export function buildStreet(
       g.position.set(x, 0, pl.z);
       g.rotation.y = pl.side < 0 ? Math.PI / 2 : -Math.PI / 2;
       scene.add(g);
+      if (pl.kerb) canopies.push(g);
       places.push({
         id: pl.id,
         he: pl.he,
@@ -4281,6 +4294,7 @@ export function buildStreet(
           const t = cutout(tree, 6.4);
           t.position.set(px + 1.2, 0, pz + dz);
           g.add(t);
+          canopies.push(t);
         }
       }
       /*
@@ -4425,6 +4439,7 @@ export function buildStreet(
       /* Side views face across the road; rear views face down it. */
       g.rotation.y = id.endsWith("_side") ? (side > 0 ? -Math.PI / 2 : Math.PI / 2) : 0;
       scene.add(g);
+      canopies.push(g);
     }
   }
 
@@ -4470,6 +4485,10 @@ export function buildStreet(
   let lendClock = 1;
   const _focus = new THREE.Vector3();
   function update(dt: number, elapsed: number, camera: THREE.Camera) {
+    for (const c of canopies) {
+      c.getWorldPosition(_canopyAt);
+      c.visible = Math.hypot(camera.position.x - _canopyAt.x, camera.position.z - _canopyAt.z) > 2.4;
+    }
     /* The redrawn buildings keep their face to you, within limits: past
        about fifty degrees a three-quarter drawing stops reading as one. */
     for (const f of redrawnTicks) f(elapsed);
