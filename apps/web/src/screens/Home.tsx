@@ -9,8 +9,9 @@ import {
   catalogHomeServices,
   catalogMatchRules,
 } from "@pro-now/ui";
-import { greetingAt } from "@pro-now/types";
+import { avatarById, greetingAt } from "@pro-now/types";
 
+import { useMe } from "../api";
 import { authClient } from "../auth";
 import { CityHero } from "../art/CityHero";
 import { worldSources } from "../art/worldSources";
@@ -43,6 +44,10 @@ export function Home() {
   const { width, height } = useFrame();
   const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>("home");
+  const me = useMe();
+  /* The face they chose, in the header, as in the demo; the glyph if none. */
+  const chosen = avatarById(me.data?.customer?.avatarId ?? null);
+  const avatarUri = chosen ? ((worldSources[chosen.portraitAssetId] as { uri?: string } | undefined)?.uri ?? null) : null;
   const bodyH = height - HEADER_H;
 
   const signOut = async () => {
@@ -53,7 +58,7 @@ export function Home() {
   return (
     <View style={{ width, height }}>
       {/* The same button closes the menu again, as in the demo. */}
-      <AppHeader width={width} greetingHe={null} onMenu={() => setTab(tab === "menu" ? "home" : "menu")} />
+      <AppHeader width={width} greetingHe={null} avatarUri={avatarUri} onMenu={() => setTab(tab === "menu" ? "home" : "menu")} />
       <View style={{ height: bodyH, overflow: "hidden" }}>
         {tab === "menu" ? (
           <AppMenuBody
@@ -73,7 +78,7 @@ export function Home() {
                 items: [
                   { id: "card", labelHe: "החשבון שלי", detailHe: "פרטים, אמצעי תשלום והיסטוריית חיובים", upcoming: true },
                   { id: "address", labelHe: "הכתובות שלי", detailHe: "לאן שולחים את המקצוען", upcoming: true },
-                  { id: "avatar", labelHe: "הדמות שלי", detailHe: "מי מטייל ברחוב בזמן ההמתנה", upcoming: true },
+                  { id: "avatar", labelHe: "הדמות שלי", detailHe: "מי מטייל ברחוב בזמן ההמתנה", onPress: () => navigate("/avatar") },
                   { id: "sign-out", labelHe: "יציאה", detailHe: "יציאה מהחשבון במכשיר הזה", onPress: signOut },
                 ],
               },

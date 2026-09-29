@@ -126,6 +126,14 @@ model CustomerProfile {
   userId    String   @unique
   user      User     @relation(fields: [userId], references: [id])
   fullName  String?
+  /// The character they walk the street as (an id from AVATARS in
+  /// @pro-now/types), or null.
+  avatarId       String?
+  /// Whether the avatar question was answered. Skipping is an answer, so
+  /// null avatarId alone cannot tell "never asked" from "said no".
+  avatarAnswered Boolean   @default(false)
+  /// When the intro slides were seen. Seen once, on any device.
+  introSeenAt    DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

@@ -22,6 +22,24 @@ export default defineConfig({
      */
     dedupe: ["react", "react-dom", "react-native-web", "react-native-svg"],
   },
+  /*
+   * Pre-bundled up front. Otherwise Vite discovers a dependency the first
+   * time a screen imports it, re-bundles, and reloads mid-session, and a page
+   * that survives the reload can briefly hold two copies of React ("Invalid
+   * hook call"). Development only; production is one bundle.
+   */
+  optimizeDeps: {
+    include: [
+      "react",
+      "react-dom",
+      "react-dom/client",
+      "react-native-web",
+      "react-router",
+      "@tanstack/react-query",
+      "better-auth/react",
+      "better-auth/client/plugins",
+    ],
+  },
   define: { global: "window", __DEV__: JSON.stringify(process.env.NODE_ENV !== "production") },
   server: {
     port: 5180,

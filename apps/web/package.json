@@ -12,7 +12,9 @@
     "lint": "eslint src"
   },
   "dependencies": {
+    "@pro-now/api-client": "*",
     "@pro-now/types": "*",
+    "@pro-now/validation": "*",
     "@pro-now/ui": "*",
     "@tanstack/react-query": "^5.104.0",
     "better-auth": "^1.7.6",

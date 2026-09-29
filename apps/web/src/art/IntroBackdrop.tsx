@@ -1,0 +1,115 @@
+/**
+ * The pictures behind the intro slides, ported 1:1 from the demo
+ * (tools/design-preview/src/App.tsx `IntroBackdrop` and the scenes it
+ * draws). The two cards are illustrations and say so ("דוגמה"): no real
+ * person, no rating, no invented supply.
+ */
+import { scale } from "@pro-now/ui";
+import { isDaytime } from "./CityHero";
+import { StreetScene } from "./WelcomeScene";
+
+const cityBg = () =>
+  isDaytime()
+    ? { src: "/world/splash_city_day.webp", pos: "50% 40%" }
+    : { src: "/world/splash_city.webp", pos: "64% 50%" };
+
+export function IntroBackdrop({ slide }: { slide: number }) {
+  if (slide === 1) return <AvatarsLineup />;
+  if (slide === 2) return <ProsLineup />;
+  if (slide === 3) return <TrustCard />;
+  if (slide === 4) return <FamilyScene />;
+  /* "A whole city", from inside one of its streets. */
+  return <StreetScene />;
+}
+
+function AvatarsLineup() {
+  const ids = ["01", "06", "02", "09", "03", "07", "04", "11", "05", "08", "12", "10"];
+  return (
+    <div aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden", background: "radial-gradient(120% 70% at 50% 28%, #6a3f73 0%, #2a1838 55%, #120c18 90%)" }}>
+      <img src="/clips/show_salon_in.jpg" alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.3, filter: "blur(2px)" }} />
+      <div style={{ position: "absolute", left: "6%", right: "6%", top: "8%", display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
+        {ids.map((id) => (
+          <img key={id} src={`/world/avatar_${id}_portrait.webp`} alt="" style={{ width: "100%", aspectRatio: "1", objectFit: "cover", borderRadius: 18, background: "rgba(255,255,255,.06)", boxShadow: "0 8px 20px rgba(0,0,0,.45)" }} />
+        ))}
+      </div>
+    </div>
+  );
+}
+const PRO_LINEUP = ["home", "hair", "auto", "care", "tech", "pets", "appliance", "well", "move"] as const;
+function ProsLineup() {
+  return (
+    <div aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden", background: "radial-gradient(120% 70% at 50% 28%, #6a3f73 0%, #2a1838 55%, #120c18 90%)" }}>
+      <img src="/clips/show_salon_side.jpg" alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.3, filter: "blur(2px)" }} />
+      <div style={{ position: "absolute", left: 0, right: 0, top: "9%", height: "50%", display: "flex", flexWrap: "wrap", justifyContent: "center", alignItems: "flex-end", gap: "0 2px", padding: "0 6px" }}>
+        {PRO_LINEUP.map((id, i) => (
+          <img
+            key={id}
+            src={`/world/character_${id}_world.webp`}
+            alt=""
+            style={{ height: i < 4 ? "46%" : "50%", marginTop: i < 4 ? 0 : -18, filter: "drop-shadow(0 10px 14px rgba(0,0,0,.55))" }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+function TrustCard() {
+  const row = (t: string) => (
+    <div style={{ display: "flex", flexDirection: "row-reverse", alignItems: "center", gap: 8, color: "#F7F3FA", fontSize: scale.meta, lineHeight: "20px" }}>
+      <span style={{ width: 20, height: 20, borderRadius: 10, background: "#2FBF8A", color: "#0d0a16", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: scale.meta, fontWeight: 800, flex: "0 0 auto" }}>✓</span>
+      <span style={{ textAlign: "right" }}>{t}</span>
+    </div>
+  );
+  return (
+    <div aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden", background: "radial-gradient(120% 70% at 50% 28%, #6a3f73 0%, #2a1838 55%, #120c18 90%)" }}>
+      <img src={cityBg().src} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: cityBg().pos, opacity: 0.25, filter: "blur(3px)" }} />
+      <div style={{ position: "absolute", left: "7%", right: "7%", top: "7%", borderRadius: 22, padding: "16px 16px 18px", background: "rgba(23,18,31,.82)", border: "1px solid rgba(255,255,255,.12)", boxShadow: "0 20px 50px rgba(0,0,0,.5)", direction: "rtl" }}>
+        <div style={{ display: "flex", flexDirection: "row", alignItems: "flex-end", gap: 12 }}>
+          <img src="/world/character_home_world.webp" alt="" style={{ height: 150, filter: "drop-shadow(0 8px 12px rgba(0,0,0,.5))" }} />
+          <div style={{ flex: 1, paddingBottom: 8 }}>
+            <div style={{ color: "#F7F3FA", fontSize: scale.body, fontWeight: 800 }}>יוסי · אינסטלציה</div>
+            <div style={{ color: "rgba(247,243,250,.62)", fontSize: scale.micro, marginTop: 2 }}>דוגמה לכרטיס מקצוען</div>
+            <div style={{ display: "inline-block", marginTop: 8, padding: "4px 10px", borderRadius: 999, background: "rgba(47,191,138,.16)", color: "#7FE3BC", fontSize: scale.micro, fontWeight: 700 }}>מאומת ב-PRO NOW</div>
+          </div>
+        </div>
+        <div style={{ display: "grid", gap: 9, marginTop: 14 }}>
+          {row("זהות אומתה")}
+          {row("תעודות נבדקו לסוג העבודה הזאת")}
+          {row("מאושר לשירות שביקשתם")}
+          {row("רואים מתי יגיע — לפני שמאשרים")}
+          {row("המחיר מוצג לפני שמתחילים לעבוד")}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FamilyScene() {
+  return (
+    <div aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden", background: "radial-gradient(120% 70% at 50% 28%, #6a3f73 0%, #2a1838 55%, #120c18 90%)" }}>
+      <img src="/clips/kitchen.jpg" alt="" style={{ position: "absolute", left: 0, right: 0, top: "6%", width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 20%", filter: "saturate(1.08)" }} />
+      <div style={{ position: "absolute", left: "22%", right: "5%", top: "5%", borderRadius: 18, padding: "12px 14px", background: "rgba(23,18,31,.9)", border: "1px solid rgba(255,255,255,.14)", boxShadow: "0 16px 40px rgba(0,0,0,.55)", direction: "rtl" }}>
+        <div style={{ display: "flex", flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ color: "#F7F3FA", fontSize: scale.meta, fontWeight: 800 }}>הצעת מחיר התקבלה</span>
+          <span style={{ color: "rgba(247,243,250,.55)", fontSize: scale.micro }}>דוגמה</span>
+        </div>
+        <div style={{ color: "rgba(247,243,250,.8)", fontSize: scale.meta, marginTop: 4 }}>אצל סבא וסבתא · יוסי, אינסטלציה</div>
+        {/* The same amount the demo quote carries elsewhere (₪250), marked
+            as an example — a line the way a real quote lists it. */}
+        <div style={{ marginTop: 8, padding: "8px 10px", borderRadius: 12, background: "rgba(255,255,255,.06)", display: "grid", gap: 4 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", color: "#F7F3FA", fontSize: scale.meta }}>
+            <span>החלפת אטם בברז המטבח</span><span>₪250</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", color: "#F7F3FA", fontSize: scale.meta, fontWeight: 800, borderTop: "1px solid rgba(255,255,255,.12)", paddingTop: 4 }}>
+            <span>סה״כ לאישור</span><span>₪250</span>
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+          <span style={{ flex: 1, textAlign: "center", padding: "8px 0", borderRadius: 12, background: "#FF6B4A", color: "#1a0f0c", fontWeight: 800, fontSize: scale.meta }}>אישור · ₪250</span>
+          <span style={{ flex: "0 0 34%", textAlign: "center", padding: "8px 0", borderRadius: 12, background: "rgba(255,255,255,.1)", color: "#F7F3FA", fontSize: scale.meta }}>שאלה</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+

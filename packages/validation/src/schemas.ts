@@ -176,3 +176,24 @@ export function parseAreaAvailability(input: unknown): AreaAvailabilityPayload |
   const result = areaAvailabilitySchema.safeParse(input);
   return result.success ? result.data : null;
 }
+
+/**
+ * The customer's first-run answers (docs/21 W2): the intro was seen, and
+ * which character they chose, or null for "skipped" (skipping is an answer).
+ * The server also checks the id against AVATARS.
+ */
+export const customerOnboardingSchema = z
+  .object({
+    introSeen: z.literal(true).optional(),
+    avatarId: z.string().min(1).max(40).nullable().optional(),
+  })
+  .strict();
+
+export type CustomerOnboardingInput = z.infer<typeof customerOnboardingSchema>;
+
+/** What `GET /api/v1/me` answers. */
+export interface MeResponse {
+  user: { id: string; email: string; name: string };
+  roles: string[];
+  customer: { introSeen: boolean; avatarId: string | null; avatarAnswered: boolean } | null;
+}

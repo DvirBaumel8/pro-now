@@ -6,6 +6,7 @@
  * product's first screen is the demo's first screen (docs/21 W2).
  */
 import { useEffect, useMemo, useRef, useState } from "react";
+import { isDaytime } from "./CityHero";
 
 const CITY_HERO_CSS = "@keyframes pnCity{0%{transform:scale(1.02) translateX(0)}100%{transform:scale(1.12) translateX(-3%)}}";
 
@@ -36,6 +37,16 @@ const STREET_CSS = `
 `;
 
 export function WelcomeScene() {
+  return <StreetScene painted />;
+}
+
+/**
+ * The street of our shops. `painted`: always the evening painting with its
+ * neon (the welcome's picture); otherwise by the clock, the daylight photo
+ * by day (the intro's first slide).
+ */
+export function StreetScene({ painted = false }: { painted?: boolean } = {}) {
+  const day = isDaytime() && !painted;
   const box = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 390, h: 700 });
   useEffect(() => {
@@ -61,8 +72,8 @@ export function WelcomeScene() {
     <div ref={box} aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden", background: "#2a1838" }}>
       <style>{CITY_HERO_CSS + STREET_CSS}</style>
       <div style={{ position: "absolute", left, top, width: iw, height: ih, animation: "pnCity 24s ease-in-out infinite alternate", transformOrigin: "50% 40%" }}>
-        <img src="/clips/city_street.jpg" alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
-        {STREET_GLOWS.map((g, i) => (
+        <img src={day ? "/clips/city_street_day.jpg" : "/clips/city_street.jpg"} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
+        {(day ? [] : STREET_GLOWS).map((g, i) => (
           <div
             key={i}
             style={{
@@ -74,7 +85,7 @@ export function WelcomeScene() {
           />
         ))}
       </div>
-      {specks.map((p, i) => (
+      {(day ? [] : specks).map((p, i) => (
         <div key={i} style={{ position: "absolute", left: `${p.x}%`, top: `${p.y}%`, width: 4, height: 4, borderRadius: "50%", background: "rgba(255,210,150,.9)", boxShadow: "0 0 8px rgba(255,190,120,.9)", animation: `pnSpeck ${p.d}s linear ${p.delay}s infinite` }} />
       ))}
     </div>

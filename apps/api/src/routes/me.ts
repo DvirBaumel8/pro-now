@@ -1,5 +1,8 @@
 import type { FastifyInstance } from "fastify";
 import type { JobStatus } from "@prisma/client";
+import { avatarById } from "@pro-now/types";
+import { customerOnboardingSchema, type MeResponse } from "@pro-now/validation";
+import { requireRole } from "../auth/access.js";
 
 /** A job someone is still inside: deleting now would strand the other side. */
 const ACTIVE: JobStatus[] = [
@@ -19,6 +22,42 @@ const ACTIVE: JobStatus[] = [
 const ERASED = "[נמחק]";
 
 export default async function meRoutes(app: FastifyInstance) {
+  /** Who is signed in, and where they are in the first-run steps. */
+  app.get("/v1/me", async (req, reply) => {
+    if (!req.user) return reply.status(401).send({ code: "UNAUTHENTICATED", message: "Missing or invalid session" });
+    const user = await app.prisma.user.findUniqueOrThrow({
+      where: { id: req.user.userId },
+      select: { id: true, email: true, name: true, customerProfile: true },
+    });
+    const c = user.customerProfile;
+    const body: MeResponse = {
+      user: { id: user.id, email: user.email, name: user.name },
+      roles: req.user.roles,
+      customer: req.user.roles.includes("CUSTOMER")
+        ? { introSeen: Boolean(c?.introSeenAt), avatarId: c?.avatarId ?? null, avatarAnswered: c?.avatarAnswered ?? false }
+        : null,
+    };
+    return reply.send(body);
+  });
+
+  /** The first-run answers: intro seen; avatar chosen or skipped. */
+  app.patch("/v1/me/customer", { onRequest: requireRole("CUSTOMER") }, async (req, reply) => {
+    const body = customerOnboardingSchema.parse(req.body);
+    if (body.avatarId && !avatarById(body.avatarId)) {
+      return reply.status(400).send({ code: "UNKNOWN_AVATAR", message: "No such character" });
+    }
+    const data = {
+      ...(body.introSeen ? { introSeenAt: new Date() } : {}),
+      ...(body.avatarId !== undefined ? { avatarId: body.avatarId, avatarAnswered: true } : {}),
+    };
+    await app.prisma.customerProfile.upsert({
+      where: { userId: req.user!.userId },
+      update: data,
+      create: { userId: req.user!.userId, ...data },
+    });
+    return reply.send({ ok: true });
+  });
+
   /**
    * "Delete my account" (docs/21 W1): soft delete plus anonymisation.
    *
