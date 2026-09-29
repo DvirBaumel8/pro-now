@@ -6,12 +6,14 @@ import type {
   MapsRoutingProvider,
   ExternalReputationProvider,
   GeocodingProvider,
+  StorageProvider,
 } from "@pro-now/types";
 import { SandboxPaymentProvider } from "../infra/payments/sandbox-payment-provider.js";
 import { SandboxIdentityProvider } from "../infra/identity/sandbox-identity-provider.js";
 import { SandboxMapsProvider } from "../infra/maps/sandbox-maps-provider.js";
 import { SandboxExternalReputationProvider } from "../infra/reputation/sandbox-reputation-provider.js";
 import { createGeocodingProvider } from "../infra/geocoding/create-geocoding-provider.js";
+import { createStorageProvider } from "../infra/storage/create-storage-provider.js";
 
 /**
  * Wires the vendor-neutral provider interfaces from /docs/18-ROADMAP.md
@@ -27,6 +29,7 @@ declare module "fastify" {
       maps: MapsRoutingProvider;
       reputation: ExternalReputationProvider;
       geocoding: GeocodingProvider;
+      storage: StorageProvider;
     };
   }
 }
@@ -38,6 +41,7 @@ export default fp(async (app: FastifyInstance) => {
     maps: new SandboxMapsProvider(),
     reputation: new SandboxExternalReputationProvider(),
     geocoding: createGeocodingProvider(app.config),
+    storage: createStorageProvider(app.config),
   });
   app.log.warn(
     "PRO NOW API is running with SANDBOX providers (payment/identity/maps/reputation). Not for production — see /docs/18-ROADMAP.md."

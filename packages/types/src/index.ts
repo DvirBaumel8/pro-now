@@ -8,6 +8,7 @@ export * from "./providers/payment-provider";
 export * from "./providers/identity-verification-provider";
 export * from "./providers/maps-routing-provider";
 export * from "./providers/geocoding-provider";
+export * from "./providers/storage-provider";
 export * from "./providers/external-reputation-provider";
 export * from "./providers/notification-provider";
 export * from "./pilot-catalog";

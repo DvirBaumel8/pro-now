@@ -23,6 +23,8 @@
     "dev:pulse": "tsx scripts/dev-pulse.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1143.0",
+    "@aws-sdk/s3-request-presigner": "^3.1143.0",
     "@fastify/cors": "^11.3.0",
     "@fastify/static": "^10.1.5",
     "@fastify/websocket": "^11.3.1",

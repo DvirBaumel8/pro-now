@@ -353,12 +353,12 @@ per commit. Each commit gets full CI plus `verify:journey`.
   rule it belongs to one order, not to an address, and a third party's
   phone is stored with the order.
 
-**Implementation in progress 2026-09-29:** the product now has the
+**DONE 2026-09-29** (report: `docs/reports/W3.md`). The product has the
 vendor-neutral geocoding contract, Nominatim and fixture adapters, a
 30-day Postgres cache, `/api/v1/geo/reverse` and `/api/v1/geo/search`, and
-the web saved-address screen with browser location fallback. The remaining
-W3 acceptance work is the PostGIS-backed integration/E2E pass and manual
-browser verification; it is not marked done until those run.
+the web saved-address screen with browser location fallback. The
+PostGIS-backed migration/integration checks and the WebKit iPhone 15
+acceptance suite are green.
 
 - `GeocodingProvider` interface in `packages/types/providers`, with two
   adapters:
