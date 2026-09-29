@@ -2,6 +2,7 @@ import type { StorageProvider } from "@pro-now/types";
 import { S3StorageProvider } from "./s3-storage-provider.js";
 
 export interface StorageConfig {
+  NODE_ENV?: string;
   S3_ENDPOINT?: string;
   S3_REGION: string;
   S3_BUCKET?: string;
@@ -18,6 +19,7 @@ export function createStorageProvider(config: StorageConfig): StorageProvider {
     .filter(([, value]) => !value)
     .map(([name]) => name);
   if (missing.length > 0) {
+    if (config.NODE_ENV === "test") return new UnavailableStorageProvider();
     throw new Error(`Storage is not configured: missing ${missing.join(", ")}`);
   }
 
@@ -28,4 +30,29 @@ export function createStorageProvider(config: StorageConfig): StorageProvider {
     accessKeyId: config.S3_ACCESS_KEY_ID!,
     secretAccessKey: config.S3_SECRET_ACCESS_KEY!,
   });
+}
+
+/** Test-only boot fallback: it makes health/import checks honest without pretending uploads work. */
+class UnavailableStorageProvider implements StorageProvider {
+  readonly isSandbox = true;
+
+  createPresignedPut(): Promise<string> {
+    return Promise.reject(new Error("Storage is not configured"));
+  }
+
+  createPresignedGet(): Promise<string> {
+    return Promise.reject(new Error("Storage is not configured"));
+  }
+
+  head(): Promise<null> {
+    return Promise.reject(new Error("Storage is not configured"));
+  }
+
+  readPrefix(): Promise<Uint8Array> {
+    return Promise.reject(new Error("Storage is not configured"));
+  }
+
+  delete(): Promise<void> {
+    return Promise.reject(new Error("Storage is not configured"));
+  }
 }

@@ -46,6 +46,14 @@ export const createAddressSchema = z.object({
 });
 export type CreateAddressInput = z.infer<typeof createAddressSchema>;
 
+export const uploadKindSchema = z.enum(["PHOTO", "VOICE_NOTE", "DOCUMENT"]);
+export const createUploadSchema = z.object({
+  kind: uploadKindSchema,
+  mime: z.string().trim().min(1).max(120),
+  bytes: z.number().int().positive(),
+});
+export type CreateUploadInput = z.infer<typeof createUploadSchema>;
+
 export const reverseGeocodeQuerySchema = z.object({
   lat: z.coerce.number().min(-90).max(90),
   lng: z.coerce.number().min(-180).max(180),

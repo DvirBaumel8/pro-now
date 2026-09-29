@@ -43,6 +43,7 @@ model User {
   customerProfile     CustomerProfile?
   professionalProfile ProfessionalProfile?
   adminUser           AdminUser?
+  uploads             Upload[]
 
   @@map("users")
 }
@@ -261,11 +262,38 @@ model ProfessionalDocument {
   professional   ProfessionalProfile @relation(fields: [professionalId], references: [id])
   kind           String // e.g. GOVERNMENT_ID, INSURANCE_CERT
   storageRef     String  // short-lived signed URL reference, never a public path
+  uploadId       String?
+  upload         Upload? @relation(fields: [uploadId], references: [id])
   status         String  @default("PENDING")
   createdAt      DateTime @default(now())
 
   @@map("professional_documents")
   @@index([professionalId])
+  @@index([uploadId])
+}
+
+model Upload {
+  id          String   @id @default(cuid())
+  ownerId     String
+  owner       User     @relation(fields: [ownerId], references: [id])
+  kind        String
+  mime        String
+  bytes       Int
+  sha256      String?
+  status      String   @default("PENDING")
+  width       Int?
+  height      Int?
+  durationMs  Int?
+  storageKey  String   @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  jobMedia             JobMedia[]
+  professionalDocuments ProfessionalDocument[]
+
+  @@map("uploads")
+  @@index([ownerId, status])
+  @@index([status, createdAt])
 }
 
 model ProfessionalCredential {
@@ -593,10 +621,13 @@ model JobMedia {
   job       Job      @relation(fields: [jobId], references: [id])
   kind      String   // PHOTO | VIDEO | VOICE_NOTE
   storageRef String
+  uploadId   String?
+  upload     Upload? @relation(fields: [uploadId], references: [id])
   createdAt DateTime @default(now())
 
   @@map("job_media")
   @@index([jobId])
+  @@index([uploadId])
 }
 
 model JobEvent {

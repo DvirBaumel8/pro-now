@@ -26,6 +26,7 @@ import proServicesRoutes from "./routes/pro-services.js";
 import quotesRoutes from "./routes/quotes.js";
 import reviewsRoutes from "./routes/reviews.js";
 import meRoutes from "./routes/me.js";
+import uploadsRoutes from "./routes/uploads.js";
 import { registerJobSocket } from "./realtime/job-socket.js";
 
 declare module "fastify" {
@@ -144,6 +145,7 @@ export async function buildServer(opts: { logger?: boolean } = {}) {
   await app.register(quotesRoutes, { prefix: API_PREFIX });
   await app.register(reviewsRoutes, { prefix: API_PREFIX });
   await app.register(meRoutes, { prefix: API_PREFIX });
+  await app.register(uploadsRoutes, { prefix: API_PREFIX });
 
   await app.register(async (api) => registerJobSocket(api), { prefix: API_PREFIX });
 
