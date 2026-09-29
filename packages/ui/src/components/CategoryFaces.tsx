@@ -90,16 +90,19 @@ export function CategoryFaces({
           <Pressable
             key={c.id}
             onPress={() => onSelect?.(c.id)}
+            disabled={!onSelect}
             accessibilityRole="button"
             // The label is the trade and nothing else. No "available", no
             // count: this control navigates, it does not report.
             accessibilityLabel={c.labelHe}
-            accessibilityState={{ selected: active }}
+            accessibilityState={{ selected: active, disabled: !onSelect }}
             style={({ pressed }) => [
               styles.tile,
               { width: tile },
               active ? styles.tileActive : null,
               pressed ? styles.pressed : null,
+              /* Not wired yet (the epic that opens it has not shipped): visible, not pressable. */
+              !onSelect ? { opacity: 0.45 } : null,
             ]}
           >
             {/*

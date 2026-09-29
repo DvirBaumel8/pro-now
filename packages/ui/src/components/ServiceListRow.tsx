@@ -126,12 +126,15 @@ export function ServiceListRow({
   return (
     <Pressable
       onPress={onPress}
+      disabled={!onPress}
       accessibilityRole="button"
       accessibilityLabel={`${nameHe} · ${status.textHe}`}
+      accessibilityState={{ disabled: !onPress }}
       style={({ pressed }) => [
         styles.row,
         loud ? styles.rowLoud : styles.rowQuiet,
         pressed && { backgroundColor: wash(0.06) },
+        !onPress && { opacity: 0.45 },
       ]}
     >
       <View

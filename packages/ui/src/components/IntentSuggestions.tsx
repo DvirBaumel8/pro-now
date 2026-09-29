@@ -112,6 +112,7 @@ export function IntentSuggestions({
         labelHe={`המשך · ${best.nameHe}`}
         subLabelHe={best.supplyHe ?? null}
         onPress={() => onPick?.(best.id)}
+        disabled={!onPick}
         accessibilityLabelHe={`המשך עם ${best.nameHe}`}
       />
 
@@ -121,9 +122,11 @@ export function IntentSuggestions({
         <Pressable
           key={m.id}
           onPress={() => onPick?.(m.id)}
+          disabled={!onPick}
           accessibilityRole="button"
           accessibilityLabel={`המשך עם ${m.nameHe}`}
-          style={({ pressed }) => [styles.row, pressed && { opacity: 0.8 }]}
+          accessibilityState={{ disabled: !onPick }}
+          style={({ pressed }) => [styles.row, pressed && { opacity: 0.8 }, !onPick && { opacity: 0.45 }]}
         >
           <View style={styles.markWrap}>
             <Mark name={m.mark} size={19} color={colors.textPrimary} />

@@ -249,6 +249,13 @@ export interface CustomerHomeBodyProps {
    * the door picks one first and says so. See `strollNeedsAvatar`.
    */
   onStroll?: () => void;
+  /**
+   * Show the stroll card, and the business link below, even though they are
+   * not wired yet: visible and disabled until their epic ships (docs/21 W2,
+   * option a). Without a handler and without this, they are not drawn.
+   */
+  strollUpcoming?: boolean;
+  advertiseUpcoming?: boolean;
   /** No figure chosen yet, so this door picks one on the way. */
   strollNeedsAvatar?: boolean;
   width?: number;
@@ -293,6 +300,8 @@ export function CustomerHomeBody({
   onSelectCategory,
   worldSources,
   onStroll,
+  strollUpcoming = false,
+  advertiseUpcoming = false,
   strollNeedsAvatar = false,
   liveLineHe = null,
   width = 390,
@@ -514,9 +523,11 @@ export function CustomerHomeBody({
                   <Pressable
                     key={s2.id}
                     onPress={() => onSelectService?.(s2.id)}
+                    disabled={!onSelectService}
                     accessibilityRole="button"
                     accessibilityLabel={s2.nameHe}
-                    style={({ pressed }) => [styles.liveRow, pressed && { opacity: 0.75 }]}
+                    accessibilityState={{ disabled: !onSelectService }}
+                    style={({ pressed }) => [styles.liveRow, pressed && { opacity: 0.75 }, !onSelectService && { opacity: 0.45 }]}
                   >
                     <Text style={styles.liveName} numberOfLines={1}>{s2.nameHe}</Text>
                     <Text style={styles.liveSoft} numberOfLines={1}>{s2.priceHint ?? ""}</Text>
@@ -661,7 +672,7 @@ export function CustomerHomeBody({
                     supply={supply.supplyFor(s2.id)}
                     emphasis="live"
                     tone="light"
-                    onPress={() => onSelectService?.(s2.id)}
+                    onPress={onSelectService ? () => onSelectService(s2.id) : undefined}
                   />
                 ))}
               </View>
@@ -700,7 +711,7 @@ export function CustomerHomeBody({
                     comingSoon={s2.comingSoon}
                     emphasis="quiet"
                     tone="dark"
-                    onPress={() => onSelectService?.(s2.id)}
+                    onPress={onSelectService ? () => onSelectService(s2.id) : undefined}
                   />
                 ))}
               </View>
@@ -840,7 +851,7 @@ export function CustomerHomeBody({
               recognising={recognising}
               understanding={understanding}
               seenHe={photoMatch?.seenHe ?? null}
-              onPick={(id) => onSelectService?.(id)}
+              onPick={onSelectService ? (id) => onSelectService(id) : undefined}
               onBrowse={() => setShowAllServices(true)}
               browseLabelHe={`כל ${services.length} השירותים ›`}
             />
@@ -874,14 +885,16 @@ export function CustomerHomeBody({
             question of who is actually free left where it belongs, in the
             request. See `StrollBody`.
             --------------------------------------------------------------- */}
-        {onStroll ? (
+        {onStroll || strollUpcoming ? (
           <Pressable
             onPress={onStroll}
+            disabled={!onStroll}
+            accessibilityState={{ disabled: !onStroll }}
             accessibilityRole="button"
             accessibilityLabel={
               strollNeedsAvatar ? "בחירת דמות וטיול ברחוב של פרו נאו" : "טיול ברחוב של פרו נאו"
             }
-            style={({ pressed }) => [styles.stroll, pressed && { opacity: 0.9 }]}
+            style={({ pressed }) => [styles.stroll, pressed && { opacity: 0.9 }, !onStroll && { opacity: 0.45 }]}
           >
             <Text style={styles.strollText}>טיילו ברחוב של PRO NOW</Text>
             <Text style={styles.strollSub}>
@@ -895,7 +908,7 @@ export function CustomerHomeBody({
           <CategoryFaces
             width={inner}
             sources={worldSources}
-            onSelect={(id) => onSelectCategory?.(id)}
+            onSelect={onSelectCategory ? (id) => onSelectCategory(id) : undefined}
           />
           <Pressable
             onPress={() => setShowAllServices(true)}
@@ -947,6 +960,7 @@ export function CustomerHomeBody({
                 <Pressable
                   key={r.id}
                   onPress={() => onSelectService?.(r.id)}
+                  disabled={!onSelectService}
                   accessibilityRole="button"
                   accessibilityLabel={`${r.nameHe} · ${r.metaHe}`}
                   style={({ pressed }) => [styles.liveRow, pressed && { opacity: 0.75 }]}
@@ -964,12 +978,14 @@ export function CustomerHomeBody({
         ) : null}
 
         {/* --- The last row on the page, for somebody else entirely --- */}
-        {onAdvertise ? (
+        {onAdvertise || advertiseUpcoming ? (
           <Pressable
             onPress={onAdvertise}
+            disabled={!onAdvertise}
             accessibilityRole="button"
             accessibilityLabel="יש לך עסק? פתיחת חנות בשכונה של PRO NOW"
-            style={({ pressed }) => [styles.advertise, pressed && { opacity: 0.75 }]}
+            accessibilityState={{ disabled: !onAdvertise }}
+            style={({ pressed }) => [styles.advertise, pressed && { opacity: 0.75 }, !onAdvertise && { opacity: 0.45 }]}
           >
             <Text style={styles.advertiseText}>יש לך עסק? פתחו חנות בשכונה ›</Text>
           </Pressable>

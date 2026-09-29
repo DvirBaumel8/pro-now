@@ -38,6 +38,11 @@ export interface AppMenuItem {
   /** One line under the label. Optional — most rows do not need one. */
   detailHe?: string | null;
   onPress?: () => void;
+  /**
+   * Show the row disabled until it is wired (docs/21 W2, option a). A row
+   * with neither a handler nor this flag is dropped.
+   */
+  upcoming?: boolean;
 }
 
 export interface AppMenuBodyProps {
@@ -59,7 +64,7 @@ export function AppMenuBody({
 }: AppMenuBodyProps) {
   const colors = customerDarkTheme.colors;
   const live = groups
-    .map((g) => ({ ...g, items: g.items.filter((i) => i.onPress) }))
+    .map((g) => ({ ...g, items: g.items.filter((i) => i.onPress || i.upcoming) }))
     .filter((g) => g.items.length > 0);
 
   return (
@@ -80,7 +85,9 @@ export function AppMenuBody({
                 <Pressable
                   key={item.id}
                   onPress={item.onPress}
+                  disabled={!item.onPress}
                   accessibilityRole="button"
+                  accessibilityState={{ disabled: !item.onPress }}
                   accessibilityLabel={
                     item.detailHe ? `${item.labelHe} · ${item.detailHe}` : item.labelHe
                   }
@@ -88,6 +95,7 @@ export function AppMenuBody({
                     styles.row,
                     i > 0 && styles.rowDivided,
                     pressed && { opacity: 0.72 },
+                    !item.onPress && { opacity: 0.45 },
                   ]}
                 >
                   <View style={styles.rowText}>

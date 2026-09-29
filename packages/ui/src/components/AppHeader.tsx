@@ -67,9 +67,11 @@ export function AppHeader({
       <View style={styles.side}>
         <Pressable
           onPress={onMenu}
+          disabled={!onMenu}
           accessibilityRole="button"
           accessibilityLabel="תפריט"
-          style={styles.iconBtn}
+          accessibilityState={{ disabled: !onMenu }}
+          style={[styles.iconBtn, !onMenu && { opacity: 0.45 }]}
         >
           <MenuGlyph color={colors.textPrimary} />
         </Pressable>
@@ -92,9 +94,11 @@ export function AppHeader({
         ) : (
           <Pressable
             onPress={onAccount}
+            disabled={!onAccount}
             accessibilityRole="button"
             accessibilityLabel={greetingHe ? `${greetingHe} — החשבון שלי` : "החשבון שלי"}
-            style={styles.me}
+            accessibilityState={{ disabled: !onAccount }}
+            style={[styles.me, !onAccount && { opacity: 0.45 }]}
           >
             <View style={[styles.avatar, { backgroundColor: wash, borderColor: ring }]}>
               {avatarUri ? (

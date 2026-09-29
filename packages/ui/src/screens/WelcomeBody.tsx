@@ -78,6 +78,8 @@ export interface WelcomeBodyProps {
   onProfessional?: () => void;
   /** A business that wants its shop in the city. Left out, the door is not drawn. */
   onAdvertise?: () => void;
+  /** Show the business link disabled until it is wired (docs/21 W2, option a). */
+  advertiseUpcoming?: boolean;
   /**
    * What to show behind the promise. Left out, the painted plate; a host
    * that can play the real city (a short clip of it) passes it here.
@@ -93,6 +95,7 @@ export function WelcomeBody({
   onCustomer,
   onProfessional,
   onAdvertise,
+  advertiseUpcoming = false,
   background,
   width = 390,
   height = 780,
@@ -191,20 +194,24 @@ export function WelcomeBody({
 
           <Pressable
             onPress={onProfessional}
+            disabled={!onProfessional}
             accessibilityRole="button"
             accessibilityLabel="אני בעל מקצוע — הרשמה וקבלת עבודות באזור שלך"
-            style={({ pressed }) => [styles.door, styles.doorSecondary, pressed && styles.pressed]}
+            accessibilityState={{ disabled: !onProfessional }}
+            style={({ pressed }) => [styles.door, styles.doorSecondary, pressed && styles.pressed, !onProfessional && { opacity: 0.45 }]}
           >
             <Text style={styles.doorSecondaryTitle}>אני בעל מקצוע</Text>
             <Text style={styles.doorSecondarySub}>הרשמה וקבלת עבודות באזור שלך</Text>
           </Pressable>
 
-          {onAdvertise ? (
+          {onAdvertise || advertiseUpcoming ? (
             <Pressable
               onPress={onAdvertise}
+              disabled={!onAdvertise}
               accessibilityRole="button"
               accessibilityLabel="יש לי עסק — חנות משלי בעיר"
-              style={({ pressed }) => [styles.advertise, pressed && styles.pressed]}
+              accessibilityState={{ disabled: !onAdvertise }}
+              style={({ pressed }) => [styles.advertise, pressed && styles.pressed, !onAdvertise && { opacity: 0.45 }]}
             >
               <Text style={styles.advertiseText}>יש לך עסק? חנות משלך בעיר ›</Text>
             </Pressable>

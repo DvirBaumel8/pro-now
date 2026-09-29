@@ -164,7 +164,7 @@ export function CaptureCard({
           badgeHe={!recording && (voiceSeconds ?? 0) > 0 ? formatSeconds(voiceSeconds ?? 0) : null}
         />
         {allowPhoto ? (
-          <RoundAction tone={tone} labelHe="מצלמה" glyph="camera" onPress={onAddPhoto} />
+          <RoundAction tone={tone} labelHe="מצלמה" glyph="camera" onPress={onAddPhoto} disabled={!onAddPhoto} />
         ) : null}
         {allowPhoto ? (
           <RoundAction tone={tone}
@@ -179,6 +179,7 @@ export function CaptureCard({
               * did something, so it looked connected.
               */
             onPress={onAddFromLibrary}
+            disabled={!onAddFromLibrary}
             badgeHe={photos > 0 ? String(photos) : null}
           />
         ) : null}
