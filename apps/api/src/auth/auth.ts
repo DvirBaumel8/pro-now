@@ -9,6 +9,7 @@ import { magicLinkEmail } from "./magic-link-email.js";
 import { grantAdminIfAllowlisted, grantRole } from "./roles.js";
 
 export const AUTH_BASE_PATH = "/api/auth";
+export const DEMO_AUTH_EMAIL = "demo@pronow.test";
 const MAGIC_LINK_TTL_SECONDS = 15 * 60;
 
 /**
@@ -24,6 +25,20 @@ const MAGIC_LINK_TTL_SECONDS = 15 * 60;
  */
 export function createAuth(deps: { config: Env; prisma: PrismaClient; email: EmailProvider }) {
   const { config, prisma, email } = deps;
+  let demoMagicLink: string | undefined;
+
+  // The demo user must receive a real Better Auth session, but must never
+  // receive an actual email. Capture only this fixed tester address; every
+  // normal sign-in still uses the configured provider unchanged.
+  const emailProvider: EmailProvider = {
+    async send(message) {
+      if (message.to === DEMO_AUTH_EMAIL) {
+        demoMagicLink = message.text.match(/https?:\/\/\S+/)?.[0];
+        return;
+      }
+      await email.send(message);
+    },
+  };
 
   const oidc =
     config.GOOGLE_CLIENT_ID && config.GOOGLE_CLIENT_SECRET
@@ -43,7 +58,7 @@ export function createAuth(deps: { config: Env; prisma: PrismaClient; email: Ema
         ]
       : [];
 
-  return betterAuth({
+  const auth = betterAuth({
     appName: "PRO NOW",
     baseURL: config.PUBLIC_URL,
     basePath: AUTH_BASE_PATH,
@@ -70,7 +85,7 @@ export function createAuth(deps: { config: Env; prisma: PrismaClient; email: Ema
         allowedAttempts: 1,
         storeToken: "hashed",
         sendMagicLink: async ({ email: to, url }) => {
-          await email.send(magicLinkEmail(to, url));
+          await emailProvider.send(magicLinkEmail(to, url));
         },
       }),
       ...oidc,
@@ -98,6 +113,19 @@ export function createAuth(deps: { config: Env; prisma: PrismaClient; email: Ema
           },
         },
       },
+    },
+  });
+
+  return Object.assign(auth, {
+    async createDemoSession(headers: Headers): Promise<Response> {
+      demoMagicLink = undefined;
+      await auth.api.signInMagicLink({
+        body: { email: DEMO_AUTH_EMAIL },
+        headers,
+      });
+      if (!demoMagicLink) throw new Error("Demo magic link was not captured");
+
+      return auth.handler(new Request(demoMagicLink, { method: "GET", headers }));
     },
   });
 }

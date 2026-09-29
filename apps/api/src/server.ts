@@ -32,6 +32,7 @@ import meRoutes from "./routes/me.js";
 import uploadsRoutes from "./routes/uploads.js";
 import clientErrorsRoutes from "./routes/client-errors.js";
 import adminDebugRoutes from "./routes/admin-debug.js";
+import demoAuthRoutes from "./routes/demo-auth.js";
 import { registerJobSocket } from "./realtime/job-socket.js";
 
 declare module "fastify" {
@@ -84,6 +85,7 @@ export async function buildServer(opts: { logger?: boolean } = {}) {
   await app.register(dispatchSweeperPlugin);
   await app.register(mediaCleanupPlugin);
   await app.register(authPlugin);
+  await app.register(demoAuthRoutes);
 
   app.get("/health", async () => ({ ok: true, sandbox: config.NODE_ENV !== "production" }));
 

@@ -27,6 +27,8 @@ export const envSchema = z.object({
    * `openssl rand -base64 32`; rotating it signs everybody out.
    */
   AUTH_SECRET: z.string().min(32, "AUTH_SECRET must be at least 32 chars"),
+  /** Temporary tester-only sign-in; keep disabled outside the public demo deployment. */
+  DEMO_AUTH_ENABLED: z.enum(["0", "1"]).default("0"),
   /**
    * Comma-separated emails whose first verified sign-in is granted ADMIN
    * (docs/21 W1). Written to audit_logs when it happens.

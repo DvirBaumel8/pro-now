@@ -77,6 +77,20 @@ export function SignIn() {
     }
   };
 
+  const demo = async () => {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/v1/demo-auth", { method: "POST" });
+      if (!response.ok) throw new Error("Demo authentication is disabled");
+      window.location.assign("/");
+    } catch {
+      setBusy(false);
+      setError("כניסת הניסיון אינה זמינה כרגע.");
+    }
+  };
+
   const expired = params.get("expired") === "1";
 
   return (
@@ -93,6 +107,7 @@ export function SignIn() {
       busy={busy}
       onSubmitEmail={sendLink}
       onGoogle={google}
+      onDemo={demo}
       onResend={sendLink}
       onBack={() => (stage === "sent" ? navigate(-1) : navigate("/welcome"))}
       width={width}

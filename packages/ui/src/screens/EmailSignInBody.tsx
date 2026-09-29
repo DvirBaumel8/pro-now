@@ -31,6 +31,7 @@ export interface EmailSignInBodyProps {
   busy?: boolean;
   onSubmitEmail?: () => void;
   onGoogle?: () => void;
+  onDemo?: () => void;
   onResend?: () => void;
   onBack?: () => void;
   width?: number;
@@ -47,6 +48,7 @@ export function EmailSignInBody({
   busy = false,
   onSubmitEmail,
   onGoogle,
+  onDemo,
   onResend,
   onBack,
   width = 390,
@@ -160,6 +162,21 @@ export function EmailSignInBody({
                 <Text style={[styles.ctaText, { color: colors.textPrimary }]}>המשך עם Google</Text>
               </Pressable>
             </>
+          ) : null}
+
+          {onDemo ? (
+            <Pressable
+              onPress={onDemo}
+              disabled={busy}
+              accessibilityRole="button"
+              style={({ pressed }) => [
+                styles.secondary,
+                { borderColor: colors.border, backgroundColor: colors.surface },
+                pressed && { opacity: 0.88 },
+              ]}
+            >
+              <Text style={[styles.ctaText, { color: colors.textPrimary }]}>כניסה מהירה לניסיון</Text>
+            </Pressable>
           ) : null}
 
           <Text style={[styles.terms, { color: colors.textSecondary }]}>

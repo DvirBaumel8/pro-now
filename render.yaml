@@ -32,6 +32,8 @@ services:
         value: "24"
       - key: AUTH_SECRET
         generateValue: true
+      - key: DEMO_AUTH_ENABLED
+        value: "1"
       - key: DATABASE_URL
         sync: false
       - key: PUBLIC_URL
