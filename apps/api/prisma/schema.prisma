@@ -485,6 +485,18 @@ model Address {
   @@index([customerId])
 }
 
+model GeocodeCache {
+  id        String   @id @default(cuid())
+  cacheKey  String   @unique
+  kind      String
+  value     Json
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([expiresAt])
+  @@map("geocode_cache")
+}
+
 model AvailabilitySession {
   id                String    @id @default(cuid())
   professionalId    String

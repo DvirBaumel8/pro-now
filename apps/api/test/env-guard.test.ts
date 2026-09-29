@@ -65,6 +65,19 @@ describe("loadEnv — local stand-ins", () => {
       })
     ).not.toThrow();
   });
+
+  it("refuses the fixture geocoder in production", () => {
+    expect(() =>
+      loadEnv({
+        ...base,
+        NODE_ENV: "production",
+        GEOCODING_PROVIDER: "fixture",
+        RESEND_API_KEY: "re_test_key",
+        EMAIL_FROM: "PRO NOW <no-reply@pro-now.example>",
+        PUBLIC_URL: "https://pro-now.onrender.com",
+      })
+    ).toThrow("GEOCODING_PROVIDER");
+  });
 });
 
 describe("loadEnv — sign-in", () => {

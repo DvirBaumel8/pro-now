@@ -60,6 +60,8 @@ export interface AddressPickerBodyProps {
   saved: SavedAddress[];
   selectedId: string | null;
   liveLocation: LiveLocationState;
+  /** W6 owns the order-level recipient; until then the affordance is visible but closed. */
+  forSomeoneElseEnabled?: boolean;
   onUseLiveLocation?: () => void;
   onSelect?: (id: string) => void;
   onConfirm?: (result: {
@@ -78,6 +80,7 @@ export function AddressPickerBody({
   saved,
   selectedId,
   liveLocation,
+  forSomeoneElseEnabled = true,
   onUseLiveLocation,
   onSelect,
   onConfirm,
@@ -225,13 +228,16 @@ export function AddressPickerBody({
               <Switch
                 value={forOther}
                 onValueChange={setForOther}
+                disabled={!forSomeoneElseEnabled}
                 trackColor={{ true: colors.action, false: colors.border }}
                 thumbColor="#FFFFFF"
               />
               <View style={styles.switchText}>
-                <Text style={styles.switchTitle}>הקריאה היא בשביל מישהו אחר</Text>
+                <Text style={[styles.switchTitle, !forSomeoneElseEnabled && { color: colors.textSecondary }]}>הקריאה היא בשביל מישהו אחר</Text>
                 <Text style={styles.switchSub}>
-                  מזמינים עבור הורה, סבא או שכן? המקצוען צריך לדעת מי פותח את הדלת.
+                  {forSomeoneElseEnabled
+                    ? "מזמינים עבור הורה, סבא או שכן? המקצוען צריך לדעת מי פותח את הדלת."
+                    : "הזמנה עבור מישהו אחר תיפתח בשלב הבא — אחרי שהקריאה הרגילה תעבוד."}
                 </Text>
               </View>
             </View>

@@ -7,6 +7,7 @@ import { useSession } from "./auth";
 import { Frame } from "./frame";
 import { ErrorScreen, LoadingScreen } from "./states";
 import { Home } from "./screens/Home";
+import { Addresses } from "./screens/Addresses";
 import { Avatar, Intro } from "./screens/Onboarding";
 import { SignIn } from "./screens/SignIn";
 import { Welcome } from "./screens/Welcome";
@@ -53,6 +54,7 @@ export function App() {
             <Route path="/sign-in" element={<SignedOut><SignIn /></SignedOut>} />
             <Route path="/intro" element={<SignedIn><Intro /></SignedIn>} />
             <Route path="/avatar" element={<SignedIn><Avatar /></SignedIn>} />
+            <Route path="/addresses" element={<SignedIn><Addresses /></SignedIn>} />
             <Route path="/" element={<SignedIn><FirstRun><Home /></FirstRun></SignedIn>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

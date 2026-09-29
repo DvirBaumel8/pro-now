@@ -46,9 +46,13 @@ export const envSchema = z.object({
   PAYMENT_PROVIDER: z.enum(["sandbox"]).default("sandbox"),
   IDENTITY_PROVIDER: z.enum(["sandbox"]).default("sandbox"),
   MAPS_PROVIDER: z.enum(["sandbox", "google"]).default("sandbox"),
+  GEOCODING_PROVIDER: z.enum(["nominatim", "fixture"]).default("nominatim"),
   EXTERNAL_REPUTATION_PROVIDER: z.enum(["sandbox", "google"]).default("sandbox"),
 
   GOOGLE_MAPS_API_KEY: z.string().optional(),
+  NOMINATIM_URL: z.string().url().default("https://nominatim.openstreetmap.org"),
+  NOMINATIM_USER_AGENT: z.string().min(1).default("PRO-NOW/0.1"),
+  NOMINATIM_CONTACT_EMAIL: z.string().email().default("dev@pronow.test"),
 
   /*
    * External services (/docs/21-PRODUCTION-PLAN.md §0). Locally each one
@@ -122,6 +126,10 @@ function hostOf(value: string): string | null {
 export function assertNoLocalStandIns(env: Env): void {
   if (env.NODE_ENV !== "production" && env.NODE_ENV !== "staging") return;
   if (env.ALLOW_LOCAL_STANDINS === "1") return;
+
+  if (env.GEOCODING_PROVIDER === "fixture") {
+    throw new Error(`Refusing to start ${env.NODE_ENV} with GEOCODING_PROVIDER=fixture.`);
+  }
 
   const checked: Array<[string, string | undefined]> = [
     ["DATABASE_URL", env.DATABASE_URL],

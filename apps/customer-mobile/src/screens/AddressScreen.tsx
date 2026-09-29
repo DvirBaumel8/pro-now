@@ -221,6 +221,7 @@ export function AddressScreen({ route, navigation }: Props) {
         saved={saved}
         selectedId={selectedId}
         liveLocation={live}
+        forSomeoneElseEnabled={false}
         onUseLiveLocation={onUseLiveLocation}
         onSelect={setSelectedId}
         onConfirm={onConfirm}

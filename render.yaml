@@ -55,5 +55,13 @@ services:
         value: sandbox
       - key: MAPS_PROVIDER
         value: sandbox
+      - key: GEOCODING_PROVIDER
+        value: nominatim
+      - key: NOMINATIM_URL
+        value: https://nominatim.openstreetmap.org
+      - key: NOMINATIM_USER_AGENT
+        value: PRO-NOW/0.1
+      - key: NOMINATIM_CONTACT_EMAIL
+        sync: false
       - key: EXTERNAL_REPUTATION_PROVIDER
         value: sandbox

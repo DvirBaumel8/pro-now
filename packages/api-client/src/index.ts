@@ -11,7 +11,8 @@
  * readable here): every call goes with `credentials: "include"` and no
  * token. Same origin in development and in production.
  */
-import type { CustomerOnboardingInput, MeResponse } from "@pro-now/validation";
+import type { AddressView, GeocodingResult } from "@pro-now/types";
+import type { CreateAddressInput, CustomerOnboardingInput, MeResponse } from "@pro-now/validation";
 
 export interface ProNowApiClientConfig {
   /** "" for same origin (the web app); the API's origin otherwise. */
@@ -57,6 +58,11 @@ export function createApiClient(config: ProNowApiClientConfig = {}) {
   return {
     me: () => request<MeResponse>("GET", "/me"),
     saveOnboarding: (input: CustomerOnboardingInput) => request<{ ok: true }>("PATCH", "/me/customer", input),
+    getAddresses: () => request<{ addresses: AddressView[] }>("GET", "/me/addresses"),
+    createAddress: (input: CreateAddressInput) => request<{ address: AddressView }>("POST", "/me/addresses", input),
+    searchAddresses: (query: string) => request<{ results: GeocodingResult[] }>("GET", `/geo/search?q=${encodeURIComponent(query)}`),
+    reverseGeocode: (location: { lat: number; lng: number }) =>
+      request<{ result: GeocodingResult | null }>("GET", `/geo/reverse?lat=${location.lat}&lng=${location.lng}`),
   };
 }
 

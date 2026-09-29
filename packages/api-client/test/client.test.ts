@@ -38,4 +38,17 @@ describe("api client", () => {
     const err = await createApiClient({ fetch: fn }).me().catch((e) => e);
     expect(err).toMatchObject({ status: 502, code: "HTTP_502" });
   });
+
+  it("exposes address and geocoding calls under the shared API prefix", async () => {
+    const f = fakeFetch(200, { results: [] });
+    const client = createApiClient({ fetch: f.fn });
+    await client.getAddresses();
+    await client.searchAddresses("הרצל 5");
+    await client.reverseGeocode({ lat: 32.1, lng: 34.8 });
+    expect(f.calls.map((call) => call.url)).toEqual([
+      "/api/v1/me/addresses",
+      "/api/v1/geo/search?q=%D7%94%D7%A8%D7%A6%D7%9C%205",
+      "/api/v1/geo/reverse?lat=32.1&lng=34.8",
+    ]);
+  });
 });

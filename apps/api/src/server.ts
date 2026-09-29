@@ -15,6 +15,7 @@ import webAppPlugin from "./plugins/web-app.js";
 
 import catalogRoutes from "./routes/catalog.js";
 import addressesRoutes from "./routes/addresses.js";
+import geoRoutes from "./routes/geo.js";
 import jobsRoutes from "./routes/jobs.js";
 import matchRoutes from "./routes/match.js";
 import offersRoutes from "./routes/offers.js";
@@ -132,6 +133,7 @@ export async function buildServer(opts: { logger?: boolean } = {}) {
 
   await app.register(catalogRoutes, { prefix: API_PREFIX });
   await app.register(addressesRoutes, { prefix: API_PREFIX });
+  await app.register(geoRoutes, { prefix: API_PREFIX });
   await app.register(jobsRoutes, { prefix: API_PREFIX });
   await app.register(matchRoutes, { prefix: API_PREFIX });
   await app.register(offersRoutes, { prefix: API_PREFIX });

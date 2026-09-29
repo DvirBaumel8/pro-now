@@ -353,6 +353,13 @@ per commit. Each commit gets full CI plus `verify:journey`.
   rule it belongs to one order, not to an address, and a third party's
   phone is stored with the order.
 
+**Implementation in progress 2026-09-29:** the product now has the
+vendor-neutral geocoding contract, Nominatim and fixture adapters, a
+30-day Postgres cache, `/api/v1/geo/reverse` and `/api/v1/geo/search`, and
+the web saved-address screen with browser location fallback. The remaining
+W3 acceptance work is the PostGIS-backed integration/E2E pass and manual
+browser verification; it is not marked done until those run.
+
 - `GeocodingProvider` interface in `packages/types/providers`, with two
   adapters:
   - **Nominatim** (real; `User-Agent` and contact email set; at most
@@ -368,9 +375,9 @@ per commit. Each commit gets full CI plus `verify:journey`.
   1. The browser Geolocation API asks for permission, with an explanation
      screen first.
   2. Reverse-geocode the position.
-  3. **Confirm the pin on a map**: MapLibre GL with OpenFreeMap tiles (no
-     key), a draggable pin, and the address shown in Hebrew.
-  4. Save it as an `Address` with a PostGIS `geography(Point)`.
+  3. **Confirm the resolved address**: show the street returned by the
+     geocoder in Hebrew; there is no separate map-pin step in W3.
+  4. Save it as an `Address` with its latitude and longitude.
 - **Permission denied or no fix:** fall back to address search. The
   hard-coded "רמת אביב" is gone; the home screen shows the real saved
   address or "בחרו כתובת" (choose an address).

@@ -46,6 +46,17 @@ export const createAddressSchema = z.object({
 });
 export type CreateAddressInput = z.infer<typeof createAddressSchema>;
 
+export const reverseGeocodeQuerySchema = z.object({
+  lat: z.coerce.number().min(-90).max(90),
+  lng: z.coerce.number().min(-180).max(180),
+});
+export type ReverseGeocodeQuery = z.infer<typeof reverseGeocodeQuerySchema>;
+
+export const searchGeocodeQuerySchema = z.object({
+  q: z.string().trim().min(3).max(200),
+});
+export type SearchGeocodeQuery = z.infer<typeof searchGeocodeQuerySchema>;
+
 export const locationPingSchema = z.object({
   lat: z.number().min(-90).max(90),
   lng: z.number().min(-180).max(180),
