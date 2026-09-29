@@ -101,10 +101,10 @@ async function resetFixture(admin: Client) {
   `);
 
   await admin.query(`
-    INSERT INTO users (id, phone, "updatedAt") VALUES
-      ('u_cust', '+972500000001', NOW()),
-      ('u_pro_a', '+972500000002', NOW()),
-      ('u_pro_b', '+972500000003', NOW());
+    INSERT INTO users (id, phone, email, "updatedAt") VALUES
+      ('u_cust', '+972500000001', 'rowlock-cust@pronow.test', NOW()),
+      ('u_pro_a', '+972500000002', 'rowlock-pro-a@pronow.test', NOW()),
+      ('u_pro_b', '+972500000003', 'rowlock-pro-b@pronow.test', NOW());
 
     INSERT INTO customer_profiles (id, "userId", "updatedAt")
       VALUES ('cust_1', 'u_cust', NOW());
