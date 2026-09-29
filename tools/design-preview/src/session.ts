@@ -94,6 +94,8 @@ export interface SavedSession {
   introSeen?: boolean;
   /** The rewritten explainer (2026-09-25) has been seen. */
   introSeenV2?: boolean;
+  /** The professional finished joining (ProOnboardingBody) on this device. */
+  proOnboarded?: boolean;
 }
 
 function storage(): Storage | null {

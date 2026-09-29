@@ -278,6 +278,35 @@ from the list. This supersedes the per-answer price tables of 2026-09-27 and,
 for repairs, "an approved quote includes the visit fee" (the server still
 supports quotes; the product no longer routes repairs through them).
 
+### DECIDED + BUILT (demo) 2026-09-29 — how a professional joins
+
+Amit: *"לא הכנו טופס הצטרפות… בלי זה אי אפשר לצאת לדרך."* Decisions (Amit):
+- **A professional receives work only after PRO NOW approves him** — his documents, his
+  details, and his ratings and reviews online.
+- **Area:** a home radius as a default; when he goes online, calls follow his live location,
+  anywhere — "זה כל הרעיון".
+- **Prices:** he may add his own lines and services we did not think of — never limited to
+  our list.
+- **Money:** no commission or subscription is shown or decided now; a business plan will
+  decide (registration fee vs. commission). Still TBD under CLAUDE.md §4.
+- **Documents:** from research, not guesses — `tools/design-preview/research/reports/מסמכים
+  נדרשים לבעלי מקצוע.md`. Legal licences are required per trade (electrician, gas, AC — new
+  law 7/2025, pest control, vet, doctor, towing = recovery vehicle + driver permit, mobile
+  garage for on-site tyre repair, work-at-height above 2 m); everyone gives ID, a selfie and a
+  tax file (עוסק); third-party insurance and trade certificates are recommended. **No
+  criminal-record certificate is ever requested** — demanding one is an offence in Israel.
+  Open for a lawyer (17 questions in the report), notably whether police approval under the
+  sex-offender law applies to tutors of minors on a platform.
+
+Built in the demo (Amit's track): `ProOnboardingBody` (lib/ui) — welcome · "what you do" in
+free text (the matcher ticks the services; custom services allowed) · details & radius ·
+documents per trade (`onboardingDocsFor`, lib/types) with licence numbers for registries ·
+prices per pricing kind with his own lines · his shop in our street (sign, logo → brand
+colour, facade preview) · photo or trade character · summary → "sent" with the approval
+steps. Reached from "אני מקצוען" (first time) and the menu's demo group. For the product
+(Dvir): the registries that can be checked automatically are listed in the report
+(data.gov.il: pest control daily with status, doctors, vets, garages, contractors).
+
 ### BUILT 2026-09-29 (preview) — the wait is alive, and every word belongs to its service
 
 Amit, reviewing on his phone: the waiting screen was *"מסך מת שגם השעון לא זז"*, the

@@ -63,10 +63,11 @@ const proWorldSources: WorldAssetSources = Object.fromEntries(
 
 import fixtureGeo from "../geo/fixture_grid.json";
 
+import { ProOnboardingBody, type OnboardingResult, type OnboardingService } from "@pro-now/demo-ui";
 import { ActiveJobCapsule, AddressPickerBody, AppHeader, AppMenuBody, AvatarPickerBody, IntroBody, customerDarkTheme, FocusSheet, ScreenTransition, ArrivalVerifyBody, OnSiteBody, CallsListBody, CAPSULE_HEIGHT, ChatBody, ConnectionBanner, CategoryBody, CustomerHomeBody, CustomerProfileBody, customerTheme, DescribeFaultBody, JobClosedBody, JobCompleteBody, MatchConfirmBody, NavGlyph, Persona, PhoneAuthBody, ProEarningsBody, ProJobBody, ProJobSettledBody, ProOfferBody, ProOnlineBody, ProPricingBody, ProProfileBody, ProQuoteBuilderBody, ProServicesBody, ProShiftBody, proTheme, ProVerificationBody, ProVerificationStepBody, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, SponsorShopBody, AdvertiseBody, StrollBody, Sheet, spacing, tint, TrackingBody, type as t, WelcomeBody } from "@pro-now/demo-ui";
 import type { JobMediaItem, LiveLocationState, MarkName, NavGlyphName, ProPricingRow } from "@pro-now/demo-ui";
 import type { AuthStage, ChatMessage, ConnectionState } from "@pro-now/demo-ui";
-import { canHandOffToMaps, categoryAsksForPerson, mapsHandoffUrl, buildIntakeBrief, pilotIntakeByService, pilotServiceById, pricingKindOf, readAvailability, visitTermsHe } from "@pro-now/demo-types";
+import { canHandOffToMaps, categoryAsksForPerson, mapsHandoffUrl, buildIntakeBrief, pilotIntakeByService, pilotServiceById, pricingKindOf, readAvailability, visitTermsHe, APPROVAL_STEPS_HE } from "@pro-now/demo-types";
 import type { IntakeAnswer, IntakeBriefLine, MapsPlatform, OfferCardView, PriceModel } from "@pro-now/demo-types";
 import type { JobState, ProPresenceState } from "@pro-now/demo-types";
 
@@ -212,6 +213,12 @@ type Gate =
    * avatar's — see `introSeen`.
    */
   | { name: "intro"; side: Side }
+  /** A new professional joining — see ProOnboardingBody (Amit, 2026-09-29). */
+  | { name: "onboard"; initial?: OnboardingResult | null }
+  /** Sent for approval: work arrives only after PRO NOW approves. */
+  | { name: "onboardSent"; result: OnboardingResult }
+  /** Approved (demo): the shop opens. */
+  | { name: "shopOpen"; result: OnboardingResult }
   /**
    * WHO WALKS DOWN THE STREET.
    *
@@ -549,6 +556,8 @@ export function App() {
   /* `introSeenV2`: the explainer was rewritten on 2026-09-25, so anybody
      who saw the old one is shown the new one once. */
   const introSeen = useRef(restored?.introSeenV2 ?? false);
+  /** Whether this device's professional has been through joining (the demo). */
+  const proOnboarded = useRef(restored?.proOnboarded ?? false);
   /**
    * Whether any avatar art has actually arrived.
    *
@@ -848,7 +857,13 @@ export function App() {
                   ? "gate:intro"
                   : gate?.name === "avatar"
                     ? "gate:avatar"
-                    : "gate:app"
+                    : gate?.name === "onboard"
+                      ? "gate:onboard"
+                      : gate?.name === "onboardSent"
+                        ? "gate:onboardSent"
+                        : gate?.name === "shopOpen"
+                          ? "gate:shopOpen"
+                          : "gate:app"
           }
           screen={{ side: "gate", name: gate?.name === "auth" ? "auth" : gate?.name === "welcome" ? "welcome" : "home" }}
         >
@@ -990,9 +1005,53 @@ export function App() {
             onDone={() => {
               introSeen.current = true;
               saveSession({ introSeenV2: true });
+              if (gate.side === "pro" && !proOnboarded.current) {
+                setGate({ name: "onboard" });
+                return;
+              }
               const canAsk =
                 gate.side === "customer" && !avatarAnswered.current && avatarArtReady;
               setGate(canAsk ? { name: "avatar" } : null);
+            }}
+            width={w}
+            height={h - bannerH}
+          />
+        ) : gate?.name === "onboard" ? (
+          <ProOnboardingBody
+            services={ONBOARD_SERVICES}
+            matchRules={catalogMatchRules}
+            shopFor={onboardShopFor}
+            onPickFile={pickLocalFile}
+            extractColor={dominantColor}
+            backgroundUri="./world/splash_city.webp"
+            areaMapUri="./world/world_neighbourhood.webp"
+            lineupUris={["home", "hair", "auto", "pets", "care"].map((id) => `./world/character_${id}_icon.webp`)}
+            initial={gate.initial ?? null}
+            onExit={() => setGate({ name: "welcome" })}
+            onDone={(r) => {
+              proOnboarded.current = true;
+              saveSession({ proOnboarded: true });
+              setGate({ name: "onboardSent", result: r });
+            }}
+            width={w}
+            height={h - bannerH}
+          />
+        ) : gate?.name === "onboardSent" ? (
+          <OnboardSent
+            shopNameHe={gate.result.shopNameHe}
+            color={gate.result.brandColor}
+            onEdit={() => setGate({ name: "onboard", initial: gate.result })}
+            onApprove={() => setGate({ name: "shopOpen", result: gate.result })}
+            width={w}
+            height={h - bannerH}
+          />
+        ) : gate?.name === "shopOpen" ? (
+          <ShopOpen
+            result={gate.result}
+            facadeUri={onboardShopFor(gate.result.serviceIds[0] ?? null).facadeUri}
+            onStart={() => {
+              setSide("pro");
+              setGate(null);
             }}
             width={w}
             height={h - bannerH}
@@ -1038,6 +1097,7 @@ export function App() {
             width={w}
             height={h - bannerH}
             onSwitch={() => switchTo("pro")}
+            onStartOnboarding={() => setGate({ name: "onboard" })}
             onBackOut={backOut}
             onSendRequest={(r) => {
               setLiveRequest(r);
@@ -1121,6 +1181,7 @@ export function App() {
             width={w}
             height={h - bannerH}
             onSwitch={() => switchTo("customer")}
+            skipHowItWorks={proOnboarded.current}
             onBackOut={backOut}
             request={liveRequest}
             onTakeRequest={() => setLiveRequest(null)}
@@ -1322,6 +1383,168 @@ function AuthGate({
  * words, and those words exist nowhere else once the pending quote has
  * been answered and cleared.
  */
+/* ---------------------------------------------------------------------
+   JOINING (Amit, 2026-09-29) — the pieces the onboarding screen borrows.
+   --------------------------------------------------------------------- */
+const ONBOARD_SERVICES: OnboardingService[] = Object.keys(SERVICE_PAGES).map((id) => {
+  const def = pilotServiceById[id];
+  const p = SERVICE_PAGES[id]!.price;
+  return {
+    id,
+    nameHe: SERVICE_PAGES[id]!.nameHe,
+    categoryHe: categoryNameByServiceId[id] ?? "",
+    kind: def ? pricingKindOf(def) : "VISIT",
+    visitFee: p?.visitFeeMinorUnits ?? null,
+    hourly: p?.hourlyRateMinorUnits ?? null,
+    deliveryBase: p?.baseMinorUnits ?? null,
+    perKm: p?.perKmMinorUnits ?? null,
+    list: priceListFor(id),
+  };
+});
+/* The trade's own shopfront and drawn professional, for "your shop in our street". */
+function onboardShopFor(serviceId: string | null): { facadeUri: string; characterUri: string } {
+  const dept = serviceId ? departmentCodeByServiceId[serviceId] ?? "" : "";
+  const shop = (dept && DEPT_SHOP[dept]) || "home";
+  const drawn = ["appliance", "auto", "build", "care", "hair", "help", "home", "move", "pets", "tech", "well"];
+  /* An electrician is not the plumber with a wrench: the tool-belt technician stands in. */
+  const figure = serviceId && /svc-(electric|socket|alarm|solar)/.test(serviceId) ? "appliance" : shop;
+  return { facadeUri: `./world/m/shop_${shop}.webp`, characterUri: `./world/character_${drawn.includes(figure) ? figure : "home"}_icon.webp` };
+}
+/* The device's own picker: a photo, a scan or a PDF — nothing leaves the phone in the demo. */
+function pickLocalFile(): Promise<{ uri: string; name: string } | null> {
+  return new Promise((resolve) => {
+    if (typeof document === "undefined") return resolve(null);
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*,application/pdf";
+    input.onchange = () => {
+      const f = input.files?.[0];
+      resolve(f ? { uri: URL.createObjectURL(f), name: f.name } : null);
+    };
+    input.click();
+  });
+}
+/* A logo's brand colour: the most frequent vivid pixel, ignoring white, black and transparent. */
+function dominantColor(uri: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    if (typeof document === "undefined") return resolve(null);
+    const img = new window.Image();
+    img.onload = () => {
+      const c = document.createElement("canvas");
+      c.width = 48;
+      c.height = 48;
+      const g = c.getContext("2d");
+      if (!g) return resolve(null);
+      g.drawImage(img, 0, 0, 48, 48);
+      const px = g.getImageData(0, 0, 48, 48).data;
+      const buckets = new Map<string, { n: number; r: number; g: number; b: number }>();
+      for (let i = 0; i < px.length; i += 4) {
+        const r = px[i]!, gg = px[i + 1]!, b = px[i + 2]!, a = px[i + 3]!;
+        const max = Math.max(r, gg, b), min = Math.min(r, gg, b);
+        if (a < 128 || max < 40 || min > 225 || max - min < 40) continue;
+        const k = `${r >> 5}-${gg >> 5}-${b >> 5}`;
+        const e = buckets.get(k) ?? { n: 0, r: 0, g: 0, b: 0 };
+        e.n += 1; e.r += r; e.g += gg; e.b += b;
+        buckets.set(k, e);
+      }
+      const best = [...buckets.values()].sort((x, y) => y.n - x.n)[0];
+      if (!best) return resolve(null);
+      const hex = (v: number) => Math.round(v / best.n).toString(16).padStart(2, "0");
+      resolve(`#${hex(best.r)}${hex(best.g)}${hex(best.b)}`);
+    };
+    img.onerror = () => resolve(null);
+    img.src = uri;
+  });
+}
+/*
+ * AFTER SENDING — the true state, nothing ticking by itself (design review:
+ * checks that "finish" in three seconds are fake verification). Received;
+ * in the queue; waiting. Only the demo bar moves it forward.
+ */
+function OnboardSent({ shopNameHe, color, onEdit, onApprove, width, height }: { shopNameHe: string; color: string; onEdit: () => void; onApprove: () => void; width: number; height: number }) {
+  const pulse = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const a = Animated.loop(Animated.timing(pulse, { toValue: 1, duration: 1600, easing: Easing.out(Easing.quad), useNativeDriver: true }));
+    a.start();
+    return () => a.stop();
+  }, [pulse]);
+  const state = (i: number) => (i === 0 ? "התקבלו" : i === 1 ? "בתור לבדיקה" : "ממתין");
+  return (
+    <View style={{ width, height, backgroundColor: "#0F0B17" }}>
+      <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 64 }}>
+        <View style={{ alignSelf: "center", width: 96, height: 96, borderRadius: 48, alignItems: "center", justifyContent: "center", borderWidth: 3, borderColor: color, backgroundColor: "rgba(255,255,255,0.05)", marginBottom: 22 }}>
+          <Text style={{ color: "#fff", fontSize: scale.hero, fontWeight: "900" }}>✓</Text>
+        </View>
+        <Text style={{ color: "#fff", fontSize: scale.title, fontWeight: "900", textAlign: "center" }}>הבקשה נשלחה</Text>
+        <Text style={{ color: "rgba(247,243,250,0.75)", fontSize: scale.body, textAlign: "center", marginTop: 6, marginBottom: 26 }}>
+          {shopNameHe ? `״${shopNameHe}״ כמעט ברחוב.` : "החנות שלך כמעט ברחוב."} נעדכן אותך בהודעה.
+        </Text>
+        {APPROVAL_STEPS_HE.map((t, i) => (
+          <View key={t} style={{ flexDirection: "row-reverse", alignItems: "center", gap: 12, paddingVertical: 10 }}>
+            <View style={{ width: 30, height: 30, alignItems: "center", justifyContent: "center" }}>
+              {i === 1 ? (
+                <Animated.View style={{ position: "absolute", width: 30, height: 30, borderRadius: 15, borderWidth: 2, borderColor: "#FF9A6B", opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.8, 0] }), transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.7] }) }] }} />
+              ) : null}
+              <View style={{ width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center", backgroundColor: i === 0 ? "#2FBF8A" : i === 1 ? "#FF5C38" : "rgba(255,255,255,0.1)" }}>
+                <Text style={{ color: "#fff", fontSize: scale.meta, fontWeight: "900" }}>{i === 0 ? "✓" : i + 1}</Text>
+              </View>
+            </View>
+            <Text style={{ flex: 1, color: i < 2 ? "#fff" : "rgba(247,243,250,0.62)", fontSize: scale.meta, fontWeight: "700", textAlign: "right" }}>{t}</Text>
+            <Text style={{ color: i === 0 ? "#2FBF8A" : i === 1 ? "#FFB08A" : "rgba(247,243,250,0.5)", fontSize: scale.micro, fontWeight: "800" }}>{state(i)}</Text>
+          </View>
+        ))}
+        <Text style={{ color: "rgba(247,243,250,0.62)", fontSize: scale.micro, textAlign: "right", marginTop: 16 }}>עבודות מגיעות רק אחרי אישור PRO NOW.</Text>
+        <Pressable onPress={onEdit} accessibilityRole="button" style={{ alignSelf: "center", minHeight: 44, justifyContent: "center", marginTop: 18, paddingHorizontal: 16 }}>
+          <Text style={{ color: "#FF9A6B", fontSize: scale.meta, fontWeight: "800" }}>עריכת הפרטים</Text>
+        </Pressable>
+      </View>
+      <DemoBar label="אישור החשבון (הדגמה)" onPress={onApprove} width={width} />
+    </View>
+  );
+}
+
+/*
+ * THE SHOP OPENS — the moment approval lands. His facade, his sign lighting
+ * letter by letter in his colour, one line, one button (design review).
+ */
+function ShopOpen({ result, facadeUri, onStart, width, height }: { result: OnboardingResult; facadeUri: string; onStart: () => void; width: number; height: number }) {
+  const name = result.shopNameHe || result.nameHe || "החנות שלך";
+  const [lit, setLit] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setLit((n) => (n >= name.length ? n : n + 1)), 90);
+    return () => clearInterval(t);
+  }, [name.length]);
+  const c = result.brandColor;
+  return (
+    <View style={{ width, height, backgroundColor: "#0F0B17", alignItems: "center" }}>
+      <style>{"@keyframes pnFlick{0%,100%{opacity:1}40%{opacity:.35}45%{opacity:1}70%{opacity:.6}72%{opacity:1}}@keyframes pnRise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}"}</style>
+      <div style={{ position: "relative", width: "100%", height: Math.round(height * 0.52), overflow: "hidden", background: "radial-gradient(120% 90% at 50% 25%, #3A2166 0%, #160F26 70%)" }}>
+        <img src={facadeUri} alt="" style={{ position: "absolute", left: "50%", bottom: 0, transform: "translateX(-50%)", height: "88%" }} />
+        <div style={{ position: "absolute", left: "50%", top: "22%", transform: "translateX(-50%)", display: "flex", alignItems: "center", gap: 10, padding: "8px 18px", borderRadius: 14, border: `2px solid ${c}`, background: "rgba(10,6,18,.88)", boxShadow: `0 0 26px ${c}`, direction: "rtl", whiteSpace: "nowrap" }}>
+          {result.logoUri ? <img src={result.logoUri} alt="" style={{ width: 34, height: 34, borderRadius: 17, objectFit: "cover" }} /> : null}
+          <span style={{ fontSize: scale.section, fontWeight: 900, color: "#fff" }} aria-label={name}>
+            {[...name].map((ch, i) => (
+              <span key={i} style={{ opacity: i < lit ? 1 : 0.12, textShadow: i < lit ? `0 0 10px ${c}, 0 0 24px ${c}` : "none", animation: i === lit - 1 ? "pnFlick .35s" : undefined }}>
+                {ch}
+              </span>
+            ))}
+          </span>
+        </div>
+        <div style={{ position: "absolute", left: "50%", bottom: -60, width: 320, height: 120, transform: "translateX(-50%)", borderRadius: "50%", background: c, opacity: 0.25, filter: "blur(30px)" }} />
+      </div>
+      <div style={{ padding: "26px 24px 0", textAlign: "center", direction: "rtl", animation: "pnRise .6s .9s both" }}>
+        <div style={{ color: "#fff", fontSize: scale.title, fontWeight: 900 }}>החנות שלך פתוחה.</div>
+        <div style={{ color: "rgba(247,243,250,.75)", fontSize: scale.body, marginTop: 8 }}>
+          לקוחות כבר רואים אותך ברחוב. מתחברים — והקריאות מגיעות לפי איפה שאתה.
+        </div>
+      </div>
+      <Pressable onPress={onStart} accessibilityRole="button" style={({ pressed }) => ({ position: "absolute", left: 24, right: 24, bottom: 28, height: 56, borderRadius: 28, alignItems: "center", justifyContent: "center", backgroundColor: "#FF5C38", transform: [{ scale: pressed ? 0.98 : 1 }] })}>
+        <Text style={{ color: "#fff", fontSize: scale.body, fontWeight: "900" }}>להתחיל משמרת</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 /* Shops whose drawn professional is a woman, and the names she goes by. */
 const FEMALE_FIGURE = new Set(["hair", "nails", "pets", "well"]);
 const FEMALE_NAMES_HE = new Set(["מאיה", "נועה", "שירה"]);
@@ -1336,6 +1559,7 @@ function CustomerApp({
   width,
   height,
   onSwitch,
+  onStartOnboarding,
   onBackOut,
   onSendRequest,
   preQuote = null,
@@ -1372,6 +1596,8 @@ function CustomerApp({
   width: number;
   height: number;
   onSwitch: () => void;
+  /** Demo: walk through joining as a new professional. */
+  onStartOnboarding?: () => void;
   /** A price named before dispatch, and approving it (quote-first services). */
   preQuote?: { serviceId: string; amount: number; notesHe: string } | null;
   onApprovePreQuote?: (amount: number) => void;
@@ -2668,6 +2894,12 @@ const go = useCallback((r: CustomerRoute) => {
                   labelHe: "הצצה לצד המקצוען",
                   detailHe: "איך הקריאה נראית אצל מי שמקבל אותה",
                   onPress: onSwitch,
+                },
+                {
+                  id: "demo-join",
+                  labelHe: "הצטרפות כמקצוען",
+                  detailHe: "איך בעל מקצוע חדש מקים חנות ומצטרף",
+                  onPress: onStartOnboarding,
                 },
               ],
             },
@@ -4578,6 +4810,7 @@ function ProApp({
   geo: proGeo,
   width,
   height,
+  skipHowItWorks = false,
   onSwitch,
   onBackOut,
   preQuoteSent = null,
@@ -4616,6 +4849,8 @@ function ProApp({
   geo: WorldGeo | null;
   width: number;
   height: number;
+  /** Joined through onboarding: he has seen how it works. */
+  skipHowItWorks?: boolean;
   onSwitch: () => void;
   /**
    * Called when this side has no screen left behind it. Returns true if
@@ -4876,7 +5111,7 @@ function ProApp({
      * top of a job that was mid-visit, where it covered the whole screen
      * and the way back out. See `ProMemory`.
      */
-    kept ? null : "howitworks"
+    kept || skipHowItWorks ? null : "howitworks"
   );
 
   const BAR = 64;
