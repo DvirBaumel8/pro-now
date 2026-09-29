@@ -1,6 +1,6 @@
 # 21 — Production Plan: from demo to a live web app
 
-Status: **APPROVED 2026-09-29** (decisions in §5). W0 done except CI's first run on GitHub; W1 next. Written after reading the
+Status: **APPROVED 2026-09-29** (decisions in §5). W0 done; W1 next. Written after reading the
 code as it stands at `53ed69f`.
 
 ## 0. Framing
@@ -106,7 +106,7 @@ the browser at iPhone 15 size (393×852) with a written findings list** →
 docs → commit → report. Sizes are relative (S/M/L), not dates.
 
 ### W0 — Foundation (M)
-**Status 2026-09-29 (evening, Dvir's machine): done except CI's first run.**
+**Status 2026-09-29 (evening, Dvir's machine): DONE.**
 - Redis is optional (`JobLock`). The env schema and the stand-in guard are
   in place, the sandbox OTP runs only in local and test, and the CI
   workflow is written.
@@ -128,10 +128,9 @@ docs → commit → report. Sizes are relative (S/M/L), not dates.
 - Getting drift to zero took four DB defaults that the hand-written
   migrations had and the schema never declared. They are now declared in
   the schema; the database is unchanged.
-- **Open:**
-  - CI has never run on GitHub; it waits for push access to the repo.
-  - `db:verify` was not run on this machine (no `psycopg2`); CI runs it.
-  - The Playwright harness moves to W2.
+- CI is green on GitHub (run 36584478584, `8dbf267`): lint, typecheck and
+  unit tests; migrations, `db:drift`, row lock and `db:verify` on PostGIS.
+- The Playwright harness moves to W2.
 
 - `docker-compose.yml`: add MinIO (built: SeaweedFS), Mailpit and oauth2-mock-server (built: navikt mock-oauth2-server). Redis
   becomes an optional profile.
