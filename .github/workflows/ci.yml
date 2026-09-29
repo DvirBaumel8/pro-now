@@ -88,3 +88,55 @@ jobs:
       # Route-level tests: every plugin and route against a throwaway, migrated database.
       - run: npm run test:int
       - run: pip install psycopg2-binary && npm run db:verify
+
+  e2e:
+    name: End-to-end (WebKit iPhone 15 + Chromium)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: pronow
+          POSTGRES_PASSWORD: pronow_ci_only
+          POSTGRES_DB: pronow
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U pronow"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      mailpit:
+        image: axllent/mailpit:v1.31.3
+        ports: ["1025:1025", "8025:8025"]
+      oidc:
+        image: ghcr.io/navikt/mock-oauth2-server:6.0.4
+        env:
+          SERVER_PORT: "8080"
+          JSON_CONFIG: '{"interactiveLogin": true}'
+        ports: ["8089:8080"]
+    env:
+      DATABASE_URL: postgresql://pronow:pronow_ci_only@localhost:5432/pronow
+      AUTH_SECRET: ci-only-auth-secret-not-used-anywhere-0123
+      SMTP_URL: smtp://localhost:1025
+      EMAIL_FROM: PRO NOW <no-reply@pronow.test>
+      GOOGLE_CLIENT_ID: pronow-local
+      GOOGLE_CLIENT_SECRET: pronow-local-secret
+      GOOGLE_ISSUER_URL: http://localhost:8089/google
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run db:generate -w apps/api
+      - run: npm run db:migrate:deploy -w apps/api
+      - run: npm run db:seed
+      - run: npx playwright install --with-deps webkit chromium
+        working-directory: apps/web
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report
+          retention-days: 7

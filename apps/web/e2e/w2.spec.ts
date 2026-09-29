@@ -1,0 +1,74 @@
+import { expect, test } from "@playwright/test";
+import { finishFirstRun, linkFor, signInByEmail, uniqueEmail } from "./helpers";
+
+/**
+ * W2 acceptance (docs/21): a person signs in, lands on home, reloads and
+ * stays signed in — by email link and by Google — and signs out.
+ */
+
+const home = (page: import("@playwright/test").Page) => page.getByText("מה אתם צריכים עכשיו?");
+
+test("a visitor who is not signed in starts at the welcome screen", async ({ page }) => {
+  await page.goto("/");
+  await expect(page).toHaveURL(/\/welcome$/);
+  await expect(page.getByText("שבא עכשיו.")).toBeVisible();
+  // Not built yet (W7): shown, and disabled.
+  await expect(page.getByRole("button", { name: /אני בעל מקצוע/ })).toHaveAttribute("aria-disabled", "true");
+});
+
+test("sign in by email link, first run, reload, sign out", async ({ page }) => {
+  await signInByEmail(page, uniqueEmail("e2e-email"));
+  await finishFirstRun(page);
+  await expect(home(page)).toBeVisible();
+
+  await page.reload();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(home(page)).toBeVisible();
+
+  await page.getByRole("button", { name: "תפריט" }).click();
+  await page.getByRole("button", { name: /^יציאה/ }).click();
+  await expect(page).toHaveURL(/\/welcome$/);
+  const session = await (await page.request.get("/api/auth/get-session")).json();
+  expect(session).toBeNull();
+});
+
+test("a returning person goes straight home", async ({ page, context }) => {
+  const email = uniqueEmail("e2e-return");
+  await signInByEmail(page, email);
+  await finishFirstRun(page);
+  await context.clearCookies();
+  await signInByEmail(page, email);
+  await expect(page).toHaveURL(/\/$/);
+  await expect(home(page)).toBeVisible();
+});
+
+test("sign in with Google (the local mock issuer)", async ({ page }) => {
+  const email = uniqueEmail("e2e-google");
+  await page.goto("/sign-in");
+  await page.getByRole("button", { name: "המשך עם Google" }).click();
+  // The mock issuer's own login page: who to be, and what Google would say.
+  await page.locator('input[name="username"]').fill(email);
+  await page.locator('[name="claims"]').fill(JSON.stringify({ email, email_verified: true, name: "Dana Levi" }));
+  await page.getByRole("button", { name: "Sign-in" }).click();
+  await expect(page).toHaveURL(/\/intro$/);
+});
+
+test("a sign-in link works once; the second time it says so", async ({ page }) => {
+  const email = uniqueEmail("e2e-reuse");
+  await signInByEmail(page, email);
+  await expect(page).toHaveURL(/\/intro$/);
+  await page.context().clearCookies();
+  await page.goto(await linkFor(email));
+  await expect(page).toHaveURL(/\/sign-in\?expired=1(&error=INVALID_TOKEN)?$/);
+  await expect(page.getByText("הקישור כבר לא בתוקף")).toBeVisible();
+});
+
+test("the app is installable: manifest and an active service worker", async ({ page, browserName }) => {
+  test.skip(browserName !== "chromium", "service worker inspection runs in Chromium");
+  await page.goto("/");
+  const manifest = await (await page.request.get("/manifest.webmanifest")).json();
+  expect(manifest).toMatchObject({ name: "PRO NOW", display: "standalone", lang: "he" });
+  await expect
+    .poll(() => page.evaluate(async () => Boolean((await navigator.serviceWorker.getRegistration())?.active)))
+    .toBe(true);
+});

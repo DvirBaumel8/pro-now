@@ -24,3 +24,7 @@ tools/design-preview/film/*.mp4
 tools/design-preview/film/still_*.jpg
 tools/design-preview/qa/out/
 tools/design-preview/qa/*.log
+
+# Playwright
+apps/web/test-results/
+apps/web/playwright-report/
