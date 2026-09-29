@@ -1,6 +1,6 @@
 # 21 — Production Plan: from demo to a live web app
 
-Status: **APPROVED 2026-09-29** (decisions in §5). W0 and W1 done; W1.5 next. Written after reading the
+Status: **APPROVED 2026-09-29** (decisions in §5). W0, W1 and W1.5 done; W2 next. Written after reading the
 code as it stands at `53ed69f`.
 
 ## 0. Framing
@@ -255,7 +255,7 @@ docs → commit → report. Sizes are relative (S/M/L), not dates.
   - The IDOR suite passes.
   - Cookie flags are checked by a test.
 
-### W1.5 — Stack refresh (S/M) — added 2026-09-29 (Dvir)
+### W1.5 — Stack refresh (S/M) — added 2026-09-29 (Dvir) — **DONE 2026-09-29**
 The product is 1–3 majors behind, and Fastify 4 is past end of life. This
 epic runs after W1, so its IDOR and auth suites guard the upgrade, and
 before W2, so the web app is built once, on current versions. One upgrade
@@ -267,8 +267,10 @@ per commit. Each commit gets full CI plus `verify:journey`.
   are ESM, resolved like a bundler (`ESNext` + `Bundler`, as `packages/ui`
   already was). Relative imports carry `.js`. Production needs a bundle
   (the W10 gap).
-- **React 18 → 19, and react-native-web 0.19 → 0.21**, in the product
-  packages only. The demo keeps its own copies (docs/22).
+- ~~**React 18 → 19, and react-native-web 0.19 → 0.21**~~ **Moved to W2
+  step 1** (Dvir, 2026-09-29). Nothing renders `packages/ui` on the web
+  until `apps/web` exists, so the upgrade could not be seen. Its only
+  current consumers (Expo 51, Next 14) are pinned to React 18.
 - **Prisma 5 → 7** (driver adapter, no Rust engine). Fall back to 6 if 7
   costs more than the epic's size.
   **Done: 7.10.0.** npm's `latest` tag points at 8.0.0-rc, so the version
@@ -283,13 +285,20 @@ per commit. Each commit gets full CI plus `verify:journey`.
   single accept. Add a Prisma-path race to W10.
 - **zod 3 → 4** in `packages/validation`, since Better Auth already
   brings in zod 4.
-- **Vitest 2 → current.**
+- **Vitest 2 → current.** Done: 5.0.2 in the product (the demo keeps 2),
+  with `@types/node` 24.
+- **Result:** 5 commits (`9a9c7cf`…`bc2e13c`), CI green on GitHub. Each
+  commit passed the full suite and `verify:journey` 30/30.
 - Out of scope: Expo/RN (Phase 3 sets the mobile apps up fresh), and the
   Next.js admin, which folds into `apps/web` (D7).
 - **Acceptance:** CI green, `verify:journey` all steps, `db:verify`, and
   no behaviour change visible in the integration suite.
 
 ### W2 — Web app shell (M)
+- **Step 1 (moved from W1.5):** create `apps/web` directly on **React 19
+  + react-native-web 0.21**, and widen `packages/ui` peers to
+  `react ^18 || ^19`, so the Expo apps and the admin keep working. Check
+  the shared screens in WebKit at iPhone 15 size the same day.
 - `apps/web`: Vite, react-native-web, react-router, TanStack Query and
   `packages/api-client`.
 - The api-client is generated from the zod schemas in
