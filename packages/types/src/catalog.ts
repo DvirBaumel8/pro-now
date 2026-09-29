@@ -398,3 +398,63 @@ export function eligibleServices(
   const have = new Set(verified);
   return services.filter((s) => s.requiredCredentials.every((c) => have.has(c)));
 }
+
+/**
+ * HOW A SERVICE IS PAID FOR, AS ONE WORD (Amit, 2026-09-29).
+ *
+ * Every sentence about money — on the describe screen, the match card, the
+ * offer, the receipt — is chosen by this and nothing else, so a tow is never
+ * told about a visit fee and a haircut is never told about a diagnosis.
+ *
+ *   LIST        the customer picks from the professional's price list; held, released after completion
+ *   VISIT       only the visit-and-diagnosis fee in the app; the repair is settled with the professional
+ *   QUOTE_FIRST one professional sends a price before setting off; the customer approves, then he comes
+ *   HOURLY      by the hour
+ *   DISTANCE    by distance and time
+ */
+export type PricingKind = "LIST" | "VISIT" | "QUOTE_FIRST" | "HOURLY" | "DISTANCE";
+
+export function pricingKindOf(s: Pick<CatalogServiceDef, "pricingModel" | "quoteBeforeDispatch">): PricingKind {
+  if (s.quoteBeforeDispatch) return "QUOTE_FIRST";
+  switch (s.pricingModel) {
+    case "FIXED": return "LIST";
+    case "VISIT_QUOTE": return "VISIT";
+    case "HOURLY": return "HOURLY";
+    default: return "DISTANCE";
+  }
+}
+
+/**
+ * THE WORDS FOR A VISIT, PER TRADE.
+ *
+ * A vet does not "fix a fault" and a tiler does not "diagnose" one. Every
+ * sentence about what the visit fee covers and what is settled afterwards
+ * takes its nouns from here, so the vet reads "בדיקה" and "הטיפול", a tiler
+ * "בדיקה ומדידה" and "העבודה", and a plumber "אבחון" and "התיקון".
+ */
+export interface VisitTermsHe {
+  /** What happens on the visit: "אבחון התקלה במקום". */
+  checkHe: string;
+  /** The thing settled directly with the professional: "התיקון". */
+  workHe: string;
+  /** What is bought on top: "חלקי חילוף". */
+  partsHe: string;
+  /** The fee's name: "דמי ביקור ואבחון". */
+  feeHe: string;
+  /** The fee's subject after "על": "הביקור והאבחון". */
+  feeSubjectHe: string;
+}
+
+export const DEFAULT_VISIT_TERMS: VisitTermsHe = { checkHe: "אבחון התקלה במקום", workHe: "התיקון", partsHe: "חלקי חילוף", feeHe: "דמי ביקור ואבחון", feeSubjectHe: "הביקור והאבחון" };
+
+/* "התיקון עצמו" / "הטיפול עצמו" / "העבודה עצמה". */
+export const selfHe = (workHe: string): string => `${workHe} ${workHe === "העבודה" ? "עצמה" : "עצמו"}`;
+
+const TREATMENT_IDS = new Set(["svc-vet"]);
+const WORK_IDS = new Set(["svc-tiling", "svc-drywall", "svc-carpentry", "svc-glass", "svc-alarm", "svc-sealing", "svc-solar", "svc-handyman"]);
+
+export function visitTermsHe(s: Pick<CatalogServiceDef, "id">): VisitTermsHe {
+  if (TREATMENT_IDS.has(s.id)) return { checkHe: "בדיקה במקום", workHe: "הטיפול", partsHe: "תרופות וציוד", feeHe: "דמי ביקור ובדיקה", feeSubjectHe: "הביקור והבדיקה" };
+  if (WORK_IDS.has(s.id)) return { checkHe: "בדיקה ומדידה במקום", workHe: "העבודה", partsHe: "חומרים", feeHe: "דמי ביקור ובדיקה", feeSubjectHe: "הביקור והבדיקה" };
+  return DEFAULT_VISIT_TERMS;
+}

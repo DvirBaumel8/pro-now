@@ -1,5 +1,6 @@
 import type { JobState } from "./job";
 import type { LivingMapPhase } from "./living-map";
+import { DEFAULT_VISIT_TERMS, selfHe, type VisitTermsHe } from "./catalog";
 
 /**
  * WHAT THE WORLD IS DOING, DERIVED FROM WHAT THE JOB IS DOING.
@@ -142,23 +143,25 @@ export function jobProgressHe(
   status: JobState,
   firstNameHe?: string | null,
   /** A price-list job (a haircut, a dog walk) rather than a repair priced only once somebody looks. */
-  opts: { fixed?: boolean } = {}
+  opts: { fixed?: boolean; terms?: VisitTermsHe; female?: boolean } = {}
 ): string | null {
   const who = firstNameHe ?? "המקצוען";
+  const g = (m: string, f: string) => (opts.female ? f : m);
+  const t = opts.terms ?? DEFAULT_VISIT_TERMS;
   switch (status) {
     case "PRO_ARRIVED":
-      return `${who} הגיע. עכשיו הוא בודק מה צריך.`;
+      return `${who} ${g("הגיע. עכשיו הוא בודק", "הגיעה. עכשיו היא בודקת")} מה צריך.`;
     case "DIAGNOSIS":
       /* Amit, 2026-09-29: the app charges the visit and the diagnosis; the repair is settled between you. */
       return opts.fixed
-        ? `${who} בודק מה צריך. עוד רגע מתחילים לפי מה שהזמנתם.`
-        : `${who} מאבחן. באפליקציה משלמים רק את הביקור והאבחון — את מחיר התיקון סוגרים ישירות איתו.`;
+        ? `${who} ${g("בודק", "בודקת")} מה צריך. עוד רגע מתחילים לפי מה שהזמנתם.`
+        : `${who} ${t.workHe === "התיקון" ? g("מאבחן", "מאבחנת") : g("בודק", "בודקת")}. באפליקציה משלמים רק על ${t.feeSubjectHe} — את המחיר של ${t.workHe} סוגרים ישירות ${g("איתו", "איתה")}.`;
     case "WAITING_QUOTE_APPROVAL":
       return "הצעת המחיר מחכה לאישור שלכם. אפשר לאשר, לשאול או לסרב.";
     case "IN_PROGRESS":
-      return `${who} עובד עכשיו. כשיסיים תקבלו סיכום לאישור לפני התשלום.`;
+      return `${who} ${g("עובד עכשיו. כשיסיים", "עובדת עכשיו. כשתסיים")} תקבלו סיכום לאישור לפני התשלום.`;
     case "COMPLETION_PENDING":
-      return `${who} סיים וממתין לאישור שלכם שהכול תקין.`;
+      return `${who} ${g("סיים וממתין", "סיימה וממתינה")} לאישור שלכם שהכול תקין.`;
     default:
       // Before he arrives, the arrival assurance owns the words.
       return null;
@@ -314,10 +317,13 @@ export interface VisitMoneyFacts {
    * approved would be a promise about a thing that will never happen.
    */
   fixedTotalHe?: string | null;
+  /** The trade's own words for the visit (`visitTermsHe`). */
+  terms?: VisitTermsHe;
 }
 
 export function visitMoneyLineHe(status: JobState, facts: VisitMoneyFacts = {}): string | null {
   const fee = facts.visitFeeHe ?? null;
+  const t = facts.terms ?? DEFAULT_VISIT_TERMS;
 
   /*
    * The price was settled before the van moved, so the only thing that
@@ -358,8 +364,8 @@ export function visitMoneyLineHe(status: JobState, facts: VisitMoneyFacts = {}):
     case "PRO_EN_ROUTE":
     case "PRO_ARRIVED":
       return fee
-        ? `דמי ביקור ואבחון ${fee} · זה כל מה שמשולם באפליקציה`
-        : "דמי ביקור ואבחון לפי המקצוען · זה כל מה שמשולם באפליקציה";
+        ? `${t.feeHe} ${fee} · זה כל מה שמשולם באפליקציה`
+        : `${t.feeHe} לפי המקצוען · זה כל מה שמשולם באפליקציה`;
 
     /*
      * He is looking now. The promise is the same and its TIMING is what
@@ -368,8 +374,8 @@ export function visitMoneyLineHe(status: JobState, facts: VisitMoneyFacts = {}):
      */
     case "DIAGNOSIS":
       return fee
-        ? `${fee} על הביקור והאבחון · את התיקון עצמו סוגרים ישירות מול המקצוען`
-        : "את התיקון עצמו סוגרים ישירות מול המקצוען";
+        ? `${fee} על ${t.feeSubjectHe} · את ${selfHe(t.workHe)} סוגרים ישירות מול המקצוען`
+        : `את ${selfHe(t.workHe)} סוגרים ישירות מול המקצוען`;
 
     /*
      * The ball is in the customer's court, and this is the moment the
@@ -403,7 +409,7 @@ export function visitMoneyLineHe(status: JobState, facts: VisitMoneyFacts = {}):
       return facts.approvedTotalHe
         ? `לתשלום ${facts.approvedTotalHe} · אחרי שתאשרו שהעבודה הושלמה`
         : fee
-          ? `לתשלום ${fee} · דמי הביקור והאבחון, אחרי שתאשרו`
+          ? `לתשלום ${fee} · ${t.feeHe.replace("דמי ביקור", "דמי הביקור").replace(/ו(אבחון|בדיקה)$/, "וה$1")}, אחרי שתאשרו`
           : "הסכום לתשלום ייסגר אחרי שתאשרו שהביקור הושלם";
 
     /*
@@ -452,7 +458,7 @@ export function proJobFocusHe(status: JobState): string | null {
     case "PRO_ARRIVED":
       return "הגעת. שווה להסתכל על מה שהלקוח תיאר לפני שמתחילים.";
     case "DIAGNOSIS":
-      return "באבחון. בסוף הבדיקה תשלח הצעת מחיר לאישור הלקוח.";
+      return "בבדיקה. כשתסיים, לוחצים ״סיימתי״ — את המחיר של העבודה עצמה סוגרים ישירות מול הלקוח.";
     case "WAITING_QUOTE_APPROVAL":
       return "ההצעה אצל הלקוח. אי אפשר להתחיל לעבוד לפני שהוא מאשר.";
     case "IN_PROGRESS":

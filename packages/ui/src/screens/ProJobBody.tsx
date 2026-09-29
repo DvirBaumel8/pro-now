@@ -10,6 +10,9 @@ import {
   proJobFocusHe,
   releaseBlockedHe,
   type JobState,
+  DEFAULT_VISIT_TERMS,
+  selfHe,
+  type VisitTermsHe,
 } from "@pro-now/types";
 
 import { elevation, proTheme, radii, scale, spacing, tabular, tint, type } from "../theme";
@@ -139,6 +142,8 @@ export interface ProJobBodyProps {
    * diagnosis, not to send a quote through the app.
    */
   diagnosisOnly?: boolean;
+  /** The trade's words for the visit (`visitTermsHe`). */
+  visitTerms?: VisitTermsHe;
   onFinishDiagnosis?: () => void;
   /**
    * GIVING THE JOB BACK.
@@ -166,11 +171,11 @@ export interface ProJobBodyProps {
 function nextAction(status: JobState): { label: string; kind: "advance" | "quote" } | null {
   switch (status) {
     case "PRO_ASSIGNED":
-      return { label: "יוצא לדרך", kind: "advance" };
+      return { label: "יציאה לדרך", kind: "advance" };
     case "PRO_EN_ROUTE":
       return { label: "הגעתי", kind: "advance" };
     case "PRO_ARRIVED":
-      return { label: "מתחיל אבחון", kind: "advance" };
+      return { label: "התחלת בדיקה", kind: "advance" };
     case "DIAGNOSIS":
       return { label: "שליחת הצעת מחיר", kind: "quote" };
     case "WAITING_QUOTE_APPROVAL":
@@ -388,6 +393,7 @@ export function ProJobBody({
   agreedPriceHe = null,
   onStartAgreed,
   diagnosisOnly = false,
+  visitTerms = DEFAULT_VISIT_TERMS,
   onFinishDiagnosis,
   width = 390,
   height = 780,
@@ -738,7 +744,7 @@ export function ProJobBody({
           </Pressable>
           {action.kind === "finishDiagnosis" ? (
             <Text style={styles.finishNote}>
-              באפליקציה נגבים דמי הביקור והאבחון. את התיקון עצמו — המחיר והתשלום — סוגרים ישירות מול הלקוח.
+              {`באפליקציה נגבים ${visitTerms.feeHe.replace("דמי ביקור ו", "דמי הביקור וה")}. את ${selfHe(visitTerms.workHe)} — המחיר והתשלום — סוגרים ישירות מול הלקוח.`}
             </Text>
           ) : null}
           {action.kind === "agreed" && onSendQuote ? (

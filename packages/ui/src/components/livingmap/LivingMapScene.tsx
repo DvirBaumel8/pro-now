@@ -64,6 +64,8 @@ import { TradeCard } from "./TradeCard";
 import { VenueLayer } from "./VenueLayer";
 import { WorldLife } from "./WorldLife";
 import { ErrandLayer } from "./ErrandLayer";
+import { LiveEtaCard, type LiveEtaCardProps } from "./LiveEtaCard";
+import { StrollInvite } from "./StrollInvite";
 import { PlayDrawer } from "./PlayDrawer";
 import { ScrimBand } from "./ScrimBand";
 import { livingPalette as P } from "./palette";
@@ -113,6 +115,16 @@ import { Walker } from "./Walker";
  */
 
 export interface LivingMapSceneProps {
+  /**
+   * THE WAIT, REDONE (Amit, 2026-09-29). When given, the on-the-way phase is
+   * one live card at the top (who, a ticking countdown, arrival, progress,
+   * safety) and an invitation to walk the city — instead of the headline,
+   * the minutes tile, "העיר שלנו" and the loose safety pill.
+   */
+  liveEta?: Omit<LiveEtaCardProps, "width" | "topInset" | "onSafety" | "onBack"> | null;
+  onStroll?: () => void;
+  strollFrames?: string[];
+  onLeaveWait?: () => void;
   /**
    * The city behind the search, when the host can play it — a short film
    * of the real street in place of the painted plate. Left out, the plate.
@@ -311,6 +323,10 @@ export function LivingMapScene({
   onAccept,
   onAnother,
   onSafety,
+  liveEta = null,
+  onStroll,
+  strollFrames,
+  onLeaveWait,
   worldSources,
   discoveries,
   onFound,
@@ -1790,7 +1806,7 @@ export function LivingMapScene({
         * a building on a map is a business at a place; a label in the HUD
         * is the app talking.
         */}
-      {bare ? null : (
+      {bare || (liveEta && phase === "ASSIGNED_ROUTE") ? null : (
       <View style={[styles.hudTop, topInset ? { top: spacing.xl + topInset } : null]} pointerEvents="none">
         {/*
           * ONE THING IN THE TOP BAND AT A TIME.
@@ -1842,7 +1858,7 @@ export function LivingMapScene({
           itself along with everything else leaves somebody tapping
           around a picture looking for their ETA.
           --------------------------------------------------------------- */}
-      {phase === "ASSIGNED_ROUTE" ? (
+      {phase === "ASSIGNED_ROUTE" && !liveEta ? (
         <Pressable
           onPress={() => setBare((v) => !v)}
           accessibilityRole="button"
@@ -1890,6 +1906,18 @@ export function LivingMapScene({
         * screen to get stuck on. See PlayDrawer for why this is a defect
         * fix rather than a feature.
         */}
+      {liveEta && phase === "ASSIGNED_ROUTE" ? (
+        <LiveEtaCard {...liveEta} width={width} topInset={topInset ?? 0} onSafety={onSafety} onBack={onLeaveWait} />
+      ) : null}
+      {liveEta && phase === "ASSIGNED_ROUTE" && onStroll ? (
+        <StrollInvite
+          proFirstNameHe={liveEta.proFirstNameHe}
+          frames={strollFrames}
+          onPress={onStroll}
+          width={width}
+          bottom={Math.round(height * SHEET_SHARE) + spacing.xl + 8}
+        />
+      ) : null}
       {phase === "ASSIGNED_ROUTE" && !bare ? (
         <PlayDrawer
           firstNameHe={chosen ? firstName(chosen.displayNameHe) : null}
@@ -1898,6 +1926,7 @@ export function LivingMapScene({
           onAction={onPlayAction}
           onSiteNameHe={onSiteNameHe}
           onOpenOnSite={onOpenOnSite}
+          statusHe={liveEta ? "בינתיים" : null}
         />
       ) : null}
 
@@ -1920,7 +1949,7 @@ export function LivingMapScene({
         * MiniGameLayer. An interaction that can swallow the safety control
         * is not a game, it is a hazard.
         */}
-      {phase === "ASSIGNED_ROUTE" && onSafety ? (
+      {phase === "ASSIGNED_ROUTE" && onSafety && !liveEta ? (
         <Pressable
           onPress={onSafety}
           accessibilityRole="button"
@@ -1954,7 +1983,7 @@ export function LivingMapScene({
         * our street, while he is on his way: the minutes the server gave,
         * and a tap that opens the real map with his vehicle on the route.
         */}
-      {backdrop && onOpenRealMap && phase === "ASSIGNED_ROUTE" && etaMinutes !== null ? (
+      {backdrop && onOpenRealMap && phase === "ASSIGNED_ROUTE" && etaMinutes !== null && !liveEta ? (
         <Pressable
           onPress={onOpenRealMap}
           accessibilityRole="button"
@@ -2010,19 +2039,11 @@ export function LivingMapScene({
         * THE ONE LINE THAT MAKES THE INVENTED CITY HONEST. It is small and
         * it is always there while the adapter is illustrative.
         */}
-      {state.adapter.illustrativeOnly ? (
-        <View
-          style={[
-            styles.demoNoteWrap,
-            // Above whichever surface owns the bottom, never behind it. The
-            // one line that keeps an invented city honest is not a line to
-            // let a drawer cover.
-            phase === "MATCH_REVEAL" || phase === "ASSIGNED_ROUTE"
-              ? { bottom: Math.round(height * SHEET_SHARE) + spacing.xs }
-              : null,
-          ]}
-          pointerEvents="none"
-        >
+      {/* Only while nothing else owns the bottom: over the match card it ran
+          into the professional's name (Amit, 2026-09-29). The sheet's own
+          "(תצוגה)" and the demo bar carry the same truth there. */}
+      {state.adapter.illustrativeOnly && phase !== "MATCH_REVEAL" && phase !== "ASSIGNED_ROUTE" ? (
+        <View style={styles.demoNoteWrap} pointerEvents="none">
           <Text style={styles.demoNote}>
             {groundDisclosureHe({ realStreets: Boolean(geo?.real) })}
           </Text>

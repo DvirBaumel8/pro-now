@@ -2,7 +2,14 @@ import { launchChromium } from '../browser.mjs';
 const b = await launchChromium();
 const p = await b.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
 const errs = []; p.on('pageerror', (e) => errs.push(String(e).slice(0, 200)));
-const press = async (re) => { const loc = p.locator('[role=button],button').filter({ visible: true }); const c = await loc.count(); for (let i = 0; i < c; i++) { const el = loc.nth(i); const a = ((await el.getAttribute('aria-label')) || '').trim(); const t = ((await el.innerText().catch(() => '')) || '').trim().replace(/\s+/g, ' '); const lab = re.test(a) ? a : t; if (re.test(lab)) { await el.click({ force: true }); await p.waitForTimeout(1300); return lab; } } return null; };
+const pressRaw = async (re) => { const loc = p.locator('[role=button],button').filter({ visible: true }); const c = await loc.count(); for (let i = 0; i < c; i++) { const el = loc.nth(i); const a = ((await el.getAttribute('aria-label')) || '').trim(); const t = ((await el.innerText().catch(() => '')) || '').trim().replace(/\s+/g, ' '); const lab = re.test(a) ? a : t; if (re.test(lab)) { await el.click({ force: true }); await p.waitForTimeout(1300); return lab; } } return null; };
+/* __toPro: the side switch left the header (2026-09-29) — the demo bar, else the menu. */
+const press = async (re) => {
+  if (re.source !== '^מקצוען$') return pressRaw(re);
+  const viaBar = await pressRaw(/^הדגמה: (הצצה לצד המקצוען|מעבר לצד המקצוען)/); if (viaBar) return 'מקצוען';
+  if (await pressRaw(/^תפריט$/)) { const r = await pressRaw(/^הצצה לצד המקצוען/); if (r) return 'מקצוען'; }
+  return pressRaw(re);
+};
 const txt = async () => (await p.evaluate(() => document.body.innerText)).replace(/\s+/g, ' ');
 const step = async (re, name) => { const r = await press(re); console.log((r ? '✓ ' : '✗ ') + name + (r ? '' : ' :: ' + (await txt()).slice(0, 200))); return r; };
 await p.goto('http://127.0.0.1:4421/?time=day'); await p.locator('text=אני צריך מקצוען').first().waitFor();
@@ -25,7 +32,7 @@ await step(/^חזרה/, 'back'); console.log('back to:', (await txt()).slice(0,8
 await step(/^מקצוען$/, '→ pro'); await step(/^כן, אני לוקח/, 'pro takes');
 await p.waitForTimeout(800); await p.screenshot({ path: 'out/os_pro.png' });
 console.log('pro sees code:', /4 8 2 1/.test(await txt()), 'sees onsite:', /נמצא בבית/.test(await txt()));
-await step(/^יוצא לדרך/, 'leaves'); await step(/^הגעתי/, 'arrives');
+await step(/^(יוצא|יציאה) לדרך/, 'leaves'); await step(/^הגעתי/, 'arrives');
 await step(/^לקוח$/, '→ customer'); await p.waitForTimeout(1500);
 await p.screenshot({ path: 'out/os_track_arrived.png' });
 await step(/מה סבא .*רואה/, 'open onsite (arrived)'); await p.waitForTimeout(800);

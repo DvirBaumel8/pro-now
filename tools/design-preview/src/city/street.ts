@@ -112,6 +112,8 @@ export interface StreetHandles {
   scene: THREE.Scene;
   /** Shops whose window you can see into — framed close when you stop. */
   windowShops: Set<string>;
+  /** The professional's own van, driven by the host. */
+  heroVan: (trade: string) => THREE.Group | null;
   shops: Array<
     ShopSpec & {
       doorway: THREE.Vector3;
@@ -3227,7 +3229,7 @@ export function buildStreet(
    * There is no front view in the pack, and inventing one out of boxes
    * is what produced the white brick with the black brick on top.
    */
-  function car(dir: 1 | -1, lane: number, speed: number, z: number, ours = false) {
+  function car(dir: 1 | -1, lane: number, speed: number, z: number, ours = false, forced?: { trade: string }): THREE.Group | undefined {
     const g = new THREE.Group();
     /* Negative z is away from the camera, which watches from the near
        end of the street — see `SPAWN` and the shadow box in `update`. */
@@ -3249,7 +3251,7 @@ export function buildStreet(
      * The trade is chosen from the lane and the position so a given
      * vehicle keeps its identity instead of reshuffling every frame.
      */
-    const trade = CITY_FLEET_TRADES[
+    const trade = forced?.trade ?? CITY_FLEET_TRADES[
       Math.abs(Math.round(z / 7) + (dir > 0 ? 3 : 0)) % CITY_FLEET_TRADES.length
     ]!;
     const drawnFront = textures[`pn_${trade}_front`];
@@ -3383,10 +3385,10 @@ export function buildStreet(
         offsetZ: dir * 6.4,
       });
       g.position.set(lane, 0, z);
-      g.userData = { dir, speed, ride, wheels, phase: Math.abs(z) % 6.28 };
+      g.userData = { dir, speed, ride, wheels, phase: Math.abs(z) % 6.28, scripted: Boolean(forced) };
       scene.add(g);
       cars.push(g);
-      return;
+      return g;
     }
 
     const bodyColour = ours
@@ -4524,10 +4526,11 @@ export function buildStreet(
     moon.updateMatrixWorld();
 
     for (const c of cars) {
-      const { dir, speed, ride, wheels, phase } = c.userData as {
-        dir: 1 | -1; speed: number; ride?: THREE.Object3D; wheels?: THREE.Object3D[]; phase?: number;
+      const { dir, speed, ride, wheels, phase, scripted } = c.userData as {
+        dir: 1 | -1; speed: number; ride?: THREE.Object3D; wheels?: THREE.Object3D[]; phase?: number; scripted?: boolean;
       };
-      c.position.z += dir * speed * dt;
+      /* The professional's own van is placed by whoever drives it (see `heroVan`). */
+      if (!scripted) c.position.z += dir * speed * dt;
       /* A van on its springs, and wheels that turn with the road. */
       if (ride) {
         const tt = performance.now() / 1000 + (phase ?? 0);
@@ -4535,8 +4538,8 @@ export function buildStreet(
         ride.rotation.z = 0.008 * Math.sin(tt * 3.7);
       }
       if (wheels) for (const w of wheels) w.rotation.x -= (speed * dt) / 0.36;
-      if (c.position.z > HALF) c.position.z = -HALF;
-      if (c.position.z < -HALF) c.position.z = HALF;
+      if (!scripted && c.position.z > HALF) c.position.z = -HALF;
+      if (!scripted && c.position.z < -HALF) c.position.z = HALF;
     }
     for (const w of walkers) {
       /* Everyone walks away from the camera; see the note above. */
@@ -4609,7 +4612,14 @@ export function buildStreet(
       if ((o as THREE.Sprite).isSprite && m && m.blending === THREE.AdditiveBlending) m.opacity *= 0.3;
     });
   }
-  return { scene, shops, places, lamps, update, windowShops };
+  /**
+   * THE PROFESSIONAL'S OWN VAN, for the tracking view: his trade's livery,
+   * in the lane that runs away from the camera, standing still until the
+   * host moves it (`userData.speed` turns its wheels).
+   */
+  const heroVan = (trade: string): THREE.Group | null => car(-1, laneA, 0, 0, true, { trade }) ?? null;
+
+  return { scene, shops, places, lamps, update, windowShops, heroVan };
 }
 
 export { neon, glow };

@@ -1,4 +1,4 @@
-import { formatMoney, money, type PriceQuoteView } from "@pro-now/types";
+import { DEFAULT_VISIT_TERMS, formatMoney, money, selfHe, type PriceQuoteView, type VisitTermsHe } from "@pro-now/types";
 
 import { formatMinimumBillable } from "./format";
 
@@ -15,7 +15,7 @@ export function priceExplainer(
    * a tester asked, of the number that used to sit there, *"של מי המחיר?
    * לבעלי המקצוע יש מחירים שונים."* It is shown on the person instead.
    */
-  opts: { stage?: "service" | "match"; proFirstNameHe?: string | null; listFromMinorUnits?: number | null; quoteFirst?: boolean } = {}
+  opts: { stage?: "service" | "match"; proFirstNameHe?: string | null; listFromMinorUnits?: number | null; quoteFirst?: boolean; terms?: VisitTermsHe } = {}
 ): { headline: string; detail: string } {
   const m = (v: number | null | undefined) =>
     v === null || v === undefined ? null : formatMoney(money(v, "ILS"));
@@ -48,19 +48,21 @@ export function priceExplainer(
             "מתארים ומצלמים. המקצוען מסתכל ושולח מחיר, ורק אחרי שתאשרו הוא יוצא. הסכום מאושר בכרטיס ועובר אליו אחרי שתאשרו שהעבודה הושלמה.",
         };
       }
+      const t = opts.terms ?? DEFAULT_VISIT_TERMS;
+      const the = t.feeHe.replace("דמי ביקור ו", "דמי הביקור וה");
       if (opts.stage === "service") {
         return {
           headline: "דמי ביקור לפי המקצוען",
           detail:
-            "כל מקצוען קובע את דמי הביקור והאבחון שלו — ותראו אותם אצל מי שנמצא, לפני שאתם מאשרים. זה כל מה שמשולם באפליקציה: את התיקון עצמו, המחיר והתשלום, סוגרים ישירות מול המקצוען.",
+            `כל מקצוען קובע את ${the} שלו — ותראו אותם אצל מי שנמצא, לפני שאתם מאשרים. זה כל מה שמשולם באפליקציה: את ${selfHe(t.workHe)}, המחיר והתשלום, סוגרים ישירות מול המקצוען.`,
         };
       }
       const fee = m(price.visitFeeMinorUnits);
-      const whose = opts.proFirstNameHe ? `דמי הביקור והאבחון של ${opts.proFirstNameHe}.` : "דמי ביקור ואבחון.";
+      const whose = opts.proFirstNameHe ? `${the} של ${opts.proFirstNameHe}.` : `${t.feeHe}.`;
       return {
         headline: fee ?? "—",
         detail: fee
-          ? `${whose} זה כל מה שמשולם באפליקציה — את התיקון עצמו סוגרים ישירות מול המקצוען.`
+          ? `${whose} זה כל מה שמשולם באפליקציה — את ${selfHe(t.workHe)} סוגרים ישירות מול המקצוען.`
           : "דמי הביקור טרם הוגדרו לשירות זה.",
       };
     }

@@ -124,6 +124,8 @@ export interface DescribeFaultBodyProps {
    * the price does not depend on them (a visit fee).
    */
   livePriceHe?: string | null;
+  /** What the details are for, in this service's own pricing terms (`pricingKindOf`). */
+  detailsNoteHe?: string | null;
   /**
    * A PRICE-LIST SERVICE (a haircut, a dog walk, a cleaning visit): what
    * to order, from the example list, so there is an amount to approve on
@@ -167,6 +169,7 @@ export function DescribeFaultBody({
   onSend,
   onBack,
   livePriceHe = null,
+  detailsNoteHe = null,
   priceList,
   destination = null,
   pickedIds = [],
@@ -444,8 +447,8 @@ export function DescribeFaultBody({
           {added === 0
             ? "אפשר לשלוח גם בלי פרטים"
             : added === 1
-              ? "פרט אחד יישלח · לא מחויב עד שתאשר"
-              : `${added} פרטים יישלחו · לא מחויב עד שתאשר`}
+              ? "פרט אחד יישלח · בלי התחייבות עד שתאשרו"
+              : `${added} פרטים יישלחו · בלי התחייבות עד שתאשרו`}
         </Text>
         {/*
           * WHAT THESE DETAILS DO NOT DO: set the price. A tester added
@@ -454,9 +457,10 @@ export function DescribeFaultBody({
           * you accept him — and on work that needs a look, his quote.
           */}
         <Text style={styles.ctaNote}>
-          {priceList && priceList.length > 0
-            ? "כל מקצוען קובע את המחירון שלו — ותראו את המחיר שלו לפני שתאשרו."
-            : "התיאור, ההקלטה והתמונות עוזרים למקצוען להגיע מוכן. את דמי הביקור שלו תראו לפני שתאשרו."}
+          {detailsNoteHe ??
+            (priceList && priceList.length > 0
+              ? "כל מקצוען קובע את המחירון שלו — ותראו את המחיר שלו לפני שתאשרו."
+              : "התיאור, ההקלטה והתמונות עוזרים למקצוען להגיע מוכן.")}
         </Text>
       </View>
     </View>

@@ -66,7 +66,7 @@ import fixtureGeo from "../geo/fixture_grid.json";
 import { ActiveJobCapsule, AddressPickerBody, AppHeader, AppMenuBody, AvatarPickerBody, IntroBody, customerDarkTheme, FocusSheet, ScreenTransition, ArrivalVerifyBody, OnSiteBody, CallsListBody, CAPSULE_HEIGHT, ChatBody, ConnectionBanner, CategoryBody, CustomerHomeBody, CustomerProfileBody, customerTheme, DescribeFaultBody, JobClosedBody, JobCompleteBody, MatchConfirmBody, NavGlyph, Persona, PhoneAuthBody, ProEarningsBody, ProJobBody, ProJobSettledBody, ProOfferBody, ProOnlineBody, ProPricingBody, ProProfileBody, ProQuoteBuilderBody, ProServicesBody, ProShiftBody, proTheme, ProVerificationBody, ProVerificationStepBody, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, SponsorShopBody, AdvertiseBody, StrollBody, Sheet, spacing, tint, TrackingBody, type as t, WelcomeBody } from "@pro-now/ui";
 import type { JobMediaItem, LiveLocationState, MarkName, NavGlyphName, ProPricingRow } from "@pro-now/ui";
 import type { AuthStage, ChatMessage, ConnectionState } from "@pro-now/ui";
-import { canHandOffToMaps, categoryAsksForPerson, mapsHandoffUrl, buildIntakeBrief, pilotIntakeByService, pilotServiceById, readAvailability } from "@pro-now/types";
+import { canHandOffToMaps, categoryAsksForPerson, mapsHandoffUrl, buildIntakeBrief, pilotIntakeByService, pilotServiceById, pricingKindOf, readAvailability, visitTermsHe } from "@pro-now/types";
 import type { IntakeAnswer, IntakeBriefLine, MapsPlatform, OfferCardView, PriceModel } from "@pro-now/types";
 import type { JobState, ProPresenceState } from "@pro-now/types";
 
@@ -78,6 +78,7 @@ import {
   catalogHiddenServices,
   catalogMatchRules,
   priceListFor,
+  quoteLinesFor,
   lowestListed,
   catalogServicePages,
   departmentCodeByMark,
@@ -253,7 +254,7 @@ type CustomerRoute =
    * package would put a component in there that only one of the three
    * consumers can render.
    */
-  | { name: "city" }
+  | { name: "city"; enterShopId?: string; from?: "assigned" | "enroute" | "stroll" }
   | { name: "category"; categoryId: string }
   | { name: "service"; serviceId: string }
   | { name: "describe"; serviceId: string; symptomsHe: string[] }
@@ -1318,6 +1319,10 @@ function AuthGate({
  * words, and those words exist nowhere else once the pending quote has
  * been answered and cleared.
  */
+/* Shops whose drawn professional is a woman, and the names she goes by. */
+const FEMALE_FIGURE = new Set(["hair", "nails", "pets", "well"]);
+const FEMALE_NAMES_HE = new Set(["מאיה", "נועה", "שירה"]);
+
 interface CustomerMemory {
   route: CustomerRoute;
   approvedTotalMinor: number | null;
@@ -1486,7 +1491,21 @@ function CustomerApp({
    * an INPUT the person supplied; nothing about a live job is restored.
    */
   const saved = useMemo(() => loadSession(), []);
-  const [faultText, setFaultText] = useState(saved?.faultText ?? "");
+  /*
+   * ONE ORDER'S WORDS BELONG TO THAT ORDER.
+   *
+   * The text, the photos, the recording and the destination were kept
+   * app-wide, so "ציפורניים" typed for nails turned up in a towing request
+   * and on the tow driver's screen (Amit, 2026-09-29). They now belong to
+   * the service they were written for (`draftFor`) and to one request:
+   * starting another service, or a new order after one was sent, starts
+   * clean. See the effect under `route`.
+   */
+  const [faultText, setFaultText] = useState(saved?.faultServiceId ? saved?.faultText ?? "" : "");
+  const [draftFor, setDraftFor] = useState<string | null>(saved?.faultServiceId ?? null);
+  const draftSent = useRef(false);
+  /* The someone-else address is chosen for ONE order, never kept for the next. */
+  const addressPickedSinceSend = useRef(false);
   const [chat, setChat] = useState<ChatMessage[]>(chatSeed);
   const [sheet, setSheet] = useState<null | "call" | "safety" | "payment" | "released">(null);
   /**
@@ -1568,7 +1587,11 @@ function CustomerApp({
    * between "what the person chose" (saved) and "what the server owns"
    * (never saved).
    */
-  const [addressId, setAddressId] = useState<string>(saved?.addressId ?? "addr_home");
+  const [addressId, setAddressId] = useState<string>(() => {
+    // An order for grandpa last time is not an order for grandpa this time.
+    const a = savedAddresses.find((x) => x.id === saved?.addressId);
+    return a && !a.forSomeoneElseNameHe ? a.id : "addr_home";
+  });
   const [live, setLive] = useState<LiveLocationState>({ status: "idle" });
 
   const chosen = savedAddresses.find((a) => a.id === addressId) ?? savedAddresses[0]!;
@@ -1610,6 +1633,8 @@ function CustomerApp({
   }, []);
   /* The "on the way" moment after accepting — see `OnTheWay`. */
   const [onTheWayAt, setOnTheWayAt] = useState<number | null>(null);
+  /* When he set off — kept for the whole trip (the overlay above clears its own). */
+  const [tripStartedAt, setTripStartedAt] = useState<number | null>(null);
   /* Which of the found professionals is on the card — see `onAnother`. */
   const [pick, setPick] = useState(0);
   /*
@@ -1721,10 +1746,11 @@ function CustomerApp({
       side: "customer",
       addressId,
       faultText,
+      faultServiceId: draftFor,
       intakeAnswers,
       lastServiceId: lastRequestedId,
     });
-  }, [addressId, faultText, intakeAnswers, lastRequestedId]);
+  }, [addressId, faultText, draftFor, intakeAnswers, lastRequestedId]);
 
   const answerIntake = useCallback((a: IntakeAnswer) => {
     setIntakeAnswers((prev) => [...prev.filter((p) => p.questionId !== a.questionId), a]);
@@ -1738,6 +1764,44 @@ function CustomerApp({
   const [picked, setPicked] = useState<{ serviceId: string; ids: string[] } | null>(null);
   /* Where to, for towing and moving. */
   const [destinationHe, setDestinationHe] = useState("");
+  const draftRouteId = route.name === "service" || route.name === "describe" ? route.serviceId : null;
+  const clearDraft = useCallback(() => {
+    setFaultText("");
+    setDestinationHe("");
+    setIntakeAnswers([]);
+    setPicked(null);
+    capture.reset();
+  }, [capture.reset]);
+  useEffect(() => {
+    if (!draftRouteId) return;
+    const stale = draftSent.current || (draftFor !== null && draftFor !== draftRouteId);
+    if (stale) {
+      clearDraft();
+      if (draftSent.current && !addressPickedSinceSend.current) {
+        const a = savedAddresses.find((x) => x.id === addressId);
+        if (a?.forSomeoneElseNameHe || onSiteTyped) {
+          setAddressId("addr_home");
+          setOnSiteTyped(null);
+        }
+      }
+      draftSent.current = false;
+    }
+    if (draftFor !== draftRouteId) setDraftFor(draftRouteId);
+    // Only a change of service or a new order decides this.
+  }, [draftRouteId]);
+  /* Something captured on the home screen starts a new draft of its own. */
+  const homeCaptured = capture.photos.length + (capture.voice ? 1 : 0);
+  useEffect(() => {
+    if (homeCaptured === 0 || route.name !== "home") return;
+    if (draftSent.current || draftFor !== null) {
+      setFaultText("");
+      setDestinationHe("");
+      setIntakeAnswers([]);
+      setPicked(null);
+      setDraftFor(null);
+      draftSent.current = false;
+    }
+  }, [homeCaptured]);
   const pickedIdsFor = (serviceId: string) => (picked?.serviceId === serviceId ? picked.ids : []);
   const togglePick = useCallback((serviceId: string, id: string) => {
     setPicked((cur) => {
@@ -1854,7 +1918,10 @@ function CustomerApp({
       ? { label: "מעבר לצד המקצוען — הוא שולח מחיר", next: onSwitch }
       : null;
 
-  const demo = advance ?? arrivalAdvance ?? previewMatch ?? preQuoteWait;
+  const liveJobScreen =
+    (route.name === "living" && route.phase === "ASSIGNED_ROUTE") || route.name === "tracking";
+  const peekPro = liveJobScreen ? { label: "הצצה לצד המקצוען", next: () => onSwitch() } : null;
+  const demo = advance ?? arrivalAdvance ?? previewMatch ?? preQuoteWait ?? peekPro;
 
   /**
    * A thin utility row instead of a bar at the bottom. It is 56px and it
@@ -2112,8 +2179,9 @@ const go = useCallback((r: CustomerRoute) => {
 
   /* Following the professional is the real map, with his vehicle on the
      route — Amit: *"מפת מעקב אחרי המקצוען, רק לראות איפה הוא ברכב שלו."* */
+  /* Following him is the drive, in our street — no second map to switch to. */
   const followPro = useCallback(() => {
-    if (!realMap) onToggleRealMap();
+    if (realMap) onToggleRealMap();
     go({ name: "tracking", stage: "enroute" });
   }, [realMap, onToggleRealMap, go]);
 
@@ -2589,6 +2657,17 @@ const go = useCallback((r: CustomerRoute) => {
         <AppMenuBody
           groups={[
             {
+              titleHe: "הדגמה",
+              items: [
+                {
+                  id: "demo-pro",
+                  labelHe: "הצצה לצד המקצוען",
+                  detailHe: "איך הקריאה נראית אצל מי שמקבל אותה",
+                  onPress: onSwitch,
+                },
+              ],
+            },
+            {
               titleHe: "העבודות שלי",
               items: [
                 {
@@ -2711,8 +2790,9 @@ const go = useCallback((r: CustomerRoute) => {
             selectedId={addressId}
             liveLocation={live}
             onUseLiveLocation={askLocation}
-            onSelect={setAddressId}
+            onSelect={(id) => { addressPickedSinceSend.current = true; setAddressId(id); }}
             onConfirm={(r) => {
+              addressPickedSinceSend.current = true;
               setOnSiteTyped(r.forSomeoneElse && r.recipientNameHe ? { forId: r.addressId ?? addressId, nameHe: r.recipientNameHe } : null);
               go({ name: "home" });
             }}
@@ -2738,9 +2818,8 @@ const go = useCallback((r: CustomerRoute) => {
             geo={geo}
             /* The paid shops stand in this street like any other. */
             sponsors={PREVIEW_SPONSORS}
-            onEnterSponsor={(shop) =>
-              go({ name: "sponsor", shopId: shop.id, from: "stroll" })
-            }
+            /* A shop is a place you walk into — the new room, not a page (Amit, 2026-09-29). */
+            onEnterSponsor={(shop) => go({ name: "city", enterShopId: shop.id, from: "stroll" })}
             onOpenDepartment={(department) => {
               const category = categoryForDepartment(department);
               if (category) go({ name: "category", categoryId: category.id });
@@ -2815,6 +2894,8 @@ const go = useCallback((r: CustomerRoute) => {
               )[0];
               if (best) {
                 setFaultText(textHe);
+                setDraftFor(best.serviceId);
+                draftSent.current = false;
                 go({ name: "service", serviceId: best.serviceId });
                 return;
               }
@@ -2871,7 +2952,7 @@ const go = useCallback((r: CustomerRoute) => {
             side="customer"
             counterpartNameHe={trackedProfessional.displayName}
             counterpartSeed={matchFixture.professional.id}
-            jobTitleHe="תיקון נזילה בברז"
+            jobTitleHe={trackedService.nameHe}
             jobOpen
             messages={chat}
             quickRepliesHe={customerQuickReplies}
@@ -2904,15 +2985,30 @@ const go = useCallback((r: CustomerRoute) => {
                 : null
             }
             livePriceHe={(() => {
-              const pm = page.price?.priceModel;
-              if (pilotServiceById[route.serviceId]?.quoteBeforeDispatch)
-                return "המקצוען יסתכל על התמונות והפרטים וישלח מחיר · הוא יוצא רק אחרי שתאשרו";
-              if (pm === "VISIT_QUOTE") return "באפליקציה משלמים רק דמי ביקור ואבחון · את התיקון סוגרים ישירות מול המקצוען";
-              if (pm === "FIXED") {
-                const o = orderFor(route.serviceId, null);
-                return o ? `${o.namesHe} · ${formatMoney(money(o.amountMinorUnits, "ILS"))} לפי המחירון לדוגמה` : "בחרו מה להזמין מהמחירון";
+              const def = pilotServiceById[route.serviceId];
+              switch (def ? pricingKindOf(def) : null) {
+                case "QUOTE_FIRST": return "המקצוען יסתכל על התמונות והפרטים וישלח מחיר · הוא יוצא רק אחרי שתאשרו";
+                case "VISIT": {
+                  const t = visitTermsHe({ id: route.serviceId });
+                  return `באפליקציה משלמים רק ${t.feeHe} · את ${t.workHe} סוגרים ישירות מול המקצוען`;
+                }
+                case "LIST": {
+                  const o = orderFor(route.serviceId, null);
+                  return o ? `${o.namesHe} · ${formatMoney(money(o.amountMinorUnits, "ILS"))} לפי המחירון לדוגמה` : "בחרו מה להזמין מהמחירון";
+                }
+                case "HOURLY": return "לפי שעה · המחיר לשעה של המקצוען מוצג לפני שתאשרו";
+                case "DISTANCE": return "לפי מרחק · המחיר מוצג לפני שתאשרו";
+                default: return null;
               }
-              return null;
+            })()}
+            detailsNoteHe={(() => {
+              const def = pilotServiceById[route.serviceId];
+              switch (def ? pricingKindOf(def) : null) {
+                case "QUOTE_FIRST": return "לפי התיאור והתמונות המקצוען קובע את המחיר — ככל שתפרטו, המחיר מדויק יותר.";
+                case "VISIT": return "התיאור, ההקלטה והתמונות עוזרים למקצוען להגיע מוכן. את דמי הביקור שלו תראו לפני שתאשרו.";
+                case "LIST": return "כל מקצוען קובע את המחירון שלו — ותראו את המחיר שלו לפני שתאשרו.";
+                default: return "התיאור, ההקלטה והתמונות עוזרים למקצוען להגיע מוכן.";
+              }
             })()}
             text={faultText}
             onChangeText={setFaultText}
@@ -2962,6 +3058,8 @@ const go = useCallback((r: CustomerRoute) => {
                 createdAtMs: Date.now(),
               });
               setLastRequestedId(route.serviceId);
+              draftSent.current = true;
+              addressPickedSinceSend.current = false;
               setOtherQuote(null);
               setPick(0);
               go({ name: "living", serviceId: route.serviceId, phase: "SEARCHING" });
@@ -2989,9 +3087,9 @@ const go = useCallback((r: CustomerRoute) => {
           const l = DEPT_SHOPS[d] ?? [DEPT_SHOP[d] ?? "home"];
           return l[i % l.length]!;
         };
-        const FEMALE_FIGURE = new Set(["hair", "nails", "pets", "well"]);
+
         const namesFor = (i: number) =>
-          (FEMALE_FIGURE.has(shopOf(i)) ? ["מאיה", "נועה", "שירה"] : ["יוסי", "איתי", "רון"])[i % 3]!;
+          (FEMALE_FIGURE.has(shopOf(i)) ? [...FEMALE_NAMES_HE] : ["יוסי", "איתי", "רון"])[i % 3]!;
         const cands: CandidatePresence[] = demoCandidatesFor(route.serviceId, 3).map((c, i) => ({
           candidateId: `demo-cand-${i}`,
           displayNameHe: `${namesFor(i)} (תצוגה)`,
@@ -3067,7 +3165,9 @@ const go = useCallback((r: CustomerRoute) => {
           <SearchingBody
             /* The city we built behind the search, not the old plate — the
                street itself, the same for every trade. */
-            backdrop={realMap ? undefined : route.phase === "ASSIGNED_ROUTE" ? <StreetScene /> : (
+            backdrop={route.phase === "ASSIGNED_ROUTE" ? (
+              <RouteCity serviceId={route.serviceId} etaSeconds={(etaMin ?? 14) * 60} startedAtMs={tripStartedAt} moving />
+            ) : (
               <SearchCity
                 dept={departmentCodeByServiceId[route.serviceId] ?? null}
                 found={route.phase !== "SEARCHING"}
@@ -3076,7 +3176,26 @@ const go = useCallback((r: CustomerRoute) => {
               />
             )}
             onOpenRealMap={followPro}
-            geo={geo}
+            geo={route.phase === "ASSIGNED_ROUTE" ? null : geo}
+            liveEta={
+              route.phase === "ASSIGNED_ROUTE" && etaMin !== null
+                ? (() => {
+                    const first = (cands[pick % cands.length]?.displayNameHe ?? "").split(" ")[0] ?? "";
+                    const start = tripStartedAt ?? Date.now();
+                    return {
+                      proFirstNameHe: first,
+                      female: FEMALE_NAMES_HE.has(first),
+                      proPhotoUri: `./world/character_${shopOf(pick)}_icon.webp`,
+                      serviceNameHe: onSiteNameHe ? `${page?.nameHe ?? ""} · אצל ${onSiteNameHe.replace(/ \(תצוגה\)$/, "")}` : page?.nameHe ?? "",
+                      arrivalAtMs: start + etaMin * 60_000,
+                      startedAtMs: start,
+                    };
+                  })()
+                : null
+            }
+            onStroll={() => strollDoor?.()}
+            strollFrames={Array.from({ length: 8 }, (_, i) => `./world/avatar_amit_walk_0${i + 1}.webp`)}
+
             worldSources={art}
             /*
              * THE SHOPS IN THE STREET THAT PAID TO BE THERE.
@@ -3088,9 +3207,7 @@ const go = useCallback((r: CustomerRoute) => {
              * walking past it.
              */
             sponsors={PREVIEW_SPONSORS}
-            onEnterSponsor={(shop) =>
-              go({ name: "sponsor", shopId: shop.id, from: "enroute" })
-            }
+            onEnterSponsor={(shop) => go({ name: "city", enterShopId: shop.id, from: "enroute" })}
             /*
              * AND EVERY OTHER DOOR IN THE STREET.
              *
@@ -3140,7 +3257,9 @@ const go = useCallback((r: CustomerRoute) => {
                       : null;
                 return q
                   ? `ההצעה של ${first}: ${formatMoney(money(q.amount, "ILS"))}${q.notesHe ? ` · ${q.notesHe}` : ""} · מאושר בכרטיס ועובר אליו אחרי שתאשרו שהעבודה הושלמה`
-                  : `${first} מסתכל על התמונות והפרטים ושולח מחיר…`;
+                  : FEMALE_FIGURE.has(shopOf(pick))
+                    ? `${first} מסתכלת על התמונות והפרטים ושולחת מחיר…`
+                    : `${first} מסתכל על התמונות והפרטים ושולח מחיר…`;
               }
               const own = isDemoPro ? proPrices.byService[route.serviceId] ?? null : null;
               /* A price-list job is priced by what was ordered, at this professional's prices. */
@@ -3159,7 +3278,7 @@ const go = useCallback((r: CustomerRoute) => {
                 : pm === "HOURLY"
                   ? `התעריף של ${first}: ${amt} לשעה${extra}`
                   : pm === "VISIT_QUOTE"
-                    ? `דמי ביקור ואבחון של ${first}: ${amt}${extra} · זה כל מה שמשולם באפליקציה`
+                    ? `${visitTermsHe({ id: route.serviceId }).feeHe} של ${first}: ${amt}${extra} · זה כל מה שמשולם באפליקציה`
                     : null;
             })()}
             checkingEligibility={route.phase !== "SEARCHING"}
@@ -3206,6 +3325,7 @@ const go = useCallback((r: CustomerRoute) => {
                 if (amount !== undefined) onApprovePreQuote?.(amount);
               }
               setOnTheWayAt(Date.now());
+              setTripStartedAt(Date.now());
               go({ name: "living", serviceId: route.serviceId, phase: "ASSIGNED_ROUTE" });
             }}
             /*
@@ -3259,6 +3379,7 @@ const go = useCallback((r: CustomerRoute) => {
           {onTheWayAt ? (
             <OnTheWay
               shop={shopOf(pick)}
+              vehicle={fleetTradeFor(route.serviceId)}
               proName={namesFor(pick)}
               etaMinutes={Math.round((matchFixture.eta?.etaSeconds ?? 840) / 60)}
               onSiteNameHe={onSiteNameHe}
@@ -3417,11 +3538,18 @@ const go = useCallback((r: CustomerRoute) => {
         return (
           <TrackingBody
             /* Our street behind the visit; the clock opens the real map. */
-            backdrop={<StreetScene />}
-            onOpenRealMap={onToggleRealMap}
+            /* On his way: the drive in our street. At the door: the street. */
+            backdrop={
+              (route.stage === "assigned" || route.stage === "enroute") && trackedService.id ? (
+                <RouteCity serviceId={trackedService.id} etaSeconds={matchFixture.eta?.etaSeconds ?? 840} startedAtMs={tripStartedAt} moving />
+              ) : (
+                <StreetScene />
+              )
+            }
+            onOpenRealMap={undefined}
             /* The trade's own figure, in the work scene while he is in the home. */
             proFigureUri={`./world/character_${DEPT_SHOP[departmentCodeByServiceId[trackedService.id ?? ""] ?? ""] ?? "home"}_icon.webp`}
-            geo={geo}
+            geo={null}
             status={
               route.stage === "assigned"
                 ? "PRO_ASSIGNED"
@@ -3448,11 +3576,7 @@ const go = useCallback((r: CustomerRoute) => {
               (art?.[shop.venueAssetId] as { uri?: string } | undefined)?.uri ?? null
             }
             onEnterSponsor={(shop) =>
-              go({
-                name: "sponsor",
-                shopId: shop.id,
-                from: route.stage === "assigned" ? "assigned" : "enroute",
-              })
+              go({ name: "city", enterShopId: shop.id, from: route.stage === "assigned" ? "assigned" : "enroute" })
             }
             /*
              * The arrival clock is DERIVED from the ETA the server gave,
@@ -3545,7 +3669,9 @@ const go = useCallback((r: CustomerRoute) => {
              * job's state (`visitMoneyLineHe`), and these are the only
              * numbers it is allowed to use.
              */
+            professionalFemale={FEMALE_NAMES_HE.has(trackedProfessional.displayName.split(" ")[0] ?? "")}
             money={{
+              terms: trackedService.id ? visitTermsHe({ id: trackedService.id }) : undefined,
               /* The demo professional's own fee when he set one — the same figure the receipt charges. */
               visitFeeHe: diagnosisFee !== null ? formatMoney(money(diagnosisFee, "ILS")) : null,
               fixedTotalHe:
@@ -3766,7 +3892,7 @@ const go = useCallback((r: CustomerRoute) => {
               approvedLines
                 ? approvedLines.map((l) => ({ id: l.id, labelHe: l.descriptionHe, amountMinorUnits: l.totalMinorUnits }))
                 : diagnosisFee !== null
-                  ? [{ id: "visit", labelHe: "דמי ביקור ואבחון · את התיקון סוגרים ישירות מול המקצוען", amountMinorUnits: diagnosisFee }]
+                  ? [{ id: "visit", labelHe: `${visitTermsHe({ id: trackedService.id ?? "" }).feeHe} · את ${visitTermsHe({ id: trackedService.id ?? "" }).workHe} סוגרים ישירות מול המקצוען`, amountMinorUnits: diagnosisFee }]
                   : receiptLines
             }
             totalChargedMinorUnits={approvedTotalMinor ?? diagnosisFee ?? 44500}
@@ -3975,16 +4101,7 @@ const go = useCallback((r: CustomerRoute) => {
         >
           <Text style={styles.standInText}>✦ סיור בעיר שלנו</Text>
         </Pressable>
-      ) : (
-        <Pressable
-          onPress={onToggleRealMap}
-          accessibilityRole="button"
-          accessibilityLabel="החלפה בין המפה המצוירת לבין תוכנית רחובות אמיתית"
-          style={styles.groundSwitch}
-        >
-          <Text style={styles.standInText}>{realMap ? "▪ העיר שלנו" : "▸ עקוב אחרי המקצוען"}</Text>
-        </Pressable>
-      )
+      ) : /* On the way, following him IS the screen — no switch (Amit, 2026-09-29). */ null
     ) : null;
 
   /*
@@ -4076,8 +4193,14 @@ const go = useCallback((r: CustomerRoute) => {
           base="./world/"
           avatarNo={avatar ? Number(String(avatar).replace(/\D/g, "")) : null}
           trades={cityTrades}
+          enterShopId={route.name === "city" ? route.enterShopId ?? null : null}
           onRequestService={(id) => go({ name: "service", serviceId: id })}
-          onExit={() => go({ name: "home" })}
+          onExit={() => {
+            const from = route.name === "city" ? route.from : undefined;
+            if (from === "stroll") go({ name: "stroll" });
+            else if (from) go({ name: "tracking", stage: from });
+            else go({ name: "home" });
+          }}
         />
       </View>
     );
@@ -4134,16 +4257,8 @@ const go = useCallback((r: CustomerRoute) => {
         /* The same button closes it again — the way every menu behaves. */
         onMenu={() => (tab === "menu" ? back({ name: "home" }) : goTab("menu"))}
         onAccount={() => goTab("card")}
-        trailing={
-          <Pressable
-            onPress={onSwitch}
-            accessibilityRole="button"
-            accessibilityLabel="מעבר לצד בעל המקצוע"
-            style={styles.sideSwitch}
-          >
-            <Text style={styles.sideSwitchText}>מקצוען</Text>
-          </Pressable>
-        }
+        /* No side switch up here (Amit, 2026-09-29): the app is the customer's.
+           The demonstration's way across lives in the menu and the demo bar. */
       />
 
       {/*
@@ -5189,7 +5304,7 @@ function ProApp({
       side="pro"
       counterpartNameHe="אמית (תצוגה)"
       counterpartSeed="cust_demo_1"
-      jobTitleHe="תיקון נזילה בברז"
+      jobTitleHe={takenRequest?.serviceNameHe ?? "העבודה"}
       jobOpen
       messages={proChat}
       quickRepliesHe={proQuickReplies}
@@ -5271,7 +5386,12 @@ function ProApp({
      */
     ) : proView === "quote" ? (
       <ProQuoteBuilderBody
-        priceList={priceList}
+        /* This trade's rows, never the demo account's plumbing list on a tow. */
+        priceList={
+          takenRequest
+            ? quoteLinesFor(takenRequest.serviceId, pricing.find((r) => r.serviceId === takenRequest.serviceId)?.amountMinorUnits ?? null)
+            : priceList
+        }
         includesVisitFee={!agreedPrice && !takenRequest?.quoteFirst && (!takenRequest || takenRequest.priceModel === "VISIT_QUOTE")}
         /*
          * The lines already sent, when there are any — so "עדכון ההצעה"
@@ -5403,6 +5523,7 @@ function ProApp({
         agreedPriceHe={agreedStart?.labelHe ?? null}
         /* Work priced only once somebody looks: the visit is the job in the app (Amit, 2026-09-29). */
         diagnosisOnly={(takenRequest?.priceModel ?? "VISIT_QUOTE") === "VISIT_QUOTE" && !takenRequest?.quoteFirst}
+        visitTerms={visitTermsHe({ id: takenRequest?.serviceId ?? "svc-leak" })}
         onFinishDiagnosis={() => setJob("COMPLETION_PENDING")}
         onStartAgreed={
           agreedStart
@@ -6602,7 +6723,9 @@ const OTW_CSS = `
 @keyframes pnOtwRing{from{stroke-dashoffset:0}to{stroke-dashoffset:251}}
 @keyframes pnOtwPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
 `;
-function OnTheWay({ shop, proName, etaMinutes, onSiteNameHe = null, onDone }: { shop: string; proName: string; etaMinutes: number; onSiteNameHe?: string | null; onDone: () => void }) {
+/* The trades whose van is drawn from the side; the rest drive the PRO NOW van. */
+const SIDE_DRAWN = new Set(["appliance", "beauty", "clean", "courier", "electric", "tech", "tow", "vet", "well"]);
+function OnTheWay({ shop, proName, etaMinutes, onSiteNameHe = null, vehicle = null, onDone }: { shop: string; proName: string; etaMinutes: number; onSiteNameHe?: string | null; vehicle?: string | null; onDone: () => void }) {
   const shopId = shop;
   /* Once, on arrival: the host re-renders every second (the ETA clock),
      and a timer keyed on a fresh callback would never get to fire. */
@@ -6629,7 +6752,7 @@ function OnTheWay({ shop, proName, etaMinutes, onSiteNameHe = null, onDone }: { 
         <img src={`./world/m/shop_${shopId}.webp`} alt="" style={{ position: "absolute", right: 0, top: 0, width: 88, height: 88, objectFit: "contain" }} />
         <div style={{ position: "absolute", left: 0, top: 22, width: 64, height: 64, borderRadius: 16, background: "rgba(255,255,255,.1)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: scale.title }}>⌂</div>
         {/* From his shop (right) to your home (left), nose first. */}
-        <img src="./world/m/van_side.webp" alt="" style={{ position: "absolute", top: 42, height: 44, animation: "pnOtwVan 5s cubic-bezier(.4,0,.2,1) both" }} />
+        <img src={vehicle && SIDE_DRAWN.has(vehicle) ? `./world/pn_${vehicle}_side.webp` : "./world/m/van_side.webp"} onError={(e) => { e.currentTarget.src = "./world/m/van_side.webp"; }} alt="" style={{ position: "absolute", top: 42, height: 44, animation: "pnOtwVan 5s cubic-bezier(.4,0,.2,1) both" }} />
         <div style={{ position: "absolute", right: 4, top: 96, color: "rgba(247,243,250,.7)", fontSize: scale.micro }}>החנות שלו</div>
         <div style={{ position: "absolute", left: 8, top: 96, color: "rgba(247,243,250,.7)", fontSize: scale.micro }}>{onSiteNameHe ? `אצל ${onSiteNameHe.split(" ")[0]}` : "הבית שלך"}</div>
       </div>
@@ -6679,7 +6802,8 @@ function SearchCity({ dept, found, proName, pick = 0 }: { dept: string | null; f
   useEffect(() => {
     setArrived(false);
     if (!found) return;
-    const t = setTimeout(() => setArrived(true), 4300);
+    /* A second look at the same trade flies a loop down the street first. */
+    const t = setTimeout(() => setArrived(true), pick > 0 && list.length === 1 ? 6300 : 4300);
     return () => clearTimeout(t);
   }, [found, pick]);
   return (
@@ -6688,7 +6812,7 @@ function SearchCity({ dept, found, proName, pick = 0 }: { dept: string | null; f
       {/* Brighter while searching: the night street is moody at eye level
           and simply dark from this high up. */}
       <div style={{ position: "absolute", inset: 0, filter: found ? "none" : "brightness(1.45) saturate(1.15)", transition: "filter 1.2s ease" }}>
-        <City hud={false} search={{ shopId, phase: found ? "found" : "searching" }} />
+        <City hud={false} search={{ shopId, phase: found ? "found" : "searching", visit: pick }} />
       </div>
       {!found ? [0, 1, 2].map((i) => (
         <div key={i} style={{ position: "absolute", left: "50%", top: "46%", width: 320, height: 320, borderRadius: "50%", border: "2px solid rgba(255,154,107,.85)", boxShadow: "0 0 30px rgba(255,107,74,.45) inset", animation: `pnRadar 2.4s ease-out ${i * 0.8}s infinite`, pointerEvents: "none" }} />
@@ -6702,6 +6826,43 @@ function SearchCity({ dept, found, proName, pick = 0 }: { dept: string | null; f
           ✓ {proName} · פנוי עכשיו
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/*
+ * WHICH VAN DRIVES TO YOU: the trade's own livery from the fleet in our street.
+ */
+const FLEET_BY_DEPT: Readonly<Record<string, string>> = {
+  HOME_URGENT: "plumber", APPLIANCES: "appliance", HOME_CARE: "clean", BEAUTY: "beauty", WELLNESS: "well",
+  PETS: "vet", VEHICLE: "tow", LOGISTICS: "courier", TECH: "tech", ODD_JOBS: "pod", IMPROVEMENT: "pod",
+};
+const FLEET_BY_SERVICE: Readonly<Record<string, string>> = {
+  "svc-electric": "electric", "svc-socket": "electric", "svc-alarm": "electric", "svc-solar": "plumber", "svc-sealing": "plumber",
+  "svc-lock": "pod", "svc-cylinder": "pod", "svc-gas": "plumber", "svc-dog-walk": "pod", "svc-pet-sit": "pod", "svc-pet-groom": "beauty",
+};
+export function fleetTradeFor(serviceId: string): string {
+  return FLEET_BY_SERVICE[serviceId] ?? FLEET_BY_DEPT[departmentCodeByServiceId[serviceId] ?? ""] ?? "pod";
+}
+
+/**
+ * THE DRIVE, LIVE (Amit, 2026-09-29: "מסך מת שגם השעון לא זז"). Our street
+ * in 3D, the professional's van leaving his trade's shop for the light
+ * where you live, a camera behind it. Progress is the share of the ETA
+ * that has passed — derived from the clock every second, so it moves.
+ */
+function RouteCity({ serviceId, etaSeconds, startedAtMs, moving }: { serviceId: string; etaSeconds: number; startedAtMs: number | null; moving: boolean }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 500);
+    return () => clearInterval(t);
+  }, []);
+  const dept = departmentCodeByServiceId[serviceId] ?? "";
+  const shopId = (DEPT_SHOPS[dept] ?? [DEPT_SHOP[dept] ?? "home"])[0]!;
+  const progress = moving && startedAtMs ? Math.min(0.97, (now - startedAtMs) / 1000 / Math.max(60, etaSeconds)) : 0;
+  return (
+    <div aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden", background: "#120d1a" }}>
+      <City hud={false} route={{ shopId, trade: fleetTradeFor(serviceId), progress, moving }} />
     </div>
   );
 }

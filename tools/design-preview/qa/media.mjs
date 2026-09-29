@@ -6,7 +6,14 @@ const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, isMobile
 const p = await ctx.newPage();
 const errs = []; p.on('pageerror', (e) => errs.push(String(e).slice(0, 160)));
 p.on('filechooser', async (fc) => { await fc.setFiles(['out/test_photo.jpg']); });
-const press = async (re) => { const loc = p.locator('[role=button],button').filter({ visible: true }); const c = await loc.count(); for (let i = 0; i < c; i++) { const el = loc.nth(i); const a = ((await el.getAttribute('aria-label')) || '').trim(); const t = ((await el.innerText().catch(() => '')) || '').trim().replace(/\s+/g, ' '); const lab = re.test(a) ? a : t; if (re.test(lab)) { await el.click({ force: true }); await p.waitForTimeout(1200); return lab; } } return null; };
+const pressRaw = async (re) => { const loc = p.locator('[role=button],button').filter({ visible: true }); const c = await loc.count(); for (let i = 0; i < c; i++) { const el = loc.nth(i); const a = ((await el.getAttribute('aria-label')) || '').trim(); const t = ((await el.innerText().catch(() => '')) || '').trim().replace(/\s+/g, ' '); const lab = re.test(a) ? a : t; if (re.test(lab)) { await el.click({ force: true }); await p.waitForTimeout(1200); return lab; } } return null; };
+/* __toPro: the side switch left the header (2026-09-29) — the demo bar, else the menu. */
+const press = async (re) => {
+  if (re.source !== '^מקצוען$') return pressRaw(re);
+  const viaBar = await pressRaw(/^הדגמה: (הצצה לצד המקצוען|מעבר לצד המקצוען)/); if (viaBar) return 'מקצוען';
+  if (await pressRaw(/^תפריט$/)) { const r = await pressRaw(/^הצצה לצד המקצוען/); if (r) return 'מקצוען'; }
+  return pressRaw(re);
+};
 const txt = async () => (await p.evaluate(() => document.body.innerText)).replace(/\s+/g, ' ');
 const log = (k, v) => console.log(k.padEnd(22), v);
 await p.goto('http://127.0.0.1:4421/?time=day'); await p.locator('text=אני צריך מקצוען').first().waitFor();

@@ -31,6 +31,8 @@ export interface ServiceMatchRule {
   serviceId: string;
   /** Words and fragments a person would actually type, not category names. */
   keywords: string[];
+  /** The service's own name. Typing it whole is the strongest evidence there is. */
+  nameHe?: string;
 }
 
 export interface ServiceMatch {
@@ -147,20 +149,32 @@ function oneSlip(a: string, b: string): boolean {
   return true;
 }
 
-/** Which typed words this one keyword accounts for (by position). */
-function wordHits(k: string, typed: Typed): number[] {
+/**
+ * Which typed words this one keyword accounts for (by position), and how
+ * surely: a word in one of its forms counts 1, a near-miss spelling less —
+ * so "מכונה" is a washing machine before it is a typo for "מכונית".
+ */
+const SLIP_WEIGHT = 0.6;
+/* Marks a letter-for-letter hit; counts as 1 in the score and breaks ties. */
+const EXACT = 1.0001;
+function wordHits(k: string, typed: Typed): Array<[number, number]> {
   const kForms = unsuffixed(k);
-  const out: number[] = [];
+  const out: Array<[number, number]> = [];
   typed.seq.forEach((w, i) => {
-    if (
-      kForms.some((f) => w.forms.has(f)) ||
-      w.words.some((t) => (t.length > 3 && k.length > 3 && t.includes(k)) || oneSlip(t, k))
-    ) {
-      out.push(i);
+    if (w.words.includes(k)) {
+      /* The very word, letter for letter, edges out a word that merely shares its stem. */
+      out.push([i, EXACT]);
+    } else if (kForms.some((f) => w.forms.has(f)) || w.words.some((t) => t.length > 3 && k.length > 3 && t.includes(k))) {
+      out.push([i, 1]);
+    } else if (w.words.some((t) => oneSlip(t, k))) {
+      out.push([i, SLIP_WEIGHT]);
     }
   });
   return out;
 }
+
+/* Words that join a service's name and prove nothing: "או", "על", "ו־". */
+const NAME_GLUE = new Set(["או", "על", "עד", "של", "את", "עם", "הבית"]);
 
 function sameWord(w: TypedWord, part: string): boolean {
   return unsuffixed(part).some((f) => w.forms.has(f));
@@ -177,10 +191,10 @@ function phraseHits(k: string, typed: Typed): number[] {
   return [];
 }
 
-function hitsOf(keyword: string, typed: Typed): number[] {
+function hitsOf(keyword: string, typed: Typed): Array<[number, number]> {
   const k = normalise(keyword);
   if (!k) return [];
-  return k.includes(" ") ? phraseHits(k, typed) : wordHits(k, typed);
+  return k.includes(" ") ? phraseHits(k, typed).map((i) => [i, 1] as [number, number]) : wordHits(k, typed);
 }
 
 /**
@@ -195,13 +209,26 @@ export function matchServicesByText(text: string, rules: ServiceMatchRule[]): Se
   if (typed.seq.length === 0) return [];
 
   const scored: ServiceMatch[] = [];
+  const exactBy = new Map<string, number>();
   for (const rule of rules) {
-    const covered = new Set<number>();
-    for (const keyword of rule.keywords) for (const i of hitsOf(keyword, typed)) covered.add(i);
-    if (covered.size > 0) scored.push({ serviceId: rule.serviceId, score: covered.size });
+    const covered = new Map<number, number>();
+    for (const keyword of rule.keywords)
+      for (const [i, w] of hitsOf(keyword, typed)) covered.set(i, Math.max(covered.get(i) ?? 0, w));
+    if (covered.size === 0) continue;
+    let score = [...covered.values()].reduce((a, b) => a + Math.min(1, b), 0);
+    const exact = [...covered.values()].filter((w) => w === EXACT).length;
+    /* The service's whole name, typed: it wins a tie it would otherwise lose. */
+    if (rule.nameHe) {
+      const name = normalise(rule.nameHe).split(" ").filter((p) => p.length > 1 && !NAME_GLUE.has(p));
+      if (name.length > 0 && name.every((part) => typed.seq.some((w) => sameWord(w, part)))) score += 0.5;
+    }
+    scored.push({ serviceId: rule.serviceId, score: Math.round(score * 10) / 10 });
+    exactBy.set(rule.serviceId, exact);
   }
 
-  const ranked = scored.sort((a, b) => b.score - a.score || a.serviceId.localeCompare(b.serviceId));
+  const ranked = scored.sort(
+    (a, b) => b.score - a.score || (exactBy.get(b.serviceId) ?? 0) - (exactBy.get(a.serviceId) ?? 0) || a.serviceId.localeCompare(b.serviceId)
+  );
 
   /**
    * DROP THE LONG TAIL. A weak match beside a strong one is worse than no
@@ -226,7 +253,7 @@ export function matchServicesByText(text: string, rules: ServiceMatchRule[]): Se
    * single keyword, that single keyword is the answer and is kept.
    */
   const top = ranked[0]?.score ?? 0;
-  const floor = top >= 2 ? Math.max(2, Math.ceil(top / 2)) : 1;
+  const floor = top >= 2 ? Math.max(2, Math.ceil(top / 2)) : top >= 1 ? 1 : top;
   return ranked.filter((m) => m.score >= floor);
 }
 

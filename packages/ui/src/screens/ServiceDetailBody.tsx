@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
-import type { PriceQuoteView } from "@pro-now/types";
+import type { PriceQuoteView, VisitTermsHe } from "@pro-now/types";
 
 import { BackButton } from "../components/BackButton";
 import { customerDarkTheme, depth, elevation, radii, scale, spacing, tabular, tint, type } from "../theme";
@@ -76,6 +76,8 @@ export interface ServiceDetailBodyProps {
   priceListFromMinorUnits?: number | null;
   /** Priced by the professional before he sets off (towing, moving, painting…). */
   quoteBeforeDispatch?: boolean;
+  /** The trade's words for a visit (`visitTermsHe`): a vet's "הטיפול", a plumber's "התיקון". */
+  visitTerms?: VisitTermsHe;
   /** What the visit covers. Facts from the catalogue, not marketing. */
   includedHe: string[];
   /** What it explicitly does not cover — prevents the dispute, later. */
@@ -139,13 +141,14 @@ export function ServiceDetailBody({
   scheduledOnly = false,
   priceListFromMinorUnits = null,
   quoteBeforeDispatch = false,
+  visitTerms,
   onRequestNow,
   onRecheck,
   onBack,
   width = 390,
   height = 780,
 }: ServiceDetailBodyProps) {
-  const explainer = priceExplainer(price, { stage: "service", listFromMinorUnits: priceListFromMinorUnits, quoteFirst: quoteBeforeDispatch });
+  const explainer = priceExplainer(price, { stage: "service", listFromMinorUnits: priceListFromMinorUnits, quoteFirst: quoteBeforeDispatch, terms: visitTerms });
   const comingSoon = comingSoonIn || scheduledOnly;
   /*
    * Unknown is not zero. The page says "נבדוק זמינות כששולחים" when the

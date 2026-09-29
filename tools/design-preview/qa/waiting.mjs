@@ -3,7 +3,7 @@ import { launchChromium } from '../browser.mjs';
 const [tile, svc] = process.argv.slice(2);
 const b = await launchChromium();
 const p = await b.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
-const errs = []; p.on('pageerror', (e) => errs.push(String(e).slice(0, 200)));
+const errs = []; const REQS = new Set(); p.on('request', (r) => { const m = r.url().match(/127\.0\.0\.1:4421\/([^?#]*)/); if (m && m[1]) REQS.add(decodeURIComponent(m[1])); }); p.on('pageerror', (e) => errs.push(String(e).slice(0, 200)));
 const pressRaw = async (re) => { const loc = p.locator('[role=button],button').filter({ visible: true }); const c = await loc.count(); for (let i = 0; i < c; i++) { const el = loc.nth(i); const a = ((await el.getAttribute('aria-label')) || '').trim(); const t = ((await el.innerText().catch(() => '')) || '').trim().replace(/\s+/g, ' '); const lab = re.test(a) ? a : t; if (re.test(lab)) { await el.click({ force: true }); await p.waitForTimeout(1300); return lab; } } return null; };
 /* __toPro: the side switch left the header (2026-09-29) — the demo bar, else the menu. */
 const press = async (re) => {
@@ -47,40 +47,17 @@ try {
     await p.waitForTimeout(2000);
     await need(/^אישור ההצעה/, 'customer approves price');
     await p.waitForTimeout(3000);
-    await need(/^מקצוען$/, '→ pro');
   } else {
     if (/מתאים לי|כן, מתאים/.test(t)) await need(/^(כן, מתאים לי|זה מתאים|אישור)/, 'accept match');
     else if (/בחירה|אישור ההתאמה/.test(t)) await need(/^(אישור|בחירה)/, 'confirm person');
-    await p.waitForTimeout(3000);
-    await need(/^מקצוען$/, '→ pro');
-    await need(/^כן, אני לוקח/, 'pro takes');
   }
-  await need(/^(יוצא|יציאה) לדרך/, 'pro leaves');
-  await need(/^הגעתי/, 'pro arrives');
-  t = await txt();
-  // diagnosis-only (visit+diagnosis), a quote, or straight to work (price list / hourly)
-  const diagOnly = Boolean(await press(/^סיימתי את האבחון/));
-  if (diagOnly) steps.push('✓ diagnosis done');
-  else if (await press(/^שליחת הצעת מחיר/)) {
-    steps.push('✓ quote form');
-    const desc = p.getByPlaceholder(/מה נעשה/); if (await desc.count()) await desc.first().fill('עבודה לדוגמה');
-    const price = p.locator('input').nth(2); if (await price.count()) { const v = await price.inputValue().catch(() => ''); if (!v || v === '0') await price.fill('250'); }
-    await need(/^שליחה ללקוח/, 'send quote');
-    const bar = p.locator('[role=button],button').filter({ hasText: 'כדי לאשר את ההצעה' }); if (await bar.count()) { await bar.last().click(); await p.waitForTimeout(1500); } else await need(/^לקוח$/, '→ customer');
-    await need(/^אישור ההצעה/, 'customer approves');
-    await need(/^מקצוען$/, '→ pro');
-  }
-  if (!diagOnly) {
-    if (await press(/^(מתחיל לעבוד|התחלת עבודה|מתחיל)/)) steps.push('✓ start work');
-    await need(/^סיימתי את העבודה/, 'pro done');
-  }
-  const bar2 = p.locator('[role=button],button').filter({ hasText: 'כדי לאשר שהעבודה הושלמה' }); if (await bar2.count()) { await bar2.last().click(); await p.waitForTimeout(1500); } else await need(/^לקוח$/, '→ customer');
-  await need(/^(אישור תשלום|אישור)/, 'customer pays');
-  await need(/^מקצוען$/, '→ pro');
-  t = await txt();
-  steps.push(/נוסף להכנסות/.test(t) ? '✓ pro paid' : '✗ pro paid? ' + t.slice(0, 80));
-  console.log('PASS', svc, '|', steps.join(' '), errs.length ? 'ERR ' + errs[0] : '');
-} catch (e) {
-  console.log('FAIL', svc, '|', steps.join(' '), '|', String(e.message).slice(0, 220), errs.length ? 'ERR ' + errs[0] : '');
-}
+  const W = process.env.W || 'wait';
+  for (const [n, ms] of [[1, 2500], [2, 6000], [3, 6000]]) { await p.waitForTimeout(ms); await p.screenshot({ path: `out/w_${W}_${n}.png` }); }
+  await p.mouse.move(195, 600); await p.mouse.wheel(0, 900); await p.waitForTimeout(800); await p.screenshot({ path: `out/w_${W}_scroll.png` });
+  await p.mouse.wheel(0, -900);
+  const f = await press(/^(עקוב אחרי|לעקוב אחרי)/); await p.waitForTimeout(3000); await p.screenshot({ path: `out/w_${W}_follow.png` });
+  await p.mouse.move(195, 600); await p.mouse.wheel(0, 900); await p.waitForTimeout(800); await p.screenshot({ path: `out/w_${W}_follow_scroll.png` });
+  (await import('node:fs')).writeFileSync(`out/reqs_${W}.json`, JSON.stringify([...REQS].sort()));
+  console.log('OK', f, errs.join(' | '));
+} catch (e) { console.log('FAIL', String(e).slice(0, 300), steps.join(' ')); }
 await b.close();

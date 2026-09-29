@@ -15,7 +15,7 @@ import {
 
 import { BackButton, BACK_BUTTON_CLEARANCE } from "../components/BackButton";
 import type { WorldAssetSources } from "../components/livingmap/AssetSlot";
-import { LivingMapScene } from "../components/livingmap/LivingMapScene";
+import { LivingMapScene, type LivingMapSceneProps } from "../components/livingmap/LivingMapScene";
 
 /**
  * C08 — the search, the found, the reveal and the route.
@@ -70,6 +70,11 @@ export interface SearchingBodyProps {
   /** "פנוי בעוד 30 דק׳" when the matched professional is not free yet. See `MatchSheet`. */
   availableInHe?: string | null;
   onSiteNameHe?: string | null;
+  /** See `LivingMapScene.liveEta` and its companions. */
+  liveEta?: LivingMapSceneProps["liveEta"];
+  onStroll?: () => void;
+  strollFrames?: string[];
+  onLeaveWait?: () => void;
   onOpenOnSite?: () => void;
   acceptLabelHe?: string;
   acceptDisabled?: boolean;
@@ -160,6 +165,10 @@ export function SearchingBody({
   visitFeeHe = null,
   availableInHe = null,
   onSiteNameHe = null,
+  liveEta = null,
+  onStroll,
+  strollFrames,
+  onLeaveWait,
   onOpenOnSite,
   acceptLabelHe,
   acceptDisabled = false,
@@ -235,6 +244,10 @@ export function SearchingBody({
         visitFeeHe={visitFeeHe}
         availableInHe={availableInHe}
         onSiteNameHe={onSiteNameHe}
+        liveEta={liveEta}
+        onStroll={onStroll}
+        strollFrames={strollFrames}
+        onLeaveWait={onLeaveWait}
         onOpenOnSite={onOpenOnSite}
         acceptLabelHe={acceptLabelHe}
         acceptDisabled={acceptDisabled}

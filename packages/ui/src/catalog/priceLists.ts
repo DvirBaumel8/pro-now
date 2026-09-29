@@ -51,6 +51,32 @@ export const previewPriceLists: Readonly<Record<string, ListedPrice[]>> = {
   "svc-doctor": list(["ביקור רופא בבית", 450], ["ביקור רופא ילדים", 450]),
 };
 
+/**
+ * QUICK LINES FOR A PRICE SENT BEFORE SETTING OFF (towing, moving, painting…).
+ *
+ * The professional still types his own number; these are the one-tap rows
+ * of his list for THAT trade, so a tow driver is never offered a plumber's
+ * "החלפת סיפון" (Amit, 2026-09-29).
+ */
+export const previewQuoteLines: Readonly<Record<string, ListedPrice[]>> = {
+  "svc-towing": list(["גרירה בתוך העיר", 350], ["גרירה בין־עירונית", 650], ["גרירה מחניון תת־קרקעי", 450], ["רכב שטח / מסחרי · תוספת", 150]),
+  "svc-moving": list(["הובלת דירת 2 חדרים", 1200], ["הובלת דירת 3–4 חדרים", 2200], ["פריט בודד", 350], ["קומה ללא מעלית · תוספת", 150]),
+  "svc-clean-reno": list(["ניקיון אחרי שיפוץ · דירה קטנה", 900], ["ניקיון אחרי שיפוץ · 4 חדרים", 1500], ["ניקוי חלונות ותריסים", 350]),
+  "svc-paint": list(["צביעת חדר", 900], ["צביעת דירת 3 חדרים", 3500], ["תיקוני טיח וצבע", 450]),
+  "svc-garden": list(["גיזום וניקוי גינה", 400], ["כיסוח דשא", 250], ["פינוי גזם", 300]),
+  "svc-pest": list(["ריסוס דירה", 400], ["ריסוס נגד תיקנים", 350], ["טיפול בנמלים", 300], ["בית פרטי · ריסוס מלא", 750]),
+};
+
+/**
+ * The one-tap rows on the professional's quote screen for this service:
+ * his price list for a listed service, the quick lines for a priced-before-
+ * setting-off one, and nothing otherwise — never another trade's rows.
+ */
+export function quoteLinesFor(serviceId: string, ownBase: number | null = null): ListedPrice[] {
+  if (previewQuoteLines[serviceId]) return previewQuoteLines[serviceId]!.map((r) => ({ ...r }));
+  return priceListFor(serviceId, ownBase);
+}
+
 /** The list for a service, scaled so its first line is the professional's own base price when he set one. */
 export function priceListFor(serviceId: string, ownBase: number | null = null): ListedPrice[] {
   const rows = previewPriceLists[serviceId];

@@ -1,4 +1,4 @@
-import { CUSTOMER_CATEGORIES, WORLD_DISTRICTS, type DepartmentCode } from "@pro-now/types";
+import { CUSTOMER_CATEGORIES, WORLD_DISTRICTS, pricingKindOf, visitTermsHe, type DepartmentCode } from "@pro-now/types";
 import { lowestListed, previewPriceLists } from "./priceLists";
 import type { ProPricingRow } from "../screens/ProPricingBody";
 import {
@@ -308,35 +308,39 @@ export const catalogNowServices: HomeServiceItem[] = catalogHomeServices.filter(
  * the same dispute and it is always about the pricing model.
  */
 function included(s: CatalogServiceDef): string[] {
-  const base = ["הגעה עד הכתובת שנתת", "אבחון התקלה במקום", "עבודה של בעל מקצוע מאומת לשירות הזה"];
-  switch (s.pricingModel) {
-    case "VISIT_QUOTE":
-      if (s.quoteBeforeDispatch) return ["המחיר שאישרתם מראש — לא משתנה בסוף", "הגעה עד הכתובת שנתת", "בעל מקצוע מאומת לשירות הזה"];
-      return ["הגעה עד הכתובת שנתת", "אבחון התקלה במקום", "בעל מקצוע מאומת לשירות הזה"];
-    case "FIXED":
+  const v = visitTermsHe(s);
+  switch (pricingKindOf(s)) {
+    case "QUOTE_FIRST":
+      return ["המחיר שאישרתם מראש — לא משתנה בסוף", "הגעה עד הכתובת שנתת", "בעל מקצוע מאומת לשירות הזה"];
+    case "VISIT":
+      return ["הגעה עד הכתובת שנתת", v.checkHe, "בעל מקצוע מאומת לשירות הזה"];
+    case "LIST":
       return ["הגעה עד הכתובת שנתת", "מה שבחרתם מהמחירון, במחיר שראיתם", "בעל מקצוע מאומת לשירות הזה"];
     case "HOURLY":
-      return [...base, "חיוב לפי זמן עבודה בפועל"];
-    case "DISTANCE_TIME":
+      return ["הגעה עד הכתובת שנתת", "עזרה בכל מה שצריך, לפי שעה", "חיוב לפי זמן עבודה בפועל"];
+    case "DISTANCE":
       return ["איסוף מהכתובת שנתת", "מסירה בכתובת היעד", "מחיר לפי מרחק בפועל"];
-    default:
-      return base;
   }
 }
 
+/* Services on a price list whose work can need a part the list does not cover. */
+const LIST_WITH_PARTS = new Set(["svc-lock", "svc-cylinder", "svc-car-lockout", "svc-flat-tyre", "svc-furniture", "svc-tv", "svc-curtains"]);
+
 function notIncluded(s: CatalogServiceDef): string[] {
-  switch (s.pricingModel) {
-    case "VISIT_QUOTE":
-      if (s.quoteBeforeDispatch) return ["עבודה נוספת מעבר להצעה — רק באישור שלכם"];
-      return ["התיקון עצמו — המחיר והתשלום נסגרים ישירות מול בעל המקצוע", "חלקי חילוף"];
-    case "FIXED":
-      return ["חלקים מיוחדים שלא סופקו מראש", "עבודה נוספת מעבר למה שהוגדר"];
+  const v = visitTermsHe(s);
+  switch (pricingKindOf(s)) {
+    case "QUOTE_FIRST":
+      return ["עבודה נוספת מעבר להצעה — רק באישור שלכם"];
+    case "VISIT":
+      return [`${v.workHe} עצמו — המחיר והתשלום נסגרים ישירות מול בעל המקצוע`.replace("העבודה עצמו", "העבודה עצמה"), v.partsHe];
+    case "LIST":
+      return LIST_WITH_PARTS.has(s.id)
+        ? ["חלקים שאינם במחירון — רק באישור שלכם", "עבודה נוספת מעבר למה שבחרתם"]
+        : ["עבודה נוספת מעבר למה שבחרתם — רק באישור שלכם"];
     case "HOURLY":
-      return ["חומרי ניקוי מיוחדים", "פינוי פסולת בנפח גדול"];
-    case "DISTANCE_TIME":
+      return ["חומרים וציוד", "פינוי פסולת בנפח גדול"];
+    case "DISTANCE":
       return ["אריזה ופירוק", "העלאה בקומות ללא מעלית — תוספת מראש"];
-    default:
-      return [];
   }
 }
 
@@ -403,6 +407,7 @@ export const catalogServicePages: Record<string, ServicePage> = Object.fromEntri
         s.activationStatus === "INACTIVE",
       scheduledOnly: s.fulfillmentProfile === "SCHEDULED_ONLY",
       quoteBeforeDispatch: s.quoteBeforeDispatch ?? false,
+      visitTerms: visitTermsHe(s),
     } satisfies ServicePage,
   ])
 );
@@ -438,7 +443,7 @@ export const demoOpenServiceIds: ReadonlySet<string> = new Set(
  * service that is not open, because that is decided on the service page.
  */
 export const catalogMatchRules: ServiceMatchRule[] = allServices(pilotCatalog)
-  .map((s) => ({ serviceId: s.id, keywords: [...s.keywordsHe, ...s.symptomsHe] }));
+  .map((s) => ({ serviceId: s.id, keywords: [s.nameHe, ...s.keywordsHe, ...s.symptomsHe], nameHe: s.nameHe }));
 
 /**
  * The professional's side, derived from the same tree: which services a

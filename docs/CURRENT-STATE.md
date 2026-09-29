@@ -1,6 +1,6 @@
 # PRO NOW — Current state and handoff (read this first)
 
-Last updated 2026-09-28, at the end of a long working session. This page is
+Last updated 2026-09-29. This page is
 the short version of "who we are, where things are, how we work, what is
 next". The history behind it lives in `docs/EPIC-0-REPORT.md` and the
 product decisions in `docs/18-ROADMAP.md` (sections marked **DECIDED** and
@@ -38,14 +38,14 @@ product decisions in `docs/18-ROADMAP.md` (sections marked **DECIDED** and
 
 | Thing | Where | State |
 |---|---|---|
-| **The demo** (what investors see) | `tools/design-preview` → published as a Claude Artifact: https://claude.ai/artifact/7YRPcVfEuhVCmcK3PKVeJW (currently **v225**, "anyone with the link") | Static bundle, **no backend**: fixtures in the bundle, the customer↔pro loop simulated client-side. Every one of the 47 services passes the full flow to payment (`qa/pp_all.mjs`). |
+| **The demo** (what investors see) | `tools/design-preview` → published as a Claude Artifact: https://claude.ai/artifact/7YRPcVfEuhVCmcK3PKVeJW (see the version in the last commit message; "anyone with the link") | Static bundle, **no backend**: fixtures in the bundle, the customer↔pro loop simulated client-side. Every one of the 47 services passes the full flow to payment (`qa/pp_all.mjs`). |
 | API | `apps/api` (Fastify, Prisma, Postgres 16 + PostGIS, Redis via `docker-compose.yml`) | Runs on **localhost only**. Never deployed. |
 | Mobile apps | `apps/customer-mobile`, `apps/pro-mobile` (Expo) | Typecheck clean. **Never built for a device.** |
 | Admin | `apps/admin` (Next.js 14) | About 320-line scaffold: KPI page with labelled demo figures, and a job inspector that fetches the API. **No auth/RBAC yet.** |
 | Shared logic | `packages/types` (domain, catalogue, state machines, pricing), `packages/ui` (screens used by both demo and apps) | Tested: types 726, ui 199, api 244, validation 18. |
 | Films (customer / pro / business) | `~/Desktop/PRO NOW - סרטונים/` (mp4). Code: `tools/design-preview/film/` | Recorded from the demo. They **predate** the 2026-09-28 shops, search and pricing work, and should be re-recorded. |
 | NDA draft (Hebrew, .docx) | `~/Desktop/PRO NOW - הסכם סודיות.docx` | A draft, not legal advice. Blanks: parties, term in years, court district. |
-| Git | Private GitHub repo `nivamit1210-sketch/pro-now` | **The shell has no GitHub credentials.** Pushing is done by Amit in **GitHub Desktop → "Push origin"**. At the end of this session local `master` was about 78 commits ahead of `origin` and waiting for that click. Check with `git status -sb`. |
+| Git | Private GitHub repo `nivamit1210-sketch/pro-now` | `gh` is installed and authenticated here, so `git push` works from the shell — still confirm with Amit before pushing. Check with `git status -sb`. |
 
 ## 4. How to work on the demo
 
@@ -73,6 +73,12 @@ Screenshots go to `qa/out/`.
   On 2026-09-29: 600 presses, 83 screens, 0 errors. The "dead" ones were file pickers, and sheets that are intentionally modal.
 - `media.mjs` checks that photos and a voice note reach the professional. `deny.mjs` covers recording without mic permission and the menu toggle. `protabs.mjs` covers the pro tabs.
 - `SHOTS=<tag> node pp_all.mjs …` takes a screenshot at every step. `python3 sheet.py <tag>` turns them into a contact sheet.
+- `W=<tag> node waiting.mjs "<tile>" "<service>"` photographs the on-the-way screen over time, scrolled, and the tracking map.
+- Switching sides in scripts: the header has no "מקצוען" button any more. Every script's `press(/^מקצוען$/)` goes through a wrapper that uses the demo bar ("הצצה לצד המקצוען") or the menu.
+
+**The consistency guard (run it after any catalogue, copy, price or search change)**
+- `cd packages/ui && npx vitest run test/catalog-consistency.test.ts` — all 47 services: money words per pricing kind (`pricingKindOf`), trade nouns (`visitTermsHe`), no other trade's words in a service's price lines / prompts / symptoms, search finds each service by its name and every keyword. It runs inside `npm test` too.
+- Review agents live in `.claude/agents/`: **`ux-director`** (screenshots every screen, ranks fixes), **`ux-copy-editor`** (Hebrew copy per service and pricing kind, gender agreement), **`consistency-guard`** (runs the guard and the end-to-end runs, reports or fixes). In a session where they are not listed as agent types, run `general-purpose` with "follow `.claude/agents/<name>.md`".
 
 **Publishing to the artifact**
 - Build, then publish `tools/design-preview/dist/index.html` to the URL above with `root` = the `dist` folder and a `files` map.
@@ -111,7 +117,14 @@ Screenshots go to `qa/out/`.
 
 - **2026-09-29: two kinds of work.** Repairs whose price is unknown upfront → the app charges only the visit-and-diagnosis fee; the repair is settled directly between customer and pro. Price-list work → the customer picks from the pro's list; the amount is held and released after completion. No problem questions before calling. A third kind, **priced before dispatch** (towing, moving, post-reno cleaning, painting, gardening, pest control): the pro answers the offer with a price, the customer approves on the match card, then he is assigned. See the DECIDED entry in `docs/18-ROADMAP.md`. Code: `packages/ui/src/catalog/priceLists.ts`, `ProJobBody.diagnosisOnly`, `DescribeFaultBody.priceList`/`destination`, `quoteBeforeDispatch` in the catalogue, `preQuote` in `tools/design-preview/src/App.tsx`.
 
-**Built in the last session**
+**Built 2026-09-29 (see the BUILT entry of that date in `docs/18-ROADMAP.md`)**
+- The on-the-way screen and the tracking map are the 3D street with the professional's own van driving to a light at the customer's home (`City` `route`, `RouteCity`), one live card with a ticking countdown (`LiveEtaCard`) and an invitation to walk the city (`StrollInvite`).
+- The "מקצוען" switch left the header; the menu and the demo bar carry it.
+- Order drafts are scoped per service and per order; "for someone else" applies to one order.
+- Pricing copy comes from `pricingKindOf` / `visitTermsHe`; per-trade quote lines; gender-aware verbs.
+- Lust opens as its new room (`enterShopId`); another match at a one-shop trade flies a loop down the street.
+
+**Built in the session before**
 - Free-text search understands everyday Hebrew: word forms, one-letter typos, symptoms, and Claude as a fallback when framed. A life-threatening sentence shows "מד״א 101".
 - A fixed or hourly price follows the intake answers. The per-answer tables are example prices, scaled by each pro's own base.
 - Every one of the 14 shops is built like the barbershop. The build and help pros were redrawn in the illustrated style.
@@ -130,7 +143,7 @@ Screenshots go to `qa/out/`.
 
 ## 7. Open items and suggested next steps
 
-1. **Push to GitHub.** Amit clicks "Push origin" in GitHub Desktop.
+1. **Push to GitHub** (after Amit says yes): `git push`.
 2. **Re-record the three films** so they show the new shops, search, pricing, and ordering for someone else.
 3. **"Request for a later time"**, the agreed next stage.
 4. **Pro-side editor for per-answer prices** (the design needs Amit).

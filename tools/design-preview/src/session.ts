@@ -61,6 +61,8 @@ export interface SavedSession {
   addressId?: string | null;
   /** What the customer typed about the fault, in their words. */
   faultText?: string;
+  /** The service that text was written for; text without one is not restored. */
+  faultServiceId?: string | null;
   /** Keyed by question id — the shape `IntakeAnswer[]` already travels in. */
   intakeAnswers?: unknown[];
   /** The professional's own prices: service id to agorot, or null. */

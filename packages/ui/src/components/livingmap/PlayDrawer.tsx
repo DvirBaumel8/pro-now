@@ -49,6 +49,8 @@ export interface PlayDrawerProps {
   /** The call is for someone else: who is at the door, and what they were sent. */
   onSiteNameHe?: string | null;
   onOpenOnSite?: () => void;
+  /** Replaces the status line — the live card above already says who and when. */
+  statusHe?: string | null;
 }
 
 const TILE_LOOK: Record<PlayDrawerActionId, { glyph: string; tint: string; subHe: string }> = {
@@ -58,9 +60,9 @@ const TILE_LOOK: Record<PlayDrawerActionId, { glyph: string; tint: string; subHe
   WHILE_YOU_WAIT: { glyph: "☕", tint: "#F59E0B", subHe: "חנויות מומלצות ברחוב" },
 };
 
-export function PlayDrawer({ firstNameHe, etaMinutes, discoveries, hasJobDetails = true, onAction, onSiteNameHe = null, onOpenOnSite }: PlayDrawerProps) {
+export function PlayDrawer({ firstNameHe, etaMinutes, discoveries, hasJobDetails = true, onAction, onSiteNameHe = null, onOpenOnSite, statusHe }: PlayDrawerProps) {
   const onSiteFirst = onSiteNameHe ? onSiteNameHe.replace(/ \(תצוגה\)$/, "") : null;
-  const status = onSiteFirst && firstNameHe
+  const status = statusHe !== undefined && statusHe !== null ? statusHe : onSiteFirst && firstNameHe
     ? `${firstNameHe} בדרך אל ${onSiteFirst}${etaMinutes !== null ? ` · ${etaMinutes} דק׳` : ""}`
     : playDrawerStatusHe({ firstNameHe, etaMinutes });
   const progress = discoveryProgressHe(discoveries);

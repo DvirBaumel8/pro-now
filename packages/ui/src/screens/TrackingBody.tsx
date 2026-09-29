@@ -7,6 +7,8 @@ import {
   paymentPromiseHe,
   visitMoneyLineHe,
   type VisitMoneyFacts,
+  DEFAULT_VISIT_TERMS,
+  type VisitTermsHe,
   WORLD_DISTRICTS,
   type DepartmentCode,
   routeAt,
@@ -136,6 +138,8 @@ export interface TrackingBodyProps {
    * knows the number — this screen never computes an amount.
    */
   money?: VisitMoneyFacts;
+  /** Hebrew verbs agree with the professional: "מאיה הגיעה", not "הגיע". */
+  professionalFemale?: boolean;
   /** "22:49" — the promise, computed by the server from a real route. */
   arrivalClockHe?: string | null;
   /**
@@ -226,22 +230,23 @@ export interface TrackingBodyProps {
  * step it is at, a running clock, and the steps still to come.
  */
 const ON_SITE: readonly JobState[] = ["PRO_ARRIVED", "DIAGNOSIS", "WAITING_QUOTE_APPROVAL", "IN_PROGRESS", "COMPLETION_PENDING"];
-function workHeadlineHe(status: JobState, first: string, fixed = false): { title: string; sub: string } {
+function workHeadlineHe(status: JobState, first: string, fixed = false, terms: VisitTermsHe = DEFAULT_VISIT_TERMS, female = false): { title: string; sub: string } {
+  const g = (m: string, f: string) => (female ? f : m);
   switch (status) {
-    case "PRO_ARRIVED": return { title: `${first} הגיע אליכם`, sub: "עוד רגע מתחילים לבדוק" };
+    case "PRO_ARRIVED": return { title: `${first} ${g("הגיע", "הגיעה")} אליכם`, sub: "עוד רגע מתחילים לבדוק" };
     case "DIAGNOSIS":
       return fixed
-        ? { title: `${first} בודק מה צריך`, sub: "עוד רגע מתחילים לפי מה שהזמנתם" }
-        : { title: `${first} מאבחן את התקלה`, sub: "את מחיר התיקון סוגרים ישירות איתו" };
+        ? { title: `${first} ${g("בודק", "בודקת")} מה צריך`, sub: "עוד רגע מתחילים לפי מה שהזמנתם" }
+        : { title: terms.workHe === "התיקון" ? `${first} ${g("מאבחן", "מאבחנת")} את התקלה` : `${first} ${g("בודק", "בודקת")} מה צריך`, sub: `את המחיר של ${terms.workHe} סוגרים ישירות ${g("איתו", "איתה")}` };
     case "WAITING_QUOTE_APPROVAL": return { title: "הצעת מחיר מחכה לאישורכם", sub: "העבודה מתחילה רק אחרי שתאשרו" };
-    case "IN_PROGRESS": return { title: fixed ? `${first} עובד/ת` : "עובדים על התיקון", sub: fixed ? "לפי מה שהזמנתם" : "לפי ההצעה שאישרתם" };
+    case "IN_PROGRESS": return { title: fixed ? `${first} ${g("עובד", "עובדת")}` : "עובדים על התיקון", sub: fixed ? "לפי מה שהזמנתם" : "לפי ההצעה שאישרתם" };
     default: return { title: "העבודה הסתיימה", sub: "מחכה לאישור שלכם" };
   }
 }
 /* When the professional came in — kept across the visit's screens, so the
    clock counts the whole time in the home and not each step afresh. */
 const visitStart = { at: 0 };
-function WorkScene({ status, firstName, figureUri, fixed = false, width, height }: { status: JobState; firstName: string; figureUri: string | null; fixed?: boolean; width: number; height: number }) {
+function WorkScene({ status, firstName, figureUri, fixed = false, terms = DEFAULT_VISIT_TERMS, female = false, width, height }: { status: JobState; firstName: string; figureUri: string | null; fixed?: boolean; terms?: VisitTermsHe; female?: boolean; width: number; height: number }) {
   const [since] = useState(() => {
     if (!visitStart.at) visitStart.at = Date.now();
     return visitStart.at;
@@ -262,7 +267,7 @@ function WorkScene({ status, firstName, figureUri, fixed = false, width, height 
   }, [pulse]);
   const sec = Math.max(0, Math.floor((now - since) / 1000));
   const clock = `${String(Math.floor(sec / 60)).padStart(2, "0")}:${String(sec % 60).padStart(2, "0")}`;
-  const { title, sub } = workHeadlineHe(status, firstName, fixed);
+  const { title, sub } = workHeadlineHe(status, firstName, fixed, terms, female);
   const done = status === "COMPLETION_PENDING";
   /* The trade's waist-up portrait: it reads at this size, and a full
      figure's feet would sit under the sheet anyway. */
@@ -308,6 +313,7 @@ export function TrackingBody({
   professional,
   eta,
   money,
+  professionalFemale = false,
   arrivalClockHe = null,
   arrival,
   previousClockHe = null,
@@ -440,7 +446,7 @@ export function TrackingBody({
    */
   // The first word of the name, the way somebody in your kitchen is
   // referred to once they are in it.
-  const progressHe = jobProgressHe(status, professional.displayName.split(/\s+/)[0] ?? null, { fixed: Boolean(money?.fixedTotalHe) });
+  const progressHe = jobProgressHe(status, professional.displayName.split(/\s+/)[0] ?? null, { fixed: Boolean(money?.fixedTotalHe), terms: money?.terms, female: professionalFemale });
   /*
    * WORK IS A STATE, SO IT DRIVES THE PICTURE.
    *
@@ -551,7 +557,10 @@ export function TrackingBody({
   });
 
   // The map gets the top 54%; the sheet sizes itself and overlaps the rest.
-  const mapH = Math.round(height * 0.54);
+  // Pulled down, the sheet leaves the screen to the map — it used to leave
+  // an empty dark half instead (Amit, 2026-09-29: "נשאר חצי מסך שחור").
+  const openMapH = Math.round(height * 0.54);
+  const mapH = sheetDrag.folded ? height - 60 : openMapH;
   /** A real extract is a street plan, not our painting. See `RouteLayer`. */
   const plan = geo !== null;
 
@@ -580,6 +589,8 @@ export function TrackingBody({
             firstName={professional.displayName.split(" ")[0] ?? ""}
             figureUri={proFigureUri}
             fixed={Boolean(money?.fixedTotalHe)}
+            terms={money?.terms}
+            female={professionalFemale}
             width={width}
             height={mapH}
           />
@@ -788,7 +799,7 @@ export function TrackingBody({
           onPress={onOpenRealMap}
           accessibilityRole="button"
           accessibilityLabel={geo ? "חזרה לעיר" : "איפה הוא עכשיו — מפה אמיתית"}
-          style={({ pressed }) => [styles.etaClock, { top: Math.round(mapH * 0.22) }, pressed && { opacity: 0.85 }]}
+          style={({ pressed }) => [styles.etaClock, { top: Math.round(openMapH * 0.22) }, pressed && { opacity: 0.85 }]}
         >
           <Text style={styles.etaClockMin}>{Math.max(1, Math.round(eta.etaSeconds / 60))}</Text>
           <Text style={styles.etaClockUnit}>דק׳</Text>
@@ -899,7 +910,7 @@ export function TrackingBody({
              enough to leave it on screen (it still scrolls and pulls up) —
              except at the end, when the sheet holds the one thing to do:
              confirm and pay. On a small phone that button sat under the fold. */
-          { maxHeight: sheetDrag.expanded ? height - 90 : height - mapH * ((plan && !atWork && tripProgress !== null) || (ON_SITE.includes(status) && status !== "COMPLETION_PENDING") ? 0.9 : 0.42) },
+          { maxHeight: sheetDrag.expanded ? height - 90 : height - openMapH * ((plan && !atWork && tripProgress !== null) || (backdrop && (status === "PRO_ASSIGNED" || status === "PRO_EN_ROUTE")) || (ON_SITE.includes(status) && status !== "COMPLETION_PENDING") ? 0.9 : 0.42) },
           { transform: [{ translateY: sheetDrag.y }] },
         ]}
         onLayout={sheetDrag.measure}
@@ -1043,7 +1054,7 @@ export function TrackingBody({
                   : money?.fixedTotalHe
                     ? `אישור תשלום · ${money.fixedTotalHe}`
                     : money?.visitFeeHe
-                      ? `אישור תשלום · ${money.visitFeeHe} ביקור ואבחון`
+                      ? `אישור תשלום · ${money.visitFeeHe} ${(money.terms ?? DEFAULT_VISIT_TERMS).feeSubjectHe.replace(/(^| )ה/g, "$1").replace(" וה", " ו")}`
                       : "אישור תשלום — העבודה הושלמה"}
               </Text>
             </Pressable>

@@ -123,6 +123,11 @@ export interface CityProps {
   /** Where to stand at the start. Only the gallery passes this. */
   spawn?: { x?: number; z?: number };
   /**
+   * Open at this shop's door and walk straight in — used when a page about
+   * a shop (a sponsor's, say) is tapped: the tap means "take me inside".
+   */
+  enterShopId?: string | null;
+  /**
    * Which of the twelve characters the customer chose, 1–12.
    *
    * Without it the street falls back to Amit's cycle, which is what
@@ -194,7 +199,15 @@ export interface CityProps {
    * walking; on "found" it comes down, at an angle, into the see-into
    * window of the trade's shop (`shopId`).
    */
-  search?: { shopId: string; phase: "searching" | "found" } | null;
+  search?: { shopId: string; phase: "searching" | "found"; visit?: number } | null;
+  /**
+   * THE PROFESSIONAL ON HIS WAY, IN OUR STREET (Amit, 2026-09-29: the map
+   * "לא מספיק מרשימה", the waiting screen "מסך מת"). His trade's van leaves
+   * his shop and drives down the street towards a light where you live, a
+   * camera following it. `progress` is the share of the trip covered, from
+   * the server's own ETA — how far along, never a claimed position.
+   */
+  route?: { shopId: string; trade: string; progress: number; moving: boolean } | null;
   onExit?: () => void;
 }
 
@@ -261,10 +274,12 @@ const VERIFIED_AVATAR_SHEETS = new Set<string>([
 export function City({
   base = "./world/",
   spawn,
+  enterShopId = null,
   avatarNo = null,
   shot = null,
   hud = true,
   search = null,
+  route = null,
   trades = null,
   onRequestService,
   onExit,
@@ -343,6 +358,9 @@ export function City({
   shotRef.current = shot;
   const searchRef = useRef(search);
   searchRef.current = search;
+  const routeRef = useRef(route);
+  routeRef.current = route;
+  const homeLabel = useRef<HTMLDivElement | null>(null);
   const nearTint =
     (nearId ? SHOPS.find((x) => x.id === nearId)?.neonColour : null) ?? "#FF6B4A";
   useEffect(() => {
@@ -786,6 +804,12 @@ export function City({
        * shopfront with its blade sign over the pavement.
        */
       player.group.position.set(spawn?.x ?? SPAWN.x, 0, spawn?.z ?? SPAWN.z);
+      let autoEnter: string | null = null;
+      const doorOf = enterShopId ? street.shops.find((x) => x.id === enterShopId) : null;
+      if (doorOf) {
+        player.group.position.set(doorOf.doorway.x, 0, doorOf.doorway.z);
+        autoEnter = doorOf.id;
+      }
 
       /* The street collected these as it built them. Traversing for
          point lights used to miss the ones inside groups that had not
@@ -1003,7 +1027,47 @@ export function City({
        * the camera without rebuilding the city — the whole point is
        * that the slides are demonstrably one place.
        */
-      const flight = { started: false, target: "", found: null as number | null, from: new THREE.Vector3(), aimFrom: new THREE.Vector3() };
+      /* The drive's own pieces, made once and shown only while `route` is set. */
+      const ribbonTex = (() => {
+        const c = document.createElement("canvas");
+        c.width = 64; c.height = 128;
+        const g = c.getContext("2d")!;
+        g.clearRect(0, 0, 64, 128);
+        const grad = g.createLinearGradient(0, 0, 64, 0);
+        grad.addColorStop(0, "rgba(255,107,74,0)"); grad.addColorStop(0.5, "rgba(255,140,100,.55)"); grad.addColorStop(1, "rgba(255,107,74,0)");
+        g.fillStyle = grad; g.fillRect(0, 0, 64, 128);
+        g.fillStyle = "rgba(255,120,80,.35)"; g.fillRect(26, 0, 12, 128);
+        g.strokeStyle = "rgba(255,236,220,1)"; g.lineWidth = 9; g.lineCap = "round";
+        g.beginPath(); g.moveTo(14, 78); g.lineTo(32, 50); g.lineTo(50, 78); g.stroke();
+        const t = new THREE.CanvasTexture(c);
+        t.wrapS = t.wrapT = THREE.RepeatWrapping;
+        return t;
+      })();
+      const ribbon = new THREE.Mesh(
+        new THREE.PlaneGeometry(2.2, 1),
+        new THREE.MeshBasicMaterial({ map: ribbonTex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false })
+      );
+      ribbon.rotation.x = -Math.PI / 2;
+      ribbon.visible = false;
+      street.scene.add(ribbon);
+      const beacon = new THREE.Group();
+      const shaft = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.35, 1.1, 26, 24, 1, true),
+        new THREE.MeshBasicMaterial({ color: 0xff7a55, transparent: true, opacity: 0.28, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })
+      );
+      shaft.position.y = 13;
+      beacon.add(shaft);
+      const homeRing = new THREE.Mesh(
+        new THREE.RingGeometry(0.9, 1.25, 48),
+        new THREE.MeshBasicMaterial({ color: 0xffb08a, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })
+      );
+      homeRing.rotation.x = -Math.PI / 2;
+      homeRing.position.y = 0.05;
+      beacon.add(homeRing);
+      beacon.visible = false;
+      street.scene.add(beacon);
+      const drive = { van: null as THREE.Group | null, trade: "", startZ: 0, endZ: -110, ribbon, ribbonTex, beacon, ring: homeRing };
+      const flight = { started: false, target: "", visit: 0, found: null as number | null, from: new THREE.Vector3(), aimFrom: new THREE.Vector3() };
       const flightPos = new THREE.Vector3(0, 26, 60);
       const flightAim = new THREE.Vector3(0, 0, 40);
       const SHOTS: Record<string, { dist: number; hgt: number; ahead: number; yaw: number }> = {
@@ -1344,6 +1408,63 @@ export function City({
           streetPass.camera = camera;
         }
 
+        /* ---------- the professional's drive: see `route` ---------- */
+        const rt = routeRef.current;
+        if (rt) {
+          const tSec = now / 1000;
+          if (!drive.van || drive.trade !== rt.trade) {
+            if (drive.van) street.scene.remove(drive.van);
+            drive.van = street.heroVan(rt.trade);
+            drive.trade = rt.trade;
+            const from = street.shops.find((x) => x.id === rt.shopId);
+            drive.startZ = Math.max(from ? from.z : 0, -30);
+            drive.endZ = Math.max(-142, drive.startZ - 112);
+            if (drive.van) drive.van.position.z = drive.startZ;
+            drive.ribbon.visible = true;
+            drive.beacon.position.set(-(FRONT_X - 2.2), 0, drive.endZ);
+            drive.beacon.visible = true;
+            camera.position.set(4, 9, drive.startZ + 16);
+          }
+          const van = drive.van;
+          const target = drive.startZ + (drive.endZ - drive.startZ) * Math.min(1, Math.max(0, rt.progress));
+          if (van) {
+            const was = van.position.z;
+            van.position.z += (target - van.position.z) * (1 - Math.pow(0.25, dt));
+            (van.userData as { speed: number }).speed = rt.moving ? Math.max(1.5, Math.abs(van.position.z - was) / Math.max(dt, 1e-3)) : 0;
+          }
+          const vz = van ? van.position.z : drive.startZ;
+          const vx = van ? van.position.x : 0;
+          /* The glowing way home: from the van's nose to your door, chevrons flowing towards you. */
+          const len = Math.max(0.5, vz - drive.endZ);
+          drive.ribbon.scale.set(1, len, 1);
+          drive.ribbon.position.set(vx, 0.04, vz - len / 2);
+          drive.ribbonTex.offset.y = -tSec * 0.9;
+          drive.ribbonTex.repeat.set(1, len / 3);
+          const pulse = 0.5 + 0.5 * Math.sin(tSec * 2.4);
+          drive.ring.scale.setScalar(1 + pulse * 0.6);
+          (drive.ring.material as THREE.MeshBasicMaterial).opacity = 0.75 - pulse * 0.5;
+          /* A drone behind and above, swaying a little — alive, never still. */
+          const sway = Math.sin(tSec * 0.35) * 2.4;
+          flightPos.set(vx + 2.6 + sway, rt.moving ? 8.6 : 10, vz + (rt.moving ? 15 : 16));
+          flightAim.set(vx - sway * 0.3, 0.6, vz - (rt.moving ? 4 : 2));
+          camera.position.lerp(flightPos, 1 - Math.pow(0.05, dt));
+          camera.lookAt(flightAim);
+          player.group.visible = false;
+          street.update(dt, tSec, camera);
+          /* The label over your home, pinned where the light stands. */
+          const lab = homeLabel.current;
+          if (lab) {
+            const p3 = new THREE.Vector3(drive.beacon.position.x, 5.5, drive.endZ).project(camera);
+            const onScreen = p3.z < 1 && Math.abs(p3.x) < 1.1 && Math.abs(p3.y) < 1.1;
+            lab.style.opacity = onScreen ? "1" : "0";
+            lab.style.left = `${((p3.x + 1) / 2) * 100}%`;
+            lab.style.top = `${((1 - p3.y) / 2) * 100}%`;
+          }
+          composer.render();
+          raf = requestAnimationFrame(tick);
+          return;
+        }
+
         /* ---------- the search flight: see `search` ---------- */
         const sr = searchRef.current;
         if (sr) {
@@ -1364,22 +1485,42 @@ export function City({
           } else {
             /* A new shop while already found (the customer turned the
                first one down): lift and go again, from wherever we are. */
-            if (flight.found !== null && flight.target !== target.id) flight.found = null;
+            const visit = sr.visit ?? 0;
+            if (flight.found !== null && (flight.target !== target.id || flight.visit !== visit)) flight.found = null;
             if (flight.found === null) {
               flight.found = tSec;
               flight.target = target.id;
+              flight.visit = visit;
               flight.from.copy(camera.position);
               flight.aimFrom.copy(flightAim);
             }
-            /* Down and in at an angle, over four seconds, ending in front
-               of the window at eye height, looking into the shop. */
-            const k0 = Math.min(1, (tSec - flight.found) / 4.2);
+            /*
+             * Down and in at an angle, ending in front of the window at eye
+             * height, looking into the shop. ANOTHER MATCH at the same
+             * trade is a trip too (Amit: *"חייב שהמצלמה תיקח אותך טיול
+             * ברחוב"*): up over the roofs, along the street and back, and in
+             * from the other side — a new person in the doorway at the end.
+             */
+            const again = visit > 0 && flight.from.distanceTo(new THREE.Vector3(face - target.side * 5.2, 2.3, target.z)) < 12;
+            const dur = again ? 6.2 : 4.2;
+            const k0 = Math.min(1, (tSec - flight.found) / dur);
             const k = k0 * k0 * (3 - 2 * k0);
-            const end = new THREE.Vector3(face - target.side * 5.2, 2.3, target.z + 3.2);
+            const fromSide = visit % 2 === 0 ? 1 : -1;
+            const end = new THREE.Vector3(face - target.side * 5.2, 2.3, target.z + 3.2 * fromSide);
             const aimEnd = new THREE.Vector3(face + target.side * 2.5, 2.1, target.z);
-            const mid = flight.from.clone().lerp(end, 0.55).add(new THREE.Vector3(0, 9 * (1 - k), 0));
-            flightPos.copy(flight.from).lerp(mid, Math.min(1, k * 1.6)).lerp(end, k);
-            flightAim.copy(flight.aimFrom).lerp(aimEnd, Math.min(1, k * 1.3));
+            if (again) {
+              /* A loop: rise, travel 40m down the street, swing back. */
+              const away = new THREE.Vector3(0, 14, target.z - 40 * fromSide);
+              const a = Math.sin(Math.PI * k);
+              const along = flight.from.clone().lerp(end, k);
+              flightPos.copy(along).lerp(away, a * 0.85);
+              const aimAway = new THREE.Vector3(0, 0, target.z - 60 * fromSide);
+              flightAim.copy(flight.aimFrom).lerp(aimEnd, k).lerp(aimAway, a * 0.7);
+            } else {
+              const mid = flight.from.clone().lerp(end, 0.55).add(new THREE.Vector3(0, 9 * (1 - k), 0));
+              flightPos.copy(flight.from).lerp(mid, Math.min(1, k * 1.6)).lerp(end, k);
+              flightAim.copy(flight.aimFrom).lerp(aimEnd, Math.min(1, k * 1.3));
+            }
           }
           camera.position.lerp(flightPos, 1 - Math.pow(0.03, dt));
           camera.lookAt(flightAim);
@@ -1816,6 +1957,11 @@ export function City({
                     noteHe: "אלה השירותים שאפשר להזמין מכאן. המקצוען מגיע אליכם.",
                   })
               : null;
+          if (autoEnter && target?.id === autoEnter && enterRef.current) {
+            autoEnter = null;
+            const go = enterRef.current;
+            window.setTimeout(() => go(), 700);
+          }
         }
 
         /* Grain has to move, or it is a dirty lens rather than film. */
@@ -1901,7 +2047,7 @@ export function City({
       stop();
       if (renderer.domElement.parentElement === el) el.removeChild(renderer.domElement);
     };
-  }, [base, spawn?.x, spawn?.z, avatarNo]);
+  }, [base, spawn?.x, spawn?.z, avatarNo, enterShopId]);
 
   /* ----- the pad, in the DOM because that is where fingers are ----- */
   const padRef = useRef<HTMLDivElement | null>(null);
@@ -1940,6 +2086,14 @@ export function City({
   return (
     <div style={S.wrap}>
       <div ref={host} style={S.canvas} />
+      {route ? (
+        <div
+          ref={homeLabel}
+          style={{ position: "absolute", transform: "translate(-50%,-120%)", opacity: 0, transition: "opacity .4s", pointerEvents: "none", padding: "5px 12px", borderRadius: 999, background: "rgba(255,107,74,.92)", color: "#fff", fontWeight: 800, fontSize: scale.meta, direction: "rtl", whiteSpace: "nowrap", boxShadow: "0 0 24px rgba(255,107,74,.7)" }}
+        >
+          הבית שלך
+        </div>
+      ) : null}
 
       {/*
         * -----------------------------------------------------------------

@@ -243,6 +243,46 @@ from the list. This supersedes the per-answer price tables of 2026-09-27 and,
 for repairs, "an approved quote includes the visit fee" (the server still
 supports quotes; the product no longer routes repairs through them).
 
+### BUILT 2026-09-29 (preview) — the wait is alive, and every word belongs to its service
+
+Amit, reviewing on his phone: the waiting screen was *"מסך מת שגם השעון לא זז"*, the
+tracking map *"לא מספיק מרשימה"*, and words leaked between orders and trades —
+"ציפורניים" in a towing request, a plumber's price lines on a tow, "סבא" on an order
+placed for himself, "דמי ביקור" on quote-first work.
+
+- **The drive, in our street.** While a professional is on the way, the waiting screen
+  and the tracking map show the 3D street with his trade's van (tow truck, plumber's
+  van…) leaving his shop and driving to a light where the customer lives, a camera
+  following it, a chevron ribbon for the route (`City` prop `route`, `street.heroVan`,
+  `RouteCity` in the preview). Progress is the share of the server's ETA that has
+  passed — how far along, never a claimed position.
+- **One live card instead of six controls** (`LiveEtaCard`): who is coming, an mm:ss
+  countdown that ticks every second, arrival clock, progress line, safety as one small
+  control. Under it an invitation to walk the city while waiting (`StrollInvite`, the
+  customer's own walk cycle). Removed from that screen: the headline, the minutes tile,
+  "העיר שלנו", the loose safety pill, "עקוב אחרי המקצוען", the map disclaimer.
+- **The side switch left the header.** "מקצוען" at the top is gone; the demonstration's
+  way across is the menu ("הצצה לצד המקצוען") and the demo bar during a live job.
+- **One order's words belong to that order.** Text, photos, recording, destination and
+  price-list picks are scoped to the service they were written for and to one request
+  (`draftFor` in the preview). An address "for someone else" applies to one order.
+- **Pricing words come from the pricing kind** — `pricingKindOf()` (LIST · VISIT ·
+  QUOTE_FIRST · HOURLY · DISTANCE) and the trade's nouns from `visitTermsHe()` (a vet's
+  "בדיקה/הטיפול", a tiler's "בדיקה ומדידה/העבודה", a plumber's "אבחון/התיקון"). Hebrew
+  verbs agree with the professional's gender.
+- **Per-trade quote lines** (`previewQuoteLines`, `quoteLinesFor`) for the six
+  priced-before-dispatch services; never another trade's rows.
+- **The consistency guard** — `packages/ui/test/catalog-consistency.test.ts` runs with
+  every test run over all 47 services: money copy per pricing kind, trade words per
+  service, price lines per trade, search by name and keyword. It found and fixed: search
+  sending "ניקיון אחרי שיפוץ" to cleaning, "השגחה על חיית מחמד" to the vet, "תליית
+  טלוויזיה ומסכים" to a courier, "מכונה" to cars; a car symptom on the home locksmith.
+  The matcher now ranks a letter-for-letter word above a shared stem and rewards the
+  service's full name.
+- **Lust** opens as its new walk-in room (the city at its door, `enterShopId`), not the
+  old picture page. **Another match** at a one-shop trade flies a loop down the street.
+- Review agents in `.claude/agents/`: `ux-director`, `ux-copy-editor`, `consistency-guard`.
+
 ### BUILT 2026-09-28 (preview) — ordering for someone else, including the door
 
 Amit's headline case: a plumber for grandpa, ordered and paid from the
