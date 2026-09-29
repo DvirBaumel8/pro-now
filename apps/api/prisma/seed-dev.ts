@@ -191,16 +191,25 @@ const DEMO_PRICING: Record<
   },
 };
 
+/** "+972500000101" -> "pro-0101@pronow.test"; the journey signs in with it. */
+export function demoProfessionalEmail(phone: string): string {
+  return `pro-${phone.slice(-4)}@pronow.test`;
+}
+
 async function seedProfessional(
   db: PrismaClientType,
   spec: (typeof DEMO_PROFESSIONALS)[number],
   now: Date
 ): Promise<{ displayName: string; services: number; credentials: number }> {
+  // Sign-in is by email (docs/21 W1): each demo professional can be
+  // signed in as, locally, by magic link through Mailpit.
+  const email = demoProfessionalEmail(spec.phone);
   const user = await db.user.upsert({
     where: { phone: spec.phone },
-    update: {},
-    create: { phone: spec.phone },
+    update: { email, emailVerified: true, name: spec.displayName },
+    create: { phone: spec.phone, email, emailVerified: true, name: spec.displayName },
   });
+  await db.userRole.createMany({ data: [{ userId: user.id, role: "PROFESSIONAL" }], skipDuplicates: true });
 
   const pro = await db.professionalProfile.upsert({
     where: { userId: user.id },

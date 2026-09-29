@@ -95,6 +95,27 @@ def parse_model(name, body):
     return {"name": name, "table": table, "fields": fields, "block": block_attrs}
 
 
+_REFERENTIAL_ACTIONS = {
+    "Cascade": "CASCADE",
+    "Restrict": "RESTRICT",
+    "NoAction": "NO ACTION",
+    "SetNull": "SET NULL",
+    "SetDefault": "SET DEFAULT",
+}
+
+
+def on_delete_rule(relation_args: str, src_field) -> str:
+    """
+    The ON DELETE action for a relation: an explicit `onDelete:` wins;
+    otherwise Prisma's default for the postgresql provider — a required
+    relation restricts deletes, an optional one nulls the reference.
+    """
+    m = re.search(r"onDelete:\s*(\w+)", relation_args)
+    if m:
+        return _REFERENTIAL_ACTIONS[m.group(1)]
+    return "SET NULL" if src_field["optional"] else "RESTRICT"
+
+
 def extract_call(attrs: str, name: str):
     """
     Return the argument text of `name(...)`, honouring nested parentheses.
@@ -210,10 +231,7 @@ def build(enums, models):
                     src_cols = [s.strip() for s in src.split(",")]
                     tgt_cols = [s.strip() for s in tgt.split(",")]
                     src_field = next(x for x in model["fields"] if x["name"] == src_cols[0])
-                    # Prisma's default referential actions for the postgresql
-                    # provider: a required relation restricts deletes, an
-                    # optional one nulls the reference.
-                    on_delete = "SET NULL" if src_field["optional"] else "RESTRICT"
+                    on_delete = on_delete_rule(inner, src_field)
                     fks.append(
                         f'ALTER TABLE {quote(model["table"])} ADD CONSTRAINT '
                         f'{quote(model["table"] + "_" + src_cols[0] + "_fkey")} '

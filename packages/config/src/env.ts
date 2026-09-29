@@ -22,7 +22,24 @@ export const envSchema = z.object({
     .optional()
     .transform((v) => (v ? v : undefined)),
 
-  JWT_SECRET: z.string().min(16, "JWT_SECRET must be at least 16 chars"),
+  /**
+   * Signs and encrypts Better Auth's cookies and tokens. Generate with
+   * `openssl rand -base64 32`; rotating it signs everybody out.
+   */
+  AUTH_SECRET: z.string().min(32, "AUTH_SECRET must be at least 32 chars"),
+  /**
+   * Comma-separated emails whose first verified sign-in is granted ADMIN
+   * (docs/21 W1). Written to audit_logs when it happens.
+   */
+  ADMIN_EMAILS: z
+    .string()
+    .optional()
+    .transform((v) =>
+      (v ?? "")
+        .split(",")
+        .map((e) => e.trim().toLowerCase())
+        .filter(Boolean)
+    ),
 
   // Vendor flags — 'sandbox' is the only supported value until a business
   // decision is made per /docs/18-ROADMAP.md §Open Decisions.
@@ -40,7 +57,8 @@ export const envSchema = z.object({
    * changing these values, not code. `assertNoLocalStandIns` refuses to
    * boot staging/production while any of them still points at this machine.
    */
-  PUBLIC_URL: z.string().url().optional(),
+  /** Where this server is reached from a browser: sign-in links and cookies are built from it. */
+  PUBLIC_URL: z.string().url().default("http://localhost:4000"),
   S3_ENDPOINT: z.string().url().optional(),
   S3_REGION: z.string().default("auto"),
   S3_BUCKET: z.string().optional(),
@@ -80,6 +98,7 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     throw new Error(`Invalid environment configuration:\n${issues}`);
   }
   assertNoLocalStandIns(parsed.data);
+  assertSignInPossible(parsed.data);
   return parsed.data;
 }
 
@@ -122,5 +141,18 @@ export function assertNoLocalStandIns(env: Env): void {
     throw new Error(
       `Refusing to start ${env.NODE_ENV} with local stand-ins: ${local.join(", ")} point at this machine.`
     );
+  }
+}
+
+/**
+ * Sign-in is email-first (docs/21 W1): a deployed server that cannot send
+ * email cannot let anybody in, so it refuses to start rather than fail at
+ * the first sign-in.
+ */
+export function assertSignInPossible(env: Env): void {
+  if (env.NODE_ENV !== "production" && env.NODE_ENV !== "staging") return;
+  const missing = (["SMTP_URL", "EMAIL_FROM"] as const).filter((k) => !env[k]);
+  if (missing.length > 0) {
+    throw new Error(`Refusing to start ${env.NODE_ENV} without ${missing.join(", ")}: nobody could sign in.`);
   }
 }

@@ -22,7 +22,7 @@ jobs:
           lfs: false
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
       - run: npm ci
       # Nothing in apps/api compiles until the Prisma client exists.
@@ -47,15 +47,31 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U pronow"
           --health-interval 5s --health-timeout 5s --health-retries 10
+      # Stand-ins the sign-in tests talk to (same images as docker-compose.yml).
+      mailpit:
+        image: axllent/mailpit:v1.31.3
+        ports: ["1025:1025", "8025:8025"]
+      oidc:
+        image: ghcr.io/navikt/mock-oauth2-server:6.0.4
+        env:
+          SERVER_PORT: "8080"
+          JSON_CONFIG: '{"interactiveLogin": true}'
+        ports: ["8089:8080"]
     env:
       DATABASE_URL: postgresql://pronow:pronow_ci_only@localhost:5432/pronow
       NODE_ENV: test
-      JWT_SECRET: ci-only-secret-not-used-anywhere
+      AUTH_SECRET: ci-only-auth-secret-not-used-anywhere-0123
+      PUBLIC_URL: http://localhost:4000
+      SMTP_URL: smtp://localhost:1025
+      EMAIL_FROM: PRO NOW <no-reply@pronow.test>
+      GOOGLE_CLIENT_ID: pronow-local
+      GOOGLE_CLIENT_SECRET: pronow-local-secret
+      GOOGLE_ISSUER_URL: http://localhost:8089/google
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
       - uses: actions/setup-python@v5
         with:

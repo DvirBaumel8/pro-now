@@ -159,9 +159,43 @@ docs → commit → report. Sizes are relative (S/M/L), not dates.
   grants the role. Dispatch eligibility is still decided per service by
   verification (CLAUDE.md §3).
 
-**Progress:** step 1 is done: the integration harness (`npm run test:int`,
-a throwaway migrated and seeded database per run, `app.inject`), also run
-in CI.
+**Progress:**
+- **Step 1, done:** the integration harness. `npm run test:int` runs
+  `app.inject` against a throwaway migrated and seeded database per run,
+  and CI runs it too.
+- **Steps 2–3, done:** Better Auth 1.7.6 at `/api/auth/*` and migration
+  `20260929_auth`.
+  - **Sign-in:** a magic link (hashed, 15 minutes, single use), or Google
+    through generic OIDC with a discovery URL, so there is one code path
+    for the mock issuer and for Google.
+  - **Accounts and sessions:** accounts link only on verified emails
+    (Google is not a "trusted provider"). The session is a cookie:
+    httpOnly, SameSite=Lax, and `__Secure-`/Secure on https.
+  - **Roles:** CUSTOMER is granted at sign-up. ADMIN comes from
+    `ADMIN_EMAILS`, is audited, and is granted when a session is created.
+    A soft-deleted user cannot start a session.
+  - **Removed:** the bearer JWT, the phone OTP and `jsonwebtoken`.
+  - **Origin/CSRF checks are pinned on.** Better Auth turns them off
+    under `NODE_ENV=test`, which would have made the tests weaker than
+    production.
+  - **Build changes:**
+    - `apps/api` is now `module: node20`, because Better Auth is ESM-only
+      and Node's `require(esm)` loads it.
+    - CI runs Node 24, and the engine floor is Node 22.12.
+    - `AUTH_SECRET` replaces `JWT_SECRET`.
+  - **`verify:journey`** signs in by magic link read from Mailpit. The
+    seeded professionals have emails (`pro-0101@pronow.test` …).
+  - **19 integration tests:**
+    - the email link: content, cookie flags, single use, expiry, and the
+      token stored hashed;
+    - the API guard: forged cookie, bearer and OTP all refused;
+    - sign-out;
+    - Google: sign-up, verified linking, refusal to link an unverified
+      email;
+    - the admin allowlist and its audit;
+    - CSRF, and an off-site callback;
+    - Secure cookies on https.
+- **Known gap:** the Expo apps' sign-in is broken until Phase 3 (decision A).
 
 - **Library: Better Auth** (Prisma adapter, mounted at `/api/auth/*`).
   - Handles OAuth state/PKCE, CSRF, email verification, session rotation

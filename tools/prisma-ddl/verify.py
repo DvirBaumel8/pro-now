@@ -31,6 +31,7 @@ from generate import (  # noqa: E402
     column_type,
     extract_call,
     is_relation,
+    on_delete_rule,
     parse,
     strip_comments,
     SCHEMA,
@@ -212,7 +213,7 @@ def main():
                 continue
             src = re.search(r"fields:\s*\[([^\]]+)\]", inner).group(1).split(",")[0].strip()
             src_field = next(x for x in model["fields"] if x["name"] == src)
-            rule = "SET NULL" if src_field["optional"] else "RESTRICT"
+            rule = on_delete_rule(inner, src_field)
             expected_fks[(model["table"], src)] = (models[f["type"]]["table"], rule)
 
     for key, want in expected_fks.items():

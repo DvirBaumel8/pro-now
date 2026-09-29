@@ -30,8 +30,11 @@ const bad = (s, extra = "") => {
 };
 
 async function call(method, path, { token, body, idem } = {}) {
-  const headers = { "content-type": "application/json" };
-  if (token) headers.authorization = `Bearer ${token}`;
+  // The Origin a browser on the app's own site sends: Better Auth refuses
+  // browser-shaped requests without it (CSRF), and so should everything.
+  const headers = { "content-type": "application/json", origin: process.env.PUBLIC_URL ?? "http://localhost:4000" };
+  // `token` is the session cookie (sign-in is Better Auth since W1).
+  if (token) headers.cookie = token;
   if (idem) headers["idempotency-key"] = idem;
   // Fastify refuses an application/json request with no body at all, and
   // several of these endpoints legitimately take none. Send an empty
@@ -51,15 +54,31 @@ async function call(method, path, { token, body, idem } = {}) {
   return { status: res.status, json, text };
 }
 
-async function login(phone) {
-  await call("POST", "/v1/auth/otp/request", { body: { phone } });
-  const r = await call("POST", "/v1/auth/otp/verify", { body: { phone, code: "123456" } });
-  return r.json?.token ?? null;
+const MAILPIT = process.env.MAILPIT_URL ?? "http://localhost:8025";
+
+/**
+ * Signs in the way a person does: ask for an email link, read it out of
+ * Mailpit, open it. Returns the session cookie, or null.
+ */
+async function login(email) {
+  const asked = await call("POST", "/api/auth/sign-in/magic-link", { body: { email, callbackURL: "/" } });
+  if (asked.status !== 200) return null;
+  let link = null;
+  for (let i = 0; i < 40 && !link; i++) {
+    const found = await (await fetch(`${MAILPIT}/api/v1/search?query=${encodeURIComponent(`to:"${email}"`)}`)).json();
+    const id = found.messages?.[0]?.ID;
+    if (id) link = (await (await fetch(`${MAILPIT}/api/v1/message/${id}`)).json()).Text.match(/https?:\/\/\S+/)?.[0];
+    else await new Promise((r) => setTimeout(r, 100));
+  }
+  if (!link) return null;
+  const opened = await fetch(link, { redirect: "manual" });
+  const cookie = opened.headers.getSetCookie().map((c) => c.split(";")[0]).join("; ");
+  return cookie || null;
 }
 
 const run = async () => {
   line("\n== THE CUSTOMER ==");
-  const custToken = await login("+972541234567");
+  const custToken = await login(`customer-${Date.now()}@pronow.test`);
   custToken ? ok("customer signs in") : bad("customer signs in");
 
   const cat = await call("GET", "/v1/catalog");
@@ -112,8 +131,8 @@ const run = async () => {
   ok("dispatch sent an offer", `${dispatch.candidatesEligible}/${dispatch.candidatesConsidered} eligible`);
 
   line("\n== THE PROFESSIONAL ==");
-  const proPhone = "+972500000101";
-  const proToken = await login(proPhone);
+  // The seeded professional +972500000101 (apps/api/prisma/seed-dev.ts).
+  const proToken = await login("pro-0101@pronow.test");
   proToken ? ok("professional signs in") : bad("professional signs in");
 
   const offer = await call("GET", "/v1/pro/offers/current", { token: proToken });

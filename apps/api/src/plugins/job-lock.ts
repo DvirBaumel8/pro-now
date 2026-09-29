@@ -21,7 +21,7 @@ export default fp(async (app: FastifyInstance & { config: Env }) => {
     return;
   }
 
-  const { default: Redis } = await import("ioredis");
+  const { Redis } = await import("ioredis");
   const redis = new Redis(url, { lazyConnect: true });
   await redis.connect().catch((err) => {
     app.log.warn({ err }, "Redis not reachable at startup — will retry lazily");

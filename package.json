@@ -31,7 +31,7 @@
     "art:brief": "node scripts/art-brief.mjs",
     "preview:design": "npm run dev -w @pro-now/design-preview",
     "preview:build": "npm run build -w @pro-now/design-preview",
-    "db:ddl": "python3 tools/prisma-ddl/generate.py apps/api/prisma/migrations/0_init/migration.sql",
+    "db:ddl": "echo 'db:ddl is retired: 0_init is a frozen baseline and regenerating it would fold later migrations into it. Schema changes are Prisma migrations: prisma migrate diff --from-url ... --to-schema-datamodel ... --script (docs/21 W1).' && exit 1",
     "db:verify": "python3 tools/prisma-ddl/verify.py",
     "db:drift": "npm run db:drift -w apps/api",
     "verify:a11y": "node tools/design-preview/audit.mjs",
@@ -58,6 +58,6 @@
     "typescript-eslint": "^8.70.0"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22.12"
   }
 }

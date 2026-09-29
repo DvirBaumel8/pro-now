@@ -8,7 +8,7 @@ import { loadEnv } from "@pro-now/config";
 
 const base = {
   DATABASE_URL: "postgresql://u:p@ep-cool-name.eu-central-1.aws.neon.tech/pronow",
-  JWT_SECRET: "a-secret-of-sixteen-plus",
+  AUTH_SECRET: "a-test-secret-that-is-at-least-32-chars",
 };
 
 describe("loadEnv — local stand-ins", () => {
@@ -31,6 +31,7 @@ describe("loadEnv — local stand-ins", () => {
         NODE_ENV: "production",
         S3_ENDPOINT: "https://abc.r2.cloudflarestorage.com",
         SMTP_URL: "smtps://resend:key@smtp.resend.com:465",
+        EMAIL_FROM: "PRO NOW <no-reply@pro-now.example>",
         PUBLIC_URL: "https://pro-now.onrender.com",
       })
     ).not.toThrow();
@@ -55,7 +56,43 @@ describe("loadEnv — local stand-ins", () => {
 
   it("allows a production build against stand-ins only when asked explicitly", () => {
     expect(() =>
-      loadEnv({ ...base, NODE_ENV: "production", SMTP_URL: "smtp://localhost:1025", ALLOW_LOCAL_STANDINS: "1" })
+      loadEnv({
+        ...base,
+        NODE_ENV: "production",
+        SMTP_URL: "smtp://localhost:1025",
+        EMAIL_FROM: "PRO NOW <no-reply@pronow.test>",
+        ALLOW_LOCAL_STANDINS: "1",
+      })
     ).not.toThrow();
+  });
+});
+
+describe("loadEnv — sign-in", () => {
+  const deployed = {
+    ...base,
+    NODE_ENV: "production",
+    SMTP_URL: "smtps://resend:key@smtp.resend.com:465",
+    EMAIL_FROM: "PRO NOW <no-reply@pro-now.example>",
+    PUBLIC_URL: "https://pro-now.onrender.com",
+  };
+
+  for (const key of ["SMTP_URL", "EMAIL_FROM"] as const) {
+    it(`refuses production without ${key}: nobody could sign in`, () => {
+      expect(() => loadEnv({ ...deployed, [key]: undefined })).toThrow(key);
+    });
+  }
+
+  it("refuses production that forgot PUBLIC_URL (the default is this machine)", () => {
+    expect(() => loadEnv({ ...deployed, PUBLIC_URL: undefined })).toThrow("PUBLIC_URL");
+  });
+
+  it("refuses a short AUTH_SECRET", () => {
+    expect(() => loadEnv({ ...base, AUTH_SECRET: "too-short" })).toThrow("AUTH_SECRET");
+  });
+
+  it("reads ADMIN_EMAILS as a trimmed, lower-cased list", () => {
+    const env = loadEnv({ ...base, ADMIN_EMAILS: " Dvir@Example.com, ,amit@example.com " });
+    expect(env.ADMIN_EMAILS).toEqual(["dvir@example.com", "amit@example.com"]);
+    expect(loadEnv(base).ADMIN_EMAILS).toEqual([]);
   });
 });

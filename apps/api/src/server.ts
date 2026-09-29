@@ -9,9 +9,8 @@ import prismaPlugin from "./plugins/prisma";
 import jobLockPlugin from "./plugins/job-lock";
 import providersPlugin from "./plugins/providers";
 import dispatchSweeperPlugin from "./plugins/dispatch-sweeper";
-import authContextPlugin from "./plugins/auth-context";
+import authPlugin from "./plugins/auth";
 
-import authRoutes from "./routes/auth";
 import catalogRoutes from "./routes/catalog";
 import addressesRoutes from "./routes/addresses";
 import jobsRoutes from "./routes/jobs";
@@ -24,7 +23,6 @@ import proServicesRoutes from "./routes/pro-services";
 import quotesRoutes from "./routes/quotes";
 import reviewsRoutes from "./routes/reviews";
 import { registerJobSocket } from "./realtime/job-socket";
-import { sandboxOtpAllowed } from "./lib/auth";
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -66,7 +64,7 @@ export async function buildServer(opts: { logger?: boolean } = {}) {
   await app.register(providersPlugin);
   // After providers and prisma: the sweep needs both.
   await app.register(dispatchSweeperPlugin);
-  await app.register(authContextPlugin);
+  await app.register(authPlugin);
 
   app.get("/health", async () => ({ ok: true, sandbox: config.NODE_ENV !== "production" }));
 
@@ -122,7 +120,6 @@ export async function buildServer(opts: { logger?: boolean } = {}) {
     });
   });
 
-  if (sandboxOtpAllowed(config.NODE_ENV)) await app.register(authRoutes);
   await app.register(catalogRoutes);
   await app.register(addressesRoutes);
   await app.register(jobsRoutes);

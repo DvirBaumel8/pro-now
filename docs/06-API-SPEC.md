@@ -16,8 +16,14 @@ uses:
 ## Key endpoints (semantics fixed; exact REST shape may be refined via
 OpenAPI without semantic drift)
 ```
-POST /v1/auth/otp/request
-POST /v1/auth/otp/verify
+# Sign-in (Better Auth, mounted at /api/auth; docs/21 W1). The session is an
+# httpOnly cookie, Secure on https; bearer tokens and phone OTP were removed.
+POST /api/auth/sign-in/magic-link        { email, callbackURL }  → emails a one-time 15-min link
+GET  /api/auth/magic-link/verify?token=…  → sets the session cookie, redirects to callbackURL
+POST /api/auth/sign-in/social             { provider: "google", callbackURL } → { url } (OIDC + PKCE)
+GET  /api/auth/callback/google            → sets the session cookie, redirects
+GET  /api/auth/get-session                → { user, session } | null
+POST /api/auth/sign-out
 GET  /v1/catalog                      (market-filtered department/category/service tree)
 POST /v1/jobs                         (idempotent create; triggers dispatch)
 GET  /v1/jobs/:id

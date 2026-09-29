@@ -20,18 +20,105 @@ datasource db {
 // Identity
 // ---------------------------------------------------------------------
 
+/// A person. Sign-in is Better Auth (/docs/21-PRODUCTION-PLAN.md W1):
+/// Google or an email magic link, so email is the identity and phone is an
+/// optional contact detail. Better Auth reads and writes id, name, email,
+/// emailVerified, image, createdAt and updatedAt.
 model User {
-  id        String   @id @default(cuid())
-  phone     String   @unique
-  email     String?  @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String    @id @default(cuid())
+  phone         String?   @unique
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  name          String    @default("")
+  image         String?
+  /// Set by "delete my account": the row stays for the records that point
+  /// at it, and personal fields are anonymised.
+  deletedAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
+  sessions            Session[]
+  accounts            Account[]
+  roles               UserRole[]
   customerProfile     CustomerProfile?
   professionalProfile ProfessionalProfile?
   adminUser           AdminUser?
 
   @@map("users")
+}
+
+/// A signed-in browser. The cookie carries `token`; Better Auth owns this table.
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+/// A way to sign in, linked to a user: `google`, or `magic-link`'s
+/// credential-less email account. Better Auth owns this table.
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  /// Unused: there are no passwords in the MVP. Better Auth's schema has it.
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+/// One-time secrets (magic-link tokens), stored hashed. Better Auth owns this table.
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verifications")
+}
+
+enum Role {
+  CUSTOMER
+  PROFESSIONAL
+  ADMIN
+}
+
+/// What a user may do. A user can hold several roles. CUSTOMER is granted
+/// at sign-up; PROFESSIONAL when they create a professional profile
+/// (dispatch is still gated per service by verification); ADMIN only via
+/// the ADMIN_EMAILS allowlist, and every grant is written to audit_logs.
+model UserRole {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role
+  createdAt DateTime @default(now())
+
+  @@unique([userId, role])
+  @@map("user_roles")
 }
 
 model CustomerProfile {
