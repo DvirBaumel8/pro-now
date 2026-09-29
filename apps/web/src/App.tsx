@@ -8,6 +8,7 @@ import { Frame } from "./frame";
 import { ErrorScreen, LoadingScreen } from "./states";
 import { Home } from "./screens/Home";
 import { Job } from "./screens/Job";
+import { OnSite } from "./screens/OnSite";
 import { Addresses } from "./screens/Addresses";
 import { Avatar, Intro } from "./screens/Onboarding";
 import { SignIn } from "./screens/SignIn";
@@ -57,6 +58,8 @@ export function App() {
             <Route path="/avatar" element={<SignedIn><Avatar /></SignedIn>} />
             <Route path="/addresses" element={<SignedIn><Addresses /></SignedIn>} />
             <Route path="/jobs/:id" element={<SignedIn><Job /></SignedIn>} />
+            {/* The person at home: no account (docs/21 W6). */}
+            <Route path="/s/:token" element={<OnSite />} />
             <Route path="/" element={<SignedIn><FirstRun><Home /></FirstRun></SignedIn>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

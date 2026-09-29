@@ -109,6 +109,11 @@ export default async function meRoutes(app: FastifyInstance) {
       const customer = await tx.customerProfile.findUnique({ where: { userId } });
       if (customer) {
         await tx.customerProfile.update({ where: { id: customer.id }, data: { fullName: null } });
+        // The people they ordered for are not users and never agreed to be kept.
+        await tx.job.updateMany({
+          where: { customerId: customer.id },
+          data: { onSiteName: null, onSitePhone: null, onSiteTokenHash: null, onSiteTokenExpiresAt: null },
+        });
         await tx.address.updateMany({
           where: { customerId: customer.id },
           data: { formatted: ERASED, label: null, lat: 0, lng: 0 },

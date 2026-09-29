@@ -282,6 +282,9 @@ export interface ProJobDetailView {
   pendingQuote: QuoteView | null;
   /** The quote that was approved, when there is one. */
   approvedQuote: QuoteView | null;
+  /** Ordered for someone else: the person at the door, and the code to say to them. */
+  onSiteNameHe: string | null;
+  doorCodeHe: string | null;
   /** Signed URLs are minted only after this route has verified assignment. */
   media: JobMediaView[];
 }
@@ -629,4 +632,21 @@ export interface CustomerJobResponse {
   cancellationReason: string | null;
   /** The customer's own rating of this job, once given. */
   ratingGiven: number | null;
+  /** Ordered for someone else: who is at home, and the door code once assigned. */
+  onSite: { name: string; doorCode: string | null } | null;
+}
+
+/**
+ * `GET /api/v1/on-site/:token`: the page the person at home opens
+ * (docs/21 W6). No address, no price, nothing to approve or pay.
+ */
+export interface OnSiteView {
+  ordererNameHe: string;
+  onSiteNameHe: string;
+  serviceNameHe: string;
+  stage: "searching" | "coming" | "at_door" | "inside" | "done" | "cancelled";
+  professional: { displayName: string; photoUrl: string | null; verifications: VerificationBadgeKind[] } | null;
+  etaSeconds: number | null;
+  /** Only once a professional is assigned. */
+  doorCode: string | null;
 }

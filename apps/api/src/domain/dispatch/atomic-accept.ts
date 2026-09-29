@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto";
 import type { PrismaClient } from "@prisma/client";
 import type { JobLock } from "./job-lock.js";
 
@@ -39,8 +40,8 @@ export async function acceptOffer(deps: AcceptOfferDeps, offerId: string, profes
     return prisma.$transaction(async (tx) => {
       // Row-lock the job so a concurrent transaction cannot double-assign,
       // whether or not a job lock ran in front of this one.
-      const [job] = await tx.$queryRawUnsafe<Array<{ id: string; status: string }>>(
-        `SELECT id, status FROM jobs WHERE id = $1 FOR UPDATE`,
+      const [job] = await tx.$queryRawUnsafe<Array<{ id: string; status: string; onSiteName: string | null }>>(
+        `SELECT id, status, "onSiteName" FROM jobs WHERE id = $1 FOR UPDATE`,
         offer.jobId
       );
       if (!job) throw new OfferNoLongerAvailableError(offerId);
@@ -74,7 +75,12 @@ export async function acceptOffer(deps: AcceptOfferDeps, offerId: string, profes
 
       await tx.job.update({
         where: { id: offer.jobId },
-        data: { status: "PRO_ASSIGNED", assignedProfessionalId: professionalId },
+        data: {
+          status: "PRO_ASSIGNED",
+          assignedProfessionalId: professionalId,
+          // Ordered for someone else: the code the professional says at the door.
+          ...(job.onSiteName ? { doorCode: issueDoorCode() } : {}),
+        },
       });
 
       await tx.professionalProfile.update({
@@ -98,4 +104,9 @@ export async function acceptOffer(deps: AcceptOfferDeps, offerId: string, profes
   }, () => {
     throw new OfferNoLongerAvailableError(offerId);
   });
+}
+
+/** Four digits from a CSPRNG. Short on purpose: it is said aloud at a door. */
+export function issueDoorCode(): string {
+  return String(randomInt(0, 10_000)).padStart(4, "0");
 }

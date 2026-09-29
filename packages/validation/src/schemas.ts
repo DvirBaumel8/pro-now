@@ -24,6 +24,20 @@ export const createJobSchema = z.object({
   description: z.string().max(2000).optional(),
   mediaRefs: z.array(z.string()).max(10).default([]),
   structuredAnswers: z.record(z.string(), z.unknown()).default({}),
+  /**
+   * The person at home, when the order is for someone else (docs/21 W6).
+   * An Israeli mobile number: the link is meant for their phone.
+   */
+  onSite: z
+    .object({
+      name: z.string().trim().min(1).max(60),
+      phone: z
+        .string()
+        .trim()
+        .regex(/^(\+972-?|0)5\d-?\d{3}-?\d{4}$/, "An Israeli mobile number"),
+    })
+    .strict()
+    .optional(),
 });
 export type CreateJobInput = z.infer<typeof createJobSchema>;
 

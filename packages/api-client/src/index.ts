@@ -20,6 +20,7 @@ import type {
   JobMatchView,
   JobView,
   MyJobSummary,
+  OnSiteView,
   OutsideAppReceiptView,
   RequestMatch,
 } from "@pro-now/types";
@@ -102,6 +103,11 @@ export function createApiClient(config: ProNowApiClientConfig = {}) {
       ),
     submitReview: (id: string, input: { overallRating: number; text?: string }) =>
       request<{ review: { id: string } }>("POST", `/jobs/${encodeURIComponent(id)}/reviews`, input),
+    /** A fresh link for the person at home; the previous one stops working. */
+    mintOnSiteLink: (id: string) =>
+      request<{ url: string; expiresAt: string }>("POST", `/jobs/${encodeURIComponent(id)}/on-site-link`, {}),
+    /** The page the person at home opens: no account, no address, no price. */
+    getOnSite: (token: string) => request<OnSiteView>("GET", `/on-site/${encodeURIComponent(token)}`),
     /** Which services a typed sentence could be (docs/21 W5). */
     matchRequest: (text: string) => request<RequestMatch & { classifier: string }>("POST", "/match", { text }),
     /** What was suggested for a sentence, and what the customer chose. */
@@ -118,6 +124,8 @@ export function createApiClient(config: ProNowApiClientConfig = {}) {
         description?: string;
         structuredAnswers?: Record<string, unknown>;
         mediaRefs?: string[];
+        /** The person at home, when ordering for someone else (docs/21 W6). */
+        onSite?: { name: string; phone: string };
       },
       idempotencyKey: string
     ) =>
