@@ -245,7 +245,7 @@ docs → commit → report. Sizes are relative (S/M/L), not dates.
 - **Admin bootstrap:** an `ADMIN_EMAILS` env allowlist. The first sign-in
   of a listed, verified email is granted ADMIN, and the grant is written
   to `audit_log`.
-- `@fastify/rate-limit` on `/api/auth/*`: per IP and per email.
+- ~~`@fastify/rate-limit` on `/api/auth/*`: per IP and per email.~~ **Moved to Phase 3** (Dvir, 2026-09-29).
 - Sign out, sign out everywhere, and delete my account (soft delete plus
   anonymisation; the retention period is TBD, §5).
 - **Acceptance:**
@@ -539,6 +539,19 @@ Then, in Phase 2 proper (≈50 jobs/day):
 - Product analytics (vendor TBD).
 - SMS for the person at home.
 - The payment flow, once decided.
+
+## 4b. Phase 3
+
+- Native apps: Expo set up fresh, with sign-in through Better Auth's Expo
+  plugin (decision A).
+- **Rate limiting on sign-in** (moved here from W1 by Dvir, 2026-09-29):
+  - `@fastify/rate-limit` on `/api/auth/*`, per IP and per email;
+  - a shared store once there is more than one API process.
+  - Until then, Better Auth's built-in limiter is the only protection. It
+    is on by default in production, in memory, per IP and per endpoint,
+    with stricter defaults on the sign-in routes. It has no per-email
+    limit, so one address can be sent many sign-in emails from rotating
+    IPs.
 
 ## 5. Decisions we must not invent (added to 18-ROADMAP §Open Decisions)
 
