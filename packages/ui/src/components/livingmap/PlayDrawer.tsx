@@ -51,22 +51,24 @@ export interface PlayDrawerProps {
   onOpenOnSite?: () => void;
   /** Replaces the status line — the live card above already says who and when. */
   statusHe?: string | null;
+  /** Actions already offered elsewhere on the screen (the stroll invitation). */
+  omit?: readonly PlayDrawerActionId[];
 }
 
 const TILE_LOOK: Record<PlayDrawerActionId, { glyph: string; tint: string; subHe: string }> = {
   PLAY_MORE: { glyph: "✦", tint: "#8B5CF6", subHe: "עוד עסקים ברחוב" },
-  FOLLOW_PRO: { glyph: "➜", tint: "#FF6B4A", subHe: "ברכב שלו, על המפה" },
+  FOLLOW_PRO: { glyph: "➜", tint: "#FF6B4A", subHe: "על המפה, בזמן אמת" },
   JOB_DETAILS: { glyph: "☰", tint: "#2FBF8A", subHe: "מה הזמנת ומה סוכם" },
   WHILE_YOU_WAIT: { glyph: "☕", tint: "#F59E0B", subHe: "חנויות מומלצות ברחוב" },
 };
 
-export function PlayDrawer({ firstNameHe, etaMinutes, discoveries, hasJobDetails = true, onAction, onSiteNameHe = null, onOpenOnSite, statusHe }: PlayDrawerProps) {
+export function PlayDrawer({ firstNameHe, etaMinutes, discoveries, hasJobDetails = true, onAction, onSiteNameHe = null, onOpenOnSite, statusHe, omit = [] }: PlayDrawerProps) {
   const onSiteFirst = onSiteNameHe ? onSiteNameHe.replace(/ \(תצוגה\)$/, "") : null;
   const status = statusHe !== undefined && statusHe !== null ? statusHe : onSiteFirst && firstNameHe
     ? `${firstNameHe} בדרך אל ${onSiteFirst}${etaMinutes !== null ? ` · ${etaMinutes} דק׳` : ""}`
     : playDrawerStatusHe({ firstNameHe, etaMinutes });
   const progress = discoveryProgressHe(discoveries);
-  const base = playDrawerActions({ firstNameHe, discoveries, hasJobDetails });
+  const base = playDrawerActions({ firstNameHe, discoveries, hasJobDetails }).filter((a) => !omit.includes(a.id));
 
   /* Pull down to fold it to its headline and see the city; up to open. */
   const drag = useSheetDrag({ peek: 58 });

@@ -323,7 +323,7 @@ export function ProProfileBody({
                     {s.nameHe}
                   </Text>
                   <Text style={styles.servicePrice} numberOfLines={1}>
-                    {s.priceHintHe ?? "המחיר ייקבע לאחר אבחון באתר"}
+                    {s.priceHintHe ?? "המחיר ייקבע במקום"}
                   </Text>
                 </View>
               </View>

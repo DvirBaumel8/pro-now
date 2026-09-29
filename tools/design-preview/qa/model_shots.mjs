@@ -25,7 +25,7 @@ await press(/^מקצוען$/); await p.locator('text=כן, אני לוקח').fir
 await press(/^כן, אני לוקח/); await press(/^(יוצא|יציאה) לדרך/); await press(/^הגעתי/); await p.waitForTimeout(600); await shot('5pro_diag');
 await press(/^לקוח$/); await p.waitForTimeout(1500); await shot('6cust_diag');
 await press(/^מקצוען$/);
-if (!(await press(/^סיימתי את האבחון/))) { await press(/^(מתחיל לעבוד)/); await press(/^סיימתי את העבודה/); }
+if (!(await press(/^סיימתי את (האבחון|הבדיקה)/))) { await press(/^(מתחילים לעבוד|מתחיל לעבוד)/); await press(/^(סיימתי את העבודה|המשלוח נמסר)/); }
 await press(/^לקוח$/); await p.waitForTimeout(1500); await shot('7cust_done');
 await press(/^(אישור תשלום|אישור)/); await p.waitForTimeout(1500); await shot('8receipt');
 await b.close();

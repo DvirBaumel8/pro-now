@@ -348,7 +348,7 @@ const courier: CatalogServiceDef = {
   mark: "moving",
   keywordsHe: ["שליחות", "שליח", "להביא", "לאסוף", "חבילה", "מסמכים", "מפתח", "לשלוח", "משלוח", "שליח עכשיו", "לשלוח חבילה", "להעביר חבילה", "איסוף", "מעטפה", "שכחתי", "להביא לי", "להעביר מסמכים"],
   symptomsHe: ["לאסוף חבילה", "להעביר מפתח", "מסמכים למשרד", "לשכוח משהו ולהביא"],
-  pricingModel: "DISTANCE_TIME",
+  pricingModel: "DISTANCE_TIME", needsDestination: true,
   fulfillmentProfile: "URGENT_NOW",
   activationStatus: "ACTIVE",
   trustProfile: "STANDARD",

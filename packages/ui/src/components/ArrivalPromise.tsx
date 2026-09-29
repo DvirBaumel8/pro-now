@@ -78,6 +78,7 @@ export interface ArrivalPromiseProps {
   previousClockHe?: string | null;
   /** The professional's name, once there is one. */
   displayNameHe?: string | null;
+  female?: boolean;
   /** Offered in every state except COMMITTED. */
   onGetHelp?: () => void;
   onCancel?: () => void;
@@ -90,6 +91,7 @@ export function ArrivalPromise({
   minutesAway,
   previousClockHe,
   displayNameHe,
+  female = false,
   onGetHelp,
   onCancel,
   width,
@@ -120,7 +122,7 @@ export function ArrivalPromise({
         ? palette.signal500
         : palette.trust300;
 
-  const headline = arrivalHeadlineHe(assessment, displayNameHe);
+  const headline = arrivalHeadlineHe(assessment, displayNameHe, female);
   const detail = arrivalDetailHe(assessment);
 
   /*
@@ -172,7 +174,7 @@ export function ArrivalPromise({
             {typeof minutesAway === "number"
               ? late
                 ? `בעוד ${minutesAway} דקות`
-                : `בעוד ${minutesAway} דקות · זמן מובטח`
+                : `בעוד ${minutesAway} דקות · הגעה משוערת`
               : "זמן ההגעה"}
           </Text>
         </>

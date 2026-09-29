@@ -225,7 +225,7 @@ export function CategoryBody({
               accessibilityRole="button"
               accessibilityLabel={
                 typeof s.availableNowCount === "number" && s.availableNowCount > 0
-                  ? `${s.nameHe} · ${s.availableNowCount} פנויים עכשיו`
+                  ? `${s.nameHe} · ${s.availableNowCount === 1 ? "פנוי אחד" : `${s.availableNowCount} פנויים`} עכשיו`
                   : s.nameHe
               }
               style={({ pressed }) => [styles.row, pressed ? styles.pressed : null]}
@@ -250,7 +250,7 @@ export function CategoryBody({
               {typeof s.availableNowCount === "number" && s.availableNowCount > 0 ? (
                 <View style={styles.live}>
                   <Pulse color={colors.action} size={5} />
-                  <Text style={styles.liveText}>{s.availableNowCount} פנויים</Text>
+                  <Text style={styles.liveText}>{s.availableNowCount === 1 ? "פנוי אחד" : `${s.availableNowCount} פנויים`}</Text>
                 </View>
               ) : null}
             </Pressable>

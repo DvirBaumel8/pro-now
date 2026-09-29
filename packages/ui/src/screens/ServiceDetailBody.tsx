@@ -227,8 +227,11 @@ export function ServiceDetailBody({
           )}
         </View>
 
-        {/* ---------------- What's actually happening ---------------- */}
-        {mayAsk ? (
+        {/* ---------------- What's actually happening ----------------
+            Only when there is something to tick. With no chips (Amit,
+            2026-09-29: words, a recording, a photo) the next screen is
+            where the words go, and a box here asked the same thing twice. */}
+        {mayAsk && symptomsHe.length > 0 ? (
           <View style={styles.block}>
             {/*
               * Neutral, because this page is shared by every service.
@@ -339,12 +342,12 @@ export function ServiceDetailBody({
 
         {/* ---------------- What happens next ---------------- */}
         <View style={styles.block}>
-          <SectionHeader title="מה קורה אחרי שתלחץ" colors={colors} />
+          <SectionHeader title="מה קורה אחרי שתלחצו" colors={colors} />
           <View style={styles.steps}>
             {[
               "מחפשים בעל מקצוע מאומת שזמין עכשיו באזור שלך.",
-              "תראה מי נמצא, כמה זמן עד שיגיע, ומה המחיר — לפני שתאשר.",
-              "רק אחרי שתאשר, הכתובת המלאה ומספר הטלפון נחשפים לשני הצדדים.",
+              "תראו מי נמצא, כמה זמן עד שיגיע, ומה המחיר — לפני שתאשרו.",
+              "רק אחרי שתאשרו, הכתובת המלאה ומספר הטלפון נחשפים לשני הצדדים.",
             ].map((s, i) => (
               <View key={i} style={styles.step}>
                 <View style={styles.stepNum}>
@@ -395,7 +398,7 @@ export function ServiceDetailBody({
         </Pressable>
         <Text style={styles.ctaNote}>
           {canDispatch
-            ? "לא מחויב עד שתאשר את ההתאמה"
+            ? "בלי התחייבות עד שתאשרו את ההתאמה"
             : scheduledOnly
               ? "עבודה שמתאמים מראש — לא שולחים מקצוען ״עכשיו״"
               : comingSoon
@@ -429,7 +432,7 @@ const styles = StyleSheet.create({
   screen: { backgroundColor: colors.bg, overflow: "hidden", borderRadius: radii.xl },
   // The CTA is pinned over the scroll, so the last content needs room to
   // clear it — otherwise the closing note is unreachable, not just hidden.
-  scroll: { paddingBottom: 116 },
+  scroll: { paddingBottom: 150 },
 
   head: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, alignItems: "flex-end" },
   markWrap: {

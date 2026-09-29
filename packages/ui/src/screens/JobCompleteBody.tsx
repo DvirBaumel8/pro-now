@@ -39,6 +39,8 @@ export interface ReceiptLine {
 
 export interface JobCompleteBodyProps {
   serviceNameHe: string;
+  /** "הביקור הסתיים" for a visit-only job; the work is settled directly. */
+  titleHe?: string;
   mark: MarkName;
   professionalDisplayName: string;
   professionalPhotoUrl?: string | null;
@@ -92,6 +94,7 @@ export function JobCompleteBody({
   onSubmitReview,
   onDownloadInvoice,
   onBack,
+  titleHe = "העבודה הושלמה",
   width = 390,
   height = 780,
 }: JobCompleteBodyProps) {
@@ -108,7 +111,7 @@ export function JobCompleteBody({
           <View style={styles.markBubble}>
             <Mark name={mark} size={26} color={colors.action} />
           </View>
-          <Text style={styles.title}>העבודה הושלמה</Text>
+          <Text style={styles.title}>{titleHe}</Text>
           <Text style={styles.subtitle} numberOfLines={2}>
             {serviceNameHe} · {whenHe}
           </Text>
@@ -171,7 +174,7 @@ export function JobCompleteBody({
                   {professionalDisplayName}
                 </Text>
                 <Text style={styles.reviewProMeta} numberOfLines={1}>
-                  {submitted ? "תודה — הדירוג נרשם" : "הדירוג מופיע בפרופיל שלו"}
+                  {submitted ? "תודה — הדירוג נרשם" : `הדירוג יופיע בפרופיל של ${professionalDisplayName.replace(/\s*\([^)]*\)\s*/g, "").split(" ")[0]}`}
                 </Text>
               </View>
             </View>

@@ -23,5 +23,5 @@ await press(/^מקצוען$/); await p.locator('text=כן, אני לוקח').fir
 t = await txt(); i = t.search(/כן, אני לוקח/); console.log('OFFER:', t.slice(Math.max(0, i - 400), i + 20)); i = -1; console.log('X:', i >= 0 ? t.slice(Math.max(0, i - 80), i + 60) : t.slice(0, 200));
 await p.screenshot({ path: 'out/pf_offer.png' });
 await press(/^כן, אני לוקח/); await press(/^(יוצא|יציאה) לדרך/); await press(/^הגעתי/); await p.waitForTimeout(800);
-t = await txt(); i = t.search(/מתחיל לעבוד/); console.log('START:', i >= 0 ? t.slice(i, i + 60) : '(none)');
+t = await txt(); i = t.search(/מתחילים? לעבוד/); console.log('START:', i >= 0 ? t.slice(i, i + 60) : '(none)');
 await b.close();

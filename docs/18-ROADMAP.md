@@ -283,6 +283,22 @@ placed for himself, "דמי ביקור" on quote-first work.
   old picture page. **Another match** at a one-shop trade flies a loop down the street.
 - Review agents in `.claude/agents/`: `ux-director`, `ux-copy-editor`, `consistency-guard`.
 
+**Second round, from the agents' first review (same day):** minutes-first countdown with a
+seconds sweep; his name tag over his van; a still of the street under the 3D view so it
+never opens on an empty sky; the set-off animation opaque, in the pro's gender, with the
+customer's own avatar at home; every tracking line, band and button chosen by the pricing
+kind (hourly: rate and "השעון רץ"; delivery: "אספתי — יוצאים למסירה", "המשלוח נמסר",
+fare = base + per-km over an EXAMPLE 6 km, `deliveryFare`, since the real distance needs a
+maps vendor); example visit fees for every VISIT service; the vet no longer shows
+hairdressers or a plumbing receipt; the pro's shift lists his own trade; the paid screen says
+"סכום העבודה" (commission is still TBD); "זמן מובטח" removed (a guarantee is a business
+promise nobody made); plural address to the customer; one-amount price form for
+priced-before-dispatch work; the service page no longer asks for words twice.
+
+**Open for Amit:** the "(תצוגה)" suffix on example professionals' names. The design review
+asked to remove it ("feels like a prototype"); the project's honesty rule (CLAUDE.md §3)
+put it there so example people are never read as real. Kept until Amit decides.
+
 ### BUILT 2026-09-28 (preview) — ordering for someone else, including the door
 
 Amit's headline case: a plumber for grandpa, ordered and paid from the

@@ -348,6 +348,7 @@ export function RingedAvatar({
   const stroke = 2.5;
   const r = size / 2 - stroke / 2;
   const initials = name
+    .replace(/\s*\([^)]*\)\s*/g, " ")
     .trim()
     .split(/\s+/)
     .slice(0, 2)

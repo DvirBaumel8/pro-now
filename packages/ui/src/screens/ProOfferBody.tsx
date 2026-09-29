@@ -51,6 +51,8 @@ export interface ProOfferBodyProps {
    * customer approves it.
    */
   quoteFirst?: { destinationHe?: string | null } | null;
+  /** The professional is a woman: "כן, אני לוקחת". */
+  proFemale?: boolean;
   /**
    * True while the answer is in flight.
    *
@@ -75,6 +77,7 @@ export function ProOfferBody({
   nowMs = Date.now(),
   onAccept,
   quoteFirst = null,
+  proFemale = false,
   onSkip,
   responding = false,
   width = 390,
@@ -180,11 +183,15 @@ export function ProOfferBody({
             <Text style={styles.payout}>
               {formatMoney(money(offer.expectedPayoutMinorUnits as number, "ILS"))}
             </Text>
-            {payout.qualifierHe ? <Text style={styles.payoutQualifier}>{payout.qualifierHe}</Text> : null}
+            {offer.priceModel === "HOURLY" ? (
+              <Text style={styles.payoutQualifier}>לשעה</Text>
+            ) : payout.qualifierHe ? (
+              <Text style={styles.payoutQualifier}>{payout.qualifierHe}</Text>
+            ) : null}
           </View>
         ) : (
           <>
-            <Text style={styles.payoutUnknown}>סכום ייקבע באתר</Text>
+            <Text style={styles.payoutUnknown}>הסכום ייקבע במקום</Text>
             <Text style={styles.payoutReason}>{payout.reasonHe}</Text>
           </>
         )}
@@ -280,7 +287,7 @@ export function ProOfferBody({
               ]}
             >
               <Text style={styles.acceptLabel}>
-                {responding ? "רגע…" : quoteFirst ? "תן הצעת מחיר" : "כן, אני לוקח"}
+                {responding ? "רגע…" : quoteFirst ? (proFemale ? "תני הצעת מחיר" : "תן הצעת מחיר") : proFemale ? "כן, אני לוקחת" : "כן, אני לוקח"}
               </Text>
             </Pressable>
             <Pressable

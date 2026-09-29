@@ -138,7 +138,7 @@ export function ProJobSettledBody({
           <Text style={styles.tickGlyph}>✓</Text>
         </View>
 
-        <Text style={styles.label}>נוסף להכנסות שלך</Text>
+        <Text style={styles.label}>סכום העבודה</Text>
         <Text style={styles.added}>{m(addedNetMinorUnits)}</Text>
 
         <View style={styles.divider} />
@@ -161,7 +161,7 @@ export function ProJobSettledBody({
         <View style={styles.next}>
           <Text style={styles.nextText}>
             {returningToAvailable
-              ? "אתה שוב זמין — מחפשים לך את העבודה הבאה"
+              ? "שוב במשמרת — מחפשים לך את העבודה הבאה"
               : "המשמרת הסתיימה. הרווחים יופיעו במסך התמורה."}
           </Text>
         </View>

@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-
 
 import { formatMoney, money } from "@pro-now/types";
 
-import { proTheme, radii, spacing, tabular, tint, type } from "../theme";
+import { proTheme, radii, scale, spacing, tabular, tint, type } from "../theme";
 import { SectionHeader, Surface } from "../components/surfaces";
 
 /**
@@ -116,6 +116,8 @@ export interface ProQuoteBuilderBodyProps {
    */
   initialLines?: QuoteDraftLine[];
   initialNotesHe?: string;
+  /** Start with one amount field (priced-before-setting-off work); lines on request. */
+  simple?: boolean;
   onSend?: (draft: { lines: QuoteDraftLine[]; notesHe: string }) => void;
   onBack?: () => void;
   width?: number;
@@ -138,6 +140,7 @@ export function ProQuoteBuilderBody({
   usualSampleSize = 0,
   initialLines,
   initialNotesHe = "",
+  simple = false,
   onSend,
   onBack,
   width = 390,
@@ -147,6 +150,9 @@ export function ProQuoteBuilderBody({
     initialLines && initialLines.length > 0 ? initialLines : [emptyLine(1)]
   );
   const [notes, setNotes] = useState(initialNotesHe);
+  /* One amount, or itemised lines — see `simple`. */
+  const [detailed, setDetailed] = useState(!simple || (initialLines?.length ?? 0) > 1);
+  const simpleAmount = lines.reduce((sum, l) => sum + Math.round(l.quantity * l.unitPriceMinorUnits), 0);
 
   const total = useMemo(
     () => lines.reduce((sum, l) => sum + Math.round(l.quantity * l.unitPriceMinorUnits), 0),
@@ -224,6 +230,8 @@ export function ProQuoteBuilderBody({
           </Surface>
         ) : null}
 
+        {detailed ? (
+          <>
         <SectionHeader title="מה צריך לעשות" colors={colors} />
 
         {/* ----------------------------------------------------------------
@@ -395,6 +403,58 @@ export function ProQuoteBuilderBody({
           עבודה · חומרים · אחר — הסיווג מופיע ללקוח מתחת לשורה, ומסכם למטה.
         </Text>
 
+          </>
+        ) : (
+          <>
+        {/*
+          ONE NUMBER FIRST (design review, 2026-09-29). Pricing a tow from
+          its photos is one amount, not a line-item form; the lines are
+          one tap away for whoever wants to itemise.
+          */}
+        <SectionHeader title="המחיר שלך" colors={colors} />
+        <View style={styles.simpleRow}>
+          <Text style={styles.simpleCurrency}>₪</Text>
+          <TextInput
+            value={simpleAmount > 0 ? String(Math.round(simpleAmount / 100)) : ""}
+            onChangeText={(t) => {
+              const n = Number(t.replace(/[^0-9]/g, "")) || 0;
+              setLines([{ id: "s1", description: lines[0]?.description.trim() ? lines[0]!.description : `${serviceNameHe} · לפי התמונות והפרטים`, quantity: 1, unitPriceMinorUnits: n * 100, kind: "LABOR" }]);
+            }}
+            keyboardType="number-pad"
+            placeholder="0"
+            placeholderTextColor="rgba(247,243,250,0.3)"
+            accessibilityLabel="המחיר ללקוח בשקלים"
+            style={styles.simpleAmount}
+            textAlign="center"
+          />
+        </View>
+        {priceList.length > 0 ? (
+          <View style={styles.listWrap}>
+            <Text style={styles.fieldLabel}>מהמחירון שלך</Text>
+            <View style={styles.listChips}>
+              {priceList.map((it) => (
+                <Pressable
+                  key={it.id}
+                  onPress={() => setLines([{ id: "s1", description: it.nameHe, quantity: 1, unitPriceMinorUnits: it.amountMinorUnits, kind: "LABOR" }])}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${it.nameHe} מהמחירון`}
+                  style={({ pressed }) => [styles.listChip, pressed && { opacity: 0.8 }]}
+                >
+                  <Text style={styles.listChipText}>
+                    {it.nameHe} · {formatMoney(money(it.amountMinorUnits, "ILS"))}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ) : null}
+        <Pressable onPress={() => setDetailed(true)} accessibilityRole="button" style={styles.addLine}>
+          <Text style={styles.addLineText}>הוספת פירוט ›</Text>
+        </Pressable>
+
+          </>
+        )}
+
         <SectionHeader title="הערה ללקוח" colors={colors} />
         <TextInput
           value={notes}
@@ -448,7 +508,7 @@ export function ProQuoteBuilderBody({
         {includesVisitFee ? (
           <Text style={styles.serverNote}>דמי הביקור כלולים בהצעה: אם הלקוח יאשר, זה כל מה שישולם על העבודה.</Text>
         ) : null}
-        <Text style={styles.serverNote}>הסכום נקבע מהשורות בשרת, והלקוח מאשר בדיוק את הגרסה הזו.</Text>
+        <Text style={styles.serverNote}>הלקוח יראה ויאשר בדיוק את ההצעה הזו.</Text>
 
         <Pressable
           onPress={() => (sendable ? onSend?.({ lines, notesHe: notes.trim() }) : undefined)}
@@ -461,7 +521,7 @@ export function ProQuoteBuilderBody({
         </Pressable>
 
         {!sendable ? (
-          <Text style={styles.why}>צריך תיאור לכל שורה, ולפחות שורה אחת עם מחיר.</Text>
+          <Text style={styles.why}>{detailed ? "צריך תיאור לכל שורה, ולפחות שורה אחת עם מחיר." : "רושמים מחיר — ואז שולחים."}</Text>
         ) : null}
 
         {onBack ? (
@@ -475,6 +535,9 @@ export function ProQuoteBuilderBody({
 }
 
 const styles = StyleSheet.create({
+  simpleRow: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 4, marginBottom: 8, paddingVertical: 10, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.05)", borderWidth: 1, borderColor: "rgba(47,191,138,0.45)" },
+  simpleCurrency: { color: "rgba(247,243,250,0.7)", fontSize: scale.section, fontWeight: "800" },
+  simpleAmount: { minWidth: 140, color: "#FFFFFF", fontSize: scale.hero, fontWeight: "900", paddingVertical: 4 },
   screen: { backgroundColor: colors.bg, overflow: "hidden", borderRadius: radii.xl },
   scroll: { padding: spacing.xl, gap: spacing.md },
   title: { ...type.h2, color: colors.textPrimary, textAlign: "right", writingDirection: "rtl" },

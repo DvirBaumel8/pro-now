@@ -1838,7 +1838,7 @@ export function LivingMapScene({
             {detail ? <Text style={styles.detail}>{detail}</Text> : null}
             <View style={styles.brief}>
               <Text style={styles.briefText} numberOfLines={1}>
-                {serviceNameHe} · עכשיו
+                {/עכשיו$/.test(serviceNameHe) ? serviceNameHe : `${serviceNameHe} · עכשיו`}
               </Text>
             </View>
           </>
@@ -1912,6 +1912,7 @@ export function LivingMapScene({
       {liveEta && phase === "ASSIGNED_ROUTE" && onStroll ? (
         <StrollInvite
           proFirstNameHe={liveEta.proFirstNameHe}
+          female={liveEta.female}
           frames={strollFrames}
           onPress={onStroll}
           width={width}
@@ -1927,6 +1928,7 @@ export function LivingMapScene({
           onSiteNameHe={onSiteNameHe}
           onOpenOnSite={onOpenOnSite}
           statusHe={liveEta ? "בינתיים" : null}
+          omit={liveEta && onStroll ? ["PLAY_MORE"] : []}
         />
       ) : null}
 

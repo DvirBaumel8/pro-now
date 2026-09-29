@@ -98,3 +98,16 @@ export function priceListLineHe(rows: ListedPrice[], max = 3): string {
   const shown = rows.slice(0, max).map((r) => `${r.nameHe} ₪${Math.round(r.amountMinorUnits / 100).toLocaleString("en-US")}`);
   return rows.length > max ? `${shown.join(" · ")} · ועוד` : shown.join(" · ");
 }
+
+/**
+ * A DELIVERY'S PRICE in the preview: the courier's base fare plus his
+ * per-kilometre rate over an EXAMPLE distance, never under his minimum.
+ * The real distance needs a maps vendor (still open, /CLAUDE.md §4), so
+ * the preview names the distance it assumed rather than hiding it.
+ */
+export const PREVIEW_DELIVERY_KM = 6;
+export function deliveryFare(p: { baseMinorUnits?: number | null; perKmMinorUnits?: number | null; minimumFareMinorUnits?: number | null }, km = PREVIEW_DELIVERY_KM): number | null {
+  if (!p.baseMinorUnits || !p.perKmMinorUnits) return null;
+  const raw = p.baseMinorUnits + p.perKmMinorUnits * km;
+  return Math.max(p.minimumFareMinorUnits ?? 0, Math.round(raw / 100) * 100);
+}

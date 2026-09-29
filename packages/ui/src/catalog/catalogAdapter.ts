@@ -119,6 +119,17 @@ const previewPrices: Record<string, PriceQuoteView> = {
     minimumFareMinorUnits: 3900,
   },
   "svc-moving": { priceModel: "VISIT_QUOTE", currency: "ILS" },
+  /* Example visit fees for every trade priced only once somebody looks — each professional sets his own. */
+  "svc-gas": { priceModel: "VISIT_QUOTE", currency: "ILS", visitFeeMinorUnits: 19900 },
+  "svc-vet": { priceModel: "VISIT_QUOTE", currency: "ILS", visitFeeMinorUnits: 25000 },
+  "svc-computer": { priceModel: "VISIT_QUOTE", currency: "ILS", visitFeeMinorUnits: 14900 },
+  "svc-tiling": { priceModel: "VISIT_QUOTE", currency: "ILS", visitFeeMinorUnits: 15000 },
+  "svc-drywall": { priceModel: "VISIT_QUOTE", currency: "ILS", visitFeeMinorUnits: 15000 },
+  "svc-carpentry": { priceModel: "VISIT_QUOTE", currency: "ILS", visitFeeMinorUnits: 15000 },
+  "svc-glass": { priceModel: "VISIT_QUOTE", currency: "ILS", visitFeeMinorUnits: 15900 },
+  "svc-alarm": { priceModel: "VISIT_QUOTE", currency: "ILS", visitFeeMinorUnits: 17900 },
+  "svc-sealing": { priceModel: "VISIT_QUOTE", currency: "ILS", visitFeeMinorUnits: 17900 },
+  "svc-solar": { priceModel: "VISIT_QUOTE", currency: "ILS", visitFeeMinorUnits: 17900 },
 };
 
 function priceFor(s: CatalogServiceDef): PriceQuoteView {
@@ -311,15 +322,15 @@ function included(s: CatalogServiceDef): string[] {
   const v = visitTermsHe(s);
   switch (pricingKindOf(s)) {
     case "QUOTE_FIRST":
-      return ["המחיר שאישרתם מראש — לא משתנה בסוף", "הגעה עד הכתובת שנתת", "בעל מקצוע מאומת לשירות הזה"];
+      return ["המחיר שאישרתם מראש — לא משתנה בסוף", "הגעה עד הכתובת שנתתם", "בעל מקצוע מאומת לשירות הזה"];
     case "VISIT":
-      return ["הגעה עד הכתובת שנתת", v.checkHe, "בעל מקצוע מאומת לשירות הזה"];
+      return ["הגעה עד הכתובת שנתתם", v.checkHe, "בעל מקצוע מאומת לשירות הזה"];
     case "LIST":
-      return ["הגעה עד הכתובת שנתת", "מה שבחרתם מהמחירון, במחיר שראיתם", "בעל מקצוע מאומת לשירות הזה"];
+      return ["הגעה עד הכתובת שנתתם", "מה שבחרתם מהמחירון, במחיר שראיתם", "בעל מקצוע מאומת לשירות הזה"];
     case "HOURLY":
-      return ["הגעה עד הכתובת שנתת", "עזרה בכל מה שצריך, לפי שעה", "חיוב לפי זמן עבודה בפועל"];
+      return ["הגעה עד הכתובת שנתתם", "עזרה בכל מה שצריך, לפי שעה", "חיוב לפי זמן עבודה בפועל"];
     case "DISTANCE":
-      return ["איסוף מהכתובת שנתת", "מסירה בכתובת היעד", "מחיר לפי מרחק בפועל"];
+      return ["איסוף מהכתובת שנתתם", "מסירה בכתובת היעד", "מחיר לפי מרחק בפועל"];
   }
 }
 
@@ -530,7 +541,9 @@ export const photoPromptFor = (serviceId: string): string | null | undefined =>
 
 /** True when the customer confirms the person rather than being assigned one. */
 export const isPersonFit = (serviceId: string): boolean =>
-  pilotServiceById[serviceId]?.matchingMode === "PERSON_FIT";
+  pilotServiceById[serviceId]?.matchingMode === "PERSON_FIT" &&
+  /* The drawn candidates are hairdressers; nails, a vet or a tutor never get them. */
+  serviceId === "svc-haircut";
 
 /**
  * Preview data for the personal-match screen.

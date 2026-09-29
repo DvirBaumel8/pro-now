@@ -169,7 +169,7 @@ describe("payout disclosure", () => {
   it("states plainly when the amount is not knowable yet", () => {
     const result = payoutDisclosure(null, false);
     expect(result.known).toBe(false);
-    if (!result.known) expect(result.reasonHe).toContain("אבחון");
+    if (!result.known) expect(result.reasonHe).toContain("כשמגיעים");
   });
 
   it("marks an outcome-dependent payout as an estimate", () => {

@@ -39,8 +39,12 @@ try {
     await need(/^מקצוען$/, '→ pro');
     await p.locator('text=תן הצעת מחיר').first().waitFor({ timeout: 20000 }).catch(() => {});
     await need(/^תן הצעת מחיר/, 'pro opens price form');
-    const qd = p.getByPlaceholder(/מה נעשה/); if (await qd.count()) await qd.first().fill('גרירה / עבודה לפי התמונות');
-    const qp = p.locator('input').nth(2); if (await qp.count()) { const v = await qp.inputValue().catch(() => ''); if (!v || v === '0') await qp.fill('450'); }
+    const simple = p.getByLabel('המחיר ללקוח בשקלים');
+    if (await simple.count()) { await simple.first().fill('450'); }
+    else {
+      const qd = p.getByPlaceholder(/מה נעשה/); if (await qd.count()) await qd.first().fill('גרירה / עבודה לפי התמונות');
+      const qp = p.locator('input').nth(2); if (await qp.count()) { const v = await qp.inputValue().catch(() => ''); if (!v || v === '0') await qp.fill('450'); }
+    }
     await need(/^שליחה ללקוח/, 'send price');
     t = await txt(); steps.push(/ההצעה נשלחה/.test(t) ? '✓ pro waits' : '✗ pro waits?');
     await need(/^לקוח$/, '→ customer');

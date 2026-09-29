@@ -146,7 +146,7 @@ export function payoutDisclosure(
   payoutIsEstimate: boolean
 ): { known: false; reasonHe: string } | { known: true; isEstimate: boolean; qualifierHe: string | null } {
   if (expectedPayoutMinorUnits === null) {
-    return { known: false, reasonHe: "הסכום ייקבע לאחר אבחון באתר" };
+    return { known: false, reasonHe: "לפי מה שרואים כשמגיעים" };
   }
   return {
     known: true,

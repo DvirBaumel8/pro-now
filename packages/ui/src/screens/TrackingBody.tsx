@@ -7,6 +7,7 @@ import {
   paymentPromiseHe,
   visitMoneyLineHe,
   type VisitMoneyFacts,
+  type PricingKind,
   DEFAULT_VISIT_TERMS,
   type VisitTermsHe,
   WORLD_DISTRICTS,
@@ -230,23 +231,33 @@ export interface TrackingBodyProps {
  * step it is at, a running clock, and the steps still to come.
  */
 const ON_SITE: readonly JobState[] = ["PRO_ARRIVED", "DIAGNOSIS", "WAITING_QUOTE_APPROVAL", "IN_PROGRESS", "COMPLETION_PENDING"];
-function workHeadlineHe(status: JobState, first: string, fixed = false, terms: VisitTermsHe = DEFAULT_VISIT_TERMS, female = false): { title: string; sub: string } {
+function workHeadlineHe(status: JobState, first: string, kind: PricingKind = "VISIT", terms: VisitTermsHe = DEFAULT_VISIT_TERMS, female = false): { title: string; sub: string } {
   const g = (m: string, f: string) => (female ? f : m);
+  const agreed = kind === "QUOTE_FIRST" ? "לפי ההצעה שאישרתם" : "לפי מה שהזמנתם";
   switch (status) {
-    case "PRO_ARRIVED": return { title: `${first} ${g("הגיע", "הגיעה")} אליכם`, sub: "עוד רגע מתחילים לבדוק" };
+    case "PRO_ARRIVED":
+      return {
+        title: `${first} ${g("הגיע", "הגיעה")}${kind === "DISTANCE" ? " לאיסוף" : " אליכם"}`,
+        sub: kind === "VISIT" ? "עוד רגע מתחילים לבדוק" : kind === "HOURLY" ? "השעון מתחיל כשמתחילים לעבוד" : kind === "DISTANCE" ? "אוספים את המשלוח" : `עוד רגע מתחילים — ${agreed}`,
+      };
     case "DIAGNOSIS":
-      return fixed
-        ? { title: `${first} ${g("בודק", "בודקת")} מה צריך`, sub: "עוד רגע מתחילים לפי מה שהזמנתם" }
-        : { title: terms.workHe === "התיקון" ? `${first} ${g("מאבחן", "מאבחנת")} את התקלה` : `${first} ${g("בודק", "בודקת")} מה צריך`, sub: `את המחיר של ${terms.workHe} סוגרים ישירות ${g("איתו", "איתה")}` };
+      if (kind === "VISIT")
+        return { title: terms.workHe === "התיקון" ? `${first} ${g("מאבחן", "מאבחנת")} את התקלה` : `${first} ${g("בודק", "בודקת")} מה צריך`, sub: `את המחיר של ${terms.workHe} סוגרים ישירות ${g("איתו", "איתה")}` };
+      if (kind === "HOURLY") return { title: `${first} ${g("התחיל", "התחילה")}`, sub: "השעון רץ לפי זמן עבודה בפועל" };
+      if (kind === "DISTANCE") return { title: `${first} ${g("אסף", "אספה")}`, sub: "בדרך למסירה" };
+      return { title: `${first} ${g("מתחיל", "מתחילה")}`, sub: agreed };
     case "WAITING_QUOTE_APPROVAL": return { title: "הצעת מחיר מחכה לאישורכם", sub: "העבודה מתחילה רק אחרי שתאשרו" };
-    case "IN_PROGRESS": return { title: fixed ? `${first} ${g("עובד", "עובדת")}` : "עובדים על התיקון", sub: fixed ? "לפי מה שהזמנתם" : "לפי ההצעה שאישרתם" };
-    default: return { title: "העבודה הסתיימה", sub: "מחכה לאישור שלכם" };
+    case "IN_PROGRESS":
+      if (kind === "DISTANCE") return { title: `${first} בדרך למסירה`, sub: "לפי מרחק, סוכם מראש" };
+      return { title: `${first} ${g("עובד", "עובדת")}`, sub: kind === "HOURLY" ? "לפי שעה · זמן עבודה בפועל" : agreed };
+    default:
+      return { title: kind === "VISIT" ? "הביקור הסתיים" : kind === "DISTANCE" ? "המשלוח נמסר" : "העבודה הסתיימה", sub: "מחכה לאישור שלכם" };
   }
 }
 /* When the professional came in — kept across the visit's screens, so the
    clock counts the whole time in the home and not each step afresh. */
 const visitStart = { at: 0 };
-function WorkScene({ status, firstName, figureUri, fixed = false, terms = DEFAULT_VISIT_TERMS, female = false, width, height }: { status: JobState; firstName: string; figureUri: string | null; fixed?: boolean; terms?: VisitTermsHe; female?: boolean; width: number; height: number }) {
+function WorkScene({ status, firstName, figureUri, kind = "VISIT", terms = DEFAULT_VISIT_TERMS, female = false, width, height }: { status: JobState; firstName: string; figureUri: string | null; kind?: PricingKind; terms?: VisitTermsHe; female?: boolean; width: number; height: number }) {
   const [since] = useState(() => {
     if (!visitStart.at) visitStart.at = Date.now();
     return visitStart.at;
@@ -267,7 +278,7 @@ function WorkScene({ status, firstName, figureUri, fixed = false, terms = DEFAUL
   }, [pulse]);
   const sec = Math.max(0, Math.floor((now - since) / 1000));
   const clock = `${String(Math.floor(sec / 60)).padStart(2, "0")}:${String(sec % 60).padStart(2, "0")}`;
-  const { title, sub } = workHeadlineHe(status, firstName, fixed, terms, female);
+  const { title, sub } = workHeadlineHe(status, firstName, kind, terms, female);
   const done = status === "COMPLETION_PENDING";
   /* The trade's waist-up portrait: it reads at this size, and a full
      figure's feet would sit under the sheet anyway. */
@@ -290,13 +301,13 @@ function WorkScene({ status, firstName, figureUri, fixed = false, terms = DEFAUL
       ) : null}
       <View style={[styles.workText, { left: figureUri ? Math.round(figH * 0.68) + 8 : 18 }]}>
         <View style={styles.workChip}>
-          <Text style={styles.workChipText}>{done ? "✓ בבית שלכם" : "● בבית שלכם עכשיו"}</Text>
+          <Text style={styles.workChipText}>{done ? "✓ הסתיים" : "● עכשיו"}</Text>
         </View>
         <Text style={styles.workTitle}>{title}</Text>
         <Text style={styles.workSub}>{sub}</Text>
         <View style={styles.workClockRow}>
           <Text style={styles.workClock}>{clock}</Text>
-          <Text style={styles.workClockHint}>{done ? "זמן הביקור" : "זמן בבית שלכם"}</Text>
+          <Text style={styles.workClockHint}>זמן הביקור</Text>
         </View>
       </View>
     </View>
@@ -446,7 +457,8 @@ export function TrackingBody({
    */
   // The first word of the name, the way somebody in your kitchen is
   // referred to once they are in it.
-  const progressHe = jobProgressHe(status, professional.displayName.split(/\s+/)[0] ?? null, { fixed: Boolean(money?.fixedTotalHe), terms: money?.terms, female: professionalFemale });
+  const jobKind: PricingKind = money?.kind ?? (money?.fixedTotalHe ? "LIST" : "VISIT");
+  const progressHe = jobProgressHe(status, professional.displayName.split(/\s+/)[0] ?? null, { kind: jobKind, terms: money?.terms, female: professionalFemale });
   /*
    * WORK IS A STATE, SO IT DRIVES THE PICTURE.
    *
@@ -498,17 +510,17 @@ export function TrackingBody({
     status === "PRO_EN_ROUTE"
       ? "בדרך אליך"
       : status === "PRO_ARRIVED"
-        ? "הגיע אליך"
+        ? (professionalFemale ? "הגיעה אליכם" : "הגיע אליכם")
         : status === "DIAGNOSIS"
-          ? "בודק מה צריך"
+          ? (professionalFemale ? "בודקת מה צריך" : "בודק מה צריך")
           : status === "WAITING_QUOTE_APPROVAL"
-            ? "ממתין לאישור שלך"
+            ? "מחכה לאישורכם"
             : status === "IN_PROGRESS"
               ? "העבודה בעיצומה"
               : status === "COMPLETION_PENDING"
-                ? "סיים — ממתין לאישור"
+                ? (professionalFemale ? "סיימה — מחכה לאישורכם" : "סיים — מחכה לאישורכם")
                 : status === "PRO_ASSIGNED"
-                  ? "יוצא אליך"
+                  ? (professionalFemale ? "יוצאת אליכם" : "יוצא אליכם")
                   : "מעדכנים…";
 
 
@@ -588,7 +600,7 @@ export function TrackingBody({
             status={status}
             firstName={professional.displayName.split(" ")[0] ?? ""}
             figureUri={proFigureUri}
-            fixed={Boolean(money?.fixedTotalHe)}
+            kind={jobKind}
             terms={money?.terms}
             female={professionalFemale}
             width={width}
@@ -937,6 +949,7 @@ export function TrackingBody({
           minutesAway={etaDisplay && etaDisplay.unit.includes("דק") ? Number(etaDisplay.value) : null}
           previousClockHe={previousClockHe}
           displayNameHe={professional.displayName}
+          female={professionalFemale}
           onGetHelp={onGetHelp}
           onCancel={onCancelJob}
           width={width - spacing.lg * 2}
@@ -1055,7 +1068,9 @@ export function TrackingBody({
                     ? `אישור תשלום · ${money.fixedTotalHe}`
                     : money?.visitFeeHe
                       ? `אישור תשלום · ${money.visitFeeHe} ${(money.terms ?? DEFAULT_VISIT_TERMS).feeSubjectHe.replace(/(^| )ה/g, "$1").replace(" וה", " ו")}`
-                      : "אישור תשלום — העבודה הושלמה"}
+                      : jobKind === "VISIT"
+                        ? "אישור — הביקור התקיים"
+                        : "אישור תשלום — העבודה הושלמה"}
               </Text>
             </Pressable>
             <Pressable

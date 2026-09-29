@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Image, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { palette, scale, spacing } from "../../theme";
+import { ShieldCheckMark } from "../marks";
 
 /**
  * ---------------------------------------------------------------------
@@ -41,6 +42,14 @@ export function LiveEtaCard({ proFirstNameHe, female = false, proPhotoUri = null
     return () => clearInterval(t);
   }, []);
   const glow = useRef(new Animated.Value(0)).current;
+  /* A hand that sweeps the avatar once a minute — the seconds, without a second clock. */
+  const sweep = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    sweep.setValue((Date.now() % 60000) / 60000);
+    const a = Animated.loop(Animated.timing(sweep, { toValue: 1, duration: 60000 - (Date.now() % 60000), easing: Easing.linear, useNativeDriver: true }));
+    a.start();
+    return () => a.stop();
+  }, [sweep]);
   useEffect(() => {
     const a = Animated.loop(
       Animated.sequence([
@@ -71,6 +80,10 @@ export function LiveEtaCard({ proFirstNameHe, female = false, proPhotoUri = null
         ) : null}
         <View style={styles.who}>
           <View style={styles.avatarRing}>
+            <Animated.View
+              pointerEvents="none"
+              style={[styles.sweep, { transform: [{ rotate: sweep.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] }) }] }]}
+            />
             {proPhotoUri ? <Image source={{ uri: proPhotoUri }} style={styles.avatar} /> : <View style={styles.avatar} />}
             <Animated.View style={[styles.liveDot, { opacity: glow.interpolate({ inputRange: [0, 1], outputRange: [0.55, 1] }) }]} />
           </View>
@@ -81,17 +94,21 @@ export function LiveEtaCard({ proFirstNameHe, female = false, proPhotoUri = null
         </View>
         {onSafety ? (
           <Pressable onPress={onSafety} accessibilityRole="button" accessibilityLabel="בטיחות" hitSlop={10} style={[styles.iconBtn, styles.safety]}>
-            <Text style={[styles.iconText, { color: "#FF8A7A", fontSize: scale.meta }]}>◈</Text>
+            <ShieldCheckMark size={18} color="#FF9A86" />
+            <Text style={styles.safetyLabel}>בטיחות</Text>
           </Pressable>
         ) : null}
       </View>
 
+      {/* Minutes left lead — a big "13:51" read as a time of day beside the
+          arrival clock and made the arrival look past (design review). */}
       <View style={styles.clockRow}>
-        <Text style={styles.count} accessibilityLabel={`עוד ${Math.ceil(left / 60)} דקות`}>
-          {pad(Math.floor(left / 60))}:{pad(left % 60)}
-        </Text>
+        <View style={styles.minutes} accessibilityLabel={`עוד ${Math.ceil(left / 60)} דקות`}>
+          <Text style={styles.count}>{left === 0 ? "0" : Math.max(1, Math.ceil(left / 60))}</Text>
+          <Text style={styles.countUnit}>דק׳</Text>
+        </View>
         <View style={styles.arrive}>
-          <Text style={styles.arriveLabel}>הגעה</Text>
+          <Text style={styles.arriveLabel}>הגעה בשעה</Text>
           <Text style={styles.arriveClock}>{clock}</Text>
         </View>
       </View>
@@ -129,16 +146,20 @@ const styles = StyleSheet.create({
   },
   row: { flexDirection: "row-reverse", alignItems: "center", gap: spacing.sm },
   who: { flex: 1, flexDirection: "row-reverse", alignItems: "center", gap: spacing.sm },
-  avatarRing: { width: 44, height: 44, borderRadius: 22, borderWidth: 2, borderColor: "#FF6B4A", alignItems: "center", justifyContent: "center" },
+  avatarRing: { width: 46, height: 46, borderRadius: 23, borderWidth: 2, borderColor: "rgba(255,107,74,0.35)", alignItems: "center", justifyContent: "center" },
+  sweep: { position: "absolute", top: -2, left: -2, right: -2, bottom: -2, borderRadius: 23, borderWidth: 2, borderColor: "transparent", borderTopColor: "#FF6B4A", borderRightColor: "#FF6B4A" },
   avatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#2a2238" },
   liveDot: { position: "absolute", bottom: -1, left: -1, width: 13, height: 13, borderRadius: 7, backgroundColor: "#2FBF8A", borderWidth: 2, borderColor: "#140e1e" },
   status: { color: "#F7F3FA", fontSize: scale.body, fontWeight: "800", textAlign: "right" },
   service: { color: "rgba(247,243,250,0.62)", fontSize: scale.meta, textAlign: "right", marginTop: 1 },
   iconBtn: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.08)" },
-  safety: { backgroundColor: "rgba(255,90,70,0.14)", borderWidth: 1, borderColor: "rgba(255,120,100,0.35)" },
+  safety: { width: 52, height: 46, borderRadius: 16, backgroundColor: "rgba(255,90,70,0.14)", borderWidth: 1, borderColor: "rgba(255,120,100,0.35)", gap: 1 },
+  safetyLabel: { color: "#FFB3A5", fontSize: scale.micro, fontWeight: "700" },
   iconText: { color: "#F7F3FA", fontSize: scale.section, fontWeight: "700", marginTop: -2 },
   clockRow: { flexDirection: "row-reverse", alignItems: "flex-end", justifyContent: "space-between", marginTop: spacing.sm },
-  count: { color: "#FFFFFF", fontSize: scale.hero, fontWeight: "900", letterSpacing: 1, fontVariant: ["tabular-nums"], writingDirection: "ltr" },
+  minutes: { flexDirection: "row-reverse", alignItems: "baseline", gap: 6 },
+  count: { color: "#FFFFFF", fontSize: scale.hero, fontWeight: "900", fontVariant: ["tabular-nums"] },
+  countUnit: { color: "rgba(247,243,250,0.75)", fontSize: scale.section, fontWeight: "800" },
   arrive: { alignItems: "flex-start", paddingBottom: 8 },
   arriveLabel: { color: "rgba(247,243,250,0.55)", fontSize: scale.micro, fontWeight: "700" },
   arriveClock: { color: "#FFB08A", fontSize: scale.title, fontWeight: "900", fontVariant: ["tabular-nums"] },

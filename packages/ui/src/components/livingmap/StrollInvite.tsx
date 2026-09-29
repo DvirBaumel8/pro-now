@@ -13,6 +13,7 @@ import { scale, spacing } from "../../theme";
  */
 export interface StrollInviteProps {
   proFirstNameHe: string;
+  female?: boolean;
   /** The walk cycle's frames, in order. Absent: the card still invites, without the figure. */
   frames?: string[];
   onPress: () => void;
@@ -20,7 +21,7 @@ export interface StrollInviteProps {
   width: number;
 }
 
-export function StrollInvite({ proFirstNameHe, frames = [], onPress, bottom, width }: StrollInviteProps) {
+export function StrollInvite({ proFirstNameHe, female = false, frames = [], onPress, bottom, width }: StrollInviteProps) {
   const [f, setF] = useState(0);
   useEffect(() => {
     if (frames.length < 2) return;
@@ -50,7 +51,7 @@ export function StrollInvite({ proFirstNameHe, frames = [], onPress, bottom, wid
       </View>
       <View style={{ flex: 1 }}>
         <Text style={styles.title}>בזמן ש{proFirstNameHe} בדרך — טיול בעיר שלנו</Text>
-        <Text style={styles.sub}>נקרא לך כשהוא מתקרב</Text>
+        <Text style={styles.sub}>{female ? "נקרא לכם כשהיא מתקרבת" : "נקרא לכם כשהוא מתקרב"}</Text>
       </View>
       <Text style={styles.go}>‹</Text>
     </Pressable>

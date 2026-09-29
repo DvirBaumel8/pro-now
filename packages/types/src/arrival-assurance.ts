@@ -291,11 +291,11 @@ export interface RematchCarryOver {
  * Note that no line here promises a time. Times come from the server, and
  * a phase alone never implies one.
  */
-export function arrivalHeadlineHe(a: ArrivalAssessment, displayNameHe?: string | null): string {
+export function arrivalHeadlineHe(a: ArrivalAssessment, displayNameHe?: string | null, female = false): string {
   const who = displayNameHe ?? "המקצוען";
   switch (a.phase) {
     case "ARRIVED":
-      return displayNameHe ? `${who} הגיע אליכם` : "המקצוען הגיע";
+      return displayNameHe ? `${who} ${female ? "הגיעה" : "הגיע"} אליכם` : "המקצוען הגיע";
     case "ON_ROUTE":
       return displayNameHe ? `${who} בדרך אליכם` : "בדרך אליכם";
     case "DELAYED":

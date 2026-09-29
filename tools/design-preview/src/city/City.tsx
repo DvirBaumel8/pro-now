@@ -207,7 +207,7 @@ export interface CityProps {
    * camera following it. `progress` is the share of the trip covered, from
    * the server's own ETA — how far along, never a claimed position.
    */
-  route?: { shopId: string; trade: string; progress: number; moving: boolean } | null;
+  route?: { shopId: string; trade: string; progress: number; moving: boolean; labelHe?: string; photoUri?: string | null } | null;
   onExit?: () => void;
 }
 
@@ -361,6 +361,7 @@ export function City({
   const routeRef = useRef(route);
   routeRef.current = route;
   const homeLabel = useRef<HTMLDivElement | null>(null);
+  const vanLabel = useRef<HTMLDivElement | null>(null);
   const nearTint =
     (nearId ? SHOPS.find((x) => x.id === nearId)?.neonColour : null) ?? "#FF6B4A";
   useEffect(() => {
@@ -1460,6 +1461,14 @@ export function City({
             lab.style.left = `${((p3.x + 1) / 2) * 100}%`;
             lab.style.top = `${((1 - p3.y) / 2) * 100}%`;
           }
+          /* His name over his van — the street has other vans in it. */
+          const vl = vanLabel.current;
+          if (vl && van) {
+            const p4 = new THREE.Vector3(vx, 3.6, vz).project(camera);
+            vl.style.opacity = p4.z < 1 ? "1" : "0";
+            vl.style.left = `${((p4.x + 1) / 2) * 100}%`;
+            vl.style.top = `${((1 - p4.y) / 2) * 100}%`;
+          }
           composer.render();
           raf = requestAnimationFrame(tick);
           return;
@@ -2092,6 +2101,16 @@ export function City({
           style={{ position: "absolute", transform: "translate(-50%,-120%)", opacity: 0, transition: "opacity .4s", pointerEvents: "none", padding: "5px 12px", borderRadius: 999, background: "rgba(255,107,74,.92)", color: "#fff", fontWeight: 800, fontSize: scale.meta, direction: "rtl", whiteSpace: "nowrap", boxShadow: "0 0 24px rgba(255,107,74,.7)" }}
         >
           הבית שלך
+        </div>
+      ) : null}
+      {route?.labelHe ? (
+        <div
+          ref={vanLabel}
+          style={{ position: "absolute", transform: "translate(-50%,-100%)", opacity: 0, transition: "opacity .4s", pointerEvents: "none", display: "flex", alignItems: "center", gap: 6, padding: "4px 10px 4px 4px", borderRadius: 999, background: "rgba(18,12,26,.82)", border: "1.5px solid #FF6B4A", color: "#fff", fontWeight: 800, fontSize: scale.meta, direction: "rtl", whiteSpace: "nowrap", boxShadow: "0 0 18px rgba(255,107,74,.55)" }}
+        >
+          {route.photoUri ? <img src={route.photoUri} alt="" style={{ width: 26, height: 26, borderRadius: 13, objectFit: "cover", background: "#2a2238" }} /> : null}
+          {route.labelHe}
+          <span style={{ position: "absolute", left: "50%", bottom: -7, width: 10, height: 10, transform: "translateX(-50%) rotate(45deg)", background: "rgba(18,12,26,.82)", borderRight: "1.5px solid #FF6B4A", borderBottom: "1.5px solid #FF6B4A" }} />
         </div>
       ) : null}
 

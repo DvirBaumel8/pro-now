@@ -13,6 +13,7 @@ import {
   DEFAULT_VISIT_TERMS,
   selfHe,
   type VisitTermsHe,
+  type PricingKind,
 } from "@pro-now/types";
 
 import { elevation, proTheme, radii, scale, spacing, tabular, tint, type } from "../theme";
@@ -144,6 +145,10 @@ export interface ProJobBodyProps {
   diagnosisOnly?: boolean;
   /** The trade's words for the visit (`visitTermsHe`). */
   visitTerms?: VisitTermsHe;
+  /** How this job is paid (`pricingKindOf`) — decides the band's words. */
+  kind?: PricingKind;
+  /** The professional is a woman: "צאי לדרך", "לחצי". */
+  proFemale?: boolean;
   onFinishDiagnosis?: () => void;
   /**
    * GIVING THE JOB BACK.
@@ -219,8 +224,42 @@ const STAGE: Partial<Record<JobState, { n: number; titleHe: string; doHe: string
 };
 const STAGE_COUNT = 7;
 
-function StageBand({ status }: { status: JobState }) {
-  const st = STAGE[status];
+/*
+ * THE BAND IN HIS OWN TRADE'S WORDS (copy review, 2026-09-29): a haircut,
+ * a tow, an hour of help and a delivery each read one sentence written for
+ * repairs — "בודקים ומאבחנים", "ההצעה אושרה" — and a woman read "אתה".
+ */
+function stageFor(status: JobState, kind: PricingKind, female: boolean, workHe: string) {
+  const base = STAGE[status];
+  if (!base) return undefined;
+  const g = (m: string, f: string) => (female ? f : m);
+  const agreed = kind === "QUOTE_FIRST" ? "לפי ההצעה שאושרה" : kind === "HOURLY" ? "לפי שעה" : "לפי מה שהלקוח הזמין";
+  switch (status) {
+    case "PRO_ASSIGNED":
+      return { ...base, doHe: `הלקוח כבר יודע ש${g("אתה מגיע", "את מגיעה")}. ${g("צא", "צאי")} לדרך ${g("כשאתה מוכן", "כשאת מוכנה")}.` };
+    case "PRO_EN_ROUTE":
+      return { ...base, doHe: `הלקוח רואה ${g("אותך מתקדם", "אותך מתקדמת")}. ${g("לחץ", "לחצי")} ״הגעתי״ ${g("כשאתה", "כשאת")} בכתובת.` };
+    case "PRO_ARRIVED":
+      return {
+        ...base,
+        doHe: kind === "VISIT" ? `${g("הצג", "הציגי")} את עצמך, ${g("ותתחיל", "ותתחילי")} לבדוק את מה שהלקוח תיאר.` : kind === "DISTANCE" ? `${g("אסוף", "אספי")} את המשלוח ו${g("צא", "צאי")} למסירה.` : `${g("הצג", "הציגי")} את עצמך — ${agreed}.`,
+      };
+    case "DIAGNOSIS":
+      if (kind === "VISIT") return { ...base, titleHe: workHe === "התיקון" ? "בודקים ומאבחנים" : "בודקים מה צריך", doHe: `את המחיר של ${workHe} סוגרים ישירות מול הלקוח. באפליקציה — רק דמי הביקור.` };
+      if (kind === "DISTANCE") return { ...base, titleHe: "איסוף", doHe: `${g("אסוף", "אספי")} את המשלוח ${g("ולחץ", "ולחצי")} כשיוצאים למסירה.`, glyph: "⬆" };
+      return { ...base, titleHe: "מתחילים", doHe: `${agreed}. ${g("לחץ", "לחצי")} ״סיימתי״ בסוף.`, glyph: "⚒" };
+    case "IN_PROGRESS":
+      if (kind === "DISTANCE") return { ...base, titleHe: "בדרך למסירה", doHe: `${g("לחץ", "לחצי")} ״המשלוח נמסר״ כשהוא אצל המקבל.`, glyph: "➜" };
+      return { ...base, titleHe: kind === "QUOTE_FIRST" ? "ההצעה אושרה — עובדים" : "עובדים", doHe: `${agreed}. ${g("לחץ", "לחצי")} ״סיימתי״ בסוף.` };
+    case "COMPLETION_PENDING":
+      return { ...base, titleHe: g("סיימת!", "סיימת!"), doHe: kind === "VISIT" ? "הלקוח מאשר שהביקור התקיים, ואז נסגר התשלום." : "הלקוח מאשר שהעבודה הושלמה, ואז נסגר התשלום." };
+    default:
+      return base;
+  }
+}
+
+function StageBand({ status, kind = "VISIT", female = false, workHe = "התיקון" }: { status: JobState; kind?: PricingKind; female?: boolean; workHe?: string }) {
+  const st = stageFor(status, kind, female, workHe);
   const enter = useRef(new Animated.Value(0)).current;
   /* The bar grows from where the last step left it, so a step is seen
      being completed rather than simply redrawn. */
@@ -394,6 +433,8 @@ export function ProJobBody({
   onStartAgreed,
   diagnosisOnly = false,
   visitTerms = DEFAULT_VISIT_TERMS,
+  kind = "VISIT",
+  proFemale = false,
   onFinishDiagnosis,
   width = 390,
   height = 780,
@@ -402,10 +443,12 @@ export function ProJobBody({
   const agreed = status === "DIAGNOSIS" && agreedPriceHe && onStartAgreed;
   const finishing = status === "DIAGNOSIS" && diagnosisOnly && onFinishDiagnosis && !agreed;
   const action = agreed
-    ? { label: `מתחיל לעבוד · ${agreedPriceHe}`, kind: "agreed" as const }
+    ? { label: kind === "DISTANCE" ? `אספתי — יוצאים למסירה · ${agreedPriceHe}` : `מתחילים לעבוד · ${agreedPriceHe}`, kind: "agreed" as const }
     : finishing
-      ? { label: "סיימתי את האבחון", kind: "finishDiagnosis" as const }
-      : baseAction;
+      ? { label: visitTerms.workHe === "התיקון" ? "סיימתי את האבחון" : "סיימתי את הבדיקה", kind: "finishDiagnosis" as const }
+      : baseAction && status === "IN_PROGRESS" && kind === "DISTANCE"
+        ? { ...baseAction, label: "המשלוח נמסר" }
+        : baseAction;
   const photos = media.filter((m) => m.kind === "PHOTO");
   const voice = media.find((m) => m.kind === "VOICE");
 
@@ -437,7 +480,7 @@ export function ProJobBody({
      ------------------------------------------------------------------ */
   const problemBlock = (
     <View style={styles.block}>
-      <SectionHeader title="מה הבעיה" colors={colors} />
+      <SectionHeader title={kind === "VISIT" ? "מה הבעיה" : "מה הלקוח ביקש"} colors={colors} />
 
       {symptomsHe.length > 0 ? (
         <View style={styles.symptoms}>
@@ -486,7 +529,7 @@ export function ProJobBody({
       <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         {/* ---------------- 1. Where ---------------- */}
         <View style={styles.head}>
-          <StageBand status={status} />
+          <StageBand status={status} kind={kind} female={proFemale} workHe={visitTerms.workHe} />
           {/* The band says the step; the old pill, the dots and the
               focus line said it three more times. They stay only for a
               state the band does not know. */}
@@ -616,7 +659,7 @@ export function ProJobBody({
             {doorCodeHe && (status === "PRO_ASSIGNED" || status === "PRO_EN_ROUTE" || status === "PRO_ARRIVED") ? (
               <View style={styles.doorCode}>
                 <Text style={styles.doorCodeLabel}>
-                  הקוד שלך לדלת — {onSiteContactNameHe ?? customerNameHe} יבקש אותו
+                  הקוד שלך — {onSiteContactNameHe ?? customerNameHe} יבקש אותו
                 </Text>
                 <Text style={styles.doorCodeDigits}>{doorCodeHe.split("").join(" ")}</Text>
               </View>
@@ -648,14 +691,14 @@ export function ProJobBody({
           <Surface colors={colors} level={1} dark>
             {payoutMinorUnits !== null ? (
               <View style={styles.payRow}>
-                {payoutIsEstimate ? <Text style={styles.payQualifier}>משוער</Text> : null}
+                {kind === "HOURLY" ? <Text style={styles.payQualifier}>לשעה</Text> : payoutIsEstimate ? <Text style={styles.payQualifier}>משוער</Text> : null}
                 <Text style={styles.payValue}>{formatMoney(money(payoutMinorUnits, "ILS"))}</Text>
               </View>
             ) : (
               <>
-                <Text style={styles.payUnknown}>ייקבע לאחר האבחון</Text>
+                <Text style={styles.payUnknown}>{kind === "VISIT" ? "דמי הביקור שלך" : "לפי מה שסוכם"}</Text>
                 <Text style={styles.payNote}>
-                  הסכום ייגזר מהצעת המחיר שתשלח, אחרי שהלקוח יאשר אותה.
+                  {kind === "VISIT" ? `את המחיר של ${visitTerms.workHe} סוגרים ישירות מול הלקוח.` : "הסכום מאושר בכרטיס של הלקוח ועובר אליך אחרי שהוא מאשר."}
                 </Text>
               </>
             )}

@@ -63,7 +63,7 @@ export function CategoryGrid({ tiles, width, moreLabelHe, onSelect, onMore }: Ca
           onPress={() => onSelect?.(t.id)}
           accessibilityRole="button"
           accessibilityLabel={
-            t.liveCount ? `${t.nameHe}, ${t.liveCount} פנויים עכשיו` : t.nameHe
+            t.liveCount ? `${t.nameHe}, ${t.liveCount === 1 ? "פנוי אחד" : `${t.liveCount} פנויים`} עכשיו` : t.nameHe
           }
           style={({ pressed }) => [styles.tile, { width: tileW }, pressed && styles.pressed]}
         >

@@ -123,3 +123,44 @@ describe("search finds each service by its own name and words", () => {
     });
   }
 });
+
+describe("every service has the numbers its pricing kind needs", () => {
+  for (const s of services) {
+    it(s.id, () => {
+      const p = catalogServicePages[s.id]!.price;
+      switch (pricingKindOf(s)) {
+        case "VISIT": expect(p.visitFeeMinorUnits, "visit fee").toBeGreaterThan(0); break;
+        case "LIST": expect(p.fixedTotalMinorUnits, "list price").toBeGreaterThan(0); break;
+        case "HOURLY": expect(p.hourlyRateMinorUnits, "hourly rate").toBeGreaterThan(0); break;
+        case "DISTANCE":
+          expect(p.baseMinorUnits, "base fare").toBeGreaterThan(0);
+          expect(s.needsDestination, "a delivery asks where to").toBe(true);
+          break;
+        default: break;
+      }
+    });
+  }
+});
+
+describe("tracking lines for every kind, in both genders", () => {
+  const states: JobState[] = ["PRO_ASSIGNED", "PRO_ARRIVED", "DIAGNOSIS", "IN_PROGRESS", "COMPLETION_PENDING"];
+  const MASC = /(^|\s)(הגיע|יצא|מגיע|בודק|סיים|ממתין|מאבחן|התחיל|עובד|אסף|שלו|אחריו|איתו)(\s|\.|,|$)/;
+  for (const s of services) {
+    it(s.id, () => {
+      const kind = pricingKindOf(s);
+      const terms = visitTermsHe(s);
+      for (const female of [false, true]) {
+        const lines = states
+          .flatMap((st) => [
+            visitMoneyLineHe(st, { visitFeeHe: kind === "VISIT" ? "₪179" : null, hourlyRateHe: kind === "HOURLY" ? "₪110" : null, terms, kind }),
+            jobProgressHe(st, female ? "מאיה" : "רון", { terms, kind, female }),
+          ])
+          .filter(Boolean)
+          .join(" | ");
+        if (kind !== "VISIT") expect(lines, `${kind} speaks of a repair`).not.toMatch(/אבחון|מאבחן|התיקון|התקלה|דמי ביקור/);
+        if (kind === "HOURLY") expect(lines).toMatch(/לשעה|לפי שעה/);
+        if (female) expect(lines, "masculine verb for a woman").not.toMatch(MASC);
+      }
+    });
+  }
+});

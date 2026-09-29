@@ -1,6 +1,6 @@
 import type { JobState } from "./job";
 import type { LivingMapPhase } from "./living-map";
-import { DEFAULT_VISIT_TERMS, selfHe, type VisitTermsHe } from "./catalog";
+import { DEFAULT_VISIT_TERMS, selfHe, type PricingKind, type VisitTermsHe } from "./catalog";
 
 /**
  * WHAT THE WORLD IS DOING, DERIVED FROM WHAT THE JOB IS DOING.
@@ -143,10 +143,30 @@ export function jobProgressHe(
   status: JobState,
   firstNameHe?: string | null,
   /** A price-list job (a haircut, a dog walk) rather than a repair priced only once somebody looks. */
-  opts: { fixed?: boolean; terms?: VisitTermsHe; female?: boolean } = {}
+  opts: { fixed?: boolean; terms?: VisitTermsHe; female?: boolean; kind?: PricingKind } = {}
 ): string | null {
   const who = firstNameHe ?? "המקצוען";
   const g = (m: string, f: string) => (opts.female ? f : m);
+  const kind: PricingKind = opts.kind ?? (opts.fixed ? "LIST" : "VISIT");
+  /* Work that is not a repair has its own sentences — never "מאבחן" on a haircut, an hour of help or a delivery. */
+  if (kind !== "VISIT") {
+    switch (status) {
+      case "PRO_ARRIVED":
+        return kind === "DISTANCE" ? `${who} ${g("הגיע לאיסוף", "הגיעה לאיסוף")}.` : `${who} ${g("הגיע", "הגיעה")}. עוד רגע מתחילים.`;
+      case "DIAGNOSIS":
+        return kind === "HOURLY"
+          ? `${who} ${g("התחיל", "התחילה")}. השעון רץ לפי זמן עבודה בפועל.`
+          : kind === "DISTANCE"
+            ? `${who} ${g("אסף", "אספה")} ${g("ויוצא", "ויוצאת")} למסירה.`
+            : `${who} ${g("מתחיל", "מתחילה")} — ${kind === "QUOTE_FIRST" ? "לפי ההצעה שאישרתם" : "לפי מה שהזמנתם"}.`;
+      case "IN_PROGRESS":
+        return kind === "DISTANCE" ? `${who} בדרך למסירה.` : `${who} ${g("עובד עכשיו. כשיסיים", "עובדת עכשיו. כשתסיים")} תקבלו סיכום לאישור לפני התשלום.`;
+      case "COMPLETION_PENDING":
+        return `${who} ${g("סיים וממתין", "סיימה וממתינה")} לאישור שלכם שהכול תקין.`;
+      default:
+        break;
+    }
+  }
   const t = opts.terms ?? DEFAULT_VISIT_TERMS;
   switch (status) {
     case "PRO_ARRIVED":
@@ -319,11 +339,37 @@ export interface VisitMoneyFacts {
   fixedTotalHe?: string | null;
   /** The trade's own words for the visit (`visitTermsHe`). */
   terms?: VisitTermsHe;
+  /** How the service is paid for (`pricingKindOf`); decides which sentences exist at all. */
+  kind?: PricingKind;
+  /** HOURLY: the rate, formatted — "₪110". */
+  hourlyRateHe?: string | null;
 }
 
 export function visitMoneyLineHe(status: JobState, facts: VisitMoneyFacts = {}): string | null {
   const fee = facts.visitFeeHe ?? null;
   const t = facts.terms ?? DEFAULT_VISIT_TERMS;
+  /* By the hour: the rate while he works, the total once he is done. */
+  if (facts.kind === "HOURLY") {
+    switch (status) {
+      case "COMPLETION_PENDING":
+        return facts.approvedTotalHe ? `לתשלום ${facts.approvedTotalHe} · אחרי שתאשרו שהעבודה הושלמה` : "הסכום לפי זמן העבודה · אחרי שתאשרו";
+      case "PRO_ASSIGNED": case "PRO_EN_ROUTE": case "PRO_ARRIVED": case "DIAGNOSIS": case "IN_PROGRESS":
+        return facts.hourlyRateHe ? `${facts.hourlyRateHe} לשעה · לפי זמן עבודה בפועל` : "לפי שעה · לפי זמן עבודה בפועל";
+      default:
+        return null;
+    }
+  }
+  /* By distance: the price was shown before he set off. */
+  if (facts.kind === "DISTANCE" && !facts.fixedTotalHe) {
+    switch (status) {
+      case "COMPLETION_PENDING":
+        return facts.approvedTotalHe ? `לתשלום ${facts.approvedTotalHe} · אחרי שתאשרו שהמשלוח נמסר` : "לתשלום אחרי שתאשרו שהמשלוח נמסר";
+      case "PRO_ASSIGNED": case "PRO_EN_ROUTE": case "PRO_ARRIVED": case "DIAGNOSIS": case "IN_PROGRESS":
+        return facts.approvedTotalHe ? `${facts.approvedTotalHe} · לפי מרחק, סוכם מראש` : "לפי מרחק · המחיר הוצג לפני שאישרתם";
+      default:
+        return null;
+    }
+  }
 
   /*
    * The price was settled before the van moved, so the only thing that
@@ -331,7 +377,8 @@ export function visitMoneyLineHe(status: JobState, facts: VisitMoneyFacts = {}):
    * one that matters: it becomes payable when the customer agrees the
    * work is done, not when the professional says so.
    */
-  if (facts.fixedTotalHe) {
+  if (facts.fixedTotalHe || facts.kind === "LIST" || facts.kind === "QUOTE_FIRST") {
+    const agreed = facts.fixedTotalHe ?? "המחיר שסוכם";
     switch (status) {
       case "PRO_ASSIGNED":
       case "PRO_EN_ROUTE":
@@ -339,9 +386,9 @@ export function visitMoneyLineHe(status: JobState, facts: VisitMoneyFacts = {}):
       case "DIAGNOSIS":
       case "WAITING_QUOTE_APPROVAL":
       case "IN_PROGRESS":
-        return `${facts.fixedTotalHe} · סוכם מראש, מאושר בכרטיס`;
+        return `${agreed} · סוכם מראש, מאושר בכרטיס`;
       case "COMPLETION_PENDING":
-        return `לתשלום ${facts.fixedTotalHe} · אחרי שתאשרו שהעבודה הושלמה`;
+        return `לתשלום ${agreed} · אחרי שתאשרו שהעבודה הושלמה`;
       default:
         return null;
     }
@@ -623,7 +670,7 @@ export function releaseBlockedHe(status: JobState): string | null {
     case "WAITING_QUOTE_APPROVAL":
     case "IN_PROGRESS":
     case "COMPLETION_PENDING":
-      return "יש כבר הצעת מחיר בתוקף, אז אי אפשר לשחרר את הקריאה מכאן. אם משהו השתבש — דברו עם התמיכה.";
+      return "העבודה כבר התחילה, אז אי אפשר לשחרר את הקריאה מכאן. אם משהו השתבש — פנייה לתמיכה.";
     default:
       return null;
   }

@@ -124,6 +124,8 @@ export interface DescribeFaultBodyProps {
    * the price does not depend on them (a visit fee).
    */
   livePriceHe?: string | null;
+  /** A sentence this service's customers really say — the recording's example. Never another trade's. */
+  voiceExampleHe?: string | null;
   /** What the details are for, in this service's own pricing terms (`pricingKindOf`). */
   detailsNoteHe?: string | null;
   /**
@@ -170,6 +172,7 @@ export function DescribeFaultBody({
   onBack,
   livePriceHe = null,
   detailsNoteHe = null,
+  voiceExampleHe = null,
   priceList,
   destination = null,
   pickedIds = [],
@@ -177,7 +180,55 @@ export function DescribeFaultBody({
   width = 390,
   height = 780,
 }: DescribeFaultBodyProps) {
-  const added = photos.length + (voice ? 1 : 0) + (text.trim() ? 1 : 0) + symptomsHe.length;
+
+  /* Where the professional prices from the photos (towing, moving…), they come first. */
+  const photosFirst = Boolean(destination);
+  const photosBlock =
+        photoPromptHe !== null ? (
+        <View style={styles.block}>
+          <SectionHeader title="תמונות" colors={colors} />
+          <View style={styles.photoGrid}>
+            {photos.map((ph) => (
+              <View key={ph.id} style={styles.photoWrap}>
+                <ImageSlot uri={ph.uri} subject={ph.subjectHe} ratio={1} colors={colors} />
+                <Pressable
+                  onPress={() => onRemovePhoto?.(ph.id)}
+                  accessibilityRole="button"
+                  accessibilityLabel="הסרת תמונה"
+                  style={styles.photoRemove}
+                >
+                  <Text style={styles.photoRemoveText}>×</Text>
+                </Pressable>
+              </View>
+            ))}
+
+            <Pressable
+              onPress={onAddPhoto}
+              accessibilityRole="button"
+              accessibilityLabel="צילום תמונה"
+              style={styles.photoAdd}
+            >
+              <Text style={styles.photoAddPlus}>+</Text>
+              <Text style={styles.photoAddText}>צילום</Text>
+            </Pressable>
+
+            {onAddFromLibrary ? (
+              <Pressable
+                onPress={onAddFromLibrary}
+                accessibilityRole="button"
+                accessibilityLabel="בחירה מהגלריה"
+                style={styles.photoAdd}
+              >
+                <Text style={styles.photoAddPlus}>+</Text>
+                <Text style={styles.photoAddText}>גלריה</Text>
+              </Pressable>
+            ) : null}
+          </View>
+          <Text style={styles.hint}>
+            {photoPromptHe ? `${photoPromptHe.replace(/[.,]$/, "")}.` : "תמונה אחת מספיקה."} המקצוען יראה את התמונות לפני שהוא יוצא.
+          </Text>
+        </View>
+        ) : null;
 
   return (
     <View style={[styles.screen, { width, height }]}>
@@ -239,6 +290,8 @@ export function DescribeFaultBody({
             <Text style={styles.listNote}>מאיפה — הכתובת שבחרתם. המקצוען רואה את שתיהן לפני שהוא שולח מחיר.</Text>
           </View>
         ) : null}
+
+        {photosFirst ? photosBlock : null}
 
         {priceList && priceList.length > 0 ? (
           <View style={styles.block}>
@@ -358,57 +411,14 @@ export function DescribeFaultBody({
               </Text>
             )}
             <Text style={styles.hint}>
-              הכי קל פשוט לדבר: "יש רעש מהמזגן כשהוא נדלק", או "אני רוצה קצר בצדדים". מה שקשה לכתוב — קל להגיד.
+              {voiceExampleHe
+                ? `הכי קל פשוט לדבר, למשל: "${voiceExampleHe}". מה שקשה לכתוב — קל להגיד.`
+                : "הכי קל פשוט לדבר — מה שקשה לכתוב, קל להגיד."}
             </Text>
           </Surface>
         </View>
 
-        {/* ---------------- Photos, when a photo means something ------- */}
-        {photoPromptHe !== null ? (
-        <View style={styles.block}>
-          <SectionHeader title="תמונות" colors={colors} />
-          <View style={styles.photoGrid}>
-            {photos.map((ph) => (
-              <View key={ph.id} style={styles.photoWrap}>
-                <ImageSlot uri={ph.uri} subject={ph.subjectHe} ratio={1} colors={colors} />
-                <Pressable
-                  onPress={() => onRemovePhoto?.(ph.id)}
-                  accessibilityRole="button"
-                  accessibilityLabel="הסרת תמונה"
-                  style={styles.photoRemove}
-                >
-                  <Text style={styles.photoRemoveText}>×</Text>
-                </Pressable>
-              </View>
-            ))}
-
-            <Pressable
-              onPress={onAddPhoto}
-              accessibilityRole="button"
-              accessibilityLabel="צילום תמונה"
-              style={styles.photoAdd}
-            >
-              <Text style={styles.photoAddPlus}>+</Text>
-              <Text style={styles.photoAddText}>צילום</Text>
-            </Pressable>
-
-            {onAddFromLibrary ? (
-              <Pressable
-                onPress={onAddFromLibrary}
-                accessibilityRole="button"
-                accessibilityLabel="בחירה מהגלריה"
-                style={styles.photoAdd}
-              >
-                <Text style={styles.photoAddPlus}>+</Text>
-                <Text style={styles.photoAddText}>גלריה</Text>
-              </Pressable>
-            ) : null}
-          </View>
-          <Text style={styles.hint}>
-            {photoPromptHe ?? "תמונה אחת מספיקה."} המקצוען רואה אותה לפני שהוא יוצא.
-          </Text>
-        </View>
-        ) : null}
+        {photosFirst ? null : photosBlock}
 
         <View style={styles.block}>
           <View style={styles.privacyRow}>
@@ -436,20 +446,7 @@ export function DescribeFaultBody({
               in four seconds, and this screen must let them. */}
           <Text style={styles.ctaLabel}>שליחת הקריאה</Text>
         </Pressable>
-        <Text style={styles.ctaNote}>
-          {/*
-            * "1 פרטים יישלחו" — the exact Hebrew plural error the lexicon
-            * file exists to prevent, shipped on the send button of all
-            * things. Hebrew has a singular; a bare number interpolated into
-            * a plural noun is wrong every time the count is one, and one is
-            * the most common count on this screen.
-            */}
-          {added === 0
-            ? "אפשר לשלוח גם בלי פרטים"
-            : added === 1
-              ? "פרט אחד יישלח · בלי התחייבות עד שתאשרו"
-              : `${added} פרטים יישלחו · בלי התחייבות עד שתאשרו`}
-        </Text>
+
         {/*
           * WHAT THESE DETAILS DO NOT DO: set the price. A tester added
           * detail after detail and watched the price stay put, and asked

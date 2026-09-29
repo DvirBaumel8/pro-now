@@ -13,9 +13,10 @@ const press = async (re) => {
   return pressRaw(re);
 };
 const txt = async () => (await p.evaluate(() => document.body.innerText)).replace(/\s+/g, ' ');
+const peek = async (name) => { if (!SHOTS) return; if (await pressRaw(/^לקוח$/)) { await p.waitForTimeout(1500); await snap('cust_'+name); await press(/^מקצוען$/); await p.waitForTimeout(800);} };
 const steps = []; let shotN = 0;
 const SHOTS = process.env.SHOTS || null;
-const snap = async (name) => { if (SHOTS) { await p.waitForTimeout(700); await p.screenshot({ path: `out/j_${SHOTS}_${String(++shotN).padStart(2, '0')}_${name.replace(/[^a-z0-9]+/gi, '_')}.png` }); } };
+const snap = async (name) => { if (SHOTS) { const fs = await import('fs'); fs.appendFileSync('out/copy_'+SHOTS+'.txt', '\n=== '+String(shotN+1).padStart(2,'0')+' '+name+' ===\n' + (await p.evaluate(() => document.body.innerText)) + '\n'); await p.waitForTimeout(700); await p.screenshot({ path: `out/j_${SHOTS}_${String(++shotN).padStart(2, '0')}_${name.replace(/[^a-z0-9]+/gi, '_')}.png` }); } };
 const need = async (re, name) => { const r = await press(re); steps.push((r ? '✓ ' : '✗ ') + name); if (!r) throw new Error('stuck at ' + name + ' :: ' + (await txt()).slice(0, 160)); await snap(name); return r; };
 try {
   await p.goto('http://127.0.0.1:4421/?time=night'); await p.locator('text=אני צריך מקצוען').first().waitFor();
@@ -39,12 +40,8 @@ try {
     await need(/^מקצוען$/, '→ pro');
     await p.locator('text=תן הצעת מחיר').first().waitFor({ timeout: 20000 }).catch(() => {});
     await need(/^תן הצעת מחיר/, 'pro opens price form');
-    const simple = p.getByLabel('המחיר ללקוח בשקלים');
-    if (await simple.count()) { await simple.first().fill('450'); }
-    else {
-      const qd = p.getByPlaceholder(/מה נעשה/); if (await qd.count()) await qd.first().fill('גרירה / עבודה לפי התמונות');
-      const qp = p.locator('input').nth(2); if (await qp.count()) { const v = await qp.inputValue().catch(() => ''); if (!v || v === '0') await qp.fill('450'); }
-    }
+    const qd = p.getByPlaceholder(/מה נעשה/); if (await qd.count()) await qd.first().fill('גרירה / עבודה לפי התמונות');
+    const qp = p.locator('input').nth(2); if (await qp.count()) { const v = await qp.inputValue().catch(() => ''); if (!v || v === '0') await qp.fill('450'); }
     await need(/^שליחה ללקוח/, 'send price');
     t = await txt(); steps.push(/ההצעה נשלחה/.test(t) ? '✓ pro waits' : '✗ pro waits?');
     await need(/^לקוח$/, '→ customer');
@@ -59,12 +56,12 @@ try {
     await need(/^מקצוען$/, '→ pro');
     await need(/^כן, אני לוקח/, 'pro takes');
   }
-  await need(/^(יוצא|יציאה) לדרך/, 'pro leaves');
-  await need(/^הגעתי/, 'pro arrives');
+  await need(/^(יוצא|יציאה) לדרך/, 'pro leaves'); await peek('enroute');
+  await need(/^הגעתי/, 'pro arrives'); await peek('arrived');
   t = await txt();
   // diagnosis-only (visit+diagnosis), a quote, or straight to work (price list / hourly)
   const diagOnly = Boolean(await press(/^סיימתי את (האבחון|הבדיקה)/));
-  if (diagOnly) steps.push('✓ diagnosis done');
+  if (diagOnly) { steps.push('✓ diagnosis done'); await snap('diag done'); }
   else if (await press(/^שליחת הצעת מחיר/)) {
     steps.push('✓ quote form');
     const desc = p.getByPlaceholder(/מה נעשה/); if (await desc.count()) await desc.first().fill('עבודה לדוגמה');
@@ -75,10 +72,11 @@ try {
     await need(/^מקצוען$/, '→ pro');
   }
   if (!diagOnly) {
-    if (await press(/^(מתחילים לעבוד|אספתי|מתחיל לעבוד|התחלת עבודה|מתחיל)/)) steps.push('✓ start work');
+    if (await press(/^(מתחילים לעבוד|אספתי|מתחיל לעבוד|התחלת עבודה|מתחיל)/)) { steps.push('✓ start work'); await snap('working'); await peek('working'); }
     await need(/^(סיימתי את העבודה|המשלוח נמסר)/, 'pro done');
   }
   const bar2 = p.locator('[role=button],button').filter({ hasText: 'כדי לאשר שהעבודה הושלמה' }); if (await bar2.count()) { await bar2.last().click(); await p.waitForTimeout(1500); } else await need(/^לקוח$/, '→ customer');
+  await snap('cust before pay');
   await need(/^(אישור תשלום|אישור)/, 'customer pays');
   await need(/^מקצוען$/, '→ pro');
   t = await txt();

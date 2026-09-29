@@ -79,10 +79,13 @@ import {
   catalogMatchRules,
   priceListFor,
   quoteLinesFor,
+  deliveryFare,
+  PREVIEW_DELIVERY_KM,
   lowestListed,
   catalogServicePages,
   departmentCodeByMark,
   departmentCodeByServiceId,
+  categoryNameByServiceId,
   eligibilityFor,
   isPersonFit,
   matchReasons,
@@ -402,7 +405,7 @@ const understandHome = (text: string) =>
  */
 const DEMO_VERIFIED = ["IDENTITY", "BUSINESS", "LIABILITY_INSURANCE"] as const;
 const proEligibility = eligibilityFor([...DEMO_VERIFIED]);
-const proServices = togglesFor([...DEMO_VERIFIED]);
+const DEFAULT_PRO_SERVICES = togglesFor([...DEMO_VERIFIED]);
 
 /**
  * The prototype has no server, so it re-stamps its fixture snapshot on a
@@ -2971,6 +2974,7 @@ const go = useCallback((r: CustomerRoute) => {
             mark={page.mark}
             symptomsHe={route.symptomsHe}
             photoPromptHe={photoPromptFor(route.serviceId)}
+            voiceExampleHe={pilotServiceById[route.serviceId]?.symptomsHe[0] ?? null}
             /* No problem questions before calling (Amit, 2026-09-29): words, a recording, a photo. */
             priceList={priceListFor(route.serviceId).map((r) => ({ id: r.id, nameHe: r.nameHe, amountHe: formatMoney(money(r.amountMinorUnits, "ILS")) }))}
             pickedIds={pickedIdsFor(route.serviceId)}
@@ -2980,7 +2984,7 @@ const go = useCallback((r: CustomerRoute) => {
                 ? {
                     valueHe: destinationHe,
                     onChange: setDestinationHe,
-                    placeholderHe: route.serviceId === "svc-towing" ? "למשל: מוסך בבני ברק, או הבית" : "למשל: רחוב הרצל 10, קומה 2",
+                    placeholderHe: route.serviceId === "svc-towing" ? "למשל: מוסך בבני ברק, או הבית" : route.serviceId === "svc-courier" ? "למשל: רחוב הרצל 10, תל אביב" : "למשל: רחוב הרצל 10, קומה 2",
                   }
                 : null
             }
@@ -3166,7 +3170,7 @@ const go = useCallback((r: CustomerRoute) => {
             /* The city we built behind the search, not the old plate — the
                street itself, the same for every trade. */
             backdrop={route.phase === "ASSIGNED_ROUTE" ? (
-              <RouteCity serviceId={route.serviceId} etaSeconds={(etaMin ?? 14) * 60} startedAtMs={tripStartedAt} moving />
+              <RouteCity serviceId={route.serviceId} etaSeconds={(etaMin ?? 14) * 60} startedAtMs={tripStartedAt} moving proFirstNameHe={(cands[pick % cands.length]?.displayNameHe ?? "").split(" ")[0] || null} />
             ) : (
               <SearchCity
                 dept={departmentCodeByServiceId[route.serviceId] ?? null}
@@ -3256,7 +3260,7 @@ const go = useCallback((r: CustomerRoute) => {
                       ? { amount: otherQuote.amount, notesHe: "" }
                       : null;
                 return q
-                  ? `ההצעה של ${first}: ${formatMoney(money(q.amount, "ILS"))}${q.notesHe ? ` · ${q.notesHe}` : ""} · מאושר בכרטיס ועובר אליו אחרי שתאשרו שהעבודה הושלמה`
+                  ? `ההצעה של ${first}: ${formatMoney(money(q.amount, "ILS"))}${q.notesHe ? ` · ${q.notesHe}` : ""} · מאושר בכרטיס ועובר ל${first} אחרי שתאשרו שהעבודה הושלמה`
                   : FEMALE_FIGURE.has(shopOf(pick))
                     ? `${first} מסתכלת על התמונות והפרטים ושולחת מחיר…`
                     : `${first} מסתכל על התמונות והפרטים ושולח מחיר…`;
@@ -3267,16 +3271,21 @@ const go = useCallback((r: CustomerRoute) => {
               const base =
                 chosen?.amountMinorUnits ??
                 own ??
-                (pm === "VISIT_QUOTE" ? page.price.visitFeeMinorUnits : pm === "FIXED" ? page.price.fixedTotalMinorUnits : pm === "HOURLY" ? page.price.hourlyRateMinorUnits : null) ??
+                (pm === "VISIT_QUOTE" ? page.price.visitFeeMinorUnits : pm === "FIXED" ? page.price.fixedTotalMinorUnits : pm === "HOURLY" ? page.price.hourlyRateMinorUnits : pm === "DISTANCE_TIME" ? deliveryFare(page.price) : null) ??
                 null;
               if (base === null || base === undefined) return null;
               const { amountMinorUnits, surchargePercent } = withAfterHours(base, isDemoPro ? proPrices.afterHoursPct : null, new Date());
               const amt = formatMoney(money(amountMinorUnits, "ILS"));
               const extra = surchargePercent > 0 ? ` · כולל תוספת לילה/שבת ${surchargePercent}%` : "";
               return pm === "FIXED"
-                ? `המחיר של ${first}${chosen ? ` · ${chosen.namesHe}` : ""}: ${amt}${extra} · מאושר בכרטיס ועובר אליו אחרי שתאשרו שהעבודה הושלמה`
+                ? `המחיר של ${first}${chosen ? ` · ${chosen.namesHe}` : ""}: ${amt}${extra} · מאושר בכרטיס ועובר ל${first} אחרי שתאשרו שהעבודה הושלמה`
                 : pm === "HOURLY"
                   ? `התעריף של ${first}: ${amt} לשעה${extra}`
+                  : pm === "DISTANCE_TIME"
+                    ? (() => {
+                        const fare = deliveryFare(page.price);
+                        return fare ? `המחיר של ${first}: ${formatMoney(money(fare, "ILS"))} · לפי כ־${PREVIEW_DELIVERY_KM} ק״מ עד היעד` : null;
+                      })()
                   : pm === "VISIT_QUOTE"
                     ? `${visitTermsHe({ id: route.serviceId }).feeHe} של ${first}: ${amt}${extra} · זה כל מה שמשולם באפליקציה`
                     : null;
@@ -3378,6 +3387,10 @@ const go = useCallback((r: CustomerRoute) => {
           />
           {onTheWayAt ? (
             <OnTheWay
+              homeUri={(() => {
+                const c = avatarById(avatar);
+                return c ? ((art?.[c.portraitAssetId] as { uri?: string } | undefined)?.uri ?? null) : null;
+              })()}
               shop={shopOf(pick)}
               vehicle={fleetTradeFor(route.serviceId)}
               proName={namesFor(pick)}
@@ -3541,7 +3554,7 @@ const go = useCallback((r: CustomerRoute) => {
             /* On his way: the drive in our street. At the door: the street. */
             backdrop={
               (route.stage === "assigned" || route.stage === "enroute") && trackedService.id ? (
-                <RouteCity serviceId={trackedService.id} etaSeconds={matchFixture.eta?.etaSeconds ?? 840} startedAtMs={tripStartedAt} moving />
+                <RouteCity serviceId={trackedService.id} etaSeconds={matchFixture.eta?.etaSeconds ?? 840} startedAtMs={tripStartedAt} moving proFirstNameHe={trackedProfessional.displayName.split(" ")[0] || null} />
               ) : (
                 <StreetScene />
               )
@@ -3672,6 +3685,11 @@ const go = useCallback((r: CustomerRoute) => {
             professionalFemale={FEMALE_NAMES_HE.has(trackedProfessional.displayName.split(" ")[0] ?? "")}
             money={{
               terms: trackedService.id ? visitTermsHe({ id: trackedService.id }) : undefined,
+              kind: trackedService.id && pilotServiceById[trackedService.id] ? pricingKindOf(pilotServiceById[trackedService.id]!) : undefined,
+              hourlyRateHe:
+                trackedService.price?.priceModel === "HOURLY" && trackedService.price.hourlyRateMinorUnits
+                  ? formatMoney(money((trackedService.id ? proPrices.byService[trackedService.id] : null) ?? trackedService.price.hourlyRateMinorUnits, "ILS"))
+                  : null,
               /* The demo professional's own fee when he set one — the same figure the receipt charges. */
               visitFeeHe: diagnosisFee !== null ? formatMoney(money(diagnosisFee, "ILS")) : null,
               fixedTotalHe:
@@ -3878,6 +3896,11 @@ const go = useCallback((r: CustomerRoute) => {
       case "complete":
         return (
           <JobCompleteBody
+            titleHe={(() => {
+              const def = trackedService.id ? pilotServiceById[trackedService.id] : undefined;
+              const k = def ? pricingKindOf(def) : null;
+              return k === "VISIT" ? "הביקור הסתיים" : k === "DISTANCE" ? "המשלוח נמסר" : "העבודה הושלמה";
+            })()}
             serviceNameHe={trackedService.nameHe}
             mark={trackedService.mark}
             professionalDisplayName={trackedProfessional.displayName}
@@ -3893,9 +3916,12 @@ const go = useCallback((r: CustomerRoute) => {
                 ? approvedLines.map((l) => ({ id: l.id, labelHe: l.descriptionHe, amountMinorUnits: l.totalMinorUnits }))
                 : diagnosisFee !== null
                   ? [{ id: "visit", labelHe: `${visitTermsHe({ id: trackedService.id ?? "" }).feeHe} · את ${visitTermsHe({ id: trackedService.id ?? "" }).workHe} סוגרים ישירות מול המקצוען`, amountMinorUnits: diagnosisFee }]
-                  : receiptLines
+                  : /* A real visit never falls back to the layout fixture's plumbing lines. */
+                    trackedService.id
+                    ? []
+                    : receiptLines
             }
-            totalChargedMinorUnits={approvedTotalMinor ?? diagnosisFee ?? 44500}
+            totalChargedMinorUnits={approvedTotalMinor ?? diagnosisFee ?? (trackedService.id ? 0 : 44500)}
             paymentMethodLabelHe="ויזה · 4417"
             // The rating travels with the navigation, so the closing
             // screen can speak about what they actually left rather than
@@ -3922,7 +3948,7 @@ const go = useCallback((r: CustomerRoute) => {
              * the fallback for a deep link that lands here with no visit
              * behind it, which is how this screen is usually reviewed.
              */
-            totalChargedMinorUnits={approvedTotalMinor ?? 44500}
+            totalChargedMinorUnits={approvedTotalMinor ?? diagnosisFee ?? 44500}
             /*
              * And what the money bought, in the professional's own
              * words — the lines of the quote that was approved. Null
@@ -4212,7 +4238,7 @@ const go = useCallback((r: CustomerRoute) => {
       {groundSwitch}
       <AppHeader
         width={width}
-        greetingHe="שלום"
+        greetingHe={null}
         /*
          * THE FACE THE CUSTOMER CHOSE, IN THE ONE PLACE THEY LOOK FOR
          * THEMSELVES.
@@ -4678,7 +4704,7 @@ function ProApp({
    * has gone to the trouble of being approved for a service wants it on.
    */
   const [armed, setArmed] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(proServices.map((s) => [s.id, s.enabled && !s.blockedReasonHe]))
+    Object.fromEntries(DEFAULT_PRO_SERVICES.map((s) => [s.id, s.enabled && !s.blockedReasonHe]))
   );
 
   /*
@@ -4779,6 +4805,27 @@ function ProApp({
    * not change under the professional's hands while the ring counts down.
    */
   const [takenRequest, setTakenRequest] = useState<LiveRequest | null>(kept?.takenRequest ?? null);
+  /*
+   * HIS OWN TRADE'S SERVICES. The demo professional is whoever the call went
+   * to — the hairdresser for a haircut, the tow driver for a tow — so his
+   * shift lists that trade's services, not the plumbing list every trade
+   * used to show (copy review, 2026-09-29). The call's own service is one he
+   * is verified for; that is how he could be sent it.
+   */
+  const tradeServiceId = takenRequest?.serviceId ?? request?.serviceId ?? null;
+  /* Whoever took the call is the figure in that trade's first shop — the same rule the customer's cards use. */
+  const proIsFemale = (() => {
+    if (!tradeServiceId) return false;
+    const d = departmentCodeByServiceId[tradeServiceId] ?? "";
+    return FEMALE_FIGURE.has((DEPT_SHOPS[d] ?? [DEPT_SHOP[d] ?? "home"])[0]!);
+  })();
+  const proServices = useMemo(() => {
+    if (!tradeServiceId) return DEFAULT_PRO_SERVICES;
+    const category = categoryNameByServiceId[tradeServiceId];
+    const ids = Object.keys(categoryNameByServiceId).filter((id) => categoryNameByServiceId[id] === category);
+    const own = pilotServiceById[tradeServiceId]?.requiredCredentials ?? [];
+    return togglesFor([...new Set([...DEMO_VERIFIED, ...own])], ids);
+  }, [tradeServiceId]);
   /**
    * Which credential's own page is open, if any. An id rather than the
    * step itself, so the list stays the single source of what each step
@@ -5121,6 +5168,11 @@ function ProApp({
         nameHe: "לפי ההצעה שאושרה",
       };
     }
+    if (id && pm === "DISTANCE_TIME") {
+      const fare = deliveryFare(SERVICE_PAGES[id]?.price ?? {});
+      if (!fare) return null;
+      return { amount: fare, labelHe: `${formatMoney(money(fare, "ILS"))} · לפי מרחק`, nameHe: `משלוח · כ־${PREVIEW_DELIVERY_KM} ק״מ` };
+    }
     if (!id || (pm !== "FIXED" && pm !== "HOURLY")) return null;
     if (pm === "FIXED") {
       if (!proOrder) return null;
@@ -5163,7 +5215,13 @@ function ProApp({
        * decision (/CLAUDE.md §4), so nothing is deducted here: the number
        * the professional sees is the approved total.
        */
-      const payout = approvedTotal ?? 13400;
+      /* What this job actually was: the approved or agreed amount, or — for a visit — the visit fee. */
+      const payout =
+        approvedTotal ??
+        ((takenRequest?.priceModel ?? "VISIT_QUOTE") === "VISIT_QUOTE" && !takenRequest?.quoteFirst
+          ? ownVisitFee ?? SERVICE_PAGES[takenRequest?.serviceId ?? "svc-leak"]?.price?.visitFeeMinorUnits ?? null
+          : proOrder?.amountMinorUnits ?? agreedStart?.amount ?? null) ??
+        0;
       setShiftNet((n) => n + payout);
       setShiftJobs((n) => n + 1);
       setSettled(payout);
@@ -5386,6 +5444,7 @@ function ProApp({
      */
     ) : proView === "quote" ? (
       <ProQuoteBuilderBody
+        simple={Boolean(takenRequest?.quoteFirst)}
         /* This trade's rows, never the demo account's plumbing list on a tow. */
         priceList={
           takenRequest
@@ -5512,11 +5571,9 @@ function ProApp({
         usualUpToMinorUnits={48000}
         usualSampleSize={14}
         payoutMinorUnits={
-          (takenRequest?.priceModel ?? "VISIT_QUOTE") === "VISIT_QUOTE" && approvedTotal === null
-            ? ownVisitFee ?? SERVICE_PAGES["svc-leak"]?.price?.visitFeeMinorUnits ?? null
-            : job === "DIAGNOSIS" || job === "WAITING_QUOTE_APPROVAL"
-              ? null
-              : approvedTotal ?? proOrder?.amountMinorUnits ?? 13400
+          (takenRequest?.priceModel ?? "VISIT_QUOTE") === "VISIT_QUOTE" && approvedTotal === null && !takenRequest?.quoteFirst
+            ? ownVisitFee ?? SERVICE_PAGES[takenRequest?.serviceId ?? "svc-leak"]?.price?.visitFeeMinorUnits ?? null
+            : approvedTotal ?? proOrder?.amountMinorUnits ?? agreedStart?.amount ?? null
         }
         payoutIsEstimate={false}
         onAdvance={advanceJob}
@@ -5524,6 +5581,8 @@ function ProApp({
         /* Work priced only once somebody looks: the visit is the job in the app (Amit, 2026-09-29). */
         diagnosisOnly={(takenRequest?.priceModel ?? "VISIT_QUOTE") === "VISIT_QUOTE" && !takenRequest?.quoteFirst}
         visitTerms={visitTermsHe({ id: takenRequest?.serviceId ?? "svc-leak" })}
+        kind={takenRequest && pilotServiceById[takenRequest.serviceId] ? pricingKindOf(pilotServiceById[takenRequest.serviceId]!) : "VISIT"}
+        proFemale={proIsFemale}
         onFinishDiagnosis={() => setJob("COMPLETION_PENDING")}
         onStartAgreed={
           agreedStart
@@ -5718,6 +5777,7 @@ function ProApp({
       {offer ? (
         <RiseIn key={offerAt ?? 0} width={width} height={height}>
           <ProOfferBody
+            proFemale={proIsFemale}
             offer={offer}
             nowMs={now}
             quoteFirst={takenRequest?.quoteFirst ? { destinationHe: takenRequest.destinationHe ?? null } : null}
@@ -6115,7 +6175,7 @@ function DemoBar({
   label,
   onPress,
   width,
-  dark = false,
+  dark: _dark = false,
 }: {
   label: string;
   onPress: () => void;
@@ -6129,14 +6189,16 @@ function DemoBar({
       accessibilityLabel={`הדגמה: ${label}`}
       style={({ pressed }) => [
         styles.demoBar,
-        { width, backgroundColor: dark ? "#2E2640" : "#E8E2DC" },
+        { width, backgroundColor: "#1B1426" },
         pressed && { opacity: 0.85 },
       ]}
     >
-      <Text style={[styles.demoBarHint, { color: dark ? "#A79FB3" : "#5A5266" }]}>
+      <Text style={[styles.demoBarHint, { color: "#9C92AE" }]}>
         הדגמה — לא חלק מהאפליקציה
       </Text>
-      <Text style={[styles.demoBarText, { color: dark ? "#F7F3FA" : "#17121F" }]}>▸ {label}</Text>
+      <Text style={[styles.demoBarText, { color: "#F7F3FA" }]} numberOfLines={2}>
+        ▸ {label}
+      </Text>
     </Pressable>
   );
 }
@@ -6377,8 +6439,10 @@ const styles = StyleSheet.create({
     height: DEMO_H,
     alignItems: "center",
     justifyContent: "center",
+    paddingHorizontal: 16,
     borderTopWidth: 1,
-    borderTopColor: "rgba(128,120,140,0.35)",
+    borderStyle: "dashed",
+    borderTopColor: "rgba(185,160,230,0.45)",
   },
   sheetBody: {
     ...t.body,
@@ -6448,7 +6512,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
 
-  demoBarText: { ...t.bodyStrong, fontSize: scale.body, color: "#FFFFFF", writingDirection: "rtl" },
+  demoBarText: { ...t.bodyStrong, fontSize: scale.meta, color: "#FFFFFF", writingDirection: "rtl", textAlign: "center" },
   demoBarHint: { ...t.caption, fontSize: scale.micro, color: "rgba(255,255,255,0.65)", writingDirection: "rtl" },
 
   bar: {
@@ -6725,8 +6789,10 @@ const OTW_CSS = `
 `;
 /* The trades whose van is drawn from the side; the rest drive the PRO NOW van. */
 const SIDE_DRAWN = new Set(["appliance", "beauty", "clean", "courier", "electric", "tech", "tow", "vet", "well"]);
-function OnTheWay({ shop, proName, etaMinutes, onSiteNameHe = null, vehicle = null, onDone }: { shop: string; proName: string; etaMinutes: number; onSiteNameHe?: string | null; vehicle?: string | null; onDone: () => void }) {
+function OnTheWay({ shop, proName, etaMinutes, onSiteNameHe = null, vehicle = null, homeUri = null, onDone }: { shop: string; proName: string; etaMinutes: number; onSiteNameHe?: string | null; vehicle?: string | null; homeUri?: string | null; onDone: () => void }) {
   const shopId = shop;
+  const she = FEMALE_NAMES_HE.has(proName);
+  const g = (m: string, f: string) => (she ? f : m);
   /* Once, on arrival: the host re-renders every second (the ETA clock),
      and a timer keyed on a fresh callback would never get to fire. */
   const done = useRef(onDone);
@@ -6736,7 +6802,7 @@ function OnTheWay({ shop, proName, etaMinutes, onSiteNameHe = null, vehicle = nu
     return () => clearTimeout(t);
   }, []);
   return (
-    <div onClick={onDone} role="button" aria-label="המקצוען בדרך — המשך" style={{ position: "absolute", inset: 0, zIndex: 50, background: "radial-gradient(120% 80% at 50% 30%, rgba(80,40,90,.96), rgba(12,8,18,.98))", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", animation: "pnOtwIn .35s ease both", direction: "rtl", cursor: "pointer" }}>
+    <div onClick={onDone} role="button" aria-label="המקצוען בדרך — המשך" style={{ position: "absolute", inset: 0, zIndex: 50, background: "radial-gradient(120% 80% at 50% 30%, #50285a, #0c0812 72%)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", animation: "pnOtwIn .35s ease both", direction: "rtl", cursor: "pointer" }}>
       <style>{OTW_CSS}</style>
       <div style={{ position: "relative", width: 150, height: 150, animation: "pnOtwPulse 1.6s ease-in-out infinite" }}>
         <svg width="150" height="150" viewBox="0 0 100 100" style={{ position: "absolute", inset: 0, transform: "rotate(-90deg)" }}>
@@ -6745,18 +6811,20 @@ function OnTheWay({ shop, proName, etaMinutes, onSiteNameHe = null, vehicle = nu
         </svg>
         <img src={`./world/character_${shopId}_icon.webp`} alt="" style={{ position: "absolute", left: 25, top: 18, width: 100, height: 112, objectFit: "contain" }} />
       </div>
-      <div style={{ marginTop: 18, color: "#fff", fontSize: scale.title, fontWeight: 900, animation: "pnOtwCard .6s .1s both" }}>{onSiteNameHe ? `${proName} יצא אל ${onSiteNameHe.replace(/ \(תצוגה\)$/, "")}!` : `${proName} יצא אליך!`}</div>
-      <div style={{ marginTop: 6, color: "#FF9A6B", fontSize: scale.body, fontWeight: 800, animation: "pnOtwCard .6s .2s both" }}>מגיע בעוד {etaMinutes} דק׳</div>
+      <div style={{ marginTop: 18, color: "#fff", fontSize: scale.title, fontWeight: 900, animation: "pnOtwCard .6s .1s both" }}>{onSiteNameHe ? `${proName} ${g("יצא", "יצאה")} אל ${onSiteNameHe.replace(/ \(תצוגה\)$/, "")}!` : `${proName} ${g("יצא", "יצאה")} אליך!`}</div>
+      <div style={{ marginTop: 6, color: "#FF9A6B", fontSize: scale.body, fontWeight: 800, animation: "pnOtwCard .6s .2s both" }}>{g("מגיע", "מגיעה")} בעוד {etaMinutes} דק׳</div>
       <div style={{ position: "relative", width: "86%", height: 120, marginTop: 26, animation: "pnOtwCard .6s .3s both" }}>
         <div style={{ position: "absolute", left: "8%", right: "8%", top: 76, height: 6, borderRadius: 3, backgroundImage: "linear-gradient(90deg, rgba(255,154,107,.9) 50%, transparent 50%)", backgroundSize: "20px 6px", animation: "pnOtwDash .6s linear infinite" }} />
         <img src={`./world/m/shop_${shopId}.webp`} alt="" style={{ position: "absolute", right: 0, top: 0, width: 88, height: 88, objectFit: "contain" }} />
-        <div style={{ position: "absolute", left: 0, top: 22, width: 64, height: 64, borderRadius: 16, background: "rgba(255,255,255,.1)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: scale.title }}>⌂</div>
+        <div style={{ position: "absolute", left: 0, top: 22, width: 64, height: 64, borderRadius: 32, overflow: "hidden", background: "rgba(255,255,255,.1)", border: "2px solid #FF9A6B", boxShadow: "0 0 18px rgba(255,107,74,.5)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: scale.title }}>
+          {homeUri ? <img src={homeUri} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : "⌂"}
+        </div>
         {/* From his shop (right) to your home (left), nose first. */}
         <img src={vehicle && SIDE_DRAWN.has(vehicle) ? `./world/pn_${vehicle}_side.webp` : "./world/m/van_side.webp"} onError={(e) => { e.currentTarget.src = "./world/m/van_side.webp"; }} alt="" style={{ position: "absolute", top: 42, height: 44, animation: "pnOtwVan 5s cubic-bezier(.4,0,.2,1) both" }} />
-        <div style={{ position: "absolute", right: 4, top: 96, color: "rgba(247,243,250,.7)", fontSize: scale.micro }}>החנות שלו</div>
+        <div style={{ position: "absolute", right: 4, top: 96, color: "rgba(247,243,250,.7)", fontSize: scale.micro }}>{g("החנות שלו", "החנות שלה")}</div>
         <div style={{ position: "absolute", left: 8, top: 96, color: "rgba(247,243,250,.7)", fontSize: scale.micro }}>{onSiteNameHe ? `אצל ${onSiteNameHe.split(" ")[0]}` : "הבית שלך"}</div>
       </div>
-      <div style={{ marginTop: 22, color: "rgba(247,243,250,.75)", fontSize: scale.meta, animation: "pnOtwCard .6s .5s both" }}>{onSiteNameHe ? `${onSiteNameHe.split(" ")[0]} קיבל הודעה עם הפרטים שלו וקוד לדלת` : "אפשר לעקוב אחריו על המפה בכל רגע"}</div>
+      <div style={{ marginTop: 22, color: "rgba(247,243,250,.75)", fontSize: scale.meta, animation: "pnOtwCard .6s .5s both" }}>{onSiteNameHe ? `ל${onSiteNameHe.split(" ")[0]} נשלחה הודעה עם הפרטים וקוד לדלת` : g("אפשר לעקוב אחריו בכל רגע", "אפשר לעקוב אחריה בכל רגע")}</div>
     </div>
   );
 }
@@ -6851,7 +6919,7 @@ export function fleetTradeFor(serviceId: string): string {
  * where you live, a camera behind it. Progress is the share of the ETA
  * that has passed — derived from the clock every second, so it moves.
  */
-function RouteCity({ serviceId, etaSeconds, startedAtMs, moving }: { serviceId: string; etaSeconds: number; startedAtMs: number | null; moving: boolean }) {
+function RouteCity({ serviceId, etaSeconds, startedAtMs, moving, proFirstNameHe = null }: { serviceId: string; etaSeconds: number; startedAtMs: number | null; moving: boolean; proFirstNameHe?: string | null }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 500);
@@ -6862,7 +6930,19 @@ function RouteCity({ serviceId, etaSeconds, startedAtMs, moving }: { serviceId: 
   const progress = moving && startedAtMs ? Math.min(0.97, (now - startedAtMs) / 1000 / Math.max(60, etaSeconds)) : 0;
   return (
     <div aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden", background: "#120d1a" }}>
-      <City hud={false} route={{ shopId, trade: fleetTradeFor(serviceId), progress, moving }} />
+      {/* The street as a still until the first frame is drawn — never an empty sky. */}
+      <img src="./world/splash_city.webp" alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", filter: "brightness(.8)" }} />
+      <City
+        hud={false}
+        route={{
+          shopId,
+          trade: fleetTradeFor(serviceId),
+          progress,
+          moving,
+          labelHe: proFirstNameHe ? `${proFirstNameHe} · ${Math.max(1, Math.ceil(((startedAtMs ?? now) + etaSeconds * 1000 - now) / 60000))} דק׳` : undefined,
+          photoUri: `./world/character_${shopId}_icon.webp`,
+        }}
+      />
     </div>
   );
 }

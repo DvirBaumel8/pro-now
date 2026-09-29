@@ -15,7 +15,7 @@ const press = async (re) => {
 const txt = async () => (await p.evaluate(() => document.body.innerText)).replace(/\s+/g, ' ');
 const steps = []; let shotN = 0;
 const SHOTS = process.env.SHOTS || null;
-const snap = async (name) => { if (SHOTS) { await p.waitForTimeout(700); await p.screenshot({ path: `out/j_${SHOTS}_${String(++shotN).padStart(2, '0')}_${name.replace(/[^a-z0-9]+/gi, '_')}.png` }); } };
+const snap = async (name) => { if (SHOTS) { const fs = await import('fs'); fs.appendFileSync('out/copy_'+SHOTS+'.txt', '\n=== '+String(shotN+1).padStart(2,'0')+' '+name+' ===\n' + (await p.evaluate(() => document.body.innerText)) + '\n'); await p.waitForTimeout(700); await p.screenshot({ path: `out/j_${SHOTS}_${String(++shotN).padStart(2, '0')}_${name.replace(/[^a-z0-9]+/gi, '_')}.png` }); } };
 const need = async (re, name) => { const r = await press(re); steps.push((r ? '✓ ' : '✗ ') + name); if (!r) throw new Error('stuck at ' + name + ' :: ' + (await txt()).slice(0, 160)); await snap(name); return r; };
 try {
   await p.goto('http://127.0.0.1:4421/?time=night'); await p.locator('text=אני צריך מקצוען').first().waitFor();
@@ -39,12 +39,8 @@ try {
     await need(/^מקצוען$/, '→ pro');
     await p.locator('text=תן הצעת מחיר').first().waitFor({ timeout: 20000 }).catch(() => {});
     await need(/^תן הצעת מחיר/, 'pro opens price form');
-    const simple = p.getByLabel('המחיר ללקוח בשקלים');
-    if (await simple.count()) { await simple.first().fill('450'); }
-    else {
-      const qd = p.getByPlaceholder(/מה נעשה/); if (await qd.count()) await qd.first().fill('גרירה / עבודה לפי התמונות');
-      const qp = p.locator('input').nth(2); if (await qp.count()) { const v = await qp.inputValue().catch(() => ''); if (!v || v === '0') await qp.fill('450'); }
-    }
+    const qd = p.getByPlaceholder(/מה נעשה/); if (await qd.count()) await qd.first().fill('גרירה / עבודה לפי התמונות');
+    const qp = p.locator('input').nth(2); if (await qp.count()) { const v = await qp.inputValue().catch(() => ''); if (!v || v === '0') await qp.fill('450'); }
     await need(/^שליחה ללקוח/, 'send price');
     t = await txt(); steps.push(/ההצעה נשלחה/.test(t) ? '✓ pro waits' : '✗ pro waits?');
     await need(/^לקוח$/, '→ customer');
