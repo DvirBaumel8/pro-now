@@ -1,6 +1,6 @@
 # 21 — Production Plan: from demo to a live web app
 
-Status: **APPROVED 2026-09-29** (decisions in §5). W0 done; W1 next. Written after reading the
+Status: **APPROVED 2026-09-29** (decisions in §5). W0 and W1 done; W1.5 next. Written after reading the
 code as it stands at `53ed69f`.
 
 ## 0. Framing
@@ -149,7 +149,7 @@ docs → commit → report. Sizes are relative (S/M/L), not dates.
 - **Acceptance:** `docker compose up && npm run dev` gives a working stack,
   and CI is green on a PR.
 
-### W1 — Accounts and authorization (L)
+### W1 — Accounts and authorization (L) — **DONE 2026-09-29** (report: `docs/reports/W1.md`)
 **Decided 2026-09-29 (Dvir):**
 - **A. The bearer JWT and the phone OTP are removed completely**, along with
   `jsonwebtoken`. Cookie sessions from Better Auth are the only way to

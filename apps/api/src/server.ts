@@ -22,6 +22,7 @@ import proReputationRoutes from "./routes/pro-reputation";
 import proServicesRoutes from "./routes/pro-services";
 import quotesRoutes from "./routes/quotes";
 import reviewsRoutes from "./routes/reviews";
+import meRoutes from "./routes/me";
 import { registerJobSocket } from "./realtime/job-socket";
 
 declare module "fastify" {
@@ -131,6 +132,7 @@ export async function buildServer(opts: { logger?: boolean } = {}) {
   await app.register(proServicesRoutes);
   await app.register(quotesRoutes);
   await app.register(reviewsRoutes);
+  await app.register(meRoutes);
 
   registerJobSocket(app);
 

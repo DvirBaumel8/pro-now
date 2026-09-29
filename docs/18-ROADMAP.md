@@ -92,6 +92,15 @@ Everywhere one of these matters, the codebase exposes an interface + a
 labeled sandbox adapter + an `app_config`/roadmap TODO — never a guessed
 answer.
 
+### TBD — how long a deleted account's records are kept (asked 2026-09-29, W1)
+"Delete my account" (`DELETE /v1/me`) erases the person's identifiers at
+once: email, name, phone, photo, addresses, and a professional's names.
+It also removes every way to sign in. What it keeps is the records other
+people depend on: jobs, payments and reviews, pointing at the anonymised
+user. **Open:** how long those are kept, and whether a review's free text
+is erased with the account. This needs a legal and tax answer (invoice
+retention in Israel), not a code one. Until it is decided they are kept.
+
 ### TBD — which catalogue is the product's service list (asked 2026-09-22)
 
 There are two, and they do not know about each other.

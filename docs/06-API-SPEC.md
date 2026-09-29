@@ -24,6 +24,8 @@ POST /api/auth/sign-in/social             { provider: "google", callbackURL } �
 GET  /api/auth/callback/google            → sets the session cookie, redirects
 GET  /api/auth/get-session                → { user, session } | null
 POST /api/auth/sign-out
+POST /api/auth/revoke-sessions           → signs the person out everywhere
+DELETE /v1/me                             → delete my account: soft delete + anonymisation; 409 ACTIVE_JOB during a job
 GET  /v1/catalog                      (market-filtered department/category/service tree)
 POST /v1/jobs                         (idempotent create; triggers dispatch)
 GET  /v1/jobs/:id
@@ -85,6 +87,7 @@ wrong-person case and a right-person case.
 | `POST /v1/jobs/:id/quotes`, `GET /v1/pro/jobs/:id` | PROFESSIONAL | the job's assigned professional |
 | `POST /v1/offers/:id/accept`, `/skip` | PROFESSIONAL | The offer's professional. Skip works only on a live offer (CREATED/SENT/VIEWED), otherwise 409. |
 | `/v1/pro/*` (shifts, location, earnings, verification, offers/current, services, reputation) | PROFESSIONAL | the caller's own profile; `shifts/:id/end` also checks the shift is theirs |
+| `DELETE /v1/me` | signed in | the caller's own account |
 | `WS /v1/ws/jobs/:id` | signed in | the job's customer or its assigned professional; otherwise closed with 4404 |
 
 Admin reads come with the admin API (W8). Until then no route bypasses
