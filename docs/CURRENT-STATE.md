@@ -69,6 +69,10 @@ Screenshots go to `qa/out/`.
 - `node shops.mjs <x> <z> <name>` walks up to a shop, enters, and opens its menu. `shopcheck.mjs` also takes the street and interior shots.
 - `onsite.mjs` covers the "order for someone else" flow, `price.mjs` / `price_flow.mjs` check that the price follows the answers, and `search.mjs` checks free-text search.
 - `allreqs.mjs` lists every file the app requests. Use it before a publish to decide what must be uploaded.
+- `crawl.mjs` presses every button on every reachable screen (`MAX=600 WORKERS=3`) and writes `out/results.json`.
+  On 2026-09-29: 600 presses, 83 screens, 0 errors. The "dead" ones were file pickers, and sheets that are intentionally modal.
+- `media.mjs` checks that photos and a voice note reach the professional. `deny.mjs` covers recording without mic permission and the menu toggle. `protabs.mjs` covers the pro tabs.
+- `SHOTS=<tag> node pp_all.mjs …` takes a screenshot at every step. `python3 sheet.py <tag>` turns them into a contact sheet.
 
 **Publishing to the artifact**
 - Build, then publish `tools/design-preview/dist/index.html` to the URL above with `root` = the `dist` folder and a `files` map.

@@ -4131,7 +4131,8 @@ const go = useCallback((r: CustomerRoute) => {
          * אותי ישר לקריאות שלי."* Three lines that go to one screen is a
          * small broken promise on the busiest chrome in the app.
          */
-        onMenu={() => goTab("menu")}
+        /* The same button closes it again — the way every menu behaves. */
+        onMenu={() => (tab === "menu" ? back({ name: "home" }) : goTab("menu"))}
         onAccount={() => goTab("card")}
         trailing={
           <Pressable
