@@ -236,6 +236,26 @@ docs → commit → report. Sizes are relative (S/M/L), not dates.
   - The IDOR suite passes.
   - Cookie flags are checked by a test.
 
+### W1.5 — Stack refresh (S/M) — added 2026-09-29 (Dvir)
+The product is 1–3 majors behind, and Fastify 4 is past end of life. This
+epic runs after W1, so its IDOR and auth suites guard the upgrade, and
+before W2, so the web app is built once, on current versions. One upgrade
+per commit. Each commit gets full CI plus `verify:journey`.
+- **Fastify 4 → 5** (`@fastify/cors` → 11, `@fastify/websocket` → 11).
+- **`apps/api` to ESM** (`"type": "module"`), which retires the
+  `module: node20` workaround from W1.
+- **React 18 → 19, and react-native-web 0.19 → 0.21**, in the product
+  packages only. The demo keeps its own copies (docs/22).
+- **Prisma 5 → 7** (driver adapter, no Rust engine). Fall back to 6 if 7
+  costs more than the epic's size.
+- **zod 3 → 4** in `packages/validation`, since Better Auth already
+  brings in zod 4.
+- **Vitest 2 → current.**
+- Out of scope: Expo/RN (Phase 3 sets the mobile apps up fresh), and the
+  Next.js admin, which folds into `apps/web` (D7).
+- **Acceptance:** CI green, `verify:journey` all steps, `db:verify`, and
+  no behaviour change visible in the integration suite.
+
 ### W2 — Web app shell (M)
 - `apps/web`: Vite, react-native-web, react-router, TanStack Query and
   `packages/api-client`.
