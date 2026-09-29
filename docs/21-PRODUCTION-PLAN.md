@@ -343,6 +343,16 @@ per commit. Each commit gets full CI plus `verify:journey`.
   reloads and stays signed in. Lighthouse PWA "installable" passes.
 
 ### W3 — Location and addresses (M)
+**Decided 2026-09-29 (Dvir):**
+- **A. No map-pin step.** The demo's flow stays: "my location now" or a
+  typed address, then "אישור הכתובת". The product shows the reverse-geocoded
+  street where the demo shows raw coordinates, and geocodes a typed
+  address on confirm. A pin step comes back only as its own decision (or
+  through the demo first).
+- **B. "For someone else" is shown disabled until W6.** Per the demo's own
+  rule it belongs to one order, not to an address, and a third party's
+  phone is stored with the order.
+
 - `GeocodingProvider` interface in `packages/types/providers`, with two
   adapters:
   - **Nominatim** (real; `User-Agent` and contact email set; at most
