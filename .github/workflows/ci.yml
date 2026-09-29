@@ -1,5 +1,9 @@
-# Runs on every push and pull request (/docs/16-DEPLOYMENT.md §CI).
+# Runs on every pull request and every push to master (/docs/16-DEPLOYMENT.md §CI).
 # Free for this repository within GitHub's monthly Actions minutes.
+#
+# `CI passed` at the bottom is the ONE required status check on master
+# (docs/22-WORKING-MODEL.md §2). Add a job to its `needs` and it becomes
+# required too; no branch-protection change is needed.
 name: CI
 
 on:
@@ -72,8 +76,22 @@ jobs:
       GOOGLE_CLIENT_ID: pronow-local
       GOOGLE_CLIENT_SECRET: pronow-local-secret
       GOOGLE_ISSUER_URL: http://localhost:8089/google
+      # S3 stand-in for the media tests (SeaweedFS, as in docker-compose.yml).
+      S3_ENDPOINT: http://localhost:8333
+      S3_REGION: us-east-1
+      S3_BUCKET: pronow-media
+      S3_ACCESS_KEY_ID: pronow_local
+      S3_SECRET_ACCESS_KEY: pronow_local_only_secret
     steps:
       - uses: actions/checkout@v4
+      # Not a `services:` entry: SeaweedFS needs a command and a mounted
+      # config, which service containers cannot take.
+      - name: Start S3 stand-in
+        run: |
+          docker run -d --name s3 -p 8333:8333 \
+            -v "$PWD/infra/local/seaweedfs-s3.json:/etc/seaweedfs/s3.json:ro" \
+            chrislusf/seaweedfs:4.48 \
+            server -dir=/data -s3 -s3.port=8333 -s3.config=/etc/seaweedfs/s3.json
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -90,6 +108,15 @@ jobs:
       # extension.)
       - run: npm run db:drift
       - run: npm run verify:rowlock
+      - name: Create the media bucket
+        run: |
+          for i in $(seq 1 60); do curl -sf -o /dev/null http://localhost:8333/healthz && break; sleep 1; done
+          for i in $(seq 1 20); do
+            docker exec s3 sh -c "echo 's3.bucket.create -name pronow-media' | weed shell -master=localhost:9333" || true
+            docker exec s3 sh -c "echo 's3.bucket.list' | weed shell -master=localhost:9333" | grep -q pronow-media && exit 0
+            sleep 2
+          done
+          echo "S3 bucket was never created" && exit 1
       # Route-level tests: every plugin and route against a throwaway, migrated database.
       - run: npm run test:int
       - run: pip install psycopg2-binary && npm run db:verify
@@ -145,3 +172,19 @@ jobs:
           name: playwright-report
           path: apps/web/playwright-report
           retention-days: 7
+
+  # The single required check for merging into master. It passes only when
+  # every job above passed; a skipped or cancelled job counts as a failure.
+  gate:
+    name: CI passed
+    if: always()
+    needs: [checks, database, e2e]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Every required job succeeded
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "job results: $RESULTS"
+          for r in $RESULTS; do [ "$r" = "success" ] || exit 1; done

@@ -84,7 +84,13 @@ Must:
   `IdentityVerificationProvider`, `ExternalReputationProvider`,
   `MapsRoutingProvider`, `NotificationProvider`).
 
+- Work on a branch in your own git worktree, and land it through a pull
+  request with auto-merge (`/docs/22-WORKING-MODEL.md §2`). Several sessions
+  share this repository; the main checkout is not yours.
+
 Must NOT:
+- Commit or push to `master` directly, merge a PR whose `CI passed` check is
+  not green, or edit files in a worktree another session is using.
 - Rewrite architecture casually or add microservices/Kubernetes for MVP.
 - Hard-code secrets, or commit `.env`.
 - Skip a migration.

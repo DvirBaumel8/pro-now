@@ -19,17 +19,72 @@ new rule, that is product input. The product is not a copy of the demo. It
 implements what the demo shows on a real server, with real auth and data,
 and it keeps the invariants in `CLAUDE.md`.
 
-## 2. Branching
+## 2. Branching: one branch and one PR per change, merged only on green CI
 
-Both of us commit **directly to `master`**. Before committing, run
-`git pull --rebase`. Keep commits small, and give each one a single
-purpose.
+**DECIDED 2026-09-29 by Dvir; replaces "everyone commits to `master`".**
+Several agent sessions work in this repository at once, and two of them
+once edited the same file in the same working tree. So every change now
+goes through its own branch and a pull request. `master` only receives
+PRs whose CI is green.
 
-Because the two tracks touch disjoint paths (§3), rebases almost never
-conflict. Only a few files are shared: the root `package.json`,
-`package-lock.json`, `docs/18-ROADMAP.md`, `docs/CURRENT-STATE.md` and
-`CLAUDE.md`. Resolve conflicts in those by hand. Never resolve them with
-`--ours` or `--theirs`.
+### The loop, for every session (human or agent)
+
+1. **Own worktree, own branch, from fresh `master`.** Never work in the main
+   checkout while another session might be using it.
+   ```bash
+   git fetch origin
+   git worktree add -b <type>/<short-topic> ../pro-now-wt/<short-topic> origin/master
+   cd ../pro-now-wt/<short-topic> && npm ci && npm run db:generate -w apps/api
+   ```
+   `<type>` is one of `feat`, `fix`, `ci`, `docs`, `chore`, `demo`. Example:
+   `fix/web-dist-path`. A Claude Code session can use its built-in worktree
+   support instead.
+2. **Work and check locally**: `npm run lint`, `npm run typecheck`,
+   `npm test`, plus `npm run test:int` / `npm run test:e2e` when the change
+   touches the API or the web app.
+3. **Open the PR and queue it to merge.** Push the branch, open the PR, and
+   turn on auto-merge:
+   ```bash
+   git push -u origin HEAD
+   gh pr create --fill --base master
+   gh pr merge --auto --squash --delete-branch
+   ```
+   The PR merges by itself when CI turns green. It is squashed, so each
+   change is one commit on `master`.
+4. **If CI fails**: read it with `gh pr checks` and `gh run view --log-failed`,
+   fix it on the same branch, and push. Never merge around a red check, and
+   never weaken a test to get green (CLAUDE.md §6).
+5. **If the PR falls behind `master`**, because another PR merged first: run
+   `gh pr update-branch` (or `git rebase origin/master` and force-push the
+   branch). CI runs again. `master` requires a branch that is up to date
+   with it, so a PR is always tested against what it will actually land on.
+6. **Clean up after the merge**:
+   `git worktree remove ../pro-now-wt/<short-topic>`.
+
+Keep PRs small and single-purpose. A small PR merges quickly, and a quick
+merge leaves other sessions little time to conflict with it. Only a few
+files are shared across tracks: the root `package.json`, `package-lock.json`,
+`docs/18-ROADMAP.md`, `docs/CURRENT-STATE.md` and `CLAUDE.md`. Resolve
+conflicts in them by hand. Never resolve them with `--ours` or `--theirs`.
+
+### What CI checks (`.github/workflows/ci.yml`)
+
+| Job | What |
+|---|---|
+| Lint, typecheck, unit tests | `npm run lint` (with the type-scale, demo-isolation and navigation checks), `typecheck`, `npm test` in every workspace, `verify:domain`, and both builds (demo and web app) |
+| Migrations and row lock | migrations on a fresh Postgres + PostGIS, `db:drift`, `verify:rowlock`, `test:int` (every route against a real database, with Mailpit, the mock OIDC server and S3), `db:verify` |
+| End-to-end | Playwright on WebKit (iPhone 15) and Chromium against the real server |
+| **CI passed** | the one **required** check: green only when all of the above are |
+
+### How it is enforced
+
+- The GitHub ruleset on `master` requires a pull request and a green `CI passed`
+  on an up-to-date branch. It forbids force-pushes and deletion. Nobody
+  bypasses it. A repository admin applies it once with
+  `bash scripts/setup-branch-protection.sh`. The script also turns on
+  auto-merge, squash-only merges and branch deletion after merge.
+- Render deploys a `master` commit only after its checks pass
+  (`autoDeployTrigger: checksPass` in `render.yaml`).
 
 ## 3. No shared code
 

@@ -222,9 +222,17 @@ set it up: `docs/23-OBSERVABILITY.md`. Still open: whether production keeps
 these vendors, and how long error data is kept (part of the data-retention
 decision above).
 
+### DECIDED 2026-09-29 (Dvir) — one branch and one PR per change; master merges only on green CI
+Several agent sessions work at once, so no session commits to `master`
+anymore. Each change gets its own worktree and branch, and lands as a PR
+with auto-merge. `master` accepts a PR only when the `CI passed` check is
+green on a branch that is up to date with it. Render deploys only green
+commits. The procedure is in `docs/22-WORKING-MODEL.md §2`; the admin
+applies the ruleset with `scripts/setup-branch-protection.sh`.
+
 ### DECIDED 2026-09-29 — the demo and the product are separate tracks
 Amit works on the demo (`tools/design-preview`). Dvir works on the product
-(`apps/*`, `packages/*`). Both commit to `master`. The two share no code:
+(`apps/*`, `packages/*`). Both land changes through pull requests (next entry). The two share no code:
 the demo has its own forked copies in `tools/design-preview/lib/{ui,types}`,
 and `npm run lint` enforces the split. The product catches up with the demo
 on request, starting from the marker in `docs/DEMO-SYNC.md`. The full model
