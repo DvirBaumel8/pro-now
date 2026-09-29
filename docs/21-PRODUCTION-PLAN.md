@@ -1,6 +1,6 @@
 # 21 — Production Plan: from demo to a live web app
 
-Status: **APPROVED 2026-09-29** (decisions in §5). W0–W5 done (W5 with voice-to-text deferred); W6 next. Written after reading the
+Status: **APPROVED 2026-09-29** (decisions in §5). W0–W6 done (W5 with voice-to-text deferred; W6 with the professional acting through the API until W7); W7 next. Written after reading the
 code as it stands at `53ed69f`.
 
 ## 0. Framing
@@ -485,6 +485,12 @@ still open.
   failing sentences from 2026-09-29 pass.
 
 ### W6 — Customer flow on real data (L)
+
+**DONE 2026-09-30** (report: `docs/reports/W6.md`, QA: `docs/qa/W6.md`).
+Built under D1 (no money in the app, `IN_APP_PAYMENTS=off`). Left out:
+"priced before dispatch" (a demo catch-up), and the professional in a
+second browser (W7).
+
 - Catalogue, then describe (text / photo / voice), then intake answers,
   then the price shown, all calculated on the server by the existing
   pricing adapters.

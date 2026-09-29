@@ -1141,14 +1141,17 @@ export function TrackingBody({
         </View>
 
         {/* Contact. No phone number crosses this boundary. */}
-        <View style={styles.actions}>
-          <Act labelHe="שיחה" onPress={onCall} />
-          <Act labelHe="הודעה" onPress={onMessage} />
-          <Act labelHe="בטיחות" onPress={onSafety} danger />
-        </View>
+        {onCall || onMessage || onSafety ? (
+          <View style={styles.actions}>
+            <Act labelHe="שיחה" onPress={onCall} />
+            <Act labelHe="הודעה" onPress={onMessage} />
+            <Act labelHe="בטיחות" onPress={onSafety} danger />
+          </View>
+        ) : null}
 
         {moneyLineHe ? <Text style={styles.price}>{moneyLineHe}</Text> : null}
-        <Text style={styles.masked}>המספרים מוסתרים משני הצדדים</Text>
+        {/* Only where calling or messaging exists: then the numbers really are masked. */}
+        {onCall || onMessage ? <Text style={styles.masked}>המספרים מוסתרים משני הצדדים</Text> : null}
 
         {/* ----------------------------------------------------------------
             THE PAID STREET, LAST.
@@ -1181,6 +1184,8 @@ function Act({
   onPress?: () => void;
   danger?: boolean;
 }) {
+  // A button that does nothing is a promise the screen cannot keep.
+  if (!onPress) return null;
   return (
     <Pressable
       onPress={onPress}
