@@ -169,14 +169,21 @@ export function ArrivalPromise({
         */}
       {showClock ? (
         <>
-          <Text style={styles.clock}>{arrivalClockHe}</Text>
-          <Text style={styles.clockLabel}>
-            {typeof minutesAway === "number"
-              ? late
-                ? `בעוד ${minutesAway} דקות`
-                : `בעוד ${minutesAway} דקות · הגעה משוערת`
-              : "זמן ההגעה"}
-          </Text>
+          {/* Minutes lead, the clock time beneath — the same order as the
+              waiting screen, so the two never read differently (design review). */}
+          {typeof minutesAway === "number" ? (
+            <>
+              <Text style={styles.clock} accessibilityLabel={`עוד ${minutesAway} דקות`}>
+                {minutesAway} דק׳
+              </Text>
+              <Text style={styles.clockLabel}>{`הגעה בשעה ${arrivalClockHe}${late ? "" : " · משוער"}`}</Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.clock}>{arrivalClockHe}</Text>
+              <Text style={styles.clockLabel}>זמן ההגעה</Text>
+            </>
+          )}
         </>
       ) : null}
 

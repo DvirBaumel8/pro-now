@@ -166,7 +166,7 @@ export function ProSequence({ width, height }: { width: number; height: number }
       {step < 3 ? (
         <ProOnlineBody
           presenceState={presence}
-          displayNameHe="דוגמה ד׳ (תצוגה)"
+          displayNameHe="דוגמה ד׳"
           todayNetMinorUnits={step === 0 ? 0 : step === 1 ? null : 48200}
           todayJobCount={step === 2 ? 3 : 0}
           services={proServices}

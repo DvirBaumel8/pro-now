@@ -4,7 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-
 import { formatMoney, money } from "@pro-now/types";
 
 import { BackButton } from "../components/BackButton";
-import { customerTheme, elevation, radii, scale, spacing, tabular, tint, type } from "../theme";
+import { customerDarkTheme, elevation, radii, scale, spacing, tabular, tint, type } from "../theme";
 import { Mark, type MarkName, StarMark } from "../components/marks";
 import { RingedAvatar, SectionHeader, Surface } from "../components/surfaces";
 
@@ -27,7 +27,7 @@ import { RingedAvatar, SectionHeader, Surface } from "../components/surfaces";
  * Nothing here is pre-filled: no default star count, no suggested text.
  */
 
-const colors = customerTheme.colors;
+const colors = customerDarkTheme.colors;
 
 export interface ReceiptLine {
   id: string;

@@ -124,6 +124,7 @@ export interface LivingMapSceneProps {
   liveEta?: Omit<LiveEtaCardProps, "width" | "topInset" | "onSafety" | "onBack"> | null;
   onStroll?: () => void;
   strollFrames?: string[];
+  strollShopUris?: string[];
   onLeaveWait?: () => void;
   /**
    * The city behind the search, when the host can play it — a short film
@@ -326,6 +327,7 @@ export function LivingMapScene({
   liveEta = null,
   onStroll,
   strollFrames,
+  strollShopUris,
   onLeaveWait,
   worldSources,
   discoveries,
@@ -1914,6 +1916,7 @@ export function LivingMapScene({
           proFirstNameHe={liveEta.proFirstNameHe}
           female={liveEta.female}
           frames={strollFrames}
+          shopUris={strollShopUris}
           onPress={onStroll}
           width={width}
           bottom={Math.round(height * SHEET_SHARE) + spacing.xl + 8}

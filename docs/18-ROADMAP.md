@@ -295,9 +295,19 @@ hairdressers or a plumbing receipt; the pro's shift lists his own trade; the pai
 promise nobody made); plural address to the customer; one-amount price form for
 priced-before-dispatch work; the service page no longer asks for words twice.
 
-**Open for Amit:** the "(תצוגה)" suffix on example professionals' names. The design review
-asked to remove it ("feels like a prototype"); the project's honesty rule (CLAUDE.md §3)
-put it there so example people are never read as real. Kept until Amit decides.
+**DECIDED (Amit, 2026-09-29): "(תצוגה)" is removed from example professionals' names.**
+"תסמוך על העובדים… חד משמעית מסכים איתם." The preview declares itself a demonstration
+in the demo bar ("הדגמה — לא חלק מהאפליקציה") and on the welcome, not inside every
+sentence that names somebody. Nothing changes for production: real professionals are the
+server's, and no example person ever reaches it. The example street plan says "מפת הדגמה"
+once, readably, instead of a faint repeated watermark.
+
+**DECIDED (Amit, 2026-09-29): two screens, two maps.** The main waiting screen is the 3D
+street with his van driving home (`RouteCity`); "לעקוב אחרי …" is the street plan with the
+vehicle on its route — framed so the vehicle AND the home are both on screen, a glowing
+route, a pulsing "הבית שלך" pin, a "יוסי · 14 דק׳" chip — and no toggle between them.
+Minutes lead on both. The stroll invitation is a live window: our shopfronts sliding past,
+the customer's own character walking, a glowing "כניסה".
 
 ### BUILT 2026-09-28 (preview) — ordering for someone else, including the door
 

@@ -22,7 +22,7 @@ export const matchFixture: JobMatchView = {
   serviceNameHe: "תיקון נזילה בברז",
   professional: {
     id: "pro_preview_1",
-    displayName: "יוסי (תצוגה)",
+    displayName: "יוסי",
     profilePhotoUrl: null,
     verifications: ["IDENTITY_VERIFIED", "BUSINESS_VERIFIED", "LICENSE_VERIFIED"],
     proNowCompletedJobs: 342,
@@ -56,7 +56,7 @@ export const matchNewProFixture: JobMatchView = {
   professional: {
     ...matchFixture.professional,
     id: "pro_preview_2",
-    displayName: "דוגמה ב׳ (תצוגה)",
+    displayName: "דוגמה ב׳",
     verifications: ["IDENTITY_VERIFIED"],
     proNowCompletedJobs: 0,
     proNowRatingAverage: null,
@@ -84,7 +84,7 @@ export const matchPendingEtaFixture: JobMatchView = {
   professional: {
     ...matchFixture.professional,
     id: "pro_preview_3",
-    displayName: "דוגמה ג׳ (תצוגה)",
+    displayName: "דוגמה ג׳",
     verifications: ["IDENTITY_VERIFIED", "CREDENTIALS_CHECKED"],
     proNowCompletedJobs: 1,
     proNowRatingAverage: 5,

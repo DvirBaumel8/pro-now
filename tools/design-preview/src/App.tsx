@@ -2182,9 +2182,10 @@ const go = useCallback((r: CustomerRoute) => {
 
   /* Following the professional is the real map, with his vehicle on the
      route — Amit: *"מפת מעקב אחרי המקצוען, רק לראות איפה הוא ברכב שלו."* */
-  /* Following him is the drive, in our street — no second map to switch to. */
+  /* Following him is the real map with his vehicle on the route (Amit, 2026-09-29:
+     the 3D drive belongs to the waiting screen only). */
   const followPro = useCallback(() => {
-    if (realMap) onToggleRealMap();
+    if (!realMap) onToggleRealMap();
     go({ name: "tracking", stage: "enroute" });
   }, [realMap, onToggleRealMap, go]);
 
@@ -2618,7 +2619,7 @@ const go = useCallback((r: CustomerRoute) => {
     if (tab === "card") {
       return (
         <CustomerProfileBody
-          displayNameHe="אמית (תצוגה)"
+          displayNameHe="אמית"
           seed="cust_demo_1"
           homeAreaLabelHe={availabilitySnapshot.areaLabel}
           paymentLabelHe="ויזה · 4417"
@@ -3096,7 +3097,7 @@ const go = useCallback((r: CustomerRoute) => {
           (FEMALE_FIGURE.has(shopOf(i)) ? [...FEMALE_NAMES_HE] : ["יוסי", "איתי", "רון"])[i % 3]!;
         const cands: CandidatePresence[] = demoCandidatesFor(route.serviceId, 3).map((c, i) => ({
           candidateId: `demo-cand-${i}`,
-          displayNameHe: `${namesFor(i)} (תצוגה)`,
+          displayNameHe: `${namesFor(i)}`,
           professionHe: c.headlineHe,
           /* The trade's own drawn professional, so the card has a face. */
           photoUri: `./world/character_${shopOf(i)}_icon.webp`,
@@ -3199,6 +3200,7 @@ const go = useCallback((r: CustomerRoute) => {
             }
             onStroll={() => strollDoor?.()}
             strollFrames={Array.from({ length: 8 }, (_, i) => `./world/avatar_amit_walk_0${i + 1}.webp`)}
+            strollShopUris={["hair", "pets", "home", "lust", "auto", "care", "vet", "build"].map((id) => `./world/m/shop_${id}.webp`)}
 
             worldSources={art}
             /*
@@ -3551,18 +3553,12 @@ const go = useCallback((r: CustomerRoute) => {
         return (
           <TrackingBody
             /* Our street behind the visit; the clock opens the real map. */
-            /* On his way: the drive in our street. At the door: the street. */
-            backdrop={
-              (route.stage === "assigned" || route.stage === "enroute") && trackedService.id ? (
-                <RouteCity serviceId={trackedService.id} etaSeconds={matchFixture.eta?.etaSeconds ?? 840} startedAtMs={tripStartedAt} moving proFirstNameHe={trackedProfessional.displayName.split(" ")[0] || null} />
-              ) : (
-                <StreetScene />
-              )
-            }
+            backdrop={<StreetScene />}
+            /* The follow screen is the real map only — no toggle back to the city. */
             onOpenRealMap={undefined}
             /* The trade's own figure, in the work scene while he is in the home. */
             proFigureUri={`./world/character_${DEPT_SHOP[departmentCodeByServiceId[trackedService.id ?? ""] ?? ""] ?? "home"}_icon.webp`}
-            geo={null}
+            geo={geo}
             status={
               route.stage === "assigned"
                 ? "PRO_ASSIGNED"
@@ -3904,6 +3900,7 @@ const go = useCallback((r: CustomerRoute) => {
             serviceNameHe={trackedService.nameHe}
             mark={trackedService.mark}
             professionalDisplayName={trackedProfessional.displayName}
+            professionalPhotoUrl={trackedProfessional.profilePhotoUrl ?? null}
             whenHe={visitWhenHe}
             /*
              * The receipt is the quote that was approved on this visit —
@@ -5360,7 +5357,7 @@ function ProApp({
   ) : proView === "chat" ? (
     <ChatBody
       side="pro"
-      counterpartNameHe="אמית (תצוגה)"
+      counterpartNameHe="אמית"
       counterpartSeed="cust_demo_1"
       jobTitleHe={takenRequest?.serviceNameHe ?? "העבודה"}
       jobOpen
@@ -5412,7 +5409,7 @@ function ProApp({
       />
     ) : (
     <ProVerificationBody
-      displayNameHe={selfNameHe ?? "יוסי (תצוגה)"}
+      displayNameHe={selfNameHe ?? "יוסי"}
       steps={verificationSteps}
       services={proEligibility}
       onOpenStep={(id) => setOpenStepId(id)}
@@ -5536,7 +5533,7 @@ function ProApp({
         accessNoteHe={takenRequest?.addressHe ? takenRequest.addressHe.split(" · ").slice(1).join(" · ") || null : "קומה 3, דירה 9 · קוד כניסה 1408"}
         routeEtaMinutes={9}
         distanceHe="2.4 ק״מ"
-        customerNameHe="אמית (תצוגה)"
+        customerNameHe="אמית"
         onSiteContactNameHe={takenRequest?.onSiteNameHe ?? null}
         doorCodeHe={DOOR_CODE}
         customerSeed="cust_demo_1"
@@ -5642,7 +5639,7 @@ function ProApp({
        */
       <ProOnlineBody
         presenceState={presence}
-        displayNameHe={selfNameHe ?? "יוסי (תצוגה)"}
+        displayNameHe={selfNameHe ?? "יוסי"}
         todayNetMinorUnits={presence === "AVAILABLE" ? 48200 : 0}
         todayJobCount={presence === "AVAILABLE" ? 3 : 0}
         services={proServices}
@@ -5688,7 +5685,7 @@ function ProApp({
         /* The professional's city is ours, not the old plate. */
         backdrop={<CityHero />}
         geo={proGeo}
-        displayNameHe={selfNameHe ?? "יוסי (תצוגה)"}
+        displayNameHe={selfNameHe ?? "יוסי"}
         presenceState={presence}
         shift={{
           onlineSinceMs: onlineSince,

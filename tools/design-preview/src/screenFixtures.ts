@@ -177,7 +177,7 @@ export const profileReviews: ProProfileReviewItem[] = [
     rating: 5,
     textHe: "הגיע תוך רבע שעה, הסביר מה הבעיה לפני שנגע במשהו, וסגר אחריו הכול.",
     whenHe: "לפני שבועיים",
-    reviewerLabelHe: "ד׳ (תצוגה)",
+    reviewerLabelHe: "ד׳",
     serviceNameHe: "תיקון נזילה",
   },
   {
@@ -185,7 +185,7 @@ export const profileReviews: ProProfileReviewItem[] = [
     rating: 4,
     textHe: null,
     whenHe: "לפני חודש",
-    reviewerLabelHe: "מ׳ (תצוגה)",
+    reviewerLabelHe: "מ׳",
     serviceNameHe: "פתיחת סתימות",
   },
 ];
@@ -349,14 +349,14 @@ export const availabilitySnapshot: AreaAvailabilityView = {
  * for a person even if their display name changes.
  */
 export const cast = [
-  { id: "pro_1", nameHe: "דוגמה א׳ (תצוגה)", trade: "אינסטלציה" },
-  { id: "pro_2", nameHe: "דוגמה ב׳ (תצוגה)", trade: "חשמל" },
-  { id: "pro_3", nameHe: "דוגמה ג׳ (תצוגה)", trade: "מיזוג" },
-  { id: "pro_4", nameHe: "דוגמה ד׳ (תצוגה)", trade: "מנעולנות" },
-  { id: "pro_5", nameHe: "דוגמה ה׳ (תצוגה)", trade: "הובלות" },
-  { id: "pro_6", nameHe: "דוגמה ו׳ (תצוגה)", trade: "צביעה" },
-  { id: "pro_7", nameHe: "דוגמה ז׳ (תצוגה)", trade: "אינסטלציה" },
-  { id: "pro_8", nameHe: "דוגמה ח׳ (תצוגה)", trade: "חשמל" },
+  { id: "pro_1", nameHe: "דוגמה א׳", trade: "אינסטלציה" },
+  { id: "pro_2", nameHe: "דוגמה ב׳", trade: "חשמל" },
+  { id: "pro_3", nameHe: "דוגמה ג׳", trade: "מיזוג" },
+  { id: "pro_4", nameHe: "דוגמה ד׳", trade: "מנעולנות" },
+  { id: "pro_5", nameHe: "דוגמה ה׳", trade: "הובלות" },
+  { id: "pro_6", nameHe: "דוגמה ו׳", trade: "צביעה" },
+  { id: "pro_7", nameHe: "דוגמה ז׳", trade: "אינסטלציה" },
+  { id: "pro_8", nameHe: "דוגמה ח׳", trade: "חשמל" },
 ];
 
 export const castSeeds = cast.map((c) => c.id);
@@ -436,7 +436,7 @@ export const savedAddresses: SavedAddress[] = [
     id: "addr_grandpa",
     labelHe: "אצל סבא",
     formattedHe: "רמת גן · קומה 1, דירה 4",
-    forSomeoneElseNameHe: "סבא יוסף (תצוגה)",
+    forSomeoneElseNameHe: "סבא יוסף",
   },
 ];
 

@@ -74,6 +74,7 @@ export interface SearchingBodyProps {
   liveEta?: LivingMapSceneProps["liveEta"];
   onStroll?: () => void;
   strollFrames?: string[];
+  strollShopUris?: string[];
   onLeaveWait?: () => void;
   onOpenOnSite?: () => void;
   acceptLabelHe?: string;
@@ -168,6 +169,7 @@ export function SearchingBody({
   liveEta = null,
   onStroll,
   strollFrames,
+  strollShopUris,
   onLeaveWait,
   onOpenOnSite,
   acceptLabelHe,
@@ -247,6 +249,7 @@ export function SearchingBody({
         liveEta={liveEta}
         onStroll={onStroll}
         strollFrames={strollFrames}
+        strollShopUris={strollShopUris}
         onLeaveWait={onLeaveWait}
         onOpenOnSite={onOpenOnSite}
         acceptLabelHe={acceptLabelHe}

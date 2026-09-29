@@ -61,6 +61,10 @@ try {
   await p.mouse.wheel(0, -900);
   const f = await press(/^(עקוב אחרי|לעקוב אחרי)/); await p.waitForTimeout(3000); await p.screenshot({ path: `out/w_${W}_follow.png` });
   await p.mouse.move(195, 600); await p.mouse.wheel(0, 900); await p.waitForTimeout(800); await p.screenshot({ path: `out/w_${W}_follow_scroll.png` });
+  /* Pull the sheet down by its handle, the way a thumb does. */
+  const grab = await p.evaluate(() => { const els = [...document.querySelectorAll('div')].filter((d) => { const r = d.getBoundingClientRect(); return r.width > 30 && r.width < 60 && r.height > 3 && r.height < 7; }); const r = els.length ? els[els.length - 1].getBoundingClientRect() : null; return r ? { x: r.x + r.width / 2, y: r.y + 3 } : null; });
+  if (grab) { await p.mouse.move(grab.x, grab.y); await p.mouse.down(); await p.mouse.move(grab.x, grab.y + 420, { steps: 12 }); await p.mouse.up(); await p.waitForTimeout(1200); }
+  await p.screenshot({ path: `out/w_${W}_follow_fold.png` });
   (await import('node:fs')).writeFileSync(`out/reqs_${W}.json`, JSON.stringify([...REQS].sort()));
   console.log('OK', f, errs.join(' | '));
 } catch (e) { console.log('FAIL', String(e).slice(0, 300), steps.join(' ')); }

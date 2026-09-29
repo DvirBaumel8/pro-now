@@ -699,8 +699,9 @@ export function TrackingBody({
                          */
                         /* Amit: *"רק לראות איפה הוא ברכב שלו על המפה."*
                            The vehicle is the subject of the tracking map,
-                           so the camera stays on it. */
-                        return at;
+                           so the camera stays on it — and on a street plan it
+                           frames the way home too (2026-09-29). */
+                        return geo ? { u: (at.u + CUSTOMER_POINT.u) / 2, v: (at.v + CUSTOMER_POINT.v) / 2 } : at;
                       })()
               }
               /*
@@ -713,7 +714,15 @@ export function TrackingBody({
                * direction of travel are all in the same picture, which is
                * the only thing that makes movement legible.
                */
-              zoom={worldZoomFor("ROUTE")}
+              zoom={(() => {
+                const z = worldZoomFor("ROUTE");
+                if (!geo || tripProgress === null || atWork) return z;
+                const at = roadPath
+                  ? alongRoute({ path: roadPath.path, drive: roadPath.path, metres: roadPath.metres }, tripProgress).at
+                  : routeAt((departmentCode as never) ?? "HOME_URGENT", tripProgress).at;
+                const d = Math.max(Math.abs(at.u - CUSTOMER_POINT.u), Math.abs(at.v - CUSTOMER_POINT.v) * 1.3, 0.02);
+                return Math.max(worldZoomFor("WIDE"), Math.min(z, (worldZoomFor("WIDE") * 0.62) / d));
+              })()}
             >
               {/*
                 * THE ROUTE AND THE VEHICLE, INSIDE THE WORLD.
@@ -753,6 +762,7 @@ export function TrackingBody({
                    * kitchen is referred to once the job is theirs.
                    */
                   travellerLabelHe={professional.displayName.split(/\s+/)[0] ?? undefined}
+                  travellerMinutes={etaDisplay && etaDisplay.unit.includes("דק") ? Number(etaDisplay.value) : null}
                   sources={worldSources}
                   animate={animate}
                   /*
@@ -796,6 +806,12 @@ export function TrackingBody({
         ) : (
           <RealMapSurface assigned={assigned} width={width} height={mapH} tone="dark" geo={geo} />
         )}
+        {/* A street plan that is not a real place says so once, readably (2026-09-29). */}
+        {geo && !geo.real && !ON_SITE.includes(status) ? (
+          <View style={styles.demoMapTag} pointerEvents="none">
+            <Text style={styles.demoMapTagText}>מפת הדגמה</Text>
+          </View>
+        ) : null}
       </View>
 
       {/*
@@ -1176,6 +1192,8 @@ function Act({
 }
 
 const styles = StyleSheet.create({
+  demoMapTag: { position: "absolute", left: 12, top: 74, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, backgroundColor: "rgba(14,10,20,0.75)", borderWidth: 1, borderColor: "rgba(247,243,250,0.18)" },
+  demoMapTagText: { color: "rgba(247,243,250,0.85)", fontSize: scale.micro, fontWeight: "700", writingDirection: "rtl" },
   onSite: {
     flexDirection: "row-reverse",
     alignItems: "center",

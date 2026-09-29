@@ -2,7 +2,7 @@ import React from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { BackButton } from "../components/BackButton";
-import { customerTheme, radii, spacing, type } from "../theme";
+import { customerDarkTheme, radii, spacing, type } from "../theme";
 
 /**
  * THE MENU BEHIND THE THREE LINES.
@@ -57,7 +57,7 @@ export function AppMenuBody({
   width = 390,
   height = 780,
 }: AppMenuBodyProps) {
-  const colors = customerTheme.colors;
+  const colors = customerDarkTheme.colors;
   const live = groups
     .map((g) => ({ ...g, items: g.items.filter((i) => i.onPress) }))
     .filter((g) => g.items.length > 0);

@@ -1270,11 +1270,7 @@ export function GeoPlate({
 
       {!geo.real ? (
         <View style={StyleSheet.absoluteFill} pointerEvents="none">
-          {watermarkRows(height).map((y) => (
-            <Text key={`fx${y}`} style={[styles.watermark, { top: y }]}>
-              שכונת בדיקה · לא מקום אמיתי
-            </Text>
-          ))}
+          {/* Said once and readably, by the screen that shows the map (TrackingBody). */}
         </View>
       ) : null}
 
@@ -1285,31 +1281,6 @@ export function GeoPlate({
       ) : null}
     </View>
   );
-}
-
-/**
- * Where the fixture watermark repeats — in POINTS, not in the plate's
- * coordinate space.
- *
- * Two wrong versions before this one, and they were wrong in opposite
- * directions. A pill in the corner could be panned off screen, so the
- * picture of nowhere went unlabelled exactly while somebody was looking at
- * it. Text inside the SVG could not be panned away from, but it is drawn
- * in the plate's own space — and the plate is laid out at world size, two
- * and a half thousand points across, so nine units of type came out as
- * headline-sized orange Hebrew that buried the city it was captioning.
- *
- * A warning that cannot be seen past is as useless as one that can be
- * scrolled away. Points, tiled: eleven-point type every 190 points of
- * world, which is a couple of rows per screen at any zoom and legible at
- * none of them for longer than a glance.
- */
-const WATERMARK_STEP = 190;
-
-function watermarkRows(heightPoints: number): number[] {
-  const rows: number[] = [];
-  for (let y = 60; y < heightPoints; y += WATERMARK_STEP) rows.push(y);
-  return rows;
 }
 
 /**
@@ -1371,6 +1342,8 @@ function kerbWorld(plan: WorldPlan): number {
 }
 
 const styles = StyleSheet.create({
+  demoTag: { position: "absolute", left: 10, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, backgroundColor: "rgba(14,10,20,0.72)", borderWidth: 1, borderColor: "rgba(247,243,250,0.18)" },
+  demoTagText: { color: "rgba(247,243,250,0.85)", fontSize: scale.micro, fontWeight: "700", writingDirection: "rtl" },
   watermark: {
     position: "absolute",
     left: 0,

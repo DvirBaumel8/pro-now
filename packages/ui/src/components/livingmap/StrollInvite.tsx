@@ -4,56 +4,103 @@ import { Animated, Easing, Image, Pressable, StyleSheet, Text, View } from "reac
 import { scale, spacing } from "../../theme";
 
 /**
- * THE INVITATION TO WALK WHILE YOU WAIT.
- *
- * Amit: *"משהו מאוד מושך שיגרום למישהו לעבור בינתיים לטייל בעולם שלנו בזמן
- * ההמתנה."* The customer's own character walks in place on a glowing card —
- * the walk cycle from the city itself — and the card says what happens if you
- * go: you walk the street, and you are told the moment he is close.
+ * ---------------------------------------------------------------------
+ * A WINDOW INTO THE CITY, NOT A BUTTON ABOUT IT
+ * ---------------------------------------------------------------------
+ * Amit: *"צריך משהו יותר מגניב וחדשני לדבר הזה — המסר עובר אבל לא מספיק."*
+ * The invitation is the city itself, moving: our shopfronts slide past in
+ * the dusk, the customer's own character walks along them, and one glowing
+ * door says "כניסה לעיר". It shows what you get before you tap — a street
+ * to walk while he is on the way — and says you will be called back.
  */
 export interface StrollInviteProps {
   proFirstNameHe: string;
   female?: boolean;
-  /** The walk cycle's frames, in order. Absent: the card still invites, without the figure. */
+  /** The walk cycle's frames, in order. */
   frames?: string[];
+  /** Our shopfronts, for the street that slides past behind the walker. */
+  shopUris?: string[];
   onPress: () => void;
   bottom: number;
   width: number;
 }
 
-export function StrollInvite({ proFirstNameHe, female = false, frames = [], onPress, bottom, width }: StrollInviteProps) {
+const SHOP_W = 104;
+
+export function StrollInvite({ proFirstNameHe, female = false, frames = [], shopUris = [], onPress, bottom, width }: StrollInviteProps) {
   const [f, setF] = useState(0);
   useEffect(() => {
     if (frames.length < 2) return;
-    const t = setInterval(() => setF((x) => (x + 1) % frames.length), 110);
+    const t = setInterval(() => setF((x) => (x + 1) % frames.length), 105);
     return () => clearInterval(t);
   }, [frames.length]);
-  const shine = useRef(new Animated.Value(0)).current;
+
+  const street = useRef(new Animated.Value(0)).current;
+  const glow = useRef(new Animated.Value(0)).current;
+  const rowW = Math.max(1, shopUris.length) * SHOP_W;
   useEffect(() => {
-    const a = Animated.loop(Animated.timing(shine, { toValue: 1, duration: 2600, easing: Easing.inOut(Easing.cubic), useNativeDriver: true }));
+    const a = Animated.loop(Animated.timing(street, { toValue: 1, duration: Math.max(6000, shopUris.length * 2600), easing: Easing.linear, useNativeDriver: true }));
+    const b = Animated.loop(
+      Animated.sequence([
+        Animated.timing(glow, { toValue: 1, duration: 1200, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+        Animated.timing(glow, { toValue: 0, duration: 1200, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+      ])
+    );
     a.start();
-    return () => a.stop();
-  }, [shine]);
+    b.start();
+    return () => {
+      a.stop();
+      b.stop();
+    };
+  }, [street, glow, shopUris.length]);
+
   const w = width - spacing.lg * 2;
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`לטייל בעיר בזמן ש${proFirstNameHe} בדרך`}
+      accessibilityLabel={`כניסה לעיר שלנו — לטייל בזמן ש${proFirstNameHe} בדרך. נקרא לכם כש${female ? "היא מתקרבת" : "הוא מתקרב"}.`}
       style={({ pressed }) => [styles.card, { bottom, width: w }, pressed && { transform: [{ scale: 0.98 }] }]}
     >
-      <Animated.View
-        pointerEvents="none"
-        style={[styles.sheen, { transform: [{ translateX: shine.interpolate({ inputRange: [0, 1], outputRange: [-w, w] }) }, { skewX: "-20deg" }] }]}
-      />
-      <View style={styles.figureWell}>
-        {frames.length > 0 ? <Image source={{ uri: frames[f] }} style={styles.figure} resizeMode="contain" /> : <Text style={styles.star}>✦</Text>}
+      {/* The street, sliding right-to-left: you are walking up it. */}
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <View style={styles.sky} />
+        {shopUris.length > 0 ? (
+          <Animated.View
+            style={[
+              styles.shopsRow,
+              { width: rowW * 2, transform: [{ translateX: street.interpolate({ inputRange: [0, 1], outputRange: [-rowW, 0] }) }] },
+            ]}
+          >
+            {[...shopUris, ...shopUris].map((u, i) => (
+              <Image key={`${u}-${i}`} source={{ uri: u }} style={styles.shop} resizeMode="contain" />
+            ))}
+          </Animated.View>
+        ) : null}
+        <View style={styles.pavement} />
+        <View style={styles.fadeTop} />
       </View>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.title}>בזמן ש{proFirstNameHe} בדרך — טיול בעיר שלנו</Text>
+
+      {/* The customer, walking. */}
+      {frames.length > 0 ? (
+        <View style={styles.walker} pointerEvents="none">
+          <View style={styles.walkerShadow} />
+          <Image source={{ uri: frames[f] }} style={styles.walkerImg} resizeMode="contain" />
+        </View>
+      ) : null}
+
+      <View style={styles.copy} pointerEvents="none">
+        <Text style={styles.kicker}>בזמן ש{proFirstNameHe} בדרך</Text>
+        <Text style={styles.title}>טיול בעיר שלנו</Text>
         <Text style={styles.sub}>{female ? "נקרא לכם כשהיא מתקרבת" : "נקרא לכם כשהוא מתקרב"}</Text>
       </View>
-      <Text style={styles.go}>‹</Text>
+
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.door, { shadowOpacity: glow.interpolate({ inputRange: [0, 1], outputRange: [0.35, 0.9] }) as unknown as number, transform: [{ scale: glow.interpolate({ inputRange: [0, 1], outputRange: [1, 1.05] }) }] }]}
+      >
+        <Text style={styles.doorText}>כניסה ›</Text>
+      </Animated.View>
     </Pressable>
   );
 }
@@ -62,26 +109,38 @@ const styles = StyleSheet.create({
   card: {
     position: "absolute",
     alignSelf: "center",
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    gap: spacing.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: 22,
+    height: 112,
+    borderRadius: 24,
     overflow: "hidden",
-    backgroundColor: "rgba(60,34,110,0.78)",
     borderWidth: 1,
-    borderColor: "rgba(185,150,255,0.45)",
+    borderColor: "rgba(200,170,255,0.5)",
+    backgroundColor: "#2A1848",
     shadowColor: "#8B5CF6",
-    shadowOpacity: 0.55,
-    shadowRadius: 22,
-    ...({ backdropFilter: "blur(14px)" } as object),
+    shadowOpacity: 0.6,
+    shadowRadius: 26,
   },
-  sheen: { position: "absolute", top: 0, bottom: 0, width: 80, backgroundColor: "rgba(255,255,255,0.10)" },
-  figureWell: { width: 52, height: 52, borderRadius: 26, backgroundColor: "rgba(255,255,255,0.10)", alignItems: "center", justifyContent: "flex-end", overflow: "hidden" },
-  figure: { width: 46, height: 50 },
-  star: { color: "#E9DDFF", fontSize: scale.section, marginBottom: 12 },
-  title: { color: "#FFFFFF", fontSize: scale.body, fontWeight: "800", textAlign: "right" },
-  sub: { color: "rgba(233,221,255,0.8)", fontSize: scale.meta, textAlign: "right", marginTop: 2 },
-  go: { color: "#E9DDFF", fontSize: scale.title, fontWeight: "700" },
+  sky: { ...StyleSheet.absoluteFillObject, backgroundColor: "#2B1850", ...({ backgroundImage: "linear-gradient(180deg,#1B1036 0%,#3B1F66 55%,#6B2E6E 100%)" } as object) },
+  shopsRow: { position: "absolute", left: 0, bottom: 14, height: 84, flexDirection: "row", alignItems: "flex-end", opacity: 0.9 },
+  shop: { width: SHOP_W, height: 84, marginHorizontal: 0 },
+  pavement: { position: "absolute", left: 0, right: 0, bottom: 0, height: 16, backgroundColor: "#3A2A3E", borderTopWidth: 1, borderTopColor: "rgba(255,200,150,0.35)" },
+  fadeTop: { ...StyleSheet.absoluteFillObject, ...({ backgroundImage: "linear-gradient(270deg, rgba(20,10,36,0.95) 0%, rgba(20,10,36,0.85) 42%, rgba(20,10,36,0.2) 68%, rgba(20,10,36,0) 100%)" } as object) },
+  walker: { position: "absolute", left: 96, bottom: 6, width: 54, height: 84, alignItems: "center", justifyContent: "flex-end" },
+  walkerShadow: { position: "absolute", bottom: 2, width: 34, height: 8, borderRadius: 999, backgroundColor: "rgba(0,0,0,0.45)" },
+  walkerImg: { width: 54, height: 84 },
+  copy: { position: "absolute", right: spacing.md, top: 14, bottom: 14, justifyContent: "center", alignItems: "flex-end", maxWidth: "58%" },
+  kicker: { color: "rgba(233,221,255,0.85)", fontSize: scale.micro, fontWeight: "700", textAlign: "right" },
+  title: { color: "#FFFFFF", fontSize: scale.title, fontWeight: "900", textAlign: "right", ...({ textShadow: "0 0 18px rgba(200,160,255,.8)" } as object) },
+  sub: { color: "rgba(233,221,255,0.8)", fontSize: scale.micro, textAlign: "right", marginTop: 2 },
+  door: {
+    position: "absolute",
+    left: spacing.md,
+    top: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: "#FFD36B",
+    shadowColor: "#FFD36B",
+    shadowRadius: 16,
+  },
+  doorText: { color: "#1B1036", fontSize: scale.meta, fontWeight: "900" },
 });

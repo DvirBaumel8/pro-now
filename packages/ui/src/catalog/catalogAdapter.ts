@@ -578,7 +578,7 @@ export type DemoCandidate = {
 export const personFitCandidates: DemoCandidate[] = [
   {
     seed: "pro_barber_1",
-    displayNameHe: "דוגמה ט׳ (תצוגה)",
+    displayNameHe: "דוגמה ט׳",
     headlineHe: "ספרית עד הבית · תספורות ועיצוב",
     specialtiesHe: ["תספורת גבר", "עיצוב זקן", "פייד"],
     ratingAverage: 4.8,
@@ -592,7 +592,7 @@ export const personFitCandidates: DemoCandidate[] = [
   },
   {
     seed: "pro_barber_2",
-    displayNameHe: "דוגמה י׳ (תצוגה)",
+    displayNameHe: "דוגמה י׳",
     headlineHe: "ספרית עד הבית · נשים וילדים",
     specialtiesHe: ["תספורת אישה", "פן", "תספורת ילדים"],
     // No average yet, and the screen says "חדש ב-PRO NOW" rather than
@@ -607,7 +607,7 @@ export const personFitCandidates: DemoCandidate[] = [
   },
   {
     seed: "pro_barber_3",
-    displayNameHe: "דוגמה י״א (תצוגה)",
+    displayNameHe: "דוגמה י״א",
     headlineHe: "ספר עד הבית · גברים וילדים",
     specialtiesHe: ["תספורת גבר", "מכונה", "עד הבית בערב"],
     ratingAverage: 4.6,
@@ -644,16 +644,15 @@ export function demoCandidatesFor(serviceId: string, count = 3): DemoCandidate[]
    * A person's shopfront with a serial number over the door is the exact
    * thing that stops a world reading as a place.
    *
-   * "(תצוגה)" STAYS on every one of them, and is not decoration. This is
-   * demonstration data standing in for real professionals, and a
-   * placeholder that has stopped announcing itself is a fabricated
-   * professional (/CLAUDE.md §3). The fix is a name instead of an index,
-   * not the removal of the label.
+   * The "(תצוגה)" that followed every name was removed by Amit's decision
+   * (2026-09-29, with the design review): the preview says it is a
+   * demonstration once, in the demo bar and on the welcome, instead of in
+   * every sentence that names somebody.
    */
   const names = ["יוסי", "מאיה", "איתי", "נועה", "רון", "שירה"];
   return Array.from({ length: count }, (_, i) => ({
     seed: `pro_${serviceId}_${i}`,
-    displayNameHe: `${names[i % names.length]} (תצוגה)`,
+    displayNameHe: `${names[i % names.length]}`,
     headlineHe: trade,
     /*
      * THE FIGURE WE ALREADY DREW FOR THIS TRADE.

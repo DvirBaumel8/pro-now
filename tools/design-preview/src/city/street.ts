@@ -4525,7 +4525,12 @@ export function buildStreet(
     moon.position.set(_focus.x - 22, 34, _focus.z + 17);
     moon.updateMatrixWorld();
 
+    /* His lane is kept clear around him: nobody drives through the professional's van (Amit, 2026-09-29). */
+    const hero = cars.find((c) => (c.userData as { scripted?: boolean }).scripted);
     for (const c of cars) {
+      if (hero && c !== hero && Math.abs(c.position.x - hero.position.x) < 1) {
+        c.visible = Math.abs(c.position.z - hero.position.z) > 34;
+      }
       const { dir, speed, ride, wheels, phase, scripted } = c.userData as {
         dir: 1 | -1; speed: number; ride?: THREE.Object3D; wheels?: THREE.Object3D[]; phase?: number; scripted?: boolean;
       };

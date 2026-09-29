@@ -151,6 +151,8 @@ export interface RouteLayerProps {
    * on top of a scene that is already telling you the same thing.
    */
   travellerLabelHe?: string;
+  /** Minutes left, shown beside his name on a street plan. */
+  travellerMinutes?: number | null;
   /**
    * ---------------------------------------------------------------------
    * THE WORK ITSELF, WHICH THIS SCREEN USED TO SLEEP THROUGH
@@ -264,6 +266,7 @@ export function RouteLayer({
   onPressTraveller,
   plan = false,
   travellerLabelHe,
+  travellerMinutes = null,
   atWork = false,
   workerAssetId,
   sources = EMPTY_ASSET_SOURCES,
@@ -482,6 +485,14 @@ export function RouteLayer({
    * screen that stays open for an hour.
    */
   const workBeat = useRef(new Animated.Value(0)).current;
+  /* The destination breathes, so the eye finds it first. */
+  const pulse = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!plan) return;
+    const a = Animated.loop(Animated.timing(pulse, { toValue: 1, duration: 1600, easing: Easing.out(Easing.quad), useNativeDriver: true }));
+    a.start();
+    return () => a.stop();
+  }, [plan, pulse]);
   useEffect(() => {
     if (!atWork || !animate) {
       workBeat.setValue(0);
@@ -543,20 +554,28 @@ export function RouteLayer({
           the dash stays the same warm signal colour it has always been.
           Still quiet — the moving figure is the subject — but present.
         */}
+        {/* On a street plan the route IS the map (Amit, 2026-09-29): a glow, a
+            solid coral road and a bright dash — readable at a glance. */}
+        {plan ? (
+          <Path d={d} stroke={palette.signal500} strokeWidth={16} strokeLinecap="round" strokeLinejoin="round" fill="none" opacity={0.22} />
+        ) : null}
         <Path
           d={d}
           stroke="#161228"
-          strokeWidth={6.5}
+          strokeWidth={plan ? 9 : 6.5}
           strokeLinecap="round"
           strokeLinejoin="round"
           fill="none"
-          opacity={0.38}
+          opacity={plan ? 0.7 : 0.38}
         />
+        {plan ? (
+          <Path d={d} stroke={palette.signal500} strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" fill="none" opacity={0.95} />
+        ) : null}
         <Path
           d={d}
-          stroke={palette.signal300}
-          strokeWidth={2.5}
-          strokeDasharray="7 9"
+          stroke={plan ? "#FFE3DA" : palette.signal300}
+          strokeWidth={plan ? 2 : 2.5}
+          strokeDasharray={plan ? "4 10" : "7 9"}
           strokeLinecap="round"
           fill="none"
           opacity={0.9}
@@ -740,7 +759,11 @@ export function RouteLayer({
             ],
           }}
         >
-          <Text style={styles.planLabel}>{travellerLabelHe}</Text>
+          <View style={styles.planChip} accessibilityLabel={travellerMinutes ? `${travellerLabelHe}, עוד ${travellerMinutes} דקות` : travellerLabelHe}>
+            <Text style={styles.planChipText}>
+              {travellerMinutes ? `${travellerLabelHe} · ${travellerMinutes} דק׳` : travellerLabelHe}
+            </Text>
+          </View>
         </Animated.View>
       ) : null}
 
@@ -754,11 +777,18 @@ export function RouteLayer({
           pointerEvents="none"
           style={{
             position: "absolute",
-            left: CUSTOMER_POINT.u * width + 14,
-            top: CUSTOMER_POINT.v * height - 9,
+            left: CUSTOMER_POINT.u * width - 60,
+            top: CUSTOMER_POINT.v * height - 66,
+            width: 120,
+            alignItems: "center",
           }}
+          accessibilityLabel="הבית שלך — היעד"
         >
-          <Text style={styles.planLabel}>הבית שלכם</Text>
+          <View style={styles.homePill}>
+            <Text style={styles.homePillText}>הבית שלך</Text>
+          </View>
+          <View style={styles.homeStem} />
+          <Animated.View style={[styles.homePulse, { transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1.8] }) }], opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.7, 0] }) }]} />
         </View>
       ) : null}
 
@@ -797,8 +827,8 @@ export function RouteLayer({
           >
             <View
               style={{
-                position: "absolute", bottom: 0, width: PV_W * 0.9, height: 16, borderRadius: 999,
-                backgroundColor: palette.signal300, opacity: 0.35,
+                position: "absolute", bottom: 2, width: PV_W * 0.8, height: 12, borderRadius: 999,
+                backgroundColor: "#000", opacity: 0.35,
               }}
             />
             <AssetSlot
@@ -1026,6 +1056,28 @@ export function RouteLayer({
  * light, and a street plan is light exactly where the streets are.
  */
 const styles = StyleSheet.create({
+  planChip: {
+    marginTop: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: "rgba(18,12,26,0.9)",
+    borderWidth: 1.5,
+    borderColor: palette.signal500,
+  },
+  planChipText: { ...type_.caption, color: "#FFFFFF", fontWeight: "800", writingDirection: "rtl" },
+  homePill: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: palette.signal500,
+    shadowColor: palette.signal500,
+    shadowOpacity: 0.7,
+    shadowRadius: 12,
+  },
+  homePillText: { ...type_.caption, color: "#17121F", fontWeight: "900", writingDirection: "rtl" },
+  homeStem: { width: 3, height: 16, backgroundColor: palette.signal500 },
+  homePulse: { position: "absolute", bottom: -14, width: 30, height: 30, borderRadius: 15, borderWidth: 3, borderColor: palette.signal500 },
   planLabel: {
     ...type_.caption,
     color: palette.nightText,
