@@ -115,6 +115,7 @@ Screenshots go to `qa/out/`.
 ## 5. Decisions and recent work (details in `docs/18-ROADMAP.md`)
 
 **Recent decisions**
+- **Errors and alerts (Dvir's track):** errors from the web app and the API go to Sentry, and a Telegram bot sends an alert to the phone. See `docs/23-OBSERVABILITY.md`.
 - Each pro sets their own visit fee. There is no floor or ceiling, and abusers are blocked.
 - An approved quote **includes** the visit fee.
 - Locksmith is a fixed-price service.

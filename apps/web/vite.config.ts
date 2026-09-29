@@ -1,6 +1,16 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
+import { sentryVitePlugin } from "@sentry/vite-plugin";
+
+/*
+ * Crash reports point at our source lines only if Sentry has the source
+ * maps (docs/23-OBSERVABILITY.md). With a token, the build uploads them
+ * and deletes them from dist, so they are never served to browsers;
+ * without one, no maps are produced at all.
+ */
+const uploadSourceMaps = Boolean(process.env.SENTRY_AUTH_TOKEN && process.env.SENTRY_ORG && process.env.SENTRY_WEB_PROJECT);
+const release = process.env.RENDER_GIT_COMMIT ?? "";
 
 /**
  * The product web app (docs/21 W2). Same rendering setup as the demo
@@ -45,7 +55,20 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
       },
     }),
+    ...(uploadSourceMaps
+      ? [
+          sentryVitePlugin({
+            authToken: process.env.SENTRY_AUTH_TOKEN,
+            org: process.env.SENTRY_ORG,
+            project: process.env.SENTRY_WEB_PROJECT,
+            release: release ? { name: release } : undefined,
+            sourcemaps: { filesToDeleteAfterUpload: ["./dist/**/*.map"] },
+            telemetry: false,
+          }),
+        ]
+      : []),
   ],
+  build: { sourcemap: uploadSourceMaps ? "hidden" : false },
   resolve: {
     alias: [
       { find: /^react-native-svg$/, replacement: "react-native-svg/lib/module/ReactNativeSVG.web.js" },
@@ -78,7 +101,12 @@ export default defineConfig({
       "better-auth/client/plugins",
     ],
   },
-  define: { global: "window", __DEV__: JSON.stringify(process.env.NODE_ENV !== "production") },
+  define: {
+    global: "window",
+    __DEV__: JSON.stringify(process.env.NODE_ENV !== "production"),
+    // The deployed commit, so a crash report names the build it came from.
+    "import.meta.env.VITE_RELEASE": JSON.stringify(release),
+  },
   server: {
     port: 5180,
     strictPort: true,

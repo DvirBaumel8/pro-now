@@ -5,6 +5,7 @@ import Fastify from "fastify";
 import websocketPlugin from "@fastify/websocket";
 import { loadEnv } from "@pro-now/config";
 
+import observabilityPlugin from "./plugins/observability.js";
 import corsPlugin from "./plugins/cors.js";
 import prismaPlugin from "./plugins/prisma.js";
 import jobLockPlugin from "./plugins/job-lock.js";
@@ -28,6 +29,8 @@ import quotesRoutes from "./routes/quotes.js";
 import reviewsRoutes from "./routes/reviews.js";
 import meRoutes from "./routes/me.js";
 import uploadsRoutes from "./routes/uploads.js";
+import clientErrorsRoutes from "./routes/client-errors.js";
+import adminDebugRoutes from "./routes/admin-debug.js";
 import { registerJobSocket } from "./realtime/job-socket.js";
 
 declare module "fastify" {
@@ -70,6 +73,7 @@ export async function buildServer(opts: { logger?: boolean } = {}) {
   const app = Fastify({ logger: opts.logger ?? true });
   app.decorate("config", config);
 
+  await app.register(observabilityPlugin);
   await app.register(corsPlugin);
   await app.register(websocketPlugin);
   await app.register(prismaPlugin);
@@ -119,7 +123,6 @@ export async function buildServer(opts: { logger?: boolean } = {}) {
       });
     }
 
-    req.log.error({ err }, "Unhandled error");
     // Fastify errors carry `statusCode`/`code`, and so now do the domain
     // errors thrown by the state machines — this comment asserted that
     // before it was true, and a refused transition reached the client as
@@ -127,6 +130,25 @@ export async function buildServer(opts: { logger?: boolean } = {}) {
     // still carries neither, so both are read defensively.
     const { statusCode, code, message } = err as { statusCode?: number; code?: string; message?: string };
     const status = statusCode ?? 500;
+
+    /*
+     * A 4xx is the server doing its job — refusing something — and is only
+     * logged. A 5xx is a bug or an outage: it is stored with its request
+     * and sent to the phone (docs/23-OBSERVABILITY.md).
+     */
+    if (status >= 500) {
+      req.log.error({ err }, "Unhandled error");
+      app.monitor.report({
+        source: "api",
+        error: err,
+        requestId: req.id,
+        method: req.method,
+        route: req.routeOptions.url ?? req.url.split("?")[0],
+        userId: req.user?.userId,
+      });
+    } else {
+      req.log.info({ err: { code, message }, statusCode: status }, "Request refused");
+    }
     reply.status(status).send({
       code: code ?? "INTERNAL_ERROR",
       message: status >= 500 ? "Internal server error" : (message ?? "Request failed"),
@@ -148,6 +170,8 @@ export async function buildServer(opts: { logger?: boolean } = {}) {
   await app.register(reviewsRoutes, { prefix: API_PREFIX });
   await app.register(meRoutes, { prefix: API_PREFIX });
   await app.register(uploadsRoutes, { prefix: API_PREFIX });
+  await app.register(clientErrorsRoutes, { prefix: API_PREFIX });
+  await app.register(adminDebugRoutes, { prefix: API_PREFIX });
 
   await app.register(async (api) => registerJobSocket(api), { prefix: API_PREFIX });
 
@@ -158,9 +182,30 @@ export async function buildServer(opts: { logger?: boolean } = {}) {
   return app;
 }
 
+/**
+ * What escapes every handler. A rejected promise nobody awaited is
+ * reported and the server keeps serving; an uncaught exception leaves the
+ * process in an unknown state, so it is reported, given two seconds to
+ * reach the phone, and the process exits for Render to restart it.
+ */
+function installProcessHandlers(app: Awaited<ReturnType<typeof buildServer>>) {
+  process.on("unhandledRejection", (reason) => {
+    app.log.error({ err: reason }, "Unhandled promise rejection");
+    app.monitor.report({ source: "process", kind: "unhandledRejection", error: reason });
+  });
+  process.on("uncaughtException", (err) => {
+    app.log.fatal({ err }, "Uncaught exception; exiting");
+    app.monitor.report({ source: "process", kind: "uncaughtException", error: err });
+    void app.monitor.flush(2000).finally(() => process.exit(1));
+  });
+}
+
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
   buildServer()
-    .then((app) => app.listen({ port: app.config.PORT, host: "0.0.0.0" }))
+    .then(async (app) => {
+      installProcessHandlers(app);
+      await app.listen({ port: app.config.PORT, host: "0.0.0.0" });
+    })
     .catch((err) => {
       console.error(err);
       process.exit(1);

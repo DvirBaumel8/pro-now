@@ -81,6 +81,25 @@ export const envSchema = z.object({
    */
   ALLOW_LOCAL_STANDINS: z.enum(["0", "1"]).default("0"),
 
+  /*
+   * Monitoring and alerting (docs/23-OBSERVABILITY.md). All optional: with
+   * none set, errors are only logged. SENTRY_DSN keeps the details of every
+   * error (stack, request, breadcrumbs); the Telegram pair sends the alert
+   * to a phone. The DSN is the API project's; the web app's is a build-time
+   * VITE_SENTRY_DSN.
+   */
+  SENTRY_DSN: z.string().url().optional().or(z.literal("").transform(() => undefined)),
+  /** e.g. https://pro-now.sentry.io — alerts link to the event through it. */
+  SENTRY_ORG_URL: z.string().url().optional().or(z.literal("").transform(() => undefined)),
+  ALERT_TELEGRAM_BOT_TOKEN: z.string().optional().transform((v) => (v ? v : undefined)),
+  ALERT_TELEGRAM_CHAT_ID: z.string().optional().transform((v) => (v ? v : undefined)),
+  /** After the first alert for an error, repeats within this window become one summary. */
+  ALERT_THROTTLE_MINUTES: z.coerce.number().int().positive().default(10),
+  /** A storm stops here; what was dropped is counted on the next alert. */
+  ALERT_MAX_PER_HOUR: z.coerce.number().int().positive().default(30),
+  /** Set by Render at build and run time; tags every report with the deployed commit. */
+  RENDER_GIT_COMMIT: z.string().optional(),
+
   DISPATCH_OFFER_TIMEOUT_SECONDS: z.coerce.number().int().positive().default(30),
   /**
    * How long the server keeps looking before telling the customer that
@@ -104,6 +123,7 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
   }
   assertNoLocalStandIns(parsed.data);
   assertSignInPossible(parsed.data);
+  assertAlertsConfigured(parsed.data);
   return parsed.data;
 }
 
@@ -166,5 +186,15 @@ export function assertSignInPossible(env: Env): void {
   ];
   if (missing.length > 0) {
     throw new Error(`Refusing to start ${env.NODE_ENV} without ${missing.join(", ")}: nobody could sign in.`);
+  }
+}
+
+/**
+ * Half a Telegram configuration is a silent one: every alert would fail to
+ * send and nobody would learn that errors are going unannounced.
+ */
+export function assertAlertsConfigured(env: Env): void {
+  if (Boolean(env.ALERT_TELEGRAM_BOT_TOKEN) !== Boolean(env.ALERT_TELEGRAM_CHAT_ID)) {
+    throw new Error("ALERT_TELEGRAM_BOT_TOKEN and ALERT_TELEGRAM_CHAT_ID must be set together.");
   }
 }

@@ -216,3 +216,28 @@ export interface MeResponse {
   roles: string[];
   customer: { introSeen: boolean; avatarId: string | null; avatarAnswered: boolean } | null;
 }
+
+/**
+ * A crash the web app reports about itself (`POST /api/v1/client-errors`,
+ * docs/23-OBSERVABILITY.md). Everything is optional except what an alert
+ * cannot do without, and every string is bounded: the endpoint accepts
+ * reports from people who are not signed in, so it is an open door and is
+ * sized like one.
+ */
+export const clientErrorReportSchema = z
+  .object({
+    kind: z.enum(["render", "error", "unhandledrejection"]),
+    name: z.string().max(120).default("Error"),
+    message: z.string().min(1).max(1000),
+    stack: z.string().max(8000).optional(),
+    /** The path the person was on, never the query string. */
+    path: z.string().max(300).optional(),
+    /** Sentry's id for the same event, when the browser reached Sentry. */
+    eventId: z.string().regex(/^[0-9a-f]{32}$/).optional(),
+    /** The server's requestId of the failed call that led here, if any. */
+    requestId: z.string().max(100).optional(),
+    release: z.string().max(80).optional(),
+  })
+  .strict();
+
+export type ClientErrorReport = z.infer<typeof clientErrorReportSchema>;

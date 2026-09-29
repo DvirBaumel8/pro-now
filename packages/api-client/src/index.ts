@@ -32,7 +32,9 @@ export class ApiError extends Error {
   constructor(
     readonly status: number,
     readonly code: string,
-    message: string
+    message: string,
+    /** The server's id for this request: the key to its log line and error report. */
+    readonly requestId?: string
   ) {
     super(message);
     this.name = "ApiError";
@@ -60,11 +62,12 @@ export function createApiClient(config: ProNowApiClientConfig = {}) {
     });
     const payload: unknown = await res.json().catch(() => null);
     if (!res.ok) {
-      const p = (payload ?? {}) as { code?: unknown; message?: unknown };
+      const p = (payload ?? {}) as { code?: unknown; message?: unknown; requestId?: unknown };
       throw new ApiError(
         res.status,
         typeof p.code === "string" ? p.code : "HTTP_" + res.status,
-        typeof p.message === "string" ? p.message : `${method} ${path} failed with ${res.status}`
+        typeof p.message === "string" ? p.message : `${method} ${path} failed with ${res.status}`,
+        typeof p.requestId === "string" ? p.requestId : undefined
       );
     }
     return payload as T;

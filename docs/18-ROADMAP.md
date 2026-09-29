@@ -212,6 +212,16 @@ and no screen achieves it: *"מחיר נח לכל כיס עם מקצוענים �
 supply-and-price-level strategy. Fairness is the part that can be built
 without inventing a business rule.
 
+### DECIDED 2026-09-29 (Dvir) — error tracking is Sentry, alerts go to Telegram
+For the tester phase, the product stores errors in Sentry's free plan and
+sends real-time alerts through a Telegram bot. Uptime is watched by
+UptimeRobot's free plan. All three were chosen on cost (free) and on real-time
+push to a phone. Both sit behind interfaces (`ErrorReporter`, `AlertNotifier`),
+so a paid or self-hosted replacement is one adapter. How it works and how to
+set it up: `docs/23-OBSERVABILITY.md`. Still open: whether production keeps
+these vendors, and how long error data is kept (part of the data-retention
+decision above).
+
 ### DECIDED 2026-09-29 — the demo and the product are separate tracks
 Amit works on the demo (`tools/design-preview`). Dvir works on the product
 (`apps/*`, `packages/*`). Both commit to `master`. The two share no code:

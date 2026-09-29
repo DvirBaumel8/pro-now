@@ -50,3 +50,4 @@ export * from "./credential-requirements";
 export * from "./sponsor-shops";
 export * from "./support";
 export * from "./walk-cycle";
+export * from "./observability";
