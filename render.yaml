@@ -1,0 +1,61 @@
+# PRO NOW — single-origin Render deployment
+#
+# The repository is a workspace monorepo, so the root directory stays at the
+# repository root. The API serves apps/web/dist through Fastify; this keeps
+# Better Auth's cookie first-party on the public URL.
+
+services:
+  - type: web
+    name: pro-now
+    runtime: node
+    plan: free
+    region: frankfurt
+    branch: master
+    autoDeployTrigger: commit
+
+    buildCommand: >-
+      npm ci &&
+      npm run db:generate -w apps/api &&
+      npm run build -w apps/web &&
+      npm run build -w apps/api
+
+    # Render runs this after the build and before the new instance starts.
+    # DATABASE_URL is supplied from the external Neon database.
+    preDeployCommand: npm run db:migrate:deploy -w apps/api
+
+    startCommand: npm run start -w apps/api
+    healthCheckPath: /health
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "24"
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false
+      - key: PUBLIC_URL
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: SMTP_URL
+        sync: false
+      - key: ADMIN_EMAILS
+        value: ""
+      - key: CORS_ORIGINS
+        value: ""
+      - key: ALLOW_LOCAL_STANDINS
+        value: "0"
+
+      # The public deployment is a tester build. Money, identity, maps and
+      # reputation remain explicitly sandboxed until their real vendors are
+      # selected and integrated.
+      - key: PAYMENT_PROVIDER
+        value: sandbox
+      - key: IDENTITY_PROVIDER
+        value: sandbox
+      - key: MAPS_PROVIDER
+        value: sandbox
+      - key: EXTERNAL_REPUTATION_PROVIDER
+        value: sandbox
