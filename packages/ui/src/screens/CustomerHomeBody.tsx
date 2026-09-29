@@ -4,7 +4,7 @@ import { Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } fro
 import type { AreaAvailabilityView } from "@pro-now/types";
 
 import { prosFreeShort } from "../lexicon";
-import { matchServicesByText, urgentCareFor, type ServiceMatchRule } from "../service-match";
+import { matchRequest, matchServicesByText, urgentCareFor, type MatchConfidence, type ServiceMatchRule } from "../service-match";
 import { resolveHomeSupply } from "../home-supply";
 import { customerDarkTheme, customerTheme, depth, elevation, radii, spacing, tabular, tint, type } from "../theme";
 import { type MarkName } from "../components/marks";
@@ -119,6 +119,13 @@ export interface HomeRecentItem {
   metaHe: string;
 }
 
+export interface TextChoice {
+  text: string;
+  suggestedServiceIds: string[];
+  chosenServiceId: string;
+  confidence: MatchConfidence;
+}
+
 export interface CustomerHomeBodyProps {
   /** The city behind the top of the page, when the host can play it. Left out, the painted plate. */
   backdrop?: React.ReactNode;
@@ -168,6 +175,12 @@ export interface CustomerHomeBodyProps {
   /** Total professionals online, for callers with no snapshot yet. */
   totalAvailableNow?: number | null;
   onSelectService?: (id: string) => void;
+  /**
+   * The customer typed something and then chose a service — from the
+   * suggestions or from anywhere else on the screen (docs/21 W5). What was
+   * suggested next to what was chosen is how matching gets better.
+   */
+  onTextChoice?: (choice: TextChoice) => void;
   onChangeAddress?: () => void;
   /**
    * "יש לי עסק, אני רוצה חנות בשכונה."
@@ -292,7 +305,8 @@ export function CustomerHomeBody({
   recognising = false,
   understand,
   totalAvailableNow,
-  onSelectService,
+  onSelectService: selectService,
+  onTextChoice,
   onChangeAddress,
   onAdvertise,
   seedQueryHe,
@@ -384,10 +398,29 @@ export function CustomerHomeBody({
     // Only a new injection moves the box, never a re-render.
   }, [injectedText?.n]);
 
-  const fromText = useMemo(
-    () => (matchRules && query.trim().length >= 2 ? matchServicesByText(query, matchRules).map((m) => m.serviceId) : []),
+  /*
+   * What the words say, and how sure that is (docs/21 W5): one clear
+   * answer, two close ones, or a question. A question's answers are
+   * offered as the suggestions, with the question as their heading.
+   */
+  const textMatch = useMemo(
+    () => (matchRules && query.trim().length >= 2 ? matchRequest(query, matchRules) : null),
     [query, matchRules]
   );
+  const fromText = useMemo(
+    () => (textMatch ? (textMatch.clarify?.options ?? textMatch.candidates.map((m) => m.serviceId)) : []),
+    [textMatch]
+  );
+
+  /** Every pick goes through here, so a pick after typing is reported. */
+  const onSelectService = selectService
+    ? (id: string) => {
+        if (textMatch && onTextChoice) {
+          onTextChoice({ text: query.trim(), suggestedServiceIds: fromText, chosenServiceId: id, confidence: textMatch.confidence });
+        }
+        selectService(id);
+      }
+    : undefined;
 
   /**
    * THE WORDS NO KEYWORD KNEW. Once the customer stops typing for a moment
@@ -846,6 +879,8 @@ export function CustomerHomeBody({
             <IntentSuggestions
               width={inner}
               matches={suggestions}
+              confidence={photoMatch?.serviceId || fromText.length === 0 ? undefined : textMatch?.confidence}
+              questionHe={photoMatch?.serviceId ? null : (textMatch?.clarify?.questionHe ?? null)}
               hasText={hasText}
               hasMedia={hasMedia}
               recognising={recognising}

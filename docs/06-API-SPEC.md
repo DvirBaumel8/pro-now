@@ -27,6 +27,8 @@ POST /api/auth/sign-out
 POST /api/auth/revoke-sessions           → signs the person out everywhere
 DELETE /v1/me                             → delete my account: soft delete + anonymisation; 409 ACTIVE_JOB during a job
 GET  /v1/catalog                      (market-filtered department/category/service tree)
+POST /v1/match                        (signed in; which services a typed sentence could be: candidates, confidence band, clarify?, urgentCare — docs/21 W5)
+POST /v1/match/feedback               (signed in; suggested vs chosen service for a sentence; kept 4 days)
 POST /v1/jobs                         (idempotent create; triggers dispatch)
 GET  /v1/jobs/:id
 POST /v1/jobs/:id/cancel

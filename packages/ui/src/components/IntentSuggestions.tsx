@@ -5,6 +5,7 @@ import { customerDarkTheme, radii, spacing, tint, type } from "../theme";
 import { Mark, type MarkName } from "./marks";
 import { PrimaryAction } from "./PrimaryAction";
 import { Pulse } from "./LiveServiceCard";
+import type { MatchConfidence } from "@pro-now/types";
 
 /**
  * WHAT WE MADE OF WHAT YOU SAID.
@@ -50,6 +51,14 @@ export interface IntentSuggestionsProps {
   browseLabelHe?: string;
   /** What was seen in the photo, in one sentence — shown above the match. */
   seenHe?: string | null;
+  /**
+   * How sure the words are (docs/21 W5). `high` shows the one answer,
+   * `medium` the answer and one alternative, `low` the question with its
+   * answers side by side. Absent: the answer and up to two alternatives.
+   */
+  confidence?: MatchConfidence;
+  /** The one short question to ask when the words are not enough. */
+  questionHe?: string | null;
   onPick?: (serviceId: string) => void;
   onBrowse?: () => void;
   width: number;
@@ -63,12 +72,14 @@ export function IntentSuggestions({
   understanding = false,
   seenHe = null,
   browseLabelHe = "כל השירותים ›",
+  confidence,
+  questionHe = null,
   onPick,
   onBrowse,
   width,
 }: IntentSuggestionsProps) {
   const best = matches && matches.length > 0 ? matches[0] : undefined;
-  const alternatives = matches ? matches.slice(1, 3) : [];
+  const alternatives = matches ? matches.slice(1, confidence === "high" ? 1 : confidence === "medium" ? 2 : 3) : [];
 
   if (!best && !hasText && !hasMedia) return null;
 
@@ -103,22 +114,7 @@ export function IntentSuggestions({
     );
   }
 
-  return (
-    <View style={[styles.wrap, { width }]}>
-      {seenHe ? <Text style={styles.note}>בתמונה: {seenHe}</Text> : null}
-      <Text style={styles.lead}>נראה שזה:</Text>
-
-      <PrimaryAction
-        labelHe={`המשך · ${best.nameHe}`}
-        subLabelHe={best.supplyHe ?? null}
-        onPress={() => onPick?.(best.id)}
-        disabled={!onPick}
-        accessibilityLabelHe={`המשך עם ${best.nameHe}`}
-      />
-
-      {alternatives.length > 0 ? <Text style={styles.alt}>או אולי התכוונתם ל:</Text> : null}
-
-      {alternatives.map((m) => (
+  const row = (m: IntentSuggestion) => (
         <Pressable
           key={m.id}
           onPress={() => onPick?.(m.id)}
@@ -159,7 +155,43 @@ export function IntentSuggestions({
           </View>
           <Text style={styles.go}>‹</Text>
         </Pressable>
-      ))}
+  );
+
+  /*
+   * A QUESTION HAS NO PRESELECTED ANSWER. When the words were not enough
+   * ("יש לי עכבר"), the screen asks, and every answer carries the same
+   * weight: a filled button would be the app answering its own question.
+   */
+  if (confidence === "low" && questionHe && matches) {
+    return (
+      <View style={[styles.wrap, { width }]}>
+        <Text style={styles.lead}>{questionHe}</Text>
+        {matches.slice(0, 3).map(row)}
+        {onBrowse ? (
+          <Pressable onPress={onBrowse} accessibilityRole="button" style={styles.browse}>
+            <Text style={styles.browseText}>{browseLabelHe}</Text>
+          </Pressable>
+        ) : null}
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.wrap, { width }]}>
+      {seenHe ? <Text style={styles.note}>בתמונה: {seenHe}</Text> : null}
+      <Text style={styles.lead}>נראה שזה:</Text>
+
+      <PrimaryAction
+        labelHe={`המשך · ${best.nameHe}`}
+        subLabelHe={best.supplyHe ?? null}
+        onPress={() => onPick?.(best.id)}
+        disabled={!onPick}
+        accessibilityLabelHe={`המשך עם ${best.nameHe}`}
+      />
+
+      {alternatives.length > 0 ? <Text style={styles.alt}>או אולי התכוונתם ל:</Text> : null}
+
+      {alternatives.map(row)}
     </View>
   );
 }
