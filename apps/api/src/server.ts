@@ -10,6 +10,7 @@ import prismaPlugin from "./plugins/prisma.js";
 import jobLockPlugin from "./plugins/job-lock.js";
 import providersPlugin from "./plugins/providers.js";
 import dispatchSweeperPlugin from "./plugins/dispatch-sweeper.js";
+import mediaCleanupPlugin from "./plugins/media-cleanup.js";
 import authPlugin from "./plugins/auth.js";
 import webAppPlugin from "./plugins/web-app.js";
 
@@ -76,6 +77,7 @@ export async function buildServer(opts: { logger?: boolean } = {}) {
   await app.register(providersPlugin);
   // After providers and prisma: the sweep needs both.
   await app.register(dispatchSweeperPlugin);
+  await app.register(mediaCleanupPlugin);
   await app.register(authPlugin);
 
   app.get("/health", async () => ({ ok: true, sandbox: config.NODE_ENV !== "production" }));

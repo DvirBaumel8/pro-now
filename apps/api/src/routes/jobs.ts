@@ -50,6 +50,19 @@ export default async function jobsRoutes(app: FastifyInstance) {
       return reply.status(404).send({ code: "SERVICE_NOT_FOUND", message: "Service not found" });
     }
 
+    const mediaIds = [...new Set(body.mediaRefs)];
+    const uploads = mediaIds.length
+      ? await app.prisma.upload.findMany({
+          where: { id: { in: mediaIds }, ownerId: req.user!.userId, status: "READY" },
+        })
+      : [];
+    if (uploads.length !== mediaIds.length) {
+      return reply.status(422).send({
+        code: "UPLOADS_NOT_READY",
+        message: "Every attachment must be a ready upload owned by this customer",
+      });
+    }
+
     const job = await app.prisma.job.create({
       data: {
         customerId: customer.id,
@@ -60,6 +73,13 @@ export default async function jobsRoutes(app: FastifyInstance) {
         structuredAnswers: body.structuredAnswers as Prisma.InputJsonValue,
         idempotencyKey,
         status: "DRAFT",
+        media: {
+          create: uploads.map((upload) => ({
+            kind: upload.kind,
+            storageRef: upload.storageKey,
+            uploadId: upload.id,
+          })),
+        },
       },
     });
 

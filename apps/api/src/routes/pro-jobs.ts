@@ -41,6 +41,7 @@ export default async function proJobsRoutes(app: FastifyInstance) {
         service: true,
         address: true,
         customer: true,
+        media: { include: { upload: true }, orderBy: { createdAt: "asc" } },
         offers: { where: { status: "ACCEPTED" }, orderBy: { offeredAt: "desc" }, take: 1 },
         quotes: { orderBy: { version: "desc" }, include: { lineItems: true } },
       },
@@ -112,6 +113,18 @@ export default async function proJobsRoutes(app: FastifyInstance) {
 
     const etaSeconds = acceptedOffer?.etaSecondsSnapshot ?? null;
 
+    const media = await Promise.all(
+      job.media
+        .filter((item) => !item.upload || item.upload.status === "READY")
+        .map(async (item) => ({
+        id: item.id,
+        kind: item.kind,
+        mime: item.upload?.mime ?? "application/octet-stream",
+        bytes: item.upload?.bytes ?? 0,
+        url: await app.providers.storage.createPresignedGet({ key: item.storageRef, expiresInSeconds: 120 }),
+        }))
+    );
+
     const result: ProJobDetailView = {
       jobId: job.id,
       status: job.status,
@@ -155,6 +168,7 @@ export default async function proJobsRoutes(app: FastifyInstance) {
       payoutMinorUnits,
       payoutIsEstimate,
       pendingQuote,
+      media,
     };
 
     return reply.send(result);
