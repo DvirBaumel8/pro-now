@@ -4,6 +4,7 @@ import { fromNodeHeaders } from "better-auth/node";
 
 import { AUTH_BASE_PATH, createAuth, type Auth } from "../auth/auth.js";
 import { rolesOf, type Role } from "../auth/roles.js";
+import { createResendEmailProvider } from "../infra/email/resend.js";
 import { createSmtpEmailProvider, unconfiguredEmailProvider } from "../infra/email/smtp.js";
 
 /** Who is calling, resolved from the session cookie. Server-side truth only. */
@@ -23,10 +24,13 @@ declare module "fastify" {
 }
 
 export default fp(async (app: FastifyInstance) => {
-  const { SMTP_URL, EMAIL_FROM } = app.config;
-  const email = SMTP_URL
-    ? createSmtpEmailProvider(SMTP_URL, EMAIL_FROM ?? "PRO NOW <no-reply@pronow.test>")
-    : unconfiguredEmailProvider;
+  const { EMAIL_FROM, RESEND_API_KEY, SMTP_URL } = app.config;
+  const from = EMAIL_FROM ?? "PRO NOW <no-reply@pronow.test>";
+  const email = RESEND_API_KEY
+    ? createResendEmailProvider(RESEND_API_KEY, from)
+    : SMTP_URL
+      ? createSmtpEmailProvider(SMTP_URL, from)
+      : unconfiguredEmailProvider;
   const auth = createAuth({ config: app.config, prisma: app.prisma, email });
   app.decorate("auth", auth);
 

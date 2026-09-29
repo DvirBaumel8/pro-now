@@ -11,11 +11,11 @@ export function createSmtpEmailProvider(smtpUrl: string, from: string): EmailPro
 }
 
 /**
- * For a local run with no SMTP_URL: refuses loudly instead of pretending
- * the email went out. loadEnv already refuses staging/production without it.
+ * For a local run with no email provider: refuses loudly instead of pretending
+ * the email went out. loadEnv already refuses staging/production without one.
  */
 export const unconfiguredEmailProvider: EmailProvider = {
   async send() {
-    throw new Error("Email is not configured: set SMTP_URL (locally: docker compose up, SMTP_URL=smtp://localhost:1025).");
+    throw new Error("Email is not configured: set SMTP_URL locally or RESEND_API_KEY in production.");
   },
 };

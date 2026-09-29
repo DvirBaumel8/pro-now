@@ -1,7 +1,6 @@
 /**
- * Outgoing email, vendor-neutral (CLAUDE.md §6). SMTP is the only adapter:
- * Mailpit speaks it locally and Resend speaks it in production
- * (docs/21 §0), so going live is SMTP_URL, not code.
+ * Outgoing email, vendor-neutral (CLAUDE.md §6). Mailpit speaks SMTP locally;
+ * production uses Resend's HTTPS API on Render Free.
  */
 export interface OutgoingEmail {
   to: string;

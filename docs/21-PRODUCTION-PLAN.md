@@ -18,7 +18,7 @@ not code:
 |---|---|---|---|
 | Neon Postgres + PostGIS | `postgis/postgis:16-3.4` (already in compose) | Postgres | `DATABASE_URL` |
 | Cloudflare R2 | SeaweedFS (MinIO has no public images any more) | S3 API | `S3_ENDPOINT`, keys, bucket |
-| Resend | Mailpit (catches every email, has a web UI and an API) | SMTP | `SMTP_URL` |
+| Resend | Mailpit (catches every email, has a web UI and an API) | HTTPS API / SMTP | `RESEND_API_KEY` / `SMTP_URL` |
 | Google sign-in | `navikt/mock-oauth2-server` (a local OIDC issuer) | OpenID Connect | `GOOGLE_CLIENT_ID/SECRET`, issuer |
 | Render | `node dist/server.js` serving API + web app | HTTP/WS | `render.yaml` |
 | Web Push | VAPID keys we generate ourselves (no account needed) | Web Push | `VAPID_*` |
@@ -59,7 +59,7 @@ is picked by env var, with a startup check that refuses to boot in
  │     outbox, upload cleanup                                               │
  └────────┬───────────────────┬──────────────────┬──────────────────────────┘
           │                   │                  │
-     Postgres+PostGIS     S3 (R2/SeaweedFS) SMTP (Resend/Mailpit)
+     Postgres+PostGIS     S3 (R2/SeaweedFS) HTTPS email (Resend) / SMTP (Mailpit)
 ```
 
 The decisions behind this shape:
@@ -563,7 +563,9 @@ per commit. Each commit gets full CI plus `verify:journey`.
 - **Health and monitoring:**
   - `/api/health` (liveness) and `/api/ready` (DB + storage).
   - Sentry adapter (enabled only when a `SENTRY_DSN` is set).
-- **`render.yaml`:** a free web service.
+- **`render.yaml`:** a free web service. Resend's HTTPS API is used for email
+  because Render Free does not support pre-deploy commands and should not
+  depend on outbound SMTP.
   - Build: `npm ci && prisma generate && npm run build -w apps/web -w apps/api`.
   - Start: `prisma migrate deploy && node apps/api/dist/server.js`.
 - **Neon runbook:** pooled URL for the app, direct URL for migrations,

@@ -30,7 +30,7 @@ describe("loadEnv — local stand-ins", () => {
         ...base,
         NODE_ENV: "production",
         S3_ENDPOINT: "https://abc.r2.cloudflarestorage.com",
-        SMTP_URL: "smtps://resend:key@smtp.resend.com:465",
+        RESEND_API_KEY: "re_test_key",
         EMAIL_FROM: "PRO NOW <no-reply@pro-now.example>",
         PUBLIC_URL: "https://pro-now.onrender.com",
       })
@@ -71,16 +71,22 @@ describe("loadEnv — sign-in", () => {
   const deployed = {
     ...base,
     NODE_ENV: "production",
-    SMTP_URL: "smtps://resend:key@smtp.resend.com:465",
+    RESEND_API_KEY: "re_test_key",
     EMAIL_FROM: "PRO NOW <no-reply@pro-now.example>",
     PUBLIC_URL: "https://pro-now.onrender.com",
   };
 
-  for (const key of ["SMTP_URL", "EMAIL_FROM"] as const) {
-    it(`refuses production without ${key}: nobody could sign in`, () => {
-      expect(() => loadEnv({ ...deployed, [key]: undefined })).toThrow(key);
-    });
-  }
+  it("refuses production without an email provider", () => {
+    expect(() => loadEnv({ ...deployed, RESEND_API_KEY: undefined })).toThrow("RESEND_API_KEY or SMTP_URL");
+  });
+
+  it("accepts SMTP as a production fallback", () => {
+    expect(() => loadEnv({ ...deployed, RESEND_API_KEY: undefined, SMTP_URL: "smtps://smtp.example.com:465" })).not.toThrow();
+  });
+
+  it("refuses production without EMAIL_FROM", () => {
+    expect(() => loadEnv({ ...deployed, EMAIL_FROM: undefined })).toThrow("EMAIL_FROM");
+  });
 
   it("refuses production that forgot PUBLIC_URL (the default is this machine)", () => {
     expect(() => loadEnv({ ...deployed, PUBLIC_URL: undefined })).toThrow("PUBLIC_URL");

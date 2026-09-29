@@ -64,6 +64,7 @@ export const envSchema = z.object({
   S3_BUCKET: z.string().optional(),
   S3_ACCESS_KEY_ID: z.string().optional(),
   S3_SECRET_ACCESS_KEY: z.string().optional(),
+  RESEND_API_KEY: z.string().optional(),
   SMTP_URL: z.string().optional(),
   EMAIL_FROM: z.string().optional(),
   GOOGLE_CLIENT_ID: z.string().optional(),
@@ -151,7 +152,10 @@ export function assertNoLocalStandIns(env: Env): void {
  */
 export function assertSignInPossible(env: Env): void {
   if (env.NODE_ENV !== "production" && env.NODE_ENV !== "staging") return;
-  const missing = (["SMTP_URL", "EMAIL_FROM"] as const).filter((k) => !env[k]);
+  const missing = [
+    ...(!env.EMAIL_FROM ? (["EMAIL_FROM"] as const) : []),
+    ...(!env.RESEND_API_KEY && !env.SMTP_URL ? (["RESEND_API_KEY or SMTP_URL"] as const) : []),
+  ];
   if (missing.length > 0) {
     throw new Error(`Refusing to start ${env.NODE_ENV} without ${missing.join(", ")}: nobody could sign in.`);
   }
