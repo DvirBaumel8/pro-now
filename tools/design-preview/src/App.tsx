@@ -661,6 +661,11 @@ export function App() {
   const authedSides = useRef<Set<Side>>(new Set(restored?.authedSides ?? []));
   const enter = useCallback((s: Side) => {
     if (authedSides.current.has(s)) {
+      /* A professional who has not joined yet joins first — signed in or not (Amit, 2026-09-30). */
+      if (s === "pro" && !proOnboarded.current) {
+        setGate({ name: "onboard" });
+        return;
+      }
       setSide(s);
       setGate(null);
       return;
@@ -930,6 +935,10 @@ export function App() {
                */
               if (!introSeen.current) {
                 setGate({ name: "intro", side: gate.side });
+                return;
+              }
+              if (gate.side === "pro" && !proOnboarded.current) {
+                setGate({ name: "onboard" });
                 return;
               }
               const canAsk = gate.side === "customer" && !avatarAnswered.current && avatarArtReady;
