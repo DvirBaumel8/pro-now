@@ -111,4 +111,66 @@ describe("media ownership and job attachment", () => {
     const rightMedia = await app.inject({ method: "GET", url: `/api/v1/media/${upload.id}`, headers: as(pat) });
     expect(rightMedia.statusCode).toBe(302);
   });
+
+  it("uploads three photos and a voice note, then exposes them only after assignment", async () => {
+    const storageKeys: string[] = [];
+    const photo = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
+    const voice = Buffer.from([0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x6d, 0x70, 0x34, 0x32]);
+
+    async function upload(kind: "PHOTO" | "VOICE_NOTE", mime: string, body: Buffer): Promise<string> {
+      const prepared = await app.inject({
+        method: "POST",
+        url: "/api/v1/uploads",
+        headers: as(alice),
+        payload: { kind, mime, bytes: body.byteLength },
+      });
+      expect(prepared.statusCode, prepared.body).toBe(201);
+      const { uploadUrl, upload } = prepared.json() as {
+        uploadUrl: string;
+        upload: { id: string; storageKey: string };
+      };
+      storageKeys.push(upload.storageKey);
+
+      const put = await fetch(uploadUrl, { method: "PUT", headers: { "Content-Type": mime }, body });
+      expect(put.status, await put.text()).toBe(200);
+
+      const complete = await app.inject({
+        method: "POST",
+        url: `/api/v1/uploads/${upload.id}/complete`,
+        headers: as(alice),
+      });
+      expect(complete.statusCode, complete.body).toBe(200);
+      return upload.id;
+    }
+
+    try {
+      const mediaRefs = [await upload("PHOTO", "image/jpeg", photo), await upload("PHOTO", "image/jpeg", photo), await upload("PHOTO", "image/jpeg", photo), await upload("VOICE_NOTE", "audio/mp4", voice)];
+      const created = await app.inject({
+        method: "POST",
+        url: "/api/v1/jobs",
+        headers: { ...as(alice), "idempotency-key": `media-full-${crypto.randomUUID()}` },
+        payload: { serviceId, addressId: alice.addressId, mediaRefs },
+      });
+      expect(created.statusCode, created.body).toBe(200);
+      const jobId = (created.json() as { job: { id: string } }).job.id;
+      await db.job.update({ where: { id: jobId }, data: { assignedProfessionalId: pat.proId, status: "PRO_ASSIGNED" } });
+
+      const visible = await app.inject({ method: "GET", url: `/api/v1/pro/jobs/${jobId}`, headers: as(pat) });
+      expect(visible.statusCode, visible.body).toBe(200);
+      expect(visible.json().media).toHaveLength(4);
+      expect(visible.json().media.map((item: { kind: string }) => item.kind)).toEqual([
+        "PHOTO",
+        "PHOTO",
+        "PHOTO",
+        "VOICE_NOTE",
+      ]);
+
+      const hidden = await app.inject({ method: "GET", url: `/api/v1/pro/jobs/${jobId}`, headers: as(quinn) });
+      expect(hidden.statusCode).toBe(404);
+      const mediaHidden = await app.inject({ method: "GET", url: `/api/v1/media/${mediaRefs[0]}`, headers: as(quinn) });
+      expect(mediaHidden.statusCode).toBe(403);
+    } finally {
+      await Promise.all(storageKeys.map((key) => app.providers.storage.delete(key)));
+    }
+  });
 });

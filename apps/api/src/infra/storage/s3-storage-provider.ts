@@ -43,6 +43,11 @@ export class S3StorageProvider implements StorageProvider {
       endpoint: options.endpoint,
       region: options.region,
       forcePathStyle: options.forcePathStyle ?? Boolean(options.endpoint),
+      // SeaweedFS and R2 accept the signed object headers without the SDK's
+      // optional checksum header. Requiring checksums only when a command
+      // explicitly asks for one keeps presigned browser PUTs portable.
+      requestChecksumCalculation: "WHEN_REQUIRED",
+      responseChecksumValidation: "WHEN_REQUIRED",
       credentials: {
         accessKeyId: options.accessKeyId,
         secretAccessKey: options.secretAccessKey,
