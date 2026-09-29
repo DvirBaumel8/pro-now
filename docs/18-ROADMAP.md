@@ -302,7 +302,13 @@ sentence that names somebody. Nothing changes for production: real professionals
 server's, and no example person ever reaches it. The example street plan says "מפת הדגמה"
 once, readably, instead of a faint repeated watermark.
 
-**DECIDED (Amit, 2026-09-29): the waiting screen keeps its top card; the rest is calmed.**
+**UPDATE (Amit, 2026-09-29, later): back to the card + "טיול בעיר שלנו" card + "בינתיים" tiles.**
+He tried the one-panel version, three alternative buttons and a menu-style list, and chose
+the earlier layout ("זה יותר הכיוון… או לא לגעת כרגע, לא קריטי"). Kept from the rounds in
+between: the calm (non-walking) avatar, pull-up/tap for job details, face-only pin over the
+van, look-ahead traffic. The paragraph below is the superseded step.
+
+**(superseded) DECIDED (Amit, 2026-09-29): the waiting screen keeps its top card; the rest is calmed.**
 The design review counted eleven shapes and the minutes three times. Amit: the top card
 (who, minutes, arrival, progress, safety) stays — "זה מה שהבן אדם רוצה לראות בבירור";
 the rest was left to the team. So: over his van only his face (no number); the stroll

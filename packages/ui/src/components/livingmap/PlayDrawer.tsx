@@ -150,32 +150,47 @@ export function PlayDrawer({ firstNameHe, etaMinutes, discoveries, hasJobDetails
       ) : null}
 
       {stroll ? (
-        <>
-          <Pressable
-            onPress={stroll.onPress}
-            accessibilityRole="button"
-            accessibilityLabel={stroll.labelHe}
-            style={({ pressed }) => [styles.stroll, pressed && { transform: [{ scale: 0.98 }] }]}
-          >
-            <Text style={styles.strollText} numberOfLines={1}>{stroll.labelHe}</Text>
-            {stroll.avatarUri ? (
-              <Animated.View style={[styles.strollMe, { transform: [{ scale: breathe.interpolate({ inputRange: [0, 1], outputRange: [1, 1.04] }) }] }]}>
-                <Image source={{ uri: stroll.avatarUri }} style={{ width: "100%", height: "100%" }} />
-              </Animated.View>
-            ) : null}
+        /*
+         * SAY WHAT EACH ONE DOES (Amit, 2026-09-29): "מפת הרחובות וטיול בעיר
+         * שלנו והכל לא מובן". Three rows a person reads like a menu — an
+         * icon, what it is in plain words, and what you get.
+         */
+        <View style={styles.rows}>
+          {actions.some((a) => a.id === "FOLLOW_PRO") ? (
+            <Pressable onPress={() => onAction?.("FOLLOW_PRO")} accessibilityRole="button" style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>
+              <View style={[styles.rowIcon, { backgroundColor: "#FF6B4A" }]}>
+                <Text style={styles.rowGlyph}>➜</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.rowTitle}>{firstNameHe ? `איפה ${firstNameHe} עכשיו?` : "איפה המקצוען עכשיו?"}</Text>
+                <Text style={styles.rowSub}>רואים על המפה, בזמן אמת</Text>
+              </View>
+              <Text style={styles.rowChevron}>‹</Text>
+            </Pressable>
+          ) : null}
+          {actions.some((a) => a.id === "JOB_DETAILS") ? (
+            <Pressable onPress={() => onAction?.("JOB_DETAILS")} accessibilityRole="button" style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>
+              <View style={[styles.rowIcon, { backgroundColor: "#2FBF8A" }]}>
+                <Text style={styles.rowGlyph}>☰</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.rowTitle}>מה הזמנתי</Text>
+                <Text style={styles.rowSub}>המחיר, הכתובת וכל הפרטים</Text>
+              </View>
+              <Text style={styles.rowChevron}>‹</Text>
+            </Pressable>
+          ) : null}
+          <Pressable onPress={stroll.onPress} accessibilityRole="button" accessibilityLabel={stroll.labelHe} style={({ pressed }) => [styles.row, styles.rowPlay, pressed && styles.rowPressed]}>
+            <Animated.View style={[styles.rowIcon, styles.rowMe, { transform: [{ scale: breathe.interpolate({ inputRange: [0, 1], outputRange: [1, 1.05] }) }] }]}>
+              {stroll.avatarUri ? <Image source={{ uri: stroll.avatarUri }} style={{ width: "100%", height: "100%" }} /> : <Text style={styles.rowGlyph}>✦</Text>}
+            </Animated.View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.rowTitle}>{stroll.labelHe}</Text>
+              <Text style={styles.rowSub}>{stroll.noteHe}</Text>
+            </View>
+            <Text style={[styles.rowChevron, { color: "#FF9A6B" }]}>‹</Text>
           </Pressable>
-          <Text style={styles.strollNote}>{stroll.noteHe}</Text>
-          <View style={styles.links}>
-            {actions.filter((a) => a.id === "FOLLOW_PRO" || a.id === "JOB_DETAILS").map((a, i) => (
-              <React.Fragment key={a.id}>
-                {i > 0 ? <Text style={styles.linkDot}>·</Text> : null}
-                <Pressable onPress={() => onAction?.(a.id)} accessibilityRole="link" style={styles.link}>
-                  <Text style={styles.linkText}>{a.id === "FOLLOW_PRO" ? "מפת הרחובות ›" : "פרטי העבודה ›"}</Text>
-                </Pressable>
-              </React.Fragment>
-            ))}
-          </View>
-        </>
+        </View>
       ) : (
       <View style={styles.actions}>
           {actions.map((a) => {
@@ -207,21 +222,32 @@ export function PlayDrawer({ firstNameHe, etaMinutes, discoveries, hasJobDetails
 }
 
 const styles = StyleSheet.create({
+  rows: { gap: 8, paddingTop: 2, paddingBottom: spacing.xs },
+  row: { flexDirection: "row-reverse", alignItems: "center", gap: 12, minHeight: 60, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 18, backgroundColor: "rgba(255,255,255,0.05)" },
+  rowPlay: { backgroundColor: "rgba(255,92,56,0.12)", borderWidth: 1, borderColor: "rgba(255,120,90,0.45)" },
+  rowPressed: { opacity: 0.85, transform: [{ scale: 0.98 }] },
+  rowIcon: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", overflow: "hidden" },
+  rowMe: { backgroundColor: "#2B1850", borderWidth: 2, borderColor: "#FF6B4A" },
+  rowGlyph: { color: "#0d0a16", fontSize: scale.body, fontWeight: "900" },
+  rowTitle: { ...type.bodyStrong, color: palette.nightText, textAlign: "right", writingDirection: "rtl" },
+  rowSub: { ...type.micro, color: palette.nightTextSoft, textAlign: "right", writingDirection: "rtl", marginTop: 1 },
+  rowChevron: { color: palette.nightTextSoft, fontSize: scale.section, fontWeight: "700" },
   stroll: {
     marginTop: spacing.xs,
     height: 52,
     borderRadius: 26,
-    backgroundColor: "#FFD36B",
+    /* The brand's own "now" colour — coral with ink text, like every primary action (Amit, 2026-09-29). */
+    backgroundColor: palette.signal500,
     flexDirection: "row-reverse",
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 54,
-    shadowColor: "#FFD36B",
+    shadowColor: palette.signal500,
     shadowOpacity: 0.45,
     shadowRadius: 16,
   },
-  strollText: { color: "#1B1036", fontSize: scale.body, fontWeight: "900", writingDirection: "rtl" },
-  strollMe: { position: "absolute", left: 9, width: 34, height: 34, borderRadius: 17, overflow: "hidden", borderWidth: 2, borderColor: "#1B1036", backgroundColor: "#2B1850" },
+  strollText: { color: palette.ink900, fontSize: scale.body, fontWeight: "900", writingDirection: "rtl" },
+  strollMe: { position: "absolute", left: 9, width: 34, height: 34, borderRadius: 17, overflow: "hidden", borderWidth: 2, borderColor: palette.ink900, backgroundColor: "#2B1850" },
   strollNote: { ...type.micro, color: palette.nightTextSoft, textAlign: "center", marginTop: 6, writingDirection: "rtl" },
   links: { flexDirection: "row-reverse", justifyContent: "center", alignItems: "center" },
   link: { minHeight: 44, justifyContent: "center", paddingHorizontal: spacing.sm },

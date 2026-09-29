@@ -66,6 +66,7 @@ import { WorldLife } from "./WorldLife";
 import { ErrandLayer } from "./ErrandLayer";
 import { LiveEtaCard, type LiveEtaCardProps } from "./LiveEtaCard";
 import { PlayDrawer } from "./PlayDrawer";
+import { StrollInvite } from "./StrollInvite";
 import { ScrimBand } from "./ScrimBand";
 import { livingPalette as P } from "./palette";
 import { SteerPad } from "./SteerPad";
@@ -329,7 +330,7 @@ export function LivingMapScene({
   liveEta = null,
   onStroll,
   strollFrames: _strollFrames,
-  strollShopUris: _strollShopUris,
+  strollShopUris: _strollShopUris = [],
   strollAvatarUri = null,
   waitDetailsHe = [],
   onLeaveWait,
@@ -1915,7 +1916,17 @@ export function LivingMapScene({
       {liveEta && phase === "ASSIGNED_ROUTE" ? (
         <LiveEtaCard {...liveEta} width={width} topInset={topInset ?? 0} onSafety={onSafety} onBack={onLeaveWait} />
       ) : null}
-      {/* The stroll invitation now lives in the drawer below — one panel, not two (2026-09-29). */}
+      {liveEta && phase === "ASSIGNED_ROUTE" && onStroll ? (
+        <StrollInvite
+          proFirstNameHe={liveEta.proFirstNameHe}
+          female={liveEta.female}
+          shopUris={_strollShopUris}
+          avatarUri={strollAvatarUri}
+          onPress={onStroll}
+          width={width}
+          bottom={Math.round(height * SHEET_SHARE) + spacing.xl + 8}
+        />
+      ) : null}
       {phase === "ASSIGNED_ROUTE" && !bare ? (
         <PlayDrawer
           firstNameHe={chosen ? firstName(chosen.displayNameHe) : null}
@@ -1927,16 +1938,6 @@ export function LivingMapScene({
           statusHe={liveEta ? "בינתיים" : null}
           omit={liveEta && onStroll ? ["PLAY_MORE"] : []}
           detailsHe={waitDetailsHe}
-          stroll={
-            liveEta && onStroll
-              ? {
-                  onPress: onStroll,
-                  labelHe: `טיול בעיר שלנו בזמן ש${liveEta.proFirstNameHe} בדרך`,
-                  noteHe: liveEta.female ? "נקרא לך כשהיא מתקרבת · משכו למעלה לפרטי העבודה" : "נקרא לך כשהוא מתקרב · משכו למעלה לפרטי העבודה",
-                  avatarUri: strollAvatarUri,
-                }
-              : null
-          }
         />
       ) : null}
 
