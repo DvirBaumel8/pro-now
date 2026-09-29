@@ -263,6 +263,10 @@ per commit. Each commit gets full CI plus `verify:journey`.
 - **Fastify 4 → 5** (`@fastify/cors` → 11, `@fastify/websocket` → 11).
 - **`apps/api` to ESM** (`"type": "module"`), which retires the
   `module: node20` workaround from W1.
+  **Done:** the API and `packages/{types,config,validation,api-client}`
+  are ESM, resolved like a bundler (`ESNext` + `Bundler`, as `packages/ui`
+  already was). Relative imports carry `.js`. Production needs a bundle
+  (the W10 gap).
 - **React 18 → 19, and react-native-web 0.19 → 0.21**, in the product
   packages only. The demo keeps its own copies (docs/22).
 - **Prisma 5 → 7** (driver adapter, no Rust engine). Fall back to 6 if 7
@@ -492,6 +496,14 @@ per commit. Each commit gets full CI plus `verify:journey`.
   a subscription and a received message.
 
 ### W10 — Hardening and go-live readiness (M)
+- **Known gap, found in W1.5 (2026-09-29): the API's production build
+  has never run.** `tsc` compiles `apps/api`, but `node dist/server.js`
+  fails. The workspace packages (`@pro-now/config`, `types`,
+  `validation`) ship TypeScript source, and their `main` points at
+  `src/index.ts`, which was true before the ESM switch too. Everything
+  so far runs through `tsx`. Fix before Render: bundle the server
+  (esbuild/tsup), or give the packages a build. Acceptance: `npm start`
+  serves `/health` from `dist`.
 - **Security:**
   - `@fastify/helmet`: CSP (self plus the tile host plus the storage
     host), HSTS, frame-ancestors none.

@@ -5,7 +5,7 @@
  * these candidates (PostGIS pre-filter happens in SQL before this runs).
  */
 
-import { isAccountDispatchable } from "./credential-eligibility";
+import { isAccountDispatchable } from "./credential-eligibility.js";
 
 export interface DispatchCandidate {
   professionalId: string;

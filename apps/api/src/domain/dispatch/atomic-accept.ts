@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
-import type { JobLock } from "./job-lock";
+import type { JobLock } from "./job-lock.js";
 
 /**
  * Atomic offer acceptance — see /docs/05-DATABASE.md §Atomic accept and

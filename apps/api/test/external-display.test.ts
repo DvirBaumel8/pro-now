@@ -4,7 +4,7 @@ import {
   DISPLAY_FIELD,
   MAX_SNAPSHOT_AGE_DAYS,
   type ExternalProfileState,
-} from "../src/domain/reputation/external-display";
+} from "../src/domain/reputation/external-display.js";
 
 const NOW = new Date("2026-09-22T12:00:00Z");
 const daysAgo = (n: number) => new Date(NOW.getTime() - n * 86_400_000);

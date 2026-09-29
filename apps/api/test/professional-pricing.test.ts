@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   validatePricing,
   isChargeable,
-} from "../src/domain/pricing/professional-pricing";
+} from "../src/domain/pricing/professional-pricing.js";
 
 describe("a professional's own price — /CLAUDE.md §4", () => {
   it("stores what they set, without an opinion about the amount", () => {

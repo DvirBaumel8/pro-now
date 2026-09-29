@@ -1,6 +1,6 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { Prisma, PrismaClient } from "@prisma/client";
-import type { Role } from "./roles";
+import type { Role } from "./roles.js";
 
 /**
  * Authorization (docs/21 W1, the table in docs/06-API-SPEC.md §Access).

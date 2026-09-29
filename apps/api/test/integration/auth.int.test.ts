@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { PrismaClient } from "@prisma/client";
 
-import { startApp } from "./harness";
+import { startApp } from "./harness.js";
 import {
   CookieJar,
   latestEmailTo,
@@ -11,7 +11,7 @@ import {
   signInWithGoogle,
   uniqueEmail,
   whoAmI,
-} from "./auth-helpers";
+} from "./auth-helpers.js";
 
 const ADMIN = uniqueEmail("admin");
 process.env.ADMIN_EMAILS = ADMIN;

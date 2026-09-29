@@ -29,7 +29,7 @@
  * visible, rather than a half-built flow that quietly promotes itself.
  */
 import type { FastifyInstance } from "fastify";
-import { requireRole } from "../auth/access";
+import { requireRole } from "../auth/access.js";
 
 export default async function proReputationRoutes(app: FastifyInstance) {
   /** The sources a professional could connect, and whether any is live. */

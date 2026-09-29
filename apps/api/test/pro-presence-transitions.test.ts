@@ -4,7 +4,7 @@ import {
   assertPresenceTransition,
   canEndShift,
   InvalidPresenceTransitionError,
-} from "../src/domain/job/pro-presence-transitions";
+} from "../src/domain/job/pro-presence-transitions.js";
 
 describe("professional presence state machine — /docs/07-JOB-STATE-MACHINE.md", () => {
   it("walks the full happy path from OFFLINE to AVAILABLE-again", () => {

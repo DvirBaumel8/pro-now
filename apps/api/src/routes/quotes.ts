@@ -1,8 +1,8 @@
 import type { FastifyInstance } from "fastify";
 import { createQuoteSchema, approveQuoteSchema } from "@pro-now/validation";
-import { buildQuoteVersion } from "../domain/pricing/quote-hash";
-import { assertTransition } from "../domain/job/transitions";
-import { assignedJob, notFound, quoteForCustomer, requireRole } from "../auth/access";
+import { buildQuoteVersion } from "../domain/pricing/quote-hash.js";
+import { assertTransition } from "../domain/job/transitions.js";
+import { assignedJob, notFound, quoteForCustomer, requireRole } from "../auth/access.js";
 
 /**
  * See /docs/05-DATABASE.md §Quote versioning and /docs/02-UX-FLOWS.md C12/P19.

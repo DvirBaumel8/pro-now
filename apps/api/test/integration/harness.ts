@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { buildServer } from "../../src/server";
+import { buildServer } from "../../src/server.js";
 
 /** A fully wired server (every plugin and route), silent, for app.inject. */
 export async function startApp(): Promise<FastifyInstance> {

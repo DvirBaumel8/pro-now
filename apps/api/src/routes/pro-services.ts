@@ -1,9 +1,9 @@
 import type { FastifyInstance } from "fastify";
-import { requireRole } from "../auth/access";
+import { requireRole } from "../auth/access.js";
 import {
   evaluateServiceCredentials,
   isAccountDispatchable,
-} from "../domain/dispatch/credential-eligibility";
+} from "../domain/dispatch/credential-eligibility.js";
 
 /**
  * WHICH SERVICES THIS PROFESSIONAL MAY GO ONLINE FOR.
@@ -35,8 +35,8 @@ import {
   validatePricing,
   isChargeable,
   type PricingInput,
-} from "../domain/pricing/professional-pricing";
-import type { PriceModel } from "../domain/payments/settlement";
+} from "../domain/pricing/professional-pricing.js";
+import type { PriceModel } from "../domain/payments/settlement.js";
 
 export default async function proServicesRoutes(app: FastifyInstance) {
   app.get("/v1/pro/services", { onRequest: requireRole("PROFESSIONAL") }, async (req, reply) => {

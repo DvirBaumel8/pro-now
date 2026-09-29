@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { assertTransition, isTransitionAllowed, nextAfterArrival, InvalidJobTransitionError } from "../src/domain/job/transitions";
+import { assertTransition, isTransitionAllowed, nextAfterArrival, InvalidJobTransitionError } from "../src/domain/job/transitions.js";
 
 describe("job state machine — /docs/07-JOB-STATE-MACHINE.md", () => {
   it("allows the full happy-path visit+quote flow", () => {

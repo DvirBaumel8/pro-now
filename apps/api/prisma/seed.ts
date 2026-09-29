@@ -4,10 +4,10 @@
  * /docs/09b-SERVICE-CATALOG.md) into database rows. Idempotent: safe to
  * run repeatedly against the same database.
  */
-import "../src/load-env";
+import "../src/load-env.js";
 
 import { PrismaClient } from "@prisma/client";
-import { departments, categories, services, PILOT_MARKET_CODE } from "./seed-data/services";
+import { departments, categories, services, PILOT_MARKET_CODE } from "./seed-data/services.js";
 import {
   PILOT_TO_DATABASE_SERVICE_CODE,
   pilotServiceById,

@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
-import { startApp } from "./harness";
+import { startApp } from "./harness.js";
 
 describe("integration harness", () => {
   let app: FastifyInstance;

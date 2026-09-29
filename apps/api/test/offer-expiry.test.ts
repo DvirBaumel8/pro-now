@@ -3,7 +3,7 @@ import {
   decideStalledJob,
   sweepExpiredOffers,
   type StalledJob,
-} from "../src/domain/dispatch/offer-expiry";
+} from "../src/domain/dispatch/offer-expiry.js";
 
 const DEADLINE = 300;
 const NOW = new Date("2026-09-22T10:00:00Z");

@@ -1,4 +1,4 @@
-import type { OutgoingEmail } from "../infra/email/email-provider";
+import type { OutgoingEmail } from "../infra/email/email-provider.js";
 
 const escape = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 

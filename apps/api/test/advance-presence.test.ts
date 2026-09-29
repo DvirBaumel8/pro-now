@@ -3,7 +3,7 @@ import {
   advancePresence,
   releaseAfterCompletion,
   releaseAfterCancellation,
-} from "../src/domain/job/advance-presence";
+} from "../src/domain/job/advance-presence.js";
 
 function fakePrisma(state: { presenceState: string } | null) {
   return {

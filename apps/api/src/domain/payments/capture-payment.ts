@@ -43,7 +43,7 @@
 import type { PrismaClient } from "@prisma/client";
 import type { PaymentProvider } from "@pro-now/types";
 
-import { settle, splitCommission, type PriceModel } from "./settlement";
+import { settle, splitCommission, type PriceModel } from "./settlement.js";
 
 /** `app_config` key. Absent by design — /CLAUDE.md §4. */
 export const COMMISSION_CONFIG_KEY = "payments.commission.percent";

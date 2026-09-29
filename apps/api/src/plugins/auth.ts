@@ -2,9 +2,9 @@ import fp from "fastify-plugin";
 import type { FastifyInstance } from "fastify";
 import { fromNodeHeaders } from "better-auth/node";
 
-import { AUTH_BASE_PATH, createAuth, type Auth } from "../auth/auth";
-import { rolesOf, type Role } from "../auth/roles";
-import { createSmtpEmailProvider, unconfiguredEmailProvider } from "../infra/email/smtp";
+import { AUTH_BASE_PATH, createAuth, type Auth } from "../auth/auth.js";
+import { rolesOf, type Role } from "../auth/roles.js";
+import { createSmtpEmailProvider, unconfiguredEmailProvider } from "../infra/email/smtp.js";
 
 /** Who is calling, resolved from the session cookie. Server-side truth only. */
 export interface RequestUser {

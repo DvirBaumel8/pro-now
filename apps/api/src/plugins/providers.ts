@@ -6,10 +6,10 @@ import type {
   MapsRoutingProvider,
   ExternalReputationProvider,
 } from "@pro-now/types";
-import { SandboxPaymentProvider } from "../infra/payments/sandbox-payment-provider";
-import { SandboxIdentityProvider } from "../infra/identity/sandbox-identity-provider";
-import { SandboxMapsProvider } from "../infra/maps/sandbox-maps-provider";
-import { SandboxExternalReputationProvider } from "../infra/reputation/sandbox-reputation-provider";
+import { SandboxPaymentProvider } from "../infra/payments/sandbox-payment-provider.js";
+import { SandboxIdentityProvider } from "../infra/identity/sandbox-identity-provider.js";
+import { SandboxMapsProvider } from "../infra/maps/sandbox-maps-provider.js";
+import { SandboxExternalReputationProvider } from "../infra/reputation/sandbox-reputation-provider.js";
 
 /**
  * Wires the vendor-neutral provider interfaces from /docs/18-ROADMAP.md

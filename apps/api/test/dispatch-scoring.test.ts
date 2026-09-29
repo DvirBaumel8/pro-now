@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { rankCandidates, scoreCandidate, DEFAULT_SCORING_WEIGHTS } from "../src/domain/dispatch/scoring";
+import { rankCandidates, scoreCandidate, DEFAULT_SCORING_WEIGHTS } from "../src/domain/dispatch/scoring.js";
 
 describe("dispatch scoring — /docs/08-DISPATCH-ENGINE.md §Scoring", () => {
   it("ranks a closer, better-rated professional above a farther, lower-rated one", () => {

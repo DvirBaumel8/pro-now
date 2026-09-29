@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isOriginAllowed } from "../src/plugins/cors";
+import { isOriginAllowed } from "../src/plugins/cors.js";
 
 describe("CORS origins — apps/api/src/plugins/cors.ts", () => {
   const allowList = ["https://admin.example.com"];

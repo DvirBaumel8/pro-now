@@ -1,16 +1,16 @@
 import type { FastifyInstance } from "fastify";
 import type { Prisma } from "@prisma/client";
 import { createJobSchema } from "@pro-now/validation";
-import { triggerDispatch } from "../domain/dispatch/dispatch-service";
-import { capturePaymentForJob } from "../domain/payments/capture-payment";
+import { triggerDispatch } from "../domain/dispatch/dispatch-service.js";
+import { capturePaymentForJob } from "../domain/payments/capture-payment.js";
 import {
   advancePresence,
   releaseAfterCompletion,
   releaseAfterCancellation,
-} from "../domain/job/advance-presence";
-import { assertTransition, nextAfterArrival } from "../domain/job/transitions";
-import { loadPaidTotals, priceContextFor } from "../domain/pricing/price-context";
-import { assignedJob, customerJob, notFound, requireRole } from "../auth/access";
+} from "../domain/job/advance-presence.js";
+import { assertTransition, nextAfterArrival } from "../domain/job/transitions.js";
+import { loadPaidTotals, priceContextFor } from "../domain/pricing/price-context.js";
+import { assignedJob, customerJob, notFound, requireRole } from "../auth/access.js";
 
 /**
  * See /docs/06-API-SPEC.md and /docs/05-DATABASE.md §Job creation

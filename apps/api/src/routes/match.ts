@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
-import { externalReputationDisplay } from "../domain/reputation/external-display";
-import { customerJob, notFound, requireRole } from "../auth/access";
+import { externalReputationDisplay } from "../domain/reputation/external-display.js";
+import { customerJob, notFound, requireRole } from "../auth/access.js";
 import {
   MIN_REVIEWS_FOR_RATING,
   type JobMatchView,

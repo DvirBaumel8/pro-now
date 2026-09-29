@@ -7,7 +7,7 @@ import {
   pilotServiceById,
   pilotServiceIdForDatabaseCode,
 } from "@pro-now/types";
-import { services as databaseServices } from "../prisma/seed-data/services";
+import { services as databaseServices } from "../prisma/seed-data/services.js";
 
 const databaseCodes = new Set(databaseServices.map((s) => s.code));
 const pilotIds = Object.keys(pilotServiceById);

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { evaluateEligibility, filterEligible, type DispatchCandidate } from "../src/domain/dispatch/eligibility";
+import { evaluateEligibility, filterEligible, type DispatchCandidate } from "../src/domain/dispatch/eligibility.js";
 
 const baseCandidate: DispatchCandidate = {
   professionalId: "pro_1",

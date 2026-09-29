@@ -144,4 +144,4 @@ export const services: SeedService[] = [
 ];
 
 /** Pilot market this seed activates for local/dev/staging demos only. */
-export { PILOT_MARKET_CODE } from "../../src/config/market";
+export { PILOT_MARKET_CODE } from "../../src/config/market.js";

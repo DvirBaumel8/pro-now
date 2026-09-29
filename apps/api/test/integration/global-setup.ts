@@ -2,9 +2,9 @@ import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { PrismaClient } from "@prisma/client";
 import type { GlobalSetupContext } from "vitest/node";
-import "../../src/load-env";
+import "../../src/load-env.js";
 
-const API_DIR = path.resolve(__dirname, "../..");
+const API_DIR = path.resolve(import.meta.dirname, "../..");
 
 declare module "vitest" {
   export interface ProvidedContext {

@@ -40,7 +40,7 @@
  * A professional who stops offering a price should not have the platform
  * charging nothing on their behalf.
  */
-import type { PriceModel } from "../payments/settlement";
+import type { PriceModel } from "../payments/settlement.js";
 
 export interface PricingInput {
   basePriceMinorUnits?: number | null;

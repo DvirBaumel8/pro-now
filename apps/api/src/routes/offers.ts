@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
-import { acceptOffer, OfferNoLongerAvailableError } from "../domain/dispatch/atomic-accept";
-import { triggerDispatch } from "../domain/dispatch/dispatch-service";
-import { notFound, ownOffer, requireRole } from "../auth/access";
+import { acceptOffer, OfferNoLongerAvailableError } from "../domain/dispatch/atomic-accept.js";
+import { triggerDispatch } from "../domain/dispatch/dispatch-service.js";
+import { notFound, ownOffer, requireRole } from "../auth/access.js";
 
 const LIVE_OFFER = ["CREATED", "SENT", "VIEWED"] as const;
 

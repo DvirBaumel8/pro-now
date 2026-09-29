@@ -2,8 +2,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { PrismaClient } from "@prisma/client";
 
-import { startApp } from "./harness";
-import { signInByEmail, signInWithGoogle, uniqueEmail, whoAmI, type CookieJar } from "./auth-helpers";
+import { startApp } from "./harness.js";
+import { signInByEmail, signInWithGoogle, uniqueEmail, whoAmI, type CookieJar } from "./auth-helpers.js";
 
 let app: FastifyInstance;
 let db: PrismaClient;

@@ -1,5 +1,5 @@
 import nodemailer from "nodemailer";
-import type { EmailProvider, OutgoingEmail } from "./email-provider";
+import type { EmailProvider, OutgoingEmail } from "./email-provider.js";
 
 export function createSmtpEmailProvider(smtpUrl: string, from: string): EmailProvider {
   const transport = nodemailer.createTransport(smtpUrl);

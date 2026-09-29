@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { recordsFor } from "../src/domain/dispatch/professional-record";
+import { recordsFor } from "../src/domain/dispatch/professional-record.js";
 
 /**
  * A stand-in for the four aggregate queries. What is being tested is the

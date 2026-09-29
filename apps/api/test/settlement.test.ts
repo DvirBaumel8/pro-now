@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { settle, splitCommission, type SettlementInput } from "../src/domain/payments/settlement";
+import { settle, splitCommission, type SettlementInput } from "../src/domain/payments/settlement.js";
 
 const base: SettlementInput = {
   priceModel: "FIXED",

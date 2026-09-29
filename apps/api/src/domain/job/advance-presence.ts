@@ -42,7 +42,7 @@ import type { ProPresenceState } from "@pro-now/types";
 import {
   isPresenceTransitionAllowed,
   presenceAfterCancellation,
-} from "./pro-presence-transitions";
+} from "./pro-presence-transitions.js";
 
 export interface PresenceAdvance {
   moved: boolean;

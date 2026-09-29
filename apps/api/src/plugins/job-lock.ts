@@ -1,7 +1,7 @@
 import fp from "fastify-plugin";
 import type { FastifyInstance } from "fastify";
 import type { Env } from "@pro-now/config";
-import { NoopJobLock, RedisJobLock, type JobLock } from "../domain/dispatch/job-lock";
+import { NoopJobLock, RedisJobLock, type JobLock } from "../domain/dispatch/job-lock.js";
 
 declare module "fastify" {
   interface FastifyInstance {

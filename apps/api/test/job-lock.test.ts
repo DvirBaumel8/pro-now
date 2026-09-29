@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { NoopJobLock, RedisJobLock, type RedisLike } from "../src/domain/dispatch/job-lock";
+import { NoopJobLock, RedisJobLock, type RedisLike } from "../src/domain/dispatch/job-lock.js";
 
 /**
  * The job lock is an optimisation in front of the row lock. What must hold:

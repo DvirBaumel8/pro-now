@@ -25,7 +25,7 @@
 import fp from "fastify-plugin";
 import type { FastifyInstance } from "fastify";
 
-import { sweepExpiredOffers } from "../domain/dispatch/offer-expiry";
+import { sweepExpiredOffers } from "../domain/dispatch/offer-expiry.js";
 
 /** Floor and ceiling keep a misconfigured timeout from becoming a busy loop. */
 const MIN_INTERVAL_MS = 1_000;

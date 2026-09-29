@@ -2,8 +2,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { PrismaClient, type JobStatus } from "@prisma/client";
 
-import { startApp } from "./harness";
-import { CookieJar, signInByEmail, uniqueEmail, whoAmI } from "./auth-helpers";
+import { startApp } from "./harness.js";
+import { CookieJar, signInByEmail, uniqueEmail, whoAmI } from "./auth-helpers.js";
 
 /**
  * Access to another person's records (IDOR), route by route (docs/21 W1).

@@ -1,29 +1,30 @@
-import "./load-env";
+import "./load-env.js";
+import { pathToFileURL } from "node:url";
 
 import Fastify from "fastify";
 import websocketPlugin from "@fastify/websocket";
 import { loadEnv } from "@pro-now/config";
 
-import corsPlugin from "./plugins/cors";
-import prismaPlugin from "./plugins/prisma";
-import jobLockPlugin from "./plugins/job-lock";
-import providersPlugin from "./plugins/providers";
-import dispatchSweeperPlugin from "./plugins/dispatch-sweeper";
-import authPlugin from "./plugins/auth";
+import corsPlugin from "./plugins/cors.js";
+import prismaPlugin from "./plugins/prisma.js";
+import jobLockPlugin from "./plugins/job-lock.js";
+import providersPlugin from "./plugins/providers.js";
+import dispatchSweeperPlugin from "./plugins/dispatch-sweeper.js";
+import authPlugin from "./plugins/auth.js";
 
-import catalogRoutes from "./routes/catalog";
-import addressesRoutes from "./routes/addresses";
-import jobsRoutes from "./routes/jobs";
-import matchRoutes from "./routes/match";
-import offersRoutes from "./routes/offers";
-import proRoutes from "./routes/pro";
-import proJobsRoutes from "./routes/pro-jobs";
-import proReputationRoutes from "./routes/pro-reputation";
-import proServicesRoutes from "./routes/pro-services";
-import quotesRoutes from "./routes/quotes";
-import reviewsRoutes from "./routes/reviews";
-import meRoutes from "./routes/me";
-import { registerJobSocket } from "./realtime/job-socket";
+import catalogRoutes from "./routes/catalog.js";
+import addressesRoutes from "./routes/addresses.js";
+import jobsRoutes from "./routes/jobs.js";
+import matchRoutes from "./routes/match.js";
+import offersRoutes from "./routes/offers.js";
+import proRoutes from "./routes/pro.js";
+import proJobsRoutes from "./routes/pro-jobs.js";
+import proReputationRoutes from "./routes/pro-reputation.js";
+import proServicesRoutes from "./routes/pro-services.js";
+import quotesRoutes from "./routes/quotes.js";
+import reviewsRoutes from "./routes/reviews.js";
+import meRoutes from "./routes/me.js";
+import { registerJobSocket } from "./realtime/job-socket.js";
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -140,7 +141,7 @@ export async function buildServer(opts: { logger?: boolean } = {}) {
   return app;
 }
 
-if (require.main === module) {
+if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
   buildServer()
     .then((app) => app.listen({ port: app.config.PORT, host: "0.0.0.0" }))
     .catch((err) => {

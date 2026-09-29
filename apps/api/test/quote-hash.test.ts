@@ -5,7 +5,7 @@ import {
   computeQuoteTotalMinorUnits,
   computeQuoteVersionHash,
   type QuoteLineItemForHash,
-} from "../src/domain/pricing/quote-hash";
+} from "../src/domain/pricing/quote-hash.js";
 
 /**
  * Epic 9 — quote versioning / hash integrity. The customer approves an

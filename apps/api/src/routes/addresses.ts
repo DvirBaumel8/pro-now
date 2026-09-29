@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { requireRole } from "../auth/access";
+import { requireRole } from "../auth/access.js";
 import { createAddressSchema } from "@pro-now/validation";
 
 /**

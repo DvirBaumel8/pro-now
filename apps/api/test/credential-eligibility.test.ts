@@ -4,7 +4,7 @@ import {
   isAccountDispatchable,
   type ProfessionalCredentialInput,
   type ServiceRequirementInput,
-} from "../src/domain/dispatch/credential-eligibility";
+} from "../src/domain/dispatch/credential-eligibility.js";
 
 /**
  * Epic 3's Definition of Done, stated in /docs/19-CLAUDE-RULES.md and

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { earningsFor } from "../src/domain/payments/earnings";
+import { earningsFor } from "../src/domain/payments/earnings.js";
 
 const NOW = new Date("2026-09-22T15:00:00Z");
 const hoursAgo = (n: number) => new Date(NOW.getTime() - n * 3_600_000);

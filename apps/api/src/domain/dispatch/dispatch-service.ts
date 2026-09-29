@@ -1,10 +1,10 @@
 import type { PrismaClient } from "@prisma/client";
 import type { JobState, MapsRoutingProvider } from "@pro-now/types";
-import { evaluateServiceCredentials } from "./credential-eligibility";
-import { evaluateEligibility } from "./eligibility";
-import { rankCandidates, DEFAULT_SCORING_WEIGHTS, type ScoringWeights } from "./scoring";
-import { recordsFor } from "./professional-record";
-import { isTransitionAllowed } from "../job/transitions";
+import { evaluateServiceCredentials } from "./credential-eligibility.js";
+import { evaluateEligibility } from "./eligibility.js";
+import { rankCandidates, DEFAULT_SCORING_WEIGHTS, type ScoringWeights } from "./scoring.js";
+import { recordsFor } from "./professional-record.js";
+import { isTransitionAllowed } from "../job/transitions.js";
 
 /**
  * Simplified synchronous dispatch trigger for this delivery — see

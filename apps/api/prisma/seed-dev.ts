@@ -44,7 +44,7 @@
  *
  * Idempotent: re-running updates the same rows, keyed by phone.
  */
-import "../src/load-env";
+import "../src/load-env.js";
 
 import { PrismaClient, type PrismaClient as PrismaClientType } from "@prisma/client";
 import { credentialTypeFor } from "@pro-now/types";

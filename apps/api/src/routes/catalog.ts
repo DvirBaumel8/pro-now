@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import type { CatalogCategoryView, CatalogDepartmentView } from "@pro-now/types";
-import { PILOT_MARKET_CODE } from "../config/market";
+import { PILOT_MARKET_CODE } from "../config/market.js";
 
 /**
  * GET /v1/catalog — see /docs/06-API-SPEC.md. Always filtered through

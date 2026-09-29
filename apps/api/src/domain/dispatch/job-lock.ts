@@ -1,4 +1,4 @@
-import type Redis from "ioredis";
+import type { Redis } from "ioredis";
 
 /**
  * A lock around one job's accept, used by `atomic-accept.ts`.

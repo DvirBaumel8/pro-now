@@ -4,7 +4,7 @@ import {
   VisitQuotePricingAdapter,
   HourlyPricingAdapter,
   DistanceTimePricingAdapter,
-} from "../src/domain/pricing/pricing-adapter";
+} from "../src/domain/pricing/pricing-adapter.js";
 
 describe("pricing adapters — /docs/09-PAYMENTS.md §Pricing archetypes", () => {
   it("FIXED shows the exact price with no additional-work flag", () => {

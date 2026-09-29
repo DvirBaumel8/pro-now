@@ -4,9 +4,9 @@ import { genericOAuth, magicLink } from "better-auth/plugins";
 import type { PrismaClient } from "@prisma/client";
 import type { Env } from "@pro-now/config";
 
-import type { EmailProvider } from "../infra/email/email-provider";
-import { magicLinkEmail } from "./magic-link-email";
-import { grantAdminIfAllowlisted, grantRole } from "./roles";
+import type { EmailProvider } from "../infra/email/email-provider.js";
+import { magicLinkEmail } from "./magic-link-email.js";
+import { grantAdminIfAllowlisted, grantRole } from "./roles.js";
 
 export const AUTH_BASE_PATH = "/api/auth";
 const MAGIC_LINK_TTL_SECONDS = 15 * 60;

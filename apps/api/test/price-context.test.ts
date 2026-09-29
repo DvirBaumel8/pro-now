@@ -4,7 +4,7 @@ import {
   percentile,
   priceContextFor,
   shouldPromptAboutPrice,
-} from "../src/domain/pricing/price-context";
+} from "../src/domain/pricing/price-context.js";
 
 /** A sample of `n` values from ₪100 upwards, in whole shekels. */
 const run = (n: number, from = 100, step = 10) =>

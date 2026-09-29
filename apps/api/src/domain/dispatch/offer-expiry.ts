@@ -42,8 +42,8 @@
 import type { PrismaClient } from "@prisma/client";
 import type { MapsRoutingProvider } from "@pro-now/types";
 
-import { triggerDispatch, type DispatchOutcome } from "./dispatch-service";
-import { isPresenceTransitionAllowed } from "../job/pro-presence-transitions";
+import { triggerDispatch, type DispatchOutcome } from "./dispatch-service.js";
+import { isPresenceTransitionAllowed } from "../job/pro-presence-transitions.js";
 
 /** Offer states that are still waiting on an answer. */
 const LIVE_OFFER_STATUSES = ["CREATED", "SENT", "VIEWED"] as const;

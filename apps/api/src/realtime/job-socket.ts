@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { jobParticipant } from "../auth/access";
+import { jobParticipant } from "../auth/access.js";
 
 /**
  * Private, authorized-per-job WebSocket channel — see

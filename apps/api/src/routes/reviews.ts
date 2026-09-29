@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { reviewSchema } from "@pro-now/validation";
-import { customerJob, notFound, requireRole } from "../auth/access";
+import { customerJob, notFound, requireRole } from "../auth/access.js";
 
 /**
  * See /docs/05-DATABASE.md §Reviews: "Only the customer of an eligible

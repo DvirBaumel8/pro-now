@@ -1,10 +1,10 @@
 import type { FastifyInstance } from "fastify";
-import { notFound, ownShift, requireRole } from "../auth/access";
-import { earningsFor } from "../domain/payments/earnings";
+import { notFound, ownShift, requireRole } from "../auth/access.js";
+import { earningsFor } from "../domain/payments/earnings.js";
 import { startShiftSchema, locationPingSchema } from "@pro-now/validation";
-import { assertPresenceTransition, canEndShift } from "../domain/job/pro-presence-transitions";
+import { assertPresenceTransition, canEndShift } from "../domain/job/pro-presence-transitions.js";
 import type { OfferCardView, ProPresenceState } from "@pro-now/types";
-import { coarseAreaLabel } from "../domain/privacy/area-label";
+import { coarseAreaLabel } from "../domain/privacy/area-label.js";
 
 /**
  * See /docs/06-API-SPEC.md, /docs/07-JOB-STATE-MACHINE.md §Professional

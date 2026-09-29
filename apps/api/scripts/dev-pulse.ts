@@ -27,7 +27,7 @@
  *
  * Run: npm run dev:pulse   (Ctrl-C to stop)
  */
-import "../src/load-env";
+import "../src/load-env.js";
 
 import { PrismaClient } from "@prisma/client";
 

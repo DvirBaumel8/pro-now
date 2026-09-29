@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { AREA_LABEL_FALLBACK, coarseAreaLabel } from "../src/domain/privacy/area-label";
+import { AREA_LABEL_FALLBACK, coarseAreaLabel } from "../src/domain/privacy/area-label.js";
 
 /**
  * Pre-assignment location privacy (/docs/12-PRIVACY.md). Every assertion
