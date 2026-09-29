@@ -11,6 +11,7 @@ import jobLockPlugin from "./plugins/job-lock.js";
 import providersPlugin from "./plugins/providers.js";
 import dispatchSweeperPlugin from "./plugins/dispatch-sweeper.js";
 import authPlugin from "./plugins/auth.js";
+import webAppPlugin from "./plugins/web-app.js";
 
 import catalogRoutes from "./routes/catalog.js";
 import addressesRoutes from "./routes/addresses.js";
@@ -143,6 +144,9 @@ export async function buildServer(opts: { logger?: boolean } = {}) {
   await app.register(meRoutes, { prefix: API_PREFIX });
 
   await app.register(async (api) => registerJobSocket(api), { prefix: API_PREFIX });
+
+  // Last: the web app owns every path the API does not.
+  await app.register(webAppPlugin);
 
 
   return app;

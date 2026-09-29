@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { VitePWA } from "vite-plugin-pwa";
 
 /**
  * The product web app (docs/21 W2). Same rendering setup as the demo
@@ -7,7 +8,44 @@ import react from "@vitejs/plugin-react";
  * `react-native` is react-native-web, and react-native-svg uses its web build.
  */
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    /*
+     * Installable (docs/21 W2), and the prerequisite for Web Push on iOS.
+     * The service worker precaches the app shell only: the built JS, CSS,
+     * HTML and icons. It never caches /api (every answer must be the
+     * server's current one) or the art, which the browser's HTTP cache
+     * already holds.
+     */
+    VitePWA({
+      registerType: "autoUpdate",
+      includeAssets: ["icons/apple-touch-icon.png"],
+      manifest: {
+        name: "PRO NOW",
+        short_name: "PRO NOW",
+        description: "מקצוען מאומת, שבא עכשיו.",
+        lang: "he",
+        dir: "rtl",
+        start_url: "/",
+        scope: "/",
+        display: "standalone",
+        orientation: "portrait",
+        background_color: "#17121F",
+        theme_color: "#17121F",
+        icons: [
+          { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+          { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+          { src: "/icons/maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+        ],
+      },
+      workbox: {
+        globPatterns: ["**/*.{js,css,html}", "icons/*.png"],
+        navigateFallback: "/index.html",
+        navigateFallbackDenylist: [/^\/api\//],
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+      },
+    }),
+  ],
   resolve: {
     alias: [
       { find: /^react-native-svg$/, replacement: "react-native-svg/lib/module/ReactNativeSVG.web.js" },
