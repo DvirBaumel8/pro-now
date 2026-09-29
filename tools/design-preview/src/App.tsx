@@ -77,7 +77,8 @@ import {
   demoOpenServiceIds,
   catalogHiddenServices,
   catalogMatchRules,
-  priceForChoices,
+  priceListFor,
+  lowestListed,
   catalogServicePages,
   departmentCodeByMark,
   departmentCodeByServiceId,
@@ -169,8 +170,11 @@ export interface LiveRequest {
   markName: string;
   priceModel: PriceModel;
   intakeBrief: IntakeBriefLine[];
-  /** The answers themselves, for the price that follows them (choicePrices.ts). */
-  answers?: IntakeAnswer[];
+  /** What was ordered from the price list (catalogue example amounts). */
+  items?: Array<{ id: string; nameHe: string; amountMinorUnits: number }>;
+  /** Priced by the professional before he sets off; and where to, for a trip. */
+  quoteFirst?: boolean;
+  destinationHe?: string | null;
   /** Set when the call is for someone else, who is the one at the door. */
   onSiteNameHe?: string | null;
   /** The address as saved: "רמת גן · קומה 1, דירה 4". */
@@ -652,6 +656,13 @@ export function App() {
   }, []);
   /** The request in flight, shared by both sides. See `LiveRequest`. */
   const [liveRequest, setLiveRequest] = useState<LiveRequest | null>(null);
+  /*
+   * A PRICE NAMED BEFORE ANYBODY SETS OFF (towing, moving, painting…).
+   * The professional answers the offer with it; the customer approves it
+   * on the match card, and only then is he assigned (Amit, 2026-09-29).
+   */
+  const [preQuote, setPreQuote] = useState<{ serviceId: string; amount: number; notesHe: string } | null>(null);
+  const [preQuoteApprovedAt, setPreQuoteApprovedAt] = useState<number | null>(null);
   /**
    * THE QUOTE, CROSSING BACK THE OTHER WAY.
    *
@@ -1024,7 +1035,17 @@ export function App() {
             height={h - bannerH}
             onSwitch={() => switchTo("pro")}
             onBackOut={backOut}
-            onSendRequest={setLiveRequest}
+            onSendRequest={(r) => {
+              setLiveRequest(r);
+              setPreQuote(null);
+              setPreQuoteApprovedAt(null);
+            }}
+            preQuote={preQuote}
+            onApprovePreQuote={(amount) => {
+              setPreQuoteApprovedAt(Date.now());
+              setQuoteTotal(amount);
+              setAgreedTotal({ amount, nameHe: "לפי ההצעה שאישרתם" });
+            }}
             pendingQuote={pendingQuote}
             openQuoteOnce={openQuoteOnce}
             onQuoteOpened={() => setOpenQuoteOnce(false)}
@@ -1061,6 +1082,7 @@ export function App() {
             proJobState={proJobState}
             proAvailableAtMs={proAvailableAt}
             onProName={setProName}
+            acceptedProName={proName}
             proPrices={proPrices}
             agreedTotal={agreedTotal}
             onConfirmCompletion={() => {
@@ -1141,6 +1163,9 @@ export function App() {
               setQuoteTotal(amount);
               setAgreedTotal({ amount, nameHe });
             }}
+            preQuoteSent={preQuote}
+            preQuoteApprovedAt={preQuoteApprovedAt}
+            onSendPreQuote={(q) => setPreQuote(q)}
             onSeeAsCustomer={(what) => {
               /*
                * Two waits, two destinations. The quote is a screen of its
@@ -1148,7 +1173,7 @@ export function App() {
                * tracking panel, at the stage that asks for it.
                */
               if (what === "completion") setOpenCompletionOnce(true);
-              else setOpenQuoteOnce(true);
+              else if (what === "quote") setOpenQuoteOnce(true);
               switchTo("customer");
             }}
           />
@@ -1305,6 +1330,8 @@ function CustomerApp({
   onSwitch,
   onBackOut,
   onSendRequest,
+  preQuote = null,
+  onApprovePreQuote,
   pendingQuote,
   openQuoteOnce,
   onQuoteOpened,
@@ -1317,6 +1344,7 @@ function CustomerApp({
   proJobState = null,
   proAvailableAtMs = null,
   onProName,
+  acceptedProName = null,
   proPrices = { byService: {}, afterHoursPct: null },
   agreedTotal = null,
   onStrollOpened,
@@ -1336,6 +1364,9 @@ function CustomerApp({
   width: number;
   height: number;
   onSwitch: () => void;
+  /** A price named before dispatch, and approving it (quote-first services). */
+  preQuote?: { serviceId: string; amount: number; notesHe: string } | null;
+  onApprovePreQuote?: (amount: number) => void;
   /**
    * Called when this side has no screen left behind it. Returns true if
    * the gesture was used to leave for the other side, false to let the
@@ -1379,6 +1410,8 @@ function CustomerApp({
   proAvailableAtMs?: number | null;
   /** The name of the professional the customer accepted, for the other side. */
   onProName?: (name: string | null) => void;
+  /** The professional the customer accepted, kept by the shell across side switches. */
+  acceptedProName?: string | null;
   proPrices?: { byService: Record<string, number | null>; afterHoursPct: number | null };
   agreedTotal?: { amount: number; nameHe: string } | null;
   /** A figure was just chosen because the street was asked for. */
@@ -1580,6 +1613,14 @@ function CustomerApp({
   /* Which of the found professionals is on the card — see `onAnother`. */
   const [pick, setPick] = useState(0);
   /*
+   * THE NEXT PROFESSIONAL PRICES IT TOO. Turning down a price on a
+   * quote-first call passes it to the next professional, who answers with
+   * his own. The preview's other candidates are fixtures, so their answer
+   * is simulated a few seconds later; only the demo professional's price
+   * is typed on the other side of the app.
+   */
+  const [otherQuote, setOtherQuote] = useState<{ pick: number; amount: number } | null>(null);
+  /*
    * ONE PROFESSIONAL, ONE NAME, ON EVERY SCREEN.
    *
    * The match card said "יוסי", the visit screens said "דוגמה א׳" and the
@@ -1587,7 +1628,10 @@ function CustomerApp({
    * the customer had just said yes to. The name on the card they accepted
    * is the name, everywhere after.
    */
-  const [matchedName, setMatchedName] = useState<string | null>(null);
+  /* Seeded from the shell: switching to the professional's side and back
+     remounts this screen, and the customer's tracker then named the demo
+     plumber instead of the hairdresser they had accepted. */
+  const [matchedName, setMatchedName] = useState<string | null>(acceptedProName);
   /* The name the first candidate had — the demo professional. */
   const matchedFirstRef = useRef<string | null>(null);
 
@@ -1603,6 +1647,18 @@ function CustomerApp({
         ? { name: "living", serviceId: "svc-leak", phase: "SEARCHING" }
         : (memory?.current?.route ?? { name: "home" })
   );
+  const routeServiceId = route.name === "living" ? route.serviceId : null;
+  const routePhase = route.name === "living" ? route.phase : null;
+  useEffect(() => {
+    if (!routeServiceId || routePhase !== "MATCH_REVEAL") return;
+    if (!pilotServiceById[routeServiceId]?.quoteBeforeDispatch || pick % 3 === 0 || otherQuote?.pick === pick) return;
+    const t = setTimeout(() => {
+      const example: Record<string, number> = { "svc-towing": 45000, "svc-moving": 60000, "svc-clean-reno": 90000, "svc-paint": 150000, "svc-garden": 40000, "svc-pest": 40000 };
+      const base = preQuote?.serviceId === routeServiceId ? preQuote.amount : example[routeServiceId] ?? 45000;
+      setOtherQuote({ pick, amount: Math.round((base * (1 + 0.08 * (pick % 3))) / 1000) * 1000 });
+    }, 3500);
+    return () => clearTimeout(t);
+  }, [routeServiceId, routePhase, pick, otherQuote?.pick, preQuote]);
   /**
    * The intake answers live in the app, not in the screen, because they
    * travel: they are what the professional's offer card is built from two
@@ -1674,36 +1730,37 @@ function CustomerApp({
     setIntakeAnswers((prev) => [...prev.filter((p) => p.questionId !== a.questionId), a]);
   }, []);
   /*
-   * WHICH SERVICE THE ANSWERS BELONG TO. They were kept across services,
-   * and two services share question ids ("hours", "size") — so the answers
-   * given for a cleaner priced the dog walk. A new service starts clean.
+   * WHAT IS BEING ORDERED FROM A PRICE LIST (Amit, 2026-09-29): for work
+   * priced by its kind, the customer ticks lines from the list and that
+   * is all they are asked. Kept per service, so a haircut's ticks never
+   * price a dog walk.
    */
-  const [intakeFor, setIntakeFor] = useState<string | null>(saved?.lastServiceId ?? null);
-  const startIntakeFor = useCallback(
-    (serviceId: string) => {
-      if (intakeFor === serviceId) return;
-      setIntakeAnswers([]);
-      setIntakeFor(serviceId);
-    },
-    [intakeFor]
-  );
+  const [picked, setPicked] = useState<{ serviceId: string; ids: string[] } | null>(null);
+  /* Where to, for towing and moving. */
+  const [destinationHe, setDestinationHe] = useState("");
+  const pickedIdsFor = (serviceId: string) => (picked?.serviceId === serviceId ? picked.ids : []);
+  const togglePick = useCallback((serviceId: string, id: string) => {
+    setPicked((cur) => {
+      const ids = cur?.serviceId === serviceId ? cur.ids : [];
+      return { serviceId, ids: ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id] };
+    });
+  }, []);
   /**
-   * The example price for what this customer chose, for one service: the
-   * professional's own base when given (`own`), scaled across the table.
+   * The ordered lines at one professional's prices (`own`: his base, which
+   * scales the example list) — their names and their total.
    */
-  const choicePrice = useCallback(
+  const orderFor = useCallback(
     (serviceId: string, own: number | null) => {
-      const p = SERVICE_PAGES[serviceId]?.price;
-      if (!p) return null;
-      const pm = p.priceModel;
-      const cat = pm === "FIXED" ? p.fixedTotalMinorUnits : pm === "HOURLY" ? p.hourlyRateMinorUnits : null;
-      if (!cat) return null;
+      const rows = priceListFor(serviceId, own);
+      const ids = picked?.serviceId === serviceId ? picked.ids : [];
+      const chosen = rows.filter((r) => ids.includes(r.id));
+      if (chosen.length === 0) return null;
       return {
-        pm,
-        ...priceForChoices(serviceId, pm, own ?? cat, intakeFor === serviceId ? intakeAnswers : [], cat),
+        namesHe: chosen.map((r) => r.nameHe).join(" + "),
+        amountMinorUnits: chosen.reduce((sum, r) => sum + r.amountMinorUnits, 0),
       };
     },
-    [intakeAnswers, intakeFor]
+    [picked]
   );
   const [elapsed, setElapsed] = useState(0);
   /*
@@ -1770,7 +1827,9 @@ function CustomerApp({
                 next: () => go({ name: "tracking", stage: "diagnosis" }),
               }
             : route.stage === "diagnosis"
-              ? { label: "המקצוען שלח הצעת מחיר", next: () => go({ name: "quote" }) }
+              ? trackedService.price?.priceModel === "VISIT_QUOTE" && !(trackedService.id && pilotServiceById[trackedService.id]?.quoteBeforeDispatch)
+                ? { label: "המקצוען סיים את האבחון", next: () => go({ name: "tracking", stage: "done" }) }
+                : { label: "המקצוען התחיל לעבוד", next: () => go({ name: "tracking", stage: "working" }) }
               : route.stage === "working"
                 ? {
                     label: "המקצוען סיים את העבודה",
@@ -1785,7 +1844,17 @@ function CustomerApp({
                   }
       : null;
 
-  const demo = advance ?? arrivalAdvance ?? previewMatch;
+  /* Quote-first: the price comes from the other side of the app. */
+  const preQuoteWait =
+    tab === "home" &&
+    route.name === "living" &&
+    route.phase !== "ASSIGNED_ROUTE" &&
+    pilotServiceById[route.serviceId]?.quoteBeforeDispatch &&
+    preQuote?.serviceId !== route.serviceId
+      ? { label: "מעבר לצד המקצוען — הוא שולח מחיר", next: onSwitch }
+      : null;
+
+  const demo = advance ?? arrivalAdvance ?? previewMatch ?? preQuoteWait;
 
   /**
    * A thin utility row instead of a bar at the bottom. It is 56px and it
@@ -2064,7 +2133,7 @@ const go = useCallback((r: CustomerRoute) => {
    * visit is at the door the customer's wait turns into the visit.
    */
   useEffect(() => {
-    if (proJobState === "COMPLETION_PENDING" && route.name === "tracking" && route.stage === "working") {
+    if (proJobState === "COMPLETION_PENDING" && route.name === "tracking" && (route.stage === "working" || route.stage === "diagnosis" || route.stage === "arrived")) {
       go({ name: "tracking", stage: "done" });
       return;
     }
@@ -2346,6 +2415,15 @@ const go = useCallback((r: CustomerRoute) => {
    * make and it is a small one. The day a real professional uploads a
    * photo, the server sends it and this is never consulted.
    */
+  /*
+   * A visit for work priced only once somebody looks: the visit-and-
+   * diagnosis fee is the whole in-app charge (Amit, 2026-09-29) — the
+   * demo professional's own fee when he set one.
+   */
+  const diagnosisFee =
+    trackedService.price?.priceModel === "VISIT_QUOTE" && !(trackedService.id && pilotServiceById[trackedService.id]?.quoteBeforeDispatch)
+      ? (trackedService.id ? proPrices.byService[trackedService.id] : undefined) ?? trackedService.price.visitFeeMinorUnits ?? null
+      : null;
   const trackedProfessional = useMemo(() => {
     /* The accepted professional's own record: the demo pro's if it was him, new otherwise. */
     const isDemoPro = !matchedName || matchedName === matchedFirstRef.current;
@@ -2768,6 +2846,9 @@ const go = useCallback((r: CustomerRoute) => {
         return (
           <ServiceDetailBody
             {...page}
+            /* No problem chips before calling — words, a recording, a photo (Amit, 2026-09-29). */
+            symptomsHe={[]}
+            priceListFromMinorUnits={lowestListed(route.serviceId)}
             availableNowCount={reading.count}
             width={width}
             height={bodyH}
@@ -2778,7 +2859,6 @@ const go = useCallback((r: CustomerRoute) => {
               // words already in it, rather than asking the same question
               // one screen later and throwing the first answer away.
               if (noteHe) setFaultText((cur) => (cur ? cur : noteHe));
-              startIntakeFor(route.serviceId);
               go({ name: "describe", serviceId: route.serviceId, symptomsHe });
             }}
             onRecheck={() => go({ name: "home" })}
@@ -2789,7 +2869,7 @@ const go = useCallback((r: CustomerRoute) => {
         return (
           <ChatBody
             side="customer"
-            counterpartNameHe={matchFixture.professional.displayName}
+            counterpartNameHe={trackedProfessional.displayName}
             counterpartSeed={matchFixture.professional.id}
             jobTitleHe="תיקון נזילה בברז"
             jobOpen
@@ -2810,19 +2890,29 @@ const go = useCallback((r: CustomerRoute) => {
             mark={page.mark}
             symptomsHe={route.symptomsHe}
             photoPromptHe={photoPromptFor(route.serviceId)}
-            intake={pilotIntakeByService[route.serviceId]}
-            answers={intakeAnswers}
-            onAnswer={answerIntake}
+            /* No problem questions before calling (Amit, 2026-09-29): words, a recording, a photo. */
+            priceList={priceListFor(route.serviceId).map((r) => ({ id: r.id, nameHe: r.nameHe, amountHe: formatMoney(money(r.amountMinorUnits, "ILS")) }))}
+            pickedIds={pickedIdsFor(route.serviceId)}
+            onTogglePick={(id) => togglePick(route.serviceId, id)}
+            destination={
+              pilotServiceById[route.serviceId]?.needsDestination
+                ? {
+                    valueHe: destinationHe,
+                    onChange: setDestinationHe,
+                    placeholderHe: route.serviceId === "svc-towing" ? "למשל: מוסך בבני ברק, או הבית" : "למשל: רחוב הרצל 10, קומה 2",
+                  }
+                : null
+            }
             livePriceHe={(() => {
-              const c = choicePrice(route.serviceId, null);
-              if (!c) return null;
-              const amt = formatMoney(money(c.amountMinorUnits, "ILS"));
-              if (c.pm === "HOURLY") {
-                return c.estimateMinorUnits
-                  ? `${amt} לשעה · כ־${c.hours} שעות ≈ ${formatMoney(money(c.estimateMinorUnits, "ILS"))}`
-                  : `${amt} לשעה`;
+              const pm = page.price?.priceModel;
+              if (pilotServiceById[route.serviceId]?.quoteBeforeDispatch)
+                return "המקצוען יסתכל על התמונות והפרטים וישלח מחיר · הוא יוצא רק אחרי שתאשרו";
+              if (pm === "VISIT_QUOTE") return "באפליקציה משלמים רק דמי ביקור ואבחון · את התיקון סוגרים ישירות מול המקצוען";
+              if (pm === "FIXED") {
+                const o = orderFor(route.serviceId, null);
+                return o ? `${o.namesHe} · ${formatMoney(money(o.amountMinorUnits, "ILS"))} לפי המחירון לדוגמה` : "בחרו מה להזמין מהמחירון";
               }
-              return c.fromChoices ? `לפי מה שבחרתם: ${amt} · מחיר סגור` : `מחיר קבוע: ${amt} · משתנה לפי הבחירות`;
+              return null;
             })()}
             text={faultText}
             onChangeText={setFaultText}
@@ -2859,7 +2949,9 @@ const go = useCallback((r: CustomerRoute) => {
                   pilotIntakeByService[route.serviceId],
                   intakeAnswers
                 ),
-                answers: intakeAnswers,
+                items: priceListFor(route.serviceId).filter((r) => pickedIdsFor(route.serviceId).includes(r.id)),
+                quoteFirst: Boolean(pilotServiceById[route.serviceId]?.quoteBeforeDispatch),
+                destinationHe: pilotServiceById[route.serviceId]?.needsDestination ? destinationHe.trim() || null : null,
                 onSiteNameHe,
                 addressHe: chosen.formattedHe,
                 textHe: faultText,
@@ -2870,6 +2962,8 @@ const go = useCallback((r: CustomerRoute) => {
                 createdAtMs: Date.now(),
               });
               setLastRequestedId(route.serviceId);
+              setOtherQuote(null);
+              setPick(0);
               go({ name: "living", serviceId: route.serviceId, phase: "SEARCHING" });
             }}
             width={width}
@@ -3036,9 +3130,21 @@ const go = useCallback((r: CustomerRoute) => {
               const first = (cand?.displayNameHe ?? "").split(" ")[0] ?? "";
               const isDemoPro = pick % cands.length === 0;
               const pm = page.price.priceModel;
+              /* Priced before dispatch: the line is his price, or that it is on its way. */
+              if (pilotServiceById[route.serviceId]?.quoteBeforeDispatch) {
+                const q =
+                  isDemoPro && preQuote?.serviceId === route.serviceId
+                    ? preQuote
+                    : !isDemoPro && otherQuote?.pick === pick
+                      ? { amount: otherQuote.amount, notesHe: "" }
+                      : null;
+                return q
+                  ? `ההצעה של ${first}: ${formatMoney(money(q.amount, "ILS"))}${q.notesHe ? ` · ${q.notesHe}` : ""} · מאושר בכרטיס ועובר אליו אחרי שתאשרו שהעבודה הושלמה`
+                  : `${first} מסתכל על התמונות והפרטים ושולח מחיר…`;
+              }
               const own = isDemoPro ? proPrices.byService[route.serviceId] ?? null : null;
-              /* Fixed and hourly work are priced by what was chosen. */
-              const chosen = pm === "FIXED" || pm === "HOURLY" ? choicePrice(route.serviceId, own) : null;
+              /* A price-list job is priced by what was ordered, at this professional's prices. */
+              const chosen = pm === "FIXED" ? orderFor(route.serviceId, own) : null;
               const base =
                 chosen?.amountMinorUnits ??
                 own ??
@@ -3049,11 +3155,11 @@ const go = useCallback((r: CustomerRoute) => {
               const amt = formatMoney(money(amountMinorUnits, "ILS"));
               const extra = surchargePercent > 0 ? ` · כולל תוספת לילה/שבת ${surchargePercent}%` : "";
               return pm === "FIXED"
-                ? `המחיר של ${first}: ${amt} לעבודה — מחיר סגור${extra}`
+                ? `המחיר של ${first}${chosen ? ` · ${chosen.namesHe}` : ""}: ${amt}${extra} · מאושר בכרטיס ועובר אליו אחרי שתאשרו שהעבודה הושלמה`
                 : pm === "HOURLY"
-                  ? `התעריף של ${first}: ${amt} לשעה${extra}${chosen?.hours ? ` · כ־${chosen.hours} שעות` : ""}`
+                  ? `התעריף של ${first}: ${amt} לשעה${extra}`
                   : pm === "VISIT_QUOTE"
-                    ? `דמי הביקור של ${first}: ${amt}${extra} · אם תאשרו הצעת מחיר — הם כלולים בה`
+                    ? `דמי ביקור ואבחון של ${first}: ${amt}${extra} · זה כל מה שמשולם באפליקציה`
                     : null;
             })()}
             checkingEligibility={route.phase !== "SEARCHING"}
@@ -3078,11 +3184,27 @@ const go = useCallback((r: CustomerRoute) => {
               if (action === "FOLLOW_PRO") followPro();
               if (action === "PLAY_MORE" || action === "WHILE_YOU_WAIT") strollDoor?.();
             }}
+            acceptLabelHe={
+              pilotServiceById[route.serviceId]?.quoteBeforeDispatch
+                ? (pick % cands.length === 0 ? preQuote?.serviceId === route.serviceId : otherQuote?.pick === pick)
+                  ? `אישור ההצעה — ${(cands[pick % cands.length]?.displayNameHe ?? "").split(" ")[0]} יוצא`
+                  : "מחכים להצעת המחיר…"
+                : undefined
+            }
+            acceptDisabled={
+              Boolean(pilotServiceById[route.serviceId]?.quoteBeforeDispatch) &&
+              !(pick % cands.length === 0 ? preQuote?.serviceId === route.serviceId : otherQuote?.pick === pick)
+            }
             onAccept={() => {
               const chosen = cands[pick % cands.length]?.displayNameHe ?? null;
               matchedFirstRef.current = cands[0]?.displayNameHe ?? null;
               setMatchedName(chosen);
               onProName?.(chosen);
+              /* Approving the price is what assigns him (quote-first services). */
+              if (pilotServiceById[route.serviceId]?.quoteBeforeDispatch) {
+                const amount = pick % cands.length === 0 ? preQuote?.amount : otherQuote?.pick === pick ? otherQuote.amount : undefined;
+                if (amount !== undefined) onApprovePreQuote?.(amount);
+              }
               setOnTheWayAt(Date.now());
               go({ name: "living", serviceId: route.serviceId, phase: "ASSIGNED_ROUTE" });
             }}
@@ -3424,16 +3546,17 @@ const go = useCallback((r: CustomerRoute) => {
              * numbers it is allowed to use.
              */
             money={{
-              visitFeeHe:
-                trackedService.price?.priceModel === "VISIT_QUOTE" && trackedService.price.visitFeeMinorUnits
-                  ? formatMoney(money(trackedService.price.visitFeeMinorUnits, "ILS"))
-                  : null,
+              /* The demo professional's own fee when he set one — the same figure the receipt charges. */
+              visitFeeHe: diagnosisFee !== null ? formatMoney(money(diagnosisFee, "ILS")) : null,
               fixedTotalHe:
-                trackedService.price?.priceModel === "FIXED" && trackedService.price.fixedTotalMinorUnits
+                /* Quote-first: the price approved before he set off is the price. */
+                trackedService.id && pilotServiceById[trackedService.id]?.quoteBeforeDispatch && approvedTotalMinor !== null
+                  ? formatMoney(money(approvedTotalMinor, "ILS"))
+                  : trackedService.price?.priceModel === "FIXED" && trackedService.price.fixedTotalMinorUnits
                   ? formatMoney(
                       money(
                         (trackedService.id
-                          ? choicePrice(trackedService.id, proPrices.byService[trackedService.id] ?? null)?.amountMinorUnits
+                          ? orderFor(trackedService.id, proPrices.byService[trackedService.id] ?? null)?.amountMinorUnits
                           : null) ??
                           trackedService.price.fixedTotalMinorUnits,
                         "ILS"
@@ -3483,7 +3606,7 @@ const go = useCallback((r: CustomerRoute) => {
       case "arrival":
         return (
           <ArrivalVerifyBody
-            displayNameHe={matchFixture.professional.displayName}
+            displayNameHe={trackedProfessional.displayName}
             /* No invented face here either — the monogram holds the space. */
             photoUri={null}
             headlineHe={`${trackedService.nameHe} · ${matchFixture.professional.proNowCompletedJobs} עבודות דרך PRO NOW`}
@@ -3576,7 +3699,7 @@ const go = useCallback((r: CustomerRoute) => {
                  */
                 priceContext={priceContextFixture}
                 serviceNameHe={trackedService.nameHe}
-                professionalDisplayName={matchFixture.professional.displayName}
+                professionalDisplayName={trackedProfessional.displayName}
                 onApprove={() => {
                   /*
                    * Remembered so the tracking panel can say it back
@@ -3631,7 +3754,7 @@ const go = useCallback((r: CustomerRoute) => {
           <JobCompleteBody
             serviceNameHe={trackedService.nameHe}
             mark={trackedService.mark}
-            professionalDisplayName={matchFixture.professional.displayName}
+            professionalDisplayName={trackedProfessional.displayName}
             whenHe={visitWhenHe}
             /*
              * The receipt is the quote that was approved on this visit —
@@ -3642,9 +3765,11 @@ const go = useCallback((r: CustomerRoute) => {
             receiptLines={
               approvedLines
                 ? approvedLines.map((l) => ({ id: l.id, labelHe: l.descriptionHe, amountMinorUnits: l.totalMinorUnits }))
-                : receiptLines
+                : diagnosisFee !== null
+                  ? [{ id: "visit", labelHe: "דמי ביקור ואבחון · את התיקון סוגרים ישירות מול המקצוען", amountMinorUnits: diagnosisFee }]
+                  : receiptLines
             }
-            totalChargedMinorUnits={approvedTotalMinor ?? 44500}
+            totalChargedMinorUnits={approvedTotalMinor ?? diagnosisFee ?? 44500}
             paymentMethodLabelHe="ויזה · 4417"
             // The rating travels with the navigation, so the closing
             // screen can speak about what they actually left rather than
@@ -3661,7 +3786,7 @@ const go = useCallback((r: CustomerRoute) => {
           <JobClosedBody
             serviceNameHe={trackedService.nameHe}
             mark={trackedService.mark}
-            professionalDisplayName={matchFixture.professional.displayName}
+            professionalDisplayName={trackedProfessional.displayName}
             whenHe={visitWhenHe}
             /*
              * THE AMOUNT THAT WAS APPROVED, not a number on this screen.
@@ -4290,6 +4415,9 @@ function ProApp({
   height,
   onSwitch,
   onBackOut,
+  preQuoteSent = null,
+  preQuoteApprovedAt = null,
+  onSendPreQuote,
   request,
   onTakeRequest,
   pendingQuote,
@@ -4354,7 +4482,11 @@ function ProApp({
    * their own customer, which is why this lives on the demo row and says
    * "הדגמה" before it says anything else.
    */
-  onSeeAsCustomer?: (what: "quote" | "completion") => void;
+  onSeeAsCustomer?: (what: "quote" | "completion" | "prequote") => void;
+  /** Quote-first: the price this professional named, when the customer approved it, and naming one. */
+  preQuoteSent?: { serviceId: string; amount: number; notesHe: string } | null;
+  preQuoteApprovedAt?: number | null;
+  onSendPreQuote?: (q: { serviceId: string; amount: number; notesHe: string }) => void;
   /**
    * The customer has agreed the work is finished.
    *
@@ -4509,6 +4641,11 @@ function ProApp({
   /** The total of the quote that was sent — what the customer approves.
       Remembered past the approval, which clears the pending quote. */
   const approvedTotal = approvedQuoteTotal;
+  /* The customer approved his price: now he has the job. */
+  useEffect(() => {
+    if (preQuoteApprovedAt && !job && takenRequest?.quoteFirst) setJob("PRO_ASSIGNED");
+    // Only a new approval assigns.
+  }, [preQuoteApprovedAt]);
   const [shiftNow, setShiftNow] = useState(() => Date.now());
   /**
    * The shift's running totals. They start at zero and only move when a job
@@ -4566,7 +4703,8 @@ function ProApp({
     presence === "AVAILABLE" &&
     offerAt === null &&
     job === null &&
-    settled === null;
+    settled === null &&
+    !(preQuoteSent && !preQuoteApprovedAt);
 
   /*
    * ---------------------------------------------------------------------
@@ -4713,17 +4851,40 @@ function ProApp({
    * PRO NOW's commission is undecided (/CLAUDE.md §4), so this is the
    * price the customer pays, with nothing invented taken off it.
    */
-  const offerPayout = (() => {
-    if (!takenRequest || takenRequest.priceModel === "VISIT_QUOTE") return null;
+  /*
+   * The order at THIS professional's prices: the lines the customer ticked,
+   * scaled by his own base price when he set one.
+   */
+  const proOrder = (() => {
+    if (!takenRequest || takenRequest.priceModel !== "FIXED" || !takenRequest.items?.length) return null;
     const id = takenRequest.serviceId;
-    const pm = takenRequest.priceModel;
-    const cat = SERVICE_PAGES[id]?.price;
-    const catBase = (pm === "FIXED" ? cat?.fixedTotalMinorUnits : pm === "HOURLY" ? cat?.hourlyRateMinorUnits : null) ?? null;
-    if (!catBase) return offerFixture.expectedPayoutMinorUnits;
     const own = pricing.find((r) => r.serviceId === id)?.amountMinorUnits ?? null;
-    const c = priceForChoices(id, pm, own ?? catBase, takenRequest.answers ?? [], catBase);
-    const amount = pm === "HOURLY" ? c.estimateMinorUnits ?? c.amountMinorUnits : c.amountMinorUnits;
-    return withAfterHours(amount, afterHoursPct, new Date()).amountMinorUnits;
+    const mine = priceListFor(id, own);
+    const rows = takenRequest.items.map((it) => mine.find((r) => r.id === it.id) ?? it);
+    return {
+      namesHe: rows.map((r) => r.nameHe).join(" + "),
+      amountMinorUnits: withAfterHours(rows.reduce((sum, r) => sum + r.amountMinorUnits, 0), afterHoursPct, new Date()).amountMinorUnits,
+    };
+  })();
+  const ownVisitFee = (() => {
+    if (!takenRequest || takenRequest.priceModel !== "VISIT_QUOTE") return null;
+    const own = pricing.find((r) => r.serviceId === takenRequest.serviceId)?.amountMinorUnits ?? null;
+    const fee = own ?? SERVICE_PAGES[takenRequest.serviceId]?.price?.visitFeeMinorUnits ?? null;
+    return fee === null ? null : withAfterHours(fee, afterHoursPct, new Date()).amountMinorUnits;
+  })();
+
+  /*
+   * WHAT THIS JOB PAYS. A price-list job pays what was ordered; a visit for
+   * work priced only once somebody looks pays the visit-and-diagnosis fee,
+   * which is all that goes through the app (Amit, 2026-09-29). PRO NOW's
+   * commission is undecided (/CLAUDE.md §4), so nothing is taken off.
+   */
+  const offerPayout = (() => {
+    if (!takenRequest) return null;
+    if (takenRequest.priceModel === "VISIT_QUOTE") return ownVisitFee;
+    if (takenRequest.priceModel === "FIXED") return proOrder?.amountMinorUnits ?? null;
+    const rate = pricing.find((r) => r.serviceId === takenRequest.serviceId)?.amountMinorUnits ?? SERVICE_PAGES[takenRequest.serviceId]?.price?.hourlyRateMinorUnits ?? null;
+    return rate === null ? null : withAfterHours(rate, afterHoursPct, new Date()).amountMinorUnits;
   })();
 
   const offer: OfferCardView | null = offerAt
@@ -4806,8 +4967,8 @@ function ProApp({
     const id = takenRequest?.serviceId ?? null;
     const price = id ? SERVICE_PAGES[id]?.price : undefined;
     if (!price || price.priceModel !== "FIXED" || !price.fixedTotalMinorUnits || !id) return null;
-    /* What the customer chose, priced by the table (choicePrices.ts). */
-    const amount = priceForChoices(id, "FIXED", price.fixedTotalMinorUnits, takenRequest?.answers ?? []).amountMinorUnits;
+    /* What the customer ordered from the price list. */
+    const amount = proOrder?.amountMinorUnits ?? price.fixedTotalMinorUnits;
     return {
       lines: [
         {
@@ -4822,7 +4983,7 @@ function ProApp({
         money(amount, "ILS")
       )}. אפשר לשנות אם מצאת עבודה נוספת — הלקוח יראה את מה שתשלח.`,
     };
-  }, [takenRequest]);
+  }, [takenRequest, proOrder?.amountMinorUnits]);
 
   useEffect(() => {
     onPricesChange?.({ byService: Object.fromEntries(pricing.map((r) => [r.serviceId, r.amountMinorUnits])), afterHoursPct });
@@ -4837,22 +4998,32 @@ function ProApp({
   const agreedStart = useMemo(() => {
     const id = takenRequest?.serviceId ?? null;
     const pm = takenRequest?.priceModel ?? null;
+    if (takenRequest?.quoteFirst && preQuoteSent?.serviceId === id && preQuoteApprovedAt) {
+      return {
+        amount: preQuoteSent.amount,
+        labelHe: `${formatMoney(money(preQuoteSent.amount, "ILS"))} כפי שאושר`,
+        nameHe: "לפי ההצעה שאושרה",
+      };
+    }
     if (!id || (pm !== "FIXED" && pm !== "HOURLY")) return null;
+    if (pm === "FIXED") {
+      if (!proOrder) return null;
+      return {
+        amount: proOrder.amountMinorUnits,
+        labelHe: `${proOrder.namesHe} ${formatMoney(money(proOrder.amountMinorUnits, "ILS"))}`,
+        nameHe: proOrder.namesHe,
+      };
+    }
     const own = pricing.find((r) => r.serviceId === id)?.amountMinorUnits ?? null;
-    const cat = SERVICE_PAGES[id]?.price;
-    const catBase = (pm === "FIXED" ? cat?.fixedTotalMinorUnits : cat?.hourlyRateMinorUnits) ?? null;
-    /* His own price scales the example table; the customer's answers pick the line in it. */
-    const base = catBase
-      ? priceForChoices(id, pm, own ?? catBase, takenRequest?.answers ?? [], catBase).amountMinorUnits
-      : own;
-    if (!base) return null;
-    const { amountMinorUnits } = withAfterHours(base, afterHoursPct, new Date());
+    const rate = own ?? SERVICE_PAGES[id]?.price?.hourlyRateMinorUnits ?? null;
+    if (!rate) return null;
+    const { amountMinorUnits } = withAfterHours(rate, afterHoursPct, new Date());
     return {
       amount: amountMinorUnits,
-      labelHe: pm === "FIXED" ? `${formatMoney(money(amountMinorUnits, "ILS"))} כפי שסוכם` : `${formatMoney(money(amountMinorUnits, "ILS"))} לשעה`,
+      labelHe: `${formatMoney(money(amountMinorUnits, "ILS"))} לשעה`,
       nameHe: takenRequest?.serviceNameHe ?? "",
     };
-  }, [takenRequest, pricing, afterHoursPct]);
+  }, [takenRequest, pricing, afterHoursPct, proOrder?.amountMinorUnits, preQuoteSent, preQuoteApprovedAt]);
 
   const JOB_FLOW: JobState[] = [...VISIT_ORDER, "COMPLETED"];
   const advanceJob = () => {
@@ -5100,7 +5271,7 @@ function ProApp({
     ) : proView === "quote" ? (
       <ProQuoteBuilderBody
         priceList={priceList}
-        includesVisitFee={!agreedPrice && (!takenRequest || takenRequest.priceModel === "VISIT_QUOTE")}
+        includesVisitFee={!agreedPrice && !takenRequest?.quoteFirst && (!takenRequest || takenRequest.priceModel === "VISIT_QUOTE")}
         /*
          * The lines already sent, when there are any — so "עדכון ההצעה"
          * opens what was sent rather than an empty form.
@@ -5138,7 +5309,11 @@ function ProApp({
         initialNotesHe={sentQuoteNotes}
         serviceNameHe={takenRequest?.serviceNameHe ?? "תיקון נזילה בברז"}
         symptomsHe={takenRequest ? takenRequest.intakeBrief.map((l) => l.answerHe) : jobSymptoms}
-        customerTextHe={takenRequest ? takenRequest.textHe.trim() || null : jobDescription}
+        customerTextHe={
+          takenRequest
+            ? [takenRequest.textHe.trim(), takenRequest.destinationHe ? `לאן: ${takenRequest.destinationHe}` : ""].filter(Boolean).join(" · ") || null
+            : jobDescription
+        }
         /*
          * The same range the customer will be shown on the approval
          * screen — told here, before the quote goes out, rather than
@@ -5147,6 +5322,16 @@ function ProApp({
         usualUpToMinorUnits={48000}
         usualSampleSize={14}
         onSend={(draft) => {
+          /* Quote-first, before any job: the price goes to the match card. */
+          if (!job && takenRequest?.quoteFirst) {
+            onSendPreQuote?.({
+              serviceId: takenRequest.serviceId,
+              amount: draft ? draft.lines.reduce((sum, l) => sum + Math.round(l.quantity * l.unitPriceMinorUnits), 0) : 0,
+              notesHe: draft?.notesHe?.trim() ?? "",
+            });
+            setProView(null);
+            return;
+          }
           // The lines go to the customer, not only "a quote was sent".
           onSendQuote(draft);
           advanceJob();
@@ -5205,10 +5390,19 @@ function ProApp({
          */
         usualUpToMinorUnits={48000}
         usualSampleSize={14}
-        payoutMinorUnits={job === "DIAGNOSIS" || job === "WAITING_QUOTE_APPROVAL" ? null : approvedTotal ?? 13400}
+        payoutMinorUnits={
+          (takenRequest?.priceModel ?? "VISIT_QUOTE") === "VISIT_QUOTE" && approvedTotal === null
+            ? ownVisitFee ?? SERVICE_PAGES["svc-leak"]?.price?.visitFeeMinorUnits ?? null
+            : job === "DIAGNOSIS" || job === "WAITING_QUOTE_APPROVAL"
+              ? null
+              : approvedTotal ?? proOrder?.amountMinorUnits ?? 13400
+        }
         payoutIsEstimate={false}
         onAdvance={advanceJob}
         agreedPriceHe={agreedStart?.labelHe ?? null}
+        /* Work priced only once somebody looks: the visit is the job in the app (Amit, 2026-09-29). */
+        diagnosisOnly={(takenRequest?.priceModel ?? "VISIT_QUOTE") === "VISIT_QUOTE" && !takenRequest?.quoteFirst}
+        onFinishDiagnosis={() => setJob("COMPLETION_PENDING")}
         onStartAgreed={
           agreedStart
             ? () => {
@@ -5305,6 +5499,11 @@ function ProApp({
       />
     ) : (
       <ProShiftBody
+        pendingPriceHe={
+          preQuoteSent && !preQuoteApprovedAt
+            ? `${formatMoney(money(preQuoteSent.amount, "ILS"))} · ${takenRequest?.serviceNameHe ?? ""}`
+            : null
+        }
         /* The professional's city is ours, not the old plate. */
         backdrop={<CityHero />}
         geo={proGeo}
@@ -5399,8 +5598,14 @@ function ProApp({
           <ProOfferBody
             offer={offer}
             nowMs={now}
+            quoteFirst={takenRequest?.quoteFirst ? { destinationHe: takenRequest.destinationHe ?? null } : null}
             onAccept={() => {
               setOfferAt(null);
+              /* Quote-first: he names a price; he is assigned when the customer approves it. */
+              if (takenRequest?.quoteFirst) {
+                setProView("quote");
+                return;
+              }
               setJob("PRO_ASSIGNED");
             }}
             onSkip={() => setOfferAt(null)}
@@ -5408,6 +5613,15 @@ function ProApp({
             height={height}
           />
         </RiseIn>
+      ) : null}
+
+      {preQuoteSent && !preQuoteApprovedAt && !job && !offer && proView !== "quote" ? (
+        <DemoBar
+          dark
+          label={`ההצעה נשלחה · ${formatMoney(money(preQuoteSent.amount, "ILS"))} — מעבר לצד הלקוח כדי לאשר`}
+          onPress={() => onSeeAsCustomer?.("prequote")}
+          width={width}
+        />
       ) : null}
 
       {showHandover ? (
@@ -5474,7 +5688,7 @@ function ProApp({
           {
             n: "5",
             t: "אתה קובע את המחירים שלך",
-            d: "לפני שמתחילים מגדירים ב״המחירים שלך״: מחיר קבוע, תעריף לשעה או מחיר ביקור ואבחון — לפי השירות — ומחירון של העבודות שאתה עושה. אפשר גם תוספת לילה ושבת. הלקוח רואה את המחיר שלך לפני שהוא מזמין; שירות בלי מחיר לא מקבל קריאות.",
+            d: "לפני שמתחילים מגדירים ב״המחירים שלך״, לפי סוג העבודה: בתיקון — דמי ביקור ואבחון (זה מה שנגבה באפליקציה; את התיקון סוגרים ישירות מול הלקוח). בעבודה עם מחיר ידוע — מחירון לכל סוג עבודה. בגרירה, הובלה, צביעה וכדומה — אתה שולח מחיר לפי התמונות, ויוצא רק אחרי שהלקוח מאשר. אפשר גם תוספת לילה ושבת.",
           },
         ].map((x) => (
           <View key={x.n} style={styles.howRow}>

@@ -135,6 +135,9 @@ export interface LivingMapSceneProps {
   /** The matched professional's own visit fee — each sets their own. */
   visitFeeHe?: string | null;
   availableInHe?: string | null;
+  /** The match card's approval words, and whether it can be pressed yet. */
+  acceptLabelHe?: string;
+  acceptDisabled?: boolean;
   /** The call is for someone else — see PlayDrawer. */
   onSiteNameHe?: string | null;
   onOpenOnSite?: () => void;
@@ -300,6 +303,8 @@ export function LivingMapScene({
   availableInHe = null,
   onSiteNameHe = null,
   onOpenOnSite,
+  acceptLabelHe,
+  acceptDisabled = false,
   serviceNameHe,
   checkingEligibility = false,
   departmentCode,
@@ -1873,6 +1878,8 @@ export function LivingMapScene({
           visitFeeHe={visitFeeHe}
           availableInHe={availableInHe}
           onAccept={onAccept}
+          acceptLabelHe={acceptLabelHe}
+          acceptDisabled={acceptDisabled}
           onAnother={onAnother}
           progress={sheet}
         />

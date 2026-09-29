@@ -229,6 +229,17 @@ export interface CatalogServiceDef {
   /** Concrete cases, offered as taps on the service page. */
   symptomsHe: string[];
   pricingModel: PricingModel;
+  /**
+   * PRICED BEFORE ANYBODY SETS OFF (Amit, 2026-09-29). The customer
+   * describes and photographs; the professional the call is offered to
+   * answers with a price; the customer approves, and only then is he
+   * assigned and on his way. One professional at a time — a declined price
+   * passes the call to the next one, never an auction (/CLAUDE.md §3).
+   * The approved amount is held and released after completion.
+   */
+  quoteBeforeDispatch?: boolean;
+  /** Needs a destination as well as the address: towing, moving. */
+  needsDestination?: boolean;
   fulfillmentProfile: FulfillmentProfile;
   activationStatus: ActivationStatus;
   trustProfile: TrustProfile;

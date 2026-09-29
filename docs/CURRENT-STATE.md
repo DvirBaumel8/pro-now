@@ -105,6 +105,8 @@ Screenshots go to `qa/out/`.
 - The preview opens every service for demonstration.
 - **Only the person who ordered approves a quote and pays.** The person at home never does.
 
+- **2026-09-29: two kinds of work.** Repairs whose price is unknown upfront → the app charges only the visit-and-diagnosis fee; the repair is settled directly between customer and pro. Price-list work → the customer picks from the pro's list; the amount is held and released after completion. No problem questions before calling. A third kind, **priced before dispatch** (towing, moving, post-reno cleaning, painting, gardening, pest control): the pro answers the offer with a price, the customer approves on the match card, then he is assigned. See the DECIDED entry in `docs/18-ROADMAP.md`. Code: `packages/ui/src/catalog/priceLists.ts`, `ProJobBody.diagnosisOnly`, `DescribeFaultBody.priceList`/`destination`, `quoteBeforeDispatch` in the catalogue, `preQuote` in `tools/design-preview/src/App.tsx`.
+
 **Built in the last session**
 - Free-text search understands everyday Hebrew: word forms, one-letter typos, symptoms, and Claude as a fallback when framed. A life-threatening sentence shows "מד״א 101".
 - A fixed or hourly price follows the intake answers. The per-answer tables are example prices, scaled by each pro's own base.

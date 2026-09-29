@@ -72,6 +72,10 @@ export interface ServiceDetailBodyProps {
    * distinctions should not invent them just to fill the screen.
    */
   symptomsHe?: string[];
+  /** A price-list service: its cheapest line, for "מחירון · החל מ־₪X". */
+  priceListFromMinorUnits?: number | null;
+  /** Priced by the professional before he sets off (towing, moving, painting…). */
+  quoteBeforeDispatch?: boolean;
   /** What the visit covers. Facts from the catalogue, not marketing. */
   includedHe: string[];
   /** What it explicitly does not cover — prevents the dispute, later. */
@@ -133,13 +137,15 @@ export function ServiceDetailBody({
   requiredCredentialsHe,
   comingSoon: comingSoonIn,
   scheduledOnly = false,
+  priceListFromMinorUnits = null,
+  quoteBeforeDispatch = false,
   onRequestNow,
   onRecheck,
   onBack,
   width = 390,
   height = 780,
 }: ServiceDetailBodyProps) {
-  const explainer = priceExplainer(price, { stage: "service" });
+  const explainer = priceExplainer(price, { stage: "service", listFromMinorUnits: priceListFromMinorUnits, quoteFirst: quoteBeforeDispatch });
   const comingSoon = comingSoonIn || scheduledOnly;
   /*
    * Unknown is not zero. The page says "נבדוק זמינות כששולחים" when the
@@ -230,7 +236,7 @@ export function ServiceDetailBody({
               * true for all of them or it quietly narrows the marketplace
               * back to the trades it was written for.
               */}
-            <SectionHeader title="מה הכי מתאים?" colors={colors} />
+            <SectionHeader title={symptomsHe.length > 0 ? "מה הכי מתאים?" : "מה צריך?"} colors={colors} />
             <View style={styles.symptoms}>
               {(mayAsk ? symptomsHe : []).map((sx) => {
                 const on = picked.includes(sx);

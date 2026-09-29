@@ -28,6 +28,13 @@ describe("job state machine — /docs/07-JOB-STATE-MACHINE.md", () => {
     expect(isTransitionAllowed("PRO_ARRIVED", "IN_PROGRESS")).toBe(true);
   });
 
+  it("lets a diagnosis-only visit finish without a quote (the visit fee is the whole charge)", () => {
+    expect(isTransitionAllowed("DIAGNOSIS", "COMPLETION_PENDING")).toBe(true);
+    // …but never straight to money, and never back into work without an approval.
+    expect(isTransitionAllowed("DIAGNOSIS", "PAYMENT_PENDING")).toBe(false);
+    expect(isTransitionAllowed("DIAGNOSIS", "IN_PROGRESS")).toBe(false);
+  });
+
   it("rejects WORKING -> AVAILABLE style skips (no COMPLETED/CANCELLED in between)", () => {
     expect(isTransitionAllowed("IN_PROGRESS", "PAYMENT_PENDING")).toBe(false);
     expect(() => assertTransition("IN_PROGRESS", "PAYMENT_PENDING", "SYSTEM")).toThrow(InvalidJobTransitionError);

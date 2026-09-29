@@ -71,6 +71,8 @@ export interface SearchingBodyProps {
   availableInHe?: string | null;
   onSiteNameHe?: string | null;
   onOpenOnSite?: () => void;
+  acceptLabelHe?: string;
+  acceptDisabled?: boolean;
   checkingEligibility?: boolean;
   /** Decides which trade's district the world shows. */
   departmentCode?: string;
@@ -159,6 +161,8 @@ export function SearchingBody({
   availableInHe = null,
   onSiteNameHe = null,
   onOpenOnSite,
+  acceptLabelHe,
+  acceptDisabled = false,
   checkingEligibility = false,
   departmentCode,
   worldSources,
@@ -232,6 +236,8 @@ export function SearchingBody({
         availableInHe={availableInHe}
         onSiteNameHe={onSiteNameHe}
         onOpenOnSite={onOpenOnSite}
+        acceptLabelHe={acceptLabelHe}
+        acceptDisabled={acceptDisabled}
         checkingEligibility={checkingEligibility}
         departmentCode={departmentCode}
         onAccept={onAccept}

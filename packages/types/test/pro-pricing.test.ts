@@ -77,9 +77,10 @@ describe("what a professional may type", () => {
 });
 
 describe("what the customer is told", () => {
-  it("never shows a visit fee without the quote that follows it", () => {
-    // Otherwise ₪179 reads as the price of the repair.
-    expect(customerPriceLineHe(price())).toContain("הצעת מחיר לעבודה אחרי אבחון");
+  it("never shows a visit fee as the price of the repair (2026-09-29)", () => {
+    // ₪179 is the visit and the diagnosis; the repair is settled with the professional directly.
+    expect(customerPriceLineHe(price())).toContain("ביקור ואבחון");
+    expect(customerPriceLineHe(price())).toContain("ישירות מול המקצוען");
   });
 
   it("says nothing at all when there is no price", () => {

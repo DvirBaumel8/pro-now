@@ -300,7 +300,7 @@ export function ProPricingBody({
         <SectionHeader title="המחירון שלך" colors={colors} />
         <Surface kind="raised" colors={colors} style={styles.card}>
           <Text style={styles.help}>
-            העבודות שאתה עושה ומה כל אחת עולה. כשאתה שולח הצעת מחיר, לחיצה על פריט מוסיפה אותו להצעה.
+            העבודות שאתה עושה ומה כל אחת עולה. בשירותים במחירון — הלקוח בוחר מכאן, והסכום מאושר בכרטיס ועובר אליך אחרי שהוא מאשר שסיימת.
           </Text>
           {priceList.map((it) => (
             <View key={it.id} style={styles.listRow}>
@@ -349,9 +349,9 @@ export function ProPricingBody({
           */}
         <SectionHeader title="איך זה עובד" colors={colors} />
         <Surface kind="outlined" colors={colors} style={styles.card}>
-          <Text style={styles.step}>1 · הלקוח רואה את מחיר הביקור לפני ששולח קריאה.</Text>
-          <Text style={styles.step}>2 · אתה מגיע, מאבחן, ושולח הצעת מחיר לעבודה.</Text>
-          <Text style={styles.step}>3 · העבודה מתחילה רק אחרי שהלקוח מאשר את ההצעה.</Text>
+          <Text style={styles.step}>1 · תיקון שהמחיר שלו לא ידוע מראש: הלקוח רואה את דמי הביקור והאבחון שלך, וזה מה שנגבה באפליקציה. את התיקון עצמו אתם סוגרים ישירות.</Text>
+          <Text style={styles.step}>2 · עבודה עם מחיר ידוע: הלקוח בוחר מהמחירון שלך, והסכום מאושר בכרטיס ועובר אליך אחרי שהוא מאשר שסיימת.</Text>
+          <Text style={styles.step}>3 · הלקוח רואה את המחיר שלך לפני שהוא מאשר אותך.</Text>
           <Text style={styles.stepNote}>
             אין מכרז ואין הצעות מתחרות. המחיר שלך הוא שלך.
           </Text>

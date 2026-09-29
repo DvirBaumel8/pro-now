@@ -23,7 +23,8 @@ PRO_ARRIVED
   → DIAGNOSIS            (visit+quote services only)
   → IN_PROGRESS           (fixed/hourly/courier — no diagnosis step)
 DIAGNOSIS
-  → WAITING_QUOTE_APPROVAL
+  → COMPLETION_PENDING    (diagnosis-only visit: the visit fee is the whole in-app charge — 2026-09-29)
+  → WAITING_QUOTE_APPROVAL (kept in the server; the product no longer routes repairs through it)
 WAITING_QUOTE_APPROVAL
   → IN_PROGRESS
   → CANCELLED / DISPUTED  (per reason matrix)

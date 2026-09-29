@@ -51,12 +51,15 @@ export interface MatchSheetProps {
    */
   availableInHe?: string | null;
   onAccept?: () => void;
+  /** The approval button's words, and whether it can be pressed yet (a price still coming). */
+  acceptLabelHe?: string;
+  acceptDisabled?: boolean;
   onAnother?: () => void;
   /** 0 hidden, 1 fully up. Drives the fold-away on confirm. */
   progress?: Animated.AnimatedInterpolation<number> | Animated.Value;
 }
 
-export function MatchSheet({ candidate, etaMinutes, arrivalClockHe, visitFeeHe = null, availableInHe = null, onAccept, onAnother, progress }: MatchSheetProps) {
+export function MatchSheet({ candidate, etaMinutes, arrivalClockHe, visitFeeHe = null, availableInHe = null, onAccept, acceptLabelHe = "כן, מתאים לי", acceptDisabled = false, onAnother, progress }: MatchSheetProps) {
   const facts = matchFactsHe(candidate);
   /* The handle folds the card down to see the shop behind it, and back up. */
   const drag = useSheetDrag({ peek: 44 });
@@ -182,12 +185,14 @@ export function MatchSheet({ candidate, etaMinutes, arrivalClockHe, visitFeeHe =
       )}
 
       <Pressable
-        onPress={onAccept}
+        onPress={acceptDisabled ? undefined : onAccept}
+        disabled={acceptDisabled}
         accessibilityRole="button"
-        accessibilityLabel="כן, מתאים לי"
-        style={({ pressed }) => [styles.primary, pressed && { opacity: 0.9 }]}
+        accessibilityLabel={acceptLabelHe}
+        accessibilityState={{ disabled: acceptDisabled }}
+        style={({ pressed }) => [styles.primary, acceptDisabled && { opacity: 0.45 }, pressed && !acceptDisabled && { opacity: 0.9 }]}
       >
-        <Text style={styles.primaryText}>כן, מתאים לי</Text>
+        <Text style={styles.primaryText}>{acceptLabelHe}</Text>
       </Pressable>
 
       {onAnother ? (

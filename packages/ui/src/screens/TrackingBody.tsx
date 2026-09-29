@@ -226,19 +226,22 @@ export interface TrackingBodyProps {
  * step it is at, a running clock, and the steps still to come.
  */
 const ON_SITE: readonly JobState[] = ["PRO_ARRIVED", "DIAGNOSIS", "WAITING_QUOTE_APPROVAL", "IN_PROGRESS", "COMPLETION_PENDING"];
-function workHeadlineHe(status: JobState, first: string): { title: string; sub: string } {
+function workHeadlineHe(status: JobState, first: string, fixed = false): { title: string; sub: string } {
   switch (status) {
     case "PRO_ARRIVED": return { title: `${first} הגיע אליכם`, sub: "עוד רגע מתחילים לבדוק" };
-    case "DIAGNOSIS": return { title: `${first} בודק את התקלה`, sub: "בסוף הבדיקה תקבלו הצעת מחיר מפורטת" };
+    case "DIAGNOSIS":
+      return fixed
+        ? { title: `${first} בודק מה צריך`, sub: "עוד רגע מתחילים לפי מה שהזמנתם" }
+        : { title: `${first} מאבחן את התקלה`, sub: "את מחיר התיקון סוגרים ישירות איתו" };
     case "WAITING_QUOTE_APPROVAL": return { title: "הצעת מחיר מחכה לאישורכם", sub: "העבודה מתחילה רק אחרי שתאשרו" };
-    case "IN_PROGRESS": return { title: "עובדים על התיקון", sub: "לפי ההצעה שאישרתם" };
+    case "IN_PROGRESS": return { title: fixed ? `${first} עובד/ת` : "עובדים על התיקון", sub: fixed ? "לפי מה שהזמנתם" : "לפי ההצעה שאישרתם" };
     default: return { title: "העבודה הסתיימה", sub: "מחכה לאישור שלכם" };
   }
 }
 /* When the professional came in — kept across the visit's screens, so the
    clock counts the whole time in the home and not each step afresh. */
 const visitStart = { at: 0 };
-function WorkScene({ status, firstName, figureUri, width, height }: { status: JobState; firstName: string; figureUri: string | null; width: number; height: number }) {
+function WorkScene({ status, firstName, figureUri, fixed = false, width, height }: { status: JobState; firstName: string; figureUri: string | null; fixed?: boolean; width: number; height: number }) {
   const [since] = useState(() => {
     if (!visitStart.at) visitStart.at = Date.now();
     return visitStart.at;
@@ -259,7 +262,7 @@ function WorkScene({ status, firstName, figureUri, width, height }: { status: Jo
   }, [pulse]);
   const sec = Math.max(0, Math.floor((now - since) / 1000));
   const clock = `${String(Math.floor(sec / 60)).padStart(2, "0")}:${String(sec % 60).padStart(2, "0")}`;
-  const { title, sub } = workHeadlineHe(status, firstName);
+  const { title, sub } = workHeadlineHe(status, firstName, fixed);
   const done = status === "COMPLETION_PENDING";
   /* The trade's waist-up portrait: it reads at this size, and a full
      figure's feet would sit under the sheet anyway. */
@@ -437,7 +440,7 @@ export function TrackingBody({
    */
   // The first word of the name, the way somebody in your kitchen is
   // referred to once they are in it.
-  const progressHe = jobProgressHe(status, professional.displayName.split(/\s+/)[0] ?? null);
+  const progressHe = jobProgressHe(status, professional.displayName.split(/\s+/)[0] ?? null, { fixed: Boolean(money?.fixedTotalHe) });
   /*
    * WORK IS A STATE, SO IT DRIVES THE PICTURE.
    *
@@ -576,6 +579,7 @@ export function TrackingBody({
             status={status}
             firstName={professional.displayName.split(" ")[0] ?? ""}
             figureUri={proFigureUri}
+            fixed={Boolean(money?.fixedTotalHe)}
             width={width}
             height={mapH}
           />
@@ -1036,7 +1040,11 @@ export function TrackingBody({
               <Text style={styles.confirmLabel}>
                 {money?.approvedTotalHe
                   ? `אישור תשלום · ${money.approvedTotalHe}`
-                  : "אישור תשלום — העבודה הושלמה"}
+                  : money?.fixedTotalHe
+                    ? `אישור תשלום · ${money.fixedTotalHe}`
+                    : money?.visitFeeHe
+                      ? `אישור תשלום · ${money.visitFeeHe} ביקור ואבחון`
+                      : "אישור תשלום — העבודה הושלמה"}
               </Text>
             </Pressable>
             <Pressable

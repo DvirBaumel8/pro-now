@@ -32,7 +32,14 @@ const TRANSITIONS: Record<JobState, JobState[]> = {
   PRO_ASSIGNED: ["PRO_EN_ROUTE", "CANCELLED"],
   PRO_EN_ROUTE: ["PRO_ARRIVED", "CANCELLED"],
   PRO_ARRIVED: ["DIAGNOSIS", "IN_PROGRESS", "CANCELLED"],
-  DIAGNOSIS: ["WAITING_QUOTE_APPROVAL", "CANCELLED"],
+  /*
+   * DIAGNOSIS → COMPLETION_PENDING: the visit was the job. For work priced
+   * only once somebody looks, the platform charges the visit-and-diagnosis
+   * fee and nothing else; the repair itself is agreed and paid between the
+   * customer and the professional (Amit, 2026-09-29 — see
+   * /docs/18-ROADMAP.md). Settlement already bills VISIT_FEE_ONLY.
+   */
+  DIAGNOSIS: ["WAITING_QUOTE_APPROVAL", "COMPLETION_PENDING", "CANCELLED"],
   WAITING_QUOTE_APPROVAL: ["IN_PROGRESS", "CANCELLED", "DISPUTED"],
   IN_PROGRESS: ["COMPLETION_PENDING", "CANCELLED", "DISPUTED"],
   COMPLETION_PENDING: ["COMPLETED"],

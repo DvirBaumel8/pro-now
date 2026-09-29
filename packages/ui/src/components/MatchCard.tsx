@@ -50,7 +50,7 @@ function pricePresentation(price: PriceQuoteView): { label: string; value: strin
       return {
         label: "דמי ביקור",
         value: fmt(price.visitFeeMinorUnits),
-        note: "דמי הביקור כוללים הגעה ואבחון. אם נדרשת עבודה נוספת, בעל המקצוע ישלח הצעת מחיר לאישורך לפני תחילת העבודה.",
+        note: "דמי הביקור כוללים הגעה ואבחון, וזה כל מה שמשולם באפליקציה. את התיקון עצמו סוגרים ישירות מול בעל המקצוע.",
       };
     case "HOURLY": {
       const rate = fmt(price.hourlyRateMinorUnits);

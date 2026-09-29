@@ -46,6 +46,12 @@ export interface ProOfferBodyProps {
   onAccept?: () => void;
   onSkip?: () => void;
   /**
+   * PRICED BEFORE HE SETS OFF (towing, moving, painting…). He names the
+   * price from the photos and details; he is assigned only once the
+   * customer approves it.
+   */
+  quoteFirst?: { destinationHe?: string | null } | null;
+  /**
    * True while the answer is in flight.
    *
    * `OfferCard` has always had this and the full screen did not, which
@@ -68,6 +74,7 @@ export function ProOfferBody({
   totalSeconds = 30,
   nowMs = Date.now(),
   onAccept,
+  quoteFirst = null,
   onSkip,
   responding = false,
   width = 390,
@@ -160,7 +167,15 @@ export function ProOfferBody({
         </Text>
 
         {/* The number the decision is actually made on. */}
-        {payout.known ? (
+        {quoteFirst ? (
+          <>
+            <Text style={styles.payoutUnknown}>אתה קובע את המחיר</Text>
+            <Text style={styles.payoutReason}>
+              תסתכל על התמונות והפרטים ושלח מחיר. אתה יוצא רק אחרי שהלקוח מאשר — והסכום מאושר בכרטיס ועובר אליך בסוף.
+            </Text>
+            {quoteFirst.destinationHe ? <Text style={styles.payoutReason}>לאן: {quoteFirst.destinationHe}</Text> : null}
+          </>
+        ) : payout.known ? (
           <View style={styles.payoutRow}>
             <Text style={styles.payout}>
               {formatMoney(money(offer.expectedPayoutMinorUnits as number, "ILS"))}
@@ -265,7 +280,7 @@ export function ProOfferBody({
               ]}
             >
               <Text style={styles.acceptLabel}>
-                {responding ? "רגע…" : "כן, אני לוקח"}
+                {responding ? "רגע…" : quoteFirst ? "תן הצעת מחיר" : "כן, אני לוקח"}
               </Text>
             </Pressable>
             <Pressable

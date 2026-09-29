@@ -124,18 +124,16 @@ describe("sceneIsOver", () => {
 describe("visitMoneyLineHe", () => {
   const fee = { visitFeeHe: "₪179" };
 
-  it("says a quote is coming only while one actually is", () => {
+  it("never promises an in-app quote for work priced only once somebody looks (2026-09-29)", () => {
     for (const s of ["PRO_ASSIGNED", "PRO_EN_ROUTE", "PRO_ARRIVED", "DIAGNOSIS"] as const) {
-      expect(visitMoneyLineHe(s, fee)).toMatch(/הצעת מחיר תישלח|ההצעה תגיע/);
+      expect(visitMoneyLineHe(s, fee)).not.toMatch(/הצעת מחיר תישלח|ההצעה תגיע/);
     }
-    /*
-     * The fault itself, as a test. Past this point a quote has been
-     * written, so any sentence promising a future one is describing
-     * something that has already happened.
-     */
-    for (const s of ["WAITING_QUOTE_APPROVAL", "IN_PROGRESS", "COMPLETION_PENDING"] as const) {
-      expect(visitMoneyLineHe(s, fee)).not.toMatch(/תישלח|תגיע/);
-    }
+    // Before the diagnosis: the visit fee is all the app charges.
+    expect(visitMoneyLineHe("PRO_EN_ROUTE", fee)).toMatch(/כל מה שמשולם באפליקציה/);
+    // During it: the repair is settled with the professional directly.
+    expect(visitMoneyLineHe("DIAGNOSIS", fee)).toMatch(/ישירות מול המקצוען/);
+    // Finished with no quote: the fee is what is paid.
+    expect(visitMoneyLineHe("COMPLETION_PENDING", fee)).toMatch(/דמי הביקור והאבחון/);
   });
 
   it("changes at every step of the visit", () => {

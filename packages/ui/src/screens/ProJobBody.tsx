@@ -133,6 +133,14 @@ export interface ProJobBodyProps {
   agreedPriceHe?: string | null;
   onStartAgreed?: () => void;
   /**
+   * WORK PRICED ONLY ONCE SOMEBODY LOOKS (Amit, 2026-09-29). The app
+   * charges the visit and the diagnosis; the repair is agreed and paid
+   * between the two of them. So at DIAGNOSIS the move is to finish the
+   * diagnosis, not to send a quote through the app.
+   */
+  diagnosisOnly?: boolean;
+  onFinishDiagnosis?: () => void;
+  /**
    * GIVING THE JOB BACK.
    *
    * Amit, on this screen right after accepting: *"אחרי שהוא רשם כן אני
@@ -199,7 +207,7 @@ const STAGE: Partial<Record<JobState, { n: number; titleHe: string; doHe: string
   PRO_ASSIGNED: { n: 1, titleHe: "העבודה שלך!", doHe: "הלקוח כבר יודע שאתה מגיע. צא לדרך כשאתה מוכן.", tint: "#2FBF8A", glyph: "✓" },
   PRO_EN_ROUTE: { n: 2, titleHe: "בדרך ללקוח", doHe: "הלקוח רואה אותך מתקדם. לחץ ״הגעתי״ כשאתה בכתובת.", tint: "#3B82F6", glyph: "➜" },
   PRO_ARRIVED: { n: 3, titleHe: "הגעת", doHe: "הצג את עצמך, ותתחיל לבדוק את מה שהלקוח תיאר.", tint: "#8B5CF6", glyph: "⌂" },
-  DIAGNOSIS: { n: 4, titleHe: "בודקים מה צריך", doHe: "בסוף הבדיקה — הצעת מחיר ללקוח, והוא מאשר מהטלפון.", tint: "#F59E0B", glyph: "?" },
+  DIAGNOSIS: { n: 4, titleHe: "בודקים מה צריך", doHe: "בודקים ומאבחנים. בתיקון — המחיר נסגר ישירות מול הלקוח; במחירון — מתחילים לפי מה שסוכם.", tint: "#F59E0B", glyph: "?" },
   WAITING_QUOTE_APPROVAL: { n: 5, titleHe: "ההצעה אצל הלקוח", doHe: "מחכים לאישור. אי אפשר להתחיל לעבוד לפני שהוא מאשר.", tint: "#EC4899", glyph: "₪" },
   IN_PROGRESS: { n: 6, titleHe: "ההצעה אושרה — עובדים", doHe: "עושים בדיוק את מה שאושר. לחץ ״סיימתי״ בסוף.", tint: "#FF6B4A", glyph: "⚒" },
   COMPLETION_PENDING: { n: 7, titleHe: "סיימת!", doHe: "הלקוח מאשר שהעבודה הושלמה, ואז נסגר התשלום.", tint: "#2FBF8A", glyph: "★" },
@@ -379,12 +387,19 @@ export function ProJobBody({
   onSendQuote,
   agreedPriceHe = null,
   onStartAgreed,
+  diagnosisOnly = false,
+  onFinishDiagnosis,
   width = 390,
   height = 780,
 }: ProJobBodyProps) {
   const baseAction = nextAction(status);
   const agreed = status === "DIAGNOSIS" && agreedPriceHe && onStartAgreed;
-  const action = agreed ? { label: `מתחיל לעבוד · ${agreedPriceHe}`, kind: "agreed" as const } : baseAction;
+  const finishing = status === "DIAGNOSIS" && diagnosisOnly && onFinishDiagnosis && !agreed;
+  const action = agreed
+    ? { label: `מתחיל לעבוד · ${agreedPriceHe}`, kind: "agreed" as const }
+    : finishing
+      ? { label: "סיימתי את האבחון", kind: "finishDiagnosis" as const }
+      : baseAction;
   const photos = media.filter((m) => m.kind === "PHOTO");
   const voice = media.find((m) => m.kind === "VOICE");
 
@@ -707,12 +722,25 @@ export function ProJobBody({
       {action ? (
         <View style={styles.cta}>
           <Pressable
-            onPress={action.kind === "quote" ? onSendQuote : action.kind === "agreed" ? onStartAgreed : onAdvance}
+            onPress={
+              action.kind === "quote"
+                ? onSendQuote
+                : action.kind === "agreed"
+                  ? onStartAgreed
+                  : action.kind === "finishDiagnosis"
+                    ? onFinishDiagnosis
+                    : onAdvance
+            }
             accessibilityRole="button"
             style={({ pressed }) => [styles.ctaBtn, pressed && { opacity: 0.88 }]}
           >
             <Text style={styles.ctaLabel}>{action.label}</Text>
           </Pressable>
+          {action.kind === "finishDiagnosis" ? (
+            <Text style={styles.finishNote}>
+              באפליקציה נגבים דמי הביקור והאבחון. את התיקון עצמו — המחיר והתשלום — סוגרים ישירות מול הלקוח.
+            </Text>
+          ) : null}
           {action.kind === "agreed" && onSendQuote ? (
             <Pressable onPress={onSendQuote} accessibilityRole="button" style={styles.extraLink}>
               <Text style={styles.extraLinkText}>יש עבודה נוספת? הצעת מחיר לתוספת — הלקוח יאשר</Text>
@@ -896,6 +924,7 @@ function Wave() {
 }
 
 const styles = StyleSheet.create({
+  finishNote: { ...type.meta, color: colors.textSecondary, textAlign: "center", writingDirection: "rtl", marginTop: spacing.sm },
   doorCode: {
     marginTop: spacing.sm,
     padding: spacing.md,

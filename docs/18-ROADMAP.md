@@ -203,6 +203,46 @@ and no screen achieves it: *"מחיר נח לכל כיס עם מקצוענים �
 supply-and-price-level strategy. Fairness is the part that can be built
 without inventing a business rule.
 
+### DECIDED 2026-09-29 — two kinds of work, and what goes through the app
+
+Amit: *"אין לי דרך לעקוף את זה שהוא ייתן הצעת מחיר במקום ואז יגידו לו עזוב
+קח פחות במזומן."* So each service is priced one way only:
+
+1. **Work priced only once somebody looks** (`VISIT_QUOTE`): plumbing (blockage,
+   leak, tap), electrical (fault, socket/lighting), appliances (AC, fridge,
+   washer, solar heater, gas), renovation trades (paint, tiling, drywall,
+   carpentry, glass, sealing), garden, alarm/cameras, computer and phone repair,
+   vet, handyman, a car that will not start, towing. **The app charges the
+   visit-and-diagnosis fee, set by each professional, and nothing else.** The
+   repair — its price and its payment — is agreed between the customer and the
+   professional directly. The visit ends at the diagnosis
+   (`DIAGNOSIS → COMPLETION_PENDING`, settlement `VISIT_FEE_ONLY`).
+2. **Work priced by its kind** (`FIXED`, a price list): haircut, nails, makeup,
+   massage, trainer, tutor, dog walk, dog grooming, pet sitting, cleaning,
+   post-renovation cleaning, pest control, furniture, TV mounting, curtains,
+   lockout, cylinder, car lockout, flat tyre, house-call doctor. Each
+   professional sets a price for each kind of job; the customer picks from the
+   list, sees that professional's price before accepting, and **the amount is
+   held on the card and released to him after the customer confirms the work
+   is done** (payment vendor still TBD — Open Decisions).
+3. **Work priced before anybody sets off** (`quoteBeforeDispatch`, priced as
+   `VISIT_QUOTE` with an approved quote): towing, small moving, post-renovation
+   cleaning, painting, gardening, pest control. The customer describes and
+   photographs (and, for towing and moving, where to); the call is offered to
+   ONE professional, who answers with a price; the customer approves it on the
+   match card and only then is he assigned. A declined price passes the call
+   to the next professional — never several prices at once (no auction,
+   /CLAUDE.md §3). The approved amount is held and released after completion.
+   Server: the priced offer (price on the offer, customer approval before
+   `PRO_ASSIGNED`) is not built yet — the preview simulates it.
+4. `זוג ידיים` stays hourly; courier stays distance-based.
+
+**No problem questions before calling.** The customer describes in words, a
+recording or photos; the only choice left is, for price-list work, what to order
+from the list. This supersedes the per-answer price tables of 2026-09-27 and,
+for repairs, "an approved quote includes the visit fee" (the server still
+supports quotes; the product no longer routes repairs through them).
+
 ### BUILT 2026-09-28 (preview) — ordering for someone else, including the door
 
 Amit's headline case: a plumber for grandpa, ordered and paid from the

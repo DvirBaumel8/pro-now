@@ -14,7 +14,7 @@ import { priceExplainer } from "../src/pricing-copy";
  */
 
 describe("priceExplainer", () => {
-  it("states a FIXED price as final, and says no more is charged without approval", () => {
+  it("states a FIXED price as the professional's list price, held and released after completion", () => {
     const price: PriceQuoteView = {
       priceModel: "FIXED",
       currency: "ILS",
@@ -22,7 +22,7 @@ describe("priceExplainer", () => {
     };
     const out = priceExplainer(price);
     expect(out.headline).toContain("450");
-    expect(out.detail).toContain("מחיר קבוע");
+    expect(out.detail).toContain("אחרי שתאשרו שהעבודה הושלמה");
   });
 
   it("presents VISIT_QUOTE as a visit fee, never as the job's price", () => {
@@ -33,8 +33,8 @@ describe("priceExplainer", () => {
     };
     const out = priceExplainer(price);
     expect(out.headline).toContain("179");
-    // The critical sentence: the repair itself is NOT priced yet.
-    expect(out.detail).toContain("הצעת מחיר");
+    // The critical sentence: the repair itself is settled directly, not through the app.
+    expect(out.detail).toContain("ישירות מול המקצוען");
     expect(out.detail).not.toContain("מחיר קבוע");
   });
 
@@ -42,7 +42,7 @@ describe("priceExplainer", () => {
     const out = priceExplainer({ priceModel: "VISIT_QUOTE", currency: "ILS", visitFeeMinorUnits: 17900 }, { stage: "service" });
     expect(out.headline).not.toContain("179");
     expect(out.headline).toContain("לפי המקצוען");
-    expect(out.detail).toContain("הצעת מחיר");
+    expect(out.detail).toContain("כל מה שמשולם באפליקציה");
   });
 
   it("on the match, the fee is that professional's", () => {

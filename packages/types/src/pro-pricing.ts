@@ -224,7 +224,7 @@ export function customerPriceLineHe(price: ProServicePrice): string | null {
       // The second half is the part that keeps this honest: the visit fee
       // is knowable now, the job total is not, and saying only the first
       // number would read as the price of the repair.
-      return `מחיר ביקור ₪${shekels} · הצעת מחיר לעבודה אחרי אבחון`;
+      return `מחיר ביקור ואבחון ₪${shekels} · את התיקון סוגרים ישירות מול המקצוען`;
     case "HOURLY_RATE":
       return `₪${shekels} לשעה`;
     case "FIXED_PRICE":
@@ -275,8 +275,8 @@ export function proPricingViolations(): string[] {
     pricingModel: "VISIT_QUOTE",
     amountMinorUnits: 17_900,
   });
-  if (!visit || !visit.includes("הצעת מחיר")) {
-    out.push("a call-out fee must be shown with the quote that follows it");
+  if (!visit || !visit.includes("ישירות")) {
+    out.push("a call-out fee must say the repair is settled directly with the professional");
   }
 
   // Nothing may invent a payout. With no commission decided, there is no

@@ -118,6 +118,11 @@ export interface ProShiftBodyProps {
    * `availableAtMs` is when that is; null when not set.
    */
   availableAtMs?: number | null;
+  /**
+   * A price he named that the customer has not answered yet (quote-first
+   * services): "₪450 · גרירת רכב". Shown above the online button.
+   */
+  pendingPriceHe?: string | null;
   onAvailableIn?: (minutes: number) => void;
   onCancelAvailableIn?: () => void;
   onOpenEarnings?: () => void;
@@ -163,6 +168,7 @@ export function ProShiftBody({
   nowMs,
   onToggleOnline,
   availableAtMs = null,
+  pendingPriceHe = null,
   onAvailableIn,
   onCancelAvailableIn,
   onOpenEarnings,
@@ -514,6 +520,12 @@ export function ProShiftBody({
 
       {/* The one decision on this screen keeps its own space at the bottom. */}
       <View style={styles.ctaBar}>
+        {pendingPriceHe ? (
+          <View style={styles.pendingCard} accessibilityLiveRegion="polite">
+            <Text style={styles.pendingTitle}>ההצעה שלך נשלחה · {pendingPriceHe}</Text>
+            <Text style={styles.soonSub}>מחכים לאישור הלקוח. כשהוא מאשר — העבודה שלך ואתה יוצא לדרך.</Text>
+          </View>
+        ) : null}
         {!isOnline && availableAtMs !== null ? (
           <View style={styles.soonCard}>
             <Text style={styles.soonTitle}>
@@ -742,6 +754,8 @@ const styles = StyleSheet.create({
   soonChip: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: 999, borderWidth: 1, borderColor: "rgba(247,243,250,0.3)" },
   soonChipText: { color: "#F7F3FA", fontSize: scale.meta, fontWeight: "700" },
   soonCard: { padding: 12, borderRadius: 16, backgroundColor: "rgba(47,191,138,0.14)", marginBottom: 10 },
+  pendingCard: { padding: 12, borderRadius: 16, backgroundColor: "rgba(255,154,107,0.16)", marginBottom: 10 },
+  pendingTitle: { color: "#FFB896", fontSize: scale.body, fontWeight: "800", textAlign: "right", writingDirection: "rtl" },
   soonTitle: { color: "#7FE3BC", fontSize: scale.body, fontWeight: "800", textAlign: "right", writingDirection: "rtl" },
   soonSub: { color: "rgba(247,243,250,0.8)", fontSize: scale.meta, textAlign: "right", writingDirection: "rtl", marginTop: 2 },
   soonCancel: { alignSelf: "flex-start", marginTop: 6, paddingVertical: 4, paddingHorizontal: 10 },

@@ -138,13 +138,21 @@ export function sceneIsOver(status: JobState): boolean {
  * able to drift apart, and they drift the moment they are in different
  * files.
  */
-export function jobProgressHe(status: JobState, firstNameHe?: string | null): string | null {
+export function jobProgressHe(
+  status: JobState,
+  firstNameHe?: string | null,
+  /** A price-list job (a haircut, a dog walk) rather than a repair priced only once somebody looks. */
+  opts: { fixed?: boolean } = {}
+): string | null {
   const who = firstNameHe ?? "המקצוען";
   switch (status) {
     case "PRO_ARRIVED":
       return `${who} הגיע. עכשיו הוא בודק מה צריך.`;
     case "DIAGNOSIS":
-      return `${who} בודק את התקלה. בסוף הבדיקה תקבלו ממנו הצעת מחיר לאישור.`;
+      /* Amit, 2026-09-29: the app charges the visit and the diagnosis; the repair is settled between you. */
+      return opts.fixed
+        ? `${who} בודק מה צריך. עוד רגע מתחילים לפי מה שהזמנתם.`
+        : `${who} מאבחן. באפליקציה משלמים רק את הביקור והאבחון — את מחיר התיקון סוגרים ישירות איתו.`;
     case "WAITING_QUOTE_APPROVAL":
       return "הצעת המחיר מחכה לאישור שלכם. אפשר לאשר, לשאול או לסרב.";
     case "IN_PROGRESS":
@@ -199,7 +207,8 @@ export interface VisitStep {
  * person watching a stranger drive toward their flat wants the shape of
  * the whole thing, and the journey is the part of it they are in.
  */
-const VISIT_STEPS_HE = ["בדרך", "בדיקה", "הצעת מחיר", "העבודה", "סיום ותשלום"] as const;
+/* No "הצעת מחיר" step: repairs are no longer quoted through the app (2026-09-29). */
+const VISIT_STEPS_HE = ["בדרך", "בדיקה", "העבודה", "סיום ותשלום"] as const;
 
 /**
  * Which step a job state sits in, or null before the visit has begun.
@@ -223,13 +232,12 @@ export function visitStepIndex(status: JobState): number | null {
       return 0;
     case "PRO_ARRIVED":
     case "DIAGNOSIS":
-      return 1;
     case "WAITING_QUOTE_APPROVAL":
-      return 2;
+      return 1;
     case "IN_PROGRESS":
-      return 3;
+      return 2;
     case "COMPLETION_PENDING":
-      return 4;
+      return 3;
     /*
      * The work is over and the money has moved. The last step reads as
      * done rather than current — a tracker still pointing at "סיום
@@ -325,7 +333,7 @@ export function visitMoneyLineHe(status: JobState, facts: VisitMoneyFacts = {}):
       case "DIAGNOSIS":
       case "WAITING_QUOTE_APPROVAL":
       case "IN_PROGRESS":
-        return `מחיר קבוע ${facts.fixedTotalHe} · סוכם מראש`;
+        return `${facts.fixedTotalHe} · סוכם מראש, מאושר בכרטיס`;
       case "COMPLETION_PENDING":
         return `לתשלום ${facts.fixedTotalHe} · אחרי שתאשרו שהעבודה הושלמה`;
       default:
@@ -339,12 +347,19 @@ export function visitMoneyLineHe(status: JobState, facts: VisitMoneyFacts = {}):
      * the fee that was agreed when the call was sent and the promise
      * that a price will come before any work does.
      */
+    /*
+     * WORK PRICED ONLY ONCE SOMEBODY LOOKS (Amit, 2026-09-29): the app
+     * charges the visit and the diagnosis, and that is all it charges.
+     * What the repair costs is agreed between the customer and the
+     * professional at the door, and paid to him directly — so no line
+     * here promises a quote the app will carry.
+     */
     case "PRO_ASSIGNED":
     case "PRO_EN_ROUTE":
     case "PRO_ARRIVED":
       return fee
-        ? `דמי ביקור ${fee} · הצעת מחיר תישלח לאישורכם לפני תחילת העבודה`
-        : "הצעת מחיר תישלח לאישורכם לפני תחילת העבודה";
+        ? `דמי ביקור ואבחון ${fee} · זה כל מה שמשולם באפליקציה`
+        : "דמי ביקור ואבחון לפי המקצוען · זה כל מה שמשולם באפליקציה";
 
     /*
      * He is looking now. The promise is the same and its TIMING is what
@@ -353,8 +368,8 @@ export function visitMoneyLineHe(status: JobState, facts: VisitMoneyFacts = {}):
      */
     case "DIAGNOSIS":
       return fee
-        ? `דמי ביקור ${fee} · ההצעה תגיע בסוף הבדיקה`
-        : "ההצעה תגיע בסוף הבדיקה";
+        ? `${fee} על הביקור והאבחון · את התיקון עצמו סוגרים ישירות מול המקצוען`
+        : "את התיקון עצמו סוגרים ישירות מול המקצוען";
 
     /*
      * The ball is in the customer's court, and this is the moment the
@@ -387,7 +402,9 @@ export function visitMoneyLineHe(status: JobState, facts: VisitMoneyFacts = {}):
     case "COMPLETION_PENDING":
       return facts.approvedTotalHe
         ? `לתשלום ${facts.approvedTotalHe} · אחרי שתאשרו שהעבודה הושלמה`
-        : "הסכום לתשלום ייסגר אחרי שתאשרו שהעבודה הושלמה";
+        : fee
+          ? `לתשלום ${fee} · דמי הביקור והאבחון, אחרי שתאשרו`
+          : "הסכום לתשלום ייסגר אחרי שתאשרו שהביקור הושלם";
 
     /*
      * Everything else — before a professional exists, and after the

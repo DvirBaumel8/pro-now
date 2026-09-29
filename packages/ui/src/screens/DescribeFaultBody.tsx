@@ -124,6 +124,20 @@ export interface DescribeFaultBodyProps {
    * the price does not depend on them (a visit fee).
    */
   livePriceHe?: string | null;
+  /**
+   * A PRICE-LIST SERVICE (a haircut, a dog walk, a cleaning visit): what
+   * to order, from the example list, so there is an amount to approve on
+   * the card. Nothing else is asked — no problem questions (Amit,
+   * 2026-09-29). Absent for work priced only once somebody looks.
+   */
+  priceList?: Array<{ id: string; nameHe: string; amountHe: string }>;
+  /**
+   * WHERE TO — towing and moving are priced by the trip. The pickup is the
+   * address the call is sent from; this is the other end.
+   */
+  destination?: { valueHe: string; onChange: (v: string) => void; placeholderHe: string } | null;
+  pickedIds?: string[];
+  onTogglePick?: (id: string) => void;
   width?: number;
   height?: number;
 }
@@ -153,6 +167,10 @@ export function DescribeFaultBody({
   onSend,
   onBack,
   livePriceHe = null,
+  priceList,
+  destination = null,
+  pickedIds = [],
+  onTogglePick,
   width = 390,
   height = 780,
 }: DescribeFaultBodyProps) {
@@ -200,6 +218,46 @@ export function DescribeFaultBody({
                 </View>
               ))}
             </View>
+          </View>
+        ) : null}
+
+        {destination ? (
+          <View style={styles.block}>
+            <SectionHeader title="לאן?" colors={colors} />
+            <TextInput
+              value={destination.valueHe}
+              onChangeText={destination.onChange}
+              placeholder={destination.placeholderHe}
+              placeholderTextColor={colors.textSecondary}
+              accessibilityLabel="כתובת היעד"
+              style={styles.destInput}
+              textAlign="right"
+            />
+            <Text style={styles.listNote}>מאיפה — הכתובת שבחרתם. המקצוען רואה את שתיהן לפני שהוא שולח מחיר.</Text>
+          </View>
+        ) : null}
+
+        {priceList && priceList.length > 0 ? (
+          <View style={styles.block}>
+            <SectionHeader title="מה להזמין?" colors={colors} />
+            <Text style={styles.listNote}>מחירון לדוגמה — כל מקצוען קובע את שלו, ותראו את שלו לפני שתאשרו.</Text>
+            {priceList.map((row) => {
+              const on = pickedIds.includes(row.id);
+              return (
+                <Pressable
+                  key={row.id}
+                  onPress={() => onTogglePick?.(row.id)}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: on }}
+                  accessibilityLabel={`${row.nameHe} ${row.amountHe}`}
+                  style={[styles.listRow, on && styles.listRowOn]}
+                >
+                  <View style={[styles.listBox, on && styles.listBoxOn]}>{on ? <Text style={styles.listTick}>✓</Text> : null}</View>
+                  <Text style={[styles.listName, on && { fontWeight: "700" }]} numberOfLines={1}>{row.nameHe}</Text>
+                  <Text style={styles.listAmount}>{row.amountHe}</Text>
+                </Pressable>
+              );
+            })}
           </View>
         ) : null}
 
@@ -396,9 +454,9 @@ export function DescribeFaultBody({
           * you accept him — and on work that needs a look, his quote.
           */}
         <Text style={styles.ctaNote}>
-          {livePriceHe
-            ? "המחיר משתנה לפי מה שבחרתם. כל מקצוען קובע את המחירון שלו — ותראו את המחיר שלו לפני שתאשרו."
-            : "הפרטים עוזרים למקצוען להגיע מוכן. המחיר — של המקצוען עצמו, ותראו אותו לפני שתאשרו."}
+          {priceList && priceList.length > 0
+            ? "כל מקצוען קובע את המחירון שלו — ותראו את המחיר שלו לפני שתאשרו."
+            : "התיאור, ההקלטה והתמונות עוזרים למקצוען להגיע מוכן. את דמי הביקור שלו תראו לפני שתאשרו."}
         </Text>
       </View>
     </View>
@@ -525,6 +583,37 @@ function numberChoices(q: IntakeQuestion): number[] {
 }
 
 const styles = StyleSheet.create({
+  destInput: {
+    minHeight: 50,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.md,
+    color: colors.textPrimary,
+    ...type.body,
+    writingDirection: "rtl",
+    marginBottom: spacing.xs,
+  },
+  listNote: { ...type.meta, color: colors.textSecondary, textAlign: "right", writingDirection: "rtl", marginBottom: spacing.xs },
+  listRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: spacing.sm,
+    minHeight: 50,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: spacing.xs,
+    backgroundColor: colors.surface,
+  },
+  listRowOn: { borderColor: colors.action, backgroundColor: tint.action(0.1) },
+  listBox: { width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, borderColor: colors.textSecondary, alignItems: "center", justifyContent: "center" },
+  listBoxOn: { borderColor: colors.action, backgroundColor: colors.action },
+  listTick: { ...type.microStrong, color: colors.onAction },
+  listName: { ...type.body, color: colors.textPrimary, flex: 1, textAlign: "right", writingDirection: "rtl" },
+  listAmount: { ...type.bodyStrong, color: colors.textPrimary, ...tabular },
   screen: { backgroundColor: colors.bg, overflow: "hidden", borderRadius: radii.xl },
   scroll: { paddingBottom: 132 },
 

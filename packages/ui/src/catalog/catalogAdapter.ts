@@ -1,5 +1,5 @@
 import { CUSTOMER_CATEGORIES, WORLD_DISTRICTS, type DepartmentCode } from "@pro-now/types";
-import { lowestChoicePrice, previewChoicePrices } from "./choicePrices";
+import { lowestListed, previewPriceLists } from "./priceLists";
 import type { ProPricingRow } from "../screens/ProPricingBody";
 import {
   allServices,
@@ -68,54 +68,43 @@ import type { ServiceMatchRule } from "../service-match";
  * says the price has not been set, which is the real state until it is.
  */
 const previewPrices: Record<string, PriceQuoteView> = {
+  "svc-garden": { priceModel: "VISIT_QUOTE", currency: "ILS" },
+  "svc-paint": { priceModel: "VISIT_QUOTE", currency: "ILS" },
+  "svc-towing": { priceModel: "VISIT_QUOTE", currency: "ILS" },
+  "svc-clean-reno": { priceModel: "VISIT_QUOTE", currency: "ILS" },
   "svc-blockage": { priceModel: "VISIT_QUOTE", currency: "ILS", visitFeeMinorUnits: 17900 },
   "svc-leak": { priceModel: "VISIT_QUOTE", currency: "ILS", visitFeeMinorUnits: 17900 },
-  "svc-tap": { priceModel: "FIXED", currency: "ILS", fixedTotalMinorUnits: 32000 },
+  "svc-tap": { priceModel: "VISIT_QUOTE", currency: "ILS", visitFeeMinorUnits: 17900 },
   "svc-electric": { priceModel: "VISIT_QUOTE", currency: "ILS", visitFeeMinorUnits: 19900 },
-  "svc-socket": { priceModel: "FIXED", currency: "ILS", fixedTotalMinorUnits: 24000 },
+  "svc-socket": { priceModel: "VISIT_QUOTE", currency: "ILS", visitFeeMinorUnits: 19900 },
   "svc-lock": { priceModel: "FIXED", currency: "ILS", fixedTotalMinorUnits: 25000 },
   "svc-cylinder": { priceModel: "FIXED", currency: "ILS", fixedTotalMinorUnits: 39000 },
   "svc-ac": { priceModel: "VISIT_QUOTE", currency: "ILS", visitFeeMinorUnits: 19900 },
   "svc-fridge": { priceModel: "VISIT_QUOTE", currency: "ILS", visitFeeMinorUnits: 18900 },
   "svc-washer": { priceModel: "VISIT_QUOTE", currency: "ILS", visitFeeMinorUnits: 18900 },
-  "svc-clean": {
-    priceModel: "HOURLY",
-    currency: "ILS",
-    hourlyRateMinorUnits: 9500,
-    minimumBillableMinutes: 120,
-  },
-  "svc-pest": { priceModel: "FIXED", currency: "ILS", fixedTotalMinorUnits: 45000 },
+  "svc-clean": { priceModel: "FIXED", currency: "ILS", fixedTotalMinorUnits: 28500 },
+  "svc-pest": { priceModel: "VISIT_QUOTE", currency: "ILS" },
   // The person-services. Fixed prices, because "how much is a haircut" is a
   // question with an answer — and a VISIT_QUOTE on a haircut would be the
   // clearest possible sign we pasted the plumbing model onto a person.
-  "svc-haircut": { priceModel: "FIXED", currency: "ILS", fixedTotalMinorUnits: 12000 },
-  "svc-makeup": { priceModel: "FIXED", currency: "ILS", fixedTotalMinorUnits: 35000 },
-  "svc-dog-walk": { priceModel: "FIXED", currency: "ILS", fixedTotalMinorUnits: 6000 },
-  "svc-pet-groom": { priceModel: "FIXED", currency: "ILS", fixedTotalMinorUnits: 25000 },
-  "svc-pet-sit": { priceModel: "HOURLY", currency: "ILS", hourlyRateMinorUnits: 6000, minimumBillableMinutes: 60 },
+  "svc-haircut": { priceModel: "FIXED", currency: "ILS", fixedTotalMinorUnits: 9000 },
+  "svc-makeup": { priceModel: "FIXED", currency: "ILS", fixedTotalMinorUnits: 30000 },
+  "svc-dog-walk": { priceModel: "FIXED", currency: "ILS", fixedTotalMinorUnits: 4500 },
+  "svc-pet-groom": { priceModel: "FIXED", currency: "ILS", fixedTotalMinorUnits: 15000 },
+  "svc-pet-sit": { priceModel: "FIXED", currency: "ILS", fixedTotalMinorUnits: 12000 },
   "svc-doctor": { priceModel: "FIXED", currency: "ILS", fixedTotalMinorUnits: 45000 },
-  "svc-jump-start": { priceModel: "FIXED", currency: "ILS", fixedTotalMinorUnits: 18000 },
-  "svc-flat-tyre": { priceModel: "FIXED", currency: "ILS", fixedTotalMinorUnits: 20000 },
+  "svc-jump-start": { priceModel: "VISIT_QUOTE", currency: "ILS", visitFeeMinorUnits: 14900 },
+  "svc-flat-tyre": { priceModel: "FIXED", currency: "ILS", fixedTotalMinorUnits: 18000 },
   "svc-car-lockout": { priceModel: "FIXED", currency: "ILS", fixedTotalMinorUnits: 25000 },
-  "svc-phone-fix": { priceModel: "FIXED", currency: "ILS", fixedTotalMinorUnits: 30000 },
-  "svc-furniture": { priceModel: "FIXED", currency: "ILS", fixedTotalMinorUnits: 25000 },
+  "svc-phone-fix": { priceModel: "VISIT_QUOTE", currency: "ILS", visitFeeMinorUnits: 14900 },
+  "svc-furniture": { priceModel: "FIXED", currency: "ILS", fixedTotalMinorUnits: 35000 },
   "svc-curtains": { priceModel: "FIXED", currency: "ILS", fixedTotalMinorUnits: 20000 },
-  "svc-tv": { priceModel: "FIXED", currency: "ILS", fixedTotalMinorUnits: 30000 },
-  "svc-nails": { priceModel: "FIXED", currency: "ILS", fixedTotalMinorUnits: 18000 },
-  "svc-massage": { priceModel: "FIXED", currency: "ILS", fixedTotalMinorUnits: 32000 },
+  "svc-tv": { priceModel: "FIXED", currency: "ILS", fixedTotalMinorUnits: 25000 },
+  "svc-nails": { priceModel: "FIXED", currency: "ILS", fixedTotalMinorUnits: 12000 },
+  "svc-massage": { priceModel: "FIXED", currency: "ILS", fixedTotalMinorUnits: 24000 },
   "svc-trainer": { priceModel: "FIXED", currency: "ILS", fixedTotalMinorUnits: 22000 },
-  "svc-tutor": {
-    priceModel: "HOURLY",
-    currency: "ILS",
-    hourlyRateMinorUnits: 15000,
-    minimumBillableMinutes: 60,
-  },
-  "svc-handyman": {
-    priceModel: "HOURLY",
-    currency: "ILS",
-    hourlyRateMinorUnits: 16000,
-    minimumBillableMinutes: 60,
-  },
+  "svc-tutor": { priceModel: "FIXED", currency: "ILS", fixedTotalMinorUnits: 15000 },
+  "svc-handyman": { priceModel: "VISIT_QUOTE", currency: "ILS", visitFeeMinorUnits: 15900 },
   "svc-hands": {
     priceModel: "HOURLY",
     currency: "ILS",
@@ -129,13 +118,7 @@ const previewPrices: Record<string, PriceQuoteView> = {
     perKmMinorUnits: 450,
     minimumFareMinorUnits: 3900,
   },
-  "svc-moving": {
-    priceModel: "DISTANCE_TIME",
-    currency: "ILS",
-    baseMinorUnits: 24900,
-    perKmMinorUnits: 900,
-    minimumFareMinorUnits: 29900,
-  },
+  "svc-moving": { priceModel: "VISIT_QUOTE", currency: "ILS" },
 };
 
 function priceFor(s: CatalogServiceDef): PriceQuoteView {
@@ -147,15 +130,13 @@ function priceHint(s: CatalogServiceDef): string {
   const p = previewPrices[s.id];
   switch (s.pricingModel) {
     case "FIXED":
-      if (!p?.fixedTotalMinorUnits) return "מחיר קבוע";
-      /* Where the price follows the answers, the tile says where it starts. */
-      return previewChoicePrices[s.id]
-        ? `מחיר קבוע · החל מ־₪${lowestChoicePrice(s.id, p.fixedTotalMinorUnits) / 100}`
-        : `מחיר קבוע ₪${p.fixedTotalMinorUnits / 100}`;
+      /* A price list: the tile says where it starts. */
+      if (previewPriceLists[s.id]) return `מחירון · החל מ־₪${(lowestListed(s.id) ?? 0) / 100}`;
+      return p?.fixedTotalMinorUnits ? `מחיר קבוע ₪${p.fixedTotalMinorUnits / 100}` : "מחיר קבוע";
     case "VISIT_QUOTE":
       /* Each professional sets their own visit fee (2026-09-26), so a
          tile has no one figure to show. */
-      return "דמי ביקור לפי המקצוען";
+      return s.quoteBeforeDispatch ? "הצעת מחיר לפני יציאה" : "דמי ביקור לפי המקצוען";
     case "HOURLY":
       return p?.hourlyRateMinorUnits ? `₪${p.hourlyRateMinorUnits / 100} לשעה` : "תעריף שעתי";
     case "DISTANCE_TIME":
@@ -330,9 +311,10 @@ function included(s: CatalogServiceDef): string[] {
   const base = ["הגעה עד הכתובת שנתת", "אבחון התקלה במקום", "עבודה של בעל מקצוע מאומת לשירות הזה"];
   switch (s.pricingModel) {
     case "VISIT_QUOTE":
-      return [...base, "הצעת מחיר לתיקון — לפני שמתחילים"];
+      if (s.quoteBeforeDispatch) return ["המחיר שאישרתם מראש — לא משתנה בסוף", "הגעה עד הכתובת שנתת", "בעל מקצוע מאומת לשירות הזה"];
+      return ["הגעה עד הכתובת שנתת", "אבחון התקלה במקום", "בעל מקצוע מאומת לשירות הזה"];
     case "FIXED":
-      return [...base, "המחיר סוכם מראש ולא משתנה בסוף"];
+      return ["הגעה עד הכתובת שנתת", "מה שבחרתם מהמחירון, במחיר שראיתם", "בעל מקצוע מאומת לשירות הזה"];
     case "HOURLY":
       return [...base, "חיוב לפי זמן עבודה בפועל"];
     case "DISTANCE_TIME":
@@ -345,7 +327,8 @@ function included(s: CatalogServiceDef): string[] {
 function notIncluded(s: CatalogServiceDef): string[] {
   switch (s.pricingModel) {
     case "VISIT_QUOTE":
-      return ["חלקי חילוף — יופיעו בהצעת המחיר", "עבודה שדורשת אישור ועד או רישוי נוסף"];
+      if (s.quoteBeforeDispatch) return ["עבודה נוספת מעבר להצעה — רק באישור שלכם"];
+      return ["התיקון עצמו — המחיר והתשלום נסגרים ישירות מול בעל המקצוע", "חלקי חילוף"];
     case "FIXED":
       return ["חלקים מיוחדים שלא סופקו מראש", "עבודה נוספת מעבר למה שהוגדר"];
     case "HOURLY":
@@ -419,6 +402,7 @@ export const catalogServicePages: Record<string, ServicePage> = Object.fromEntri
         (s.activationStatus === "PILOT" && s.fulfillmentProfile !== "SCHEDULED_ONLY") ||
         s.activationStatus === "INACTIVE",
       scheduledOnly: s.fulfillmentProfile === "SCHEDULED_ONLY",
+      quoteBeforeDispatch: s.quoteBeforeDispatch ?? false,
     } satisfies ServicePage,
   ])
 );

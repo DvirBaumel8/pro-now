@@ -42,10 +42,12 @@ describe("the shape of a visit", () => {
   it("moves the mark forward at every state, and never backwards", () => {
     // The whole point: something on screen changes each time something
     // real happens, and only then.
-    const order: JobState[] = ["PRO_EN_ROUTE", "DIAGNOSIS", "WAITING_QUOTE_APPROVAL", "IN_PROGRESS", "COMPLETION_PENDING"];
+    // No "quote" step since 2026-09-29: a quote the server still supports waits on the diagnosis step.
+    const order: JobState[] = ["PRO_EN_ROUTE", "DIAGNOSIS", "IN_PROGRESS", "COMPLETION_PENDING"];
     const seen = order.map((s) => visitStepIndex(s)!);
     expect(seen).toEqual([...seen].sort((a, b) => a - b));
     expect(new Set(seen).size).toBe(order.length);
+    expect(visitStepIndex("WAITING_QUOTE_APPROVAL")).toBe(visitStepIndex("DIAGNOSIS"));
   });
 
   it("leaves nothing current once the money has moved", () => {
