@@ -13,6 +13,7 @@
     "dev:api": "npm run dev -w apps/api",
     "dev:admin": "npm run dev -w apps/admin",
     "dev:web": "npm run dev -w apps/web",
+    "dev:app": "node scripts/dev-app.mjs",
     "dev:customer": "npm run start -w apps/customer-mobile",
     "dev:pro": "npm run start -w apps/pro-mobile",
     "build": "npm run build --workspaces --if-present",
