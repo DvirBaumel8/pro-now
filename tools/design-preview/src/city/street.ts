@@ -3183,6 +3183,8 @@ export function buildStreet(
      TRAFFIC — headlights are most of what a night street IS
      --------------------------------------------------------------- */
   const cars: THREE.Group[] = [];
+  /* Where cars stand parked, so moving traffic can go round them. */
+  const parkedSpots: Array<{ side: number; z: number }> = [];
   /*
    * ONE VEHICLE IN THREE IS OURS.
    *
@@ -3385,7 +3387,7 @@ export function buildStreet(
         offsetZ: dir * 6.4,
       });
       g.position.set(lane, 0, z);
-      g.userData = { dir, speed, ride, wheels, phase: Math.abs(z) % 6.28, scripted: Boolean(forced) };
+      g.userData = { dir, speed, ride, wheels, phase: Math.abs(z) % 6.28, scripted: Boolean(forced), laneX: lane };
       scene.add(g);
       cars.push(g);
       return g;
@@ -4437,9 +4439,11 @@ export function buildStreet(
       /* Never parked across a shop window you can see into. */
       if (!clearOfWindow(side * KERB_X, z, 8)) continue;
       const g = cutout(tex, h, 1);
-      g.position.set(side * (KERB_X - 1.1), 0, z);
+      /* Half up on the kerb, the way people really park here — and noted, so traffic goes round it. */
+      g.position.set(side * (KERB_X - 0.55), 0, z);
       /* Side views face across the road; rear views face down it. */
       g.rotation.y = id.endsWith("_side") ? (side > 0 ? -Math.PI / 2 : Math.PI / 2) : 0;
+      parkedSpots.push({ side, z });
       scene.add(g);
       canopies.push(g);
     }
@@ -4536,6 +4540,21 @@ export function buildStreet(
       };
       /* The professional's own van is placed by whoever drives it (see `heroVan`). */
       if (!scripted) c.position.z += dir * speed * dt;
+      /* Nobody drives through a parked car: ease towards the centre line while passing one. */
+      const laneX = (c.userData as { laneX?: number }).laneX;
+      if (laneX !== undefined) {
+        const side = Math.sign(laneX);
+        /* Look AHEAD, the way a driver does: start moving out 18m before the
+           parked car and stay out until past it. Reacting at 7.5m at 6m/s
+           meant driving into it (Amit, 2026-09-29). */
+        const blocked = parkedSpots.some((q) => {
+          if (q.side !== side) return false;
+          const ahead = (q.z - c.position.z) * dir;
+          return ahead > -7 && ahead < 18;
+        });
+        const want = blocked ? side * 0.35 : laneX;
+        c.position.x += (want - c.position.x) * Math.min(1, dt * 3.2);
+      }
       /* A van on its springs, and wheels that turn with the road. */
       if (ride) {
         const tt = performance.now() / 1000 + (phase ?? 0);

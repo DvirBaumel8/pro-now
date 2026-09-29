@@ -75,6 +75,8 @@ export interface SearchingBodyProps {
   onStroll?: () => void;
   strollFrames?: string[];
   strollShopUris?: string[];
+  strollAvatarUri?: string | null;
+  waitDetailsHe?: LivingMapSceneProps["waitDetailsHe"];
   onLeaveWait?: () => void;
   onOpenOnSite?: () => void;
   acceptLabelHe?: string;
@@ -170,6 +172,8 @@ export function SearchingBody({
   onStroll,
   strollFrames,
   strollShopUris,
+  strollAvatarUri = null,
+  waitDetailsHe = [],
   onLeaveWait,
   onOpenOnSite,
   acceptLabelHe,
@@ -250,6 +254,8 @@ export function SearchingBody({
         onStroll={onStroll}
         strollFrames={strollFrames}
         strollShopUris={strollShopUris}
+        strollAvatarUri={strollAvatarUri}
+        waitDetailsHe={waitDetailsHe}
         onLeaveWait={onLeaveWait}
         onOpenOnSite={onOpenOnSite}
         acceptLabelHe={acceptLabelHe}

@@ -3200,6 +3200,32 @@ const go = useCallback((r: CustomerRoute) => {
             }
             onStroll={() => strollDoor?.()}
             strollFrames={Array.from({ length: 8 }, (_, i) => `./world/avatar_amit_walk_0${i + 1}.webp`)}
+            waitDetailsHe={(() => {
+              if (route.phase !== "ASSIGNED_ROUTE" || !page) return [];
+              const def = pilotServiceById[route.serviceId];
+              const k = def ? pricingKindOf(def) : null;
+              const ils = (n: number | null | undefined) => (n ? formatMoney(money(n, "ILS")) : null);
+              const own = pick % cands.length === 0 ? proPrices.byService[route.serviceId] ?? null : null;
+              const order = k === "LIST" ? orderFor(route.serviceId, own) : null;
+              const priceHe =
+                k === "LIST" ? (order ? `${order.namesHe} · ${ils(order.amountMinorUnits)}` : null)
+                : k === "QUOTE_FIRST" ? (preQuote?.serviceId === route.serviceId ? `${ils(preQuote.amount)} · כפי שאישרתם` : null)
+                : k === "VISIT" ? (() => { const f = ils(own ?? page.price?.visitFeeMinorUnits); return f ? `${f} · ${visitTermsHe({ id: route.serviceId }).feeHe}` : null; })()
+                : k === "HOURLY" ? (() => { const r = ils(own ?? page.price?.hourlyRateMinorUnits); return r ? `${r} לשעה` : null; })()
+                : k === "DISTANCE" ? (() => { const f = ils(deliveryFare(page.price ?? {})); return f ? `${f} · לפי מרחק` : null; })()
+                : null;
+              return [
+                { labelHe: "העבודה", valueHe: page.nameHe },
+                /* When he arrives is in the card above — said once. */
+                ...(priceHe ? [{ labelHe: "המחיר", valueHe: priceHe }] : []),
+                ...(destinationHe.trim() ? [{ labelHe: "לאן", valueHe: destinationHe.trim() }] : []),
+                { labelHe: "הכתובת", valueHe: addressLabel },
+              ];
+            })()}
+            strollAvatarUri={(() => {
+              const c = avatarById(avatar);
+              return c ? ((art?.[c.portraitAssetId] as { uri?: string } | undefined)?.uri ?? null) : null;
+            })()}
             strollShopUris={["hair", "pets", "home", "lust", "auto", "care", "vet", "build"].map((id) => `./world/m/shop_${id}.webp`)}
 
             worldSources={art}

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import { Animated, Easing, Image, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { scale, spacing } from "../../theme";
@@ -16,8 +16,10 @@ import { scale, spacing } from "../../theme";
 export interface StrollInviteProps {
   proFirstNameHe: string;
   female?: boolean;
-  /** The walk cycle's frames, in order. */
+  /** Kept for callers; the walk cycle read as frantic in a small card (Amit, 2026-09-29) and is not drawn. */
   frames?: string[];
+  /** The customer's own character, calm, in a glowing ring — you, at the door of the city. */
+  avatarUri?: string | null;
   /** Our shopfronts, for the street that slides past behind the walker. */
   shopUris?: string[];
   onPress: () => void;
@@ -27,13 +29,7 @@ export interface StrollInviteProps {
 
 const SHOP_W = 104;
 
-export function StrollInvite({ proFirstNameHe, female = false, frames = [], shopUris = [], onPress, bottom, width }: StrollInviteProps) {
-  const [f, setF] = useState(0);
-  useEffect(() => {
-    if (frames.length < 2) return;
-    const t = setInterval(() => setF((x) => (x + 1) % frames.length), 105);
-    return () => clearInterval(t);
-  }, [frames.length]);
+export function StrollInvite({ proFirstNameHe, female = false, avatarUri = null, shopUris = [], onPress, bottom, width }: StrollInviteProps) {
 
   const street = useRef(new Animated.Value(0)).current;
   const glow = useRef(new Animated.Value(0)).current;
@@ -81,12 +77,14 @@ export function StrollInvite({ proFirstNameHe, female = false, frames = [], shop
         <View style={styles.fadeTop} />
       </View>
 
-      {/* The customer, walking. */}
-      {frames.length > 0 ? (
-        <View style={styles.walker} pointerEvents="none">
-          <View style={styles.walkerShadow} />
-          <Image source={{ uri: frames[f] }} style={styles.walkerImg} resizeMode="contain" />
-        </View>
+      {/* You, at the door of the city — still, breathing with the glow. */}
+      {avatarUri ? (
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.me, { transform: [{ scale: glow.interpolate({ inputRange: [0, 1], outputRange: [1, 1.04] }) }] }]}
+        >
+          <Image source={{ uri: avatarUri }} style={styles.meImg} resizeMode="cover" />
+        </Animated.View>
       ) : null}
 
       <View style={styles.copy} pointerEvents="none">
@@ -124,9 +122,8 @@ const styles = StyleSheet.create({
   shop: { width: SHOP_W, height: 84, marginHorizontal: 0 },
   pavement: { position: "absolute", left: 0, right: 0, bottom: 0, height: 16, backgroundColor: "#3A2A3E", borderTopWidth: 1, borderTopColor: "rgba(255,200,150,0.35)" },
   fadeTop: { ...StyleSheet.absoluteFillObject, ...({ backgroundImage: "linear-gradient(270deg, rgba(20,10,36,0.95) 0%, rgba(20,10,36,0.85) 42%, rgba(20,10,36,0.2) 68%, rgba(20,10,36,0) 100%)" } as object) },
-  walker: { position: "absolute", left: 96, bottom: 6, width: 54, height: 84, alignItems: "center", justifyContent: "flex-end" },
-  walkerShadow: { position: "absolute", bottom: 2, width: 34, height: 8, borderRadius: 999, backgroundColor: "rgba(0,0,0,0.45)" },
-  walkerImg: { width: 54, height: 84 },
+  me: { position: "absolute", left: spacing.md, bottom: 12, width: 50, height: 50, borderRadius: 25, overflow: "hidden", borderWidth: 2, borderColor: "#FFD36B", backgroundColor: "#2B1850", shadowColor: "#FFD36B", shadowOpacity: 0.7, shadowRadius: 14 },
+  meImg: { width: "100%", height: "100%" },
   copy: { position: "absolute", right: spacing.md, top: 14, bottom: 14, justifyContent: "center", alignItems: "flex-end", maxWidth: "58%" },
   kicker: { color: "rgba(233,221,255,0.85)", fontSize: scale.micro, fontWeight: "700", textAlign: "right" },
   title: { color: "#FFFFFF", fontSize: scale.title, fontWeight: "900", textAlign: "right", ...({ textShadow: "0 0 18px rgba(200,160,255,.8)" } as object) },

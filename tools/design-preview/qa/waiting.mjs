@@ -57,9 +57,17 @@ try {
   }
   const W = process.env.W || 'wait';
   for (const [n, ms] of [[1, 2500], [2, 6000], [3, 6000]]) { await p.waitForTimeout(ms); await p.screenshot({ path: `out/w_${W}_${n}.png` }); }
+  { const b = await p.locator('text=בינתיים').first().boundingBox().catch(() => null);
+    if (b) { await p.mouse.move(b.x + b.width / 2, b.y + 6); await p.mouse.down(); await p.mouse.move(b.x + b.width / 2, b.y - 200, { steps: 10 }); await p.mouse.up(); await p.waitForTimeout(900); }
+    await p.screenshot({ path: `out/w_${W}_pull.png` }); }
   await p.mouse.move(195, 600); await p.mouse.wheel(0, 900); await p.waitForTimeout(800); await p.screenshot({ path: `out/w_${W}_scroll.png` });
+  /* Pull the wait drawer up by its handle. */
+  const h = await p.locator('[aria-label="פתיחת פרטי העבודה"]').first().boundingBox().catch(() => null);
+  if (h) { await p.mouse.move(h.x + h.width / 2, h.y + 8); await p.mouse.down(); await p.mouse.move(h.x + h.width / 2, h.y - 200, { steps: 10 }); await p.mouse.up(); await p.waitForTimeout(1000); }
+  await p.screenshot({ path: `out/w_${W}_open.png` });
+  if (h) { await p.mouse.move(h.x + h.width / 2, h.y - 190); await p.mouse.down(); await p.mouse.move(h.x + h.width / 2, h.y + 60, { steps: 10 }); await p.mouse.up(); await p.waitForTimeout(800); }
   await p.mouse.wheel(0, -900);
-  const f = await press(/^(עקוב אחרי|לעקוב אחרי)/); await p.waitForTimeout(3000); await p.screenshot({ path: `out/w_${W}_follow.png` });
+  const f = await press(/^(עקוב אחרי|לעקוב אחרי|מפה עם המסלול|מפה$)/); await p.waitForTimeout(3000); await p.screenshot({ path: `out/w_${W}_follow.png` });
   await p.mouse.move(195, 600); await p.mouse.wheel(0, 900); await p.waitForTimeout(800); await p.screenshot({ path: `out/w_${W}_follow_scroll.png` });
   /* Pull the sheet down by its handle, the way a thumb does. */
   const grab = await p.evaluate(() => { const els = [...document.querySelectorAll('div')].filter((d) => { const r = d.getBoundingClientRect(); return r.width > 30 && r.width < 60 && r.height > 3 && r.height < 7; }); const r = els.length ? els[els.length - 1].getBoundingClientRect() : null; return r ? { x: r.x + r.width / 2, y: r.y + 3 } : null; });

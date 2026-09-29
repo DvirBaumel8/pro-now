@@ -302,6 +302,16 @@ sentence that names somebody. Nothing changes for production: real professionals
 server's, and no example person ever reaches it. The example street plan says "מפת הדגמה"
 once, readably, instead of a faint repeated watermark.
 
+**DECIDED (Amit, 2026-09-29): the waiting screen keeps its top card; the rest is calmed.**
+The design review counted eleven shapes and the minutes three times. Amit: the top card
+(who, minutes, arrival, progress, safety) stays — "זה מה שהבן אדם רוצה לראות בבירור";
+the rest was left to the team. So: over his van only his face (no number); the stroll
+invitation and the "בינתיים" tiles merged into ONE drawer — a gold "טיול בעיר שלנו בזמן
+ש… בדרך" button with the customer's own character breathing (no walk cycle: eight frames
+of different sizes made it jump), two quiet links "מפת הרחובות ›" · "פרטי העבודה ›", and
+pull-up (or tap) opens the job's details (what, price, where to, address). Traffic now
+pulls out 18 m before a parked car instead of driving into it.
+
 **DECIDED (Amit, 2026-09-29): two screens, two maps.** The main waiting screen is the 3D
 street with his van driving home (`RouteCity`); "לעקוב אחרי …" is the street plan with the
 vehicle on its route — framed so the vehicle AND the home are both on screen, a glowing

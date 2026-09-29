@@ -65,7 +65,6 @@ import { VenueLayer } from "./VenueLayer";
 import { WorldLife } from "./WorldLife";
 import { ErrandLayer } from "./ErrandLayer";
 import { LiveEtaCard, type LiveEtaCardProps } from "./LiveEtaCard";
-import { StrollInvite } from "./StrollInvite";
 import { PlayDrawer } from "./PlayDrawer";
 import { ScrimBand } from "./ScrimBand";
 import { livingPalette as P } from "./palette";
@@ -125,6 +124,9 @@ export interface LivingMapSceneProps {
   onStroll?: () => void;
   strollFrames?: string[];
   strollShopUris?: string[];
+  strollAvatarUri?: string | null;
+  /** The job, for the drawer pulled up. */
+  waitDetailsHe?: ReadonlyArray<{ labelHe: string; valueHe: string }>;
   onLeaveWait?: () => void;
   /**
    * The city behind the search, when the host can play it — a short film
@@ -326,8 +328,10 @@ export function LivingMapScene({
   onSafety,
   liveEta = null,
   onStroll,
-  strollFrames,
-  strollShopUris,
+  strollFrames: _strollFrames,
+  strollShopUris: _strollShopUris,
+  strollAvatarUri = null,
+  waitDetailsHe = [],
   onLeaveWait,
   worldSources,
   discoveries,
@@ -1911,17 +1915,7 @@ export function LivingMapScene({
       {liveEta && phase === "ASSIGNED_ROUTE" ? (
         <LiveEtaCard {...liveEta} width={width} topInset={topInset ?? 0} onSafety={onSafety} onBack={onLeaveWait} />
       ) : null}
-      {liveEta && phase === "ASSIGNED_ROUTE" && onStroll ? (
-        <StrollInvite
-          proFirstNameHe={liveEta.proFirstNameHe}
-          female={liveEta.female}
-          frames={strollFrames}
-          shopUris={strollShopUris}
-          onPress={onStroll}
-          width={width}
-          bottom={Math.round(height * SHEET_SHARE) + spacing.xl + 8}
-        />
-      ) : null}
+      {/* The stroll invitation now lives in the drawer below — one panel, not two (2026-09-29). */}
       {phase === "ASSIGNED_ROUTE" && !bare ? (
         <PlayDrawer
           firstNameHe={chosen ? firstName(chosen.displayNameHe) : null}
@@ -1932,6 +1926,17 @@ export function LivingMapScene({
           onOpenOnSite={onOpenOnSite}
           statusHe={liveEta ? "בינתיים" : null}
           omit={liveEta && onStroll ? ["PLAY_MORE"] : []}
+          detailsHe={waitDetailsHe}
+          stroll={
+            liveEta && onStroll
+              ? {
+                  onPress: onStroll,
+                  labelHe: `טיול בעיר שלנו בזמן ש${liveEta.proFirstNameHe} בדרך`,
+                  noteHe: liveEta.female ? "נקרא לך כשהיא מתקרבת · משכו למעלה לפרטי העבודה" : "נקרא לך כשהוא מתקרב · משכו למעלה לפרטי העבודה",
+                  avatarUri: strollAvatarUri,
+                }
+              : null
+          }
         />
       ) : null}
 

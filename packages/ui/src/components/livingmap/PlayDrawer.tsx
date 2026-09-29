@@ -1,5 +1,5 @@
 import React from "react";
-import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, Image, Pressable, StyleSheet, Text, View } from "react-native";
 
 import {
   discoveryProgressHe,
@@ -53,6 +53,17 @@ export interface PlayDrawerProps {
   statusHe?: string | null;
   /** Actions already offered elsewhere on the screen (the stroll invitation). */
   omit?: readonly PlayDrawerActionId[];
+  /**
+   * Pulled up, the drawer shows the job itself (artifact comment, 2026-09-29:
+   * "רוצים למשוך למעלה ולא נגלל שום פרטים") — what, when, how much, where.
+   */
+  detailsHe?: ReadonlyArray<{ labelHe: string; valueHe: string }>;
+  /**
+   * THE WAIT, ONE PANEL (Amit + design review, 2026-09-29): with this set, the
+   * drawer is the stroll invitation — one gold button with the customer's own
+   * character — and two quiet links, instead of a card and two tiles.
+   */
+  stroll?: { onPress: () => void; labelHe: string; noteHe: string; avatarUri?: string | null } | null;
 }
 
 const TILE_LOOK: Record<PlayDrawerActionId, { glyph: string; tint: string; subHe: string }> = {
@@ -62,7 +73,7 @@ const TILE_LOOK: Record<PlayDrawerActionId, { glyph: string; tint: string; subHe
   WHILE_YOU_WAIT: { glyph: "☕", tint: "#F59E0B", subHe: "חנויות מומלצות ברחוב" },
 };
 
-export function PlayDrawer({ firstNameHe, etaMinutes, discoveries, hasJobDetails = true, onAction, onSiteNameHe = null, onOpenOnSite, statusHe, omit = [] }: PlayDrawerProps) {
+export function PlayDrawer({ firstNameHe, etaMinutes, discoveries, hasJobDetails = true, onAction, onSiteNameHe = null, onOpenOnSite, statusHe, omit = [], detailsHe = [], stroll = null }: PlayDrawerProps) {
   const onSiteFirst = onSiteNameHe ? onSiteNameHe.replace(/ \(תצוגה\)$/, "") : null;
   const status = statusHe !== undefined && statusHe !== null ? statusHe : onSiteFirst && firstNameHe
     ? `${firstNameHe} בדרך אל ${onSiteFirst}${etaMinutes !== null ? ` · ${etaMinutes} דק׳` : ""}`
@@ -70,6 +81,19 @@ export function PlayDrawer({ firstNameHe, etaMinutes, discoveries, hasJobDetails
   const progress = discoveryProgressHe(discoveries);
   const base = playDrawerActions({ firstNameHe, discoveries, hasJobDetails }).filter((a) => !omit.includes(a.id));
 
+  /* The only idle motion in the wait panel: your character breathing. */
+  const breathe = React.useRef(new Animated.Value(0)).current;
+  React.useEffect(() => {
+    if (!stroll) return;
+    const a = Animated.loop(
+      Animated.sequence([
+        Animated.timing(breathe, { toValue: 1, duration: 1200, useNativeDriver: true }),
+        Animated.timing(breathe, { toValue: 0, duration: 1200, useNativeDriver: true }),
+      ])
+    );
+    a.start();
+    return () => a.stop();
+  }, [stroll, breathe]);
   /* Pull down to fold it to its headline and see the city; up to open. */
   const drag = useSheetDrag({ peek: 58 });
   /* Pulled up, it opens a second row: the sponsors' shops to visit while waiting. */
@@ -78,13 +102,15 @@ export function PlayDrawer({ firstNameHe, etaMinutes, discoveries, hasJobDetails
     : base;
   return (
     <Animated.View style={[styles.drawer, { transform: [{ translateY: drag.y }] }]} pointerEvents="box-none" onLayout={drag.measure} {...drag.bindBody}>
-      <View {...drag.bind} style={styles.dragZone}>
+      {/* The handle AND the title pull — a thumb aims at the words, not a 4pt bar. */}
+      <View {...drag.bind} style={styles.dragZone} accessibilityRole="button" accessibilityLabel={drag.expanded ? "סגירת הפרטים" : "פתיחת פרטי העבודה"}>
         <View style={styles.handle} />
+        {stroll ? null : (
+          <Text style={styles.status} numberOfLines={1}>
+            {status}
+          </Text>
+        )}
       </View>
-
-      <Text style={styles.status} numberOfLines={1}>
-        {status}
-      </Text>
 
       {onSiteNameHe ? (
         <Pressable onPress={onOpenOnSite} accessibilityRole="button" accessibilityLabel={`מה ${onSiteNameHe.split(" ")[0]} רואה`} style={styles.onSite}>
@@ -112,36 +138,97 @@ export function PlayDrawer({ firstNameHe, etaMinutes, discoveries, hasJobDetails
         * הם רוצים — נראה זול."* Each is a tile with a sign and one line
         * saying where it takes you, the same width, across the drawer.
         */}
+      {drag.expanded && detailsHe.length > 0 ? (
+        <View style={styles.details}>
+          {detailsHe.map((d) => (
+            <View key={d.labelHe} style={styles.detailRow}>
+              <Text style={styles.detailLabel}>{d.labelHe}</Text>
+              <Text style={styles.detailValue} numberOfLines={2}>{d.valueHe}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      {stroll ? (
+        <>
+          <Pressable
+            onPress={stroll.onPress}
+            accessibilityRole="button"
+            accessibilityLabel={stroll.labelHe}
+            style={({ pressed }) => [styles.stroll, pressed && { transform: [{ scale: 0.98 }] }]}
+          >
+            <Text style={styles.strollText} numberOfLines={1}>{stroll.labelHe}</Text>
+            {stroll.avatarUri ? (
+              <Animated.View style={[styles.strollMe, { transform: [{ scale: breathe.interpolate({ inputRange: [0, 1], outputRange: [1, 1.04] }) }] }]}>
+                <Image source={{ uri: stroll.avatarUri }} style={{ width: "100%", height: "100%" }} />
+              </Animated.View>
+            ) : null}
+          </Pressable>
+          <Text style={styles.strollNote}>{stroll.noteHe}</Text>
+          <View style={styles.links}>
+            {actions.filter((a) => a.id === "FOLLOW_PRO" || a.id === "JOB_DETAILS").map((a, i) => (
+              <React.Fragment key={a.id}>
+                {i > 0 ? <Text style={styles.linkDot}>·</Text> : null}
+                <Pressable onPress={() => onAction?.(a.id)} accessibilityRole="link" style={styles.link}>
+                  <Text style={styles.linkText}>{a.id === "FOLLOW_PRO" ? "מפת הרחובות ›" : "פרטי העבודה ›"}</Text>
+                </Pressable>
+              </React.Fragment>
+            ))}
+          </View>
+        </>
+      ) : (
       <View style={styles.actions}>
-        {actions.map((a) => {
-          const look = TILE_LOOK[a.id];
-          return (
-            <Pressable
-              key={a.id}
-              onPress={() => onAction?.(a.id)}
-              accessibilityRole="button"
-              accessibilityLabel={a.labelHe}
-              style={({ pressed }) => [styles.tile, { borderColor: look.tint + "66" }, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
-            >
-              <View style={[styles.tileGlyph, { backgroundColor: look.tint }]}>
-                <Text style={styles.tileGlyphText}>{look.glyph}</Text>
-              </View>
-              <Text style={styles.tileTitle} numberOfLines={2}>
-                {a.labelHe}
-              </Text>
-              <Text style={styles.tileSub} numberOfLines={2}>
-                {look.subHe}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
+          {actions.map((a) => {
+            const look = TILE_LOOK[a.id];
+            return (
+              <Pressable
+                key={a.id}
+                onPress={() => onAction?.(a.id)}
+                accessibilityRole="button"
+                accessibilityLabel={a.labelHe}
+                style={({ pressed }) => [styles.tile, { borderColor: look.tint + "66" }, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
+              >
+                <View style={[styles.tileGlyph, { backgroundColor: look.tint }]}>
+                  <Text style={styles.tileGlyphText}>{look.glyph}</Text>
+                </View>
+                <Text style={styles.tileTitle} numberOfLines={2}>
+                  {a.labelHe}
+                </Text>
+                <Text style={styles.tileSub} numberOfLines={2}>
+                  {look.subHe}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
+  stroll: {
+    marginTop: spacing.xs,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: "#FFD36B",
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 54,
+    shadowColor: "#FFD36B",
+    shadowOpacity: 0.45,
+    shadowRadius: 16,
+  },
+  strollText: { color: "#1B1036", fontSize: scale.body, fontWeight: "900", writingDirection: "rtl" },
+  strollMe: { position: "absolute", left: 9, width: 34, height: 34, borderRadius: 17, overflow: "hidden", borderWidth: 2, borderColor: "#1B1036", backgroundColor: "#2B1850" },
+  strollNote: { ...type.micro, color: palette.nightTextSoft, textAlign: "center", marginTop: 6, writingDirection: "rtl" },
+  links: { flexDirection: "row-reverse", justifyContent: "center", alignItems: "center" },
+  link: { minHeight: 44, justifyContent: "center", paddingHorizontal: spacing.sm },
+  linkText: { ...type.metaStrong, color: palette.nightTextSoft, writingDirection: "rtl" },
+  linkDot: { ...type.meta, color: palette.nightTextSoft, opacity: 0.5 },
   drawer: {
+    ...({ userSelect: "none" } as object),
     position: "absolute",
     /* In front of the map's own notes — see `useSheetDrag`, it can grow over them. */
     zIndex: 20,
@@ -156,6 +243,10 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: "rgba(247,243,250,0.1)",
   },
+  details: { gap: 8, paddingVertical: spacing.sm, marginBottom: spacing.sm, borderBottomWidth: 1, borderBottomColor: "rgba(247,243,250,0.1)" },
+  detailRow: { flexDirection: "row-reverse", justifyContent: "space-between", gap: spacing.md },
+  detailLabel: { ...type.meta, color: palette.nightTextSoft, writingDirection: "rtl" },
+  detailValue: { ...type.metaStrong, color: palette.nightText, flex: 1, textAlign: "left", writingDirection: "rtl" },
   dragZone: { alignSelf: "stretch", alignItems: "center", paddingVertical: 6, marginTop: -6, minHeight: 26 },
   handle: {
     alignSelf: "center",

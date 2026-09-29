@@ -51,7 +51,10 @@ export function useSheetDrag({ peek = 64, onDismiss }: { peek?: number; onDismis
         return settle(0);
       }
       if (dismissRef.current) return settle(0);
-      return settle(at.current > 0 ? 0 : fold);
+      /* A tap on the handle opens it — what a handle promises (2026-09-29); pulling down folds. */
+      if (at.current > 0) return settle(0);
+      setExp(true);
+      return settle(0);
     }
     /* Up: unfold, then open further. */
     if (g.dy < -30 || g.vy < -0.5) {

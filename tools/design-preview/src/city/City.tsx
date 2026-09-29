@@ -2103,14 +2103,21 @@ export function City({
           הבית שלך
         </div>
       ) : null}
-      {route?.labelHe ? (
+      {route?.photoUri ? (
+        /* HIS FACE OVER HIS VAN — no number: the minutes are in the card at
+           the top, once (design review, 2026-09-29). */
         <div
           ref={vanLabel}
-          style={{ position: "absolute", transform: "translate(-50%,-100%)", opacity: 0, transition: "opacity .4s", pointerEvents: "none", display: "flex", alignItems: "center", gap: 6, padding: "4px 10px 4px 4px", borderRadius: 999, background: "rgba(18,12,26,.82)", border: "1.5px solid #FF6B4A", color: "#fff", fontWeight: 800, fontSize: scale.meta, direction: "rtl", whiteSpace: "nowrap", boxShadow: "0 0 18px rgba(255,107,74,.55)" }}
+          role="img"
+          aria-label={route.labelHe ? `המקצוען בדרך · ${route.labelHe}` : "המקצוען בדרך"}
+          style={{ position: "absolute", transform: "translate(-50%,-100%)", opacity: 0, transition: "opacity .4s", pointerEvents: "none", display: "flex", flexDirection: "column", alignItems: "center" }}
         >
-          {route.photoUri ? <img src={route.photoUri} alt="" style={{ width: 26, height: 26, borderRadius: 13, objectFit: "cover", background: "#2a2238" }} /> : null}
-          {route.labelHe}
-          <span style={{ position: "absolute", left: "50%", bottom: -7, width: 10, height: 10, transform: "translateX(-50%) rotate(45deg)", background: "rgba(18,12,26,.82)", borderRight: "1.5px solid #FF6B4A", borderBottom: "1.5px solid #FF6B4A" }} />
+          <style>{"@keyframes pnFacePulse{0%{transform:scale(1);opacity:.7}100%{transform:scale(1.9);opacity:0}}"}</style>
+          <div style={{ position: "relative", width: 38, height: 38 }}>
+            <span style={{ position: "absolute", inset: 0, borderRadius: 19, border: "2px solid #FF5A3C", animation: "pnFacePulse 2.4s ease-out infinite" }} />
+            <img src={route.photoUri} alt="" style={{ position: "absolute", inset: 0, width: 38, height: 38, borderRadius: 19, objectFit: "cover", background: "#2a2238", border: "2px solid #FF5A3C", boxShadow: "0 0 14px rgba(255,90,60,.6)" }} />
+          </div>
+          <span style={{ width: 2, height: 14, background: "linear-gradient(#FF5A3C, rgba(255,90,60,0))" }} />
         </div>
       ) : null}
 
