@@ -83,15 +83,17 @@ describe("FixtureGeocodingProvider", () => {
 });
 
 describe("createGeocodingProvider", () => {
-  it("uses the deterministic fixture only when the environment asks for it", () => {
-    expect(
-      createGeocodingProvider({
-        GEOCODING_PROVIDER: "fixture",
-        NOMINATIM_URL: "https://nominatim.openstreetmap.org",
-        NOMINATIM_USER_AGENT: "PRO NOW test",
-        NOMINATIM_CONTACT_EMAIL: "dev@example.test",
-      }).isSandbox
-    ).toBe(true);
+  it("uses the deterministic fixture only when the environment asks for it", async () => {
+    const fixture = createGeocodingProvider({
+      GEOCODING_PROVIDER: "fixture",
+      NOMINATIM_URL: "https://nominatim.openstreetmap.org",
+      NOMINATIM_USER_AGENT: "PRO NOW test",
+      NOMINATIM_CONTACT_EMAIL: "dev@example.test",
+    });
+    expect(fixture.isSandbox).toBe(true);
+    await expect(fixture.searchAddress("הרצל 5")).resolves.toMatchObject([
+      { formattedAddress: "רחוב הרצל 5, תל אביב" },
+    ]);
     expect(
       createGeocodingProvider({
         GEOCODING_PROVIDER: "nominatim",

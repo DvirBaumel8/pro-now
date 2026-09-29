@@ -11,7 +11,17 @@ export interface GeocodingConfig {
 }
 
 export function createGeocodingProvider(config: GeocodingConfig): GeocodingProvider {
-  if (config.GEOCODING_PROVIDER === "fixture") return new FixtureGeocodingProvider();
+  if (config.GEOCODING_PROVIDER === "fixture") {
+    return new FixtureGeocodingProvider([
+      {
+        lat: 32.0853,
+        lng: 34.7818,
+        formattedAddress: "רחוב הרצל 5, תל אביב",
+        placeId: "fixture-herzl-5",
+        queries: ["הרצל 5", "תל אביב"],
+      },
+    ]);
+  }
   return new NominatimGeocodingProvider({
     endpoint: config.NOMINATIM_URL,
     userAgent: config.NOMINATIM_USER_AGENT,

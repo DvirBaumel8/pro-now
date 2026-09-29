@@ -46,6 +46,7 @@ export default defineConfig({
       PUBLIC_URL: ORIGIN,
       WEB_DIST_DIR: path.resolve(import.meta.dirname, "dist"),
       NODE_ENV: "test",
+      GEOCODING_PROVIDER: "fixture",
     },
     stdout: "ignore",
     stderr: "pipe",
