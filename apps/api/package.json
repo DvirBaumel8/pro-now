@@ -14,6 +14,7 @@
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
     "db:generate": "prisma generate",
+    "db:drift": "prisma migrate diff --from-url \"$DATABASE_URL\" --to-schema-datamodel prisma/schema.prisma --exit-code",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:dev": "tsx prisma/seed-dev.ts",
     "dev:pulse": "tsx scripts/dev-pulse.ts"

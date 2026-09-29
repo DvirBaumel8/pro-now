@@ -1,6 +1,6 @@
 # 21 — Production Plan: from demo to a live web app
 
-Status: **APPROVED 2026-09-29** (decisions in §5). W0 in progress. Written after reading the
+Status: **APPROVED 2026-09-29** (decisions in §5). W0 done except CI's first run on GitHub; W1 next. Written after reading the
 code as it stands at `53ed69f`.
 
 ## 0. Framing
@@ -17,9 +17,9 @@ not code:
 | Real service (Phase 2) | Local stand-in (MVP) | Protocol | Switch |
 |---|---|---|---|
 | Neon Postgres + PostGIS | `postgis/postgis:16-3.4` (already in compose) | Postgres | `DATABASE_URL` |
-| Cloudflare R2 | MinIO | S3 API | `S3_ENDPOINT`, keys, bucket |
+| Cloudflare R2 | SeaweedFS (MinIO has no public images any more) | S3 API | `S3_ENDPOINT`, keys, bucket |
 | Resend | Mailpit (catches every email, has a web UI and an API) | SMTP | `SMTP_URL` |
-| Google sign-in | `oauth2-mock-server` (a local OIDC issuer) | OpenID Connect | `GOOGLE_CLIENT_ID/SECRET`, issuer |
+| Google sign-in | `navikt/mock-oauth2-server` (a local OIDC issuer) | OpenID Connect | `GOOGLE_CLIENT_ID/SECRET`, issuer |
 | Render | `node dist/server.js` serving API + web app | HTTP/WS | `render.yaml` |
 | Web Push | VAPID keys we generate ourselves (no account needed) | Web Push | `VAPID_*` |
 | OpenStreetMap Nominatim (geocoding) | **real** (free, no account), plus a fixture adapter for tests | HTTP | none |
@@ -59,7 +59,7 @@ is picked by env var, with a startup check that refuses to boot in
  │     outbox, upload cleanup                                               │
  └────────┬───────────────────┬──────────────────┬──────────────────────────┘
           │                   │                  │
-     Postgres+PostGIS     S3 (R2/MinIO)     SMTP (Resend/Mailpit)
+     Postgres+PostGIS     S3 (R2/SeaweedFS) SMTP (Resend/Mailpit)
 ```
 
 The decisions behind this shape:
@@ -106,14 +106,34 @@ the browser at iPhone 15 size (393×852) with a written findings list** →
 docs → commit → report. Sizes are relative (S/M/L), not dates.
 
 ### W0 — Foundation (M)
-**Status 2026-09-29:** Redis optional (`JobLock`), env schema + stand-in
-guard, sandbox OTP local/test only, CI workflow — done and tested locally
-(CI itself not yet run on GitHub). Not done: compose stand-ins (no Docker
-on this Mac; each arrives with the epic that uses it — Mailpit in W1,
-MinIO in W4, via Homebrew locally and service containers in CI) and the
-Playwright harness (moves to W2, the first epic with a UI to test).
+**Status 2026-09-29 (evening, Dvir's machine): done except CI's first run.**
+- Redis is optional (`JobLock`). The env schema and the stand-in guard are
+  in place, the sandbox OTP runs only in local and test, and the CI
+  workflow is written.
+- The compose stand-ins are up and probed:
+  - Mailpit: SMTP delivery arrives.
+  - S3: signed put/get/delete work, and anonymous access is refused.
+  - Mock OIDC issuer: its discovery document is served.
+- **MinIO was replaced by SeaweedFS** (Apache-2.0, same S3 API). MinIO
+  no longer publishes public Docker images.
+- PostGIS listens on host port **54320**, so it never collides with a
+  Postgres already installed on the host.
+- Acceptance, measured:
+  - `docker compose up -d`, then migrate, seed and `npm run dev:api`, serves
+    the catalogue.
+  - `verify:rowlock` passes 7/7.
+  - `verify:journey` passes every step.
+  - A new `db:drift` check (in CI) shows the migrations produce exactly
+    the Prisma schema.
+- Getting drift to zero took four DB defaults that the hand-written
+  migrations had and the schema never declared. They are now declared in
+  the schema; the database is unchanged.
+- **Open:**
+  - CI has never run on GitHub; it waits for push access to the repo.
+  - `db:verify` was not run on this machine (no `psycopg2`); CI runs it.
+  - The Playwright harness moves to W2.
 
-- `docker-compose.yml`: add MinIO, Mailpit and oauth2-mock-server. Redis
+- `docker-compose.yml`: add MinIO (built: SeaweedFS), Mailpit and oauth2-mock-server (built: navikt mock-oauth2-server). Redis
   becomes an optional profile.
 - `packages/config/env.ts`: a zod schema for every new variable, and a
   startup refusal to boot when production is combined with a stand-in
@@ -220,7 +240,7 @@ Playwright harness (moves to W2, the first epic with a UI to test).
 
 ### W4 — Photos, recordings and text (M)
 - A `StorageProvider` interface with one **S3-compatible adapter**
-  (`@aws-sdk/client-s3` + presigner). It points at MinIO now and R2 later.
+  (`@aws-sdk/client-s3` + presigner). It points at SeaweedFS locally and R2 later.
 - **Upload flow** (the file never passes through our server):
   1. `POST /api/v1/uploads {kind, mime, bytes}`.
      - The server checks kind/mime against an allowlist and bytes

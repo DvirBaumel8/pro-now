@@ -46,7 +46,7 @@ product decisions in `docs/18-ROADMAP.md` (sections marked **DECIDED** and
 | Thing | Where | State |
 |---|---|---|
 | **The demo** (what investors see) | `tools/design-preview` → published as a Claude Artifact: https://claude.ai/artifact/7YRPcVfEuhVCmcK3PKVeJW (see the version in the last commit message; "anyone with the link") | Static bundle, **no backend**: fixtures in the bundle, the customer↔pro loop simulated client-side. Every one of the 47 services passes the full flow to payment (`qa/pp_all.mjs`). |
-| API | `apps/api` (Fastify, Prisma, Postgres 16 + PostGIS, Redis via `docker-compose.yml`) | Runs on **localhost only**. Never deployed. |
+| API | `apps/api` (Fastify, Prisma, Postgres 16 + PostGIS; Redis optional) | Runs on **localhost only**. Never deployed. Local stack: `docker compose up -d` (PostGIS on :54320, Mailpit :8025, S3 :8333, mock OIDC :8089), `cp .env.example apps/api/.env`, `npm run db:migrate:deploy -w apps/api && npm run db:seed && npm run dev:api`. |
 | Mobile apps | `apps/customer-mobile`, `apps/pro-mobile` (Expo) | Typecheck clean. **Never built for a device.** |
 | Admin | `apps/admin` (Next.js 14) | About 320-line scaffold: KPI page with labelled demo figures, and a job inspector that fetches the API. **No auth/RBAC yet.** |
 | Shared logic | `packages/types` (domain, catalogue, state machines, pricing), `packages/ui` (the product's screens). The demo has its own fork in `tools/design-preview/lib/{ui,types}` since 2026-09-29 | Tested 2026-09-29: types 726, ui 453, api 262, validation 18; the demo's copies run the same 726 + 453. |

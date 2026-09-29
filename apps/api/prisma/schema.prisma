@@ -118,7 +118,7 @@ model IdentityVerification {
   nameMatch      Boolean?
   livenessPassed Boolean?
   documentValid  Boolean?
-  reasonCodes    String[]
+  reasonCodes    String[] @default([])
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -132,7 +132,7 @@ model BusinessProfile {
   tradingName    String?
   taxStatus      String?
   yearsExperience Int?
-  languages      String[]
+  languages      String[] @default([])
   vehicleType    String?
 
   // The existence of this row means the professional ENTERED business
@@ -396,7 +396,7 @@ model AvailabilitySession {
   professional      ProfessionalProfile @relation(fields: [professionalId], references: [id])
   startedAt         DateTime  @default(now())
   endedAt           DateTime?
-  enabledServiceIds String[]
+  enabledServiceIds String[] @default([])
   status            String    @default("ACTIVE") // ACTIVE | ENDED
   jobsOffered       Int       @default(0)
   jobsAccepted      Int       @default(0)
@@ -757,7 +757,9 @@ model ProfessionalExternalProfile {
   lastSyncError     String?
 
   createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  // The DB default exists because the column was added to a table that
+  // already had rows (migration 20260922_external_reputation_provenance).
+  updatedAt         DateTime @default(now()) @updatedAt
 
   snapshots ExternalRatingSnapshot[]
 
