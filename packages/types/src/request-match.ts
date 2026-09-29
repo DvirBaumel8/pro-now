@@ -211,6 +211,22 @@ function hitsOf(keyword: string, typed: Typed): Array<[number, number]> {
 }
 
 /**
+ * WHERE IS NOT WHAT. "נזילה במטבח" is a leak that happens to be in the
+ * kitchen, and it went to carpentry, whose word list holds "מטבח" for
+ * kitchen cabinets. A room, alone, is half the evidence of a problem word.
+ * Inside a phrase ("ארון מטבח") it is part of the thing and counts fully.
+ */
+const PLACE_WORDS = new Set(["מטבח", "סלון", "חדר", "חדרים", "חצר", "מחסן", "דירה", "בית", "חניה", "מסדרון", "קומה"]);
+const PLACE_WEIGHT = 0.5;
+
+function keywordHits(keyword: string, typed: Typed): Array<[number, number]> {
+  const hits = hitsOf(keyword, typed);
+  const k = normalise(keyword);
+  if (k.includes(" ") || !PLACE_WORDS.has(k)) return hits;
+  return hits.map(([i, w]) => [i, Math.min(w, PLACE_WEIGHT)]);
+}
+
+/**
  * "I DON'T NEED AN ELECTRICIAN" IS NOT A REQUEST FOR ONE.
  *
  * A keyword matcher that only counts words hears "לא צריך חשמלאי, צריך
@@ -397,7 +413,7 @@ function score(text: string, rules: ServiceMatchRule[]): Scored {
     const muted = absentContexts.filter((ctx) => ctx.domain === rule.domain);
     for (const keyword of rule.keywords) {
       if (muted.some((ctx) => sharesWith(keyword, ctx))) continue;
-      for (const [i, w] of hitsOf(keyword, typed)) if (!negated.has(i)) covered.set(i, Math.max(covered.get(i) ?? 0, w));
+      for (const [i, w] of keywordHits(keyword, typed)) if (!negated.has(i)) covered.set(i, Math.max(covered.get(i) ?? 0, w));
     }
     coverage.set(rule.serviceId, covered);
   }

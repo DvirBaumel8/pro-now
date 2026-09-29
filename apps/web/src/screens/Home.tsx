@@ -11,7 +11,7 @@ import {
 } from "@pro-now/ui";
 import { avatarById, greetingAt } from "@pro-now/types";
 
-import { useMe } from "../api";
+import { api, useMe } from "../api";
 import { authClient } from "../auth";
 import { CityHero } from "../art/CityHero";
 import { worldSources } from "../art/worldSources";
@@ -132,6 +132,11 @@ export function Home() {
             nowMs={Date.now()}
             capture={media.capture}
             onSelectService={setRequestServiceId}
+            onTextChoice={(choice) => {
+              // Feedback only; a failure here must never stand between the
+              // customer and the service they chose.
+              void api.sendMatchFeedback(choice).catch(() => {});
+            }}
             strollUpcoming
             advertiseUpcoming
             width={width}

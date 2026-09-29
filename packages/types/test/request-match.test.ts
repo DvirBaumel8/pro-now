@@ -287,3 +287,13 @@ describe("matchRequest confidence", () => {
     for (const o of m.clarify?.options ?? []) expect(known.has(o)).toBe(true);
   });
 });
+
+describe("where is not what", () => {
+  it("a leak in the kitchen is a leak, not kitchen carpentry (W2 QA #11)", () => {
+    expect(matchServicesByText("נזילה במטבח", catalogMatchRules).map((m) => m.serviceId)).toEqual(["svc-leak"]);
+  });
+
+  it("a kitchen that IS the thing still counts", () => {
+    expect(matchServicesByText("ארון מטבח נפל", catalogMatchRules)[0]?.serviceId).toBe("svc-carpentry");
+  });
+});

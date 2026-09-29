@@ -143,6 +143,16 @@
    "source": "real"
   },
   {
+   "text": "נזילה במטבח",
+   "expect": [
+    "svc-leak"
+   ],
+   "forbid": [
+    "svc-carpentry"
+   ],
+   "source": "real"
+  },
+  {
    "text": "לא צריך חשמלאי, צריך אינסטלטור",
    "expect": [
     "svc-blockage",

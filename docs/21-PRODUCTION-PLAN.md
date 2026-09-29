@@ -1,6 +1,6 @@
 # 21 — Production Plan: from demo to a live web app
 
-Status: **APPROVED 2026-09-29** (decisions in §5). W0, W1, W1.5 and W2 done; W3 next. Written after reading the
+Status: **APPROVED 2026-09-29** (decisions in §5). W0–W5 done (W5 with voice-to-text deferred); W6 next. Written after reading the
 code as it stands at `53ed69f`.
 
 ## 0. Framing
@@ -438,6 +438,13 @@ renders assigned media through signed URLs.
   - A test proves EXIF is gone.
 
 ### W5 — Understanding the request (M) — accuracy we can stand behind
+
+**DONE 2026-09-30** (report: `docs/reports/W5.md`, QA: `docs/qa/W5.md`).
+Everything below is built except **voice to text**, which is deferred
+until a real-iPhone check (the report says why). The golden set is in CI,
+but only 21 of its sentences are real: collecting 300–500 with Amit is
+still open.
+
 - Move `service-match.ts` from `packages/ui` to `packages/types`, so the
   server and the client use one matcher.
 - `POST /api/v1/match {text}` returns
