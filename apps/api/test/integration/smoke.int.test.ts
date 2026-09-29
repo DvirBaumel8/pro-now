@@ -17,8 +17,12 @@ describe("integration harness", () => {
   });
 
   it("serves the seeded catalogue", async () => {
-    const res = await app.inject({ method: "GET", url: "/v1/catalog" });
+    const res = await app.inject({ method: "GET", url: "/api/v1/catalog" });
     expect(res.statusCode).toBe(200);
     expect(res.json().departments.length).toBeGreaterThan(0);
+  });
+
+  it("answers only under /api: the old /v1 paths are gone", async () => {
+    expect((await app.inject({ method: "GET", url: "/v1/catalog" })).statusCode).toBe(404);
   });
 });

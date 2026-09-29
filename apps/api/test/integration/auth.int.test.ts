@@ -92,15 +92,15 @@ describe("sign-in by email link", () => {
 describe("the session guards the API", () => {
   it("a signed-in person reaches a protected route; nobody else does", async () => {
     const jar = await signInByEmail(app, uniqueEmail("guard"));
-    const signedIn = await app.inject({ method: "GET", url: "/v1/me/addresses", headers: { cookie: jar.header() } });
+    const signedIn = await app.inject({ method: "GET", url: "/api/v1/me/addresses", headers: { cookie: jar.header() } });
     expect(signedIn.statusCode).toBe(200);
 
-    const anonymous = await app.inject({ method: "GET", url: "/v1/me/addresses" });
+    const anonymous = await app.inject({ method: "GET", url: "/api/v1/me/addresses" });
     expect(anonymous.statusCode).toBe(401);
 
     const forged = await app.inject({
       method: "GET",
-      url: "/v1/me/addresses",
+      url: "/api/v1/me/addresses",
       headers: { cookie: "better-auth.session_token=forged.value" },
     });
     expect(forged.statusCode).toBe(401);
@@ -109,11 +109,11 @@ describe("the session guards the API", () => {
   it("a bearer token is not a way in any more", async () => {
     const res = await app.inject({
       method: "GET",
-      url: "/v1/me/addresses",
+      url: "/api/v1/me/addresses",
       headers: { authorization: "Bearer anything" },
     });
     expect(res.statusCode).toBe(401);
-    const otp = await app.inject({ method: "POST", url: "/v1/auth/otp/request", payload: { phone: "+972500000000" } });
+    const otp = await app.inject({ method: "POST", url: "/api/v1/auth/otp/request", payload: { phone: "+972500000000" } });
     expect(otp.statusCode).toBe(404);
   });
 
@@ -126,7 +126,7 @@ describe("the session guards the API", () => {
       payload: {},
     });
     expect(out.statusCode, out.body).toBe(200);
-    const after = await app.inject({ method: "GET", url: "/v1/me/addresses", headers: { cookie: jar.header() } });
+    const after = await app.inject({ method: "GET", url: "/api/v1/me/addresses", headers: { cookie: jar.header() } });
     expect(after.statusCode).toBe(401);
   });
 });

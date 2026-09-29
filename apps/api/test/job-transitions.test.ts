@@ -59,7 +59,7 @@ describe("job state machine — /docs/07-JOB-STATE-MACHINE.md", () => {
  * The step between arriving and working.
  *
  * `nextAfterArrival` has encoded this since the state machine was written
- * and the route that starts a job never asked it: `/v1/jobs/:id/start`
+ * and the route that starts a job never asked it: `/api/v1/jobs/:id/start`
  * sent every job straight to IN_PROGRESS. For a VISIT_QUOTE service that
  * skips DIAGNOSIS — the state where the professional looks at the problem
  * and writes a price — so the job landed in "working" before the customer

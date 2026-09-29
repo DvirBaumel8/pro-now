@@ -54,6 +54,13 @@ function zodIssuesOf(err: unknown): ZodIssueLike[] | null {
   return candidate.issues as ZodIssueLike[];
 }
 
+/**
+ * Everything the server answers besides the web app itself lives under
+ * /api: REST at /api/v1/*, sign-in at /api/auth/*, the job socket at
+ * /api/v1/ws/*. The web app owns every other path (docs/21 §2, W2).
+ */
+export const API_PREFIX = "/api";
+
 export async function buildServer(opts: { logger?: boolean } = {}) {
   const config = loadEnv();
   const app = Fastify({ logger: opts.logger ?? true });
@@ -122,20 +129,20 @@ export async function buildServer(opts: { logger?: boolean } = {}) {
     });
   });
 
-  await app.register(catalogRoutes);
-  await app.register(addressesRoutes);
-  await app.register(jobsRoutes);
-  await app.register(matchRoutes);
-  await app.register(offersRoutes);
-  await app.register(proRoutes);
-  await app.register(proJobsRoutes);
-  await app.register(proReputationRoutes);
-  await app.register(proServicesRoutes);
-  await app.register(quotesRoutes);
-  await app.register(reviewsRoutes);
-  await app.register(meRoutes);
+  await app.register(catalogRoutes, { prefix: API_PREFIX });
+  await app.register(addressesRoutes, { prefix: API_PREFIX });
+  await app.register(jobsRoutes, { prefix: API_PREFIX });
+  await app.register(matchRoutes, { prefix: API_PREFIX });
+  await app.register(offersRoutes, { prefix: API_PREFIX });
+  await app.register(proRoutes, { prefix: API_PREFIX });
+  await app.register(proJobsRoutes, { prefix: API_PREFIX });
+  await app.register(proReputationRoutes, { prefix: API_PREFIX });
+  await app.register(proServicesRoutes, { prefix: API_PREFIX });
+  await app.register(quotesRoutes, { prefix: API_PREFIX });
+  await app.register(reviewsRoutes, { prefix: API_PREFIX });
+  await app.register(meRoutes, { prefix: API_PREFIX });
 
-  registerJobSocket(app);
+  await app.register(async (api) => registerJobSocket(api), { prefix: API_PREFIX });
 
 
   return app;

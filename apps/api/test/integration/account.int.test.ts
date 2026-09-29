@@ -20,7 +20,7 @@ afterAll(async () => {
 
 const headers = (jar: CookieJar) => ({ cookie: jar.header(), origin: "http://localhost:4000" });
 const reachesApi = async (jar: CookieJar) =>
-  (await app.inject({ method: "GET", url: "/v1/me/addresses", headers: headers(jar) })).statusCode;
+  (await app.inject({ method: "GET", url: "/api/v1/me/addresses", headers: headers(jar) })).statusCode;
 
 describe("sign out everywhere", () => {
   it("ends every session of the person, on every device", async () => {
@@ -44,7 +44,7 @@ describe("delete my account", () => {
     const userId = (await whoAmI(app, jar))!.user.id;
     const address = await app.inject({
       method: "POST",
-      url: "/v1/me/addresses",
+      url: "/api/v1/me/addresses",
       headers: headers(jar),
       payload: { formatted: "רחוב הדוגמה 1, תל אביב", lat: 32.07, lng: 34.78, label: "בית" },
     });
@@ -52,7 +52,7 @@ describe("delete my account", () => {
     return { email, jar, userId };
   }
 
-  const deleteMe = (jar: CookieJar) => app.inject({ method: "DELETE", url: "/v1/me", headers: headers(jar) });
+  const deleteMe = (jar: CookieJar) => app.inject({ method: "DELETE", url: "/api/v1/me", headers: headers(jar) });
 
   it("erases who the person is, removes every way in, and keeps the records others depend on", async () => {
     const { email, jar, userId } = await customerWithAddress("leaver");
@@ -117,6 +117,6 @@ describe("delete my account", () => {
   });
 
   it("needs a session", async () => {
-    expect((await app.inject({ method: "DELETE", url: "/v1/me" })).statusCode).toBe(401);
+    expect((await app.inject({ method: "DELETE", url: "/api/v1/me" })).statusCode).toBe(401);
   });
 });

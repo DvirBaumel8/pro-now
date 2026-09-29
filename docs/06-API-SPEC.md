@@ -63,6 +63,16 @@ stores the key + response for replay.
   call are the source of truth after reconnect. The client's own countdown
   is never authoritative for offer validity — the server's `expires_at` is.
 
+## Paths (since W2, 2026-09-29)
+Every path the server answers besides the web app is under `/api`:
+- REST at `/api/v1/*`;
+- sign-in at `/api/auth/*`;
+- the job socket at `/api/v1/ws/jobs/:id`.
+
+The endpoint lists in this document keep their historical `/v1/...`
+spelling; read each as `/api/v1/...`. `GET /health` stays at the root
+for the host's health check.
+
 ## Access (who may call what) — enforced since W1, 2026-09-29
 
 The server decides access in two layers, in `apps/api/src/auth/access.ts`:
