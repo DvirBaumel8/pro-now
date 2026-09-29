@@ -25,7 +25,6 @@ import {
   WELCOME_VIEW,
   welcomeViewViolations,
   WORLD_EXTENT,
-  worldZoomFor,
 } from "../src";
 
 describe("the neighbourhood", () => {
