@@ -58,7 +58,8 @@ test("the product's screens match the demo's", async ({ browser }) => {
   await demo.getByText("אני צריך מקצוען").click();
   await demo.getByPlaceholder("050-0000000").fill("0501234567");
   await demo.getByText("שליחת קוד").click();
-  await demo.locator("input").first().fill("123456");
+  // The demo takes ~700ms to reach the code stage; fill the code field itself.
+  await demo.getByPlaceholder("000000", { exact: true }).fill("123456");
   await demo.getByText("כניסה", { exact: true }).click();
 
   const email = uniqueEmail("parity");
