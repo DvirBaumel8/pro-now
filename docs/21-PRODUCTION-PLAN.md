@@ -387,13 +387,13 @@ acceptance suite are green.
 
 ### W4 — Photos, recordings and text (M)
 
-**Implementation in progress 2026-09-29:** the S3-compatible provider,
+**DONE 2026-09-29:** the S3-compatible provider,
 private upload migration, presign/complete/media routes, READY-upload job
 attachment, client-side image re-encoding, browser voice recorder, retry-safe
 cleanup worker, and a real SeaweedFS E2E covering three photos plus a voice
-note are in place. The native customer request flow now uploads captured
-photos and voice before creating the job. W4 remains open until the production
-web request composer and professional-facing media UI are wired.
+note are in place. The native and web customer request flows upload captured
+photos and voice before creating the job, and the professional job screen
+renders assigned media through signed URLs.
 
 - A `StorageProvider` interface with one **S3-compatible adapter**
   (`@aws-sdk/client-s3` + presigner). It points at SeaweedFS locally and R2 later.

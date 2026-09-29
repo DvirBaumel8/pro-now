@@ -17,6 +17,7 @@ import { CityHero } from "../art/CityHero";
 import { worldSources } from "../art/worldSources";
 import { useFrame } from "../frame";
 import { useWebMediaCapture } from "../useWebMediaCapture";
+import { RequestComposer } from "./RequestComposer";
 
 /** The header's own height in the demo's customer shell (`UTIL`). */
 const HEADER_H = 56;
@@ -45,6 +46,7 @@ export function Home() {
   const { width, height } = useFrame();
   const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>("home");
+  const [requestServiceId, setRequestServiceId] = useState<string | null>(null);
   const me = useMe();
   const media = useWebMediaCapture();
   /* The face they chose, in the header, as in the demo; the glyph if none. */
@@ -56,6 +58,23 @@ export function Home() {
     await authClient.signOut();
     navigate("/welcome", { replace: true });
   };
+
+  if (requestServiceId) {
+    return (
+      <RequestComposer
+        serviceId={requestServiceId}
+        media={media}
+        onBack={() => setRequestServiceId(null)}
+        onOpenAddresses={() => navigate("/addresses")}
+        onSent={(jobId) => {
+          media.capture.onClearPhotos?.();
+          media.capture.onDeleteVoice?.();
+          window.alert(`הקריאה נשלחה · ${jobId}`);
+          setRequestServiceId(null);
+        }}
+      />
+    );
+  }
 
   return (
     <View style={{ width, height }}>
@@ -112,6 +131,7 @@ export function Home() {
             worldSources={worldSources}
             nowMs={Date.now()}
             capture={media.capture}
+            onSelectService={setRequestServiceId}
             strollUpcoming
             advertiseUpcoming
             width={width}

@@ -52,6 +52,12 @@ describe("api client", () => {
     ]);
   });
 
+  it("loads the server catalogue under the shared API prefix", async () => {
+    const f = fakeFetch(200, { marketCode: "IL-TLV", departments: [] });
+    await createApiClient({ fetch: f.fn }).getCatalog();
+    expect(f.calls[0]!.url).toBe("/api/v1/catalog");
+  });
+
   it("uploads media through a presigned PUT and completes it", async () => {
     const calls: Array<{ url: string; init: RequestInit }> = [];
     const fetchImpl = (async (url: string, init: RequestInit) => {
@@ -83,5 +89,28 @@ describe("api client", () => {
       ["/api/v1/uploads/up1/complete", "POST"],
     ]);
     expect(calls[1]!.init.headers).toMatchObject({ "Content-Type": "image/jpeg" });
+  });
+
+  it("creates a job with the ready media references", async () => {
+    const f = fakeFetch(200, { job: { id: "job1" }, dispatch: { outcome: "NO_MATCH" } });
+    await createApiClient({ fetch: f.fn }).createJob(
+      {
+        serviceId: "service1",
+        addressId: "address1",
+        description: "יש נזילה",
+        mediaRefs: ["upload1", "upload2"],
+      },
+      "job-key-1"
+    );
+
+    expect(f.calls[0]!.url).toBe("/api/v1/jobs");
+    expect(f.calls[0]!.init.method).toBe("POST");
+    expect(f.calls[0]!.init.headers).toMatchObject({ "Idempotency-Key": "job-key-1" });
+    expect(JSON.parse(String(f.calls[0]!.init.body))).toMatchObject({
+      serviceId: "service1",
+      addressId: "address1",
+      description: "יש נזילה",
+      mediaRefs: ["upload1", "upload2"],
+    });
   });
 });

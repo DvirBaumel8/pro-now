@@ -11,7 +11,7 @@
  * readable here): every call goes with `credentials: "include"` and no
  * token. Same origin in development and in production.
  */
-import type { AddressView, GeocodingResult } from "@pro-now/types";
+import type { AddressView, CatalogResponse, DispatchResultView, GeocodingResult, JobView } from "@pro-now/types";
 import type { CreateAddressInput, CustomerOnboardingInput, MeResponse } from "@pro-now/validation";
 
 export type UploadKind = "PHOTO" | "VOICE_NOTE" | "DOCUMENT";
@@ -43,11 +43,19 @@ export function createApiClient(config: ProNowApiClientConfig = {}) {
   const base = `${config.baseUrl ?? ""}/api/v1`;
   const doFetch = config.fetch ?? ((...args: Parameters<typeof fetch>) => fetch(...args));
 
-  async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  async function request<T>(
+    method: string,
+    path: string,
+    body?: unknown,
+    extraHeaders?: Record<string, string>
+  ): Promise<T> {
     const res = await doFetch(`${base}${path}`, {
       method,
       credentials: "include",
-      headers: body === undefined ? {} : { "Content-Type": "application/json" },
+      headers: {
+        ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+        ...extraHeaders,
+      },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     const payload: unknown = await res.json().catch(() => null);
@@ -65,11 +73,25 @@ export function createApiClient(config: ProNowApiClientConfig = {}) {
   return {
     me: () => request<MeResponse>("GET", "/me"),
     saveOnboarding: (input: CustomerOnboardingInput) => request<{ ok: true }>("PATCH", "/me/customer", input),
+    getCatalog: () => request<CatalogResponse>("GET", "/catalog"),
     getAddresses: () => request<{ addresses: AddressView[] }>("GET", "/me/addresses"),
     createAddress: (input: CreateAddressInput) => request<{ address: AddressView }>("POST", "/me/addresses", input),
     searchAddresses: (query: string) => request<{ results: GeocodingResult[] }>("GET", `/geo/search?q=${encodeURIComponent(query)}`),
     reverseGeocode: (location: { lat: number; lng: number }) =>
       request<{ result: GeocodingResult | null }>("GET", `/geo/reverse?lat=${location.lat}&lng=${location.lng}`),
+    createJob: (
+      input: {
+        serviceId: string;
+        addressId: string;
+        description?: string;
+        structuredAnswers?: Record<string, unknown>;
+        mediaRefs?: string[];
+      },
+      idempotencyKey: string
+    ) =>
+      request<{ job: JobView; dispatch: DispatchResultView }>("POST", "/jobs", input, {
+        "Idempotency-Key": idempotencyKey,
+      }),
     uploadMedia: async (input: {
       kind: UploadKind;
       mime: string;

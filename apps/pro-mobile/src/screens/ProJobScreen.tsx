@@ -8,7 +8,7 @@ import {
   type IntakeAnswer,
   type ProJobDetailView,
 } from "@pro-now/types";
-import { ProJobBody, catalogHomeServices, proTheme, type MarkName } from "@pro-now/ui";
+import { ProJobBody, catalogHomeServices, proTheme, type JobMediaItem, type MarkName } from "@pro-now/ui";
 
 import type { ProStackParamList } from "../navigation/types";
 import { api } from "../api/client";
@@ -116,6 +116,17 @@ export function ProJobScreen({ route, navigation }: Props) {
     [job]
   );
 
+  const media = useMemo<JobMediaItem[]>(
+    () =>
+      (job?.media ?? []).map((item) => ({
+        id: item.id,
+        kind: item.kind === "VOICE_NOTE" ? "VOICE" : "PHOTO",
+        subjectHe: item.kind === "PHOTO" ? "תמונה מהלקוח" : "הקלטה מהלקוח",
+        uri: item.url,
+      })),
+    [job]
+  );
+
   /**
    * ONE FORWARD MOVE, CHOSEN BY THE STATUS.
    *
@@ -188,7 +199,7 @@ export function ProJobScreen({ route, navigation }: Props) {
         customerSeed={job.jobId}
         symptomsHe={symptomsHe}
         descriptionHe={job.descriptionHe}
-        media={[]}
+        media={media}
         payoutMinorUnits={job.payoutMinorUnits}
         payoutIsEstimate={job.payoutIsEstimate}
         onAdvance={onAdvance}
