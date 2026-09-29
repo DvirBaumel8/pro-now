@@ -295,6 +295,28 @@ per commit. Each commit gets full CI plus `verify:journey`.
   no behaviour change visible in the integration suite.
 
 ### W2 — Web app shell (M)
+**Decided 2026-09-29 (Dvir):**
+- **The UI is 100% the demo's**, in Hebrew. Screens are built from the
+  same components the demo uses, and **visual parity tests** screenshot
+  demo and product at iPhone 15 size with the same data and fail when they
+  differ. The flow is the demo's: welcome → sign-in → intro → avatar →
+  home.
+- **Sign-in: the demo's look, with email link / Google** (W1 decision A
+  stands). The screen copies the demo's phone screen layout, type and
+  colours and asks for an email. Phone and SMS stay out (D4 is still TBD).
+- **The 3D city comes later, in its own epic** (D6 revised). W2 uses the
+  demo's still street art wherever the city appears: behind the intro
+  slides, behind the home header, and in the "walk the street" card.
+- **Demo examples become real data or honest empty states.** That covers
+  recent jobs, availability counts and sponsors (CLAUDE.md §3).
+- **The API moves to `/api/v1/*`** (A). The client is typed against the
+  shared zod schemas and `@pro-now/types`, with no OpenAPI codegen yet
+  (B). Installability is checked through Chromium's
+  `Page.getInstallabilityErrors`, because Lighthouse dropped its PWA
+  category (C).
+- Dvir can run the app locally and see it: `npm run dev:web` (see
+  CURRENT-STATE).
+
 - **Step 1 (moved from W1.5):** create `apps/web` directly on **React 19
   + react-native-web 0.21**, and widen `packages/ui` peers to
   `react ^18 || ^19`, so the Expo apps and the admin keep working. Check
@@ -593,7 +615,7 @@ Then, in Phase 2 proper (≈50 jobs/day):
 | D3 | Retention period for photos, voice, text and match feedback | W4 | **DECIDED 2026-09-29: 4 days**, then deleted by the retention sweep (a setting, default 4) |
 | D4 | SMS vendor (person at home, phone verification) | Phase 2 | Orderer shares the link |
 | D5 | Routing/ETA provider | Phase 2 | Straight-line estimate, labelled |
-| D6 | Is the 3D city part of the product app? | W2 | **DECIDED 2026-09-29: no, outside the product app.** It stays the investor demo |
+| D6 | Is the 3D city part of the product app? | W2 | **REVISED 2026-09-29 (Dvir): yes, later, in its own epic.** W2 uses still art where the city shows |
 | D7 | Admin inside `apps/web` instead of Next.js (§2.6) | W8 | Proposed yes |
 | D8 | Which documents are mandatory per service | W7 | Admin decides case by case, recorded |
 
