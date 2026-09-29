@@ -55,7 +55,7 @@ services:
       - key: ADMIN_EMAILS
         value: ""
       - key: CORS_ORIGINS
-        value: ""
+        value: https://pro-now.onrender.com
       - key: ALLOW_LOCAL_STANDINS
         value: "0"
       # The API bundle runs from apps/api/dist while the frontend build lives
