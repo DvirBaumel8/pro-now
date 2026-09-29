@@ -31,7 +31,9 @@ try {
   const firstLine = p.getByRole('checkbox').first(); if (await firstLine.count()) { await firstLine.click({ force: true }); await p.waitForTimeout(400); steps.push('✓ ordered from list'); }
   await snap('describe');
   await need(/^שליחת הקריאה/, 'send');
-  await p.waitForTimeout(8000);
+  /* Under load the match can take longer than 8s; wait for its words, not a clock. */
+  await p.locator('text=/מחכים להצעת המחיר|מתאים לי|אישור ההתאמה|בחירה/').first().waitFor({ timeout: 25000 }).catch(() => {});
+  await p.waitForTimeout(1500);
   let t = await txt();
   if (/מחכים להצעת המחיר/.test(t)) {
     // priced before he sets off: the professional names a price, the customer approves it
