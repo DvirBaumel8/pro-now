@@ -54,9 +54,9 @@ function zodIssuesOf(err: unknown): ZodIssueLike[] | null {
   return candidate.issues as ZodIssueLike[];
 }
 
-export async function buildServer() {
+export async function buildServer(opts: { logger?: boolean } = {}) {
   const config = loadEnv();
-  const app = Fastify({ logger: true });
+  const app = Fastify({ logger: opts.logger ?? true });
   app.decorate("config", config);
 
   await app.register(corsPlugin);

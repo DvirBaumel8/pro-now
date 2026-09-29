@@ -69,4 +69,6 @@ jobs:
       # extension.)
       - run: npm run db:drift
       - run: npm run verify:rowlock
+      # Route-level tests: every plugin and route against a throwaway, migrated database.
+      - run: npm run test:int
       - run: pip install psycopg2-binary && npm run db:verify

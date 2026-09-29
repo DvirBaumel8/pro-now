@@ -150,6 +150,19 @@ docs → commit → report. Sizes are relative (S/M/L), not dates.
   and CI is green on a PR.
 
 ### W1 — Accounts and authorization (L)
+**Decided 2026-09-29 (Dvir):**
+- **A. The bearer JWT and the phone OTP are removed completely**, along with
+  `jsonwebtoken`. Cookie sessions from Better Auth are the only way to
+  sign in, and `verify:journey` signs in by magic link. The Expo apps
+  (Phase 3) get sign-in back through Better Auth's Expo plugin.
+- **B. PROFESSIONAL is self-service.** Creating a professional profile
+  grants the role. Dispatch eligibility is still decided per service by
+  verification (CLAUDE.md §3).
+
+**Progress:** step 1 is done: the integration harness (`npm run test:int`,
+a throwaway migrated and seeded database per run, `app.inject`), also run
+in CI.
+
 - **Library: Better Auth** (Prisma adapter, mounted at `/api/auth/*`).
   - Handles OAuth state/PKCE, CSRF, email verification, session rotation
     and rate limiting.
