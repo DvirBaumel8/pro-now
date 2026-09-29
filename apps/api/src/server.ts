@@ -112,11 +112,11 @@ export async function buildServer(opts: { logger?: boolean } = {}) {
     // before it was true, and a refused transition reached the client as
     // "Internal Server Error" with the reason swallowed. A plain `Error`
     // still carries neither, so both are read defensively.
-    const { statusCode, code } = err as { statusCode?: number; code?: string };
+    const { statusCode, code, message } = err as { statusCode?: number; code?: string; message?: string };
     const status = statusCode ?? 500;
     reply.status(status).send({
       code: code ?? "INTERNAL_ERROR",
-      message: status >= 500 ? "Internal server error" : err.message,
+      message: status >= 500 ? "Internal server error" : (message ?? "Request failed"),
       requestId: req.id,
     });
   });
