@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 
-import { CustomerHomeBody, customerTheme, JobCompleteBody, ProOfferBody, ProOnlineBody, ProProfileBody, proTheme, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, spacing, TrackingBody, type as t } from "@pro-now/ui";
-import type { ProPresenceState } from "@pro-now/types";
+import { CustomerHomeBody, customerTheme, JobCompleteBody, ProOfferBody, ProOnlineBody, ProProfileBody, proTheme, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, spacing, TrackingBody, type as t } from "@pro-now/demo-ui";
+import type { ProPresenceState } from "@pro-now/demo-types";
 
 import { matchFixture, offerFixture } from "./fixtures";
 import {

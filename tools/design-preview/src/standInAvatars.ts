@@ -1,4 +1,4 @@
-import type { WorldAssetSources } from "@pro-now/ui";
+import type { WorldAssetSources } from "@pro-now/demo-ui";
 
 import { worldSources } from "./worldSources";
 

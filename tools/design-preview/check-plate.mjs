@@ -4,7 +4,7 @@
  * Usage:  node tools/design-preview/check-plate.mjs <file.png|webp>
  *
  * Everything this checks was learned by shipping a plate that got it
- * wrong — see `packages/types/src/ground-plate.ts` for what each rule is
+ * wrong — see `tools/design-preview/lib/types/src/ground-plate.ts` for what each rule is
  * for. The point is that a plate is verified in seconds rather than
  * discovered in a screenshot days later, by which time ten more files
  * have been drawn to match it.
@@ -94,8 +94,8 @@ const spotsJson = execFileSync(
   [
     "tsx",
     "-e",
-    `import { requiredFootings, PLATE_RATIO, RATIO_TOLERANCE } from "./packages/types/src/ground-plate";
-     import { WORLD_DISTRICTS } from "./packages/types/src/world-districts";
+    `import { requiredFootings, PLATE_RATIO, RATIO_TOLERANCE } from "./tools/design-preview/lib/types/src/ground-plate";
+     import { WORLD_DISTRICTS } from "./tools/design-preview/lib/types/src/world-districts";
      console.log(JSON.stringify({
        ratio: PLATE_RATIO,
        tol: RATIO_TOLERANCE,

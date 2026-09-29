@@ -38,7 +38,7 @@
  * this file exists rather than a flag that quietly swaps the numbers.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { JobMatchView } from "@pro-now/types";
+import type { JobMatchView } from "@pro-now/demo-types";
 
 /**
  * Where the API is. Same host as the page, port 4000 — which is what

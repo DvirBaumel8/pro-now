@@ -10,18 +10,25 @@ product decisions in `docs/18-ROADMAP.md` (sections marked **DECIDED** and
 
 ## 1. Who is who
 
-- **Amit** is the owner of PRO NOW. He is **not a programmer and speaks
+**The working model is `docs/22-WORKING-MODEL.md` (decided 2026-09-29). Read it first.**
+
+- **Amit** is the owner of PRO NOW: product manager and founder. He works
+  on **the demo** (`tools/design-preview/**`): he keeps making the product
+  script more accurate and expanding it. He is **not a programmer and speaks
   Hebrew only**, so every answer to him is in Hebrew, short, and free of
-  jargon. He decides the product; Claude Code writes, tests, documents and
-  publishes. His standing preferences are in §6.
-- **Dvir (דביר), Amit's friend and reviewer**, is a senior software engineer (7 years at
-  Lemonade). He writes in **English** and is reviewing the codebase: how the
-  work is done, security, and cost (tokens). His brief is
-  `docs/REVIEW-BRIEF.md` (Hebrew, written for him). Answer him in English,
-  technically and precisely.
-- **Who is typing:** assume Amit unless the person says it is Dvir. When Dvir
-  says it's him, continue his review where it stopped; when Amit is back,
-  return to Hebrew and the usual way of working.
+  jargon. His standing preferences are in §6.
+- **Dvir (דביר)** is a senior backend engineer (7 years at Lemonade). He
+  works on **the product** (`apps/**`, `packages/**`): he turns the demo
+  into production-ready software (`docs/21-PRODUCTION-PLAN.md`) and then
+  keeps it caught up with the demo. He writes in **English**; answer him in
+  English, technically and precisely.
+- **The demo and the product share no code.** The demo has its own copies
+  in `tools/design-preview/lib/{ui,types}`, and `npm run lint` enforces the
+  split. `docs/DEMO-SYNC.md` records the last demo commit the product has
+  accounted for.
+- **Who is typing:** Amit writes Hebrew and commits as `nivamit1210-sketch`;
+  Dvir writes English and commits as `Dvir Baumel`. If it is unclear, ask.
+  In an Amit session, never edit `apps/` or `packages/`.
 
 ## 2. Phase and goal
 
@@ -42,7 +49,7 @@ product decisions in `docs/18-ROADMAP.md` (sections marked **DECIDED** and
 | API | `apps/api` (Fastify, Prisma, Postgres 16 + PostGIS, Redis via `docker-compose.yml`) | Runs on **localhost only**. Never deployed. |
 | Mobile apps | `apps/customer-mobile`, `apps/pro-mobile` (Expo) | Typecheck clean. **Never built for a device.** |
 | Admin | `apps/admin` (Next.js 14) | About 320-line scaffold: KPI page with labelled demo figures, and a job inspector that fetches the API. **No auth/RBAC yet.** |
-| Shared logic | `packages/types` (domain, catalogue, state machines, pricing), `packages/ui` (screens used by both demo and apps) | Tested: types 726, ui 199, api 244, validation 18. |
+| Shared logic | `packages/types` (domain, catalogue, state machines, pricing), `packages/ui` (the product's screens). The demo has its own fork in `tools/design-preview/lib/{ui,types}` since 2026-09-29 | Tested 2026-09-29: types 726, ui 453, api 262, validation 18; the demo's copies run the same 726 + 453. |
 | Films (customer / pro / business) | `~/Desktop/PRO NOW - סרטונים/` (mp4). Code: `tools/design-preview/film/` | Recorded from the demo. They **predate** the 2026-09-28 shops, search and pricing work, and should be re-recorded. |
 | NDA draft (Hebrew, .docx) | `~/Desktop/PRO NOW - הסכם סודיות.docx` | A draft, not legal advice. Blanks: parties, term in years, court district. |
 | Git | Private GitHub repo `nivamit1210-sketch/pro-now` | `gh` is installed and authenticated here, so `git push` works from the shell — still confirm with Amit before pushing. Check with `git status -sb`. |
@@ -77,7 +84,7 @@ Screenshots go to `qa/out/`.
 - Switching sides in scripts: the header has no "מקצוען" button any more. Every script's `press(/^מקצוען$/)` goes through a wrapper that uses the demo bar ("הצצה לצד המקצוען") or the menu.
 
 **The consistency guard (run it after any catalogue, copy, price or search change)**
-- `cd packages/ui && npx vitest run test/catalog-consistency.test.ts` — all 47 services: money words per pricing kind (`pricingKindOf`), trade nouns (`visitTermsHe`), no other trade's words in a service's price lines / prompts / symptoms, search finds each service by its name and every keyword. It runs inside `npm test` too.
+- `cd tools/design-preview/lib/ui && npx vitest run test/catalog-consistency.test.ts` — all 47 services: money words per pricing kind (`pricingKindOf`), trade nouns (`visitTermsHe`), no other trade's words in a service's price lines / prompts / symptoms, search finds each service by its name and every keyword. It runs inside `npm test` too.
 - Review agents live in `.claude/agents/`: **`ux-director`** (screenshots every screen, ranks fixes), **`ux-copy-editor`** (Hebrew copy per service and pricing kind, gender agreement), **`consistency-guard`** (runs the guard and the end-to-end runs, reports or fixes). In a session where they are not listed as agent types, run `general-purpose` with "follow `.claude/agents/<name>.md`".
 
 **Publishing to the artifact**
@@ -115,7 +122,7 @@ Screenshots go to `qa/out/`.
 - The preview opens every service for demonstration.
 - **Only the person who ordered approves a quote and pays.** The person at home never does.
 
-- **2026-09-29: two kinds of work.** Repairs whose price is unknown upfront → the app charges only the visit-and-diagnosis fee; the repair is settled directly between customer and pro. Price-list work → the customer picks from the pro's list; the amount is held and released after completion. No problem questions before calling. A third kind, **priced before dispatch** (towing, moving, post-reno cleaning, painting, gardening, pest control): the pro answers the offer with a price, the customer approves on the match card, then he is assigned. See the DECIDED entry in `docs/18-ROADMAP.md`. Code: `packages/ui/src/catalog/priceLists.ts`, `ProJobBody.diagnosisOnly`, `DescribeFaultBody.priceList`/`destination`, `quoteBeforeDispatch` in the catalogue, `preQuote` in `tools/design-preview/src/App.tsx`.
+- **2026-09-29: two kinds of work.** Repairs whose price is unknown upfront → the app charges only the visit-and-diagnosis fee; the repair is settled directly between customer and pro. Price-list work → the customer picks from the pro's list; the amount is held and released after completion. No problem questions before calling. A third kind, **priced before dispatch** (towing, moving, post-reno cleaning, painting, gardening, pest control): the pro answers the offer with a price, the customer approves on the match card, then he is assigned. See the DECIDED entry in `docs/18-ROADMAP.md`. Code (demo): `tools/design-preview/lib/ui/src/catalog/priceLists.ts`, `ProJobBody.diagnosisOnly`, `DescribeFaultBody.priceList`/`destination`, `quoteBeforeDispatch` in the catalogue, `preQuote` in `tools/design-preview/src/App.tsx`.
 
 **Built 2026-09-29 (see the BUILT entry of that date in `docs/18-ROADMAP.md`)**
 - The on-the-way (waiting) screen is the 3D street with the professional's own van driving to a light at the customer's home (`City` `route`, `RouteCity`), one live card with a minutes-first countdown (`LiveEtaCard`) and a live "window into the city" (`StrollInvite`). "לעקוב אחרי …" is the street plan (`RouteLayer` in plan mode), framed on vehicle + home. Amit decided: two maps, no toggle.

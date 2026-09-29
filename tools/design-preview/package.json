@@ -2,7 +2,7 @@
   "name": "@pro-now/design-preview",
   "version": "0.1.0",
   "private": true,
-  "description": "Developer-only gallery that renders packages/ui components in a browser via react-native-web. Not a shipping target.",
+  "description": "Developer-only gallery that renders the demo's own copy of the UI (lib/ui) in a browser via react-native-web. Not a shipping target.",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -12,8 +12,8 @@
     "lint": "eslint src"
   },
   "dependencies": {
-    "@pro-now/types": "*",
-    "@pro-now/ui": "*",
+    "@pro-now/demo-types": "*",
+    "@pro-now/demo-ui": "*",
     "@types/three": "^0.160.0",
     "pngjs": "^7.0.0",
     "react": "18.2.0",

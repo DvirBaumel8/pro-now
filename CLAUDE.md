@@ -112,17 +112,23 @@ blocks the epic's stated acceptance criteria.
 /apps/pro-mobile        — React Native + Expo + TypeScript
 /apps/admin             — Next.js + TypeScript
 /apps/api               — Node.js + TypeScript (Fastify), Prisma, PostGIS, Redis
-/packages/ui            — shared design-system components
-/packages/types         — shared domain types + provider interfaces
+/packages/ui            — the product's design-system components (not used by the demo)
+/packages/types         — the product's domain types + provider interfaces (not used by the demo)
 /packages/config         — shared config/env schema
 /packages/api-client     — typed client consumed by mobile/admin
 /packages/validation     — shared zod schemas (request/response validation)
-/tools/design-preview    — developer-only browser gallery for packages/ui (not a shipping target)
-                           also hosts the 3D city (`src/city`, three.js) — see EPIC-0-REPORT §26
-                           for why it is here and not in packages/ui
+/tools/design-preview    — THE DEMO (Amit's track, not a shipping target). Self-contained: its own
+                           copies of ui/types in `lib/ui` (@pro-now/demo-ui) and `lib/types`
+                           (@pro-now/demo-types), and the 3D city (`src/city`, three.js).
+                           The demo and the product share no code — see /docs/22-WORKING-MODEL.md
 ```
 
 ## 9. Current status
+
+**Working model (2026-09-29):** Amit works on the demo, Dvir on the product.
+They share no code. The product catches up with the demo through the
+procedure in `/docs/22-WORKING-MODEL.md §4`, starting from the marker in
+`/docs/DEMO-SYNC.md`.
 
 **Start with `/docs/CURRENT-STATE.md`** — who Amit and the reviewer are,
 where the demo, films and tools live, how to publish, the latest

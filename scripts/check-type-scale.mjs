@@ -26,8 +26,8 @@ import { join, relative } from 'node:path';
 
 const SCALE = { display: 56, hero: 44, title: 32, section: 24, body: 17, meta: 14, micro: 12 };
 
-const ROOTS = ['packages/ui/src', 'apps/customer-mobile', 'apps/pro-mobile', 'tools/design-preview/src'];
-const EXEMPT = ['packages/ui/src/theme.ts'];
+const ROOTS = ['packages/ui/src', 'tools/design-preview/lib/ui/src', 'apps/customer-mobile', 'apps/pro-mobile', 'tools/design-preview/src'];
+const EXEMPT = ['packages/ui/src/theme.ts', 'tools/design-preview/lib/ui/src/theme.ts'];
 
 const walk = (dir, out = []) => {
   let entries;

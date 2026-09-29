@@ -14,7 +14,7 @@ import {
   CITY_VEHICLE_IDS,
   CITY_WALKER_IDS,
   CITY_PARK_IDS,
-} from "@pro-now/types";
+} from "@pro-now/demo-types";
 
 import { contactShadow, neonMask } from "./boxRoom";
 import { measureCycle, type Cycle } from "./sheet";
@@ -232,7 +232,7 @@ export {
   CITY_PROP_IDS as PROP_IDS,
   CITY_PLACE_IDS as PLACE_IDS,
   CITY_VEHICLE_IDS as VEHICLE_IDS,
-} from "@pro-now/types";
+} from "@pro-now/demo-types";
 
 /** Every optional id, for the loader to try. */
 export const OPTIONAL_ART: readonly string[] = [

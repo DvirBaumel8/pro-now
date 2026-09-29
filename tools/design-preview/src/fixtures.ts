@@ -1,5 +1,5 @@
-import { buildIntakeBrief, pilotIntakeByService } from "@pro-now/types";
-import type { JobMatchView, OfferCardView } from "@pro-now/types";
+import { buildIntakeBrief, pilotIntakeByService } from "@pro-now/demo-types";
+import type { JobMatchView, OfferCardView } from "@pro-now/demo-types";
 
 /**
  * PREVIEW FIXTURES — developer-only sample payloads for the design gallery.

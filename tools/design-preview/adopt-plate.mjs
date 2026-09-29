@@ -44,7 +44,7 @@ console.log("2. where is the pavement on THIS plate");
 console.log(run(["tools/design-preview/measure-spots.mjs", src, "11"]));
 
 console.log("3. paste the array above into PLATE_SPOTS in");
-console.log("   packages/types/src/world-neighbourhood.ts");
+console.log("   tools/design-preview/lib/types/src/world-neighbourhood.ts");
 console.log("   then: npx vitest run && npm run -w @pro-now/design-preview build");
 console.log(`\n4. the file itself goes to public/world/world_neighbourhood.webp`);
 console.log(`   (currently: ${basename(src)})`);

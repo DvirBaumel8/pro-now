@@ -1,9 +1,9 @@
 import React from "react";
 
-import { travelAssetFor } from "@pro-now/types";
+import { travelAssetFor } from "@pro-now/demo-types";
 import { View, Text, StyleSheet, ScrollView, useWindowDimensions } from "react-native";
 
-import {ActiveJobCapsule, CustomerHomeBody, CustomerProfileBody, customerTheme, JobClosedBody, JobCompleteBody, MatchCard, MatchCardSkeleton, OfferCard, OfferCardSkeleton, Persona, PersonaStack, ProJobBody, ProOfferBody, ProOnlineBody, ProProfileBody, ProQuoteBuilderBody, ProShiftBody, proTheme, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, spacing, TrackingBody, type as t } from "@pro-now/ui";
+import {ActiveJobCapsule, CustomerHomeBody, CustomerProfileBody, customerTheme, JobClosedBody, JobCompleteBody, MatchCard, MatchCardSkeleton, OfferCard, OfferCardSkeleton, Persona, PersonaStack, ProJobBody, ProOfferBody, ProOnlineBody, ProProfileBody, ProQuoteBuilderBody, ProShiftBody, proTheme, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, spacing, TrackingBody, type as t } from "@pro-now/demo-ui";
 
 import {
   FROZEN_NOW_MS,

@@ -11,9 +11,9 @@ carried from a nails order into a towing order, "דמי ביקור" on quote-fir
 
 ## Checks, in order
 
-1. `cd packages/ui && npx vitest run test/catalog-consistency.test.ts` — the guard: money copy per
+1. `cd tools/design-preview/lib/ui && npx vitest run test/catalog-consistency.test.ts` — the guard: money copy per
    pricing kind, trade words per service, price lines per trade, search by name and keyword.
-2. `cd packages/types && npx vitest run` and `cd packages/ui && npx vitest run`.
+2. `cd tools/design-preview/lib/types && npx vitest run` and `cd tools/design-preview/lib/ui && npx vitest run`.
 3. End to end, one service per pricing kind, from `tools/design-preview/qa` with
    `PW_CHROMIUM="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"` and the preview on
    :4421: `node pp_all.mjs "תיקונים בבית" "נזילה או דליפת מים"`, `"ביוטי ושיער" "תספורת"`,

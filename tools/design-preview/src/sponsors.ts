@@ -1,4 +1,4 @@
-import type { SponsorShop } from "@pro-now/types";
+import type { SponsorShop } from "@pro-now/demo-types";
 
 /**
  * THE BRANDS WITH A BUILDING IN THE WORLD — PREVIEW ONLY.

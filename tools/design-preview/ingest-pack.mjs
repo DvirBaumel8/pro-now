@@ -297,7 +297,7 @@ const ids = readdirSync(GALLERY)
   .map((f) => path.basename(f, ".webp"))
   .sort();
 
-const HEAD_GALLERY = `import type { WorldAssetSources } from "@pro-now/ui";
+const HEAD_GALLERY = `import type { WorldAssetSources } from "@pro-now/demo-ui";
 
 /**
  * THE ART THAT HAS ACTUALLY ARRIVED.
@@ -313,7 +313,7 @@ const HEAD_GALLERY = `import type { WorldAssetSources } from "@pro-now/ui";
 export const worldSources: WorldAssetSources = {
 `;
 
-const HEAD_APP = `import type { WorldAssetSources } from "@pro-now/ui";
+const HEAD_APP = `import type { WorldAssetSources } from "@pro-now/demo-ui";
 
 /**
  * THE WORLD'S ART, AS THE APP CAN ACTUALLY LOAD IT.

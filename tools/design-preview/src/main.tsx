@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 
 import { App } from "./App";
 import { Gallery } from "./Gallery";
-import { catalogServicePages, departmentCodeByServiceId } from "@pro-now/ui";
+import { catalogServicePages, departmentCodeByServiceId } from "@pro-now/demo-ui";
 
 import { City, CITY_SHOP_DEPARTMENTS, type CityShot } from "./city/City";
 

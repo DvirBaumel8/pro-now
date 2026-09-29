@@ -203,6 +203,14 @@ and no screen achieves it: *"מחיר נח לכל כיס עם מקצוענים �
 supply-and-price-level strategy. Fairness is the part that can be built
 without inventing a business rule.
 
+### DECIDED 2026-09-29 — the demo and the product are separate tracks
+Amit works on the demo (`tools/design-preview`). Dvir works on the product
+(`apps/*`, `packages/*`). Both commit to `master`. The two share no code:
+the demo has its own forked copies in `tools/design-preview/lib/{ui,types}`,
+and `npm run lint` enforces the split. The product catches up with the demo
+on request, starting from the marker in `docs/DEMO-SYNC.md`. The full model
+is in `docs/22-WORKING-MODEL.md`.
+
 ### DECIDED 2026-09-29 — two kinds of work, and what goes through the app
 
 Amit: *"אין לי דרך לעקוף את זה שהוא ייתן הצעת מחיר במקום ואז יגידו לו עזוב

@@ -32,7 +32,7 @@ const {
   inCarriageway,
   worldToMetres,
   DISTRICT_SITES,
-} = require_("../../packages/types/src/index.ts");
+} = require_("./lib/types/src/index.ts");
 
 const path = process.argv[2];
 if (!path) {

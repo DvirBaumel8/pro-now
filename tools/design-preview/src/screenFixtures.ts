@@ -1,4 +1,4 @@
-import type { AreaAvailabilityView, QuoteView } from "@pro-now/types";
+import type { AreaAvailabilityView, QuoteView } from "@pro-now/demo-types";
 import type {
   CallListItem,
   ChatMessage,
@@ -18,7 +18,7 @@ import type {
   ServiceMatchRule,
   ServiceDetailBodyProps,
   VerificationStep,
-} from "@pro-now/ui";
+} from "@pro-now/demo-ui";
 
 /**
  * PREVIEW FIXTURES for the full-screen compositions.

@@ -8,7 +8,7 @@ import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
 
 import { buildPlayer } from "./player";
 import { measureCycle } from "./sheet";
-import { SPONSOR_BADGE_HE, sponsorCtaHe, sponsorLeaveHe } from "@pro-now/types";
+import { SPONSOR_BADGE_HE, sponsorCtaHe, sponsorLeaveHe } from "@pro-now/demo-types";
 /*
  * The type scale, which this file had been quietly outside of.
  *
@@ -20,7 +20,7 @@ import { SPONSOR_BADGE_HE, sponsorCtaHe, sponsorLeaveHe } from "@pro-now/types";
  * nothing". The city's panels are the same product as the screens and
  * they read the same scale now.
  */
-import { scale } from "@pro-now/ui";
+import { scale } from "@pro-now/demo-ui";
 
 import { PREVIEW_SPONSORS } from "../sponsors";
 import { buildPanoRoom, PANO_STAND_RADIUS, type PanoRoom } from "./panoRoom";

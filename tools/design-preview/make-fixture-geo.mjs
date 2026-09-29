@@ -159,6 +159,6 @@ const geo = {
 };
 
 mkdirSync("tools/design-preview/geo", { recursive: true });
-writeFileSync("packages/types/test/fixtures/fixture_grid.json", JSON.stringify(geo));
+writeFileSync("tools/design-preview/lib/types/test/fixtures/fixture_grid.json", JSON.stringify(geo));
 writeFileSync("tools/design-preview/geo/fixture_grid.json", JSON.stringify(geo));
 console.log(`fixture: ${ways.length} roads · ${areas.filter((a) => a.kind === "PLOT").length} plots · ${SIZE}m square`);

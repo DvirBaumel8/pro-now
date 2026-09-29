@@ -10,7 +10,7 @@ import { CARD_REST, customerCategoryById, categoryForDepartment, liveAreaLineHe,
   supportEmailUrl,
   supportHoursHe,
   whatsappUrl,
-} from "@pro-now/types";
+} from "@pro-now/demo-types";
 import {
   discover,
   emptyDiscoveries,
@@ -18,13 +18,13 @@ import {
   GROUND_MATERIAL_IDS,
   type DiscoveryState,
   type WorldGeo,
-} from "@pro-now/types";
-import { AVATARS, avatarById, formatMoney, greetingAt, money, screenKey, travelAssetFor, VISIT_ORDER, withAfterHours, type AvatarChoice, type PriceListItem } from "@pro-now/types";
-import { matchServicesByText } from "@pro-now/ui";
+} from "@pro-now/demo-types";
+import { AVATARS, avatarById, formatMoney, greetingAt, money, screenKey, travelAssetFor, VISIT_ORDER, withAfterHours, type AvatarChoice, type PriceListItem } from "@pro-now/demo-types";
+import { matchServicesByText } from "@pro-now/demo-ui";
 import { canSaveSession, clearSession, loadSession, saveSession, savedAgoHe } from "./session";
-import { HAIR_DISCOVERY_IDS } from "@pro-now/ui";
+import { HAIR_DISCOVERY_IDS } from "@pro-now/demo-ui";
 
-import type { WorldAssetSources } from "@pro-now/ui";
+import type { WorldAssetSources } from "@pro-now/demo-ui";
 import { worldSources } from "./worldSources";
 import { City, CITY_SHOP_DEPARTMENTS } from "./city/City";
 import CITY_PHONE_FILES from "./city/phoneFiles.json";
@@ -63,12 +63,12 @@ const proWorldSources: WorldAssetSources = Object.fromEntries(
 
 import fixtureGeo from "../geo/fixture_grid.json";
 
-import { ActiveJobCapsule, AddressPickerBody, AppHeader, AppMenuBody, AvatarPickerBody, IntroBody, customerDarkTheme, FocusSheet, ScreenTransition, ArrivalVerifyBody, OnSiteBody, CallsListBody, CAPSULE_HEIGHT, ChatBody, ConnectionBanner, CategoryBody, CustomerHomeBody, CustomerProfileBody, customerTheme, DescribeFaultBody, JobClosedBody, JobCompleteBody, MatchConfirmBody, NavGlyph, Persona, PhoneAuthBody, ProEarningsBody, ProJobBody, ProJobSettledBody, ProOfferBody, ProOnlineBody, ProPricingBody, ProProfileBody, ProQuoteBuilderBody, ProServicesBody, ProShiftBody, proTheme, ProVerificationBody, ProVerificationStepBody, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, SponsorShopBody, AdvertiseBody, StrollBody, Sheet, spacing, tint, TrackingBody, type as t, WelcomeBody } from "@pro-now/ui";
-import type { JobMediaItem, LiveLocationState, MarkName, NavGlyphName, ProPricingRow } from "@pro-now/ui";
-import type { AuthStage, ChatMessage, ConnectionState } from "@pro-now/ui";
-import { canHandOffToMaps, categoryAsksForPerson, mapsHandoffUrl, buildIntakeBrief, pilotIntakeByService, pilotServiceById, pricingKindOf, readAvailability, visitTermsHe } from "@pro-now/types";
-import type { IntakeAnswer, IntakeBriefLine, MapsPlatform, OfferCardView, PriceModel } from "@pro-now/types";
-import type { JobState, ProPresenceState } from "@pro-now/types";
+import { ActiveJobCapsule, AddressPickerBody, AppHeader, AppMenuBody, AvatarPickerBody, IntroBody, customerDarkTheme, FocusSheet, ScreenTransition, ArrivalVerifyBody, OnSiteBody, CallsListBody, CAPSULE_HEIGHT, ChatBody, ConnectionBanner, CategoryBody, CustomerHomeBody, CustomerProfileBody, customerTheme, DescribeFaultBody, JobClosedBody, JobCompleteBody, MatchConfirmBody, NavGlyph, Persona, PhoneAuthBody, ProEarningsBody, ProJobBody, ProJobSettledBody, ProOfferBody, ProOnlineBody, ProPricingBody, ProProfileBody, ProQuoteBuilderBody, ProServicesBody, ProShiftBody, proTheme, ProVerificationBody, ProVerificationStepBody, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, SponsorShopBody, AdvertiseBody, StrollBody, Sheet, spacing, tint, TrackingBody, type as t, WelcomeBody } from "@pro-now/demo-ui";
+import type { JobMediaItem, LiveLocationState, MarkName, NavGlyphName, ProPricingRow } from "@pro-now/demo-ui";
+import type { AuthStage, ChatMessage, ConnectionState } from "@pro-now/demo-ui";
+import { canHandOffToMaps, categoryAsksForPerson, mapsHandoffUrl, buildIntakeBrief, pilotIntakeByService, pilotServiceById, pricingKindOf, readAvailability, visitTermsHe } from "@pro-now/demo-types";
+import type { IntakeAnswer, IntakeBriefLine, MapsPlatform, OfferCardView, PriceModel } from "@pro-now/demo-types";
+import type { JobState, ProPresenceState } from "@pro-now/demo-types";
 
 import { goBack, installBackGesture, pushBackEntry, readScroll, restoreScroll, setBackHandler } from "./backGesture";
 import { matchFixture, offerFixture } from "./fixtures";
@@ -94,7 +94,7 @@ import {
   photoPromptFor,
   pricingRowsFor,
   togglesFor,
-} from "@pro-now/ui";
+} from "@pro-now/demo-ui";
 import { useCapture } from "./useCapture";
 import {
   availabilitySnapshot,

@@ -10,7 +10,7 @@ You are the Hebrew UX writer of PRO NOW. Amit reads every word; a wrong word in 
 
 ## Rules the copy must obey
 
-- Every service is paid one of five ways — `pricingKindOf()` in `packages/types/src/catalog.ts`:
+- Every service is paid one of five ways — `pricingKindOf()` in `tools/design-preview/lib/types/src/catalog.ts`:
   LIST (price list, held, released after completion) · VISIT (only the visit fee in the app; the
   work itself is settled directly) · QUOTE_FIRST (one pro prices it before setting off) · HOURLY ·
   DISTANCE. A sentence about money must match the kind. Trade nouns come from `visitTermsHe()`
@@ -24,10 +24,10 @@ You are the Hebrew UX writer of PRO NOW. Amit reads every word; a wrong word in 
 
 ## How you work
 
-1. Run the guard first: `cd packages/ui && npx vitest run test/catalog-consistency.test.ts`.
+1. Run the guard first: `cd tools/design-preview/lib/ui && npx vitest run test/catalog-consistency.test.ts`.
 2. Take screenshots of the flows you audit (see `.claude/agents/ux-director.md` step 3 for the QA
    scripts) and read them — the screen is the truth, not the source.
-3. Grep the source for each string you want changed (`packages/ui/src`, `packages/types/src`,
+3. Grep the source for each string you want changed (`tools/design-preview/lib/ui/src`, `tools/design-preview/lib/types/src`,
    `tools/design-preview/src/App.tsx`).
 4. Return a table: `file:line | now | should be | why`. Group by service and side
    (customer / professional). Flag anything that should become a rule in the guard test.
