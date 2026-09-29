@@ -1,4 +1,5 @@
 import type { IntakeAnswer } from "@pro-now/types";
+import type { CaptureUpload } from "../media";
 
 /** Screen map — mirrors /docs/02-UX-FLOWS.md §Customer screens (C04-C15). */
 export type CustomerStackParamList = {
@@ -51,6 +52,7 @@ export type CustomerStackParamList = {
     serviceName: string;
     describedHe?: string;
     intakeAnswers?: IntakeAnswer[];
+    media?: CaptureUpload[];
   };
   Searching: { jobId: string };
   /*

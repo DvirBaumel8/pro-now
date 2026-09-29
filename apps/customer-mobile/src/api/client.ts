@@ -1,4 +1,5 @@
 import Constants from "expo-constants";
+import * as FileSystem from "expo-file-system";
 import type {
   AddressView,
   CatalogResponse,
@@ -125,10 +126,36 @@ export const api = {
       description?: string;
       /** The intake answers, keyed by question id. See AddressScreen. */
       structuredAnswers?: Record<string, unknown>;
+      mediaRefs?: string[];
     },
     idempotencyKey: string
   ) =>
     request<{ job: JobView; dispatch: DispatchResultView }>("/v1/jobs", { method: "POST", headers: { "Idempotency-Key": idempotencyKey }, body: JSON.stringify(input) }),
+  uploadMedia: async (input: { kind: "PHOTO" | "VOICE_NOTE"; mime: string; uri: string }) => {
+    const info = await FileSystem.getInfoAsync(input.uri, { size: true });
+    if (!info.exists || typeof info.size !== "number") {
+      throw new ApiError("The captured file is no longer available", "UPLOAD_FILE_NOT_FOUND", null);
+    }
+
+    const prepared = await request<{
+      upload: { id: string };
+      uploadUrl: string;
+    }>("/v1/uploads", {
+      method: "POST",
+      body: JSON.stringify({ kind: input.kind, mime: input.mime, bytes: info.size }),
+    });
+    const uploaded = await FileSystem.uploadAsync(prepared.uploadUrl, input.uri, {
+      httpMethod: "PUT",
+      uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+      headers: { "Content-Type": input.mime },
+    });
+    if (uploaded.status < 200 || uploaded.status >= 300) {
+      throw new ApiError("The captured file could not be uploaded", "STORAGE_UPLOAD_FAILED", uploaded.status);
+    }
+    return request<{ upload: { id: string; status: string } }>(`/v1/uploads/${prepared.upload.id}/complete`, {
+      method: "POST",
+    });
+  },
   getJob: (id: string) => request<{ job: JobView }>(`/v1/jobs/${id}`),
   /*
    * Stopping the request. The searching screen offered "ביטול הבקשה" and

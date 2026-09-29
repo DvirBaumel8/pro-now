@@ -44,7 +44,7 @@ type Props = NativeStackScreenProps<CustomerStackParamList, "Address">;
  * with no position cannot be dispatched against.
  */
 export function AddressScreen({ route, navigation }: Props) {
-  const { serviceId, describedHe, intakeAnswers } = route.params;
+  const { serviceId, describedHe, intakeAnswers, media = [] } = route.params;
   const { width, height } = useWindowDimensions();
 
   const [saved, setSaved] = useState<SavedAddress[]>([]);
@@ -174,6 +174,9 @@ export function AddressScreen({ route, navigation }: Props) {
               serviceId: dispatchServiceId,
               addressId,
               description: describedHe?.trim() || undefined,
+              mediaRefs: (await Promise.all(media.map((item) => api.uploadMedia(item)))).map(
+                ({ upload }) => upload.id
+              ),
               /*
                * Keyed by question id, which is the shape `structuredAnswers`
                * has on the job and the shape `buildIntakeBrief` reads back.
@@ -212,7 +215,7 @@ export function AddressScreen({ route, navigation }: Props) {
         }
       })();
     },
-    [sending, liveFix, serviceId, describedHe, intakeAnswers, navigation]
+    [sending, liveFix, serviceId, describedHe, intakeAnswers, media, navigation]
   );
 
   return (

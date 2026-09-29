@@ -110,6 +110,7 @@ export function useCapture(photoSubjectHe: string): Capture {
             id: `${Date.now()}_${i}`,
             uri: a.uri,
             subjectHe: photoSubjectHe,
+            mimeType: a.mimeType,
           })),
         ]);
       } catch {
@@ -176,7 +177,7 @@ export function useCapture(photoSubjectHe: string): Capture {
           "durationMillis" in status && typeof status.durationMillis === "number"
             ? Math.round(status.durationMillis / 1000)
             : recordSeconds;
-        setVoice({ uri: uri ?? null, seconds });
+        setVoice({ uri: uri ?? null, seconds, mimeType: "audio/mp4" });
       } catch {
         setVoice(null);
       }

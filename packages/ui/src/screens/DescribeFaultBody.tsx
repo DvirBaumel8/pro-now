@@ -61,11 +61,15 @@ export interface FaultPhoto {
   /** Local preview URL. Null renders the honest placeholder instead. */
   uri: string | null;
   subjectHe: string;
+  /** Native picker MIME type, when the platform reports one. */
+  mimeType?: string;
 }
 
 export interface FaultVoice {
   uri: string | null;
   seconds: number;
+  /** Native recorder MIME type. */
+  mimeType?: string;
 }
 
 export interface DescribeFaultBodyProps {

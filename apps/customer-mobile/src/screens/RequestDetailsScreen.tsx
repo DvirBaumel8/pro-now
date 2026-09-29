@@ -17,6 +17,7 @@ import {
 
 import type { CustomerStackParamList } from "../navigation/types";
 import { useCapture } from "../capture/useCapture";
+import { captureUploads } from "../media";
 
 type Props = NativeStackScreenProps<CustomerStackParamList, "RequestDetails">;
 
@@ -99,8 +100,9 @@ export function RequestDetailsScreen({ route, navigation }: Props) {
        * taken the trouble to say.
        */
       intakeAnswers: answers,
+      media: captureUploads(capture.photos, capture.voice),
     });
-  }, [navigation, serviceId, serviceName, page, text, answers]);
+  }, [navigation, serviceId, serviceName, page, text, answers, capture.photos, capture.voice]);
 
   return (
     <View style={{ flex: 1, backgroundColor: customerDarkTheme.colors.bg }}>
