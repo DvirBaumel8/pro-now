@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useNavigate, useParams } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "@pro-now/api-client";
@@ -166,19 +166,31 @@ export function Job() {
 
   if (SEARCHING.has(data.status)) {
     const elapsedSeconds = Math.max(0, Math.round((Date.now() - new Date(data.createdAt).getTime()) / 1000));
+    /*
+     * The search has no cancel of its own in the shared screen (its
+     * "leave" belongs to the card after assignment), so the customer's way
+     * out while nobody is found yet sits here.
+     */
     return withError(
-      <SearchingBody
-        backdrop={<CityHero />}
-        serviceNameHe={serviceNameHe}
-        elapsedSeconds={elapsedSeconds}
-        departmentCode={departmentCode ?? undefined}
-        onSiteNameHe={onSite?.name ?? null}
-        onOpenOnSite={shareOnSite}
-        onLeaveWait={cancel}
-        onBack={() => navigate("/")}
-        width={width}
-        height={height}
-      />
+      <>
+        <SearchingBody
+          backdrop={<CityHero />}
+          serviceNameHe={serviceNameHe}
+          elapsedSeconds={elapsedSeconds}
+          departmentCode={departmentCode ?? undefined}
+          onSiteNameHe={onSite?.name ?? null}
+          onOpenOnSite={shareOnSite}
+          onLeaveWait={cancel}
+          onBack={() => navigate("/")}
+          width={width}
+          height={height}
+        />
+        {cancel ? (
+          <Pressable onPress={cancel} accessibilityRole="button" style={styles.cancelSearch}>
+            <Text style={styles.cancelSearchText}>ביטול הקריאה</Text>
+          </Pressable>
+        ) : null}
+      </>
     );
   }
 
@@ -305,6 +317,16 @@ const styles = StyleSheet.create({
   },
   title: { ...t.h2, color: colors.textPrimary, textAlign: "center", writingDirection: "rtl" },
   soft: { ...t.body, color: colors.textSecondary, textAlign: "center", writingDirection: "rtl", marginTop: spacing.sm },
+  cancelSearch: {
+    position: "absolute",
+    bottom: spacing.xxl + spacing.lg,
+    alignSelf: "center",
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: 999,
+    backgroundColor: "rgba(14,10,20,0.72)",
+  },
+  cancelSearchText: { ...t.body, color: colors.textPrimary, writingDirection: "rtl" },
   notice: {
     position: "absolute",
     bottom: spacing.xl,

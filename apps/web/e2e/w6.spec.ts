@@ -76,3 +76,20 @@ test("from a typed sentence to a review, with no money in the app", async ({ pag
     await pro.dispose();
   }
 });
+
+test("the customer can cancel while nobody has been found yet", async ({ page, baseURL }) => {
+  page.on("dialog", (d) => void d.accept());
+  await signInByEmail(page, uniqueEmail("e2e-w6-cancel"));
+  await finishFirstRun(page);
+  await page.request.post("/api/v1/me/addresses", {
+    data: { formatted: "הרצל 2, תל אביב", lat: LAT, lng: LNG },
+    headers: { origin: baseURL! },
+  });
+  await page.getByRole("textbox", { name: "ספרו מה צריך" }).fill("המזגן לא מקרר");
+  await page.getByRole("button", { name: /המשך עם מזגן/ }).click();
+  await page.getByRole("button", { name: "שליחת הקריאה" }).click();
+  await expect(page.getByText("מחפשים מי זמין עכשיו")).toBeVisible();
+  await page.getByRole("button", { name: "ביטול הקריאה" }).click();
+  await expect(page.getByText("הקריאה בוטלה")).toBeVisible();
+  await expect(page.getByText("לא נגבה דבר.")).toBeVisible();
+});
