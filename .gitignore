@@ -28,3 +28,4 @@ tools/design-preview/qa/*.log
 # Playwright
 apps/web/test-results/
 apps/web/playwright-report/
+apps/web/parity-report/

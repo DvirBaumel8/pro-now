@@ -22,6 +22,7 @@
     "test": "npm run test --workspaces --if-present",
     "test:int": "npm run test:int -w apps/api",
     "test:e2e": "npm run e2e -w apps/web",
+    "parity": "npm run parity -w apps/web",
     "db:migrate": "npm run db:migrate -w apps/api",
     "db:seed": "npm run db:seed -w apps/api",
     "db:seed:dev": "npm run db:seed:dev -w apps/api",
@@ -62,5 +63,8 @@
   },
   "engines": {
     "node": ">=22.12"
+  },
+  "overrides": {
+    "react-native-svg": "15.2.0"
   }
 }

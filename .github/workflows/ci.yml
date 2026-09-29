@@ -31,6 +31,11 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run verify:domain
+      # Both front ends must still build. The demo is Amit's and the product
+      # is Dvir's, but they share one lockfile: a product dependency change
+      # once broke the demo's build unnoticed (react-native-svg 15.15).
+      - run: npm run preview:build
+      - run: npm run build -w apps/web
 
   database:
     name: Migrations and row lock on real Postgres + PostGIS
