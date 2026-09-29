@@ -214,7 +214,7 @@ type Gate =
    */
   | { name: "intro"; side: Side }
   /** A new professional joining — see ProOnboardingBody (Amit, 2026-09-29). */
-  | { name: "onboard"; initial?: OnboardingResult | null }
+  | { name: "onboard"; initial?: OnboardingResult | null; startStep?: number; approved?: boolean }
   /** Sent for approval: work arrives only after PRO NOW approves. */
   | { name: "onboardSent"; result: OnboardingResult }
   /** Approved (demo): the shop opens. */
@@ -555,9 +555,16 @@ export function App() {
    */
   /* `introSeenV2`: the explainer was rewritten on 2026-09-25, so anybody
      who saw the old one is shown the new one once. */
-  const introSeen = useRef(restored?.introSeenV2 ?? false);
+  /* Per side: the customer's explanation and the professional's are different screens. */
+  const introSeenBy = useRef<Record<Side, boolean>>({
+    customer: restored?.introSeenSides?.includes("customer") ?? restored?.introSeenV2 ?? false,
+    pro: restored?.introSeenSides?.includes("pro") ?? false,
+  });
   /** Whether this device's professional has been through joining (the demo). */
   const proOnboarded = useRef(restored?.proOnboarded ?? false);
+  /** Phone numbers that have finished signing up, per side (demo: kept on this device). */
+  const registered = useRef<Record<string, { customer?: boolean; pro?: boolean }>>(restored?.registered ?? {});
+  const lastPhone = useRef<string | null>(null);
   /**
    * Whether any avatar art has actually arrived.
    *
@@ -903,10 +910,27 @@ export function App() {
         ) : gate?.name === "auth" ? (
           <AuthGate
             side={gate.side}
-            onDone={() => {
+            onDone={(phone) => {
               authedSides.current.add(gate.side);
               saveSession({ authedSides: [...authedSides.current] });
               setSide(gate.side);
+              lastPhone.current = phone;
+              /*
+               * SOMEBODY WHO IS ALREADY REGISTERED GOES STRAIGHT IN (Amit,
+               * 2026-09-30: "מקצוען שכבר נרשם… ישר ייכנס לעמוד שלו… צריך
+               * לחשוב על כולם"). The same number on this side before means no
+               * explanation, no character, no joining — his own page.
+               */
+              if (registered.current[phone]?.[gate.side]) {
+                if (gate.side === "pro") proOnboarded.current = true;
+                introSeenBy.current[gate.side] = true;
+                setGate(null);
+                return;
+              }
+              if (gate.side === "customer") {
+                registered.current = { ...registered.current, [phone]: { ...registered.current[phone], customer: true } };
+                saveSession({ registered: registered.current });
+              }
               /*
                * A customer who has never been asked meets the avatar once
                * — BUT ONLY IF THERE ARE FACES TO CHOOSE BETWEEN.
@@ -933,7 +957,7 @@ export function App() {
                * strange question until somebody has been told there is a
                * city to be one of them in.
                */
-              if (!introSeen.current) {
+              if (!introSeenBy.current[gate.side]) {
                 setGate({ name: "intro", side: gate.side });
                 return;
               }
@@ -1012,8 +1036,8 @@ export function App() {
              *   background={<City hud={false} shot={INTRO_SHOTS[introSlide]} />}
              */
             onDone={() => {
-              introSeen.current = true;
-              saveSession({ introSeenV2: true });
+              introSeenBy.current[gate.side] = true;
+              saveSession({ introSeenV2: true, introSeenSides: (Object.keys(introSeenBy.current) as Side[]).filter((k) => introSeenBy.current[k]) });
               if (gate.side === "pro" && !proOnboarded.current) {
                 setGate({ name: "onboard" });
                 return;
@@ -1036,11 +1060,15 @@ export function App() {
             areaMapUri="./world/world_neighbourhood.webp"
             lineupUris={["home", "hair", "auto", "pets", "care"].map((id) => `./world/character_${id}_icon.webp`)}
             initial={gate.initial ?? null}
+            startStep={gate.startStep}
             onExit={() => setGate({ name: "welcome" })}
             onDone={(r) => {
               proOnboarded.current = true;
-              saveSession({ proOnboarded: true });
-              setGate({ name: "onboardSent", result: r });
+              const ph = lastPhone.current;
+              if (ph) registered.current = { ...registered.current, [ph]: { ...registered.current[ph], pro: true } };
+              saveSession({ proOnboarded: true, registered: registered.current });
+              /* Designing the shop after approval returns to the open shop, not to the queue. */
+              setGate(gate.approved ? { name: "shopOpen", result: r } : { name: "onboardSent", result: r });
             }}
             width={w}
             height={h - bannerH}
@@ -1058,6 +1086,7 @@ export function App() {
           <ShopOpen
             result={gate.result}
             facadeUri={onboardShopFor(gate.result.serviceIds[0] ?? null).facadeUri}
+            onDesign={gate.result.shopSkipped ? () => setGate({ name: "onboard", initial: gate.result, startStep: 5, approved: true }) : undefined}
             onStart={() => {
               setSide("pro");
               setGate(null);
@@ -1107,6 +1136,11 @@ export function App() {
             height={h - bannerH}
             onSwitch={() => switchTo("pro")}
             onStartOnboarding={() => setGate({ name: "onboard" })}
+            onSignOut={() => {
+              authedSides.current.clear();
+              saveSession({ authedSides: [] });
+              setGate({ name: "welcome" });
+            }}
             onBackOut={backOut}
             onSendRequest={(r) => {
               setLiveRequest(r);
@@ -1313,7 +1347,8 @@ function AuthGate({
   height,
 }: {
   side: Side;
-  onDone: () => void;
+  /** Signed in: the verified phone number, digits only. */
+  onDone: (phone: string) => void;
   onBack: () => void;
   width: number;
   height: number;
@@ -1365,7 +1400,7 @@ function AuthGate({
         setBusy(true);
         setTimeout(() => {
           setBusy(false);
-          onDone();
+          onDone(phone.replace(/\D/g, ""));
         }, 600);
       }}
       onResend={() => setResendIn(30)}
@@ -1516,7 +1551,7 @@ function OnboardSent({ shopNameHe, color, onEdit, onApprove, width, height }: { 
  * THE SHOP OPENS — the moment approval lands. His facade, his sign lighting
  * letter by letter in his colour, one line, one button (design review).
  */
-function ShopOpen({ result, facadeUri, onStart, width, height }: { result: OnboardingResult; facadeUri: string; onStart: () => void; width: number; height: number }) {
+function ShopOpen({ result, facadeUri, onStart, onDesign, width, height }: { result: OnboardingResult; facadeUri: string; onStart: () => void; onDesign?: () => void; width: number; height: number }) {
   const name = result.shopNameHe || result.nameHe || "החנות שלך";
   const [lit, setLit] = useState(0);
   useEffect(() => {
@@ -1547,6 +1582,11 @@ function ShopOpen({ result, facadeUri, onStart, width, height }: { result: Onboa
           לקוחות כבר רואים אותך ברחוב. מתחברים — והקריאות מגיעות לפי איפה שאתה.
         </div>
       </div>
+      {onDesign ? (
+        <Pressable onPress={onDesign} accessibilityRole="button" style={{ position: "absolute", bottom: 96, minHeight: 44, justifyContent: "center", paddingHorizontal: 16 }}>
+          <Text style={{ color: "#FF9A6B", fontSize: scale.meta, fontWeight: "800" }}>לעצב את החנות — לוגו, צבעים ושלט</Text>
+        </Pressable>
+      ) : null}
       <Pressable onPress={onStart} accessibilityRole="button" style={({ pressed }) => ({ position: "absolute", left: 24, right: 24, bottom: 28, height: 56, borderRadius: 28, alignItems: "center", justifyContent: "center", backgroundColor: "#FF5C38", transform: [{ scale: pressed ? 0.98 : 1 }] })}>
         <Text style={{ color: "#fff", fontSize: scale.body, fontWeight: "900" }}>להתחיל משמרת</Text>
       </Pressable>
@@ -1569,6 +1609,7 @@ function CustomerApp({
   height,
   onSwitch,
   onStartOnboarding,
+  onSignOut,
   onBackOut,
   onSendRequest,
   preQuote = null,
@@ -1607,6 +1648,8 @@ function CustomerApp({
   onSwitch: () => void;
   /** Demo: walk through joining as a new professional. */
   onStartOnboarding?: () => void;
+  /** Sign out: the next sign-in with a registered number goes straight in. */
+  onSignOut?: () => void;
   /** A price named before dispatch, and approving it (quote-first services). */
   preQuote?: { serviceId: string; amount: number; notesHe: string } | null;
   onApprovePreQuote?: (amount: number) => void;
@@ -2931,6 +2974,12 @@ const go = useCallback((r: CustomerRoute) => {
                   labelHe: "החשבון שלי",
                   detailHe: "פרטים, אמצעי תשלום והיסטוריית חיובים",
                   onPress: () => goTab("card"),
+                },
+                {
+                  id: "signout",
+                  labelHe: "התנתקות",
+                  detailHe: "כניסה חוזרת עם אותו מספר — ישר לעמוד שלך",
+                  onPress: onSignOut,
                 },
                 {
                   id: "address",

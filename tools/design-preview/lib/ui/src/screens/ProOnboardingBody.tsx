@@ -44,6 +44,8 @@ export interface OnboardingResult {
   brandColor: string;
   logoUri: string | null;
   photoUri: string | null;
+  /** He skipped designing the shop — it opens with our defaults, to design later. */
+  shopSkipped: boolean;
   city: string;
   radiusKm: number;
 }
@@ -66,6 +68,8 @@ export interface ProOnboardingBodyProps {
   onDone: (r: OnboardingResult) => void;
   /** Coming back to edit after sending: start from what was sent. */
   initial?: OnboardingResult | null;
+  /** Open at a given step (e.g. 5 to design the shop later). */
+  startStep?: number;
   onExit?: () => void;
   width: number;
   height: number;
@@ -93,10 +97,12 @@ export function ProOnboardingBody({
   onDone,
   onExit,
   initial = null,
+  startStep,
   width,
   height,
 }: ProOnboardingBodyProps) {
-  const [step, setStep] = useState(initial ? 7 : 0);
+  const [step, setStep] = useState(startStep ?? (initial ? 7 : 0));
+  const [shopSkipped, setShopSkipped] = useState(initial?.shopSkipped ?? false);
   /* 1 — what you do */
   const [about, setAbout] = useState("");
   const [picked, setPicked] = useState<string[]>(initial?.serviceIds ?? []);
@@ -144,6 +150,19 @@ export function ProOnboardingBody({
   const firstTrade = picked[0] ?? null;
   const shop = shopFor(firstTrade);
 
+  /* Every price he offers must be a real number: fees, rates and each list line with a name. */
+  const pricesMissing = picked.reduce((n, id) => {
+    const x = byId[id];
+    if (!x) return n;
+    if (x.kind === "VISIT") return n + ((splitVisit ? prices[id] ?? x.visitFee : prices.__visit ?? byId[visitIds[0]!]?.visitFee) ? 0 : 1);
+    if (x.kind === "HOURLY") return n + ((prices[id] ?? x.hourly) ? 0 : 1);
+    if (x.kind === "DISTANCE") return n + ((prices[id] ?? x.deliveryBase) ? 0 : 1);
+    if (x.kind === "LIST") {
+      const rows = lines[id] ?? x.list ?? [];
+      return n + (rows.length === 0 ? 1 : rows.filter((r) => !r.nameHe.trim() || !r.amountMinorUnits).length);
+    }
+    return n;
+  }, 0);
   const mustDocs = docs.filter((x) => x.level !== "RECOMMENDED" && !x.whenHe);
   const mustLeft = mustDocs.filter((x) => !files[x.id]).length;
   const canNext = [
@@ -151,7 +170,7 @@ export function ProOnboardingBody({
     picked.length + custom.length > 0,
     name.trim().length > 1 && Boolean(dealer) && city.trim().length > 1,
     mustLeft === 0,
-    true,
+    pricesMissing === 0,
     shopName.trim().length > 0,
     Boolean(photo) || useCharacter,
     true,
@@ -161,7 +180,7 @@ export function ProOnboardingBody({
     "בחר לפחות שירות אחד",
     "חסרים שם, סוג עוסק ועיר בסיס",
     mustLeft === 1 ? "עוד מסמך חובה אחד" : `עוד ${mustLeft} מסמכי חובה`,
-    "",
+    pricesMissing === 1 ? "חסר מחיר אחד" : `חסרים ${pricesMissing} מחירים`,
     "חסר שם לשלט",
     "בחר תמונה או דמות",
     "",
@@ -461,7 +480,7 @@ export function ProOnboardingBody({
               <View style={[s.glow, { backgroundColor: color }]} />
             </View>
             <Text style={s.label}>השם על השלט</Text>
-            <TextInput value={shopName} onChangeText={setShopName} maxLength={22} style={s.input} textAlign="right" accessibilityLabel="השם על השלט" />
+            <TextInput value={shopName} onChangeText={(t) => { setShopName(t); setShopSkipped(false); }} maxLength={22} style={s.input} textAlign="right" accessibilityLabel="השם על השלט" />
             <Text style={s.label}>לוגו (לא חובה)</Text>
             <Pressable
               onPress={async () => {
@@ -541,7 +560,7 @@ export function ProOnboardingBody({
               { t: "אזור", v: `${city || "—"} · ${radius} ק״מ`, to: 2 },
               { t: "מסמכים", v: `${mustDocs.length - mustLeft}/${mustDocs.length} חובה${Object.keys(files).filter((k) => docs.some((d) => d.id === k && d.level === "RECOMMENDED")).length ? " · + מומלצים" : ""}`, to: 3 },
               { t: "מחירים", v: visitIds.length ? `דמי ביקור ${ils(prices.__visit ?? byId[visitIds[0]!]?.visitFee)}` : "לפי המחירון שלך", to: 4 },
-              { t: "החנות", v: shopName, to: 5 },
+              { t: "החנות", v: shopSkipped ? `${shopName} · עיצוב ברירת מחדל, אפשר אחר כך` : shopName, to: 5 },
             ].map((r) => (
               <Pressable key={r.t} onPress={() => setStep(r.to)} accessibilityRole="button" accessibilityLabel={`עריכת ${r.t}`} style={s.sumRow}>
                 <Text style={s.sumLabel}>{r.t}</Text>
@@ -585,11 +604,25 @@ export function ProOnboardingBody({
         {body}
       </ScrollView>
       <View style={s.foot}>
+        {/* Only the shop's design may wait (Amit, 2026-09-30): everything
+            required stays required — prices included. */}
+        {step === 5 ? (
+          <Pressable
+            onPress={() => {
+              setShopSkipped(true);
+              setStep((n) => n + 1);
+            }}
+            accessibilityRole="button"
+            style={s.skip}
+          >
+            <Text style={s.skipText}>דלג — אעצב את החנות אחר כך</Text>
+          </Pressable>
+        ) : null}
         <Pressable
           onPress={() => {
             if (!canNext) return;
             if (step === STEPS.length - 1) {
-              onDone({ nameHe: name, businessHe: business, serviceIds: picked, customServicesHe: custom, shopNameHe: shopName, brandColor: color, logoUri: logo, photoUri: useCharacter ? null : photo ?? files.SELFIE?.uri ?? null, city, radiusKm: radius });
+              onDone({ nameHe: name, businessHe: business, serviceIds: picked, customServicesHe: custom, shopNameHe: shopName, brandColor: color, shopSkipped, logoUri: logo, photoUri: useCharacter ? null : photo ?? files.SELFIE?.uri ?? null, city, radiusKm: radius });
               return;
             }
             setStep((n) => n + 1);
@@ -766,6 +799,8 @@ const s = StyleSheet.create({
   approvalNum: { color: "#fff", fontSize: scale.meta, fontWeight: "900" },
   approvalText: { color: "rgba(247,243,250,0.85)", fontSize: scale.meta, fontWeight: "700", textAlign: "right", flex: 1 },
   foot: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.lg, backgroundColor: INK, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.05)" },
+  skip: { alignSelf: "center", minHeight: 44, justifyContent: "center", paddingHorizontal: 12, marginBottom: 2 },
+  skipText: { color: "rgba(247,243,250,0.75)", fontSize: scale.meta, fontWeight: "700", textDecorationLine: "underline" },
   whyNot: { color: "rgba(247,243,250,0.55)", fontSize: scale.micro, textAlign: "center", marginBottom: 6 },
   cta: { height: 56, borderRadius: 28, alignItems: "center", justifyContent: "center", backgroundColor: palette.signal500, ...({ backgroundImage: "linear-gradient(90deg, #8B5CF6 0%, #FF5C38 70%)" } as object), shadowColor: palette.signal500, shadowOpacity: 0.5, shadowRadius: 18 },
   ctaOff: { opacity: 0.4 },

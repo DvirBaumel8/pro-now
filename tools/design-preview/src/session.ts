@@ -94,8 +94,12 @@ export interface SavedSession {
   introSeen?: boolean;
   /** The rewritten explainer (2026-09-25) has been seen. */
   introSeenV2?: boolean;
+  /** Which sides have seen their own explanation. */
+  introSeenSides?: Array<"customer" | "pro">;
   /** The professional finished joining (ProOnboardingBody) on this device. */
   proOnboarded?: boolean;
+  /** Phone numbers that finished signing up, per side — they skip the explanations next time. */
+  registered?: Record<string, { customer?: boolean; pro?: boolean }>;
 }
 
 function storage(): Storage | null {

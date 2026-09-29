@@ -298,6 +298,12 @@ Amit: *"לא הכנו טופס הצטרפות… בלי זה אי אפשר לצ�
   Open for a lawyer (17 questions in the report), notably whether police approval under the
   sex-offender law applies to tutors of minors on a platform.
 
+Also decided (Amit, 2026-09-30): **someone already registered goes straight to his own page**
+— customer or professional — with no explanation, character or joining again (demo: by phone
+number, plus a "התנתקות" menu item to show it). **Everything required stays required, prices
+included; only the shop's design may be skipped** ("דלג — אעצב את החנות אחר כך"), opening with
+our defaults and a "לעצב את החנות" link on the open-shop screen.
+
 Built in the demo (Amit's track): `ProOnboardingBody` (lib/ui) — welcome · "what you do" in
 free text (the matcher ticks the services; custom services allowed) · details & radius ·
 documents per trade (`onboardingDocsFor`, lib/types) with licence numbers for registries ·
