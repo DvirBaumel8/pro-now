@@ -4,6 +4,13 @@ import { existsSync } from "node:fs";
 import fastifyStatic from "@fastify/static";
 import type { FastifyInstance } from "fastify";
 
+export function resolveWebDistRoot(
+  configuredRoot = process.env.WEB_DIST_DIR,
+  apiRuntimeDir = import.meta.dirname,
+): string {
+  return path.resolve(configuredRoot ?? path.join(apiRuntimeDir, "../../web/dist"));
+}
+
 /**
  * The web app, served by this same process (docs/21 §2, W2): one origin,
  * so the session cookie is first-party and there is no CORS for the app.
@@ -18,7 +25,7 @@ import type { FastifyInstance } from "fastify";
  * In development the Vite server serves the app instead.
  */
 export default fp(async (app: FastifyInstance) => {
-  const root = path.resolve(process.env.WEB_DIST_DIR ?? path.join(import.meta.dirname, "../../../web/dist"));
+  const root = resolveWebDistRoot();
   if (!existsSync(path.join(root, "index.html"))) {
     app.log.info({ root }, "No web build found; not serving the web app");
     return;
