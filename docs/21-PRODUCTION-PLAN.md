@@ -547,14 +547,12 @@ per commit. Each commit gets full CI plus `verify:journey`.
   a subscription and a received message.
 
 ### W10 — Hardening and go-live readiness (M)
-- **Known gap, found in W1.5 (2026-09-29): the API's production build
-  has never run.** `tsc` compiles `apps/api`, but `node dist/server.js`
-  fails. The workspace packages (`@pro-now/config`, `types`,
-  `validation`) ship TypeScript source, and their `main` points at
-  `src/index.ts`, which was true before the ESM switch too. Everything
-  so far runs through `tsx`. Fix before Render: bundle the server
-  (esbuild/tsup), or give the packages a build. Acceptance: `npm start`
-  serves `/health` from `dist`.
+- **Fixed 2026-09-29:** the API production build now bundles the local
+  workspace packages with esbuild while leaving third-party dependencies
+  external. This preserves Node's native handling of CommonJS dependencies
+  such as dotenv and makes `node dist/server.js` importable without `tsx`.
+  The regression test is `apps/api/test/production-runtime.test.ts`.
+  Acceptance remains: `npm start` serves `/health` from `dist`.
 - **Security:**
   - `@fastify/helmet`: CSP (self plus the tile host plus the storage
     host), HSTS, frame-ancestors none.

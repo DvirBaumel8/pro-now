@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "start:ts": "tsx src/server.ts",
-    "build": "tsc -p tsconfig.json",
+    "build": "esbuild src/server.ts --bundle --platform=node --format=esm --packages=external --alias:@pro-now/config=../../packages/config/src/index.ts --alias:@pro-now/types=../../packages/types/src/index.ts --alias:@pro-now/validation=../../packages/validation/src/index.ts --outfile=dist/server.js --sourcemap",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
