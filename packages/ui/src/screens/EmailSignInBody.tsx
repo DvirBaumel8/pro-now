@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { BackButton } from "../components/BackButton";
 import { customerTheme, elevation, proTheme, radii, scale, spacing, tabular, type } from "../theme";
 import { ShieldCheckMark } from "../components/marks";
-import { isPlausibleEmail } from "../email";
+import { breakableEmail, isPlausibleEmail } from "../email";
 
 /**
  * A00 (product) — signing in with an email link or Google.
@@ -79,7 +79,7 @@ export function EmailSignInBody({
               : "לשם נשלח קישור כניסה, בלי סיסמה. המייל לא נחשף למקצוען."
             : /* The address is isolated left-to-right (U+2068…U+2069): inside a
                  Hebrew sentence its punctuation otherwise jumps sides. */
-              `שלחנו קישור כניסה ל-⁨${email.trim()}⁩. פתחו אותו בטלפון הזה — הוא תקף ל-15 דקות.`}
+              `שלחנו קישור כניסה ל-⁨${breakableEmail(email.trim())}⁩. פתחו אותו בטלפון הזה — הוא תקף ל-15 דקות.`}
         </Text>
 
         {stage === "email" ? (

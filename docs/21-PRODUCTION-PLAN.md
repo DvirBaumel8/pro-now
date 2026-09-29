@@ -1,6 +1,6 @@
 # 21 — Production Plan: from demo to a live web app
 
-Status: **APPROVED 2026-09-29** (decisions in §5). W0, W1 and W1.5 done; W2 next. Written after reading the
+Status: **APPROVED 2026-09-29** (decisions in §5). W0, W1, W1.5 and W2 done; W3 next. Written after reading the
 code as it stands at `53ed69f`.
 
 ## 0. Framing
@@ -294,7 +294,7 @@ per commit. Each commit gets full CI plus `verify:journey`.
 - **Acceptance:** CI green, `verify:journey` all steps, `db:verify`, and
   no behaviour change visible in the integration suite.
 
-### W2 — Web app shell (M)
+### W2 — Web app shell (M) — **DONE 2026-09-29** (report: `docs/reports/W2.md`, QA: `docs/qa/W2.md`)
 **Decided 2026-09-29 (Dvir):**
 - **The UI is 100% the demo's**, in Hebrew. Screens are built from the
   same components the demo uses, and **visual parity tests** screenshot

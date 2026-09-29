@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { EmailSignInBody, type EmailSignInStage } from "@pro-now/ui";
 
@@ -17,12 +17,21 @@ const RESEND_SECONDS = 30;
  */
 export function SignIn() {
   const navigate = useNavigate();
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const side = params.get("side") === "pro" ? "pro" : "customer";
   const { width, height } = useFrame();
 
-  const [stage, setStage] = useState<EmailSignInStage>("email");
   const [email, setEmail] = useState("");
+  /*
+   * The "sent" stage lives in the URL, so the phone's back returns to the
+   * email field, as the demo's back does, instead of leaving sign-in.
+   * Without an address in memory (a reload), there is nothing to show as
+   * sent: back to the field.
+   */
+  const stage: EmailSignInStage = params.get("sent") === "1" && email ? "sent" : "email";
+  /* Set synchronously: `busy` only lands on the next render, and a quick
+     double tap arrives before that (QA W2: two emails). */
+  const inFlight = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resendIn, setResendIn] = useState(0);
@@ -34,6 +43,8 @@ export function SignIn() {
   }, [resendIn]);
 
   const sendLink = async () => {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setBusy(true);
     setError(null);
     const { error: failed } = await authClient.signIn.magicLink({
@@ -42,11 +53,12 @@ export function SignIn() {
       errorCallbackURL: "/sign-in?expired=1",
     });
     setBusy(false);
+    inFlight.current = false;
     if (failed) {
       setError("לא הצלחנו לשלוח את הקישור. בדקו את הכתובת ונסו שוב.");
       return;
     }
-    setStage("sent");
+    if (stage === "email") setParams((p) => ({ ...Object.fromEntries(p), sent: "1" }));
     setResendIn(RESEND_SECONDS);
   };
 
@@ -82,7 +94,7 @@ export function SignIn() {
       onSubmitEmail={sendLink}
       onGoogle={google}
       onResend={sendLink}
-      onBack={() => (stage === "sent" ? setStage("email") : navigate("/welcome"))}
+      onBack={() => (stage === "sent" ? navigate(-1) : navigate("/welcome"))}
       width={width}
       height={height}
     />

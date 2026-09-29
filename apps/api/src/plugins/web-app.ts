@@ -26,7 +26,9 @@ export default fp(async (app: FastifyInstance) => {
 
   await app.register(fastifyStatic, {
     root,
-    wildcard: false,
+    // Whatever is on disk now, not a list taken at boot: a rebuild (or a
+    // build that finished after start) is served without a restart. A miss
+    // falls through to the not-found handler below.
     setHeaders(res, filePath) {
       const rel = path.relative(root, filePath);
       res.header(

@@ -72,3 +72,30 @@ test("the app is installable: manifest and an active service worker", async ({ p
     .poll(() => page.evaluate(async () => Boolean((await navigator.serviceWorker.getRegistration())?.active)))
     .toBe(true);
 });
+
+test("back from 'check your email' returns to the email field, as in the demo", async ({ page }) => {
+  await page.goto("/sign-in");
+  await page.getByPlaceholder("name@example.com").fill(uniqueEmail("e2e-back"));
+  await page.getByRole("button", { name: "שליחת קישור" }).click();
+  await expect(page.getByText("בדקו את המייל")).toBeVisible();
+  await page.goBack();
+  await expect(page).toHaveURL(/\/sign-in$/);
+  await expect(page.getByPlaceholder("name@example.com")).toBeVisible();
+});
+
+test("a double tap on 'send link' sends one email", async ({ page }) => {
+  const email = uniqueEmail("e2e-double");
+  await page.goto("/sign-in");
+  await page.getByPlaceholder("name@example.com").fill(email);
+  await page.getByRole("button", { name: "שליחת קישור" }).evaluate((el: HTMLElement) => {
+    el.click();
+    el.click();
+  });
+  await expect(page.getByText("בדקו את המייל")).toBeVisible();
+  await linkFor(email);
+  await page.waitForTimeout(1000);
+  const found = (await (
+    await fetch(`http://localhost:8025/api/v1/search?query=${encodeURIComponent(`to:"${email}"`)}`)
+  ).json()) as { messages: unknown[] };
+  expect(found.messages).toHaveLength(1);
+});

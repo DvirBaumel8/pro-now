@@ -102,6 +102,10 @@ Dvir starts a catch-up by asking for one.
    Done in `docs/21 §6`). Porting a screen or rule from
    `tools/design-preview/lib/*` into `packages/*` is allowed. It is a copy
    at that moment, not a link.
+   **See the difference, too:** `npm run parity` screenshots the demo and
+   the product in the same state and writes `apps/web/parity-report/`
+   (demo | product | diff per screen). It is not in CI because the demo
+   moves constantly; a catch-up is exactly when it should be run.
 5. **Advance the marker.** The marker moves as soon as the plan is
    approved, **not** when the work ships. It means "every demo commit up to
    here has been read and planned". The sync plan tracks whether each item

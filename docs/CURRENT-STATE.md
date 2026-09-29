@@ -46,6 +46,7 @@ product decisions in `docs/18-ROADMAP.md` (sections marked **DECIDED** and
 | Thing | Where | State |
 |---|---|---|
 | **The demo** (what investors see) | `tools/design-preview` → published as a Claude Artifact: https://claude.ai/artifact/7YRPcVfEuhVCmcK3PKVeJW (see the version in the last commit message; "anyone with the link") | Static bundle, **no backend**: fixtures in the bundle, the customer↔pro loop simulated client-side. Every one of the 47 services passes the full flow to payment (`qa/pp_all.mjs`). |
+| **The real app** (Dvir's track) | `apps/web` (React 19 + react-native-web, the demo's screens) on `apps/api` | W0–W2 done (`docs/21`): sign-in by email link or Google, first run, home, menu, PWA. Run: `docker compose up -d`, then `npm run dev:app` → http://localhost:5180 (emails: http://localhost:8025). Tests: `npm run test:int`, `npm run test:e2e` (WebKit iPhone 15 + Chromium), `npm run parity` (vs the demo). Not deployed. |
 | API | `apps/api` (Fastify, Prisma, Postgres 16 + PostGIS; Redis optional) | Runs on **localhost only**. Never deployed. Local stack: `docker compose up -d` (PostGIS on :54320, Mailpit :8025, S3 :8333, mock OIDC :8089), `cp .env.example apps/api/.env`, `npm run db:migrate:deploy -w apps/api && npm run db:seed && npm run dev:api`. |
 | Mobile apps | `apps/customer-mobile`, `apps/pro-mobile` (Expo) | Typecheck clean. **Never built for a device.** |
 | Admin | `apps/admin` (Next.js 14) | About 320-line scaffold: KPI page with labelled demo figures, and a job inspector that fetches the API. **No auth/RBAC yet.** |
