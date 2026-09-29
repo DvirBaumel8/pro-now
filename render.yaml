@@ -19,11 +19,9 @@ services:
       npm run build -w apps/web &&
       npm run build -w apps/api
 
-    # Render runs this after the build and before the new instance starts.
-    # DATABASE_URL is supplied from the external Neon database.
-    preDeployCommand: npm run db:migrate:deploy -w apps/api
-
-    startCommand: npm run start -w apps/api
+    # Render Free does not support pre-deploy commands. Prisma's migrate deploy
+    # is idempotent, so run it before each API boot instead.
+    startCommand: npm run db:migrate:deploy -w apps/api && npm run start -w apps/api
     healthCheckPath: /health
 
     envVars:
