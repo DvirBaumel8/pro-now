@@ -4,6 +4,7 @@ import { PrismaClient, type JobStatus } from "@prisma/client";
 
 import { startApp } from "./harness.js";
 import { CookieJar, signInByEmail, uniqueEmail, whoAmI } from "./auth-helpers.js";
+import { createPrisma } from "../../src/db/prisma-client.js";
 
 /**
  * Access to another person's records (IDOR), route by route (docs/21 W1).
@@ -52,7 +53,7 @@ const as = (p: Person) => ({ cookie: p.jar.header(), origin: "http://localhost:4
 
 beforeAll(async () => {
   app = await startApp();
-  db = new PrismaClient();
+  db = createPrisma();
   alice = await customer("alice");
   bob = await customer("bob");
   pat = await professional("pat");

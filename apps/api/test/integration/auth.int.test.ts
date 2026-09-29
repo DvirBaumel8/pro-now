@@ -3,6 +3,7 @@ import type { FastifyInstance } from "fastify";
 import { PrismaClient } from "@prisma/client";
 
 import { startApp } from "./harness.js";
+import { createPrisma } from "../../src/db/prisma-client.js";
 import {
   CookieJar,
   latestEmailTo,
@@ -21,7 +22,7 @@ let db: PrismaClient;
 
 beforeAll(async () => {
   app = await startApp();
-  db = new PrismaClient();
+  db = createPrisma();
 });
 afterAll(async () => {
   await app.close();

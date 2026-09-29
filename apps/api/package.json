@@ -16,7 +16,7 @@
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
     "db:generate": "prisma generate",
-    "db:drift": "prisma migrate diff --from-url \"$DATABASE_URL\" --to-schema-datamodel prisma/schema.prisma --exit-code",
+    "db:drift": "prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:dev": "tsx prisma/seed-dev.ts",
     "dev:pulse": "tsx scripts/dev-pulse.ts"
@@ -24,7 +24,8 @@
   "dependencies": {
     "@fastify/cors": "^11.3.0",
     "@fastify/websocket": "^11.3.1",
-    "@prisma/client": "^5.18.0",
+    "@prisma/adapter-pg": "^7.10.0",
+    "@prisma/client": "^7.10.0",
     "@pro-now/config": "*",
     "@pro-now/types": "*",
     "@pro-now/validation": "*",
@@ -40,7 +41,7 @@
   "devDependencies": {
     "@types/node": "^20.14.0",
     "@types/nodemailer": "^8.0.2",
-    "prisma": "^5.18.0",
+    "prisma": "^7.10.0",
     "tsx": "^4.16.2",
     "typescript": "^5.5.4",
     "vitest": "^2.0.5"

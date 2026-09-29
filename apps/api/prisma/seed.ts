@@ -8,13 +8,14 @@ import "../src/load-env.js";
 
 import { PrismaClient } from "@prisma/client";
 import { departments, categories, services, PILOT_MARKET_CODE } from "./seed-data/services.js";
+import { createPrisma } from "../src/db/prisma-client.js";
 import {
   PILOT_TO_DATABASE_SERVICE_CODE,
   pilotServiceById,
   requirementsForService,
 } from "@pro-now/types";
 
-const prisma = new PrismaClient();
+const prisma = createPrisma();
 
 async function main() {
   console.log("Seeding PRO NOW taxonomy from /docs/09b-SERVICE-CATALOG.md seed data...");

@@ -4,13 +4,14 @@ import { PrismaClient } from "@prisma/client";
 
 import { startApp } from "./harness.js";
 import { signInByEmail, signInWithGoogle, uniqueEmail, whoAmI, type CookieJar } from "./auth-helpers.js";
+import { createPrisma } from "../../src/db/prisma-client.js";
 
 let app: FastifyInstance;
 let db: PrismaClient;
 
 beforeAll(async () => {
   app = await startApp();
-  db = new PrismaClient();
+  db = createPrisma();
 });
 afterAll(async () => {
   await app.close();

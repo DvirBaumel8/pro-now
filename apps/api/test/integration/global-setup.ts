@@ -3,6 +3,7 @@ import path from "node:path";
 import { PrismaClient } from "@prisma/client";
 import type { GlobalSetupContext } from "vitest/node";
 import "../../src/load-env.js";
+import { createPrisma } from "../../src/db/prisma-client.js";
 
 const API_DIR = path.resolve(import.meta.dirname, "../..");
 
@@ -21,7 +22,7 @@ export default async function setup({ provide }: GlobalSetupContext) {
   if (!base) throw new Error("Integration tests need TEST_DATABASE_URL or DATABASE_URL (see .env.example).");
 
   const name = `pronow_it_${process.pid}_${Date.now()}`;
-  const admin = new PrismaClient({ datasources: { db: { url: base } } });
+  const admin = createPrisma(base);
   await admin.$executeRawUnsafe(`CREATE DATABASE "${name}"`);
 
   const url = new URL(base);

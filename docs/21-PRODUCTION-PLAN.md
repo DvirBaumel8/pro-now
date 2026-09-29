@@ -271,6 +271,16 @@ per commit. Each commit gets full CI plus `verify:journey`.
   packages only. The demo keeps its own copies (docs/22).
 - **Prisma 5 → 7** (driver adapter, no Rust engine). Fall back to 6 if 7
   costs more than the epic's size.
+  **Done: 7.10.0.** npm's `latest` tag points at 8.0.0-rc, so the version
+  is pinned. The changes:
+  - The connection moves to `apps/api/prisma.config.ts`.
+  - Every client comes from `src/db/prisma-client.ts`, which uses the
+    `@prisma/adapter-pg` driver adapter.
+  - `db:drift` uses `--from-config-datasource`.
+
+  Not proven: the accept path through the adapter under concurrent
+  load. `verify:rowlock` races raw SQL, and the journey only runs a
+  single accept. Add a Prisma-path race to W10.
 - **zod 3 → 4** in `packages/validation`, since Better Auth already
   brings in zod 4.
 - **Vitest 2 → current.**

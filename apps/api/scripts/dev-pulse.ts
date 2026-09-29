@@ -30,8 +30,9 @@
 import "../src/load-env.js";
 
 import { PrismaClient } from "@prisma/client";
+import { createPrisma } from "../src/db/prisma-client.js";
 
-const prisma = new PrismaClient();
+const prisma = createPrisma();
 
 const INTERVAL_SECONDS = Number(process.env.DEV_PULSE_INTERVAL_SECONDS ?? 20);
 

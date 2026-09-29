@@ -48,8 +48,9 @@ import "../src/load-env.js";
 
 import { PrismaClient, type PrismaClient as PrismaClientType } from "@prisma/client";
 import { credentialTypeFor } from "@pro-now/types";
+import { createPrisma } from "../src/db/prisma-client.js";
 
-const prisma = new PrismaClient();
+const prisma = createPrisma();
 
 /**
  * The refusal. Demonstration supply in a real database is the exact thing
