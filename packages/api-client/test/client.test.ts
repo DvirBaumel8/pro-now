@@ -51,4 +51,37 @@ describe("api client", () => {
       "/api/v1/geo/reverse?lat=32.1&lng=34.8",
     ]);
   });
+
+  it("uploads media through a presigned PUT and completes it", async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const fetchImpl = (async (url: string, init: RequestInit) => {
+      calls.push({ url, init });
+      if (calls.length === 1) {
+        return new Response(
+          JSON.stringify({
+            upload: { id: "up1", status: "PENDING" },
+            uploadUrl: "https://storage.test/up1",
+            expiresInSeconds: 300,
+          }),
+          { status: 201 }
+        );
+      }
+      if (calls.length === 2) return new Response(null, { status: 200 });
+      return new Response(JSON.stringify({ upload: { id: "up1", status: "READY" } }), { status: 200 });
+    }) as unknown as typeof fetch;
+
+    const result = await createApiClient({ fetch: fetchImpl }).uploadMedia({
+      kind: "PHOTO",
+      mime: "image/jpeg",
+      body: new Blob(["jpeg"], { type: "image/jpeg" }),
+    });
+
+    expect(result.upload).toMatchObject({ id: "up1", status: "READY" });
+    expect(calls.map((call) => [call.url, call.init.method])).toEqual([
+      ["/api/v1/uploads", "POST"],
+      ["https://storage.test/up1", "PUT"],
+      ["/api/v1/uploads/up1/complete", "POST"],
+    ]);
+    expect(calls[1]!.init.headers).toMatchObject({ "Content-Type": "image/jpeg" });
+  });
 });

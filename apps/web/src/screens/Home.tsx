@@ -16,6 +16,7 @@ import { authClient } from "../auth";
 import { CityHero } from "../art/CityHero";
 import { worldSources } from "../art/worldSources";
 import { useFrame } from "../frame";
+import { useWebMediaCapture } from "../useWebMediaCapture";
 
 /** The header's own height in the demo's customer shell (`UTIL`). */
 const HEADER_H = 56;
@@ -45,6 +46,7 @@ export function Home() {
   const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>("home");
   const me = useMe();
+  const media = useWebMediaCapture();
   /* The face they chose, in the header, as in the demo; the glyph if none. */
   const chosen = avatarById(me.data?.customer?.avatarId ?? null);
   const avatarUri = chosen ? ((worldSources[chosen.portraitAssetId] as { uri?: string } | undefined)?.uri ?? null) : null;
@@ -109,6 +111,7 @@ export function Home() {
             matchRules={catalogMatchRules}
             worldSources={worldSources}
             nowMs={Date.now()}
+            capture={media.capture}
             strollUpcoming
             advertiseUpcoming
             width={width}

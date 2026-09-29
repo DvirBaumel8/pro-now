@@ -14,6 +14,13 @@
 import type { AddressView, GeocodingResult } from "@pro-now/types";
 import type { CreateAddressInput, CustomerOnboardingInput, MeResponse } from "@pro-now/validation";
 
+export type UploadKind = "PHOTO" | "VOICE_NOTE" | "DOCUMENT";
+export interface UploadRecord {
+  id: string;
+  status: string;
+  [key: string]: unknown;
+}
+
 export interface ProNowApiClientConfig {
   /** "" for same origin (the web app); the API's origin otherwise. */
   baseUrl?: string;
@@ -63,6 +70,31 @@ export function createApiClient(config: ProNowApiClientConfig = {}) {
     searchAddresses: (query: string) => request<{ results: GeocodingResult[] }>("GET", `/geo/search?q=${encodeURIComponent(query)}`),
     reverseGeocode: (location: { lat: number; lng: number }) =>
       request<{ result: GeocodingResult | null }>("GET", `/geo/reverse?lat=${location.lat}&lng=${location.lng}`),
+    uploadMedia: async (input: {
+      kind: UploadKind;
+      mime: string;
+      body: Blob | ArrayBuffer;
+    }): Promise<{ upload: UploadRecord }> => {
+      const bytes =
+        typeof Blob !== "undefined" && input.body instanceof Blob
+          ? input.body.size
+          : (input.body as ArrayBuffer).byteLength;
+      const prepared = await request<{
+        upload: UploadRecord;
+        uploadUrl: string;
+      }>("POST", "/uploads", { kind: input.kind, mime: input.mime, bytes });
+
+      const putResponse = await doFetch(prepared.uploadUrl, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": input.mime },
+        body: input.body,
+      });
+      if (!putResponse.ok) {
+        throw new ApiError(putResponse.status, "STORAGE_UPLOAD_FAILED", "The file could not be uploaded");
+      }
+      return request<{ upload: UploadRecord }>("POST", `/uploads/${prepared.upload.id}/complete`);
+    },
   };
 }
 

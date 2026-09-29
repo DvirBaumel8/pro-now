@@ -386,6 +386,13 @@ acceptance suite are green.
   contract test that is marked and skipped in CI (no network).
 
 ### W4 — Photos, recordings and text (M)
+
+**Implementation in progress 2026-09-29:** the S3-compatible provider,
+private upload migration, presign/complete/media routes, client-side image
+re-encoding, and browser voice recorder are in place. W4 remains open until
+request attachment linking, cleanup/retention workers, and the full
+customer-to-assigned-professional media E2E are complete.
+
 - A `StorageProvider` interface with one **S3-compatible adapter**
   (`@aws-sdk/client-s3` + presigner). It points at SeaweedFS locally and R2 later.
 - **Upload flow** (the file never passes through our server):
