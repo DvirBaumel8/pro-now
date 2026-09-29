@@ -170,6 +170,9 @@ export default async function proJobsRoutes(app: FastifyInstance) {
       // The agreed quote. With no money in the app (D1) a quote is approved
       // on sending, so this is where the professional sees what they sent.
       approvedQuote: approvedQuote ? toView(approvedQuote) : null,
+      // Ordered for someone else: who opens the door, and the code to say.
+      onSiteNameHe: job.onSiteName,
+      doorCodeHe: job.doorCode,
       media,
     };
 

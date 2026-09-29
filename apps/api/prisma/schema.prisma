@@ -616,6 +616,17 @@ model Job {
 
   status            JobStatus @default(DRAFT)
   description       String?
+  /// Ordering for someone else (docs/21 W6): the person at home, with this
+  /// one order only. Personal data about somebody who is not a user: erased
+  /// with the orderer's account.
+  onSiteName          String?
+  onSitePhone         String?
+  /// Issued by the server when a professional is assigned; the professional
+  /// says it at the door, and the person at home opens only to that.
+  doorCode            String?
+  /// sha256 of the link the orderer shares; the link itself is never stored.
+  onSiteTokenHash     String?   @unique
+  onSiteTokenExpiresAt DateTime?
   structuredAnswers Json?
   approvedQuoteId   String?   @unique
 

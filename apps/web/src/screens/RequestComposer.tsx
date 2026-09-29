@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import {
   DescribeFaultBody,
@@ -34,6 +34,10 @@ export function RequestComposer({ serviceId, media, onBack, onOpenAddresses, onS
   const addresses = useQuery({ queryKey: ["addresses"], queryFn: api.getAddresses });
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [text, setText] = useState(initialText);
+  // Ordering for someone else: the person at home belongs to this order only.
+  const [forOther, setForOther] = useState(false);
+  const [onSiteName, setOnSiteName] = useState("");
+  const [onSitePhone, setOnSitePhone] = useState("");
   const [answers, setAnswers] = useState<Array<{ questionId: string; optionIds?: string[]; textValue?: string; numberValue?: number }>>([]);
   const [sending, setSending] = useState(false);
   const [errorHe, setErrorHe] = useState<string | null>(null);
@@ -72,6 +76,10 @@ export function RequestComposer({ serviceId, media, onBack, onOpenAddresses, onS
         setErrorHe("בחרו כתובת לפני שליחת הקריאה.");
         return;
       }
+      if (forOther && (!onSiteName.trim() || !IL_MOBILE.test(onSitePhone.trim()))) {
+        setErrorHe("כתבו את השם ומספר הנייד של מי שיהיה בבית.");
+        return;
+      }
       setSending(true);
       setErrorHe(null);
       try {
@@ -88,6 +96,7 @@ export function RequestComposer({ serviceId, media, onBack, onOpenAddresses, onS
             description: text.trim() || undefined,
             mediaRefs,
             structuredAnswers: Object.fromEntries(answers.map((answer) => [answer.questionId, answer])),
+            ...(forOther ? { onSite: { name: onSiteName.trim(), phone: onSitePhone.trim() } } : {}),
           },
           idempotencyKey
         );
@@ -104,7 +113,7 @@ export function RequestComposer({ serviceId, media, onBack, onOpenAddresses, onS
         setSending(false);
       }
     })();
-  }, [answers, idempotencyKey, media.photos, media.voice, onSent, selectedAddressId, sending, serviceId, text]);
+  }, [answers, forOther, idempotencyKey, media.photos, media.voice, onSent, onSiteName, onSitePhone, selectedAddressId, sending, serviceId, text]);
 
   if (addresses.isPending) return <LoadingScreen />;
   if (addresses.isError) return <ErrorScreen offline={!navigator.onLine} onRetry={() => void addresses.refetch()} />;
@@ -116,6 +125,14 @@ export function RequestComposer({ serviceId, media, onBack, onOpenAddresses, onS
         selectedId={selectedAddressId}
         onSelect={setSelectedAddressId}
         onOpenAddresses={onOpenAddresses}
+      />
+      <ForSomeoneElse
+        on={forOther}
+        onToggle={() => setForOther((v) => !v)}
+        name={onSiteName}
+        phone={onSitePhone}
+        onName={setOnSiteName}
+        onPhone={setOnSitePhone}
       />
       {errorHe ? <Text accessibilityRole="alert" style={styles.error}>{errorHe}</Text> : null}
       {sending ? <Text style={styles.sending}>מעלים את הפרטים ושולחים…</Text> : null}
@@ -144,8 +161,68 @@ export function RequestComposer({ serviceId, media, onBack, onOpenAddresses, onS
         onSend={send}
         onBack={onBack}
         width={width}
-        height={height - 148}
+        height={height - 148 - (forOther ? FOR_OTHER_OPEN_H : FOR_OTHER_CLOSED_H)}
       />
+    </View>
+  );
+}
+
+const IL_MOBILE = /^(\+972-?|0)5\d-?\d{3}-?\d{4}$/;
+const FOR_OTHER_CLOSED_H = 48;
+const FOR_OTHER_OPEN_H = 148;
+
+/**
+ * ORDERING FOR SOMEONE ELSE (docs/21 W6; the demo, 2026-09-28). The person
+ * at home belongs to this order, not to the address: a plumber for grandpa
+ * today says nothing about who is at that address next time. They get a
+ * link with who is coming and a door code, and nothing to approve or pay.
+ */
+function ForSomeoneElse({
+  on,
+  onToggle,
+  name,
+  phone,
+  onName,
+  onPhone,
+}: {
+  on: boolean;
+  onToggle: () => void;
+  name: string;
+  phone: string;
+  onName: (v: string) => void;
+  onPhone: (v: string) => void;
+}) {
+  return (
+    <View style={[styles.otherPanel, { height: on ? FOR_OTHER_OPEN_H : FOR_OTHER_CLOSED_H }]}>
+      <Pressable onPress={onToggle} accessibilityRole="switch" accessibilityState={{ checked: on }} style={styles.otherToggle}>
+        <View style={[styles.check, on && styles.checkOn]} />
+        <Text style={styles.addressTitle}>הקריאה היא בשביל מישהו אחר</Text>
+      </Pressable>
+      {on ? (
+        <View style={styles.otherFields}>
+          <TextInput
+            value={name}
+            onChangeText={onName}
+            placeholder="שם מי שיהיה בבית"
+            accessibilityLabel="שם מי שיהיה בבית"
+            placeholderTextColor={customerDarkTheme.colors.textSecondary}
+            style={styles.otherInput}
+            maxLength={60}
+          />
+          <TextInput
+            value={phone}
+            onChangeText={onPhone}
+            placeholder="מספר נייד"
+            accessibilityLabel="מספר הנייד של מי שיהיה בבית"
+            placeholderTextColor={customerDarkTheme.colors.textSecondary}
+            style={styles.otherInput}
+            keyboardType="phone-pad"
+            inputMode="tel"
+            maxLength={16}
+          />
+          <Text style={styles.otherNote}>יקבלו קישור עם שם המקצוען וקוד לדלת. אין להם מה לאשר או לשלם.</Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -210,6 +287,21 @@ const styles = StyleSheet.create({
   addressRow: { flexDirection: "row-reverse", alignItems: "center", gap: spacing.sm, padding: spacing.sm, borderRadius: 12, backgroundColor: colors.bg },
   addressRowSelected: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.trust },
   radio: { width: 16, height: 16, borderRadius: 8, borderWidth: 2, borderColor: colors.textSecondary },
+  otherPanel: { paddingHorizontal: spacing.md, backgroundColor: colors.surfaceElevated, borderTopWidth: 1, borderTopColor: colors.bg },
+  otherToggle: { flexDirection: "row-reverse", alignItems: "center", gap: spacing.sm, height: FOR_OTHER_CLOSED_H },
+  check: { width: 18, height: 18, borderRadius: 5, borderWidth: 2, borderColor: colors.textSecondary },
+  checkOn: { borderColor: colors.trust, backgroundColor: colors.trust },
+  otherFields: { gap: spacing.xs },
+  otherInput: {
+    height: 36,
+    borderRadius: 10,
+    paddingHorizontal: spacing.sm,
+    backgroundColor: colors.bg,
+    color: colors.textPrimary,
+    textAlign: "right",
+    writingDirection: "rtl",
+  },
+  otherNote: { color: colors.textSecondary, fontSize: 12, textAlign: "right", writingDirection: "rtl" },
   radioSelected: { borderColor: colors.trust, backgroundColor: colors.trust },
   addressCopy: { flex: 1, alignItems: "flex-end" },
   addressLabel: { color: colors.textPrimary, fontSize: 13, fontWeight: "800", writingDirection: "rtl" },

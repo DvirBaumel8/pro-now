@@ -71,6 +71,7 @@ export function Job() {
   const [matchSeen, setMatchSeen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   // The socket is the fast path; this interval is the net under it.
   const job = useQuery({ queryKey: jobKey(id), queryFn: () => api.getJob(id), refetchInterval: 20_000 });
@@ -109,6 +110,34 @@ export function Job() {
       setBusy(false);
     }
   };
+  /*
+   * THE LINK FOR THE PERSON AT HOME. The app sends no SMS yet (vendor TBD),
+   * so the orderer shares it: the phone's share sheet where there is one,
+   * the clipboard where there is not. Each share mints a fresh link.
+   */
+  const onSite = job.data.onSite;
+  const shareOnSite = onSite
+    ? act(async () => {
+        const { url } = await api.mintOnSiteLink(id);
+        const text = `${onSite.name}, הזמנתי בשבילך ${serviceNameHe}. בקישור: מי מגיע, מתי, והקוד שהוא יגיד בדלת.`;
+        if (typeof navigator.share === "function") {
+          try {
+            await navigator.share({ title: "PRO NOW", text, url });
+            return;
+          } catch (e) {
+            if (e instanceof DOMException && e.name === "AbortError") return;
+          }
+        }
+        await navigator.clipboard.writeText(`${text}\n${url}`);
+        setNotice("הקישור הועתק — אפשר להדביק בהודעה");
+      })
+    : undefined;
+  const onSiteStatusHe = onSite
+    ? onSite.doorCode
+      ? `הקוד לדלת: ${onSite.doorCode} · לחצו לשליחת הקישור ל${onSite.name}`
+      : `לחצו לשליחת הקישור ל${onSite.name} — פרטי המקצוען והקוד יופיעו בו`
+    : null;
+
   const cancel = CUSTOMER_MAY_CANCEL.has(data.status)
     ? act(async () => {
         if (window.confirm("לבטל את הקריאה?")) await api.cancelJob(id);
@@ -119,6 +148,7 @@ export function Job() {
     <View style={{ flex: 1 }}>
       {screen}
       {actionError ? <Text style={styles.error}>{actionError}</Text> : null}
+      {notice && !actionError ? <Text style={styles.notice}>{notice}</Text> : null}
     </View>
   );
 
@@ -142,6 +172,8 @@ export function Job() {
         serviceNameHe={serviceNameHe}
         elapsedSeconds={elapsedSeconds}
         departmentCode={departmentCode ?? undefined}
+        onSiteNameHe={onSite?.name ?? null}
+        onOpenOnSite={shareOnSite}
         onLeaveWait={cancel}
         onBack={() => navigate("/")}
         width={width}
@@ -238,6 +270,9 @@ export function Job() {
         approvedTotalHe: ils(approvedQuote?.totalMinorUnits),
       }}
       departmentCode={departmentCode}
+      onSiteNameHe={onSite?.name ?? null}
+      onSiteStatusHe={onSiteStatusHe}
+      onOpenOnSiteView={shareOnSite}
       onConfirmCompletion={data.status === "COMPLETION_PENDING" ? act(() => api.confirmCompletion(id)) : undefined}
       onCancelJob={cancel}
       onBack={() => navigate("/")}
@@ -270,6 +305,15 @@ const styles = StyleSheet.create({
   },
   title: { ...t.h2, color: colors.textPrimary, textAlign: "center", writingDirection: "rtl" },
   soft: { ...t.body, color: colors.textSecondary, textAlign: "center", writingDirection: "rtl", marginTop: spacing.sm },
+  notice: {
+    position: "absolute",
+    bottom: spacing.xl,
+    left: spacing.lg,
+    right: spacing.lg,
+    color: colors.textPrimary,
+    textAlign: "center",
+    writingDirection: "rtl",
+  },
   error: {
     position: "absolute",
     bottom: spacing.xl,

@@ -1,11 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import type { PrismaClient } from "@prisma/client";
-import { credentialTypeFor } from "@pro-now/types";
 
 import { startApp } from "./harness.js";
 import { signInByEmail, uniqueEmail, whoAmI, type CookieJar } from "./auth-helpers.js";
 import { createPrisma } from "../../src/db/prisma-client.js";
+import { dispatchablePro, takeOffline } from "./pro-helpers.js";
 
 /**
  * W6 (docs/21): a customer's job from request to review, with no money in
@@ -16,6 +16,7 @@ let db: PrismaClient;
 let customer: CookieJar;
 let pro: CookieJar;
 let serviceId: string;
+let proId: string | undefined;
 let addressId: string;
 
 const as = (j: CookieJar, idem?: string) => ({
@@ -25,33 +26,6 @@ const as = (j: CookieJar, idem?: string) => ({
 });
 const LAT = 32.0853;
 const LNG = 34.7818;
-
-async function dispatchablePro(email: string, svcId: string) {
-  const user = await db.user.create({ data: { email, emailVerified: true, name: "Pat Pro" } });
-  await db.userRole.create({ data: { userId: user.id, role: "PROFESSIONAL" } });
-  const profile = await db.professionalProfile.create({
-    data: { userId: user.id, legalName: "Pat Pro", displayName: "Pat", verificationStatus: "APPROVED", presenceState: "AVAILABLE" },
-  });
-  // The professional's own visit fee: the price the customer sees at the match.
-  await db.professionalService.create({
-    data: { professionalId: profile.id, serviceId: svcId, status: "APPROVED", basePriceMinorUnits: 25000 },
-  });
-  const service = await db.service.findUniqueOrThrow({ where: { id: svcId }, include: { requirements: true } });
-  for (const r of service.requirements) {
-    const type = credentialTypeFor(r.requirement);
-    if (!type) continue;
-    await db.professionalCredential.create({
-      data: {
-        professionalId: profile.id, serviceId: svcId, type, number: `T-${r.requirement}`, issuer: "test",
-        status: "VERIFIED", expiresAt: new Date(Date.now() + 365 * 86400_000),
-      },
-    });
-  }
-  await db.professionalLocation.create({
-    data: { professionalId: profile.id, lat: LAT + 0.01, lng: LNG, accuracyMeters: 10, capturedAt: new Date(), receivedAt: new Date() },
-  });
-  return profile;
-}
 
 beforeAll(async () => {
   process.env.IN_APP_PAYMENTS = "off";
@@ -67,11 +41,12 @@ beforeAll(async () => {
   addressId = (await db.address.create({ data: { customerId: profile.id, formatted: "הרצל 1, תל אביב", lat: LAT, lng: LNG } })).id;
 
   const proEmail = uniqueEmail("w6-pro");
-  await dispatchablePro(proEmail, serviceId);
+  proId = (await dispatchablePro(db, proEmail, serviceId, LAT, LNG)).id;
   pro = await signInByEmail(app, proEmail);
 });
 
 afterAll(async () => {
+  await takeOffline(db, proId);
   await app.close();
   await db.$disconnect();
 });

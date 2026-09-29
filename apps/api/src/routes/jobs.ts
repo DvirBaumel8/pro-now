@@ -72,6 +72,8 @@ export default async function jobsRoutes(app: FastifyInstance) {
         description: body.description,
         // Validated as `Record<string, unknown>`; the column is `Json?`.
         structuredAnswers: body.structuredAnswers as Prisma.InputJsonValue,
+        onSiteName: body.onSite?.name ?? null,
+        onSitePhone: body.onSite?.phone ?? null,
         idempotencyKey,
         status: "DRAFT",
         media: {
@@ -160,6 +162,8 @@ export default async function jobsRoutes(app: FastifyInstance) {
       // Why a cancelled job ended, in the server's words (e.g. NO_PROFESSIONAL_AVAILABLE).
       cancellationReason: cancellationReasonOf(job.events),
       ratingGiven: job.review?.overallRating ?? null,
+      // Ordered for someone else: who is at home, and the code once a professional is assigned.
+      onSite: job.onSiteName ? { name: job.onSiteName, doorCode: job.doorCode } : null,
       paymentsInApp: app.config.IN_APP_PAYMENTS !== "off",
     });
   });
