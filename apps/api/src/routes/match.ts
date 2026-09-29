@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { externalReputationDisplay } from "../domain/reputation/external-display";
+import { customerJob, notFound, requireRole } from "../auth/access";
 import {
   MIN_REVIEWS_FOR_RATING,
   type JobMatchView,
@@ -21,12 +22,10 @@ import {
  * does not compute any of it.
  */
 export default async function matchRoutes(app: FastifyInstance) {
-  app.get("/v1/jobs/:id/match", { onRequest: app.requireAuth }, async (req, reply) => {
+  app.get("/v1/jobs/:id/match", { onRequest: requireRole("CUSTOMER") }, async (req, reply) => {
     const { id: jobId } = req.params as { id: string };
 
-    const job = await app.prisma.job.findUnique({
-      where: { id: jobId },
-      include: {
+    const job = await customerJob(app.prisma, req.user!.userId, jobId, {
         service: true,
         assignedProfessional: {
           include: {
@@ -38,10 +37,9 @@ export default async function matchRoutes(app: FastifyInstance) {
           },
         },
         offers: { where: { status: "ACCEPTED" }, orderBy: { offeredAt: "desc" }, take: 1 },
-      },
     });
 
-    if (!job) return reply.status(404).send({ code: "JOB_NOT_FOUND", message: "Job not found" });
+    if (!job) return notFound(reply, "JOB");
 
     const pro = job.assignedProfessional;
     if (!pro) {

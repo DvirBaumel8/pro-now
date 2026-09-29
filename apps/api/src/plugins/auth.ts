@@ -1,5 +1,5 @@
 import fp from "fastify-plugin";
-import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import type { FastifyInstance } from "fastify";
 import { fromNodeHeaders } from "better-auth/node";
 
 import { AUTH_BASE_PATH, createAuth, type Auth } from "../auth/auth";
@@ -19,7 +19,6 @@ declare module "fastify" {
   }
   interface FastifyInstance {
     auth: Auth;
-    requireAuth: (req: FastifyRequest, reply: FastifyReply) => Promise<void>;
   }
 }
 
@@ -70,11 +69,5 @@ export default fp(async (app: FastifyInstance) => {
       sessionId: response.session.id,
       roles: await rolesOf(app.prisma, response.user.id),
     };
-  });
-
-  app.decorate("requireAuth", async (req: FastifyRequest, reply: FastifyReply) => {
-    if (!req.user) {
-      reply.status(401).send({ code: "UNAUTHENTICATED", message: "Missing or invalid session" });
-    }
   });
 });

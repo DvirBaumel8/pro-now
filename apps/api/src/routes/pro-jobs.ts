@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import { requireRole } from "../auth/access";
 import type { ProJobDetailView, QuoteView } from "@pro-now/types";
 
 /**
@@ -24,7 +25,7 @@ import type { ProJobDetailView, QuoteView } from "@pro-now/types";
  * precise home address of a customer is the thing this route hands out.
  */
 export default async function proJobsRoutes(app: FastifyInstance) {
-  app.get("/v1/pro/jobs/:id", { onRequest: app.requireAuth }, async (req, reply) => {
+  app.get("/v1/pro/jobs/:id", { onRequest: requireRole("PROFESSIONAL") }, async (req, reply) => {
     const { id: jobId } = req.params as { id: string };
 
     const professional = await app.prisma.professionalProfile.findUnique({

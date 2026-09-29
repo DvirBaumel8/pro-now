@@ -1,28 +1,26 @@
 import type { FastifyInstance } from "fastify";
 import { acceptOffer, OfferNoLongerAvailableError } from "../domain/dispatch/atomic-accept";
 import { triggerDispatch } from "../domain/dispatch/dispatch-service";
+import { notFound, ownOffer, requireRole } from "../auth/access";
+
+const LIVE_OFFER = ["CREATED", "SENT", "VIEWED"] as const;
 
 /**
  * See /docs/06-API-SPEC.md and /docs/08-DISPATCH-ENGINE.md §Fallback.
  */
 export default async function offersRoutes(app: FastifyInstance) {
-  app.post("/v1/offers/:id/accept", { onRequest: app.requireAuth }, async (req, reply) => {
+  app.post("/v1/offers/:id/accept", { onRequest: requireRole("PROFESSIONAL") }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const requestId = (req.headers["x-request-id"] as string) ?? req.id;
 
-    const offer = await app.prisma.dispatchOffer.findUnique({ where: { id } });
-    if (!offer) return reply.status(404).send({ code: "OFFER_NOT_FOUND", message: "Offer not found" });
-
-    const professional = await app.prisma.professionalProfile.findUnique({ where: { userId: req.user!.userId } });
-    if (!professional || professional.id !== offer.professionalId) {
-      return reply.status(403).send({ code: "FORBIDDEN", message: "This offer does not belong to you" });
-    }
+    const offer = await ownOffer(app.prisma, req.user!.userId, id);
+    if (!offer) return notFound(reply, "OFFER");
 
     try {
       const result = await acceptOffer(
         { prisma: app.prisma, lock: app.jobLock },
         id,
-        professional.id,
+        offer.professionalId,
         requestId
       );
       return reply.send({ ok: true, ...result });
@@ -34,12 +32,20 @@ export default async function offersRoutes(app: FastifyInstance) {
     }
   });
 
-  app.post("/v1/offers/:id/skip", { onRequest: app.requireAuth }, async (req, reply) => {
+  app.post("/v1/offers/:id/skip", { onRequest: requireRole("PROFESSIONAL") }, async (req, reply) => {
     const { id } = req.params as { id: string };
-    const offer = await app.prisma.dispatchOffer.findUnique({ where: { id } });
-    if (!offer) return reply.status(404).send({ code: "OFFER_NOT_FOUND", message: "Offer not found" });
+    const offer = await ownOffer(app.prisma, req.user!.userId, id);
+    if (!offer) return notFound(reply, "OFFER");
 
-    await app.prisma.dispatchOffer.update({ where: { id }, data: { status: "SKIPPED", respondedAt: new Date() } });
+    // Only a live offer can be skipped: skipping one already accepted or
+    // expired would free the professional and re-dispatch a taken job.
+    const skipped = await app.prisma.dispatchOffer.updateMany({
+      where: { id, status: { in: [...LIVE_OFFER] } },
+      data: { status: "SKIPPED", respondedAt: new Date() },
+    });
+    if (skipped.count === 0) {
+      return reply.status(409).send({ code: "OFFER_NO_LONGER_AVAILABLE", message: `Offer status is ${offer.status}` });
+    }
     await app.prisma.professionalProfile.update({
       where: { id: offer.professionalId },
       data: { presenceState: "AVAILABLE" },

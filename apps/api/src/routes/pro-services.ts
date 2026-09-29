@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import { requireRole } from "../auth/access";
 import {
   evaluateServiceCredentials,
   isAccountDispatchable,
@@ -38,7 +39,7 @@ import {
 import type { PriceModel } from "../domain/payments/settlement";
 
 export default async function proServicesRoutes(app: FastifyInstance) {
-  app.get("/v1/pro/services", { onRequest: app.requireAuth }, async (req, reply) => {
+  app.get("/v1/pro/services", { onRequest: requireRole("PROFESSIONAL") }, async (req, reply) => {
     const professional = await app.prisma.professionalProfile.findUnique({
       where: { userId: req.user!.userId },
       include: { services: true, credentials: true },
@@ -136,7 +137,7 @@ export default async function proServicesRoutes(app: FastifyInstance) {
    * this service's price model gives meaning to, and that money is a
    * whole, non-negative number of agorot.
    */
-  app.patch("/v1/pro/services/:serviceId/pricing", { onRequest: app.requireAuth }, async (req, reply) => {
+  app.patch("/v1/pro/services/:serviceId/pricing", { onRequest: requireRole("PROFESSIONAL") }, async (req, reply) => {
     const { serviceId } = req.params as { serviceId: string };
     const body = (req.body ?? {}) as PricingInput;
 

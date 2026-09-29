@@ -196,6 +196,25 @@ docs → commit → report. Sizes are relative (S/M/L), not dates.
     - CSRF, and an off-site callback;
     - Secure cookies on https.
 - **Known gap:** the Expo apps' sign-in is broken until Phase 3 (decision A).
+- **Step 4, done:** authorization.
+  - `requireRole()` plus ownership folded into the query
+    (`auth/access.ts`). Another person's record answers 404.
+  - The audit found **10 routes** that let any signed-in user read or
+    change another person's records. All of them are fixed, and so are
+    two related bugs:
+    - Customer side: `GET /v1/jobs/:id`, `/match`, `/cancel`, quote
+      approval, and the `Idempotency-Key` replay.
+    - Professional side: en-route, arrive, start and complete, sending a
+      quote, skipping an offer (which also freed the professional and
+      re-dispatched a job that had already been accepted), and ending a
+      shift.
+    - The job WebSocket, which admitted anyone.
+    - Related: reviews leaked a job's status to a stranger.
+    - Related: the socket handler used the pre-v10 `connection.socket`
+      API and crashed on every connection.
+  - Tests: `idor.int.test.ts` has 20 tests, each with a wrong-person
+    case and a right-person control. 16 of them failed before the fix.
+  - The access table is in `docs/06-API-SPEC.md` §Access.
 
 - **Library: Better Auth** (Prisma adapter, mounted at `/api/auth/*`).
   - Handles OAuth state/PKCE, CSRF, email verification, session rotation

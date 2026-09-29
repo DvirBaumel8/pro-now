@@ -61,6 +61,35 @@ stores the key + response for replay.
   call are the source of truth after reconnect. The client's own countdown
   is never authoritative for offer validity — the server's `expires_at` is.
 
+## Access (who may call what) — enforced since W1, 2026-09-29
+
+The server decides access in two layers, in `apps/api/src/auth/access.ts`:
+- **Role:** `requireRole()` answers 401 without a session, and 403
+  without the role.
+- **Ownership:** the caller is part of the query itself. So another
+  person's record answers **404**, exactly like one that does not exist.
+
+`test/integration/idor.int.test.ts` covers every row below with a
+wrong-person case and a right-person case.
+
+| Route | Role | Ownership |
+|---|---|---|
+| `GET /v1/catalog` | public | — |
+| `GET/POST /v1/me/addresses` | CUSTOMER | the caller's own, by construction |
+| `POST /v1/jobs` | CUSTOMER | The address must be the caller's. An Idempotency-Key used by another customer gets 409 and no replay. |
+| `GET /v1/jobs/:id`, `GET /v1/jobs/:id/match` | CUSTOMER | the job's customer |
+| `POST /v1/jobs/:id/cancel`, `/confirm-completion` | CUSTOMER | the job's customer |
+| `POST /v1/jobs/:id/reviews` | CUSTOMER | The job's customer. Ownership is checked before status, so a status never leaks. |
+| `POST /v1/quotes/:id/approve` | CUSTOMER | the customer of the quote's job (only the orderer approves) |
+| `POST /v1/jobs/:id/en-route` · `/arrive` · `/start` · `/complete` | PROFESSIONAL | the job's assigned professional |
+| `POST /v1/jobs/:id/quotes`, `GET /v1/pro/jobs/:id` | PROFESSIONAL | the job's assigned professional |
+| `POST /v1/offers/:id/accept`, `/skip` | PROFESSIONAL | The offer's professional. Skip works only on a live offer (CREATED/SENT/VIEWED), otherwise 409. |
+| `/v1/pro/*` (shifts, location, earnings, verification, offers/current, services, reputation) | PROFESSIONAL | the caller's own profile; `shifts/:id/end` also checks the shift is theirs |
+| `WS /v1/ws/jobs/:id` | signed in | the job's customer or its assigned professional; otherwise closed with 4404 |
+
+Admin reads come with the admin API (W8). Until then no route bypasses
+ownership for ADMIN.
+
 ## API security
 Every object access is authorized to the acting user (no IDOR). Admin
 endpoints sit behind a separate RBAC policy. Uploads go through short-lived

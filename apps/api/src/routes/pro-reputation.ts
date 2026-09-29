@@ -29,10 +29,11 @@
  * visible, rather than a half-built flow that quietly promotes itself.
  */
 import type { FastifyInstance } from "fastify";
+import { requireRole } from "../auth/access";
 
 export default async function proReputationRoutes(app: FastifyInstance) {
   /** The sources a professional could connect, and whether any is live. */
-  app.get("/v1/pro/reputation/sources", { onRequest: app.requireAuth }, async (_req, reply) => {
+  app.get("/v1/pro/reputation/sources", { onRequest: requireRole("PROFESSIONAL") }, async (_req, reply) => {
     const sources = await app.prisma.externalReputationSource.findMany({
       orderBy: { code: "asc" },
     });
@@ -51,7 +52,7 @@ export default async function proReputationRoutes(app: FastifyInstance) {
   });
 
   /** What this professional has connected, and what is being shown of it. */
-  app.get("/v1/pro/reputation", { onRequest: app.requireAuth }, async (req, reply) => {
+  app.get("/v1/pro/reputation", { onRequest: requireRole("PROFESSIONAL") }, async (req, reply) => {
     const professional = await app.prisma.professionalProfile.findUnique({
       where: { userId: req.user!.userId },
     });
@@ -84,7 +85,7 @@ export default async function proReputationRoutes(app: FastifyInstance) {
   });
 
   /** Search the provider for a profile that might be theirs. */
-  app.post("/v1/pro/reputation/search", { onRequest: app.requireAuth }, async (req, reply) => {
+  app.post("/v1/pro/reputation/search", { onRequest: requireRole("PROFESSIONAL") }, async (req, reply) => {
     const body = (req.body ?? {}) as { query?: unknown };
     const query = typeof body.query === "string" ? body.query.trim() : "";
     if (query.length < 2) {
@@ -109,7 +110,7 @@ export default async function proReputationRoutes(app: FastifyInstance) {
   });
 
   /** Claim a profile as theirs. Claiming is not proving. */
-  app.post("/v1/pro/reputation/link", { onRequest: app.requireAuth }, async (req, reply) => {
+  app.post("/v1/pro/reputation/link", { onRequest: requireRole("PROFESSIONAL") }, async (req, reply) => {
     const body = (req.body ?? {}) as {
       sourceCode?: unknown;
       externalProfileId?: unknown;
@@ -192,7 +193,7 @@ export default async function proReputationRoutes(app: FastifyInstance) {
   });
 
   /** Disconnect. Theirs to give, theirs to take back. */
-  app.post("/v1/pro/reputation/unlink", { onRequest: app.requireAuth }, async (req, reply) => {
+  app.post("/v1/pro/reputation/unlink", { onRequest: requireRole("PROFESSIONAL") }, async (req, reply) => {
     const body = (req.body ?? {}) as { sourceCode?: unknown };
     const sourceCode = typeof body.sourceCode === "string" ? body.sourceCode : "";
 

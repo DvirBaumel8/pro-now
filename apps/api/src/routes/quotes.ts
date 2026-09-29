@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { createQuoteSchema, approveQuoteSchema } from "@pro-now/validation";
 import { buildQuoteVersion } from "../domain/pricing/quote-hash";
 import { assertTransition } from "../domain/job/transitions";
+import { assignedJob, notFound, quoteForCustomer, requireRole } from "../auth/access";
 
 /**
  * See /docs/05-DATABASE.md §Quote versioning and /docs/02-UX-FLOWS.md C12/P19.
@@ -10,12 +11,12 @@ import { assertTransition } from "../domain/job/transitions";
  * items and never trusts a client-submitted total.
  */
 export default async function quotesRoutes(app: FastifyInstance) {
-  app.post("/v1/jobs/:id/quotes", { onRequest: app.requireAuth }, async (req, reply) => {
+  app.post("/v1/jobs/:id/quotes", { onRequest: requireRole("PROFESSIONAL") }, async (req, reply) => {
     const { id: jobId } = req.params as { id: string };
     const body = createQuoteSchema.parse(req.body);
 
-    const job = await app.prisma.job.findUnique({ where: { id: jobId } });
-    if (!job) return reply.status(404).send({ code: "JOB_NOT_FOUND", message: "Job not found" });
+    const job = await assignedJob(app.prisma, req.user!.userId, jobId);
+    if (!job) return notFound(reply, "JOB");
 
     assertTransition(job.status, "WAITING_QUOTE_APPROVAL", "PROFESSIONAL");
 
@@ -54,7 +55,7 @@ export default async function quotesRoutes(app: FastifyInstance) {
     return reply.send({ quote });
   });
 
-  app.post("/v1/quotes/:id/approve", { onRequest: app.requireAuth }, async (req, reply) => {
+  app.post("/v1/quotes/:id/approve", { onRequest: requireRole("CUSTOMER") }, async (req, reply) => {
     const idempotencyKey = req.headers["idempotency-key"] as string | undefined;
     if (!idempotencyKey) {
       return reply.status(400).send({ code: "IDEMPOTENCY_KEY_REQUIRED", message: "Idempotency-Key header is required" });
@@ -63,8 +64,8 @@ export default async function quotesRoutes(app: FastifyInstance) {
     const { id: quoteId } = req.params as { id: string };
     const body = approveQuoteSchema.parse({ ...(req.body as object), quoteId });
 
-    const quote = await app.prisma.quote.findUnique({ where: { id: quoteId }, include: { job: true } });
-    if (!quote) return reply.status(404).send({ code: "QUOTE_NOT_FOUND", message: "Quote not found" });
+    const quote = await quoteForCustomer(app.prisma, req.user!.userId, quoteId);
+    if (!quote) return notFound(reply, "QUOTE");
 
     if (quote.versionHash !== body.quoteVersionHash) {
       return reply.status(409).send({

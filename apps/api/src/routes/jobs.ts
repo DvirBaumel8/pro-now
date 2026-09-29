@@ -10,29 +10,35 @@ import {
 } from "../domain/job/advance-presence";
 import { assertTransition, nextAfterArrival } from "../domain/job/transitions";
 import { loadPaidTotals, priceContextFor } from "../domain/pricing/price-context";
+import { assignedJob, customerJob, notFound, requireRole } from "../auth/access";
 
 /**
  * See /docs/06-API-SPEC.md and /docs/05-DATABASE.md §Job creation
  * transaction. POST /v1/jobs requires an Idempotency-Key header.
  */
 export default async function jobsRoutes(app: FastifyInstance) {
-  app.post("/v1/jobs", { onRequest: app.requireAuth }, async (req, reply) => {
+  app.post("/v1/jobs", { onRequest: requireRole("CUSTOMER") }, async (req, reply) => {
     const idempotencyKey = req.headers["idempotency-key"] as string | undefined;
     if (!idempotencyKey) {
       return reply.status(400).send({ code: "IDEMPOTENCY_KEY_REQUIRED", message: "Idempotency-Key header is required" });
     }
     const body = createJobSchema.parse(req.body);
 
-    const existing = await app.prisma.job.findUnique({ where: { idempotencyKey } });
-    if (existing) {
-      return reply.send({ job: existing, replayed: true });
-    }
-
     const customer = await app.prisma.customerProfile.upsert({
       where: { userId: req.user!.userId },
       update: {},
       create: { userId: req.user!.userId },
     });
+
+    // A replay returns the caller's own job, never someone else's that
+    // happens to carry the same key.
+    const existing = await app.prisma.job.findUnique({ where: { idempotencyKey } });
+    if (existing && existing.customerId !== customer.id) {
+      return reply.status(409).send({ code: "IDEMPOTENCY_KEY_CONFLICT", message: "Use a new Idempotency-Key" });
+    }
+    if (existing) {
+      return reply.send({ job: existing, replayed: true });
+    }
 
     const address = await app.prisma.address.findUnique({ where: { id: body.addressId } });
     if (!address || address.customerId !== customer.id) {
@@ -74,13 +80,14 @@ export default async function jobsRoutes(app: FastifyInstance) {
     return reply.send({ job: refreshedJob, dispatch: outcome });
   });
 
-  app.get("/v1/jobs/:id", { onRequest: app.requireAuth }, async (req, reply) => {
+  app.get("/v1/jobs/:id", { onRequest: requireRole("CUSTOMER") }, async (req, reply) => {
     const { id } = req.params as { id: string };
-    const job = await app.prisma.job.findUnique({
-      where: { id },
-      include: { events: { orderBy: { createdAt: "asc" } }, offers: true, quotes: { include: { lineItems: true } } },
+    const job = await customerJob(app.prisma, req.user!.userId, id, {
+      events: { orderBy: { createdAt: "asc" } },
+      offers: true,
+      quotes: { include: { lineItems: true } },
     });
-    if (!job) return reply.status(404).send({ code: "JOB_NOT_FOUND", message: "Job not found" });
+    if (!job) return notFound(reply, "JOB");
 
     /*
      * HOW THIS QUOTE SITS AGAINST WHAT PEOPLE ACTUALLY PAID.
@@ -123,18 +130,12 @@ export default async function jobsRoutes(app: FastifyInstance) {
    * a client — /docs/09-PAYMENTS.md §Ledger is explicit that the server
    * never trusts a client's "payment succeeded".
    */
-  app.post("/v1/jobs/:id/confirm-completion", { onRequest: app.requireAuth }, async (req, reply) => {
+  app.post("/v1/jobs/:id/confirm-completion", { onRequest: requireRole("CUSTOMER") }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const idempotencyKey = (req.headers["idempotency-key"] as string) ?? `confirm_${id}`;
 
-    const job = await app.prisma.job.findUnique({ where: { id }, include: { customer: true } });
-    if (!job) return reply.status(404).send({ code: "JOB_NOT_FOUND", message: "Job not found" });
-
-    if (job.customer.userId !== req.user!.userId) {
-      // 404 rather than 403: the endpoint does not confirm that somebody
-      // else's job exists, the same rule pro-jobs.ts applies to addresses.
-      return reply.status(404).send({ code: "JOB_NOT_FOUND", message: "Job not found" });
-    }
+    const job = await customerJob(app.prisma, req.user!.userId, id);
+    if (!job) return notFound(reply, "JOB");
 
     assertTransition(job.status, "COMPLETED", "CUSTOMER");
     await app.prisma.job.update({ where: { id }, data: { status: "COMPLETED" } });
@@ -171,10 +172,10 @@ export default async function jobsRoutes(app: FastifyInstance) {
     return reply.send({ ok: true, ...outcome });
   });
 
-  app.post("/v1/jobs/:id/cancel", { onRequest: app.requireAuth }, async (req, reply) => {
+  app.post("/v1/jobs/:id/cancel", { onRequest: requireRole("CUSTOMER") }, async (req, reply) => {
     const { id } = req.params as { id: string };
-    const job = await app.prisma.job.findUnique({ where: { id } });
-    if (!job) return reply.status(404).send({ code: "JOB_NOT_FOUND", message: "Job not found" });
+    const job = await customerJob(app.prisma, req.user!.userId, id);
+    if (!job) return notFound(reply, "JOB");
 
     assertTransition(job.status, "CANCELLED", "CUSTOMER");
 
@@ -210,10 +211,10 @@ export default async function jobsRoutes(app: FastifyInstance) {
     ["/v1/jobs/:id/start", "SERVICE_STARTED", "IN_PROGRESS", "SERVICING"],
     ["/v1/jobs/:id/complete", "SERVICE_COMPLETION_REQUESTED", "COMPLETION_PENDING", "RELEASE"],
   ] as const) {
-    app.post(path, { onRequest: app.requireAuth }, async (req, reply) => {
+    app.post(path, { onRequest: requireRole("PROFESSIONAL") }, async (req, reply) => {
       const { id } = req.params as { id: string };
-      const job = await app.prisma.job.findUnique({ where: { id }, include: { service: true } });
-      if (!job) return reply.status(404).send({ code: "JOB_NOT_FOUND", message: "Job not found" });
+      const job = await assignedJob(app.prisma, req.user!.userId, id, { service: true });
+      if (!job) return notFound(reply, "JOB");
 
       /*
        * STARTING IS TWO DIFFERENT MOVES, AND THIS ROW DECIDED ONLY ONE.

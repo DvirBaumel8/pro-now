@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import { jobParticipant } from "../auth/access";
 
 /**
  * Private, authorized-per-job WebSocket channel — see
@@ -9,24 +10,29 @@ import type { FastifyInstance } from "fastify";
  * resync from REST on reconnect, never trust buffered socket state.
  */
 export function registerJobSocket(app: FastifyInstance) {
-  app.get("/v1/ws/jobs/:id", { websocket: true }, (connection, req) => {
+  app.get("/v1/ws/jobs/:id", { websocket: true }, async (socket, req) => {
     const { id: jobId } = req.params as { id: string };
 
     if (!req.user) {
-      connection.socket.close(4401, "UNAUTHENTICATED");
+      socket.close(4401, "UNAUTHENTICATED");
+      return;
+    }
+    // Only the job's customer and its assigned professional may listen.
+    if (!(await jobParticipant(app.prisma, req.user.userId, jobId))) {
+      socket.close(4404, "JOB_NOT_FOUND");
       return;
     }
 
     app.log.info({ jobId, userId: req.user.userId }, "Job socket connected");
 
-    connection.socket.on("message", (raw: unknown) => {
+    socket.on("message", (raw: unknown) => {
       // Placeholder echo/ack — real event fan-out (offer/state/quote/
       // location) lands in Epic 7 per /docs/18-ROADMAP.md.
-      connection.socket.send(JSON.stringify({ type: "ACK", jobId, receivedAt: new Date().toISOString() }));
+      socket.send(JSON.stringify({ type: "ACK", jobId, receivedAt: new Date().toISOString() }));
       void raw;
     });
 
-    connection.socket.on("close", () => {
+    socket.on("close", () => {
       app.log.info({ jobId, userId: req.user?.userId }, "Job socket disconnected");
     });
   });

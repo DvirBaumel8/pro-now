@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import { requireRole } from "../auth/access";
 import { createAddressSchema } from "@pro-now/validation";
 
 /**
@@ -48,7 +49,7 @@ export default async function addressesRoutes(app: FastifyInstance) {
     });
   }
 
-  app.get("/v1/me/addresses", { onRequest: app.requireAuth }, async (req) => {
+  app.get("/v1/me/addresses", { onRequest: requireRole("CUSTOMER") }, async (req) => {
     const customer = await customerFor(req.user!.userId);
     const addresses = await app.prisma.address.findMany({
       where: { customerId: customer.id },
@@ -57,7 +58,7 @@ export default async function addressesRoutes(app: FastifyInstance) {
     return { addresses };
   });
 
-  app.post("/v1/me/addresses", { onRequest: app.requireAuth }, async (req, reply) => {
+  app.post("/v1/me/addresses", { onRequest: requireRole("CUSTOMER") }, async (req, reply) => {
     const body = createAddressSchema.parse(req.body);
     const customer = await customerFor(req.user!.userId);
 
