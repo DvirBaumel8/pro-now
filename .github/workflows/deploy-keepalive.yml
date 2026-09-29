@@ -30,7 +30,10 @@ jobs:
           node-version: '22'
           cache: npm
 
-      - run: npm install --no-audit --no-fund
+      # This package intentionally has no committed lockfile yet. Avoid npm's
+      # lockfile Arborist path on the hosted runner until the first lockfile is
+      # generated and reviewed locally.
+      - run: npm install --no-audit --no-fund --package-lock=false --legacy-peer-deps
       - run: npm test
       - run: npm run typecheck
       - run: npx wrangler deploy --dry-run
