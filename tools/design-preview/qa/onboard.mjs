@@ -16,9 +16,8 @@ try {
   const join = p.locator('text=הצטרפות כמקצוען').first(); if (!(await join.count())) throw new Error('no join entry'); await join.click(); await p.waitForTimeout(1000);
   await shot('welcome');
   await press(/^מתחילים$/);
-  await p.getByLabel('תיאור חופשי של העבודה שלך').fill(process.env.ABOUT || 'אני חשמלאי, מתקין שקעים וגופי תאורה, מתקן קצרים ועושה גם אזעקות ומצלמות');
+  await press(/לכתוב במילים/); await p.getByLabel('תיאור חופשי של העבודה שלך').fill(process.env.ABOUT || 'אני חשמלאי, מתקין שקעים וגופי תאורה, מתקן קצרים ועושה גם אזעקות ומצלמות');
   await p.waitForTimeout(900); await shot('what');
-  await p.getByLabel('שירות נוסף שלא ברשימה').fill('התקנת עמדות טעינה לרכב חשמלי'); await press(/^הוספה$/); await shot('what_custom');
   await press(/^המשך$/);
   await p.getByLabel('שם מלא').fill('רון לוי'); await p.getByLabel('שם העסק').fill('רון חשמל'); await press(/^עוסק מורשה$/); await p.getByLabel('עיר הבסיס').fill('רמת גן'); await press(/^25 ק״מ$/);
   await shot('details'); await press(/^המשך$/);

@@ -15,7 +15,7 @@ try {
   await press(/^דילוג על ההסבר/);
   out.push((await has('העסק שלך,')) ? '✓ new pro → joining' : '✗ new pro did not reach joining');
   await press(/^מתחילים$/);
-  await p.getByLabel('תיאור חופשי של העבודה שלך').fill('מספרה עד הבית, תספורות גברים ונשים'); await p.waitForTimeout(800); await press(/^המשך$/);
+  await press(/לכתוב במילים/); await p.getByLabel('תיאור חופשי של העבודה שלך').fill('מספרה עד הבית, תספורות גברים ונשים'); await p.waitForTimeout(800); await press(/^המשך$/);
   await p.getByLabel('שם מלא').fill('מאיה כהן'); await press(/^עוסק פטור$/); await p.getByLabel('עיר הבסיס').fill('חולון'); await press(/^המשך$/);
   for (let k = 0; k < 6; k++) { if (!(await press(/^העלאת /))) break; } await press(/^המשך$/);
   out.push((await has('המחירים שלך')) ? '✓ prices step' : '✗ prices');

@@ -26,6 +26,8 @@ export interface OnboardingService {
   id: string;
   nameHe: string;
   categoryHe: string;
+  /** The wider field the category belongs to (pets, vehicle…), for ordering the list. */
+  groupId?: string;
   kind: PricingKind;
   /** Example figures in agorot, for the price step's starting values. */
   visitFee?: number | null;
@@ -59,6 +61,8 @@ export interface OnboardingResult {
 export interface ProOnboardingBodyProps {
   services: readonly OnboardingService[];
   matchRules: ServiceMatchRule[];
+  /** The trades as pictures: the first way in, for people who would rather not read. */
+  fields?: ReadonlyArray<{ id: string; labelHe: string; iconUri: string }>;
   /** The trade's shopfront and its drawn professional, for the shop preview. */
   shopFor: (serviceId: string | null) => { facadeUri: string; characterUri: string };
   /** Opens the device's picker; resolves the chosen file, or null. */
@@ -93,6 +97,7 @@ const toMinor = (t: string) => (Number(t.replace(/[^0-9]/g, "")) || 0) * 100;
 export function ProOnboardingBody({
   services,
   matchRules,
+  fields,
   shopFor,
   onPickFile,
   extractColor,
@@ -117,8 +122,7 @@ export function ProOnboardingBody({
   const [manual, setManual] = useState<string[]>(initial?.serviceIds ?? []);
   const [removed, setRemoved] = useState<string[]>([]);
   const [custom, setCustom] = useState<string[]>(initial?.customServicesHe ?? []);
-  const [customDraft, setCustomDraft] = useState("");
-  const [browse, setBrowse] = useState(false);
+  const [field, setField] = useState<string | null>(null);
   /* 2 — you */
   const [name, setName] = useState(initial?.nameHe ?? "");
   const [business, setBusiness] = useState(initial?.businessHe ?? "");
@@ -168,12 +172,6 @@ export function ProOnboardingBody({
     setManual((m) => [...new Set([...m, id])]);
     setRemoved((r) => r.filter((x) => x !== id));
   };
-  /* The full list starts with his own trade, never with plumbing. */
-  const browseList = useMemo(() => {
-    const cats = new Set(picked.map((id) => byId[id]?.categoryHe));
-    const rest = services.filter((x) => !picked.includes(x.id));
-    return [...rest.filter((x) => cats.has(x.categoryHe)), ...rest.filter((x) => !cats.has(x.categoryHe))];
-  }, [services, picked, byId]);
   /* "שירות חדש" only when it really is new: a trade we have is added as itself. */
   const addCustom = (t: string) => {
     const known = matchServicesByText(t, matchRules).map((m) => m.serviceId).filter((id) => byId[id]);
@@ -296,86 +294,86 @@ export function ProOnboardingBody({
             ))}
           </View>
         );
-      case 1:
+      case 1: {
+        /*
+         * --------------------------------------------------------------------
+         * ONE BOX THAT UNDERSTANDS, AND THE TRADES AS WORDS.
+         *
+         * Amit: *"פשוט לבעל מקצוע — טקסט חופשי וקטגוריות; חיפוש חופשי שיאתר
+         * את המקצוע לבד — המרכזי."* The box is the main way: he writes his
+         * trade the way he says it, and what we understood appears under it
+         * as big rows, already ticked. Below, the trades as plain words for
+         * whoever would rather tap; a trade opens its services as the same
+         * rows. No pictures, no separate search, no wall of 47 buttons.
+         * --------------------------------------------------------------------
+         */
+        const f = fields?.find((x) => x.id === field) ?? null;
+        const inField = f ? services.filter((x) => x.groupId === f.id && !picked.includes(x.id)) : [];
+        const Row = ({ id, on }: { id: string; on: boolean }) => (
+          <Pressable onPress={() => (on ? unpick(id) : addPick(id))} accessibilityRole="checkbox" accessibilityState={{ checked: on }} accessibilityLabel={byId[id]?.nameHe} style={[s.pickRow, on && s.pickRowOn]}>
+            <View style={[s.pickBox, on && s.pickBoxOn]}>{on ? <Text style={s.pickTick}>✓</Text> : null}</View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.pickName}>{byId[id]?.nameHe}</Text>
+              <Text style={s.pickCat}>{byId[id]?.categoryHe}</Text>
+            </View>
+          </Pressable>
+        );
         return (
           <>
-            <Text style={s.h1}>מה העבודה שלך?</Text>
-            <Text style={s.lead}>במילים שלך — נזהה את השירותים.</Text>
+            <Text style={s.h1}>מה המקצוע שלך?</Text>
+            <Text style={s.lead}>כותבים במילים שלך — נזהה לבד.</Text>
             <TextInput
               value={about}
               onChangeText={setAbout}
-              placeholder="למשל: וטרינר · מספרה ניידת לכלבים · חשמלאי, מתקין שקעים"
+              placeholder="למשל: וטרינר · חשמלאי · מנקה"
               placeholderTextColor="rgba(247,243,250,0.48)"
-              multiline
               accessibilityLabel="תיאור חופשי של העבודה שלך"
-              style={[s.input, s.textarea]}
+              style={[s.input, s.bigInput]}
               textAlign="right"
             />
             {about.trim().length >= 3 && suggestions.length === 0 && picked.length === 0 && custom.length === 0 ? (
               <View style={s.nomatch}>
-                <Text style={s.nomatchText}>לא מצאנו. אפשר לבחור מהרשימה או להוסיף שירות חדש.</Text>
-                <Pressable onPress={() => setCustom((p) => [...new Set([...p, about.trim()])])} accessibilityRole="button" style={s.linkRow}>
-                  <Text style={s.link}>{`+ להוסיף ״${about.trim().slice(0, 40)}״ כשירות חדש`}</Text>
+                <Text style={s.nomatchText}>לא מצאנו. אפשר לבחור תחום למטה, או להוסיף כשירות חדש.</Text>
+                <Pressable onPress={() => addCustom(about.trim())} accessibilityRole="button" style={s.linkRow}>
+                  <Text style={s.link}>{`+ להוסיף ״${about.trim().slice(0, 40)}״`}</Text>
                 </Pressable>
               </View>
             ) : null}
-            {picked.length > 0 ? <Text style={s.section}>{picked.length === 1 ? "זיהינו שירות אחד" : `זיהינו ${picked.length} שירותים`} · לחיצה מסירה</Text> : null}
-            <View style={s.wrap}>
-              {picked.map((id) => (
-                <Chip key={id} onPress={() => unpick(id)} labelHe={`הסרת ${byId[id]?.nameHe ?? ""}`}>
-                  <Text style={s.svcCheck}>✓</Text>
-                  <View>
-                    <Text style={s.svcName}>{byId[id]?.nameHe}</Text>
-                    <Text style={s.svcCat}>{byId[id]?.categoryHe}</Text>
-                  </View>
-                  <Text style={s.svcX}>×</Text>
-                </Chip>
-              ))}
-              {custom.map((c) => (
-                <Pressable key={c} onPress={() => setCustom((p) => p.filter((x) => x !== c))} accessibilityRole="checkbox" accessibilityState={{ checked: true }} style={[s.svc, s.svcCustom]}>
-                  <Text style={s.svcCheck}>✦</Text>
-                  <View>
-                    <Text style={s.svcName}>{c}</Text>
-                    <Text style={s.svcCat}>שירות חדש · נבדוק</Text>
-                  </View>
-                </Pressable>
-              ))}
-            </View>
-            <Pressable onPress={() => setBrowse((b) => !b)} accessibilityRole="button" style={s.linkRow}>
-              <Text style={s.link}>{browse ? "סגירת הרשימה" : "+ בחירה מכל השירותים"}</Text>
-            </Pressable>
-            {browse ? (
-              <View style={s.wrap}>
-                {browseList.map((x) => (
-                  <Pressable key={x.id} onPress={() => addPick(x.id)} accessibilityRole="checkbox" accessibilityState={{ checked: false }} style={s.svc}>
-                    <Text style={[s.svcCheck, { opacity: 0.35 }]}>+</Text>
-                    <View>
-                      <Text style={s.svcName}>{x.nameHe}</Text>
-                      <Text style={s.svcCat}>{x.categoryHe}</Text>
-                    </View>
-                  </Pressable>
-                ))}
-              </View>
-            ) : null}
-            <Text style={s.section}>עושה משהו שלא ברשימה?</Text>
-            <View style={s.row}>
-              <TextInput value={customDraft} onChangeText={setCustomDraft} placeholder="למשל: התקנת מטבחים" placeholderTextColor="rgba(247,243,250,0.48)" style={[s.input, { flex: 1 }]} textAlign="right" accessibilityLabel="שירות נוסף שלא ברשימה" />
-              <Pressable
-                onPress={() => {
-                  const t = customDraft.trim();
-                  if (t) addCustom(t);
-                  setCustomDraft("");
-                }}
-                disabled={!customDraft.trim()}
-                accessibilityRole="button"
-                accessibilityState={{ disabled: !customDraft.trim() }}
-                style={[s.addBtn, !customDraft.trim() && { opacity: 0.4 }]}
-              >
-                <Text style={s.addBtnText}>הוספה</Text>
+            {picked.map((id) => (
+              <RiseRow key={id}>
+                <Row id={id} on />
+              </RiseRow>
+            ))}
+            {custom.map((c) => (
+              <Pressable key={c} onPress={() => setCustom((p) => p.filter((x) => x !== c))} accessibilityRole="checkbox" accessibilityState={{ checked: true }} style={[s.pickRow, s.pickRowOn]}>
+                <View style={[s.pickBox, s.pickBoxOn]}><Text style={s.pickTick}>✓</Text></View>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.pickName}>{c}</Text>
+                  <Text style={s.pickCat}>שירות חדש · נבדוק</Text>
+                </View>
               </Pressable>
-            </View>
+            ))}
+            {fields && fields.length > 0 ? (
+              <>
+                <Text style={s.section}>{picked.length + custom.length > 0 ? "עוד משהו? לפי תחום" : "או לפי תחום"}</Text>
+                <View style={s.wrap}>
+                  {fields.map((x) => {
+                    const onF = field === x.id;
+                    return (
+                      <Pressable key={x.id} onPress={() => setField(onF ? null : x.id)} accessibilityRole="button" accessibilityState={{ expanded: onF }} style={[s.fieldPill, onF && s.fieldPillOn]}>
+                        <Text style={[s.fieldPillText, onF && { color: "#0d0a16" }]}>{x.labelHe}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                {inField.map((x) => (
+                  <Row key={x.id} id={x.id} on={false} />
+                ))}
+              </>
+            ) : null}
           </>
         );
+      }
       case 2:
         return (
           <>
@@ -714,21 +712,6 @@ export function ProOnboardingBody({
   );
 }
 
-/* A detected service arrives: a small scale and fade, not a jump. */
-function Chip({ onPress, labelHe, children }: { onPress: () => void; labelHe: string; children: React.ReactNode }) {
-  const a = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    Animated.timing(a, { toValue: 1, duration: 180, easing: Easing.out(Easing.quad), useNativeDriver: true }).start();
-  }, [a]);
-  return (
-    <Animated.View style={{ opacity: a, transform: [{ scale: a.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] }) }] }}>
-      <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={labelHe} style={[s.svc, s.svcOn]}>
-        {children}
-      </Pressable>
-    </Animated.View>
-  );
-}
-
 /* The work radius, growing as it changes. */
 function RadiusRing({ size }: { size: number }) {
   const v = useRef(new Animated.Value(size)).current;
@@ -736,6 +719,15 @@ function RadiusRing({ size }: { size: number }) {
     Animated.timing(v, { toValue: size, duration: 240, easing: Easing.out(Easing.quad), useNativeDriver: false }).start();
   }, [size, v]);
   return <Animated.View style={[s.radarRing, { width: v, height: v, borderRadius: Animated.divide(v, 2) }]} />;
+}
+
+/* What was understood rises in, so he sees it happen as he types. */
+function RiseRow({ children }: { children: React.ReactNode }) {
+  const v = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(v, { toValue: 1, duration: 280, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+  }, [v]);
+  return <Animated.View style={{ opacity: v, transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }] }}>{children}</Animated.View>;
 }
 
 function MoneyField({ value, onChange, suffixHe, small = false }: { value: number; onChange: (t: string) => void; suffixHe?: string; small?: boolean }) {
@@ -819,6 +811,32 @@ const s = StyleSheet.create({
   svcName: { color: "#fff", fontSize: scale.meta, fontWeight: "800", textAlign: "right" },
   svcCat: { color: "rgba(247,243,250,0.55)", fontSize: scale.micro, textAlign: "right" },
   linkRow: { minHeight: 44, justifyContent: "center" },
+  linkQuiet: { color: "rgba(247,243,250,0.6)", fontSize: scale.meta, textAlign: "center", textDecorationLine: "underline" },
+  fieldGrid: { flexDirection: "row-reverse", flexWrap: "wrap", gap: 10, marginTop: 8 },
+  fieldTile: { width: "31%", minHeight: 124, alignItems: "center", justifyContent: "flex-end", paddingVertical: 10, paddingHorizontal: 4, borderRadius: 18, backgroundColor: "rgba(255,255,255,0.06)", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" },
+  fieldTileOn: { borderColor: "#2FBF8A", backgroundColor: "rgba(47,191,138,0.12)" },
+  fieldImg: { width: 64, height: 64 },
+  fieldLabel: { color: "#fff", fontSize: scale.body, fontWeight: "800", textAlign: "center", marginTop: 6, writingDirection: "rtl" },
+  fieldBadge: { position: "absolute", top: 6, left: 6, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 999, backgroundColor: "#2FBF8A" },
+  fieldBadgeText: { color: "#0d0a16", fontSize: scale.micro, fontWeight: "900" },
+  fieldHead: { flexDirection: "row-reverse", alignItems: "center", gap: 12, marginTop: 8, marginBottom: 4, padding: 10, borderRadius: 18, backgroundColor: "rgba(255,255,255,0.06)" },
+  fieldHeadImg: { width: 48, height: 48 },
+  pickRow: { minHeight: 60, flexDirection: "row-reverse", alignItems: "center", gap: 14, paddingHorizontal: 16, marginTop: 8, borderRadius: 16, backgroundColor: "rgba(255,255,255,0.05)", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
+  pickRowOn: { borderColor: "#2FBF8A", backgroundColor: "rgba(47,191,138,0.12)" },
+  pickBox: { width: 30, height: 30, borderRadius: 15, borderWidth: 2, borderColor: "rgba(247,243,250,0.5)", alignItems: "center", justifyContent: "center" },
+  pickBoxOn: { borderColor: "#2FBF8A", backgroundColor: "#2FBF8A" },
+  pickTick: { color: "#0d0a16", fontSize: scale.body, fontWeight: "900" },
+  pickName: { color: "#fff", fontSize: scale.body, fontWeight: "700", textAlign: "right", writingDirection: "rtl" },
+  pickCat: { color: "rgba(247,243,250,0.55)", fontSize: scale.micro, textAlign: "right", marginTop: 2 },
+  bigInput: { minHeight: 58, fontSize: scale.body, borderColor: "rgba(255,92,56,0.55)", borderWidth: 1.5 },
+  fieldPill: { minHeight: 44, paddingHorizontal: 14, justifyContent: "center", borderRadius: 999, borderWidth: 1, borderColor: "rgba(247,243,250,0.22)", backgroundColor: "rgba(255,255,255,0.04)" },
+  fieldPillOn: { backgroundColor: "#F7F3FA", borderColor: "#F7F3FA" },
+  fieldPillText: { color: "#F7F3FA", fontSize: scale.meta, fontWeight: "700" },
+  finder: { marginTop: 4, gap: 6 },
+  findRow: { minHeight: 52, flexDirection: "row-reverse", alignItems: "center", gap: 10, paddingHorizontal: 14, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.05)" },
+  findSub: { marginRight: 18, backgroundColor: "rgba(255,255,255,0.03)" },
+  findAdd: { color: "#2FBF8A", fontSize: scale.body, fontWeight: "900" },
+  findChevron: { color: "rgba(247,243,250,0.6)", fontSize: scale.body, fontWeight: "800" },
   nomatch: { marginTop: 12, padding: 12, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.05)" },
   nomatchText: { color: "rgba(247,243,250,0.82)", fontSize: scale.meta, textAlign: "right", writingDirection: "rtl" },
   link: { color: "#FF9A6B", fontSize: scale.meta, fontWeight: "800", textAlign: "right" },

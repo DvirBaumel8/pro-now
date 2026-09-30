@@ -1086,6 +1086,7 @@ export function App() {
           <ProOnboardingBody
             services={ONBOARD_SERVICES}
             matchRules={catalogMatchRules}
+            fields={ONBOARD_FIELDS}
             shopFor={onboardShopFor}
             onPickFile={pickLocalFile}
             extractColor={dominantColor}
@@ -1477,6 +1478,7 @@ const ONBOARD_SERVICES: OnboardingService[] = Object.keys(SERVICE_PAGES).map((id
     id,
     nameHe: SERVICE_PAGES[id]!.nameHe,
     categoryHe: categoryNameByServiceId[id] ?? "",
+    groupId: departmentCodeByServiceId[id] ?? undefined,
     kind: def ? pricingKindOf(def) : "VISIT",
     visitFee: p?.visitFeeMinorUnits ?? null,
     hourly: p?.hourlyRateMinorUnits ?? null,
@@ -1485,6 +1487,17 @@ const ONBOARD_SERVICES: OnboardingService[] = Object.keys(SERVICE_PAGES).map((id
     list: priceListFor(id),
   };
 });
+/* The trades as pictures for the join — short words, our own characters (Amit: most can barely read). */
+const ONBOARD_FIELDS: ReadonlyArray<{ id: string; labelHe: string; iconUri: string }> = (
+  [
+    /* [department, words under the picture, whose drawn character] — DEPT_SHOP is declared further down. */
+    ["HOME_URGENT", "תיקונים בבית", "home"], ["IMPROVEMENT", "שיפוצים", "build"], ["APPLIANCES", "מזגנים ומכשירים", "appliance"], ["HOME_CARE", "ניקיון וגינה", "care"],
+    ["VEHICLE", "רכב", "auto"], ["LOGISTICS", "הובלות ושליחויות", "move"], ["PETS", "חיות", "pets"], ["BEAUTY", "יופי", "hair"],
+    ["WELLNESS", "כושר ובריאות", "well"], ["TECH", "מחשבים וטלפונים", "tech"], ["ODD_JOBS", "עזרה בבית", "help"],
+  ] as const
+)
+  .filter(([id]) => ONBOARD_SERVICES.some((x) => x.groupId === id))
+  .map(([id, labelHe, who]) => ({ id, labelHe, iconUri: `./world/character_${who}_icon.webp` }));
 /* The trade's own shopfront and drawn professional, for "your shop in our street". */
 function onboardShopFor(serviceId: string | null): { facadeUri: string; characterUri: string } {
   const dept = serviceId ? departmentCodeByServiceId[serviceId] ?? "" : "";
