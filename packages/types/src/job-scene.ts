@@ -402,7 +402,7 @@ export function visitMoneyLineHe(status: JobState, facts: VisitMoneyFacts = {}):
       case "DIAGNOSIS":
       case "WAITING_QUOTE_APPROVAL":
       case "IN_PROGRESS":
-        return `${agreed} · סוכם מראש, מאושר בכרטיס`;
+        return `${agreed} · סוכם מראש, משלמים ישירות למקצוען`;
       case "COMPLETION_PENDING":
         return `לתשלום ${agreed} · אחרי שתאשרו שהעבודה הושלמה`;
       default:

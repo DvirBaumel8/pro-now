@@ -710,7 +710,7 @@ export function ProJobBody({
               <>
                 <Text style={styles.payUnknown}>{kind === "VISIT" ? "דמי הביקור שלך" : "לפי מה שסוכם"}</Text>
                 <Text style={styles.payNote}>
-                  {kind === "VISIT" ? `את המחיר של ${visitTerms.workHe} סוגרים ישירות מול הלקוח.` : "הסכום מאושר בכרטיס של הלקוח ועובר אליך אחרי שהוא מאשר."}
+                  {kind === "VISIT" ? `את המחיר של ${visitTerms.workHe} סוגרים ישירות מול הלקוח.` : "את הסכום שסוכם הלקוח משלם לך ישירות, אחרי שהוא מאשר שסיימת."}
                 </Text>
               </>
             )}
