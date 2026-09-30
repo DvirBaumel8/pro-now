@@ -554,11 +554,9 @@ export const earningJobs: EarningJob[] = [
     mark: "plumbing",
     whenHe: "היום, 14:20",
     grossMinorUnits: 44500,
-    deductions: [
-      { labelHe: "עמלת פלטפורמה", minorUnits: 6675 },
-      { labelHe: "עמלת סליקה", minorUnits: 890 },
-    ],
-    netMinorUnits: 36935,
+    /* No fee lines: PRO NOW's commission is undecided (/CLAUDE.md §4). */
+    deductions: [],
+    netMinorUnits: 44500,
   },
   {
     id: "e2",
@@ -566,11 +564,8 @@ export const earningJobs: EarningJob[] = [
     mark: "plumbing",
     whenHe: "היום, 11:05",
     grossMinorUnits: 27900,
-    deductions: [
-      { labelHe: "עמלת פלטפורמה", minorUnits: 4185 },
-      { labelHe: "עמלת סליקה", minorUnits: 558 },
-    ],
-    netMinorUnits: 23157,
+    deductions: [],
+    netMinorUnits: 27900,
   },
 ];
 

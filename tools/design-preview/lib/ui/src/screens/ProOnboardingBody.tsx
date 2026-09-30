@@ -52,6 +52,8 @@ export interface OnboardingResult {
   pricesMinorUnits?: Record<string, number>;
   /** His own price-list lines, per service. */
   priceLines?: Record<string, Array<{ id: string; nameHe: string; amountMinorUnits: number }>>;
+  /** The documents he actually uploaded (the rest were skipped, in a demo). */
+  uploadedDocIds?: string[];
 }
 
 export interface ProOnboardingBodyProps {
@@ -79,7 +81,7 @@ export interface ProOnboardingBodyProps {
   height: number;
 }
 
-const STEPS = ["ברוכים הבאים", "מה אתה עושה", "פרטים ואזור", "מסמכים", "מחירים", "החנות שלך", "התמונה שלך", "שליחה"] as const;
+const STEPS = ["ברוכים הבאים", "השירותים שלך", "פרטים ואזור", "מסמכים", "מחירים", "החנות שלך", "התמונה שלך", "שליחה"] as const;
 const BRAND_SWATCHES = [
   { hex: "#FF5C38", he: "כתום" }, { hex: "#8B5CF6", he: "סגול" }, { hex: "#2FBF8A", he: "ירוק" }, { hex: "#3B82F6", he: "כחול" },
   { hex: "#F59E0B", he: "ענבר" }, { hex: "#EC4899", he: "ורוד" }, { hex: "#14B8A6", he: "טורקיז" }, { hex: "#E5E7EB", he: "לבן" },
@@ -211,12 +213,12 @@ export function ProOnboardingBody({
   ][step];
   const whyNot = [
     "",
-    "בחר לפחות שירות אחד",
+    "חסר שירות",
     "חסרים שם, סוג עוסק ועיר בסיס",
     mustLeft === 1 ? "עוד מסמך חובה אחד" : `עוד ${mustLeft} מסמכי חובה`,
     pricesMissing === 1 ? "חסר מחיר אחד" : `חסרים ${pricesMissing} מחירים`,
     "חסר שם לשלט",
-    "בחר תמונה או דמות",
+    "חסרה תמונה",
     "",
   ][step];
 
@@ -278,8 +280,8 @@ export function ProOnboardingBody({
               </View>
             ) : null}
             {[
-              ["pin", "עבודות לידך, עכשיו", "מתחבר כשנוח לך — והקריאות מגיעות לפי המיקום שלך"],
-              ["₪", "אתה קובע מחירים", "ורואה כמה תקבל לפני שאתה מאשר עבודה"],
+              ["pin", "קריאות לידך, עכשיו", "עובדים מתי שנוח. הקריאות לפי המיקום."],
+              ["₪", "המחירים שלך", "הסכום מוצג לפני שמאשרים קריאה"],
               ["star", "חנות משלך ברחוב", "לוגו, צבעים ושלט ניאון — לקוחות רואים אותך"],
             ].map(([g, t, sub]) => (
               <View key={t} style={s.benefit}>
@@ -297,8 +299,8 @@ export function ProOnboardingBody({
       case 1:
         return (
           <>
-            <Text style={s.h1}>מה אתה עושה?</Text>
-            <Text style={s.lead}>ספר במילים שלך — אנחנו נבין לבד איזה שירותים זה.</Text>
+            <Text style={s.h1}>מה העבודה שלך?</Text>
+            <Text style={s.lead}>במילים שלך — נזהה את השירותים.</Text>
             <TextInput
               value={about}
               onChangeText={setAbout}
@@ -311,13 +313,13 @@ export function ProOnboardingBody({
             />
             {about.trim().length >= 3 && suggestions.length === 0 && picked.length === 0 && custom.length === 0 ? (
               <View style={s.nomatch}>
-                <Text style={s.nomatchText}>לא מצאנו את זה אצלנו. בחר מהרשימה, או שנוסיף את זה כשירות חדש.</Text>
+                <Text style={s.nomatchText}>לא מצאנו. אפשר לבחור מהרשימה או להוסיף שירות חדש.</Text>
                 <Pressable onPress={() => setCustom((p) => [...new Set([...p, about.trim()])])} accessibilityRole="button" style={s.linkRow}>
                   <Text style={s.link}>{`+ להוסיף ״${about.trim().slice(0, 40)}״ כשירות חדש`}</Text>
                 </Pressable>
               </View>
             ) : null}
-            {picked.length > 0 ? <Text style={s.section}>{picked.length === 1 ? "זיהינו שירות אחד" : `זיהינו ${picked.length} שירותים`} — הקש כדי להסיר</Text> : null}
+            {picked.length > 0 ? <Text style={s.section}>{picked.length === 1 ? "זיהינו שירות אחד" : `זיהינו ${picked.length} שירותים`} · לחיצה מסירה</Text> : null}
             <View style={s.wrap}>
               {picked.map((id) => (
                 <Chip key={id} onPress={() => unpick(id)} labelHe={`הסרת ${byId[id]?.nameHe ?? ""}`}>
@@ -334,7 +336,7 @@ export function ProOnboardingBody({
                   <Text style={s.svcCheck}>✦</Text>
                   <View>
                     <Text style={s.svcName}>{c}</Text>
-                    <Text style={s.svcCat}>שירות חדש · נבדוק ונוסיף</Text>
+                    <Text style={s.svcCat}>שירות חדש · נבדוק</Text>
                   </View>
                 </Pressable>
               ))}
@@ -381,11 +383,11 @@ export function ProOnboardingBody({
             <Text style={s.label}>שם מלא</Text>
             <TextInput value={name} onChangeText={setName} placeholder="השם שלך" placeholderTextColor="rgba(247,243,250,0.48)" style={s.input} textAlign="right" accessibilityLabel="שם מלא" />
             <Text style={s.label}>שם העסק (לא חובה)</Text>
-            <TextInput value={business} onChangeText={setBusiness} placeholder="למשל: יוסי אינסטלציה" placeholderTextColor="rgba(247,243,250,0.48)" style={s.input} textAlign="right" accessibilityLabel="שם העסק" />
-            <Text style={s.label}>איך אתה רשום במס</Text>
+            <TextInput value={business} onChangeText={setBusiness} placeholder="יופיע על השלט" placeholderTextColor="rgba(247,243,250,0.48)" style={s.input} textAlign="right" accessibilityLabel="שם העסק" />
+            <Text style={s.label}>סוג עוסק</Text>
             <View style={s.row}><Dealer v="פטור" /><Dealer v="מורשה" /><Dealer v="חברה" /></View>
             {phoneHe ? <Text style={s.hint}>הטלפון שלך: {phoneHe} · אומת בכניסה</Text> : null}
-            <Text style={s.h2}>איפה אתה עובד?</Text>
+            <Text style={s.h2}>אזור עבודה</Text>
             <Text style={s.label}>עיר הבסיס</Text>
             <TextInput value={city} onChangeText={setCity} placeholder="למשל: רמת גן" placeholderTextColor="rgba(247,243,250,0.48)" style={s.input} textAlign="right" accessibilityLabel="עיר הבסיס" />
             <Text style={s.label}>עד כמה רחוק</Text>
@@ -402,7 +404,7 @@ export function ProOnboardingBody({
               <View style={s.radarDot} />
               <Text style={s.radarText}>{city.trim() || "הבסיס שלך"} · {radius} ק״מ</Text>
             </View>
-            <Text style={s.hint}>זה רק ברירת מחדל. כשאתה מתחבר, הקריאות מגיעות לפי איפה שאתה נמצא באותו רגע — בכל מקום בארץ.</Text>
+            <Text style={s.hint}>במשמרת, הקריאות מגיעות לפי המיקום שלך באותו רגע.</Text>
           </>
         );
       case 3:
@@ -450,7 +452,7 @@ export function ProOnboardingBody({
         return (
           <>
             <Text style={s.h1}>המחירים שלך</Text>
-            <Text style={s.lead}>אתה קובע. מילאנו מחירים לדוגמה — שנה מה שצריך, והוסף עבודות שאנחנו לא הכרנו.</Text>
+            <Text style={s.lead}>מילאנו מחירים לדוגמה. אפשר לשנות ולהוסיף.</Text>
             {visitIds.length > 0 ? (
               <View style={s.priceCard}>
                 <Text style={s.priceName}>דמי ביקור ובדיקה</Text>
@@ -496,15 +498,14 @@ export function ProOnboardingBody({
                     </>
                   ) : x.kind === "QUOTE_FIRST" ? (
                     <>
-                      <Text style={s.priceKind}>מחיר לכל עבודה — אתה שולח הצעה לפני שיוצאים</Text>
-                      <Text style={s.preview}>אין מחיר קבוע מראש. תקבל תיאור ותמונות ותחליט.</Text>
+                      <Text style={s.priceKind}>הצעת מחיר לכל קריאה, לפני יציאה</Text>
                     </>
                   ) : (
                     <>
                       <Text style={s.priceKind}>המחירון שלך — הלקוח בוחר מה להזמין</Text>
                       {rows.map((r, i) => (
                         <View key={r.id} style={s.listRow}>
-                          <TextInput value={r.nameHe} onChangeText={(t) => setRows(rows.map((q, j) => (j === i ? { ...q, nameHe: t } : q)))} style={[s.input, { flex: 1 }]} textAlign="right" accessibilityLabel="שם העבודה" />
+                          <TextInput value={r.nameHe} onChangeText={(t) => setRows(rows.map((q, j) => (j === i ? { ...q, nameHe: t } : q)))} style={[s.input, { flex: 1, minWidth: 0, width: 0 }]} textAlign="right" accessibilityLabel="שם העבודה" />
                           <MoneyField small value={r.amountMinorUnits} onChange={(t) => setRows(rows.map((q, j) => (j === i ? { ...q, amountMinorUnits: toMinor(t) } : q)))} />
                           <Pressable onPress={() => setRows(rows.filter((_, j) => j !== i))} accessibilityRole="button" accessibilityLabel="הסרת שורה" style={s.remove}>
                             <Text style={s.removeText}>×</Text>
@@ -678,7 +679,7 @@ export function ProOnboardingBody({
             accessibilityLabel="דלג לעכשיו — להדגמה בלבד"
             style={s.skip}
           >
-            <Text style={s.skipText}>דלג לעכשיו (הדגמה)</Text>
+            <Text style={s.skipText}>דילוג (הדגמה)</Text>
           </Pressable>
         ) : null}
         {step === 5 ? (
@@ -690,14 +691,14 @@ export function ProOnboardingBody({
             accessibilityRole="button"
             style={s.skip}
           >
-            <Text style={s.skipText}>דלג — אעצב את החנות אחר כך</Text>
+            <Text style={s.skipText}>אעצב אחר כך</Text>
           </Pressable>
         ) : null}
         <Pressable
           onPress={() => {
             if (!canNext) return;
             if (step === STEPS.length - 1) {
-              onDone({ nameHe: name, businessHe: business, serviceIds: picked, customServicesHe: custom, shopNameHe: shopName, brandColor: color, shopSkipped, logoUri: logo, photoUri: useCharacter ? null : photo ?? files.SELFIE?.uri ?? null, city, radiusKm: radius, pricesMinorUnits: priceOf(), priceLines: Object.fromEntries(picked.filter((id) => byId[id]?.kind === "LIST").map((id) => [id, [...(lines[id] ?? byId[id]?.list ?? [])]])) });
+              onDone({ nameHe: name, businessHe: business, serviceIds: picked, customServicesHe: custom, shopNameHe: shopName, brandColor: color, shopSkipped, logoUri: logo, photoUri: useCharacter ? null : photo ?? files.SELFIE?.uri ?? null, city, radiusKm: radius, pricesMinorUnits: priceOf(), uploadedDocIds: Object.keys(files), priceLines: Object.fromEntries(picked.filter((id) => byId[id]?.kind === "LIST").map((id) => [id, [...(lines[id] ?? byId[id]?.list ?? [])]])) });
               return;
             }
             setStep((n) => n + 1);
@@ -706,7 +707,7 @@ export function ProOnboardingBody({
           accessibilityState={{ disabled: !canNext }}
           style={({ pressed }) => [s.cta, !canNext && s.ctaOff, pressed && canNext && { transform: [{ scale: 0.98 }] }]}
         >
-          <Text style={s.ctaText}>{!canNext && whyNot ? whyNot : step === 0 ? "בוא נתחיל" : step === STEPS.length - 1 ? "שליחה לאישור PRO NOW" : "המשך"}</Text>
+          <Text style={s.ctaText}>{!canNext && whyNot ? whyNot : step === 0 ? "מתחילים" : step === STEPS.length - 1 ? "שליחה לאישור PRO NOW" : "המשך"}</Text>
         </Pressable>
       </View>
     </View>
@@ -747,14 +748,14 @@ function MoneyField({ value, onChange, suffixHe, small = false }: { value: numbe
   }, [value, pulse]);
   return (
     <Animated.View style={[s.money, small && s.moneySmall, { transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.03] }) }] }]}>
-      <Text style={s.moneyCur}>₪</Text>
+      <Text style={[s.moneyCur, small && { fontSize: scale.body }]}>₪</Text>
       <TextInput
         value={value ? String(Math.round(value / 100)) : ""}
         onChangeText={onChange}
         keyboardType="number-pad"
         placeholder="0"
         placeholderTextColor="rgba(247,243,250,0.3)"
-        style={[s.moneyInput, small && { fontSize: scale.body, minWidth: 54 }]}
+        style={[s.moneyInput, small && { fontSize: scale.body, minWidth: 0, width: 56 }]}
         textAlign="center"
         accessibilityLabel={suffixHe ? `מחיר ${suffixHe}` : "מחיר בשקלים"}
       />
@@ -849,7 +850,8 @@ const s = StyleSheet.create({
   remove: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.06)" },
   removeText: { color: "rgba(247,243,250,0.7)", fontSize: scale.body, fontWeight: "800" },
   money: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, alignSelf: "stretch", minHeight: 58, borderRadius: 16, backgroundColor: "rgba(255,255,255,0.06)", borderWidth: 1, borderColor: "rgba(255,92,56,0.45)" },
-  moneySmall: { alignSelf: "auto", minHeight: 48, paddingHorizontal: 8 },
+  /* A web input is as wide as its browser default unless told; the row ran off the screen. */
+  moneySmall: { alignSelf: "auto", minHeight: 48, paddingHorizontal: 8, width: 96, flexShrink: 0 },
   moneyCur: { color: "#fff", fontSize: scale.title, fontWeight: "900" },
   moneyInput: { minWidth: 70, color: "#fff", fontSize: scale.title, fontWeight: "900" },
   moneySuffix: { color: "rgba(247,243,250,0.6)", fontSize: scale.meta, fontWeight: "700" },

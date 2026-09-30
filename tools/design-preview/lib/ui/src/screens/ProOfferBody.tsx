@@ -164,7 +164,7 @@ export function ProOfferBody({
           * decision. So the kicker now says what happened and what the
           * countdown means, in one line, before anything else is read.
           */}
-        <Text style={styles.kicker}>קריאה חדשה בשבילך · רק אתה רואה אותה עכשיו</Text>
+        <Text style={styles.kicker}>קריאה חדשה · רק אצלך עכשיו</Text>
         <Text style={styles.service} numberOfLines={2}>
           {offer.serviceNameHe}
         </Text>
@@ -269,7 +269,7 @@ export function ProOfferBody({
         {countdown.expired ? (
           <View style={styles.expired}>
             <Text style={styles.expiredText}>
-              הזמן נגמר. הקריאה עברה לבעל מקצוע אחר באזור.
+              הזמן נגמר. הקריאה כבר לא אצלך.
             </Text>
           </View>
         ) : (
@@ -297,7 +297,7 @@ export function ProOfferBody({
               accessibilityState={{ disabled: responding }}
               style={[styles.skip, responding && { opacity: 0.5 }]}
             >
-              <Text style={styles.skipLabel}>לא עכשיו — העבר למקצוען אחר</Text>
+              <Text style={styles.skipLabel}>לא עכשיו</Text>
             </Pressable>
           </>
         )}

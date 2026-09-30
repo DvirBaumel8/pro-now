@@ -3,7 +3,6 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { BackButton } from "../components/BackButton";
 import { proTheme, radii, scale, spacing, tint, type } from "../theme";
-import { lex } from "../lexicon";
 import { ClockMark, Mark, type MarkName, ShieldCheckMark } from "../components/marks";
 import { SectionHeader, Surface } from "../components/surfaces";
 
@@ -92,13 +91,15 @@ export function ProVerificationBody({
   const liveServices = services.filter((s) => s.live);
   const blocked = services.filter((s) => !s.live);
 
+  const missingDocs = steps.filter((st) => st.state === "NOT_STARTED" || st.state === "EXPIRED").length;
   return (
     <View style={[styles.screen, { width, height }]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         <View style={styles.head}>
           <BackButton onPress={onBack} tone={"light"} placement="absolute" />
 
-          <Text style={styles.title}>{lex.whatWeChecked}</Text>
+          {/* The tab is called "המסמכים שלי"; the screen is called the same. */}
+          <Text style={styles.title} accessibilityRole="header">המסמכים שלי</Text>
 
           {/*
             * The headline is about SERVICES, not about the account, because
@@ -106,11 +107,14 @@ export function ProVerificationBody({
             * approved" would be both meaningless and encouraging.
             */}
           <Text style={styles.subtitle}>
+            {/* Never "everything approved" above a document that is missing. */}
             {liveServices.length === 0
-              ? "עדיין אין שירות שאפשר לשלוח אליך אליו עבודות."
-              : liveServices.length === services.length
-                ? "כל השירותים שלך מאושרים לקבלת עבודות."
-                : `${liveServices.length} מתוך ${services.length} שירותים מאושרים לקבלת עבודות.`}
+              ? "עדיין אין שירות מאושר."
+              : missingDocs > 0
+                ? missingDocs === 1 ? "חסר מסמך אחד" : `חסרים ${missingDocs} מסמכים`
+                : liveServices.length === services.length
+                  ? "כל השירותים שלך מאושרים."
+                  : `מאושרים: ${liveServices.length}/${services.length} שירותים`}
           </Text>
           <Text style={styles.who} numberOfLines={1}>
             {displayNameHe}

@@ -67,7 +67,7 @@ import { ProOnboardingBody, type OnboardingResult, type OnboardingService } from
 import { ActiveJobCapsule, AddressPickerBody, AppHeader, AppMenuBody, AvatarPickerBody, IntroBody, customerDarkTheme, FocusSheet, ScreenTransition, ArrivalVerifyBody, OnSiteBody, CallsListBody, CAPSULE_HEIGHT, ChatBody, ConnectionBanner, CategoryBody, CustomerHomeBody, CustomerProfileBody, customerTheme, DescribeFaultBody, JobClosedBody, JobCompleteBody, MatchConfirmBody, NavGlyph, Persona, PhoneAuthBody, ProEarningsBody, ProJobBody, ProJobSettledBody, ProOfferBody, ProOnlineBody, ProPricingBody, ProProfileBody, ProQuoteBuilderBody, ProServicesBody, ProShiftBody, proTheme, ProVerificationBody, ProVerificationStepBody, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, SponsorShopBody, AdvertiseBody, StrollBody, Sheet, spacing, tint, TrackingBody, type as t, WelcomeBody } from "@pro-now/demo-ui";
 import type { JobMediaItem, LiveLocationState, MarkName, NavGlyphName, ProPricingRow } from "@pro-now/demo-ui";
 import type { AuthStage, ChatMessage, ConnectionState } from "@pro-now/demo-ui";
-import { canHandOffToMaps, categoryAsksForPerson, mapsHandoffUrl, buildIntakeBrief, pilotIntakeByService, pilotServiceById, pricingKindOf, readAvailability, visitTermsHe, APPROVAL_STEPS_HE } from "@pro-now/demo-types";
+import { onboardingDocsFor, canHandOffToMaps, categoryAsksForPerson, mapsHandoffUrl, buildIntakeBrief, pilotIntakeByService, pilotServiceById, pricingKindOf, readAvailability, visitTermsHe, APPROVAL_STEPS_HE } from "@pro-now/demo-types";
 import type { IntakeAnswer, IntakeBriefLine, MapsPlatform, OfferCardView, PriceModel } from "@pro-now/demo-types";
 import type { JobState, ProPresenceState } from "@pro-now/demo-types";
 
@@ -793,6 +793,7 @@ export function App() {
   const [proName, setProName] = useState<string | null>(null);
   /* Who joined on this device, as he described himself — the pro app is his. */
   const [joinedPro, setJoinedPro] = useState<OnboardingResult | null>(() => loadSession()?.joinedPro ?? null);
+  const startShiftOnEnter = useRef(false);
   /* The professional's own prices, as he set them — what the customer is shown. */
   const [proPrices, setProPrices] = useState<{ byService: Record<string, number | null>; afterHoursPct: number | null }>({ byService: {}, afterHoursPct: null });
   /* A price agreed before he came (fixed/hourly): it is the job's total. */
@@ -1120,6 +1121,8 @@ export function App() {
             facadeUri={onboardShopFor(gate.result.serviceIds[0] ?? null).facadeUri}
             onDesign={gate.result.shopSkipped ? () => setGate({ name: "onboard", initial: gate.result, startStep: 5, approved: true }) : undefined}
             onStart={() => {
+              /* "להתחיל משמרת" starts the shift — it used to land offline. */
+              startShiftOnEnter.current = true;
               setJoinedPro(gate.result);
               saveSession({ joinedPro: gate.result });
               setSide("pro");
@@ -1301,6 +1304,8 @@ export function App() {
             onAvailableAtChange={setProAvailableAt}
             selfNameHe={joinedPro ? joinedPro.nameHe.trim().split(/\s+/)[0] || proName : proName}
             joined={joinedPro}
+            startShift={startShiftOnEnter.current}
+            onShiftStarted={() => { startShiftOnEnter.current = false; }}
             onPricesChange={setProPrices}
             onAgreedStart={(amount, nameHe) => {
               setQuoteTotal(amount);
@@ -1617,7 +1622,7 @@ function ShopOpen({ result, facadeUri, onStart, onDesign, width, height }: { res
       <div style={{ padding: "26px 24px 0", textAlign: "center", direction: "rtl", animation: "pnRise .6s .9s both" }}>
         <div style={{ color: "#fff", fontSize: scale.title, fontWeight: 900 }}>החנות שלך פתוחה.</div>
         <div style={{ color: "rgba(247,243,250,.75)", fontSize: scale.body, marginTop: 8 }}>
-          לקוחות כבר רואים אותך ברחוב. מתחברים — והקריאות מגיעות לפי איפה שאתה.
+          הקריאות מגיעות במשמרת, לפי המיקום שלך.
         </div>
       </div>
       {onDesign ? (
@@ -4928,6 +4933,8 @@ function ProApp({
   onAvailableAtChange,
   selfNameHe = null,
   joined = null,
+  startShift = false,
+  onShiftStarted,
   onPricesChange,
   onAgreedStart,
   onCompletionSeen,
@@ -5002,6 +5009,9 @@ function ProApp({
   selfNameHe?: string | null;
   /** The professional who joined on this device: his services, prices and trade. */
   joined?: OnboardingResult | null;
+  /** Arrived by "להתחיל משמרת": go on shift at once. */
+  startShift?: boolean;
+  onShiftStarted?: () => void;
   /** His prices, for the customer's side to show. */
   onPricesChange?: (p: { byService: Record<string, number | null>; afterHoursPct: number | null }) => void;
   /** Work starts at a price agreed in advance: tell the shell what it is. */
@@ -5198,7 +5208,20 @@ function ProApp({
    * changed.
    */
   const [openStepId, setOpenStepId] = useState<string | null>(null);
-  const openStep = openStepId ? verificationSteps.find((v) => v.id === openStepId) ?? null : null;
+  /* His documents, from what he uploaded when he joined — never the demo plumber's electrician licence. */
+  const joinedSteps = joinedIds
+    ? onboardingDocsFor(joinedIds).map((d) => {
+        const given = joined?.uploadedDocIds?.includes(d.id) ?? false;
+        return {
+          id: `v_${d.id}`,
+          titleHe: d.nameHe,
+          explainHe: d.checkHe,
+          state: given ? ("VERIFIED" as const) : ("NOT_STARTED" as const),
+          ...(given ? {} : { actionHe: "דולג בהדגמה." }),
+        };
+      })
+    : null;
+  const openStep = openStepId ? (joinedSteps ?? verificationSteps).find((v) => v.id === openStepId) ?? null : null;
   const [proSheet, setProSheet] = useState<
     null | "call" | "navigate" | "services" | "howitworks" | "quote" | "release"
   >(
@@ -5330,6 +5353,13 @@ function ProApp({
       setOfferAt(null);
     }
   }, [presence]);
+
+  useEffect(() => {
+    if (!startShift) return;
+    onShiftStarted?.();
+    if (presence === "OFFLINE") toggle();
+    // Once, on arrival.
+  }, []);
 
   /* When the time he gave comes, he is on shift — nobody has to press it. */
   useEffect(() => {
@@ -5739,15 +5769,20 @@ function ProApp({
     />
   ) : tab === "earnings" ? (
     <ProEarningsBody
-      periodNetMinorUnits={183000}
-      periodGrossMinorUnits={215300}
-      periodJobCount={14}
-      periodLabelHe="השבוע"
-      days={earningDays}
-      jobs={earningJobs}
-      nextPayoutHe="יום שני, 22.9"
-      nextPayoutMinorUnits={183000}
-      onOpenJob={() => setProSheet("navigate")}
+      /*
+       * No "net", no fee lines and no payout date: PRO NOW's commission and
+       * the payout schedule are undecided (/CLAUDE.md §4). And a professional
+       * who joined today has earned only what this shift settled — nothing
+       * from a sample week (Amit: "המלל לא קשור למקצוען שבניתי").
+       */
+      periodNetMinorUnits={null}
+      periodGrossMinorUnits={joined ? shiftNet : 215300}
+      periodJobCount={joined ? shiftJobs : 14}
+      periodLabelHe={joined ? "היום" : "השבוע"}
+      days={joined ? [] : earningDays}
+      jobs={joined ? [] : earningJobs}
+      nextPayoutHe={null}
+      nextPayoutMinorUnits={null}
       onBack={() => setTab("shift")}
       width={width}
       height={bodyH}
@@ -5778,8 +5813,8 @@ function ProApp({
     ) : (
     <ProVerificationBody
       displayNameHe={selfNameHe ?? "יוסי"}
-      steps={verificationSteps}
-      services={proEligibility}
+      steps={joinedSteps ?? verificationSteps}
+      services={joinedIds && joinedCreds ? eligibilityFor(joinedCreds, joinedIds) : proEligibility}
       onOpenStep={(id) => setOpenStepId(id)}
       onBack={() => setTab("shift")}
       width={width}
@@ -5789,13 +5824,28 @@ function ProApp({
   ) :
     tab === "profile" ? (
       <ProProfileBody
-        professional={matchFixture.professional}
-        services={profileServices}
-        reviews={profileReviews}
-        workPhotoSubjects={profileWorkPhotos}
-        activeSinceYear={2014}
-        areaLabelHe="גוש דן"
-        fromPriceMinorUnits={17900}
+        /*
+         * Someone who joined a minute ago has no rating, no reviews, no job
+         * count and no "since 2014" — the profile shows him as he is: new.
+         */
+        professional={
+          joined
+            ? { id: "joined", displayName: joined.nameHe, profilePhotoUrl: joined.photoUri, verifications: ["IDENTITY_VERIFIED", "BUSINESS_VERIFIED"], proNowCompletedJobs: 0, proNowRatingAverage: null, proNowRatingCount: 0, externalReputation: null }
+            : matchFixture.professional
+        }
+        services={
+          joined && joinedIds
+            ? joinedIds.map((id) => {
+                const v = joined.pricesMinorUnits?.[id];
+                return { id, nameHe: SERVICE_PAGES[id]?.nameHe ?? id, mark: (SERVICE_PAGES[id]?.mark ?? "plumbing") as MarkName, priceHintHe: v ? `מ־${formatMoney(money(v, "ILS"))}` : null };
+              })
+            : profileServices
+        }
+        reviews={joined ? [] : profileReviews}
+        workPhotoSubjects={joined ? [] : profileWorkPhotos}
+        activeSinceYear={joined ? null : 2014}
+        areaLabelHe={joined ? joined.city || null : "גוש דן"}
+        fromPriceMinorUnits={joined ? Math.min(...Object.values(joined.pricesMinorUnits ?? {}).filter((n) => n > 0), Infinity) === Infinity ? null : Math.min(...Object.values(joined.pricesMinorUnits ?? {}).filter((n) => n > 0)) : 17900}
         width={width}
         height={bodyH}
       />
@@ -6054,6 +6104,8 @@ function ProApp({
         backdrop={<CityHero />}
         geo={proGeo}
         displayNameHe={selfNameHe ?? "יוסי"}
+        tradeHe={joinedIds ? `${SERVICE_PAGES[joinedIds[0]!]?.nameHe ?? ""}${joinedIds.length > 1 ? ` ועוד ${joinedIds.length - 1}` : ""}` : null}
+        onOpenPricing={() => goPro("pricing")}
         presenceState={presence}
         shift={{
           onlineSinceMs: onlineSince,
@@ -6192,7 +6244,7 @@ function ProApp({
            * about to happen: replay the sample offer, or deliver the
            * request the customer side actually just made.
            */
-          label={request ? "הקריאה ששלחת בצד הלקוח ממתינה" : "שלח אליי עכשיו קריאה לדוגמה"}
+          label={request ? "הקריאה ששלחת בצד הלקוח ממתינה" : "קריאה לדוגמה"}
           onPress={() => {
             setTakenRequest(request ?? (joinedIds ? sampleRequestFor(joinedIds[0]!) : null));
             if (request) onTakeRequest();
@@ -6434,6 +6486,9 @@ function ProApp({
         />
       </Sheet>
 
+      {/* Hidden while a call is on screen: it was drawn over the offer and
+          covered "לא עכשיו", so a call could not be declined. */}
+      {offer ? null : (
       <TabBar
         dark
         width={width}
@@ -6458,6 +6513,7 @@ function ProApp({
         onSwitch={onSwitch}
         switchLabel="לקוח"
       />
+      )}
     </View>
   );
 }

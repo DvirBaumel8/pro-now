@@ -217,7 +217,7 @@ const STAGE: Partial<Record<JobState, { n: number; titleHe: string; doHe: string
   PRO_ASSIGNED: { n: 1, titleHe: "העבודה שלך!", doHe: "הלקוח כבר יודע שאתה מגיע. צא לדרך כשאתה מוכן.", tint: "#2FBF8A", glyph: "✓" },
   PRO_EN_ROUTE: { n: 2, titleHe: "בדרך ללקוח", doHe: "הלקוח רואה אותך מתקדם. לחץ ״הגעתי״ כשאתה בכתובת.", tint: "#3B82F6", glyph: "➜" },
   PRO_ARRIVED: { n: 3, titleHe: "הגעת", doHe: "הצג את עצמך, ותתחיל לבדוק את מה שהלקוח תיאר.", tint: "#8B5CF6", glyph: "⌂" },
-  DIAGNOSIS: { n: 4, titleHe: "בודקים מה צריך", doHe: "בודקים ומאבחנים. בתיקון — המחיר נסגר ישירות מול הלקוח; במחירון — מתחילים לפי מה שסוכם.", tint: "#F59E0B", glyph: "?" },
+  DIAGNOSIS: { n: 4, titleHe: "בודקים מה צריך", doHe: "בודקים ומאבחנים. בתיקון — המחיר נסגר ישירות מול הלקוח; במחירון — מתחילים לפי מה שסוכם.", tint: "#8B5CF6", glyph: "?" },
   WAITING_QUOTE_APPROVAL: { n: 5, titleHe: "ההצעה אצל הלקוח", doHe: "מחכים לאישור. אי אפשר להתחיל לעבוד לפני שהוא מאשר.", tint: "#EC4899", glyph: "₪" },
   IN_PROGRESS: { n: 6, titleHe: "ההצעה אושרה — עובדים", doHe: "עושים בדיוק את מה שאושר. לחץ ״סיימתי״ בסוף.", tint: "#FF6B4A", glyph: "⚒" },
   COMPLETION_PENDING: { n: 7, titleHe: "סיימת!", doHe: "הלקוח מאשר שהעבודה הושלמה, ואז נסגר התשלום.", tint: "#2FBF8A", glyph: "★" },
@@ -951,7 +951,7 @@ function VoiceNote({ item }: { item: JobMediaItem }) {
       <Text style={styles.voiceNote}>
         {item.uri
           ? "הקלטה מהלקוח"
-          : "הקלטה מהלקוח · באב־טיפוס אין קובץ אמיתי, אז ההשמעה כבויה"}
+          : "הקלטה מהלקוח (הדגמה)"}
       </Text>
     </Surface>
   );
@@ -1105,6 +1105,8 @@ const styles = StyleSheet.create({
   release: {
     minHeight: 44,
     justifyContent: "center",
+    /* It ran off the left edge of the screen: the scroll has no side padding. */
+    marginHorizontal: spacing.lg,
     marginTop: spacing.xl,
     paddingVertical: spacing.sm,
   },
