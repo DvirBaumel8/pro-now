@@ -408,7 +408,7 @@ function sampleRequestFor(serviceId: string): LiveRequest {
     items: page.price.priceModel === "FIXED" ? priceListFor(serviceId).slice(0, 1) : undefined,
     quoteFirst: Boolean(def?.quoteBeforeDispatch),
     destinationHe: def?.needsDestination ? "רמת גן" : null,
-    addressHe: "רחוב הברזל 12, רמת אביב, תל אביב · קומה 3, דירה 9 · קוד כניסה 1408",
+    addressHe: "רחוב הברזל 12, רמת אביב, תל אביב · קומה 3, דירה 9 · קוד לבניין 1408",
     textHe: "",
     photos: 0,
     voiceSeconds: null,
@@ -1634,6 +1634,44 @@ function ShopOpen({ result, facadeUri, onStart, onDesign, width, height }: { res
         <Text style={{ color: "#fff", fontSize: scale.body, fontWeight: "900" }}>להתחיל משמרת</Text>
       </Pressable>
     </View>
+  );
+}
+
+/*
+ * THE SHIFT IS HIS SHOP.
+ *
+ * From the UX review (Amit: "סומך על הצוות"): the shift screen's picture is
+ * the shop he built when he joined, standing in our city with his sign.
+ * Off shift the shutter is down and the lamps are low; "התחלת משמרת" rolls it
+ * up and the sign lights. His own art, no new promise: it says only whether
+ * he is on shift.
+ */
+function ShiftStorefront({ result, online }: { result: OnboardingResult; online: boolean }) {
+  const facade = onboardShopFor(result.serviceIds[0] ?? null).facadeUri;
+  const c = result.brandColor;
+  const name = result.shopNameHe || result.nameHe;
+  return (
+    <div aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden", background: "radial-gradient(120% 90% at 50% 20%, #3A2166 0%, #160F26 72%)" }}>
+      <style>{"@keyframes pnSignBreathe{0%,100%{opacity:1}50%{opacity:.78}}"}</style>
+      <img src={CITY_BG.src} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: CITY_BG.pos, opacity: 0.35, filter: "blur(2px)" }} />
+      <div style={{ position: "absolute", left: "50%", bottom: 0, height: "90%", transform: "translateX(-50%)", filter: online ? "none" : "brightness(.55) saturate(.7)", transition: "filter .6s ease-out" }}>
+        <img src={facade} alt="" style={{ height: "100%", display: "block" }} />
+        {/* The shutter over the shopfront: down off shift, rolled up on it. */}
+        <div
+          style={{
+            position: "absolute", left: "11%", right: "11%", top: "52%", bottom: "5%",
+            background: "repeating-linear-gradient(180deg, #5b5566 0 7px, #474252 7px 9px)",
+            boxShadow: "inset 0 -6px 12px rgba(0,0,0,.45)",
+            transformOrigin: "top", transform: online ? "scaleY(0)" : "scaleY(1)",
+            transition: "transform .7s cubic-bezier(.2,.7,.2,1)",
+          }}
+        />
+      </div>
+      <div style={{ position: "absolute", left: "50%", top: "26%", transform: "translateX(-50%)", display: "flex", alignItems: "center", gap: 8, padding: "6px 14px", borderRadius: 12, border: `2px solid ${c}`, background: "rgba(10,6,18,.88)", boxShadow: online ? `0 0 24px ${c}` : "none", direction: "rtl", whiteSpace: "nowrap", opacity: online ? 1 : 0.55, transition: "opacity .4s .5s, box-shadow .4s .5s", animation: online ? "pnSignBreathe 2.4s ease-in-out 1.2s infinite" : undefined }}>
+        {result.logoUri ? <img src={result.logoUri} alt="" style={{ width: 26, height: 26, borderRadius: 13, objectFit: "cover" }} /> : null}
+        <span style={{ fontSize: scale.body, fontWeight: 900, color: "#fff", textShadow: online ? `0 0 10px ${c}` : "none" }}>{name}</span>
+      </div>
+    </div>
   );
 }
 
@@ -5783,7 +5821,6 @@ function ProApp({
       jobs={joined ? [] : earningJobs}
       nextPayoutHe={null}
       nextPayoutMinorUnits={null}
-      onBack={() => setTab("shift")}
       width={width}
       height={bodyH}
     />
@@ -5816,7 +5853,6 @@ function ProApp({
       steps={joinedSteps ?? verificationSteps}
       services={joinedIds && joinedCreds ? eligibilityFor(joinedCreds, joinedIds) : proEligibility}
       onOpenStep={(id) => setOpenStepId(id)}
-      onBack={() => setTab("shift")}
       width={width}
       height={bodyH}
     />
@@ -5948,7 +5984,7 @@ function ProApp({
         serviceNameHe={takenRequest?.serviceNameHe ?? "תיקון נזילה בברז"}
         mark={(takenRequest?.markName as MarkName) ?? "plumbing"}
         addressHe={takenRequest?.addressHe ? takenRequest.addressHe.split(" · ")[0]! : "רחוב הברזל 12, רמת אביב, תל אביב"}
-        accessNoteHe={takenRequest?.addressHe ? takenRequest.addressHe.split(" · ").slice(1).join(" · ") || null : "קומה 3, דירה 9 · קוד כניסה 1408"}
+        accessNoteHe={takenRequest?.addressHe ? takenRequest.addressHe.split(" · ").slice(1).join(" · ") || null : "קומה 3, דירה 9 · קוד לבניין 1408"}
         routeEtaMinutes={9}
         distanceHe="2.4 ק״מ"
         customerNameHe="אמית"
@@ -6100,8 +6136,10 @@ function ProApp({
             ? `${formatMoney(money(preQuoteSent.amount, "ILS"))} · ${takenRequest?.serviceNameHe ?? ""}`
             : null
         }
-        /* The professional's city is ours, not the old plate. */
-        backdrop={<CityHero />}
+        /* The professional's city is ours, not the old plate — and for one
+           who joined, his own shop in it, shutter down or up. */
+        backdrop={joined ? <ShiftStorefront result={joined} online={presence !== "OFFLINE" && presence !== "ENDING_SHIFT"} /> : <CityHero />}
+        bandHeight={joined ? 260 : undefined}
         geo={proGeo}
         displayNameHe={selfNameHe ?? "יוסי"}
         tradeHe={joinedIds ? `${SERVICE_PAGES[joinedIds[0]!]?.nameHe ?? ""}${joinedIds.length > 1 ? ` ועוד ${joinedIds.length - 1}` : ""}` : null}
@@ -6417,7 +6455,7 @@ function ProApp({
         height={height}
       >
         <Text style={styles.sheetBodyDark}>
-          רחוב הברזל 12, רמת אביב · קומה 3, דירה 9 · קוד כניסה 1408
+          רחוב הברזל 12, רמת אביב · קומה 3, דירה 9 · קוד לבניין 1408
         </Text>
         {/*
           * IT OPENS MAPS NOW.

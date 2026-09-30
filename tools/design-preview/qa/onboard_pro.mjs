@@ -6,7 +6,7 @@ const errs = []; p.on('pageerror', (e) => errs.push(String(e).slice(0, 200)));
 const TAG = process.env.TAG || 'ob';
 let n = 0; const texts = []; const shot = async (name) => { await p.waitForTimeout(700); await p.screenshot({ path: `out/${TAG}_${String(++n).padStart(2, '0')}_${name}.png`, fullPage: false }); texts.push(`--- ${name}\n` + (await p.evaluate(() => document.body.innerText)).slice(0, 1500)); };
 const press = async (re) => { const loc = p.locator('[role=button],button,[role=radio],[role=checkbox]').filter({ visible: true }); const c = await loc.count(); for (let i = 0; i < c; i++) { const el = loc.nth(i); const a = ((await el.getAttribute('aria-label')) || '').trim(); const t = ((await el.innerText().catch(() => '')) || '').trim().replace(/\s+/g, ' '); const lab = re.test(a) ? a : t; if (re.test(lab)) { await el.evaluate((n) => n.scrollIntoView({ block: 'center' })); await p.waitForTimeout(150); await el.click({ force: true }); await p.waitForTimeout(700); return lab; } } return null; };
-const LOGO = process.env.LOGO || '../public/world/avatar_01_portrait.webp';
+const LOGO = process.env.LOGO || new URL('../public/world/avatar_01_portrait.webp', import.meta.url).pathname;
 p.on('filechooser', async (fc) => { await fc.setFiles(LOGO); });
 try {
   // As Amit did: "אני בעל מקצוע" on the welcome, a new phone, through the explanation.
@@ -14,7 +14,7 @@ try {
   await press(/^אני בעל מקצוע/); await p.getByLabel('מספר טלפון').fill('0541112233'); await press(/^שליחת קוד/); await p.getByLabel('קוד האימות').fill('123456'); await press(/^כניסה/);
   for (let k = 0; k < 4; k++) await press(/^הבא$/); await press(/^בואו נתחיל|^בוא נתחיל/);
   await shot('welcome');
-  await press(/^בוא נתחיל/);
+  await press(/^מתחילים$/);
   await p.getByLabel('תיאור חופשי של העבודה שלך').fill(process.env.ABOUT || 'אני חשמלאי, מתקין שקעים וגופי תאורה, מתקן קצרים ועושה גם אזעקות ומצלמות');
   await p.waitForTimeout(900); await shot('what');
   await p.getByLabel('שירות נוסף שלא ברשימה').fill('התקנת עמדות טעינה לרכב חשמלי'); await press(/^הוספה$/); await shot('what_custom');

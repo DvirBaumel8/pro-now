@@ -154,6 +154,8 @@ export interface ProShiftBodyProps {
   worldSources?: WorldAssetSources;
   /** False holds the city still, for screenshots and tests. */
   animate?: boolean;
+  /** Taller when the band shows his own shop. */
+  bandHeight?: number;
 }
 
 export function ProShiftBody({
@@ -179,6 +181,7 @@ export function ProShiftBody({
   height = 780,
   worldSources,
   animate = true,
+  bandHeight = MAP_BAND_HEIGHT,
 }: ProShiftBodyProps) {
   const now = nowMs ?? Date.now();
   const reading = readShift(shift, now);
@@ -224,7 +227,7 @@ export function ProShiftBody({
         * a blank rectangle when a file is missing is worse than the
         * placeholder it replaced.
         */}
-      <View style={styles.mapBand}>
+      <View style={[styles.mapBand, { height: bandHeight }]}>
         {hasWorld ? (
           <>
             {backdrop ?? <WorldBackdrop

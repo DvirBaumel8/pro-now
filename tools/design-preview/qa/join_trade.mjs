@@ -22,7 +22,7 @@ try {
   await shot('photo'); if (!(await press(/^דילוג \(הדגמה\)/))) await press(/^המשך$/);
   await shot('summary'); await press(/^שליחה לאישור/); await p.waitForTimeout(3500); await shot('sent');
   await press(/אישור החשבון/); await p.waitForTimeout(2500); await shot('shop_open');
-  await press(/^להתחיל משמרת/); await p.waitForTimeout(1500); await press(/^סגירה$|^הבנתי/); await shot('shift');
+  await press(/^להתחיל משמרת/); await p.waitForTimeout(1500); await press(/^סגירה$|^הבנתי/); await shot('shift'); await press(/^סיום משמרת$/); await p.waitForTimeout(1200); await shot('shift_off'); await press(/^התחלת משמרת$/); await p.waitForTimeout(2200); await shot('shift_on');
   await press(/^התחלת משמרת/); await p.waitForTimeout(1000); await shot('online');
   await press(/קריאה לדוגמה/); await p.waitForTimeout(1500); await shot('offer');
   await press(/^(קבלת העבודה|לקבל|קבל|אישור)/); await p.waitForTimeout(2000); await shot('job');
