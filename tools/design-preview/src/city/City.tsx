@@ -805,8 +805,12 @@ export function City({
        * shopfront with its blade sign over the pavement.
        */
       player.group.position.set(spawn?.x ?? SPAWN.x, 0, spawn?.z ?? SPAWN.z);
+      /* QA hook: stand somewhere without walking there (qa/sequence.mjs). */
+      (window as unknown as { __pnTeleport?: (x: number, z: number) => void }).__pnTeleport = (x, z) => player.group.position.set(x, 0, z);
       let autoEnter: string | null = null;
-      const doorOf = enterShopId ? street.shops.find((x) => x.id === enterShopId) : null;
+      /* `?enter=<shopId>` walks in on load — how QA checks every door (2026-09-30). */
+      const enterWanted = enterShopId ?? (typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("enter") : null);
+      const doorOf = enterWanted ? street.shops.find((x) => x.id === enterWanted) : null;
       if (doorOf) {
         player.group.position.set(doorOf.doorway.x, 0, doorOf.doorway.z);
         autoEnter = doorOf.id;
