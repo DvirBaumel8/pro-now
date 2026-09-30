@@ -665,21 +665,33 @@ export function ProJobBody({
               </View>
             ) : null}
 
-            <View style={styles.contactRow}>
-              <Pressable onPress={onCall} accessibilityRole="button" style={styles.contactBtn}>
-                <Text style={styles.contactLabel}>שיחה</Text>
-              </Pressable>
-              <Pressable onPress={onMessage} accessibilityRole="button" style={styles.contactBtn}>
-                <Text style={styles.contactLabel}>הודעה</Text>
-              </Pressable>
-            </View>
+            {/* Only where calling or messaging exists: a button that does
+                nothing, and a promise about masked numbers with no masking
+                behind it, are both claims the screen cannot keep (the
+                masking vendor is a CLAUDE.md §4 decision). */}
+            {onCall || onMessage ? (
+              <>
+                <View style={styles.contactRow}>
+                  {onCall ? (
+                    <Pressable onPress={onCall} accessibilityRole="button" style={styles.contactBtn}>
+                      <Text style={styles.contactLabel}>שיחה</Text>
+                    </Pressable>
+                  ) : null}
+                  {onMessage ? (
+                    <Pressable onPress={onMessage} accessibilityRole="button" style={styles.contactBtn}>
+                      <Text style={styles.contactLabel}>הודעה</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
 
-            <View style={styles.maskRow}>
-              <ShieldCheckMark size={14} color={colors.trust} />
-              <Text style={styles.maskText}>
-                השיחה עוברת דרך מספר מסווה. המספר הפרטי שלך לא נחשף ללקוח, ושלו לא נחשף לך.
-              </Text>
-            </View>
+                <View style={styles.maskRow}>
+                  <ShieldCheckMark size={14} color={colors.trust} />
+                  <Text style={styles.maskText}>
+                    השיחה עוברת דרך מספר מסווה. המספר הפרטי שלך לא נחשף ללקוח, ושלו לא נחשף לך.
+                  </Text>
+                </View>
+              </>
+            ) : null}
           </Surface>
         </View>
 

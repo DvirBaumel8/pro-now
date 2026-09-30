@@ -128,6 +128,40 @@ export default async function proOnboardingRoutes(app: FastifyInstance) {
     return reply.send(await applicationView(app.prisma, profile.id));
   });
 
+  /**
+   * Where the professional stands right now (docs/21 W7): presence, the
+   * open shift, the job they are on, and the services they may work.
+   * The screen decides nothing from memory; it reads this.
+   */
+  app.get("/v1/pro/status", pro, async (req, reply) => {
+    const p = await professionalOf(app, req, reply);
+    if (!p) return;
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const [shift, activeJob, services, doneToday] = await Promise.all([
+      app.prisma.availabilitySession.findFirst({ where: { professionalId: p.id, status: "ACTIVE" }, orderBy: { startedAt: "desc" } }),
+      app.prisma.job.findFirst({
+        where: { assignedProfessionalId: p.id, status: { in: ["PRO_ASSIGNED", "PRO_EN_ROUTE", "PRO_ARRIVED", "DIAGNOSIS", "WAITING_QUOTE_APPROVAL", "IN_PROGRESS", "COMPLETION_PENDING"] } },
+        select: { id: true },
+      }),
+      app.prisma.professionalService.findMany({
+        where: { professionalId: p.id, status: "APPROVED" },
+        include: { service: { select: { id: true, code: true, nameHe: true } } },
+      }),
+      app.prisma.job.count({ where: { assignedProfessionalId: p.id, updatedAt: { gte: startOfDay }, status: { in: ["COMPLETED", "REVIEW_PENDING", "CLOSED"] } } }),
+    ]);
+    return reply.send({
+      displayName: p.displayName,
+      addressAs: p.addressAs,
+      verificationStatus: p.verificationStatus,
+      presenceState: p.presenceState,
+      shiftId: shift?.id ?? null,
+      activeJobId: activeJob?.id ?? null,
+      approvedServices: services.map((s) => s.service),
+      jobsToday: doneToday,
+    });
+  });
+
   /** What a professional may apply for: services open to professionals in the pilot market. */
   app.get("/v1/pro/services/open", pro, async () => {
     const open = await app.prisma.marketActivation.findMany({

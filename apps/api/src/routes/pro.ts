@@ -191,9 +191,33 @@ export default async function proRoutes(app: FastifyInstance) {
      * estimate. FIXED and DISTANCE_TIME resolve to the snapshot taken at
      * dispatch time.
      */
-    const payoutSnapshot: number | null = offer.payoutMinorUnitsSnapshot ?? null;
-    const payoutIsEstimate = priceModel === "HOURLY" || priceModel === "DISTANCE_TIME";
-    const expectedPayoutMinorUnits = priceModel === "VISIT_QUOTE" && payoutSnapshot === null ? null : payoutSnapshot;
+    /*
+     * FROM THE PROFESSIONAL'S OWN PRICE (W7). Dispatch never wrote
+     * `payoutMinorUnitsSnapshot`, so every offer said "unknown" — even a
+     * fixed price, where the amount is exact. The professional's own
+     * configured price answers it, as it already does on the job screen:
+     *   FIXED        the price, exactly;
+     *   VISIT_QUOTE  at least the visit fee (the quote comes on site);
+     *   HOURLY       the minimum billable time at their rate;
+     *   DISTANCE     unknown until the distance is measured.
+     * No money moves through the app (D1), so what the customer pays them
+     * directly is what they receive; a commission would change this line.
+     */
+    const own = await app.prisma.professionalService.findUnique({
+      where: { professionalId_serviceId: { professionalId: offer.professionalId, serviceId: offer.job.serviceId } },
+    });
+    const base = own?.basePriceMinorUnits ?? null;
+    const snapshot: number | null = offer.payoutMinorUnitsSnapshot ?? null;
+    const expectedPayoutMinorUnits: number | null =
+      snapshot ??
+      (base === null
+        ? null
+        : priceModel === "HOURLY"
+          ? Math.round((base * Math.max(60, own?.minimumBillableMinutes ?? 60)) / 60)
+          : priceModel === "DISTANCE_TIME"
+            ? null
+            : base);
+    const payoutIsEstimate = priceModel !== "FIXED";
 
     const result: OfferCardView = {
       offerId: offer.id,

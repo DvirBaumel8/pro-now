@@ -8,6 +8,7 @@ import { api } from "../../api";
 import { useFrame } from "../../frame";
 import { ErrorScreen, LoadingScreen } from "../../states";
 import { applicationKey } from "./ProJoin";
+import { ProOnline } from "./ProOnline";
 
 /**
  * The professional's own page (docs/21 W7). Someone already registered
@@ -24,6 +25,8 @@ const SERVICE_STATUS_HE: Record<string, string> = {
 
 export function ProHome() {
   const navigate = useNavigate();
+  // "?review=1" shows the application's status even once approved.
+  const reviewOnly = new URLSearchParams(location.search).get("review") === "1";
   const { width, height } = useFrame();
   const application = useQuery({
     queryKey: applicationKey,
@@ -45,6 +48,8 @@ export function ProHome() {
 
   const accountApproved = view.profile.verificationStatus === "APPROVED";
   const approved = view.services.filter((s) => s.status === "APPROVED");
+  // Approved for at least one service: the work screen.
+  if (accountApproved && approved.length > 0 && !reviewOnly) return <ProOnline />;
   return (
     <ScrollView style={{ width, height, backgroundColor: colors.bg }} contentContainerStyle={styles.body}>
       <Text style={styles.title}>{accountApproved && approved.length > 0 ? "אושרתם לעבודה" : "הבקשה בבדיקה"}</Text>

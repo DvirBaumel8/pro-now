@@ -119,6 +119,12 @@ export interface ProQuoteBuilderBodyProps {
   /** Start with one amount field (priced-before-setting-off work); lines on request. */
   simple?: boolean;
   onSend?: (draft: { lines: QuoteDraftLine[]; notesHe: string }) => void;
+  /**
+   * No money moves through the app (docs/21 §5 D1): the quote is approved
+   * when sent and the customer pays the professional directly, so the
+   * screen must not promise that the customer will approve it here.
+   */
+  paidDirectly?: boolean;
   onBack?: () => void;
   width?: number;
   height?: number;
@@ -142,6 +148,7 @@ export function ProQuoteBuilderBody({
   initialNotesHe = "",
   simple = false,
   onSend,
+  paidDirectly = false,
   onBack,
   width = 390,
   height = 780,
@@ -508,7 +515,11 @@ export function ProQuoteBuilderBody({
         {includesVisitFee ? (
           <Text style={styles.serverNote}>דמי הביקור כלולים בהצעה: אם הלקוח יאשר, זה כל מה שישולם על העבודה.</Text>
         ) : null}
-        <Text style={styles.serverNote}>הלקוח יראה ויאשר בדיוק את ההצעה הזו.</Text>
+        <Text style={styles.serverNote}>
+          {paidDirectly
+            ? "הלקוח יראה בדיוק את ההצעה הזו. באפליקציה לא עובר כסף — הסכום משולם לך ישירות."
+            : "הלקוח יראה ויאשר בדיוק את ההצעה הזו."}
+        </Text>
 
         <Pressable
           onPress={() => (sendable ? onSend?.({ lines, notesHe: notes.trim() }) : undefined)}

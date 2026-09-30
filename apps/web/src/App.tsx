@@ -11,6 +11,7 @@ import { Job } from "./screens/Job";
 import { OnSite } from "./screens/OnSite";
 import { ProHome } from "./screens/pro/ProHome";
 import { ProJoin } from "./screens/pro/ProJoin";
+import { ProJob } from "./screens/pro/ProJob";
 import { Addresses } from "./screens/Addresses";
 import { Avatar, Intro } from "./screens/Onboarding";
 import { SignIn } from "./screens/SignIn";
@@ -68,6 +69,7 @@ export function App() {
             {/* The professional's side (docs/21 W7). */}
             <Route path="/pro" element={<SignedIn><ProHome /></SignedIn>} />
             <Route path="/pro/join" element={<SignedIn><ProJoin /></SignedIn>} />
+            <Route path="/pro/jobs/:id" element={<SignedIn><ProJob /></SignedIn>} />
             {/* The person at home: no account (docs/21 W6). */}
             <Route path="/s/:token" element={<OnSite />} />
             <Route path="/" element={<SignedIn><FirstRun><Home /></FirstRun></SignedIn>} />

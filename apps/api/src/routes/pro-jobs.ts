@@ -40,7 +40,7 @@ export default async function proJobsRoutes(app: FastifyInstance) {
       include: {
         service: true,
         address: true,
-        customer: true,
+        customer: { include: { user: { select: { name: true } } } },
         media: { include: { upload: true }, orderBy: { createdAt: "asc" } },
         offers: { where: { status: "ACCEPTED" }, orderBy: { offeredAt: "desc" }, take: 1 },
         quotes: { orderBy: { version: "desc" }, include: { lineItems: true } },
@@ -129,8 +129,12 @@ export default async function proJobsRoutes(app: FastifyInstance) {
       status: job.status,
       serviceId: job.serviceId,
       serviceNameHe: job.service.nameHe,
+      serviceCode: job.service.code,
       priceModel: job.service.priceModel,
       addressHe: job.address?.formatted ?? "",
+      // After assignment only (this route checks it): for Waze / Google Maps.
+      lat: job.address?.lat ?? null,
+      lng: job.address?.lng ?? null,
       /*
        * Floor, entrance and door code have no column yet. Null rather than
        * an empty string dressed as an answer — the screen omits the line.
@@ -142,7 +146,8 @@ export default async function proJobsRoutes(app: FastifyInstance) {
        * and an empty string is the honest answer, which the screen renders
        * as an initial rather than as a made-up name.
        */
-      customerNameHe: job.customer?.fullName ?? "",
+      // First name only: the professional needs to know whom to ask for, not more.
+      customerNameHe: (job.customer?.fullName ?? job.customer?.user.name ?? "").trim().split(/\s+/)[0] ?? "",
       descriptionHe: job.description ?? null,
       /*
        * WHAT THE CUSTOMER ANSWERED, KEYED BY QUESTION.

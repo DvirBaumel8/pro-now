@@ -43,3 +43,13 @@ export async function finishFirstRun(page: Page) {
   await page.getByText("דלג כרגע").click();
   await expect(page).toHaveURL(/\/$/);
 }
+
+/** A fresh sign-in link for an existing address, opened in this page (links are single-use). */
+export async function signInExisting(page: Page, email: string, baseURL: string) {
+  const asked = await page.request.post("/api/auth/sign-in/magic-link", {
+    data: { email, callbackURL: "/" },
+    headers: { origin: baseURL },
+  });
+  expect(asked.ok(), await asked.text()).toBe(true);
+  await page.goto(await linkFor(email));
+}
