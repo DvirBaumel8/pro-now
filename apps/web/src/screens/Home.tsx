@@ -107,6 +107,10 @@ export function Home() {
              * decision (CLAUDE.md §4).
              */
             groups={[
+              // Only for an admin; the server enforces it on every call (docs/21 W8).
+              ...(me.data?.roles.includes("ADMIN")
+                ? [{ titleHe: "ניהול", items: [{ id: "admin", labelHe: "ניהול", detailHe: "בקשות הצטרפות, קריאות, משתמשים ושוק", onPress: () => navigate("/admin") }] }]
+                : []),
               {
                 titleHe: "העבודות שלי",
                 items: [{ id: "calls", labelHe: "הקריאות שלי", detailHe: "היסטוריה, קריאה פעילה ודירוגים", upcoming: true }],
