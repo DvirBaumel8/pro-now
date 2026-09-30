@@ -9,6 +9,15 @@ import { magicLinkEmail } from "./magic-link-email.js";
 import { grantAdminIfAllowlisted, grantRole } from "./roles.js";
 
 export const AUTH_BASE_PATH = "/api/auth";
+/**
+ * The client's address, as Fastify resolved it (TRUST_PROXY_HOPS), handed to
+ * Better Auth by the bridge in plugins/auth.ts. Better Auth on its own reads
+ * X-Forwarded-For and, in production, trusts it only when it holds exactly
+ * one address; otherwise every visitor falls into ONE shared bucket — three
+ * sign-ins per ten seconds for the whole site (found by the W10
+ * production-build e2e run).
+ */
+export const CLIENT_IP_HEADER = "x-pronow-client-ip";
 export const DEMO_AUTH_EMAIL = "demo@pronow.test";
 const MAGIC_LINK_TTL_SECONDS = 15 * 60;
 
@@ -73,6 +82,7 @@ export function createAuth(deps: { config: Env; prisma: PrismaClient; email: Ema
       // so the tests exercise the server that ships.
       disableOriginCheck: false,
       disableCSRFCheck: false,
+      ipAddress: { ipAddressHeaders: [CLIENT_IP_HEADER] },
     },
     session: {
       expiresIn: 60 * 60 * 24 * 30,

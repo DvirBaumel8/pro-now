@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { asPerson, expect, test } from "./fixtures";
 import { finishFirstRun, signInByEmail, uniqueEmail } from "./helpers";
 import { dispatchableProfessional } from "./pro-helpers";
 
@@ -45,7 +45,7 @@ test("the person at home gets a page with the professional and the door code", a
     const minted = await page.request.post(`/api/v1/jobs/${jobId}/on-site-link`, { headers: { origin: baseURL! } });
     expect(minted.ok(), await minted.text()).toBe(true);
     const { url } = (await minted.json()) as { url: string };
-    const grandpa = await browser.newContext({ locale: "he-IL" });
+    const grandpa = await browser.newContext({ locale: "he-IL", extraHTTPHeaders: asPerson() });
     const phone = await grandpa.newPage();
     await phone.goto(new URL(url).pathname);
     // Spaced for reading aloud; the label carries it whole.

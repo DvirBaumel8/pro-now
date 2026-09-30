@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 
 import { startApp } from "./harness.js";
-import { signInByEmail, uniqueEmail, type CookieJar } from "./auth-helpers.js";
+import { requestMagicLink, signInByEmail, uniqueEmail, type CookieJar } from "./auth-helpers.js";
 import { createPrisma } from "../../src/db/prisma-client.js";
 
 /**
@@ -106,6 +106,40 @@ describe("health and readiness", () => {
       expect(res.body).not.toContain("ECONNREFUSED");
     } finally {
       app.providers.storage.head = head;
+    }
+  });
+});
+
+describe("the client's address (W10 production-build finding)", () => {
+  let proxied: FastifyInstance;
+  beforeAll(async () => {
+    process.env.TRUST_PROXY_HOPS = "1";
+    proxied = await startApp();
+    delete process.env.TRUST_PROXY_HOPS;
+  });
+  afterAll(async () => {
+    await proxied.close();
+  });
+
+  it("is the one the trusted proxy saw, and a client cannot name its own", async () => {
+    const email = uniqueEmail("w10-ip");
+    const link = await requestMagicLink(proxied, email);
+    const res = await proxied.inject({
+      method: "GET",
+      url: link.pathname + link.search,
+      headers: {
+        // The client prepends a lie; Render's proxy appends the real peer.
+        "x-forwarded-for": "203.0.113.9, 198.51.100.7",
+        "x-pronow-client-ip": "6.6.6.6",
+      },
+    });
+    expect(res.statusCode, res.body).toBe(302);
+    const db = createPrisma();
+    try {
+      const session = await db.session.findFirstOrThrow({ where: { user: { email } } });
+      expect(session.ipAddress).toBe("198.51.100.7");
+    } finally {
+      await db.$disconnect();
     }
   });
 });

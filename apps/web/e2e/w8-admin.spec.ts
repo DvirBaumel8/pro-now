@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { finishFirstRun, signInByEmail, signInExisting, uniqueEmail } from "./helpers";
 import { pendingApplicant } from "./pro-helpers";
 

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { linkFor, uniqueEmail } from "./helpers";
 import { adminApi } from "./pro-helpers";
 

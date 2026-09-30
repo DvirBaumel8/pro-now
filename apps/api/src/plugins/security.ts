@@ -14,8 +14,11 @@ import type { FastifyInstance } from "fastify";
  * - connections to this origin (REST and the sockets), storage (the
  *   direct upload) and, when configured, Sentry;
  * - never framed (frame-ancestors 'none'), no plugins, no base-URI games.
- * HSTS only in production: over plain http on a laptop it means nothing,
- * and on a phone over the LAN it would be wrong.
+ * HSTS and upgrade-insecure-requests only in production AND only when
+ * PUBLIC_URL is https: over plain http they mean nothing at best, and
+ * Safari applies upgrade-insecure-requests even to localhost, so a
+ * production build served over http never loads its own scripts (found by
+ * the W10 production-build e2e run).
  */
 const originOf = (url: string | undefined) => {
   if (!url) return null;
@@ -25,6 +28,9 @@ const originOf = (url: string | undefined) => {
     return null;
   }
 };
+
+export const servesHttpsInProduction = (env: { NODE_ENV: string; PUBLIC_URL: string }) =>
+  env.NODE_ENV === "production" && new URL(env.PUBLIC_URL).protocol === "https:";
 
 export function contentSecurityPolicy(env: { S3_ENDPOINT?: string; SENTRY_DSN?: string; PUBLIC_URL: string; NODE_ENV: string }, webSentryDsn?: string) {
   const storage = originOf(env.S3_ENDPOINT);
@@ -46,14 +52,14 @@ export function contentSecurityPolicy(env: { S3_ENDPOINT?: string; SENTRY_DSN?: 
     baseUri: ["'self'"],
     formAction: ["'self'"],
     frameAncestors: ["'none'"],
-    ...(env.NODE_ENV === "production" ? { upgradeInsecureRequests: [] } : { upgradeInsecureRequests: null }),
+    ...(servesHttpsInProduction(env) ? { upgradeInsecureRequests: [] } : { upgradeInsecureRequests: null }),
   };
 }
 
 export default fp(async (app: FastifyInstance) => {
   await app.register(helmet, {
     contentSecurityPolicy: { directives: contentSecurityPolicy(app.config, process.env.VITE_SENTRY_DSN) },
-    hsts: app.config.NODE_ENV === "production" ? { maxAge: 180 * 24 * 3600, includeSubDomains: true } : false,
+    hsts: servesHttpsInProduction(app.config) ? { maxAge: 180 * 24 * 3600, includeSubDomains: true } : false,
     // The location of a job's photo is a signed storage URL: never leak the page's URL to it.
     referrerPolicy: { policy: "strict-origin-when-cross-origin" },
     crossOriginEmbedderPolicy: false,

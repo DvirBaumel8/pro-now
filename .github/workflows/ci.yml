@@ -124,10 +124,20 @@ jobs:
       - run: npm run test:int
       - run: pip install psycopg2-binary && npm run db:verify
 
+  # Twice, side by side: the development server (tsx, NODE_ENV=test), and
+  # the production build (esbuild bundle, NODE_ENV=production, one trusted
+  # proxy hop, the stand-in guard relaxed by ALLOW_LOCAL_STANDINS=1) — the
+  # W10 acceptance. The production run found what the other could not:
+  # Safari refusing an upgraded http origin, and one shared sign-in bucket
+  # for every visitor.
   e2e:
-    name: End-to-end (WebKit iPhone 15 + Chromium)
+    name: End-to-end, ${{ matrix.build }} build (WebKit iPhone 15 + Chromium)
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        build: [development, production]
     services:
       postgres:
         image: postgis/postgis:16-3.4
@@ -190,10 +200,12 @@ jobs:
       - run: npx playwright install --with-deps webkit chromium
         working-directory: apps/web
       - run: npm run test:e2e
+        env:
+          E2E_PRODUCTION: ${{ matrix.build == 'production' && '1' || '0' }}
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.build }}
           path: apps/web/playwright-report
           retention-days: 7
 

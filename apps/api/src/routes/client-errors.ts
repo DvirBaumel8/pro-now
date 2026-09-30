@@ -7,9 +7,10 @@ import { clientErrorReportSchema } from "@pro-now/validation";
  * could not reach Sentry, and before they have signed in.
  *
  * It is open to anyone, so it is bounded three ways: a small body, a
- * strict schema, and a rate limit. The limit is keyed by `req.ip`; behind
- * Render's proxy without `trustProxy` that is the proxy, which makes it a
- * limit on the endpoint as a whole — the safe direction for an alert path.
+ * strict schema, and a rate limit. The limit is keyed by `req.ip`, the
+ * client's address as TRUST_PROXY_HOPS resolves it; left at 0 behind a
+ * proxy it is the proxy, which makes it a limit on the endpoint as a
+ * whole — the safe direction for an alert path.
  */
 const WINDOW_MS = 60_000;
 const MAX_PER_WINDOW = 20;

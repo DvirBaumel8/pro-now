@@ -60,6 +60,9 @@ services:
         value: ""
       - key: CORS_ORIGINS
         value: https://pro-now.onrender.com
+      # Render's load balancer is the one proxy in front (docs/16 §Client address).
+      - key: TRUST_PROXY_HOPS
+        value: "1"
       - key: ALLOW_LOCAL_STANDINS
         value: "0"
       # The API bundle runs from apps/api/dist while the frontend build lives

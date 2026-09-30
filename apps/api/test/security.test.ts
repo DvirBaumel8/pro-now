@@ -18,9 +18,11 @@ describe("the content security policy", () => {
     expect(csp.connectSrc).toEqual(["'self'", "wss://pronow.app", "https://acc.r2.cloudflarestorage.com", "https://o1.ingest.sentry.io", "https://o1.ingest.sentry.io"]);
     expect(csp.imgSrc).toContain("https://acc.r2.cloudflarestorage.com");
   });
-  it("upgrades insecure requests only in production", () => {
+  it("upgrades insecure requests only in production over https", () => {
     expect(csp.upgradeInsecureRequests).toEqual([]);
     expect(contentSecurityPolicy({ PUBLIC_URL: "http://192.168.1.239:4000", NODE_ENV: "local" }).upgradeInsecureRequests).toBeNull();
+    // A production build served over http (the W10 e2e run): Safari would upgrade even localhost.
+    expect(contentSecurityPolicy({ PUBLIC_URL: "http://localhost:4100", NODE_ENV: "production" }).upgradeInsecureRequests).toBeNull();
   });
 });
 

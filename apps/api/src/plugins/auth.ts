@@ -2,7 +2,7 @@ import fp from "fastify-plugin";
 import type { FastifyInstance } from "fastify";
 import { fromNodeHeaders } from "better-auth/node";
 
-import { AUTH_BASE_PATH, createAuth, type Auth } from "../auth/auth.js";
+import { AUTH_BASE_PATH, CLIENT_IP_HEADER, createAuth, type Auth } from "../auth/auth.js";
 import { rolesOf, type Role } from "../auth/roles.js";
 import { createResendEmailProvider } from "../infra/email/resend.js";
 import type { EmailProvider } from "../infra/email/email-provider.js";
@@ -44,10 +44,13 @@ export default fp(async (app: FastifyInstance) => {
     url: `${AUTH_BASE_PATH}/*`,
     async handler(req, reply) {
       const hasBody = req.method !== "GET" && req.body !== undefined;
+      const headers = fromNodeHeaders(req.headers);
+      // Set, never passed through: a client that sends its own copy is overwritten.
+      headers.set(CLIENT_IP_HEADER, req.ip);
       const response = await auth.handler(
         new Request(new URL(req.url, app.config.PUBLIC_URL), {
           method: req.method,
-          headers: fromNodeHeaders(req.headers),
+          headers,
           body: hasBody ? JSON.stringify(req.body) : undefined,
         })
       );

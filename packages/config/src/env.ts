@@ -89,6 +89,17 @@ export const envSchema = z.object({
   EMAIL_FROM: z.string().optional(),
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
+  /**
+   * How many proxies stand between the internet and this process (Render: 1,
+   * its load balancer). Fastify then takes the client's address from that
+   * many hops back in X-Forwarded-For, and that address is the one every
+   * per-person limit keys on — Better Auth's sign-in limiter included
+   * (plugins/auth.ts). 0 = no proxy: the socket's peer is the client. Too
+   * high lets a client choose its own address; too low makes everyone the
+   * proxy. Verify after a deploy: the request log's remoteAddress should be
+   * your own IP, not Render's.
+   */
+  TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(0),
   /** Only set for the local mock issuer; real Google needs no override. */
   GOOGLE_ISSUER_URL: z.string().url().optional(),
   /**
