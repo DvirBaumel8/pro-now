@@ -26,7 +26,7 @@ try {
   await press(/^התחלת משמרת/); await p.waitForTimeout(1000); await shot('online');
   await press(/קריאה לדוגמה/); await p.waitForTimeout(1500); await shot('offer');
   await press(/^(קבלת העבודה|לקבל|קבל|אישור)/); await p.waitForTimeout(2000); await shot('job');
-  await p.waitForTimeout(3000); await shot('job_later');
+  await p.waitForTimeout(3000); await shot('job_later'); if (await press(/^יציאה לדרך/)) { await p.waitForTimeout(4000); await shot('on_the_way'); }
   for (const t of ['כמה הרווחתי', 'המסמכים שלי', 'הפרופיל']) { const el = p.getByText(t, { exact: true }).last(); if (await el.count()) { await el.click({ force: true }); await p.waitForTimeout(900); await shot('tab_' + t.replace(/\s/g, '_')); } }
   console.log('OK', errs.join(' | '));
 } catch (e) { console.log('FAIL', String(e).slice(0, 300), errs.join(' | ')); await shot('fail'); }

@@ -341,6 +341,42 @@ function StageBand({ status, kind = "VISIT", female = false, workHe = "התיק�
 }
 
 /*
+ * THE DRIVE, MOVING.
+ *
+ * From the UX review: "בדרך ללקוח" was a still screen — "9 דק׳ נסיעה" never
+ * changed while the customer was told he could see the professional coming.
+ * The van travels from his side to the customer's door over the drive time
+ * the job came with, and the minutes count down from that same number. No
+ * number of our own: when it runs out it says "כמעט שם", not zero.
+ */
+function DriveStrip({ etaMinutes }: { etaMinutes: number }) {
+  const [since] = useState(() => Date.now());
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const total = Math.max(1, etaMinutes) * 60_000;
+  const k = Math.min(0.94, (now - since) / total);
+  const left = Math.ceil((total - (now - since)) / 60_000);
+  return (
+    <View style={styles.drive} accessibilityRole="progressbar" accessibilityLabel={left > 1 ? `עוד ${left} דקות נסיעה` : "כמעט שם"}>
+      <View style={styles.driveTrack}>
+        <View style={[styles.driveDone, { width: `${Math.round(k * 100)}%` }]} />
+      </View>
+      <View style={[styles.driveVan, { right: `${Math.round(k * 100)}%` }]}>
+        <View style={styles.driveDot} />
+      </View>
+      <View style={styles.driveEnds}>
+        <Text style={styles.driveEnd}>יצאת</Text>
+        <Text style={[styles.driveEnd, { color: "#fff", fontWeight: "800" }]}>{left > 1 ? `עוד ${left} דק׳` : "כמעט שם"}</Text>
+        <Text style={styles.driveEnd}>הלקוח</Text>
+      </View>
+    </View>
+  );
+}
+
+/*
  * THE CLOCK WHILE HE WORKS.
  *
  * Amit: *"בזמן עבודה צריך שעון שמראה כמה זמן הוא עובד — לא יכול להיות
@@ -620,8 +656,9 @@ export function ProJobBody({
               ---------------------------------------------------------- */}
           {focus === "TRAVEL" ? (
             <>
+              {status === "PRO_EN_ROUTE" && routeEtaMinutes !== null ? <DriveStrip etaMinutes={routeEtaMinutes} /> : null}
               <View style={styles.metaRow}>
-                {routeEtaMinutes !== null ? (
+                {routeEtaMinutes !== null && status !== "PRO_EN_ROUTE" ? (
                   <View style={styles.metaChip}>
                     <ClockMark size={13} color={colors.textSecondary} />
                     <Text style={styles.metaText}>{routeEtaMinutes} דק׳ נסיעה</Text>
@@ -670,9 +707,7 @@ export function ProJobBody({
                   <Text style={styles.custMeta} numberOfLines={2}>
                     נמצא בבית · הקריאה הוזמנה על ידי {customerNameHe}
                   </Text>
-                ) : (
-                  <Text style={styles.custMeta}>הזמין את הקריאה</Text>
-                )}
+                ) : null}
               </View>
             </View>
 
@@ -1009,6 +1044,14 @@ const styles = StyleSheet.create({
   stageDo: { color: "rgba(247,243,250,0.85)", fontSize: scale.meta, lineHeight: 22, textAlign: "right", writingDirection: "rtl", marginTop: spacing.xs },
   stageTrack: { height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.12)", marginTop: spacing.md, overflow: "hidden", flexDirection: "row-reverse" },
   stageFill: { height: 6, borderRadius: 3 },
+  drive: { alignSelf: "stretch", marginTop: spacing.md, marginBottom: spacing.sm, paddingTop: 22 },
+  driveTrack: { height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.12)", overflow: "hidden", flexDirection: "row-reverse" },
+  driveDone: { height: 6, borderRadius: 3, backgroundColor: "#FF6B4A" },
+  driveVan: { position: "absolute", top: 13, marginRight: -12, width: 24, alignItems: "center" },
+  /* The same coral mark the customer follows on the map. */
+  driveDot: { width: 20, height: 20, borderRadius: 10, backgroundColor: "#FF6B4A", borderWidth: 3, borderColor: "#FFFFFF" },
+  driveEnds: { flexDirection: "row-reverse", justifyContent: "space-between", marginTop: 6 },
+  driveEnd: { color: "rgba(247,243,250,0.6)", fontSize: scale.micro, writingDirection: "rtl" },
   clockRow: { flexDirection: "row-reverse", alignItems: "center", gap: 8, marginTop: spacing.md },
   clockDot: { width: 10, height: 10, borderRadius: 5 },
   clockText: { fontSize: scale.title, fontWeight: "900", ...tabular },

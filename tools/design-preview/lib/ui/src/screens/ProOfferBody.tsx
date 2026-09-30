@@ -67,6 +67,8 @@ export interface ProOfferBodyProps {
    * says which way it is going rather than looking inert.
    */
   responding?: boolean;
+  /** Our city behind the call, instead of the grey grid (UX review, 2026-09-30). */
+  backdrop?: React.ReactNode;
   width?: number;
   height?: number;
 }
@@ -80,6 +82,7 @@ export function ProOfferBody({
   proFemale = false,
   onSkip,
   responding = false,
+  backdrop,
   width = 390,
   height = 780,
 }: ProOfferBodyProps) {
@@ -102,15 +105,24 @@ export function ProOfferBody({
 
   return (
     <View style={[styles.screen, { width, height }]}>
-      <MapSurface
-        colors={colors}
-        dark
-        height={height}
-        showAssignedMarker
-        statusText={offer.customerAreaLabel}
-        statusTopOffset={spacing.xl}
-        style={styles.map}
-      />
+      {backdrop ? (
+        <View style={styles.map} pointerEvents="none">
+          {backdrop}
+          <View style={styles.areaPill}>
+            <Text style={styles.areaPillText} numberOfLines={1}>{offer.customerAreaLabel}</Text>
+          </View>
+        </View>
+      ) : (
+        <MapSurface
+          colors={colors}
+          dark
+          height={height}
+          showAssignedMarker
+          statusText={offer.customerAreaLabel}
+          statusTopOffset={spacing.xl}
+          style={styles.map}
+        />
+      )}
 
       {/*
        * A legibility scrim, not decoration. /docs/03-DESIGN-SYSTEM.md rules
@@ -402,6 +414,8 @@ function CountdownRing({
 const styles = StyleSheet.create({
   screen: { backgroundColor: colors.bg, overflow: "hidden", borderRadius: radii.xl },
   map: { ...StyleSheet.absoluteFillObject, borderRadius: 0 },
+  areaPill: { position: "absolute", top: spacing.xl, alignSelf: "center", paddingHorizontal: 14, paddingVertical: 6, borderRadius: 999, backgroundColor: "rgba(16,11,22,0.8)" },
+  areaPillText: { color: "#F7F3FA", fontSize: scale.meta, fontWeight: "700" },
 
   // No card: a vertical wash carries the type instead of a container.
   scrim: { position: "absolute", left: 0, right: 0, bottom: 0 },

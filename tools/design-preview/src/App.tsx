@@ -5859,32 +5859,46 @@ function ProApp({
     )
   ) :
     tab === "profile" ? (
-      <ProProfileBody
-        /*
-         * Someone who joined a minute ago has no rating, no reviews, no job
-         * count and no "since 2014" — the profile shows him as he is: new.
-         */
-        professional={
-          joined
-            ? { id: "joined", displayName: joined.nameHe, profilePhotoUrl: joined.photoUri, verifications: ["IDENTITY_VERIFIED", "BUSINESS_VERIFIED"], proNowCompletedJobs: 0, proNowRatingAverage: null, proNowRatingCount: 0, externalReputation: null }
-            : matchFixture.professional
-        }
-        services={
-          joined && joinedIds
-            ? joinedIds.map((id) => {
-                const v = joined.pricesMinorUnits?.[id];
-                return { id, nameHe: SERVICE_PAGES[id]?.nameHe ?? id, mark: (SERVICE_PAGES[id]?.mark ?? "plumbing") as MarkName, priceHintHe: v ? `מ־${formatMoney(money(v, "ILS"))}` : null };
-              })
-            : profileServices
-        }
-        reviews={joined ? [] : profileReviews}
-        workPhotoSubjects={joined ? [] : profileWorkPhotos}
-        activeSinceYear={joined ? null : 2014}
-        areaLabelHe={joined ? joined.city || null : "גוש דן"}
-        fromPriceMinorUnits={joined ? Math.min(...Object.values(joined.pricesMinorUnits ?? {}).filter((n) => n > 0), Infinity) === Infinity ? null : Math.min(...Object.values(joined.pricesMinorUnits ?? {}).filter((n) => n > 0)) : 17900}
-        width={width}
-        height={bodyH}
-      />
+      /*
+       * HIS PROFILE, AS A CUSTOMER SEES IT — AND SAID SO.
+       *
+       * From the UX review: the one light screen on the professional's side
+       * read as a different app. It is the customer's view of him, so it is
+       * shown framed, under a line that says whose eyes these are.
+       */
+      <View style={{ width, height: bodyH, backgroundColor: "#0F0B17" }}>
+        <Text accessibilityRole="header" style={{ color: "#F7F3FA", fontSize: scale.section, fontWeight: "900", textAlign: "right", writingDirection: "rtl", paddingHorizontal: 16, paddingTop: 20, paddingBottom: 12 }}>
+          ככה הלקוחות רואים אותך
+        </Text>
+        <View style={{ marginHorizontal: 12, borderRadius: 24, overflow: "hidden", borderWidth: 1, borderColor: "rgba(247,243,250,0.18)" }}>
+          <ProProfileBody
+            /*
+             * Someone who joined a minute ago has no rating, no reviews, no job
+             * count and no "since 2014" — the profile shows him as he is: new.
+             */
+            professional={
+              joined
+                ? { id: "joined", displayName: joined.nameHe, profilePhotoUrl: joined.photoUri, verifications: ["IDENTITY_VERIFIED", "BUSINESS_VERIFIED"], proNowCompletedJobs: 0, proNowRatingAverage: null, proNowRatingCount: 0, externalReputation: null }
+                : matchFixture.professional
+            }
+            services={
+              joined && joinedIds
+                ? joinedIds.map((id) => {
+                    const v = joined.pricesMinorUnits?.[id];
+                    return { id, nameHe: SERVICE_PAGES[id]?.nameHe ?? id, mark: (SERVICE_PAGES[id]?.mark ?? "plumbing") as MarkName, priceHintHe: v ? `מ־${formatMoney(money(v, "ILS"))}` : null };
+                  })
+                : profileServices
+            }
+            reviews={joined ? [] : profileReviews}
+            workPhotoSubjects={joined ? [] : profileWorkPhotos}
+            activeSinceYear={joined ? null : 2014}
+            areaLabelHe={joined ? joined.city || null : "גוש דן"}
+            fromPriceMinorUnits={joined ? Math.min(...Object.values(joined.pricesMinorUnits ?? {}).filter((n) => n > 0), Infinity) === Infinity ? null : Math.min(...Object.values(joined.pricesMinorUnits ?? {}).filter((n) => n > 0)) : 17900}
+            width={width - 24}
+            height={bodyH - 76}
+          />
+        </View>
+      </View>
     /*
      * ABOVE THE JOB SCREEN, LIKE THE CHAT.
      *
@@ -6232,6 +6246,7 @@ function ProApp({
       {offer ? (
         <RiseIn key={offerAt ?? 0} width={width} height={height}>
           <ProOfferBody
+            backdrop={<CityHero />}
             proFemale={proIsFemale}
             offer={offer}
             nowMs={now}
