@@ -9,6 +9,9 @@ import {
   CAPSULE_HEIGHT,
   CategoryBody,
   CustomerHomeBody,
+  ServiceDetailBody,
+  catalogServicePages,
+  lowestListed,
   catalogHiddenServices,
   catalogHomeServices,
   catalogMatchRules,
@@ -19,6 +22,7 @@ import { avatarById, categoryAsksForPerson, customerCategoryById, greetingAt, ty
 
 import { api, useMe } from "../api";
 import { servicesForCategory } from "../categories";
+import { shortAddressHe } from "../addressLabel";
 import { signOutHere } from "../auth";
 import { CityHero } from "../art/CityHero";
 import { worldSources } from "../art/worldSources";
@@ -56,7 +60,12 @@ export function Home() {
   const { width, height } = useFrame();
   const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>("home");
+  /*
+   * A chosen service opens its page first, then the request form — the
+   * demo's order (service → describe). `composing` is the second step.
+   */
   const [requestServiceId, setRequestServiceId] = useState<string | null>(null);
+  const [composing, setComposing] = useState(false);
   const [categoryId, setCategoryId] = useState<string | null>(null);
   // A sentence typed on a category page that matched nothing there, handed
   // back to the home box where the whole catalogue can answer it.
@@ -78,32 +87,19 @@ export function Home() {
   const inbox = useQuery({ queryKey: inboxKey, queryFn: api.inbox });
   const active = myJobs.data?.jobs.find((j) => j.status !== "CLOSED" && j.status !== "CANCELLED") ?? null;
   const category = categoryId ? customerCategoryById(categoryId) : null;
+  // The address the professional would be sent to: the form's own default.
+  const addresses = useQuery({ queryKey: ["addresses"], queryFn: api.getAddresses });
+  const firstAddress = addresses.data?.addresses[0] ?? null;
+  const servicePage = requestServiceId ? catalogServicePages[requestServiceId] : undefined;
+  const closeService = () => {
+    setTypedText("");
+    setComposing(false);
+    setRequestServiceId(null);
+  };
   const bodyH = height - HEADER_H - (active ? CAPSULE_HEIGHT : 0);
 
   const queryClient = useQueryClient();
   const signOut = () => signOutHere(queryClient, () => navigate("/welcome", { replace: true }));
-
-  if (requestServiceId) {
-    return (
-      <RequestComposer
-        serviceId={requestServiceId}
-        media={media}
-        initialText={typedText}
-        onBack={() => {
-          setTypedText("");
-          setRequestServiceId(null);
-        }}
-        onOpenAddresses={() => navigate("/addresses")}
-        onSent={(jobId) => {
-          media.capture.onClearPhotos?.();
-          media.capture.onDeleteVoice?.();
-          setTypedText("");
-          setRequestServiceId(null);
-          navigate(`/jobs/${jobId}`);
-        }}
-      />
-    );
-  }
 
   return (
     <View style={{ width, height }}>
@@ -166,6 +162,39 @@ export function Home() {
             width={width}
             height={bodyH}
           />
+        ) : requestServiceId && composing ? (
+          <RequestComposer
+            serviceId={requestServiceId}
+            media={media}
+            initialText={typedText}
+            height={bodyH}
+            onBack={() => setComposing(false)}
+            onOpenAddresses={() => navigate("/addresses")}
+            onSent={(jobId) => {
+              media.capture.onClearPhotos?.();
+              media.capture.onDeleteVoice?.();
+              closeService();
+              navigate(`/jobs/${jobId}`);
+            }}
+          />
+        ) : requestServiceId && servicePage ? (
+          <ServiceDetailBody
+            {...servicePage}
+            /* No problem chips before calling — words, a recording, a photo (Amit, 2026-09-29). */
+            symptomsHe={[]}
+            priceListFromMinorUnits={lowestListed(requestServiceId)}
+            // No availability snapshot on the web yet: silence, not a zero.
+            availableNowCount={null}
+            width={width}
+            height={bodyH}
+            onBack={closeService}
+            onRequestNow={(_symptoms, noteHe) => {
+              // What they typed here IS the description; carry it on.
+              if (noteHe) setTypedText((cur) => cur || noteHe);
+              setComposing(true);
+            }}
+            onRecheck={closeService}
+          />
         ) : category ? (
           <CategoryBody
             // The home's own street rather than the demo's per-trade scene,
@@ -216,6 +245,8 @@ export function Home() {
             capture={media.capture}
             injectedText={media.transcript}
             seedQueryHe={seedQuery}
+            addressLabelHe={firstAddress ? shortAddressHe(firstAddress) : undefined}
+            onChangeAddress={() => navigate("/addresses")}
             onSelectCategory={setCategoryId}
             onSelectService={setRequestServiceId}
             onTextChoice={(choice) => {

@@ -56,6 +56,18 @@ with the numbers*. The decision is still a decision; what is no longer
 missing is the price of each option and what each one costs us in
 honesty.
 
+### Decided — example price lists in the product (Dvir, 2026-09-30)
+
+No professional has a price list of their own in the product yet (the
+server has no such table). Until they do, the web app shows the demo's
+**example** price lists (`previewPriceLists`) on the service page ("החל
+מ־…") and in the request form's "מה להזמין?", every figure labelled
+"לדוגמה". What the customer picks reaches the professional with that label,
+in the description and in `structuredAnswers.exampleListPicks`. Nothing
+binds the professional to an example figure, and under D1 no money moves in
+the app. Still open: per-professional price lists (set when joining, stored
+on the server, shown instead of the examples).
+
 ### Decided — how somebody reaches a human (2026-09-23)
 
 Off the open list above. Amit: *"ערוץ תמיכה תעשה וואטסאפ 0547222218
