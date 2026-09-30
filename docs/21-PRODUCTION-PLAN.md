@@ -1,6 +1,6 @@
 # 21 — Production Plan: from demo to a live web app
 
-Status: **APPROVED 2026-09-29** (decisions in §5). W0–W7 done (W5 with voice-to-text deferred); W8 next. Written after reading the
+Status: **APPROVED 2026-09-29** (decisions in §5). W0–W8 done (W5 with voice-to-text deferred); W9 next. Written after reading the
 code as it stands at `53ed69f`.
 
 ## 0. Framing
@@ -545,6 +545,10 @@ list, the shop's design, automatic registry checks.
   - The heartbeat timeout takes them offline.
 
 ### W8 — Admin (M)
+
+**DONE 2026-09-30** (report: `docs/reports/W8.md`, QA: `docs/qa/W8.md`).
+Inside `apps/web` (D7). Both acceptance tests run over every admin route.
+
 - `/admin`, requiring the ADMIN role:
   - The **verification queue** per professional-service: documents,
     approve or reject with a reason, and every action written to
@@ -660,7 +664,7 @@ Then, in Phase 2 proper (≈50 jobs/day):
 | D4 | SMS vendor (person at home, phone verification) | Phase 2 | Orderer shares the link |
 | D5 | Routing/ETA provider | Phase 2 | Straight-line estimate, labelled |
 | D6 | Is the 3D city part of the product app? | W2 | **REVISED 2026-09-29 (Dvir): yes, later, in its own epic.** W2 uses still art where the city shows |
-| D7 | Admin inside `apps/web` instead of Next.js (§2.6) | W8 | Proposed yes |
+| D7 | Admin inside `apps/web` instead of Next.js (§2.6) | W8 | **Built that way 2026-09-30** (W8); `apps/admin` is unused |
 | D8 | Which documents are mandatory per service | W7 | Admin decides case by case, recorded |
 
 ## 6. Definition of done for every epic (in addition to CLAUDE.md §7)

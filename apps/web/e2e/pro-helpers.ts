@@ -120,3 +120,31 @@ export async function adminApi(baseURL: string) {
   await api.get(await linkFor(email), { maxRedirects: 5 });
   return api;
 }
+
+/** An application waiting for review (docs/21 W8): account, one service, its licences and documents pending. */
+export async function pendingApplicant(serviceCode: string, displayName: string) {
+  const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }) });
+  try {
+    const service = await db.service.findUniqueOrThrow({ where: { code: serviceCode }, include: { requirements: true } });
+    const user = await db.user.create({ data: { email: uniqueEmail("e2e-applicant"), emailVerified: true, name: displayName } });
+    await db.userRole.create({ data: { userId: user.id, role: "PROFESSIONAL" } });
+    const profile = await db.professionalProfile.create({
+      data: { userId: user.id, legalName: `${displayName} כהן`, displayName, addressAs: "M", verificationStatus: "SERVICE_REVIEW" },
+    });
+    await db.professionalService.create({ data: { professionalId: profile.id, serviceId: service.id, status: "PENDING", basePriceMinorUnits: 20000 } });
+    await db.serviceArea.create({ data: { professionalId: profile.id, centerLat: 32.08, centerLng: 34.78, radiusMeters: 10_000 } });
+    for (const kind of ["GOVERNMENT_ID", "SELFIE", "TAX_FILE"]) {
+      const u = await db.upload.create({ data: { ownerId: user.id, kind: "DOCUMENT", mime: "image/jpeg", bytes: 10, status: "READY", storageKey: `e2e/${profile.id}/${kind}.jpg` } });
+      await db.professionalDocument.create({ data: { professionalId: profile.id, kind, storageRef: u.storageKey, uploadId: u.id } });
+    }
+    for (const r of service.requirements) {
+      const type = credentialTypeFor(r.requirement);
+      if (!type) continue;
+      const u = await db.upload.create({ data: { ownerId: user.id, kind: "DOCUMENT", mime: "image/jpeg", bytes: 10, status: "READY", storageKey: `e2e/${profile.id}/${type}.jpg` } });
+      await db.professionalCredential.create({ data: { professionalId: profile.id, serviceId: service.id, type, number: "77777", documentRef: u.id, status: "PENDING" } });
+    }
+    return { professionalId: profile.id };
+  } finally {
+    await db.$disconnect();
+  }
+}

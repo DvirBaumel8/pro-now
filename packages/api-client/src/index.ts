@@ -151,6 +151,24 @@ export function createApiClient(config: ProNowApiClientConfig = {}) {
       request<{ ok: true; status: string }>("POST", `/jobs/${encodeURIComponent(jobId)}/${step}`, {}),
     proSendQuote: (jobId: string, input: { lineItems: Array<{ description: string; quantity: number; unitPriceMinorUnits: number; kind: string }>; notes?: string }) =>
       request<{ quote: { id: string }; autoApproved?: boolean }>("POST", `/jobs/${encodeURIComponent(jobId)}/quotes`, input),
+    // --- The admin (docs/21 W8). The server enforces ADMIN on every one. ---
+    admin: {
+      applications: () => request<{ applications: ProApplicationView[] }>("GET", "/admin/pro-applications"),
+      professional: (id: string) => request<AdminProfessionalView>("GET", `/admin/professionals/${encodeURIComponent(id)}`),
+      decideAccount: (id: string, input: AdminDecision) => request<ProApplicationView>("POST", `/admin/professionals/${encodeURIComponent(id)}/decision`, input),
+      decideCredential: (id: string, input: AdminDecision) => request<ProApplicationView>("POST", `/admin/credentials/${encodeURIComponent(id)}/decision`, input),
+      decideService: (id: string, input: AdminDecision) => request<ProApplicationView>("POST", `/admin/pro-services/${encodeURIComponent(id)}/decision`, input),
+      jobs: (status?: string) => request<{ jobs: AdminJobRow[] }>("GET", `/admin/jobs${status ? `?status=${encodeURIComponent(status)}` : ""}`),
+      job: (id: string) => request<AdminJobDetail>("GET", `/admin/jobs/${encodeURIComponent(id)}`),
+      users: (q?: string) => request<{ users: AdminUserRow[] }>("GET", `/admin/users${q ? `?q=${encodeURIComponent(q)}` : ""}`),
+      changeRole: (id: string, input: { role: "CUSTOMER" | "PROFESSIONAL"; grant: boolean; reason: string }) =>
+        request<{ roles: string[] }>("POST", `/admin/users/${encodeURIComponent(id)}/roles`, input),
+      market: () => request<{ activations: AdminActivationRow[] }>("GET", "/admin/market"),
+      changeMarket: (id: string, input: { customerVisible?: boolean; providerOnboardingEnabled?: boolean; dispatchEnabled?: boolean; reason: string }) =>
+        request<AdminActivationRow>("PATCH", `/admin/market/${encodeURIComponent(id)}`, input),
+      matchFeedback: () => request<{ feedback: AdminFeedbackRow[] }>("GET", "/admin/match-feedback"),
+      usage: () => request<AdminUsageView>("GET", "/admin/usage"),
+    },
     /** Which services a typed sentence could be (docs/21 W5). */
     matchRequest: (text: string) => request<RequestMatch & { classifier: string }>("POST", "/match", { text }),
     /** What was suggested for a sentence, and what the customer chose. */
@@ -210,3 +228,58 @@ export function createApiClient(config: ProNowApiClientConfig = {}) {
 }
 
 export type ApiClient = ReturnType<typeof createApiClient>;
+
+// --- Admin views (docs/21 W8), as the server sends them ---
+export interface AdminDecision {
+  approve: boolean;
+  reason?: string;
+  expiresAt?: string;
+}
+export interface AdminProfessionalView {
+  application: ProApplicationView;
+  email: string;
+  joinedAt: string;
+  documents: Array<{ id: string; kind: string; status: string; mime: string | null; url: string | null }>;
+  credentials: Array<{ id: string; serviceNameHe: string; type: string; number: string | null; status: string; expiresAt: string | null; mime: string | null; url: string | null }>;
+}
+export interface AdminJobRow { id: string; status: string; serviceNameHe: string; professional: string | null; createdAt: string; updatedAt: string }
+export interface AdminJobDetail {
+  id: string;
+  status: string;
+  service: { nameHe: string; code: string; priceModel: string };
+  address: string | null;
+  description: string | null;
+  customer: { name: string | null; email: string };
+  professional: { id: string; displayName: string } | null;
+  onSite: { name: string } | null;
+  createdAt: string;
+  events: Array<{ at: string; type: string; actor: string; metadata: unknown }>;
+  offers: Array<{ at: string; professional: string; status: string; etaSeconds: number | null }>;
+  quotes: Array<{ version: number; status: string; totalMinorUnits: number; lines: number }>;
+  review: { overallRating: number; text: string | null } | null;
+}
+export interface AdminUserRow {
+  id: string;
+  email: string;
+  name: string;
+  roles: string[];
+  deleted: boolean;
+  professional: { id: string; verificationStatus: string } | null;
+  createdAt: string;
+}
+export interface AdminActivationRow {
+  id: string;
+  marketCode?: string;
+  service?: { code: string; nameHe: string };
+  customerVisible: boolean;
+  providerOnboardingEnabled: boolean;
+  dispatchEnabled: boolean;
+}
+export interface AdminFeedbackRow { id: string; text: string; suggested: string[]; chosen: string | null; confidence: string; missed: boolean; at: string }
+export interface AdminUsageView {
+  users: number;
+  professionals: Record<string, number>;
+  jobs: Record<string, number>;
+  storage: { bytes: number; files: number; limitBytes: number | null };
+  database: { bytes: number; limitBytes: number | null };
+}
