@@ -9,6 +9,7 @@ import { PrimaryAction, customerDarkTheme, spacing, type as t } from "@pro-now/u
 import { api } from "../../api";
 import { useFrame } from "../../frame";
 import { compressImage } from "../../media";
+import { pickFile } from "../../pickFile";
 import { tradeCharacterFor } from "../../tradeCharacter";
 import { ErrorScreen, LoadingScreen } from "../../states";
 
@@ -68,21 +69,6 @@ function missingHe(code: string, view: ProApplicationView): string {
     case "CREDENTIAL": return `${REQUIREMENT_HE[(b ?? "").split(":")[0] ?? ""] ?? "מסמך"} ל${svc(a)}`;
     default: return code;
   }
-}
-
-async function pickFile(accept: string, capture?: "user" | "environment"): Promise<File | null> {
-  return new Promise((resolve) => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = accept;
-    if (capture) input.setAttribute("capture", capture);
-    input.onchange = () => {
-      resolve(input.files?.[0] ?? null);
-      input.remove();
-    };
-    document.body.appendChild(input);
-    input.click();
-  });
 }
 
 /** Uploads a document through the same private storage path as W4. */

@@ -6,6 +6,7 @@ import {
   requestVoiceStream,
   VoiceRecorderSession,
 } from "./media";
+import { pickFile } from "./pickFile";
 
 /*
  * The browser's own speech-to-text, where it has one (Chrome, Safari) —
@@ -67,17 +68,9 @@ export function useWebMediaCapture() {
 
   const choosePhoto = useCallback(
     (capture: boolean) => {
-      const input = document.createElement("input");
-      input.type = "file";
-      input.accept = "image/*";
-      if (capture) input.setAttribute("capture", "environment");
-      input.onchange = () => {
-        const file = input.files?.[0];
+      void pickFile("image/*", capture ? "environment" : undefined).then((file) => {
         if (file) addPhoto(file);
-        input.remove();
-      };
-      document.body.appendChild(input);
-      input.click();
+      });
     },
     [addPhoto]
   );
