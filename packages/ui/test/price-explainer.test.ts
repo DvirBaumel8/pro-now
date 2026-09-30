@@ -14,7 +14,7 @@ import { priceExplainer } from "../src/pricing-copy";
  */
 
 describe("priceExplainer", () => {
-  it("states a FIXED price as the professional's list price, held and released after completion", () => {
+  it("states a FIXED price as the professional's list price, paid to them directly (D1)", () => {
     const price: PriceQuoteView = {
       priceModel: "FIXED",
       currency: "ILS",
@@ -22,7 +22,8 @@ describe("priceExplainer", () => {
     };
     const out = priceExplainer(price);
     expect(out.headline).toContain("450");
-    expect(out.detail).toContain("אחרי שתאשרו שהעבודה הושלמה");
+    expect(out.detail).toContain("משלמים ישירות למקצוען");
+    expect(out.detail).not.toContain("כרטיס");
   });
 
   it("presents VISIT_QUOTE as a visit fee, never as the job's price", () => {

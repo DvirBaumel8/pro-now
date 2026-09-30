@@ -11,9 +11,8 @@ import {
   spacing,
   type MarkName,
 } from "@pro-now/ui";
-import { pilotIntakeByService } from "@pro-now/types";
-
 import { api } from "../api";
+import { composeDescription, detailsNoteHe, livePriceHe, priceRows } from "../order";
 import { mediaUploadInputs } from "../request-media";
 import { resolveServiceId, ServiceCatalogueMismatchError, ServiceNotOpenError } from "../serviceResolver";
 import { useWebMediaCapture } from "../useWebMediaCapture";
@@ -28,10 +27,14 @@ type Props = {
   onSent: (jobId: string) => void;
   /** What the customer typed on home before choosing; it starts the description (W5 QA #12). */
   initialText?: string;
+  /** The space under the app header; the whole frame when omitted. */
+  height?: number;
 };
 
-export function RequestComposer({ serviceId, media, onBack, onOpenAddresses, onSent, initialText = "" }: Props) {
-  const { width, height } = useFrame();
+export function RequestComposer({ serviceId, media, onBack, onOpenAddresses, onSent, initialText = "", height: heightIn }: Props) {
+  const frame = useFrame();
+  const width = frame.width;
+  const height = heightIn ?? frame.height;
   const addresses = useQuery({ queryKey: ["addresses"], queryFn: api.getAddresses });
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [text, setText] = useState(initialText);
@@ -39,7 +42,15 @@ export function RequestComposer({ serviceId, media, onBack, onOpenAddresses, onS
   const [forOther, setForOther] = useState(false);
   const [onSiteName, setOnSiteName] = useState("");
   const [onSitePhone, setOnSitePhone] = useState("");
-  const [answers, setAnswers] = useState<Array<{ questionId: string; optionIds?: string[]; textValue?: string; numberValue?: number }>>([]);
+  /*
+   * AS IN THE DEMO: no problem questions before calling (Amit, 2026-09-29) —
+   * words, a recording, a photo; and where the work is priced by its kind, a
+   * pick from the (example) price list. Where it goes somewhere, the
+   * destination.
+   */
+  const [pickedIds, setPickedIds] = useState<string[]>([]);
+  const [destinationHe, setDestinationHe] = useState("");
+  const [formH, setFormH] = useState(0);
   const [sending, setSending] = useState(false);
   const [errorHe, setErrorHe] = useState<string | null>(null);
   const idempotencyKey = useRef(`web-job-${crypto.randomUUID()}`).current;
@@ -66,9 +77,11 @@ export function RequestComposer({ serviceId, media, onBack, onOpenAddresses, onS
     }
   }, [addresses.data, selectedAddressId]);
 
-  const onAnswer = useCallback((answer: (typeof answers)[number]) => {
-    setAnswers((current) => [...current.filter((item) => item.questionId !== answer.questionId), answer]);
+  const onTogglePick = useCallback((id: string) => {
+    setPickedIds((current) => (current.includes(id) ? current.filter((x) => x !== id) : [...current, id]));
   }, []);
+  const priceList = useMemo(() => priceRows(serviceId), [serviceId]);
+  const needsDestination = service?.needsDestination === true;
 
   const send = useCallback(() => {
     void (async () => {
@@ -94,9 +107,12 @@ export function RequestComposer({ serviceId, media, onBack, onOpenAddresses, onS
           {
             serviceId: dispatchServiceId,
             addressId: selectedAddressId,
-            description: text.trim() || undefined,
+            description: composeDescription(serviceId, text, pickedIds, needsDestination ? destinationHe : null),
             mediaRefs,
-            structuredAnswers: Object.fromEntries(answers.map((answer) => [answer.questionId, answer])),
+            structuredAnswers: {
+              ...(pickedIds.length > 0 ? { exampleListPicks: pickedIds } : {}),
+              ...(needsDestination && destinationHe.trim() ? { destination: destinationHe.trim() } : {}),
+            },
             ...(forOther ? { onSite: { name: onSiteName.trim(), phone: onSitePhone.trim() } } : {}),
           },
           idempotencyKey
@@ -114,7 +130,7 @@ export function RequestComposer({ serviceId, media, onBack, onOpenAddresses, onS
         setSending(false);
       }
     })();
-  }, [answers, forOther, idempotencyKey, media.photos, media.voice, onSent, onSiteName, onSitePhone, selectedAddressId, sending, serviceId, text]);
+  }, [destinationHe, forOther, idempotencyKey, media.photos, media.voice, needsDestination, onSent, onSiteName, onSitePhone, pickedIds, selectedAddressId, sending, serviceId, text]);
 
   if (addresses.isPending) return <LoadingScreen />;
   if (addresses.isError) return <ErrorScreen offline={!navigator.onLine} onRetry={() => void addresses.refetch()} />;
@@ -145,32 +161,54 @@ export function RequestComposer({ serviceId, media, onBack, onOpenAddresses, onS
       />
       {errorHe ? <Text accessibilityRole="alert" style={styles.error}>{errorHe}</Text> : null}
       {sending ? <Text style={styles.sending}>מעלים את הפרטים ושולחים…</Text> : null}
-      <DescribeFaultBody
-        serviceNameHe={serviceNameHe}
-        mark={mark}
-        symptomsHe={[]}
-        photoPromptHe={photoPromptFor(serviceId)}
-        intake={pilotIntakeByService[serviceId]}
-        answers={answers}
-        onAnswer={onAnswer}
-        text={text}
-        onChangeText={setText}
-        photos={photos}
-        onAddPhoto={media.capture.onAddPhoto}
-        onAddFromLibrary={media.capture.onAddFromLibrary}
-        onRemovePhoto={media.removePhoto}
-        voice={voice}
-        recording={media.capture.recording}
-        recordSeconds={media.capture.recordSeconds}
-        canRecord={media.capture.canRecord}
-        recordBlockedHe={media.capture.recordBlockedHe}
-        onStartRecord={media.capture.onStartRecord}
-        onStopRecord={media.capture.onStopRecord}
-        onDeleteVoice={media.capture.onDeleteVoice}
-        onSend={send}
-        width={width}
-        height={height - TOP_BAR_H - 148 - (forOther ? FOR_OTHER_OPEN_H : FOR_OTHER_CLOSED_H)}
-      />
+      {/* The form takes whatever the panels above leave, measured rather than estimated. */}
+      <View style={styles.formArea} onLayout={(e) => setFormH(Math.round(e.nativeEvent.layout.height))}>
+        {formH > 0 ? (
+          <DescribeFaultBody
+            serviceNameHe={serviceNameHe}
+            mark={mark}
+            symptomsHe={[]}
+            photoPromptHe={photoPromptFor(serviceId)}
+            voiceExampleHe={service?.symptomsHe[0] ?? null}
+            priceList={priceList}
+            pickedIds={pickedIds}
+            onTogglePick={onTogglePick}
+            destination={
+              needsDestination
+                ? {
+                    valueHe: destinationHe,
+                    onChange: setDestinationHe,
+                    placeholderHe:
+                      serviceId === "svc-towing"
+                        ? "למשל: מוסך בבני ברק, או הבית"
+                        : serviceId === "svc-courier"
+                          ? "למשל: רחוב הרצל 10, תל אביב"
+                          : "למשל: רחוב הרצל 10, קומה 2",
+                  }
+                : null
+            }
+            livePriceHe={livePriceHe(serviceId, pickedIds)}
+            detailsNoteHe={detailsNoteHe(serviceId)}
+            text={text}
+            onChangeText={setText}
+            photos={photos}
+            onAddPhoto={media.capture.onAddPhoto}
+            onAddFromLibrary={media.capture.onAddFromLibrary}
+            onRemovePhoto={media.removePhoto}
+            voice={voice}
+            recording={media.capture.recording}
+            recordSeconds={media.capture.recordSeconds}
+            canRecord={media.capture.canRecord}
+            recordBlockedHe={media.capture.recordBlockedHe}
+            onStartRecord={media.capture.onStartRecord}
+            onStopRecord={media.capture.onStopRecord}
+            onDeleteVoice={media.capture.onDeleteVoice}
+            onSend={send}
+            width={width}
+            height={formH}
+          />
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -288,6 +326,7 @@ function AddressChoice({
 const colors = customerDarkTheme.colors;
 const styles = StyleSheet.create({
   screen: { overflow: "hidden" },
+  formArea: { flex: 1 },
   topBar: { height: TOP_BAR_H, flexDirection: "row-reverse", alignItems: "center", paddingHorizontal: spacing.md },
   addressPanel: { padding: spacing.md, backgroundColor: colors.surfaceElevated },
   addressHeading: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" },

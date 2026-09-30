@@ -37,6 +37,8 @@ test("the customer and the professional, two browsers, request to review", async
     await c.request.post("/api/v1/me/addresses", { data: { formatted: "דיזנגוף 50, תל אביב", lat: LAT, lng: LNG }, headers: { origin: baseURL! } });
     await c.getByRole("textbox", { name: "ספרו מה צריך" }).fill("נזילה במטבח");
     await c.getByRole("button", { name: /המשך עם נזילה/ }).click();
+    // The service page first, as in the demo; then the form.
+    await c.getByRole("button", { name: /^בקשת .* עכשיו$/ }).click();
     await c.getByRole("button", { name: "שליחת הקריאה" }).click();
     await expect(c.getByText("מחפשים מי זמין עכשיו")).toBeVisible();
 
