@@ -3,6 +3,7 @@ import { StyleSheet, View, useWindowDimensions } from "react-native";
 import { ConnectionBanner, customerDarkTheme, customerTheme, type ConnectionState } from "@pro-now/ui";
 
 import { queryClient } from "./api";
+import { useKeyboardCover } from "./keyboard";
 
 /**
  * The app frame, as in the demo (tools/design-preview/src/App.tsx `App`):
@@ -56,7 +57,15 @@ export function Frame({ children }: { children: ReactNode }) {
    * frame's guess.
    */
   const [measuredH, setMeasuredH] = useState<number | null>(null);
-  const height = measuredH ?? windowH;
+  /*
+   * With the keyboard up, the app ends where the keyboard begins. The
+   * keyboard also covers the bottom safe-area padding, which is not the
+   * app's to give back, so that is added back before subtracting.
+   */
+  const keyboard = useKeyboardCover();
+  const bottomPad = keyboard > 0 ? safeAreaBottom() : 0;
+  const pageH = measuredH ?? windowH;
+  const height = keyboard > 0 ? Math.max(200, pageH + bottomPad - keyboard) : pageH;
   const w = Math.min(430, width);
   const [connection, retry] = useConnection();
   const [bannerH, setBannerH] = useState(0);
@@ -79,6 +88,12 @@ export function Frame({ children }: { children: ReactNode }) {
       </View>
     </FrameContext.Provider>
   );
+}
+
+/** The body's bottom padding, i.e. the home-indicator inset (index.html). */
+function safeAreaBottom(): number {
+  if (typeof document === "undefined") return 0;
+  return parseFloat(getComputedStyle(document.body).paddingBottom) || 0;
 }
 
 const styles = StyleSheet.create({
