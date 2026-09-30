@@ -336,6 +336,14 @@ number, plus a "התנתקות" menu item to show it). **Everything required sta
 included; only the shop's design may be skipped** ("דלג — אעצב את החנות אחר כך"), opening with
 our defaults and a "לעצב את החנות" link on the open-shop screen.
 
+Also decided (Amit, 2026-09-30, after joining as a vet in a live demo):
+- **For demonstrations only, documents and the photo may be skipped too** ("דלג לעכשיו
+  (הדגמה)"); the summary says they were skipped. Not a product rule — in the product they stay
+  required.
+- **The handyman is priced by the kind of job, not by the hour**: "הנדימן" is a price-list
+  service (demo lines: shelf/picture, door or cupboard, small furniture, handle or hinge). Amit
+  on pricing in general: *"צריך לחשוב על זה"* — per-service pricing kinds stay open for review.
+
 Built in the demo (Amit's track): `ProOnboardingBody` (lib/ui) — welcome · "what you do" in
 free text (the matcher ticks the services; custom services allowed) · details & radius ·
 documents per trade (`onboardingDocsFor`, lib/types) with licence numbers for registries ·

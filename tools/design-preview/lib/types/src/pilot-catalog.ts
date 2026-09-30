@@ -776,7 +776,7 @@ const tutor = personal({
 });
 
 /**
- * הנדימן לשעה — the service that proves the model.
+ * הנדימן — the service that proves the model (priced by job type since 2026-09-30).
  *
  * It is not a trade. It is an hour of a capable person with a bag of tools,
  * and it absorbs every small job the catalogue will never have a name for: a
@@ -791,12 +791,13 @@ const handymanHour: CatalogServiceDef = {
   customerPhotoPromptHe: "צילום של מה שצריך לתקן",
   mobilityProfile: "CARRIES_ON_PERSON",
   code: "ASSIST_HANDYMAN",
-  nameHe: "הנדימן לשעה",
-  descriptionHe: "עבודות קטנות בבית — לפי שעה, בלי להגדיר מראש בדיוק מה.",
+  /* Priced by the kind of job, not by the hour — Amit, 2026-09-30. */
+  nameHe: "הנדימן",
+  descriptionHe: "עבודות קטנות בבית — מחיר לפי סוג העבודה.",
   mark: "handyman",
   keywordsHe: ["הנדימן", "תיקונים קטנים", "לתלות", "לקדוח", "מדף", "להרכיב", "עזרה בבית", "בעל מקצוע כללי", "אחזקה", "תיקונים", "תיקון קטן", "לתלות תמונה", "לתלות מדף", "איש תחזוקה", "שיפוצניק", "איש אחזקה", "תיקונים בבית"],
   symptomsHe: ["לתלות מדף או תמונה", "דלת שנתקעת", "כמה תיקונים קטנים", "לא בטוח מה צריך"],
-  pricingModel: "VISIT_QUOTE",
+  pricingModel: "FIXED",
   fulfillmentProfile: "SAME_DAY_NOW",
   activationStatus: "ACTIVE",
   trustProfile: "STANDARD",

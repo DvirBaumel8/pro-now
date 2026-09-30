@@ -104,7 +104,7 @@ const previewPrices: Record<string, PriceQuoteView> = {
   "svc-massage": { priceModel: "FIXED", currency: "ILS", fixedTotalMinorUnits: 24000 },
   "svc-trainer": { priceModel: "FIXED", currency: "ILS", fixedTotalMinorUnits: 22000 },
   "svc-tutor": { priceModel: "FIXED", currency: "ILS", fixedTotalMinorUnits: 15000 },
-  "svc-handyman": { priceModel: "VISIT_QUOTE", currency: "ILS", visitFeeMinorUnits: 15900 },
+  "svc-handyman": { priceModel: "FIXED", currency: "ILS", fixedTotalMinorUnits: 15000 },
   "svc-hands": {
     priceModel: "HOURLY",
     currency: "ILS",
