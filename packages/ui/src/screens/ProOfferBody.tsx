@@ -174,7 +174,7 @@ export function ProOfferBody({
           <>
             <Text style={styles.payoutUnknown}>אתה קובע את המחיר</Text>
             <Text style={styles.payoutReason}>
-              תסתכל על התמונות והפרטים ושלח מחיר. אתה יוצא רק אחרי שהלקוח מאשר — והסכום מאושר בכרטיס ועובר אליך בסוף.
+              תסתכל על התמונות והפרטים ושלח מחיר. אתה יוצא רק אחרי שהלקוח מאשר — ואת התשלום אתה מקבל ישירות מהלקוח.
             </Text>
             {quoteFirst.destinationHe ? <Text style={styles.payoutReason}>לאן: {quoteFirst.destinationHe}</Text> : null}
           </>
