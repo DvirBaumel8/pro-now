@@ -22,6 +22,9 @@ import type {
   MyJobSummary,
   OnSiteView,
   ProApplicationView,
+  ProJobDetailView,
+  ProStatusView,
+  OfferCardView,
   OutsideAppReceiptView,
   RequestMatch,
 } from "@pro-now/types";
@@ -127,6 +130,27 @@ export function createApiClient(config: ProNowApiClientConfig = {}) {
       input: { basePriceMinorUnits?: number | null; minimumBillableMinutes?: number | null; perKmMinorUnits?: number | null; minimumFareMinorUnits?: number | null }
     ) => request<unknown>("PATCH", `/pro/services/${encodeURIComponent(serviceId)}/pricing`, input),
     proSubmitApplication: () => request<ProApplicationView>("POST", "/pro/application/submit", {}),
+    proStatus: () => request<ProStatusView>("GET", "/pro/status"),
+    proStartShift: (input: { lat: number; lng: number; enabledServiceIds: string[] }) =>
+      request<{ sessionId: string; presenceState: string }>("POST", "/pro/shifts", input),
+    proEndShift: (shiftId: string) => request<{ ok: true }>("POST", `/pro/shifts/${encodeURIComponent(shiftId)}/end`, {}),
+    proPing: (input: { lat: number; lng: number; accuracyMeters?: number; capturedAt: string }) =>
+      request<{ ok: true }>("POST", "/pro/location", input),
+    /** The offer waiting for this professional, or null (an empty answer). */
+    proCurrentOffer: async (): Promise<OfferCardView | null> => {
+      const res = await doFetch(`${base}/pro/offers/current`, { credentials: "include" });
+      if (!res.ok) throw new ApiError(res.status, `HTTP_${res.status}`, "Could not read the current offer");
+      const text = await res.text();
+      return text ? (JSON.parse(text) as OfferCardView) : null;
+    },
+    proAcceptOffer: (offerId: string, idempotencyKey: string) =>
+      request<{ ok: true; jobId: string }>("POST", `/offers/${encodeURIComponent(offerId)}/accept`, {}, { "Idempotency-Key": idempotencyKey }),
+    proSkipOffer: (offerId: string) => request<{ ok: true }>("POST", `/offers/${encodeURIComponent(offerId)}/skip`, {}),
+    proJob: (jobId: string) => request<ProJobDetailView>("GET", `/pro/jobs/${encodeURIComponent(jobId)}`),
+    proStep: (jobId: string, step: "en-route" | "arrive" | "start" | "complete") =>
+      request<{ ok: true; status: string }>("POST", `/jobs/${encodeURIComponent(jobId)}/${step}`, {}),
+    proSendQuote: (jobId: string, input: { lineItems: Array<{ description: string; quantity: number; unitPriceMinorUnits: number; kind: string }>; notes?: string }) =>
+      request<{ quote: { id: string }; autoApproved?: boolean }>("POST", `/jobs/${encodeURIComponent(jobId)}/quotes`, input),
     /** Which services a typed sentence could be (docs/21 W5). */
     matchRequest: (text: string) => request<RequestMatch & { classifier: string }>("POST", "/match", { text }),
     /** What was suggested for a sentence, and what the customer chose. */

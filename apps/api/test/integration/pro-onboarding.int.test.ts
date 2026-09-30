@@ -188,6 +188,8 @@ describe("real supply", () => {
     expect(mine.json().job.status).toBe("OFFERING");
     const current = (await app.inject({ method: "GET", url: "/api/v1/pro/offers/current", headers: as(applicant) })).json();
     expect(current.jobId).toBe(mine.json().job.id);
+    // Transparent payout (CLAUDE.md §3): at least their own visit fee, marked as an estimate.
+    expect(current).toMatchObject({ expectedPayoutMinorUnits: 20000, payoutIsEstimate: true });
     await app.inject({ method: "POST", url: `/api/v1/offers/${current.offerId}/skip`, headers: as(applicant), payload: {} });
     await app.inject({ method: "POST", url: `/api/v1/jobs/${mine.json().job.id}/cancel`, headers: as(customer), payload: {} });
   });

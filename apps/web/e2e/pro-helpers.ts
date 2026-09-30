@@ -10,7 +10,7 @@ import { linkFor, uniqueEmail } from "./helpers";
  * documents current, available, and a fresh location. The professional's
  * own screens are W7, so here they act through the API.
  */
-export async function dispatchableProfessional(opts: { serviceCode: string; lat: number; lng: number; baseURL: string }) {
+export async function dispatchableProfessional(opts: { serviceCode: string; lat: number; lng: number; baseURL: string; offline?: boolean; addressAs?: "M" | "F" }) {
   const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }) });
   const email = uniqueEmail("e2e-pro");
   let professionalId = "";
@@ -19,7 +19,15 @@ export async function dispatchableProfessional(opts: { serviceCode: string; lat:
     const user = await db.user.create({ data: { email, emailVerified: true, name: "דנה" } });
     await db.userRole.create({ data: { userId: user.id, role: "PROFESSIONAL" } });
     const profile = await db.professionalProfile.create({
-      data: { userId: user.id, legalName: "דנה לוי", displayName: "דנה", verificationStatus: "APPROVED", presenceState: "AVAILABLE" },
+      data: {
+        userId: user.id,
+        legalName: "דנה לוי",
+        displayName: "דנה",
+        addressAs: opts.addressAs ?? "F",
+        verificationStatus: "APPROVED",
+        // Offline: the professional goes online from their own screen (W7).
+        presenceState: opts.offline ? "OFFLINE" : "AVAILABLE",
+      },
     });
     professionalId = profile.id;
     await db.professionalService.create({
@@ -46,7 +54,7 @@ export async function dispatchableProfessional(opts: { serviceCode: string; lat:
   const api = await request.newContext({ baseURL: opts.baseURL, extraHTTPHeaders: { origin: opts.baseURL } });
   await api.post("/api/auth/sign-in/magic-link", { data: { email, callbackURL: "/" } });
   await api.get(await linkFor(email), { maxRedirects: 5 });
-  return new Professional(api, professionalId);
+  return Object.assign(new Professional(api, professionalId), { email });
 }
 
 export class Professional {

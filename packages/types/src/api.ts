@@ -253,9 +253,14 @@ export interface ProJobDetailView {
   status: JobState;
   serviceId: string;
   serviceNameHe: string;
+  /** The catalogue code: the screens' mark and words come from it. */
+  serviceCode: string;
   priceModel: PriceModel;
   /** Released because the job is assigned. Never before. */
   addressHe: string;
+  /** The address's coordinates, for navigation links; released with it. */
+  lat: number | null;
+  lng: number | null;
   /** Floor, entrance, door code — the difference between arriving and finding. */
   accessNoteHe: string | null;
   customerNameHe: string;
@@ -649,6 +654,18 @@ export interface OnSiteView {
   etaSeconds: number | null;
   /** Only once a professional is assigned. */
   doorCode: string | null;
+}
+
+/** `GET /api/v1/pro/status`: where the professional stands right now (docs/21 W7). */
+export interface ProStatusView {
+  displayName: string;
+  addressAs: string | null;
+  verificationStatus: string;
+  presenceState: ProPresenceState;
+  shiftId: string | null;
+  activeJobId: string | null;
+  approvedServices: Array<{ id: string; code: string; nameHe: string }>;
+  jobsToday: number;
 }
 
 /** `GET /api/v1/pro/application`: a professional's application and what it still lacks (docs/21 W7). */

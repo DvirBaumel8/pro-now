@@ -103,7 +103,12 @@ test("a professional joins, is reviewed, and is approved for one service", async
   } finally {
     await admin.dispose();
   }
+  // Approved: /pro is now her work screen, addressed as she asked.
   await page.reload();
+  await expect(page.getByRole("button", { name: "התחברות לקבלת עבודות" })).toBeVisible();
+  await expect(page.getByText("את לא זמינה")).toBeVisible();
+  // And the review, per service, is still one link away.
+  await page.goto("/pro?review=1");
   await expect(page.getByText("אושרתם לעבודה")).toBeVisible();
   await expect(page.getByText("מאושר ✓")).toHaveCount(2);
 });

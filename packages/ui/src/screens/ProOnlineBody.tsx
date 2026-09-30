@@ -66,6 +66,8 @@ export interface ProOnlineBodyProps {
   onOpenPricing?: () => void;
   /** Present when this screen is pushed from the shift screen. */
   onBack?: () => void;
+  /** Address the professional in the feminine (they chose it; never guessed). */
+  proFemale?: boolean;
   width?: number;
   height?: number;
 }
@@ -91,6 +93,7 @@ export function ProOnlineBody({
   onManageServices,
   onOpenPricing,
   onBack,
+  proFemale = false,
   width = 390,
   height = 780,
 }: ProOnlineBodyProps) {
@@ -102,8 +105,8 @@ export function ProOnlineBody({
       ? "מתחברים…"
       : "מסיימים משמרת…"
     : isOnline
-      ? "אתה ONLINE"
-      : "אתה לא זמין";
+      ? proFemale ? "את ONLINE" : "אתה ONLINE"
+      : proFemale ? "את לא זמינה" : "אתה לא זמין";
 
   const eligibleCount = services.filter((s) => s.enabled && !s.blockedReasonHe).length;
 
@@ -169,8 +172,12 @@ export function ProOnlineBody({
 
           <Text style={styles.explain}>
             {isOnline
-              ? "כל עוד אתה מחובר, עבודות מתאימות באזור שלך יישלחו אליך אחת בכל פעם."
-              : "כשתתחבר, נתחיל לשלוח אליך עבודות מתאימות באזור שלך."}
+              ? proFemale
+                ? "כל עוד את מחוברת, עבודות מתאימות באזור שלך יישלחו אלייך אחת בכל פעם."
+                : "כל עוד אתה מחובר, עבודות מתאימות באזור שלך יישלחו אליך אחת בכל פעם."
+              : proFemale
+                ? "כשתתחברי, נתחיל לשלוח אלייך עבודות מתאימות באזור שלך."
+                : "כשתתחבר, נתחיל לשלוח אליך עבודות מתאימות באזור שלך."}
           </Text>
 
           {/* --- Services --- */}
@@ -237,7 +244,7 @@ export function ProOnlineBody({
               <Text style={styles.pricingLabel}>המחירים שלך</Text>
               {/* States what it is FOR, because "מחירים" alone reads as a
                   price list the platform sets. */}
-              <Text style={styles.pricingHint}>אתה קובע כמה עולה להגיע</Text>
+              <Text style={styles.pricingHint}>{proFemale ? "את קובעת כמה עולה להגיע" : "אתה קובע כמה עולה להגיע"}</Text>
             </Pressable>
           ) : null}
 
