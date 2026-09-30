@@ -13,6 +13,8 @@ import { ProHome } from "./screens/pro/ProHome";
 import { ProJoin } from "./screens/pro/ProJoin";
 import { ProJob } from "./screens/pro/ProJob";
 import { Admin } from "./screens/admin/Admin";
+import { Inbox } from "./screens/Inbox";
+import { useUserChannel } from "./useUserChannel";
 import { Addresses } from "./screens/Addresses";
 import { Avatar, Intro } from "./screens/Onboarding";
 import { SignIn } from "./screens/SignIn";
@@ -55,10 +57,17 @@ function FirstRun({ children }: { children: ReactNode }) {
   return children;
 }
 
+/** The person's own live channel, open while signed in (docs/21 W9). */
+function LiveChannel() {
+  useUserChannel();
+  return null;
+}
+
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
+        <LiveChannel />
         <Frame>
           <Routes>
             <Route path="/welcome" element={<SignedOut><Welcome /></SignedOut>} />
@@ -73,6 +82,7 @@ export function App() {
             <Route path="/pro/jobs/:id" element={<SignedIn><ProJob /></SignedIn>} />
             {/* The admin (docs/21 W8); the server enforces ADMIN on every call. */}
             <Route path="/admin" element={<SignedIn><Admin /></SignedIn>} />
+            <Route path="/inbox" element={<SignedIn><Inbox /></SignedIn>} />
             {/* The person at home: no account (docs/21 W6). */}
             <Route path="/s/:token" element={<OnSite />} />
             <Route path="/" element={<SignedIn><FirstRun><Home /></FirstRun></SignedIn>} />

@@ -20,6 +20,7 @@ import { CityHero } from "../art/CityHero";
 import { worldSources } from "../art/worldSources";
 import { useFrame } from "../frame";
 import { useWebMediaCapture } from "../useWebMediaCapture";
+import { inboxKey } from "../useUserChannel";
 import { RequestComposer } from "./RequestComposer";
 
 /** The header's own height in the demo's customer shell (`UTIL`). */
@@ -63,6 +64,8 @@ export function Home() {
    * capsule.
    */
   const myJobs = useQuery({ queryKey: ["my-jobs"], queryFn: api.listMyJobs, refetchInterval: 30_000 });
+  // The inbox's unread count, kept fresh by the live channel (W9).
+  const inbox = useQuery({ queryKey: inboxKey, queryFn: api.inbox });
   const active = myJobs.data?.jobs.find((j) => j.status !== "CLOSED" && j.status !== "CANCELLED") ?? null;
   const bodyH = height - HEADER_H - (active ? CAPSULE_HEIGHT : 0);
 
@@ -111,6 +114,17 @@ export function Home() {
               ...(me.data?.roles.includes("ADMIN")
                 ? [{ titleHe: "ניהול", items: [{ id: "admin", labelHe: "ניהול", detailHe: "בקשות הצטרפות, קריאות, משתמשים ושוק", onPress: () => navigate("/admin") }] }]
                 : []),
+              {
+                titleHe: "התראות",
+                items: [
+                  {
+                    id: "inbox",
+                    labelHe: inbox.data?.unread ? `התראות · ${inbox.data.unread} חדשות` : "התראות",
+                    detailHe: "מה קרה בקריאות שלכם, והתראות לטלפון",
+                    onPress: () => navigate("/inbox"),
+                  },
+                ],
+              },
               {
                 titleHe: "העבודות שלי",
                 items: [{ id: "calls", labelHe: "הקריאות שלי", detailHe: "היסטוריה, קריאה פעילה ודירוגים", upcoming: true }],

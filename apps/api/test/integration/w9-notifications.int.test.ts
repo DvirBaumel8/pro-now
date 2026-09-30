@@ -80,7 +80,10 @@ describe("notifications", () => {
     const offer = (await app.inject({ method: "GET", url: "/api/v1/pro/offers/current", headers: as(pro) })).json();
     await app.inject({ method: "POST", url: `/api/v1/offers/${offer.offerId}/accept`, headers: as(pro, `a-${Date.now()}`), payload: {} });
     await settle();
-    expect(got.find((m) => m.type === "NOTIFICATION")?.title).toBe("נמצא מקצוען");
+    const found = got.find((m) => m.type === "NOTIFICATION") as { title?: string; body?: string } | undefined;
+    expect(found?.title).toBe("נמצא מקצוען");
+    // Named, and in the professional's own gender, although the event is announced before the accept commits.
+    expect(found?.body).toMatch(/^Pat (יצא|יצאה) אליכם בקרוב/);
     ws.terminate();
 
     const inbox = (await app.inject({ method: "GET", url: "/api/v1/me/notifications", headers: as(customer) })).json();

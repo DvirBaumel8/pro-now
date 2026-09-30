@@ -1,6 +1,6 @@
 # 21 — Production Plan: from demo to a live web app
 
-Status: **APPROVED 2026-09-29** (decisions in §5). W0–W8 done (W5 with voice-to-text deferred); W9 next. Written after reading the
+Status: **APPROVED 2026-09-29** (decisions in §5). W0–W9 done (W5 with voice-to-text deferred); W10 next. Written after reading the
 code as it stands at `53ed69f`.
 
 ## 0. Framing
@@ -564,6 +564,10 @@ Inside `apps/web` (D7). Both acceptance tests run over every admin route.
   - A non-admin gets 403 on every `/api/v1/admin/*` route.
 
 ### W9 — Realtime and notifications (M)
+
+**DONE 2026-09-30** (report: `docs/reports/W9.md`, QA: `docs/qa/W9.md`).
+iOS push waits for the installed app on HTTPS (Phase 2); SMS for D4.
+
 - WebSocket fan-out for job state, offers, quotes and professional
   location, through an in-process `EventBus`, with authorisation per job.
   Reconnect with backoff, then re-sync over REST.

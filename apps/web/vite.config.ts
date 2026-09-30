@@ -53,6 +53,8 @@ export default defineConfig({
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [/^\/api\//],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+        // Web Push: the worker's push and click handlers (docs/21 W9).
+        importScripts: ["/push-handler.js"],
       },
     }),
     ...(uploadSourceMaps
