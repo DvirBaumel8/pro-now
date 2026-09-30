@@ -1,6 +1,6 @@
 # PRO NOW — Current state and handoff (read this first)
 
-Last updated 2026-09-29. This page is
+Last updated 2026-09-30. This page is
 the short version of "who we are, where things are, how we work, what is
 next". The history behind it lives in `docs/EPIC-0-REPORT.md` and the
 product decisions in `docs/18-ROADMAP.md` (sections marked **DECIDED** and
@@ -35,8 +35,8 @@ product decisions in `docs/18-ROADMAP.md` (sections marked **DECIDED** and
 - **Now: a browser demo for fundraising.** The demo must work end to end
   for every service, look alive, and be demonstrable in every part.
 - **After fundraising:** App Store / Play, real backend deployment, and the
-  vendor decisions (payments, KYC, SMS, hosting). Nothing is in production
-  today (see §3).
+  vendor decisions (payments, KYC, SMS, hosting). The web app and API are
+  live at https://pro-now.onrender.com for friends to test (see §3).
 - The product rules in `CLAUDE.md` still govern everything: NOW-first, real
   supply only, server-authoritative, and no invented business decisions
   (§4 there).
@@ -46,8 +46,8 @@ product decisions in `docs/18-ROADMAP.md` (sections marked **DECIDED** and
 | Thing | Where | State |
 |---|---|---|
 | **The demo** (what investors see) | `tools/design-preview` → published as a Claude Artifact: https://claude.ai/artifact/7YRPcVfEuhVCmcK3PKVeJW (see the version in the last commit message; "anyone with the link") | Static bundle, **no backend**: fixtures in the bundle, the customer↔pro loop simulated client-side. Every one of the 47 services passes the full flow to payment (`qa/pp_all.mjs`). |
-| **The real app** (Dvir's track) | `apps/web` (React 19 + react-native-web, the demo's screens) on `apps/api` | W0–W2 done (`docs/21`): sign-in by email link or Google, first run, home, menu, PWA. Run: `docker compose up -d`, then `npm run dev:app` → http://localhost:5180 (emails: http://localhost:8025). Tests: `npm run test:int`, `npm run test:e2e` (WebKit iPhone 15 + Chromium), `npm run parity` (vs the demo). Not deployed. |
-| API | `apps/api` (Fastify, Prisma, Postgres 16 + PostGIS; Redis optional) | Runs on **localhost only**. Never deployed. Local stack: `docker compose up -d` (PostGIS on :54320, Mailpit :8025, S3 :8333, mock OIDC :8089), `cp .env.example apps/api/.env`, `npm run db:migrate:deploy -w apps/api && npm run db:seed && npm run dev:api`. |
+| **The real app** (Dvir's track) | `apps/web` (React 19 + react-native-web, the demo's screens) on `apps/api` | W0–W10 done (`docs/21`). **Production: https://pro-now.onrender.com** (Render; state and the last smoke test in `docs/16 §Production`; check it with `npm run smoke:prod`). Run locally: `docker compose up -d`, then `npm run dev:app` → http://localhost:5180 (emails: http://localhost:8025). Tests: `npm run test:int`, `npm run test:e2e` (WebKit iPhone 15 + Chromium), `npm run parity` (vs the demo). |
+| API | `apps/api` (Fastify, Prisma, Postgres 16 + PostGIS; Redis optional) | Served with the web app at https://pro-now.onrender.com. Local stack: `docker compose up -d` (PostGIS on :54320, Mailpit :8025, S3 :8333, mock OIDC :8089), `cp .env.example apps/api/.env`, `npm run db:migrate:deploy -w apps/api && npm run db:seed && npm run dev:api`. |
 | Mobile apps | `apps/customer-mobile`, `apps/pro-mobile` (Expo) | Typecheck clean. **Never built for a device.** |
 | Admin | `apps/admin` (Next.js 14) | About 320-line scaffold: KPI page with labelled demo figures, and a job inspector that fetches the API. **No auth/RBAC yet.** |
 | Shared logic | `packages/types` (domain, catalogue, state machines, pricing), `packages/ui` (the product's screens). The demo has its own fork in `tools/design-preview/lib/{ui,types}` since 2026-09-29 | Tested 2026-09-29: types 726, ui 453, api 262, validation 18; the demo's copies run the same 726 + 453. |

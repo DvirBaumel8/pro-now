@@ -623,6 +623,11 @@ iOS push waits for the installed app on HTTPS (Phase 2); SMS for D4.
 
 ## 4. Phase 2 — go live (after W10)
 
+**Status 2026-09-30:** live at **https://pro-now.onrender.com** (accounts
+and deploy done). Open from the first smoke test (`docs/16 §Production`):
+the live build is W6 (master's W7–W10 have not deployed), the catalogue
+seed has not run, the Amit iPhone pass and the uptime monitor are still to do.
+
 Amit (≈1 hour, with step-by-step instructions from us):
 1. Accounts: Neon, Render, Cloudflare (R2), Resend. A Google OAuth client
    (consent screen and redirect URI).
