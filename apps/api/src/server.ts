@@ -40,6 +40,7 @@ import reviewsRoutes from "./routes/reviews.js";
 import meRoutes from "./routes/me.js";
 import uploadsRoutes from "./routes/uploads.js";
 import clientErrorsRoutes from "./routes/client-errors.js";
+import clientAddressRoutes from "./routes/client-address.js";
 import adminDebugRoutes from "./routes/admin-debug.js";
 import demoAuthRoutes from "./routes/demo-auth.js";
 import { registerJobSocket, registerUserSocket } from "./realtime/job-socket.js";
@@ -270,6 +271,7 @@ export async function buildServer(opts: { logger?: boolean } = {}) {
   await app.register(meRoutes, { prefix: API_PREFIX });
   await app.register(uploadsRoutes, { prefix: API_PREFIX });
   await app.register(clientErrorsRoutes, { prefix: API_PREFIX });
+  await app.register(clientAddressRoutes, { prefix: API_PREFIX });
   await app.register(adminDebugRoutes, { prefix: API_PREFIX });
 
   await app.register(async (api) => registerJobSocket(api), { prefix: API_PREFIX });

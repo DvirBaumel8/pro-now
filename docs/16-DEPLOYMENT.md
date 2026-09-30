@@ -27,12 +27,8 @@ added (401 to a stranger = deployed, 404 = not). Run it after every deploy.
   welcome screen loads in 1.4 s in WebKit at iPhone 15 size; the tester
   sign-in reaches home; typing a request brings suggestions; no page
   errors, console errors or failed requests.
-- **The deployed build is W6, not master.** W7–W10 routes answer 404, and
-  there is no CSP/HSTS and no `/api/ready`. The newest code live is about
-  `aab6f93` (2026-09-30 01:14); master's 13 later merges, all with green
-  CI, have not deployed. Nothing in them changes the build or requires a
-  new setting, so the cause is on Render's side (auto-deploy not firing,
-  or a build/migration failing there) — look at the service's Events.
+- **The deployed build was W6, not master** — found, explained and fixed
+  the same day (below).
 - **The catalogue is empty.** `/api/v1/catalog` returns market
   `IL-PILOT-DEV` with no departments: the seed never ran against the
   production database, so no service is activated and nothing can be
@@ -41,6 +37,40 @@ added (401 to a stranger = deployed, 404 = not). Run it after every deploy.
 - **A matcher miss, also on master:** "יש לי נזילה מתחת לכיור" offers
   unclogging first and the leak second — "כיור" is an unclogging word and
   ties with "נזילה".
+
+### Why master was not deploying (2026-09-30, fixed by hand)
+Every deploy in the service's Events was "Manually triggered via
+Dashboard"; not one came from a push, although Auto-Deploy is "On Commit"
+on `master`. Render pulls the code through **Dvir's** GitHub credential
+(`dvir-baumel`), and its GitHub App is installed on Dvir's accounts —
+but the repository belongs to **Amit's** account (`nivamit1210-sketch`).
+GitHub sends push events only to apps installed on the account that owns
+the repository, so Render never hears about a merge; it can still clone
+when someone presses Deploy.
+
+- **Done:** `TRUST_PROXY_HOPS=1` added in Render's Environment (the
+  Blueprint declared it, but Blueprint changes are not applied until
+  synced), then master `61c0dad` deployed manually. Migrations ran at
+  boot; smoke 9/10, with only the empty catalogue failing.
+- **The lasting fix is Amit's (repository owner):** install the Render
+  GitHub App on `nivamit1210-sketch` with access to `pro-now`
+  (github.com/apps/render → Configure). Until then, every merge needs
+  Manual Deploy → "Deploy latest commit".
+- **Also Amit's, in the Blueprint page:** "Sync" once, so the settings
+  `render.yaml` declares (`DIRECT_DATABASE_URL`, `VAPID_*`, the alert
+  keys) appear on the service.
+
+### Sign-in in production (2026-09-30)
+- **Email links fail with a 500:** Resend rejects the send — "The
+  gmail.com domain is not verified". Resend sends only from a domain you
+  own and have verified, so `EMAIL_FROM` must be an address at such a
+  domain. That needs a domain (docs/21 §4, "optional domain", ≈$10/yr) —
+  a purchase, so Amit's call.
+- **Google sign-in is not configured:** no `GOOGLE_CLIENT_ID` /
+  `GOOGLE_CLIENT_SECRET` on the service.
+- **So today the tester sign-in is the only way in.** It signs everyone
+  into one shared customer; the professional's side and admin are not
+  reachable in production until email or Google works.
 
 ## CI (on every PR)
 Built 2026-09-29: `.github/workflows/ci.yml` — lint, typecheck, unit
@@ -79,9 +109,13 @@ Why it matters: left to itself, Better Auth in production believes
 puts **every visitor in one shared bucket** — three sign-ins per ten
 seconds for the whole site. The W10 production-build e2e run found it.
 
-Verify after each change of hosting: the request log's `remoteAddress`
-must be your own IP. If it is Render's, the hop count is too low (limits
-become site-wide); if a forged `X-Forwarded-For` shows up, it is too high.
+Verify after each change of hosting — `npm run smoke:prod` does it:
+`GET /api/v1/client-address` answers the caller's own address as the
+server resolved it, and the `X-Forwarded-For` chain the caller's request
+arrived with. It must equal the machine's public IP. If it is a proxy's
+address, the hop count is too low (limits become site-wide); if a forged
+`X-Forwarded-For` shows up, it is too high. (The request log does not
+record client addresses, by design.)
 
 ## Neon runbook (production database)
 Neon gives two connection strings per branch. Use both:

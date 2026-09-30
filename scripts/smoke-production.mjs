@@ -55,6 +55,29 @@ check(
   services > 0 ? `${services} services` : `${catalog.status}, EMPTY: the catalogue seed has not run (docs/16 §Production)`
 );
 
+// Per-person limits key on the client's address (docs/16 §Client address):
+// the address the server resolves for this machine must be this machine's.
+const seen = await get("/api/v1/client-address");
+let mine = null;
+try {
+  mine = (await (await fetch("https://api.ipify.org?format=json", { signal: AbortSignal.timeout(10_000) })).json()).ip;
+} catch {
+  /* no way to know our own address; reported below */
+}
+if (seen.status === 404) check("client address (TRUST_PROXY_HOPS)", false, "404: not in the deployed build");
+else {
+  const body = JSON.parse(seen.text);
+  check(
+    "client address (TRUST_PROXY_HOPS)",
+    mine !== null && body.address === mine,
+    mine === null
+      ? `server sees ${body.address}; own public IP unknown`
+      : body.address === mine
+        ? `server sees this machine (${body.trustedHops} hop${body.trustedHops === 1 ? "" : "s"} trusted)`
+        : `server sees ${body.address}, this machine is ${mine}; chain ${JSON.stringify(body.forwardedFor)} with ${body.trustedHops} trusted`
+  );
+}
+
 // A route each epic added, asked as a stranger: 401 = deployed, 404 = not.
 const epics = [
   ["W6 customer jobs", "/api/v1/jobs"],

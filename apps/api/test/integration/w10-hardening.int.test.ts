@@ -134,6 +134,10 @@ describe("the client's address (W10 production-build finding)", () => {
       },
     });
     expect(res.statusCode, res.body).toBe(302);
+
+    // The measuring endpoint agrees, and shows the caller their own chain.
+    const seen = await proxied.inject({ method: "GET", url: "/api/v1/client-address", headers: { "x-forwarded-for": "203.0.113.9, 198.51.100.7" } });
+    expect(seen.json()).toEqual({ address: "198.51.100.7", trustedHops: 1, forwardedFor: ["203.0.113.9", "198.51.100.7"] });
     const db = createPrisma();
     try {
       const session = await db.session.findFirstOrThrow({ where: { user: { email } } });
