@@ -6,6 +6,42 @@
 buckets, push credentials and webhook endpoints. **Staging can never send a
 production payout or push notification.**
 
+## Production
+**https://pro-now.onrender.com** — live since 2026-09-30.
+
+| | |
+|---|---|
+| Host | Render, Free plan, Frankfurt — one web service (`render.yaml`, Blueprint). The API serves the built web app on the same origin. |
+| Deploys | `master` only, and only after the commit's CI checks pass (`autoDeployTrigger: checksPass`). The start command runs `prisma migrate deploy` first. |
+| Health check | `/health` (Render's); `/api/ready` for an uptime monitor (from W10). |
+| Sign-in | Email link, Google, and the gated tester sign-in (`DEMO_AUTH_ENABLED=1`, one shared `demo@pronow.test` customer) while friends test. |
+| Free-plan caveat | The service sleeps after 15 min idle; the first request wakes it in about a minute. Not acceptable for live dispatch (docs/21 §4). |
+
+**What is live right now:** `npm run smoke:prod` answers it read-only — no
+sign-in, GET only. It checks liveness, readiness, the security headers,
+that the catalogue has services, and recognises each epic by a route it
+added (401 to a stranger = deployed, 404 = not). Run it after every deploy.
+
+### Smoke test 2026-09-30 (Dvir, with Claude Code)
+- **Reachable and healthy:** `/health` 200 in under 200 ms (awake); the
+  welcome screen loads in 1.4 s in WebKit at iPhone 15 size; the tester
+  sign-in reaches home; typing a request brings suggestions; no page
+  errors, console errors or failed requests.
+- **The deployed build is W6, not master.** W7–W10 routes answer 404, and
+  there is no CSP/HSTS and no `/api/ready`. The newest code live is about
+  `aab6f93` (2026-09-30 01:14); master's 13 later merges, all with green
+  CI, have not deployed. Nothing in them changes the build or requires a
+  new setting, so the cause is on Render's side (auto-deploy not firing,
+  or a build/migration failing there) — look at the service's Events.
+- **The catalogue is empty.** `/api/v1/catalog` returns market
+  `IL-PILOT-DEV` with no departments: the seed never ran against the
+  production database, so no service is activated and nothing can be
+  requested. Fix, once: `DATABASE_URL=<production direct URL> npm run db:seed -w apps/api`
+  (idempotent upserts).
+- **A matcher miss, also on master:** "יש לי נזילה מתחת לכיור" offers
+  unclogging first and the leak second — "כיור" is an unclogging word and
+  ties with "נזילה".
+
 ## CI (on every PR)
 Built 2026-09-29: `.github/workflows/ci.yml` — lint, typecheck, unit
 tests and `verify:domain`; plus migrations, `verify:rowlock` and
