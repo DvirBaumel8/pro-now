@@ -139,7 +139,7 @@ export const envSchema = z.object({
   VAPID_PUBLIC_KEY: z.string().optional().transform((v) => (v ? v : undefined)),
   VAPID_PRIVATE_KEY: z.string().optional().transform((v) => (v ? v : undefined)),
   VAPID_SUBJECT: z.string().optional().transform((v) => (v ? v : undefined)),
-  /** Set by Render at build and run time; tags every report with the deployed commit. */
+  /** Set by Render at build and run time; tags every report with the deployed commit, and /health reports it. */
   RENDER_GIT_COMMIT: z.string().optional(),
 
   DISPATCH_OFFER_TIMEOUT_SECONDS: z.coerce.number().int().positive().default(30),

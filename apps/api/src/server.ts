@@ -147,7 +147,11 @@ export async function buildServer(opts: { logger?: boolean } = {}) {
   await app.register(notificationsPlugin);
   await app.register(demoAuthRoutes);
 
-  app.get("/health", async () => ({ ok: true, sandbox: config.NODE_ENV !== "production" }));
+  app.get("/health", async () => ({
+    ok: true,
+    sandbox: config.NODE_ENV !== "production",
+    commit: config.RENDER_GIT_COMMIT ?? null,
+  }));
 
   /*
    * LIVENESS AND READINESS (docs/21 W10, docs/16 §Health).
