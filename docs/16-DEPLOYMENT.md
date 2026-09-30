@@ -48,9 +48,9 @@ GitHub sends push events only to apps installed on the account that owns
 the repository, so Render never hears about a merge; it can still clone
 when someone presses Deploy.
 
-- **Done:** `TRUST_PROXY_HOPS=1` added in Render's Environment (the
+- **Done:** `TRUST_PROXY_HOPS` added in Render's Environment (the
   Blueprint declared it, but Blueprint changes are not applied until
-  synced), then master `61c0dad` deployed manually. Migrations ran at
+  synced) — first 1, then the measured 3 — and master deployed manually. Migrations ran at
   boot; smoke 9/10, with only the empty catalogue failing.
 - **The lasting fix is Amit's (repository owner):** install the Render
   GitHub App on `nivamit1210-sketch` with access to `pro-now`
@@ -100,7 +100,7 @@ affected apps only (workspace-aware).
 Per-person limits key on the client's IP — Better Auth's sign-in limiter
 (on in production: 3 sign-in attempts per 10 s per address) and the
 client-error report limit. Fastify resolves the address once, trusting
-exactly `TRUST_PROXY_HOPS` proxies (Render: `1`, set in `render.yaml`),
+exactly `TRUST_PROXY_HOPS` proxies (Render: `3`, measured; `render.yaml`),
 and the auth bridge hands it to Better Auth in `x-pronow-client-ip`,
 overwriting any copy a client sends.
 
@@ -116,6 +116,14 @@ arrived with. It must equal the machine's public IP. If it is a proxy's
 address, the hop count is too low (limits become site-wide); if a forged
 `X-Forwarded-For` shows up, it is too high. (The request log does not
 record client addresses, by design.)
+
+**Measured on Render, 2026-09-30:** a request arrives as
+`X-Forwarded-For: <client>, <Cloudflare edge>, <Render 10.x>` from a
+further internal proxy, so the value is **3**. With the first guess of 1,
+the server saw Render's internal address as everyone's — one sign-in
+bucket for the whole site — until it was changed the same day. With 3,
+entries a client adds itself sit to the left of its real address and are
+ignored (checked with a forged header).
 
 ## Neon runbook (production database)
 Neon gives two connection strings per branch. Use both:
