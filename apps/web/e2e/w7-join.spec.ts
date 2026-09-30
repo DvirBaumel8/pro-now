@@ -76,7 +76,15 @@ test("a professional joins, is reviewed, and is approved for one service", async
   await page.getByRole("textbox", { name: "דמי ביקור ואבחון (₪)" }).fill("190");
   await page.getByRole("button", { name: "שמירה והמשך" }).click();
 
-  // 6 · send; the server said nothing is missing.
+  // 6 · her photo, required (Amit, 2026-09-30): nothing moves on until one is chosen.
+  await expect(page.getByRole("button", { name: "בחרו תמונה או דמות" })).toBeDisabled();
+  const photoChooser = page.waitForEvent("filechooser");
+  await page.getByRole("radio", { name: "סלפי או תמונה" }).click();
+  await (await photoChooser).setFiles({ name: "me.jpg", mimeType: "image/jpeg", buffer: Buffer.from(png) });
+  await expect(page.getByText("התמונה שלכם ✓")).toBeVisible();
+  await page.getByRole("button", { name: "המשך" }).click();
+
+  // 7 · send; the server said nothing is missing.
   await expect(page.getByText("הכול כאן.", { exact: false })).toBeVisible();
   await page.getByRole("button", { name: "שליחה לאישור" }).click();
   await expect(page).toHaveURL(/\/pro$/);

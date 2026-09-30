@@ -309,6 +309,16 @@ export const proDocumentSchema = z
   .object({ kind: z.enum(ACCOUNT_DOCUMENT_KINDS), uploadId: z.string().min(1) })
   .strict();
 
+/**
+ * `PUT /api/v1/pro/application/portrait`: the face customers will know them
+ * by — a photo of their own, or their trade's drawn character (Amit,
+ * 2026-09-30: required; only the shop's design may be skipped).
+ */
+export const proPortraitSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("PHOTO"), uploadId: z.string().min(1) }).strict(),
+  z.object({ kind: z.literal("CHARACTER") }).strict(),
+]);
+
 /** `POST /api/v1/pro/application/credentials`: a licence or certificate a service requires. */
 export const proCredentialSchema = z
   .object({

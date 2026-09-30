@@ -125,7 +125,7 @@ export default async function meRoutes(app: FastifyInstance) {
       }
       await tx.professionalProfile.updateMany({
         where: { userId },
-        data: { legalName: ERASED, displayName: ERASED, profilePhotoRef: null, presenceState: "OFFLINE" },
+        data: { legalName: ERASED, displayName: ERASED, profilePhotoRef: null, portraitKind: null, portraitUploadId: null, presenceState: "OFFLINE" },
       });
 
       await tx.auditLog.create({

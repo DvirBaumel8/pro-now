@@ -7,6 +7,7 @@ import {
   proCredentialSchema,
   proDocumentSchema,
   proJoinSchema,
+  proPortraitSchema,
   proServicesSchema,
 } from "@pro-now/validation";
 import { grantRole } from "../auth/roles.js";
@@ -60,6 +61,7 @@ export async function applicationView(db: PrismaClient, professionalId: string):
   if (!pro.addressAs) missing.push("ADDRESS_AS");
   if (pro.services.length === 0) missing.push("SERVICES");
   if (!area) missing.push("AREA");
+  if (!pro.portraitKind) missing.push("PORTRAIT");
   for (const kind of ACCOUNT_DOCUMENT_KINDS) {
     if (!pro.documents.some((d) => d.kind === kind && d.status !== "REJECTED")) missing.push(`DOCUMENT:${kind}`);
   }
@@ -100,6 +102,7 @@ export async function applicationView(db: PrismaClient, professionalId: string):
       legalName: pro.legalName,
       addressAs: pro.addressAs,
       verificationStatus: pro.verificationStatus,
+      portrait: pro.portraitKind === "PHOTO" || pro.portraitKind === "CHARACTER" ? { kind: pro.portraitKind } : null,
     },
     services,
     area: area ? { lat: area.centerLat, lng: area.centerLng, radiusKm: area.radiusMeters / 1000 } : null,
@@ -234,6 +237,25 @@ export default async function proOnboardingRoutes(app: FastifyInstance) {
     await app.prisma.professionalDocument.create({
       data: { professionalId: p.id, kind: body.kind, storageRef: upload.storageKey, uploadId: upload.id, status: "PENDING" },
     });
+    return reply.send(await applicationView(app.prisma, p.id));
+  });
+
+  /**
+   * The face they join with: a ready photo of their own, or their trade's
+   * character. It stays with the application; customers do not see it
+   * until a photo can be approved (`profilePhotoRef` is that later step).
+   */
+  app.put("/v1/pro/application/portrait", pro, async (req, reply) => {
+    const p = await professionalOf(app, req, reply);
+    if (!p) return;
+    const body = proPortraitSchema.parse(req.body);
+    if (body.kind === "PHOTO") {
+      const upload = await app.prisma.upload.findFirst({ where: { id: body.uploadId, ownerId: req.user!.userId, status: "READY", kind: "PHOTO" } });
+      if (!upload) return reply.status(422).send({ code: "UPLOAD_NOT_READY", message: "The photo must be a ready photo upload of yours" });
+      await app.prisma.professionalProfile.update({ where: { id: p.id }, data: { portraitKind: "PHOTO", portraitUploadId: upload.id } });
+    } else {
+      await app.prisma.professionalProfile.update({ where: { id: p.id }, data: { portraitKind: "CHARACTER", portraitUploadId: null } });
+    }
     return reply.send(await applicationView(app.prisma, p.id));
   });
 

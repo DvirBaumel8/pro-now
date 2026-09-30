@@ -670,7 +670,15 @@ export interface ProStatusView {
 
 /** `GET /api/v1/pro/application`: a professional's application and what it still lacks (docs/21 W7). */
 export interface ProApplicationView {
-  profile: { id: string; displayName: string; legalName: string; addressAs: string | null; verificationStatus: string };
+  profile: {
+    id: string;
+    displayName: string;
+    legalName: string;
+    addressAs: string | null;
+    verificationStatus: string;
+    /** Their own photo, or their trade's character. Null: not chosen yet. */
+    portrait: { kind: "PHOTO" | "CHARACTER" } | null;
+  };
   services: Array<{
     /** The application for this service (what an admin decides on). */
     id: string;

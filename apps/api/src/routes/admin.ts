@@ -30,6 +30,7 @@ export default async function adminRoutes(app: FastifyInstance) {
       include: {
         user: { select: { email: true, createdAt: true } },
         documents: { include: { upload: true } },
+        portraitUpload: true,
         credentials: { include: { service: { select: { nameHe: true } } } },
       },
     });
@@ -51,6 +52,14 @@ export default async function adminRoutes(app: FastifyInstance) {
           url: d.upload ? await signed(d.upload.storageKey) : null,
         }))
       ),
+      portrait:
+        pro.portraitKind === "PHOTO" || pro.portraitKind === "CHARACTER"
+          ? {
+              kind: pro.portraitKind,
+              mime: pro.portraitUpload?.mime ?? null,
+              url: pro.portraitUpload ? await signed(pro.portraitUpload.storageKey) : null,
+            }
+          : null,
       credentials: await Promise.all(
         pro.credentials.map(async (c) => {
           const u = c.documentRef ? byId.get(c.documentRef) : undefined;
