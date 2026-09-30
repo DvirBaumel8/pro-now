@@ -37,6 +37,18 @@ export async function notifyForJobEvent(deps: DispatchDeps, notice: JobEventNoti
     },
   });
   if (!job) return [];
+  /*
+   * THE ACCEPTANCE IS ANNOUNCED BEFORE IT COMMITS. OFFER_ACCEPTED is
+   * written inside the accept's transaction, so the job read here may not
+   * show the assignment yet, and the customer was told "המקצוען יצא" with
+   * no name and the wrong gender. The event names who accepted
+   * (actorId), so the professional is taken from it.
+   */
+  const professional =
+    job.assignedProfessional ??
+    (notice.type === "OFFER_ACCEPTED" && notice.actorId
+      ? await deps.prisma.professionalProfile.findUnique({ where: { id: notice.actorId }, select: { userId: true, displayName: true, addressAs: true } })
+      : null);
   const offeredProId = (notice.metadata as { professionalId?: string } | undefined)?.professionalId;
   const offeredTo = offeredProId
     ? await deps.prisma.professionalProfile.findUnique({ where: { id: offeredProId }, select: { userId: true } })
@@ -46,7 +58,7 @@ export async function notifyForJobEvent(deps: DispatchDeps, notice: JobEventNoti
     jobId: job.id,
     serviceNameHe: job.service.nameHe,
     customer: { userId: job.customer.user.id, email: job.customer.user.email },
-    professional: job.assignedProfessional,
+    professional,
     offeredTo,
   });
 

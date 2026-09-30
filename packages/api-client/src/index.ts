@@ -169,6 +169,16 @@ export function createApiClient(config: ProNowApiClientConfig = {}) {
       matchFeedback: () => request<{ feedback: AdminFeedbackRow[] }>("GET", "/admin/match-feedback"),
       usage: () => request<AdminUsageView>("GET", "/admin/usage"),
     },
+    // --- Notifications (docs/21 W9) ---
+    inbox: () =>
+      request<{ unread: number; notifications: Array<{ id: string; type: string; title: string; body: string; url: string | null; read: boolean; at: string }> }>(
+        "GET",
+        "/me/notifications"
+      ),
+    markInboxRead: () => request<{ read: number }>("POST", "/me/notifications/read", {}),
+    pushPublicKey: () => request<{ publicKey: string | null }>("GET", "/push/public-key"),
+    savePushSubscription: (sub: { endpoint: string; keys: { p256dh: string; auth: string } }) =>
+      request<{ ok: true }>("POST", "/me/push-subscriptions", sub),
     /** Which services a typed sentence could be (docs/21 W5). */
     matchRequest: (text: string) => request<RequestMatch & { classifier: string }>("POST", "/match", { text }),
     /** What was suggested for a sentence, and what the customer chose. */

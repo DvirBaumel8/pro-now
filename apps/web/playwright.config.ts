@@ -32,7 +32,8 @@ export default defineConfig({
   },
   projects: [
     // Primary: Safari's engine at iPhone 15 size (393×852).
-    { name: "webkit-iphone15", use: { ...devices["iPhone 15"] } },
+    // The push test drives the service worker through Chromium's DevTools (W9).
+    { name: "webkit-iphone15", use: { ...devices["iPhone 15"] }, testIgnore: /w9-push\.spec\.ts/ },
     { name: "chromium-desktop", use: { ...devices["Desktop Chrome"] } },
   ],
   webServer: {
@@ -48,6 +49,10 @@ export default defineConfig({
       NODE_ENV: "test",
       // The admin the W7 test approves with (the admin's screens are W8).
       ADMIN_EMAILS: "e2e-admin@pronow.test",
+      // Web Push for the W9 test only: a key pair made for this file, never used anywhere else.
+      VAPID_PUBLIC_KEY: "BAqz2EZE5FL4HRqSSqzt2_xvyvquv6WQPBxZmB2NUCU_PItrnPKoPQ64S7RZzdDc8rRQr5710njEukvkEVD3sHU",
+      VAPID_PRIVATE_KEY: "7cg3iFdutlM6s6FiP2XEPgfKiL4SWAThjw001Y0UWGM",
+      VAPID_SUBJECT: "mailto:e2e@pronow.test",
       GEOCODING_PROVIDER: "fixture",
     },
     stdout: "ignore",

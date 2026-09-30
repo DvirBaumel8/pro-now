@@ -18,6 +18,8 @@ export interface JobEventNotice {
   at: string;
   /** Who wrote it, and what it carried: for the notifications dispatcher, never sent to clients. */
   actor?: string;
+  /** The actor's own id when the event records one (e.g. the professional who accepted). */
+  actorId?: string | null;
   metadata?: unknown;
 }
 

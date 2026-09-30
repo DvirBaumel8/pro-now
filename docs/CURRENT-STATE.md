@@ -115,6 +115,7 @@ Screenshots go to `qa/out/`.
 ## 5. Decisions and recent work (details in `docs/18-ROADMAP.md`)
 
 **Recent decisions**
+- **W9 (Dvir's track, 2026-09-30):** live channels (offers reach professionals instantly; the customer's ETA moves), an inbox, email through an outbox, and Web Push with our own VAPID keys (set `VAPID_*` on Render to turn push on). See `docs/reports/W9.md`.
 - **W8 (Dvir's track, 2026-09-30):** the admin at `/admin` in the web app: applications (account, licences, each service), the job inspector, users and roles, market switches, match feedback and usage. Every change audited; every admin route closed to non-admins. See `docs/reports/W8.md`.
 - **W7 (Dvir's track, 2026-09-30):** a professional joins from the web (details, services, area, documents, own prices), is approved per service through the API (the admin screens are W8), goes online and works a job end to end. See `docs/reports/W7.md`.
 - **W6 (Dvir's track, 2026-09-30):** the customer can order and follow a job end to end on the web, live. No money moves in the app (D1): the quote is approved on sending and the customer pays the professional directly. Ordering for someone else gives the person at home a link and a door code. See `docs/reports/W6.md`.

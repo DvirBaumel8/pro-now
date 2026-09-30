@@ -17,15 +17,18 @@ import { ErrorScreen, LoadingScreen } from "../../states";
  * this says plainly: keep the app open while online. While it is open it
  * sends the position every 20 s, and the server — which owns presence —
  * takes the professional offline when the pings stop (the heartbeat
- * sweep). Offers are asked for every 3 s until the socket's user channel
- * pushes them (W9).
+ * sweep).
  *
  * The offer shows the server's countdown and the expected earnings when
  * they are knowable (CLAUDE.md §3, transparent payout); accepting goes
  * through the atomic accept.
+ *
+ * Offers now arrive on the person's live channel (W9) and, with the phone's
+ * notifications on, as a push; the poll below is only the fallback.
  */
 const PING_MS = 20_000;
-const OFFER_POLL_MS = 3_000;
+/** The live channel brings offers the moment they are sent (W9); this is the net under it. */
+const OFFER_POLL_MS = 15_000;
 const ONLINE = new Set(["AVAILABLE", "OFFER_RECEIVED", "RESERVED"]);
 export const proStatusKey = ["pro-status"] as const;
 
