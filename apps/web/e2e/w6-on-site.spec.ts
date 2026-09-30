@@ -22,6 +22,8 @@ test("the person at home gets a page with the professional and the door code", a
   try {
     await page.getByRole("textbox", { name: "ספרו מה צריך" }).fill("נזילה אצל סבא");
     await page.getByRole("button", { name: /המשך עם נזילה/ }).click();
+    // The service page first, as in the demo; then the form.
+    await page.getByRole("button", { name: /^בקשת .* עכשיו$/ }).click();
 
     // The person at home belongs to this order: a switch, a name, a mobile.
     await page.getByRole("switch", { name: "הקריאה היא בשביל מישהו אחר" }).click();

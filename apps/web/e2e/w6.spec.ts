@@ -28,8 +28,9 @@ test("from a typed sentence to a review, with no money in the app", async ({ pag
   // The customer describes the problem and sends the request.
   await page.getByRole("textbox", { name: "ספרו מה צריך" }).fill("נזילה במטבח");
   await page.getByRole("button", { name: /המשך עם נזילה/ }).click();
+  // The service page first, as in the demo; then the form.
+  await page.getByRole("button", { name: /^בקשת .* עכשיו$/ }).click();
   await expect(page.getByRole("textbox", { name: "מה צריך, במילים שלך" })).toHaveValue("נזילה במטבח");
-  await page.getByRole("button", { name: "מאיפה המים? מתחת לכיור" }).click();
   await page.getByRole("button", { name: "שליחת הקריאה" }).click();
   await expect(page).toHaveURL(/\/jobs\//);
   // Real supply only: the screen says it is looking, and invents nobody.
@@ -87,6 +88,8 @@ test("the customer can cancel while nobody has been found yet", async ({ page, b
   });
   await page.getByRole("textbox", { name: "ספרו מה צריך" }).fill("המזגן לא מקרר");
   await page.getByRole("button", { name: /המשך עם מזגן/ }).click();
+  // The service page first, as in the demo; then the form.
+  await page.getByRole("button", { name: /^בקשת .* עכשיו$/ }).click();
   await page.getByRole("button", { name: "שליחת הקריאה" }).click();
   await expect(page.getByText("מחפשים מי זמין עכשיו")).toBeVisible();
   await page.getByRole("button", { name: "ביטול הקריאה" }).click();
