@@ -117,6 +117,9 @@ export async function buildServer(opts: { logger?: boolean } = {}) {
     logger: opts.logger === false ? false : loggerOptions(),
     // JSON bodies here are small (files go straight to storage); a large one is an attack or a bug.
     bodyLimit: 64 * 1024,
+    // Trust exactly that many hops (a hop count, written as the function
+    // Fastify's types accept); with 0 the socket's peer is the client.
+    trustProxy: (_address: string, hop: number) => hop < config.TRUST_PROXY_HOPS,
   });
   app.decorate("config", config);
 

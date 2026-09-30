@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { asPerson, expect, test } from "./fixtures";
 import { finishFirstRun, signInByEmail, signInExisting, uniqueEmail } from "./helpers";
 import { dispatchableProfessional } from "./pro-helpers";
 
@@ -18,8 +18,9 @@ test("the customer and the professional, two browsers, request to review", async
     permissions: ["geolocation"],
     geolocation: { latitude: LAT + 0.01, longitude: LNG },
     locale: "he-IL",
+    extraHTTPHeaders: asPerson(),
   });
-  const custCtx = await browser.newContext({ viewport: { width: 393, height: 852 }, locale: "he-IL" });
+  const custCtx = await browser.newContext({ viewport: { width: 393, height: 852 }, locale: "he-IL", extraHTTPHeaders: asPerson() });
   try {
     // The professional goes online from their own screen.
     const p = await proCtx.newPage();

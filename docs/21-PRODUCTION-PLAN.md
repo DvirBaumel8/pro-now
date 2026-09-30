@@ -1,6 +1,6 @@
 # 21 — Production Plan: from demo to a live web app
 
-Status: **APPROVED 2026-09-29** (decisions in §5). W0–W9 done (W5 with voice-to-text deferred); W10 next. Written after reading the
+Status: **APPROVED 2026-09-29** (decisions in §5). W0–W10 done (W5 with voice-to-text deferred); Phase 2 (go live) next. Written after reading the
 code as it stands at `53ed69f`.
 
 ## 0. Framing
@@ -282,7 +282,8 @@ per commit. Each commit gets full CI plus `verify:journey`.
 
   Not proven: the accept path through the adapter under concurrent
   load. `verify:rowlock` races raw SQL, and the journey only runs a
-  single accept. Add a Prisma-path race to W10.
+  single accept. Add a Prisma-path race to W10. **Done in W10:**
+  `test/integration/accept-race.int.test.ts` (with a control).
 - **zod 3 → 4** in `packages/validation`, since Better Auth already
   brings in zod 4.
 - **Vitest 2 → current.** Done: 5.0.2 in the product (the demo keeps 2),
@@ -589,6 +590,7 @@ iOS push waits for the installed app on HTTPS (Phase 2); SMS for D4.
   a subscription and a received message.
 
 ### W10 — Hardening and go-live readiness (M)
+**DONE 2026-09-30** (report: `docs/reports/W10.md`, QA: `docs/qa/W10.md`).
 - **Fixed 2026-09-29:** the API production build now bundles the local
   workspace packages with esbuild while leaving third-party dependencies
   external. This preserves Node's native handling of CommonJS dependencies

@@ -14,6 +14,16 @@ import path from "node:path";
  * unique people, so runs do not interfere.
  */
 const PORT = 4100;
+/**
+ * E2E_PRODUCTION=1 runs the same suite against the production build (docs/21
+ * W10): the API bundled by esbuild and started with `node dist/server.js`,
+ * NODE_ENV=production — HSTS, the production CSP, Better Auth's rate limiter,
+ * the stand-in guard. The guard is relaxed only by ALLOW_LOCAL_STANDINS=1,
+ * because the database, mail and storage here are the compose stand-ins.
+ * One proxy hop is trusted, as on Render; each test is a person at its own
+ * address (e2e/fixtures.ts).
+ */
+const PRODUCTION = process.env.E2E_PRODUCTION === "1";
 const ORIGIN = `http://localhost:${PORT}`;
 
 export default defineConfig({
@@ -37,7 +47,9 @@ export default defineConfig({
     { name: "chromium-desktop", use: { ...devices["Desktop Chrome"] } },
   ],
   webServer: {
-    command: "npm run build && npm run start:ts --prefix ../api",
+    command: PRODUCTION
+      ? "npm run build && npm run build --prefix ../api && npm run start --prefix ../api"
+      : "npm run build && npm run start:ts --prefix ../api",
     cwd: import.meta.dirname,
     url: `${ORIGIN}/health`,
     reuseExistingServer: false,
@@ -46,7 +58,7 @@ export default defineConfig({
       PORT: String(PORT),
       PUBLIC_URL: ORIGIN,
       WEB_DIST_DIR: path.resolve(import.meta.dirname, "dist"),
-      NODE_ENV: "test",
+      ...(PRODUCTION ? { NODE_ENV: "production", ALLOW_LOCAL_STANDINS: "1", TRUST_PROXY_HOPS: "1" } : { NODE_ENV: "test" }),
       // The admin the W7 test approves with (the admin's screens are W8).
       ADMIN_EMAILS: "e2e-admin@pronow.test",
       // Web Push for the W9 test only: a key pair made for this file, never used anywhere else.

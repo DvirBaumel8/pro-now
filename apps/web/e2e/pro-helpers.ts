@@ -1,4 +1,5 @@
 import { request, type APIRequestContext } from "@playwright/test";
+import { asPerson } from "./fixtures";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { credentialTypeFor } from "@pro-now/types";
@@ -51,7 +52,7 @@ export async function dispatchableProfessional(opts: { serviceCode: string; lat:
   }
 
   // Signed in the way a person is: an email link, opened.
-  const api = await request.newContext({ baseURL: opts.baseURL, extraHTTPHeaders: { origin: opts.baseURL } });
+  const api = await request.newContext({ baseURL: opts.baseURL, extraHTTPHeaders: { origin: opts.baseURL, ...asPerson() } });
   await api.post("/api/auth/sign-in/magic-link", { data: { email, callbackURL: "/" } });
   await api.get(await linkFor(email), { maxRedirects: 5 });
   return Object.assign(new Professional(api, professionalId), { email });
@@ -114,7 +115,7 @@ export class Professional {
 
 /** The test server's admin (playwright.config.ts), signed in through the API. */
 export async function adminApi(baseURL: string) {
-  const api = await request.newContext({ baseURL, extraHTTPHeaders: { origin: baseURL } });
+  const api = await request.newContext({ baseURL, extraHTTPHeaders: { origin: baseURL, ...asPerson() } });
   const email = "e2e-admin@pronow.test";
   await api.post("/api/auth/sign-in/magic-link", { data: { email, callbackURL: "/" } });
   await api.get(await linkFor(email), { maxRedirects: 5 });

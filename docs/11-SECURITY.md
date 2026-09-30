@@ -60,12 +60,22 @@ What the web app and the API do today, and how each item is checked.
   same way (W4). Test: a captured pino stream in `security.test.ts`.
 
 **Dependencies**: `npm run audit:shipped` in CI fails on any high or
-critical advisory in a package the API or the web app ships. At W10: 246
+critical advisory in a package the API or the web app ships. At W10: 248
 packages ship, 0 advisories (nodemailer 7 → 10 fixed the one high).
 
 **Sign-in and sessions**: Better Auth — `httpOnly`, `SameSite=Lax`
 cookies, `Secure` over HTTPS; origin and CSRF checks pinned on even under
-test; `trustedOrigins` is only `PUBLIC_URL`.
+test; `trustedOrigins` is only `PUBLIC_URL`. Its sign-in limiter (3 per
+10 s) keys on the client's address as Fastify resolves it with
+`TRUST_PROXY_HOPS`, handed over in a header the bridge sets and a client
+cannot (`docs/16 §Client address`). Before W10 every visitor in
+production shared one bucket — found by the production-build e2e run;
+the integration test pins which address a session records.
+
+**Assignment under contention**: `accept-race.int.test.ts` races five
+professionals' accepts on one job, eight times, through the shipped Prisma
+path with no job lock: one winner, four refusals, one event, every time. A
+control run without `FOR UPDATE` fails it (three acceptances of one offer).
 
 **Authorization**: object access is checked per route (the IDOR tests in
 the integration suite: a customer cannot read another's job, a
@@ -74,8 +84,8 @@ professional cannot act on an offer that is not theirs); admin routes are
 audit row (W8).
 
 **Open items — known, not fixed in W10:**
-- Rate limiting is Better Auth's built-in limiter only (in memory, per IP,
-  on in production). No per-email limit. `@fastify/rate-limit` is Phase 3
+- Rate limiting is Better Auth's built-in limiter only (in memory, per
+  client address, on in production). No per-email limit. `@fastify/rate-limit` is Phase 3
   (`docs/21 §4b`).
 - `DEMO_AUTH_ENABLED=1` on the public Render test deployment is the gated
   tester sign-in. It must be `0` in any real production.

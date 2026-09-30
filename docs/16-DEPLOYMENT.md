@@ -30,6 +30,23 @@ affected apps only (workspace-aware).
   hostnames, no driver messages); the reason goes to the log and Sentry.
   Point an uptime monitor at this one.
 
+## Client address
+Per-person limits key on the client's IP — Better Auth's sign-in limiter
+(on in production: 3 sign-in attempts per 10 s per address) and the
+client-error report limit. Fastify resolves the address once, trusting
+exactly `TRUST_PROXY_HOPS` proxies (Render: `1`, set in `render.yaml`),
+and the auth bridge hands it to Better Auth in `x-pronow-client-ip`,
+overwriting any copy a client sends.
+
+Why it matters: left to itself, Better Auth in production believes
+`X-Forwarded-For` only when it holds exactly one address, and otherwise
+puts **every visitor in one shared bucket** — three sign-ins per ten
+seconds for the whole site. The W10 production-build e2e run found it.
+
+Verify after each change of hosting: the request log's `remoteAddress`
+must be your own IP. If it is Render's, the hop count is too low (limits
+become site-wide); if a forged `X-Forwarded-For` shows up, it is too high.
+
 ## Neon runbook (production database)
 Neon gives two connection strings per branch. Use both:
 
