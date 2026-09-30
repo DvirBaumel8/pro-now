@@ -7,14 +7,18 @@ import {
   AppHeader,
   AppMenuBody,
   CAPSULE_HEIGHT,
+  CategoryBody,
   CustomerHomeBody,
   catalogHiddenServices,
   catalogHomeServices,
   catalogMatchRules,
+  matchServicesByText,
+  pilotServiceById,
 } from "@pro-now/ui";
-import { avatarById, greetingAt } from "@pro-now/types";
+import { avatarById, categoryAsksForPerson, customerCategoryById, greetingAt, type CatalogServiceDef } from "@pro-now/types";
 
 import { api, useMe } from "../api";
+import { servicesForCategory } from "../categories";
 import { authClient } from "../auth";
 import { CityHero } from "../art/CityHero";
 import { worldSources } from "../art/worldSources";
@@ -37,10 +41,12 @@ const HEADER_H = 56;
  *   invented (CLAUDE.md §3): they arrive with real supply and real jobs
  *   (W6/W7).
  * - Controls whose screens belong to later epics are visible and disabled
- *   (docs/21 W2, option a): camera/gallery/recording (W4), a category or a
- *   service (W6), the stroll (the city epic), the business link, the
- *   account card. Text search works: it matches against the catalogue on
- *   the device.
+ *   (docs/21 W2, option a): the stroll (the city epic), the business link,
+ *   the account card.
+ * - Text search matches against the catalogue on the device, and so does a
+ *   recording: the browser's speech-to-text writes it into the same box
+ *   (docs/21 W5), so it finds its service without a search button.
+ * - A category opens the services it covers, as in the demo.
  */
 const HOME_SERVICES = [...catalogHomeServices, ...catalogHiddenServices];
 
@@ -51,6 +57,10 @@ export function Home() {
   const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>("home");
   const [requestServiceId, setRequestServiceId] = useState<string | null>(null);
+  const [categoryId, setCategoryId] = useState<string | null>(null);
+  // A sentence typed on a category page that matched nothing there, handed
+  // back to the home box where the whole catalogue can answer it.
+  const [seedQuery, setSeedQuery] = useState<string | null>(null);
   // The sentence the service was chosen from, carried into the request.
   const [typedText, setTypedText] = useState("");
   const me = useMe();
@@ -67,6 +77,7 @@ export function Home() {
   // The inbox's unread count, kept fresh by the live channel (W9).
   const inbox = useQuery({ queryKey: inboxKey, queryFn: api.inbox });
   const active = myJobs.data?.jobs.find((j) => j.status !== "CLOSED" && j.status !== "CANCELLED") ?? null;
+  const category = categoryId ? customerCategoryById(categoryId) : null;
   const bodyH = height - HEADER_H - (active ? CAPSULE_HEIGHT : 0);
 
   const signOut = async () => {
@@ -157,6 +168,45 @@ export function Home() {
             width={width}
             height={bodyH}
           />
+        ) : category ? (
+          <CategoryBody
+            // The home's own street rather than the demo's per-trade scene,
+            // which the web does not have.
+            backdrop={<CityHero />}
+            category={category}
+            services={servicesForCategory(category, HOME_SERVICES).map((s) => ({
+              id: s.id,
+              nameHe: s.nameHe,
+              descriptionHe: s.descriptionHe ?? null,
+              // No availability snapshot on the web yet: silence, not a zero.
+              availableNowCount: null,
+            }))}
+            worldSources={worldSources}
+            asksForPerson={categoryAsksForPerson(
+              servicesForCategory(category, HOME_SERVICES)
+                .map((s) => pilotServiceById[s.id])
+                .filter((s): s is CatalogServiceDef => Boolean(s))
+            )}
+            onSelectService={setRequestServiceId}
+            onDescribe={(textHe) => {
+              // The home matcher, scoped to the category the customer chose.
+              const inCategory = new Set(servicesForCategory(category, HOME_SERVICES).map((s) => s.id));
+              const best = matchServicesByText(
+                textHe,
+                catalogMatchRules.filter((r) => inCategory.has(r.serviceId))
+              )[0];
+              if (best) {
+                setTypedText(textHe);
+                setRequestServiceId(best.serviceId);
+                return;
+              }
+              setSeedQuery(textHe);
+              setCategoryId(null);
+            }}
+            onBack={() => setCategoryId(null)}
+            width={width}
+            height={bodyH}
+          />
         ) : (
           <CustomerHomeBody
             backdrop={<CityHero />}
@@ -166,6 +216,9 @@ export function Home() {
             worldSources={worldSources}
             nowMs={Date.now()}
             capture={media.capture}
+            injectedText={media.transcript}
+            seedQueryHe={seedQuery}
+            onSelectCategory={setCategoryId}
             onSelectService={setRequestServiceId}
             onTextChoice={(choice) => {
               setTypedText(choice.text);
