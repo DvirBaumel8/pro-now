@@ -21,9 +21,13 @@
     />
     <style>
       :root { color-scheme: light dark; }
+      /*
+       * The body's box is the screen minus the safe-area padding below, and
+       * #root fills exactly that. No min-height of 100dvh on #root: added to
+       * the padding it made the page one status bar taller than the screen.
+       */
       html, body, #root { height: 100%; margin: 0; }
-      /* 100dvh: iOS Safari's collapsing toolbar makes 100vh taller than the screen. */
-      #root { min-height: 100dvh; }
+      html, body { overflow: hidden; }
       body {
         font-family: "Noto Sans Hebrew", "Heebo", "Assistant", -apple-system,
           BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;

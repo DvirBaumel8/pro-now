@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import {
+  BackButton,
   DescribeFaultBody,
   catalogServicePages,
   customerDarkTheme,
@@ -120,6 +121,14 @@ export function RequestComposer({ serviceId, media, onBack, onOpenAddresses, onS
 
   return (
     <View style={[styles.screen, { width, height, backgroundColor: customerDarkTheme.colors.bg }]}>
+      {/*
+        * BACK, AT THE TOP. The form's own chevron sat under the address and
+        * the "for someone else" panels, halfway down the screen, where it
+        * did not read as the way out (Dvir, 2026-09-30).
+        */}
+      <View style={styles.topBar}>
+        <BackButton onPress={onBack} tone="dark" placement="inline" labelHe="חזרה" />
+      </View>
       <AddressChoice
         addresses={addresses.data.addresses}
         selectedId={selectedAddressId}
@@ -159,15 +168,15 @@ export function RequestComposer({ serviceId, media, onBack, onOpenAddresses, onS
         onStopRecord={media.capture.onStopRecord}
         onDeleteVoice={media.capture.onDeleteVoice}
         onSend={send}
-        onBack={onBack}
         width={width}
-        height={height - 148 - (forOther ? FOR_OTHER_OPEN_H : FOR_OTHER_CLOSED_H)}
+        height={height - TOP_BAR_H - 148 - (forOther ? FOR_OTHER_OPEN_H : FOR_OTHER_CLOSED_H)}
       />
     </View>
   );
 }
 
 const IL_MOBILE = /^(\+972-?|0)5\d-?\d{3}-?\d{4}$/;
+const TOP_BAR_H = 60;
 const FOR_OTHER_CLOSED_H = 48;
 const FOR_OTHER_OPEN_H = 148;
 
@@ -279,6 +288,7 @@ function AddressChoice({
 const colors = customerDarkTheme.colors;
 const styles = StyleSheet.create({
   screen: { overflow: "hidden" },
+  topBar: { height: TOP_BAR_H, flexDirection: "row-reverse", alignItems: "center", paddingHorizontal: spacing.md },
   addressPanel: { padding: spacing.md, backgroundColor: colors.surfaceElevated },
   addressHeading: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" },
   addressTitle: { color: colors.textPrimary, fontSize: 16, fontWeight: "800", writingDirection: "rtl" },

@@ -43,7 +43,20 @@ function useConnection(): [ConnectionState, () => void] {
 }
 
 export function Frame({ children }: { children: ReactNode }) {
-  const { width, height } = useWindowDimensions();
+  const { width, height: windowH } = useWindowDimensions();
+  /*
+   * THE HEIGHT THE PAGE ACTUALLY GIVES US, NOT THE WINDOW'S.
+   *
+   * The body is padded by the safe-area insets (the iPhone's status bar and
+   * home indicator), so the space inside it is the window minus those. Sized
+   * to the window, every screen ran one status bar past the bottom: the page
+   * scrolled, and the bottom row — "ביטול הקריאה" on the search — sat off the
+   * screen (Dvir, 2026-09-30). Measured from the root, so the insets are
+   * whatever the device says they are. The window's height is only the first
+   * frame's guess.
+   */
+  const [measuredH, setMeasuredH] = useState<number | null>(null);
+  const height = measuredH ?? windowH;
   const w = Math.min(430, width);
   const [connection, retry] = useConnection();
   const [bannerH, setBannerH] = useState(0);
@@ -53,7 +66,10 @@ export function Frame({ children }: { children: ReactNode }) {
 
   return (
     <FrameContext.Provider value={{ width: w, height: height - bannerH }}>
-      <View style={[styles.root, { backgroundColor: customerDarkTheme.colors.bg }]}>
+      <View
+        style={[styles.root, { backgroundColor: customerDarkTheme.colors.bg }]}
+        onLayout={(e) => setMeasuredH(Math.round(e.nativeEvent.layout.height))}
+      >
         <View style={{ width: w, height, overflow: "hidden" }}>
           <View onLayout={(e) => setBannerH(e.nativeEvent.layout.height)}>
             <ConnectionBanner state={connection} colors={customerTheme.colors} onRetry={retry} />
@@ -66,5 +82,6 @@ export function Frame({ children }: { children: ReactNode }) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, alignItems: "center", justifyContent: "flex-start" },
+  // Fills #root, which fills the body's padded box; see `measuredH`.
+  root: { height: "100%", overflow: "hidden", alignItems: "center", justifyContent: "flex-start" },
 });

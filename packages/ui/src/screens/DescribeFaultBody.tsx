@@ -244,7 +244,8 @@ export function DescribeFaultBody({
             * the kind of defect a screenshot catches and a code review
             * never does.
             */}
-          <BackButton onPress={onBack} tone={"dark"} placement="inline" />
+          {/* A host that puts its own back button above this screen passes none. */}
+          {onBack ? <BackButton onPress={onBack} tone={"dark"} placement="inline" /> : null}
 
           <View style={styles.titleRow}>
             <View style={styles.markBubble}>
