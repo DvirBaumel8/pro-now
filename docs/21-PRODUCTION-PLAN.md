@@ -1,6 +1,6 @@
 # 21 — Production Plan: from demo to a live web app
 
-Status: **APPROVED 2026-09-29** (decisions in §5). W0–W6 done (W5 with voice-to-text deferred; W6 with the professional acting through the API until W7); W7 next. Written after reading the
+Status: **APPROVED 2026-09-29** (decisions in §5). W0–W7 done (W5 with voice-to-text deferred); W8 next. Written after reading the
 code as it stands at `53ed69f`.
 
 ## 0. Framing
@@ -510,6 +510,11 @@ second browser (W7).
   review, on WebKit/iPhone 15.
 
 ### W7 — The professional's side and real supply (L)
+
+**DONE 2026-09-30** (report: `docs/reports/W7.md`, QA: `docs/qa/W7.md`).
+Also closes W6's two-browser acceptance. Left out: services beyond our
+list, the shop's design, automatic registry checks.
+
 - **Onboarding:**
   1. Profile: name and photo (through W4).
   2. Services chosen from the catalogue. Each becomes a

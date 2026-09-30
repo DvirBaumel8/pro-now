@@ -115,6 +115,7 @@ Screenshots go to `qa/out/`.
 ## 5. Decisions and recent work (details in `docs/18-ROADMAP.md`)
 
 **Recent decisions**
+- **W7 (Dvir's track, 2026-09-30):** a professional joins from the web (details, services, area, documents, own prices), is approved per service through the API (the admin screens are W8), goes online and works a job end to end. See `docs/reports/W7.md`.
 - **W6 (Dvir's track, 2026-09-30):** the customer can order and follow a job end to end on the web, live. No money moves in the app (D1): the quote is approved on sending and the customer pays the professional directly. Ordering for someone else gives the person at home a link and a door code. See `docs/reports/W6.md`.
 - **Errors and alerts (Dvir's track):** errors from the web app and the API go to Sentry, and a Telegram bot sends an alert to the phone. See `docs/23-OBSERVABILITY.md`.
 - Each pro sets their own visit fee. There is no floor or ceiling, and abusers are blocked.

@@ -164,7 +164,7 @@ export function ProOfferBody({
           * decision. So the kicker now says what happened and what the
           * countdown means, in one line, before anything else is read.
           */}
-        <Text style={styles.kicker}>קריאה חדשה בשבילך · רק אתה רואה אותה עכשיו</Text>
+        <Text style={styles.kicker}>קריאה חדשה בשבילך · רק {proFemale ? "את רואה" : "אתה רואה"} אותה עכשיו</Text>
         <Text style={styles.service} numberOfLines={2}>
           {offer.serviceNameHe}
         </Text>
