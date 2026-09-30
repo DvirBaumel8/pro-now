@@ -123,6 +123,8 @@ export function createApiClient(config: ProNowApiClientConfig = {}) {
       request<ProApplicationView>("PUT", "/pro/application/area", input),
     proAddDocument: (input: { kind: "GOVERNMENT_ID" | "SELFIE" | "TAX_FILE"; uploadId: string }) =>
       request<ProApplicationView>("POST", "/pro/application/documents", input),
+    proSetPortrait: (input: { kind: "PHOTO"; uploadId: string } | { kind: "CHARACTER" }) =>
+      request<ProApplicationView>("PUT", "/pro/application/portrait", input),
     proAddCredential: (input: { serviceId: string; requirement: string; number?: string; uploadId: string }) =>
       request<ProApplicationView>("POST", "/pro/application/credentials", input),
     proSetPricing: (
@@ -250,6 +252,8 @@ export interface AdminProfessionalView {
   email: string;
   joinedAt: string;
   documents: Array<{ id: string; kind: string; status: string; mime: string | null; url: string | null }>;
+  /** The face they chose while joining; `url` is a short-lived link to their photo. */
+  portrait: { kind: "PHOTO" | "CHARACTER"; mime: string | null; url: string | null } | null;
   credentials: Array<{ id: string; serviceNameHe: string; type: string; number: string | null; status: string; expiresAt: string | null; mime: string | null; url: string | null }>;
 }
 export interface AdminJobRow { id: string; status: string; serviceNameHe: string; professional: string | null; createdAt: string; updatedAt: string }

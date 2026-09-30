@@ -125,10 +125,10 @@ model UserRole {
 }
 
 model CustomerProfile {
-  id        String   @id @default(cuid())
-  userId    String   @unique
-  user      User     @relation(fields: [userId], references: [id])
-  fullName  String?
+  id             String    @id @default(cuid())
+  userId         String    @unique
+  user           User      @relation(fields: [userId], references: [id])
+  fullName       String?
   /// The character they walk the street as (an id from AVATARS in
   /// @pro-now/types), or null.
   avatarId       String?
@@ -137,8 +137,8 @@ model CustomerProfile {
   avatarAnswered Boolean   @default(false)
   /// When the intro slides were seen. Seen once, on any device.
   introSeenAt    DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   addresses Address[]
   jobs      Job[]
@@ -164,19 +164,26 @@ enum VerificationStatus {
 }
 
 model ProfessionalProfile {
-  id                 String              @id @default(cuid())
-  userId             String              @unique
-  user               User                @relation(fields: [userId], references: [id])
+  id                 String             @id @default(cuid())
+  userId             String             @unique
+  user               User               @relation(fields: [userId], references: [id])
   legalName          String
   displayName        String
   /// How the professional asked to be addressed in Hebrew ("M" or "F"), so
   /// the screens never guess from a name (docs/21 W7). Null: not asked yet.
   addressAs          String?
   profilePhotoRef    String?
-  verificationStatus VerificationStatus  @default(DRAFT)
-  presenceState      ProPresenceState    @default(OFFLINE)
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
+  /// The face they chose while joining (Amit, 2026-09-30: required): "PHOTO"
+  /// (their own, in `portraitUpload`) or "CHARACTER" (their trade's drawn
+  /// character). Null: not chosen yet. Seen by the admin only; it is not
+  /// `profilePhotoRef`, which customers see and which needs an approval.
+  portraitKind       String?
+  portraitUploadId   String?
+  portraitUpload     Upload?            @relation("ProfessionalPortrait", fields: [portraitUploadId], references: [id], onDelete: SetNull)
+  verificationStatus VerificationStatus @default(DRAFT)
+  presenceState      ProPresenceState   @default(OFFLINE)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
 
   identityVerification IdentityVerification?
   businessProfile      BusinessProfile?
@@ -185,7 +192,7 @@ model ProfessionalProfile {
   services             ProfessionalService[]
   availabilitySessions AvailabilitySession[]
   locations            ProfessionalLocation[]
-  assignedJobs         Job[]                   @relation("AssignedProfessional")
+  assignedJobs         Job[]                         @relation("AssignedProfessional")
   dispatchOffers       DispatchOffer[]
   reviewsReceived      Review[]
   externalProfiles     ProfessionalExternalProfile[]
@@ -210,31 +217,31 @@ enum ProPresenceState {
 }
 
 model IdentityVerification {
-  id             String   @id @default(cuid())
-  professionalId String   @unique
+  id             String              @id @default(cuid())
+  professionalId String              @unique
   professional   ProfessionalProfile @relation(fields: [professionalId], references: [id])
   vendorName     String
-  isSandbox      Boolean  @default(true)
+  isSandbox      Boolean             @default(true)
   status         String
   nameMatch      Boolean?
   livenessPassed Boolean?
   documentValid  Boolean?
-  reasonCodes    String[] @default([])
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  reasonCodes    String[]            @default([])
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
 
   @@map("identity_verifications")
 }
 
 model BusinessProfile {
-  id             String   @id @default(cuid())
-  professionalId String   @unique
-  professional   ProfessionalProfile @relation(fields: [professionalId], references: [id])
-  tradingName    String?
-  taxStatus      String?
+  id              String              @id @default(cuid())
+  professionalId  String              @unique
+  professional    ProfessionalProfile @relation(fields: [professionalId], references: [id])
+  tradingName     String?
+  taxStatus       String?
   yearsExperience Int?
-  languages      String[] @default([])
-  vehicleType    String?
+  languages       String[]            @default([])
+  vehicleType     String?
 
   // The existence of this row means the professional ENTERED business
   // details, not that anyone checked them. The customer-facing "עסק אומת"
@@ -246,11 +253,11 @@ model BusinessProfile {
   // free string until the review tooling exists.
   verificationSource String?
 
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  @@map("business_profiles")
   @@index([verificationStatus])
+  @@map("business_profiles")
 }
 
 enum BusinessVerificationStatus {
@@ -262,62 +269,63 @@ enum BusinessVerificationStatus {
 }
 
 model ProfessionalDocument {
-  id             String   @id @default(cuid())
+  id             String              @id @default(cuid())
   professionalId String
   professional   ProfessionalProfile @relation(fields: [professionalId], references: [id])
   kind           String // e.g. GOVERNMENT_ID, INSURANCE_CERT
-  storageRef     String  // short-lived signed URL reference, never a public path
+  storageRef     String // short-lived signed URL reference, never a public path
   uploadId       String?
-  upload         Upload? @relation(fields: [uploadId], references: [id])
-  status         String  @default("PENDING")
-  createdAt      DateTime @default(now())
+  upload         Upload?             @relation(fields: [uploadId], references: [id])
+  status         String              @default("PENDING")
+  createdAt      DateTime            @default(now())
 
-  @@map("professional_documents")
   @@index([professionalId])
   @@index([uploadId])
+  @@map("professional_documents")
 }
 
 model Upload {
-  id          String   @id @default(cuid())
-  ownerId     String
-  owner       User     @relation(fields: [ownerId], references: [id])
-  kind        String
-  mime        String
-  bytes       Int
-  sha256      String?
-  status      String   @default("PENDING")
-  width       Int?
-  height      Int?
-  durationMs  Int?
-  storageKey  String   @unique
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String   @id @default(cuid())
+  ownerId    String
+  owner      User     @relation(fields: [ownerId], references: [id])
+  kind       String
+  mime       String
+  bytes      Int
+  sha256     String?
+  status     String   @default("PENDING")
+  width      Int?
+  height     Int?
+  durationMs Int?
+  storageKey String   @unique
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  jobMedia             JobMedia[]
+  jobMedia              JobMedia[]
   professionalDocuments ProfessionalDocument[]
+  portraitOf            ProfessionalProfile[]  @relation("ProfessionalPortrait")
 
-  @@map("uploads")
   @@index([ownerId, status])
   @@index([status, createdAt])
+  @@map("uploads")
 }
 
 model ProfessionalCredential {
-  id             String    @id @default(cuid())
+  id             String              @id @default(cuid())
   professionalId String
   professional   ProfessionalProfile @relation(fields: [professionalId], references: [id])
   serviceId      String
-  service        Service   @relation(fields: [serviceId], references: [id])
-  type           String    // LICENSE | CERTIFICATE | INSURANCE
+  service        Service             @relation(fields: [serviceId], references: [id])
+  type           String // LICENSE | CERTIFICATE | INSURANCE
   number         String?
   issuer         String?
   documentRef    String?
-  status         String    @default("PENDING") // PENDING | VERIFIED | EXPIRED | REJECTED
+  status         String              @default("PENDING") // PENDING | VERIFIED | EXPIRED | REJECTED
   expiresAt      DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
 
-  @@map("professional_credentials")
   @@index([professionalId, type, expiresAt])
+  @@map("professional_credentials")
 }
 
 // ---------------------------------------------------------------------
@@ -326,11 +334,11 @@ model ProfessionalCredential {
 // ---------------------------------------------------------------------
 
 model Department {
-  id        String     @id @default(cuid())
-  code      String     @unique
-  nameHe    String
-  nameEn    String
-  sortOrder Int        @default(0)
+  id         String     @id @default(cuid())
+  code       String     @unique
+  nameHe     String
+  nameEn     String
+  sortOrder  Int        @default(0)
   categories Category[]
 
   @@map("departments")
@@ -345,8 +353,8 @@ model Category {
   nameEn       String
   services     Service[]
 
-  @@map("categories")
   @@index([departmentId])
+  @@map("categories")
 }
 
 enum PriceModel {
@@ -364,64 +372,64 @@ enum BookingMode {
 }
 
 model Service {
-  id                String      @id @default(cuid())
-  categoryId        String
-  category          Category    @relation(fields: [categoryId], references: [id])
-  code              String      @unique // matches /docs/09b-SERVICE-CATALOG.md Service ID
-  nameHe            String
-  nameEn            String
-  bookingMode       BookingMode @default(NOW)
-  priceModel        PriceModel
+  id                        String      @id @default(cuid())
+  categoryId                String
+  category                  Category    @relation(fields: [categoryId], references: [id])
+  code                      String      @unique // matches /docs/09b-SERVICE-CATALOG.md Service ID
+  nameHe                    String
+  nameEn                    String
+  bookingMode               BookingMode @default(NOW)
+  priceModel                PriceModel
   typicalDurationMinutesMin Int?
   typicalDurationMinutesMax Int?
-  trustTier         String      // A | B | C | D | E — see /docs/_source/01-master-product-bible.md §26.7
-  equipmentNotes     String?
-  customerInputsNotes String?
-  createdAt         DateTime    @default(now())
+  trustTier                 String // A | B | C | D | E — see /docs/_source/01-master-product-bible.md §26.7
+  equipmentNotes            String?
+  customerInputsNotes       String?
+  createdAt                 DateTime    @default(now())
 
-  variants          ServiceVariant[]
-  addOns            ServiceAddOn[]
-  requirements      ServiceRequirement[]
-  professionalServices ProfessionalService[]
+  variants               ServiceVariant[]
+  addOns                 ServiceAddOn[]
+  requirements           ServiceRequirement[]
+  professionalServices   ProfessionalService[]
   credentialRequirements ProfessionalCredential[]
-  marketActivations MarketActivation[]
-  jobs              Job[]
+  marketActivations      MarketActivation[]
+  jobs                   Job[]
 
-  @@map("services")
   @@index([categoryId])
+  @@map("services")
 }
 
 model ServiceVariant {
-  id        String  @id @default(cuid())
-  serviceId String
-  service   Service @relation(fields: [serviceId], references: [id])
-  nameHe    String
-  priceDeltaMinorUnits Int @default(0)
+  id                   String  @id @default(cuid())
+  serviceId            String
+  service              Service @relation(fields: [serviceId], references: [id])
+  nameHe               String
+  priceDeltaMinorUnits Int     @default(0)
 
-  @@map("service_variants")
   @@index([serviceId])
+  @@map("service_variants")
 }
 
 model ServiceAddOn {
-  id        String  @id @default(cuid())
-  serviceId String
-  service   Service @relation(fields: [serviceId], references: [id])
-  nameHe    String
+  id              String  @id @default(cuid())
+  serviceId       String
+  service         Service @relation(fields: [serviceId], references: [id])
+  nameHe          String
   priceMinorUnits Int
 
-  @@map("service_add_ons")
   @@index([serviceId])
+  @@map("service_add_ons")
 }
 
 model ServiceRequirement {
   id          String  @id @default(cuid())
   serviceId   String
   service     Service @relation(fields: [serviceId], references: [id])
-  requirement String  // e.g. "LICENSE:ELECTRICAL", "IDENTITY", "BUSINESS"
+  requirement String // e.g. "LICENSE:ELECTRICAL", "IDENTITY", "BUSINESS"
   mandatory   Boolean @default(true)
 
-  @@map("service_requirements")
   @@index([serviceId])
+  @@map("service_requirements")
 }
 
 enum ProfessionalServiceStatus {
@@ -433,12 +441,12 @@ enum ProfessionalServiceStatus {
 }
 
 model ProfessionalService {
-  id                String   @id @default(cuid())
-  professionalId    String
-  professional      ProfessionalProfile @relation(fields: [professionalId], references: [id])
-  serviceId         String
-  service           Service  @relation(fields: [serviceId], references: [id])
-  status            ProfessionalServiceStatus @default(DRAFT)
+  id             String                    @id @default(cuid())
+  professionalId String
+  professional   ProfessionalProfile       @relation(fields: [professionalId], references: [id])
+  serviceId      String
+  service        Service                   @relation(fields: [serviceId], references: [id])
+  status         ProfessionalServiceStatus @default(DRAFT)
 
   // ---- Pricing configuration -----------------------------------------
   // All money is integer minor units (/CLAUDE.md §3). Which of these apply
@@ -457,44 +465,44 @@ model ProfessionalService {
   // No default amounts are set here: actual prices are a professional's own
   // commercial decision, and the pilot price points are a business decision
   // (/CLAUDE.md §4). Nulls mean "not configured", never "free".
-  basePriceMinorUnits Int?
+  basePriceMinorUnits    Int?
   minimumBillableMinutes Int?
   perKmMinorUnits        Int?
   minimumFareMinorUnits  Int?
 
   travelRadiusMeters Int?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
-  @@map("professional_services")
   @@unique([professionalId, serviceId])
   @@index([serviceId, status])
+  @@map("professional_services")
 }
 
 model ServiceArea {
-  id             String  @id @default(cuid())
+  id             String @id @default(cuid())
   professionalId String
   centerLat      Float
   centerLng      Float
   radiusMeters   Int
 
-  @@map("service_areas")
   @@index([professionalId])
+  @@map("service_areas")
 }
 
 model MarketActivation {
-  id                        String   @id @default(cuid())
-  marketCode                String   // e.g. "IL-TLV-GUSHDAN"
+  id                        String    @id @default(cuid())
+  marketCode                String // e.g. "IL-TLV-GUSHDAN"
   serviceId                 String
-  service                   Service  @relation(fields: [serviceId], references: [id])
-  customerVisible           Boolean  @default(false)
-  providerOnboardingEnabled Boolean  @default(false)
-  dispatchEnabled           Boolean  @default(false)
-  effectiveFrom             DateTime @default(now())
+  service                   Service   @relation(fields: [serviceId], references: [id])
+  customerVisible           Boolean   @default(false)
+  providerOnboardingEnabled Boolean   @default(false)
+  dispatchEnabled           Boolean   @default(false)
+  effectiveFrom             DateTime  @default(now())
   effectiveTo               DateTime?
 
-  @@map("market_activations")
   @@unique([marketCode, serviceId])
+  @@map("market_activations")
 }
 
 // ---------------------------------------------------------------------
@@ -502,20 +510,20 @@ model MarketActivation {
 // ---------------------------------------------------------------------
 
 model Address {
-  id           String   @id @default(cuid())
-  customerId   String
-  customer     CustomerProfile @relation(fields: [customerId], references: [id])
-  label        String?
-  formatted    String
-  lat          Float
-  lng          Float
-  placeId      String?
-  createdAt    DateTime @default(now())
+  id         String          @id @default(cuid())
+  customerId String
+  customer   CustomerProfile @relation(fields: [customerId], references: [id])
+  label      String?
+  formatted  String
+  lat        Float
+  lng        Float
+  placeId    String?
+  createdAt  DateTime        @default(now())
 
   jobs Job[]
 
-  @@map("addresses")
   @@index([customerId])
+  @@map("addresses")
 }
 
 /// What a typed sentence was matched to, and what the customer chose
@@ -552,23 +560,23 @@ model GeocodeCache {
 }
 
 model AvailabilitySession {
-  id                String    @id @default(cuid())
+  id                String              @id @default(cuid())
   professionalId    String
   professional      ProfessionalProfile @relation(fields: [professionalId], references: [id])
-  startedAt         DateTime  @default(now())
+  startedAt         DateTime            @default(now())
   endedAt           DateTime?
-  enabledServiceIds String[] @default([])
-  status            String    @default("ACTIVE") // ACTIVE | ENDED
-  jobsOffered       Int       @default(0)
-  jobsAccepted      Int       @default(0)
-  jobsCompleted     Int       @default(0)
+  enabledServiceIds String[]            @default([])
+  status            String              @default("ACTIVE") // ACTIVE | ENDED
+  jobsOffered       Int                 @default(0)
+  jobsAccepted      Int                 @default(0)
+  jobsCompleted     Int                 @default(0)
 
-  @@map("availability_sessions")
   @@index([professionalId, status])
+  @@map("availability_sessions")
 }
 
 model ProfessionalLocation {
-  id             String   @id @default(cuid())
+  id             String              @id @default(cuid())
   professionalId String
   professional   ProfessionalProfile @relation(fields: [professionalId], references: [id])
   lat            Float
@@ -577,10 +585,10 @@ model ProfessionalLocation {
   headingDegrees Float?
   speedMps       Float?
   capturedAt     DateTime
-  receivedAt     DateTime @default(now())
+  receivedAt     DateTime            @default(now())
 
-  @@map("professional_locations")
   @@index([professionalId, receivedAt])
+  @@map("professional_locations")
 }
 
 // ---------------------------------------------------------------------
@@ -608,78 +616,78 @@ enum JobStatus {
 }
 
 model Job {
-  id                String    @id @default(cuid())
-  customerId        String
-  customer          CustomerProfile @relation(fields: [customerId], references: [id])
-  serviceId         String
-  service           Service   @relation(fields: [serviceId], references: [id])
-  addressId         String
-  address           Address   @relation(fields: [addressId], references: [id])
+  id                     String               @id @default(cuid())
+  customerId             String
+  customer               CustomerProfile      @relation(fields: [customerId], references: [id])
+  serviceId              String
+  service                Service              @relation(fields: [serviceId], references: [id])
+  addressId              String
+  address                Address              @relation(fields: [addressId], references: [id])
   assignedProfessionalId String?
   assignedProfessional   ProfessionalProfile? @relation("AssignedProfessional", fields: [assignedProfessionalId], references: [id])
 
-  status            JobStatus @default(DRAFT)
-  description       String?
+  status               JobStatus @default(DRAFT)
+  description          String?
   /// Ordering for someone else (docs/21 W6): the person at home, with this
   /// one order only. Personal data about somebody who is not a user: erased
   /// with the orderer's account.
-  onSiteName          String?
-  onSitePhone         String?
+  onSiteName           String?
+  onSitePhone          String?
   /// Issued by the server when a professional is assigned; the professional
   /// says it at the door, and the person at home opens only to that.
-  doorCode            String?
+  doorCode             String?
   /// sha256 of the link the orderer shares; the link itself is never stored.
-  onSiteTokenHash     String?   @unique
+  onSiteTokenHash      String?   @unique
   onSiteTokenExpiresAt DateTime?
-  structuredAnswers Json?
-  approvedQuoteId   String?   @unique
+  structuredAnswers    Json?
+  approvedQuoteId      String?   @unique
 
-  idempotencyKey    String?   @unique
+  idempotencyKey String? @unique
 
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  media             JobMedia[]
-  events            JobEvent[]
-  offers            DispatchOffer[]
-  quotes            Quote[]
-  payments          Payment[]
-  review            Review?
+  media    JobMedia[]
+  events   JobEvent[]
+  offers   DispatchOffer[]
+  quotes   Quote[]
+  payments Payment[]
+  review   Review?
 
-  @@map("jobs")
   @@index([status])
   @@index([customerId])
   @@index([assignedProfessionalId])
+  @@map("jobs")
 }
 
 model JobMedia {
-  id        String   @id @default(cuid())
-  jobId     String
-  job       Job      @relation(fields: [jobId], references: [id])
-  kind      String   // PHOTO | VIDEO | VOICE_NOTE
-  storageRef String
-  uploadId   String?
-  upload     Upload? @relation(fields: [uploadId], references: [id])
-  createdAt DateTime @default(now())
-
-  @@map("job_media")
-  @@index([jobId])
-  @@index([uploadId])
-}
-
-model JobEvent {
   id         String   @id @default(cuid())
   jobId      String
   job        Job      @relation(fields: [jobId], references: [id])
-  type       String
-  actor      String   // CUSTOMER | PROFESSIONAL | SYSTEM | OPS
-  actorId    String?
-  metadata   Json?
-  requestId  String?
+  kind       String // PHOTO | VIDEO | VOICE_NOTE
+  storageRef String
+  uploadId   String?
+  upload     Upload?  @relation(fields: [uploadId], references: [id])
   createdAt  DateTime @default(now())
 
-  @@map("job_events")
+  @@index([jobId])
+  @@index([uploadId])
+  @@map("job_media")
+}
+
+model JobEvent {
+  id        String   @id @default(cuid())
+  jobId     String
+  job       Job      @relation(fields: [jobId], references: [id])
+  type      String
+  actor     String // CUSTOMER | PROFESSIONAL | SYSTEM | OPS
+  actorId   String?
+  metadata  Json?
+  requestId String?
+  createdAt DateTime @default(now())
+
   @@index([jobId, createdAt])
+  @@map("job_events")
 }
 
 enum DispatchOfferStatus {
@@ -693,54 +701,54 @@ enum DispatchOfferStatus {
 }
 
 model DispatchOffer {
-  id             String   @id @default(cuid())
-  jobId          String
-  job            Job      @relation(fields: [jobId], references: [id])
-  professionalId String
-  professional   ProfessionalProfile @relation(fields: [professionalId], references: [id])
-  status         DispatchOfferStatus @default(CREATED)
-  offeredAt      DateTime @default(now())
-  expiresAt      DateTime
-  respondedAt    DateTime?
-  scoreSnapshot  Float?
-  etaSecondsSnapshot Int?
+  id                       String              @id @default(cuid())
+  jobId                    String
+  job                      Job                 @relation(fields: [jobId], references: [id])
+  professionalId           String
+  professional             ProfessionalProfile @relation(fields: [professionalId], references: [id])
+  status                   DispatchOfferStatus @default(CREATED)
+  offeredAt                DateTime            @default(now())
+  expiresAt                DateTime
+  respondedAt              DateTime?
+  scoreSnapshot            Float?
+  etaSecondsSnapshot       Int?
   payoutMinorUnitsSnapshot Int?
 
-  @@map("dispatch_offers")
-  @@index([jobId, status])
-  @@index([professionalId, status])
   // Prevents a duplicate *live* offer for the same job/professional pair.
   @@unique([jobId, professionalId, status])
+  @@index([jobId, status])
+  @@index([professionalId, status])
+  @@map("dispatch_offers")
 }
 
 model Quote {
-  id             String   @id @default(cuid())
-  jobId          String
-  job            Job      @relation(fields: [jobId], references: [id])
-  version        Int      @default(1)
-  versionHash    String
-  status         String   @default("SENT") // SENT | APPROVED | DECLINED | SUPERSEDED
+  id              String   @id @default(cuid())
+  jobId           String
+  job             Job      @relation(fields: [jobId], references: [id])
+  version         Int      @default(1)
+  versionHash     String
+  status          String   @default("SENT") // SENT | APPROVED | DECLINED | SUPERSEDED
   totalMinorUnits Int
-  notes          String?
-  createdAt      DateTime @default(now())
+  notes           String?
+  createdAt       DateTime @default(now())
 
   lineItems QuoteItem[]
 
-  @@map("quotes")
   @@index([jobId, version])
+  @@map("quotes")
 }
 
 model QuoteItem {
-  id        String @id @default(cuid())
-  quoteId   String
-  quote     Quote  @relation(fields: [quoteId], references: [id])
-  description String
-  quantity  Float
+  id                  String @id @default(cuid())
+  quoteId             String
+  quote               Quote  @relation(fields: [quoteId], references: [id])
+  description         String
+  quantity            Float
   unitPriceMinorUnits Int
-  kind      String @default("OTHER") // LABOR | MATERIALS | OTHER
+  kind                String @default("OTHER") // LABOR | MATERIALS | OTHER
 
-  @@map("quote_items")
   @@index([quoteId])
+  @@map("quote_items")
 }
 
 // ---------------------------------------------------------------------
@@ -760,60 +768,60 @@ enum PaymentStatus {
 }
 
 model Payment {
-  id                String   @id @default(cuid())
+  id                String        @id @default(cuid())
   jobId             String
-  job               Job      @relation(fields: [jobId], references: [id])
+  job               Job           @relation(fields: [jobId], references: [id])
   status            PaymentStatus @default(CREATED)
   amountMinorUnits  Int
-  currency          String   @default("ILS")
+  currency          String        @default("ILS")
   providerName      String
-  isSandbox         Boolean  @default(true)
+  isSandbox         Boolean       @default(true)
   providerReference String?
-  idempotencyKey    String   @unique
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  idempotencyKey    String        @unique
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 
-  events PaymentEvent[]
+  events        PaymentEvent[]
   ledgerEntries LedgerEntry[]
-  refunds Refund[]
+  refunds       Refund[]
 
-  @@map("payments")
   @@index([jobId])
+  @@map("payments")
 }
 
 model PaymentEvent {
-  id                String   @id @default(cuid())
-  paymentId         String
-  payment           Payment  @relation(fields: [paymentId], references: [id])
-  providerEventId   String   @unique
-  type              String
-  rawPayload        Json?
-  createdAt         DateTime @default(now())
+  id              String   @id @default(cuid())
+  paymentId       String
+  payment         Payment  @relation(fields: [paymentId], references: [id])
+  providerEventId String   @unique
+  type            String
+  rawPayload      Json?
+  createdAt       DateTime @default(now())
 
   @@map("payment_events")
 }
 
 model LedgerEntry {
-  id          String   @id @default(cuid())
-  paymentId   String
-  payment     Payment  @relation(fields: [paymentId], references: [id])
-  entryType   String   // CUSTOMER_CHARGE | PLATFORM_FEE | PROFESSIONAL_PAYABLE | REFUND
+  id               String   @id @default(cuid())
+  paymentId        String
+  payment          Payment  @relation(fields: [paymentId], references: [id])
+  entryType        String // CUSTOMER_CHARGE | PLATFORM_FEE | PROFESSIONAL_PAYABLE | REFUND
   amountMinorUnits Int // signed
-  currency    String   @default("ILS")
-  createdAt   DateTime @default(now())
+  currency         String   @default("ILS")
+  createdAt        DateTime @default(now())
 
-  @@map("ledger_entries")
   @@index([paymentId])
+  @@map("ledger_entries")
 }
 
 model PayoutAccount {
-  id             String   @id @default(cuid())
-  professionalId String   @unique
+  id             String              @id @default(cuid())
+  professionalId String              @unique
   professional   ProfessionalProfile @relation(fields: [professionalId], references: [id])
   providerName   String
-  isSandbox      Boolean  @default(true)
-  status         String   @default("PENDING") // PENDING | ACTIVE | RESTRICTED
-  createdAt      DateTime @default(now())
+  isSandbox      Boolean             @default(true)
+  status         String              @default("PENDING") // PENDING | ACTIVE | RESTRICTED
+  createdAt      DateTime            @default(now())
 
   payouts Payout[]
 
@@ -821,24 +829,24 @@ model PayoutAccount {
 }
 
 model Payout {
-  id              String   @id @default(cuid())
-  payoutAccountId String
-  payoutAccount   PayoutAccount @relation(fields: [payoutAccountId], references: [id])
+  id               String        @id @default(cuid())
+  payoutAccountId  String
+  payoutAccount    PayoutAccount @relation(fields: [payoutAccountId], references: [id])
   amountMinorUnits Int
-  status          String   @default("PENDING") // PENDING | PAID | FAILED
-  createdAt       DateTime @default(now())
+  status           String        @default("PENDING") // PENDING | PAID | FAILED
+  createdAt        DateTime      @default(now())
 
   @@map("payouts")
 }
 
 model Refund {
-  id        String   @id @default(cuid())
-  paymentId String
-  payment   Payment  @relation(fields: [paymentId], references: [id])
+  id               String   @id @default(cuid())
+  paymentId        String
+  payment          Payment  @relation(fields: [paymentId], references: [id])
   amountMinorUnits Int
-  reason    String?
-  status    String   @default("PENDING")
-  createdAt DateTime @default(now())
+  reason           String?
+  status           String   @default("PENDING")
+  createdAt        DateTime @default(now())
 
   @@map("refunds")
 }
@@ -848,23 +856,23 @@ model Refund {
 // ---------------------------------------------------------------------
 
 model Review {
-  id             String   @id @default(cuid())
-  jobId          String   @unique
-  job            Job      @relation(fields: [jobId], references: [id])
-  reviewerId     String
-  reviewer       CustomerProfile @relation(fields: [reviewerId], references: [id])
-  professionalId String
-  professional   ProfessionalProfile @relation(fields: [professionalId], references: [id])
-  overallRating  Int
-  text           String?
-  moderationStatus String @default("PUBLISHED")
-  createdAt      DateTime @default(now())
+  id               String              @id @default(cuid())
+  jobId            String              @unique
+  job              Job                 @relation(fields: [jobId], references: [id])
+  reviewerId       String
+  reviewer         CustomerProfile     @relation(fields: [reviewerId], references: [id])
+  professionalId   String
+  professional     ProfessionalProfile @relation(fields: [professionalId], references: [id])
+  overallRating    Int
+  text             String?
+  moderationStatus String              @default("PUBLISHED")
+  createdAt        DateTime            @default(now())
 
   dimensions ReviewDimension[]
 
-  @@map("reviews")
   @@unique([reviewerId, jobId])
   @@index([professionalId])
+  @@map("reviews")
 }
 
 model ReviewDimension {
@@ -898,14 +906,14 @@ model ExternalReputationSource {
 }
 
 model ProfessionalExternalProfile {
-  id                String   @id @default(cuid())
+  id                String                   @id @default(cuid())
   professionalId    String
-  professional      ProfessionalProfile @relation(fields: [professionalId], references: [id])
+  professional      ProfessionalProfile      @relation(fields: [professionalId], references: [id])
   sourceId          String
   source            ExternalReputationSource @relation(fields: [sourceId], references: [id])
   externalProfileId String
   profileUrl        String?
-  linkStatus        String   @default("PENDING") // PENDING | LINKED | UNLINKED
+  linkStatus        String                   @default("PENDING") // PENDING | LINKED | UNLINKED
 
   // ---- The three fields /docs/10 §External reputation asks for and the
   // ---- table did not have.
@@ -919,7 +927,7 @@ model ProfessionalExternalProfile {
   /// PROVIDER_API — an official integration, under its terms.
   /// PROFESSIONAL_DECLARED — the professional gave us the link and nothing else.
   /// Never SCRAPED: /docs/10 says "Never scrape" and the interface repeats it.
-  dataProvenance    String   @default("PROFESSIONAL_DECLARED")
+  dataProvenance String @default("PROFESSIONAL_DECLARED")
 
   /// What the source's terms permit displaying, by name. A source that
   /// allows a link but not a number is a real case, and the difference
@@ -927,30 +935,30 @@ model ProfessionalExternalProfile {
   allowedDisplayFields String[] @default([])
 
   /// NEVER_SYNCED | OK | STALE | FAILED — whether the last refresh worked.
-  syncStatus        String   @default("NEVER_SYNCED")
-  lastSyncAt        DateTime?
-  lastSyncError     String?
+  syncStatus    String    @default("NEVER_SYNCED")
+  lastSyncAt    DateTime?
+  lastSyncError String?
 
-  createdAt         DateTime @default(now())
+  createdAt DateTime @default(now())
   // The DB default exists because the column was added to a table that
   // already had rows (migration 20260922_external_reputation_provenance).
-  updatedAt         DateTime @default(now()) @updatedAt
+  updatedAt DateTime @default(now()) @updatedAt
 
   snapshots ExternalRatingSnapshot[]
 
-  @@map("professional_external_profiles")
   @@unique([professionalId, sourceId])
   @@index([professionalId])
+  @@map("professional_external_profiles")
 }
 
 model ExternalRatingSnapshot {
-  id           String   @id @default(cuid())
-  profileId    String
-  profile      ProfessionalExternalProfile @relation(fields: [profileId], references: [id])
-  rating       Float?
-  reviewCount  Int?
+  id             String                      @id @default(cuid())
+  profileId      String
+  profile        ProfessionalExternalProfile @relation(fields: [profileId], references: [id])
+  rating         Float?
+  reviewCount    Int?
   lastVerifiedAt DateTime?
-  createdAt    DateTime @default(now())
+  createdAt      DateTime                    @default(now())
 
   @@map("external_rating_snapshots")
 }
@@ -970,46 +978,46 @@ model ChatThread {
 }
 
 model ChatMessage {
-  id        String   @id @default(cuid())
+  id        String     @id @default(cuid())
   threadId  String
   thread    ChatThread @relation(fields: [threadId], references: [id])
   senderId  String
   body      String
-  createdAt DateTime @default(now())
+  createdAt DateTime   @default(now())
 
-  @@map("chat_messages")
   @@index([threadId, createdAt])
+  @@map("chat_messages")
 }
 
 model Notification {
-  id        String   @id @default(cuid())
-  userId    String
+  id          String    @id @default(cuid())
+  userId      String
   /// What happened, as the job event type or a notice kind (docs/21 W9).
-  type      String   @default("GENERAL")
-  jobId     String?
-  title     String
-  body      String
-  data      Json?
+  type        String    @default("GENERAL")
+  jobId       String?
+  title       String
+  body        String
+  data        Json?
   deliveredAt DateTime?
-  readAt    DateTime?
-  createdAt DateTime @default(now())
+  readAt      DateTime?
+  createdAt   DateTime  @default(now())
 
-  @@map("notifications")
   @@index([userId, createdAt])
+  @@map("notifications")
 }
 
 /// A browser's Web Push subscription (docs/21 W9). Deleted when the push
 /// service says it is gone (404/410).
 model PushSubscription {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  endpoint      String   @unique
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint      String    @unique
   p256dh        String
   auth          String
   userAgent     String?
   lastSuccessAt DateTime?
-  createdAt     DateTime @default(now())
+  createdAt     DateTime  @default(now())
 
   @@index([userId])
   @@map("push_subscriptions")
@@ -1056,46 +1064,46 @@ model SupportTicket {
 }
 
 model RiskSignal {
-  id             String   @id @default(cuid())
+  id             String              @id @default(cuid())
   professionalId String
   professional   ProfessionalProfile @relation(fields: [professionalId], references: [id])
   signalType     String
-  severity       String   @default("LOW")
-  createdAt      DateTime @default(now())
+  severity       String              @default("LOW")
+  createdAt      DateTime            @default(now())
 
   actions RiskAction[]
 
-  @@map("risk_signals")
   @@index([professionalId])
+  @@map("risk_signals")
 }
 
 model RiskAction {
-  id           String   @id @default(cuid())
+  id           String     @id @default(cuid())
   riskSignalId String
   riskSignal   RiskSignal @relation(fields: [riskSignalId], references: [id])
-  action       String   // ALLOW | STEP_UP_VERIFICATION | MANUAL_REVIEW | TEMPORARY_LIMIT | SERVICE_DISABLE | SUSPEND | REVERIFY
+  action       String // ALLOW | STEP_UP_VERIFICATION | MANUAL_REVIEW | TEMPORARY_LIMIT | SERVICE_DISABLE | SUSPEND | REVERIFY
   reasonCode   String
   actorAdminId String?
-  createdAt    DateTime @default(now())
+  createdAt    DateTime   @default(now())
 
   @@map("risk_actions")
 }
 
 model BlockedRelationship {
-  id          String @id @default(cuid())
-  customerId  String
+  id             String   @id @default(cuid())
+  customerId     String
   professionalId String
-  createdAt   DateTime @default(now())
+  createdAt      DateTime @default(now())
 
-  @@map("blocked_relationships")
   @@unique([customerId, professionalId])
+  @@map("blocked_relationships")
 }
 
 model AdminUser {
   id        String   @id @default(cuid())
   userId    String   @unique
   user      User     @relation(fields: [userId], references: [id])
-  role      String   // OPS | TRUST_SAFETY | FINANCE | SUPER_ADMIN
+  role      String // OPS | TRUST_SAFETY | FINANCE | SUPER_ADMIN
   createdAt DateTime @default(now())
 
   @@map("admin_users")
@@ -1113,8 +1121,8 @@ model AuditLog {
   requestId  String?
   createdAt  DateTime @default(now())
 
-  @@map("audit_logs")
   @@index([targetType, targetId])
+  @@map("audit_logs")
 }
 
 model AppConfig {

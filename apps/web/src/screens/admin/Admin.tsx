@@ -133,6 +133,12 @@ function Application({ id, onBack }: { id: string; onBack: () => void }) {
           {d.url ? <Text style={styles.link} accessibilityRole="link" onPress={() => window.open(d.url!, "_blank", "noopener")}>פתיחת המסמך ›</Text> : <Text style={styles.rowSub}>אין קובץ</Text>}
         </View>
       ))}
+      <View style={styles.row}>
+        <Text style={styles.rowTitle}>
+          {v.portrait?.kind === "PHOTO" ? "תמונה" : v.portrait?.kind === "CHARACTER" ? "תמונה · הדמות של המקצוע" : "תמונה · לא נבחרה"}
+        </Text>
+        {v.portrait?.url ? <Text style={styles.link} accessibilityRole="link" onPress={() => window.open(v.portrait!.url!, "_blank", "noopener")}>פתיחת התמונה ›</Text> : null}
+      </View>
       <View style={styles.actions}>
         <Action labelHe="אישור החשבון" disabled={busy} onPress={() => decide(() => api.admin.decideAccount(id, { approve: true }))} />
         <Action labelHe="סירוב" danger disabled={busy} onPress={() => { const r = refusal(); return r ? decide(() => api.admin.decideAccount(id, r)) : run(async () => { throw new Error(needReason); }); }} />

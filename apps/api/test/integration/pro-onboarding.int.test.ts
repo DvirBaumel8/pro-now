@@ -77,7 +77,8 @@ describe("joining as a professional", () => {
     expect(res.statusCode, res.body).toBe(200);
     proId = res.json().profile.id;
     expect(res.json().profile).toMatchObject({ addressAs: "F", verificationStatus: "DRAFT" });
-    expect(res.json().missing).toEqual(expect.arrayContaining(["SERVICES", "AREA", "DOCUMENT:GOVERNMENT_ID", "DOCUMENT:SELFIE", "DOCUMENT:TAX_FILE"]));
+    expect(res.json().missing).toEqual(expect.arrayContaining(["SERVICES", "AREA", "DOCUMENT:GOVERNMENT_ID", "DOCUMENT:SELFIE", "DOCUMENT:TAX_FILE", "PORTRAIT"]));
+    expect(res.json().profile.portrait).toBeNull();
     expect(res.json().missing.join()).not.toMatch(/CRIMINAL/);
   });
 
@@ -94,6 +95,31 @@ describe("joining as a professional", () => {
     expect(res.statusCode).toBe(409);
     expect(res.json().missing).toEqual(expect.arrayContaining([`PRICE:${approvedSvc.code}`, "AREA"]));
     expect(res.json().missing.some((m: string) => m.startsWith(`CREDENTIAL:${approvedSvc.code}:`))).toBe(true);
+  });
+
+  it("the portrait is a photo of their own, or the trade's character (Amit, 2026-09-30: required)", async () => {
+    const put = (payload: object, jar = applicant) => app.inject({ method: "PUT", url: "/api/v1/pro/application/portrait", headers: as(jar), payload });
+
+    const someoneElses = await upload(customer, "PHOTO");
+    expect((await put({ kind: "PHOTO", uploadId: someoneElses })).statusCode).toBe(422);
+    expect((await put({ kind: "PHOTO" })).statusCode).toBe(400);
+    expect((await put({ kind: "CHARACTER", uploadId: someoneElses })).statusCode).toBe(400);
+
+    const character = await put({ kind: "CHARACTER" });
+    expect(character.statusCode, character.body).toBe(200);
+    expect(character.json().profile.portrait).toEqual({ kind: "CHARACTER" });
+    expect(character.json().missing).not.toContain("PORTRAIT");
+
+    const photo = await put({ kind: "PHOTO", uploadId: await upload(applicant, "PHOTO") });
+    expect(photo.statusCode, photo.body).toBe(200);
+    expect(photo.json().profile.portrait).toEqual({ kind: "PHOTO" });
+    // Only the admin sees the photo, and only through a short-lived link.
+    const seen = await app.inject({ method: "GET", url: `/api/v1/admin/professionals/${proId}`, headers: as(admin) });
+    expect(seen.statusCode, seen.body).toBe(200);
+    expect(seen.json().portrait).toMatchObject({ kind: "PHOTO", mime: "image/jpeg" });
+    expect(seen.json().portrait.url).toMatch(/^https?:\/\//);
+    // Not yet to customers: a professional's face reaches a customer only once a photo can be approved.
+    expect((await db.professionalProfile.findUniqueOrThrow({ where: { id: proId } })).profilePhotoRef).toBeNull();
   });
 
   it("with everything required, it goes to review", async () => {

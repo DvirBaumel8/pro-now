@@ -514,7 +514,8 @@ second browser (W7).
 
 **DONE 2026-09-30** (report: `docs/reports/W7.md`, QA: `docs/qa/W7.md`).
 Also closes W6's two-browser acceptance. Left out: services beyond our
-list, the shop's design, automatic registry checks.
+list, the shop's design, automatic registry checks. Added after W7
+(2026-09-30): the required photo-or-character step.
 
 - **Onboarding:**
   1. Profile: name and photo (through W4).

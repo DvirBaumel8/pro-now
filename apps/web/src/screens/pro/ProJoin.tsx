@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useNavigate } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "@pro-now/api-client";
@@ -9,24 +9,27 @@ import { PrimaryAction, customerDarkTheme, spacing, type as t } from "@pro-now/u
 import { api } from "../../api";
 import { useFrame } from "../../frame";
 import { compressImage } from "../../media";
+import { tradeCharacterFor } from "../../tradeCharacter";
 import { ErrorScreen, LoadingScreen } from "../../states";
 
 /**
  * JOINING AS A PROFESSIONAL (docs/21 W7), in the demo's order and words
  * (ProOnboardingBody, Amit 2026-09-29): details · what you do · area ·
- * documents · prices · send. Work arrives only after PRO NOW approves.
+ * documents · prices · your photo · send. Work arrives only after PRO NOW
+ * approves.
  *
  * Everything that decides the outcome is the server's: which services are
  * open, which documents each one requires, what is still missing. The
  * screen keeps only what is being typed; every step saves, and the next
  * one is drawn from the server's answer.
  *
- * Deferred, as the demo itself allows: the shop's design (skippable by
- * Amit's rule) and a profile photo. Services beyond our list: later.
+ * Deferred, as the demo itself allows: the shop's design (the one thing
+ * Amit's rule lets a professional skip). The photo is required (Amit,
+ * 2026-09-30). Services beyond our list: later.
  */
 export const applicationKey = ["pro-application"] as const;
 
-const STEPS = ["פרטים", "מה אתם עושים", "אזור", "מסמכים", "מחירים", "שליחה"] as const;
+const STEPS = ["פרטים", "מה אתם עושים", "אזור", "מסמכים", "מחירים", "התמונה שלכם", "שליחה"] as const;
 const RADII_KM = [5, 10, 15, 25, 40];
 const ACCOUNT_DOCS: Array<{ kind: "GOVERNMENT_ID" | "SELFIE" | "TAX_FILE"; labelHe: string; noteHe: string }> = [
   { kind: "GOVERNMENT_ID", labelHe: "תעודת זהות", noteHe: "צילום ברור של שני הצדדים, או של הרישיון" },
@@ -61,6 +64,7 @@ function missingHe(code: string, view: ProApplicationView): string {
     case "AREA": return "אזור עבודה";
     case "DOCUMENT": return ACCOUNT_DOCS.find((d) => d.kind === a)?.labelHe ?? "מסמך";
     case "PRICE": return `מחיר ל${svc(a)}`;
+    case "PORTRAIT": return "תמונה או דמות";
     case "CREDENTIAL": return `${REQUIREMENT_HE[(b ?? "").split(":")[0] ?? ""] ?? "מסמך"} ל${svc(a)}`;
     default: return code;
   }
@@ -140,6 +144,7 @@ export function ProJoin() {
       case 2: return view ? <Area view={view} busy={busy} onSave={(a) => save(() => api.proSetArea(a), 3)} /> : null;
       case 3: return view ? <Documents view={view} busy={busy} save={save} onNext={() => setStep(4)} /> : null;
       case 4: return view ? <Prices view={view} busy={busy} save={save} onNext={() => setStep(5)} /> : null;
+      case 5: return view ? <Portrait view={view} busy={busy} save={save} onNext={() => setStep(6)} /> : null;
       default:
         return view ? (
           <Send
@@ -364,9 +369,65 @@ function Prices({ view, busy, save, onNext }: { view: ProApplicationView; busy: 
   );
 }
 
+/**
+ * Their own photo, or their trade's drawn character (the demo's step 6).
+ * Required: "המשך" waits for one of the two. The photo stays with the
+ * application for the admin; customers do not see it yet.
+ */
+function Portrait({ view, busy, save, onNext }: { view: ProApplicationView; busy: boolean; save: (fn: () => Promise<unknown>) => Promise<void>; onNext: () => void }) {
+  const chosen = view.profile.portrait?.kind ?? null;
+  const [preview, setPreview] = useState<string | null>(null);
+  useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
+  const character = tradeCharacterFor(view.services[0]?.code);
+  const takePhoto = async () => {
+    const file = await pickFile("image/*", "user");
+    if (!file) return;
+    await save(async () => {
+      const blob = await compressImage(file);
+      const uploadId = (await api.uploadMedia({ kind: "PHOTO", mime: "image/jpeg", body: blob })).upload.id;
+      const next = await api.proSetPortrait({ kind: "PHOTO", uploadId });
+      setPreview(URL.createObjectURL(blob));
+      return next;
+    });
+  };
+  return (
+    <View style={styles.section}>
+      <Text style={styles.title}>התמונה שלכם</Text>
+      <Text style={styles.soft}>לקוחות סומכים על מי שהם רואים. תמונה אמיתית — או הדמות של המקצוע שלכם מהעיר.</Text>
+      <View style={styles.row}>
+        <Pressable
+          onPress={() => void takePhoto()}
+          disabled={busy}
+          accessibilityRole="radio"
+          accessibilityState={{ checked: chosen === "PHOTO" }}
+          accessibilityLabel="סלפי או תמונה"
+          style={[styles.portraitOption, chosen === "PHOTO" && styles.portraitOn]}
+        >
+          {preview ? <Image source={{ uri: preview }} style={styles.portraitImage} /> : <Text style={styles.portraitPlus}>{chosen === "PHOTO" ? "✓" : "+"}</Text>}
+          <Text style={styles.portraitLabel}>{chosen === "PHOTO" ? "התמונה שלכם ✓" : "סלפי או תמונה"}</Text>
+          {chosen === "PHOTO" ? <Text style={styles.portraitNote}>לחצו כדי להחליף</Text> : null}
+        </Pressable>
+        <Pressable
+          onPress={() => void save(() => api.proSetPortrait({ kind: "CHARACTER" }))}
+          disabled={busy}
+          accessibilityRole="radio"
+          accessibilityState={{ checked: chosen === "CHARACTER" }}
+          accessibilityLabel="הדמות של המקצוע"
+          style={[styles.portraitOption, chosen === "CHARACTER" && styles.portraitOn]}
+        >
+          <Image source={{ uri: character }} style={styles.portraitImage} resizeMode="contain" />
+          <Text style={styles.portraitLabel}>{chosen === "CHARACTER" ? "הדמות ✓" : "הדמות"}</Text>
+          <Text style={styles.portraitNote}>במקום תמונה</Text>
+        </Pressable>
+      </View>
+      <PrimaryAction labelHe={chosen ? "המשך" : "בחרו תמונה או דמות"} disabled={busy || !chosen} onPress={onNext} />
+    </View>
+  );
+}
+
 function Send({ view, busy, onSubmit, onGoTo }: { view: ProApplicationView; busy: boolean; onSubmit: () => void; onGoTo: (step: number) => void }) {
   const stepOf = (code: string) =>
-    code === "ADDRESS_AS" ? 0 : code === "SERVICES" ? 1 : code === "AREA" ? 2 : code.startsWith("PRICE") ? 4 : 3;
+    code === "ADDRESS_AS" ? 0 : code === "SERVICES" ? 1 : code === "AREA" ? 2 : code.startsWith("PRICE") ? 4 : code === "PORTRAIT" ? 5 : 3;
   return (
     <View style={styles.section}>
       <Text style={styles.title}>שליחה לאישור</Text>
@@ -450,5 +511,23 @@ const styles = StyleSheet.create({
   checkOn: { backgroundColor: colors.action, borderColor: colors.action },
   docRow: { flexDirection: "row-reverse", alignItems: "flex-start", gap: spacing.md, paddingVertical: spacing.sm },
   priceBlock: { gap: spacing.sm, paddingVertical: spacing.sm },
+  portraitOption: {
+    flex: 1,
+    minWidth: 140,
+    minHeight: 190,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: colors.surfaceElevated,
+    backgroundColor: colors.surfaceElevated,
+  },
+  portraitOn: { borderColor: colors.action },
+  portraitImage: { width: 110, height: 110, borderRadius: 55 },
+  portraitPlus: { ...t.h2, color: colors.textPrimary },
+  portraitLabel: { ...t.bodyStrong, color: colors.textPrimary, textAlign: "center", writingDirection: "rtl" },
+  portraitNote: { ...t.meta, color: colors.textSecondary, textAlign: "center", writingDirection: "rtl" },
   error: { ...t.body, color: colors.statusDanger, textAlign: "right", writingDirection: "rtl" },
 });
