@@ -7443,10 +7443,33 @@ const STREET_CSS = `
  * professional now stands in the doorway of their own shop in the city,
  * which is where they belong.
  */
+/*
+ * …AND NOW IT IS ALIVE.
+ *
+ * Amit, 2026-10-01, on this picture: *"איפה כל השמחת חיים והחיות? למה אין
+ * רחוב חי ורואים חנויות ובעלי מקצוע — כל מה שעשינו?"* A still painting was
+ * not it. Our twelve shops, each with its professional standing in the
+ * doorway (the `venue_*` drawings, joined into one strip so the published
+ * file count barely moves), pass slowly along the pavement, as if you were
+ * walking down our street, over the evening city. Nobody bobs or floats —
+ * the street moves, the people stay at their doors.
+ */
+const WELCOME_CSS = "@keyframes pnParade{from{transform:translateX(0)}to{transform:translateX(-50%)}}";
 function WelcomeScene() {
   return (
     <div aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden", background: "#2a1838" }}>
-      <StreetScene painted />
+      <style>{WELCOME_CSS}</style>
+      <div style={{ position: "absolute", inset: 0, opacity: 0.55, filter: "blur(1.5px)" }}>
+        <StreetScene painted />
+      </div>
+      {/* the pavement the shops stand on */}
+      <div style={{ position: "absolute", left: 0, right: 0, top: "38%", height: "8%", background: "linear-gradient(180deg, rgba(255,170,110,.22), rgba(42,24,56,0))" }} />
+      <div style={{ position: "absolute", left: 0, right: 0, top: "9%", height: "31%", overflow: "hidden" }}>
+        <div style={{ display: "flex", height: "100%", width: "max-content", animation: "pnParade 90s linear infinite", willChange: "transform" }}>
+          <img src="./world/welcome_street.webp" alt="" style={{ height: "100%", display: "block", filter: "drop-shadow(0 14px 18px rgba(0,0,0,.45))" }} />
+          <img src="./world/welcome_street.webp" alt="" style={{ height: "100%", display: "block", filter: "drop-shadow(0 14px 18px rgba(0,0,0,.45))" }} />
+        </div>
+      </div>
     </div>
   );
 }
