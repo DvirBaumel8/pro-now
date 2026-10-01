@@ -47,5 +47,31 @@ export default tseslint.config(
     languageOptions: {
       globals: { ...globals.browser, ...globals.es2022 },
     },
+  },
+  {
+    // The web app's browser tests. Playwright reads a fixture's dependencies
+    // from its first parameter, so `async ({}, use)` is how one says "none".
+    files: ["apps/web/e2e/**/*.ts", "e2e/**/*.ts"],
+    rules: { "no-empty-pattern": "off" },
+  },
+  {
+    // Each test must arrive from its own address (e2e/fixtures.ts). Taken
+    // straight from Playwright, every sign-in shares one address and meets
+    // the production build's sign-in limit: a 429, seen first on 2026-10-01.
+    files: ["apps/web/e2e/**/*.spec.ts", "e2e/**/*.spec.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "@playwright/test",
+              importNames: ["test", "expect"],
+              message: "Import test and expect from ./fixtures, so each test is its own person.",
+            },
+          ],
+        },
+      ],
+    },
   }
 );

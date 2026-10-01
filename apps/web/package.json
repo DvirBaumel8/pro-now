@@ -10,7 +10,7 @@
     "test": "vitest run src",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src",
+    "lint": "eslint src e2e",
     "e2e": "playwright test",
     "parity": "playwright test -c parity.config.ts"
   },
