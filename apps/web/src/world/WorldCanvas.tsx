@@ -113,7 +113,7 @@ export function WorldCanvas({
     }
 
     const scene3d = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1_000);
+    const camera = new THREE.PerspectiveCamera(72, 1, 0.1, 400);
     camera.position.set(0, 4, 8);
     camera.lookAt(0, 0, 0);
     const handle = sceneFactory?.({ renderer, scene: scene3d, camera, model: modelRef.current, onEvent: (event) => onEventRef.current(event) }) ?? {
