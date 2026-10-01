@@ -3,7 +3,8 @@ import { Animated, Easing, Image, Pressable, ScrollView, StyleSheet, Text, TextI
 
 import { APPROVAL_STEPS_HE, onboardingDocsFor, type OnboardingDoc, type PricingKind } from "@pro-now/demo-types";
 
-import { palette, scale, spacing } from "../theme";
+import { palette, proTheme, scale, spacing } from "../theme";
+import { MapSurface } from "../components/MapSurface";
 import { matchServicesByText, type ServiceMatchRule } from "../service-match";
 import { PinMark, StarMark } from "../components/marks";
 
@@ -515,11 +516,9 @@ export function ProOnboardingBody({
             <View style={s.radar}>
               {/* A drawn area, not the old neighbourhood picture (Amit: "ישנה ולא
                   קשורה"): the distances as quiet rings, his chosen one in coral. */}
-              {[0.9, 0.62, 0.36].map((k) => (
-                <View key={k} style={[s.radarGuide, { width: 300 * k, height: 300 * k, borderRadius: 150 * k }]} />
-              ))}
-              <View style={s.radarAxisH} />
-              <View style={s.radarAxisV} />
+              {/* Our own map's streets — the same map the app draws for him
+                  everywhere else (Amit: "תמונה איתור שקשורה למפה שלנו"). */}
+              <MapSurface colors={proTheme.colors} dark height={170} style={StyleSheet.absoluteFillObject} />
               <RadiusRing size={60 + radius * 4} />
               <View style={s.radarDot} />
               <Text style={s.radarText}>{city.trim() || "הבסיס שלך"} · {radius} ק״מ</Text>
