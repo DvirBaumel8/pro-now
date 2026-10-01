@@ -4,6 +4,7 @@ import { AddressPickerBody, type LiveLocationState, type SavedAddress } from "@p
 import { useNavigate } from "react-router";
 
 import { api } from "../api";
+import { IL_MOBILE, resolveAddress, useOrderTarget } from "../orderTarget";
 import { ErrorScreen, LoadingScreen } from "../states";
 import { useFrame } from "../frame";
 
@@ -14,13 +15,23 @@ export function Addresses() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const addresses = useQuery({ queryKey: addressesKey, queryFn: api.getAddresses });
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  /*
+   * Where the next request goes, and who will be at the door — chosen here,
+   * as in the demo, not on the request form (docs/sync/SYNC-2026-10-01 C3).
+   */
+  const { target, setTarget } = useOrderTarget();
+  const [selectedId, setSelectedId] = useState<string | null>(target.addressId);
+  const onSiteFor = (addressId: string | null, r: { forSomeoneElse: boolean; recipientNameHe: string; recipientPhone: string }) =>
+    setTarget({ addressId, onSite: r.forSomeoneElse ? { name: r.recipientNameHe, phone: r.recipientPhone } : null });
+  // The person at home, kept for the address being saved below.
+  const [pendingOnSite, setPendingOnSite] = useState<{ forSomeoneElse: boolean; recipientNameHe: string; recipientPhone: string } | null>(null);
   const [live, setLive] = useState<LiveLocationState>({ status: "idle" });
   const [liveFix, setLiveFix] = useState<{ lat: number; lng: number; labelHe: string; placeId: string | null } | null>(null);
 
   const save = useMutation({
     mutationFn: api.createAddress,
-    onSuccess: async () => {
+    onSuccess: async ({ address }) => {
+      onSiteFor(address.id, pendingOnSite ?? { forSomeoneElse: false, recipientNameHe: "", recipientPhone: "" });
       await queryClient.invalidateQueries({ queryKey: addressesKey });
       navigate("/", { replace: true });
     },
@@ -60,18 +71,25 @@ export function Addresses() {
   return (
     <AddressPickerBody
       saved={saved}
-      selectedId={selectedId}
+      selectedId={resolveAddress(saved, selectedId)?.id ?? null}
       liveLocation={live}
-      forSomeoneElseEnabled={false}
+      forSomeoneElseEnabled
       onUseLiveLocation={onUseLiveLocation}
       onSelect={setSelectedId}
       onBack={() => navigate(-1)}
-      onConfirm={async ({ addressId, typedHe }) => {
+      onConfirm={async (r) => {
+        const { addressId, typedHe } = r;
         if (save.isPending) return;
+        if (r.forSomeoneElse && !IL_MOBILE.test(r.recipientPhone.trim())) {
+          window.alert("כתבו מספר נייד ישראלי של מי שיהיה בבית — הוא יקבל קישור עם שם המקצוען וקוד לדלת.");
+          return;
+        }
         if (addressId) {
+          onSiteFor(addressId, r);
           navigate("/", { replace: true });
           return;
         }
+        setPendingOnSite(r);
 
         const typed = typedHe.trim();
         let location = liveFix;

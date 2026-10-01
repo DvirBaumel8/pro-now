@@ -226,6 +226,7 @@ export function AddressPickerBody({
           <Surface colors={colors} level={1}>
             <View style={styles.switchRow}>
               <Switch
+                accessibilityLabel="הקריאה היא בשביל מישהו אחר"
                 value={forOther}
                 onValueChange={setForOther}
                 disabled={!forSomeoneElseEnabled}

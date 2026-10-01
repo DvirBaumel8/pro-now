@@ -23,6 +23,7 @@ import { categoryAsksForPerson, customerCategoryById, greetingAt, type CatalogSe
 import { api, useMe } from "../api";
 import { servicesForCategory } from "../categories";
 import { shortAddressHe } from "../addressLabel";
+import { resolveAddress, useOrderTarget } from "../orderTarget";
 import { signOutHere } from "../auth";
 import { CityHero, TradeBackdrop } from "../art/CityHero";
 import { worldSources } from "../art/worldSources";
@@ -97,7 +98,8 @@ export function Home() {
   const category = categoryId ? customerCategoryById(categoryId) : null;
   // The address the professional would be sent to: the form's own default.
   const addresses = useQuery({ queryKey: ["addresses"], queryFn: api.getAddresses });
-  const firstAddress = addresses.data?.addresses[0] ?? null;
+  const { target } = useOrderTarget();
+  const firstAddress = resolveAddress(addresses.data?.addresses ?? [], target.addressId);
   const servicePage = requestServiceId ? catalogServicePages[requestServiceId] : undefined;
   const closeService = () => {
     setTypedText("");
@@ -251,7 +253,12 @@ export function Home() {
             capture={media.capture}
             injectedText={media.transcript}
             seedQueryHe={seedQuery}
-            addressLabelHe={firstAddress ? shortAddressHe(firstAddress) : undefined}
+            // Whose door this is, as in the demo: a call for someone else says so.
+            addressLabelHe={
+              firstAddress
+                ? `${shortAddressHe(firstAddress)}${target.onSite ? ` · עבור ${target.onSite.name}` : ""}`
+                : undefined
+            }
             onChangeAddress={() => navigate("/addresses")}
             onSelectCategory={setCategoryId}
             onSelectService={setRequestServiceId}

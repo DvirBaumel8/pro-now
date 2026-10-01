@@ -6,6 +6,7 @@ import { queryClient, useMe } from "./api";
 import { useSession } from "./auth";
 import { Frame } from "./frame";
 import { WithHeader } from "./CustomerHeader";
+import { OrderTargetProvider } from "./orderTarget";
 import { ErrorScreen, LoadingScreen } from "./states";
 import { Home } from "./screens/Home";
 import { Job } from "./screens/Job";
@@ -71,6 +72,7 @@ export function App() {
       <BrowserRouter>
         <LiveChannel />
         <Frame>
+          <OrderTargetProvider>
           <Routes>
             <Route path="/welcome" element={<SignedOut><Welcome /></SignedOut>} />
             <Route path="/sign-in" element={<SignedOut><SignIn /></SignedOut>} />
@@ -91,6 +93,7 @@ export function App() {
             <Route path="/" element={<SignedIn><FirstRun><Home /></FirstRun></SignedIn>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </OrderTargetProvider>
         </Frame>
       </BrowserRouter>
     </QueryClientProvider>

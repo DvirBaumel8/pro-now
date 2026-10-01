@@ -20,17 +20,21 @@ test("the person at home gets a page with the professional and the door code", a
   expect(address.ok(), await address.text()).toBe(true);
   const pro = await dispatchableProfessional({ serviceCode: "HOME_PLUMB_LEAK", lat: LAT, lng: LNG, baseURL: baseURL! });
   try {
+    // The person at home is chosen with the address, from home's chip, as in
+    // the demo (docs/sync/SYNC-2026-10-01 C3): a switch, a name, a mobile.
+    await page.reload();
+    await page.getByRole("button", { name: "שינוי כתובת" }).click();
+    await page.getByRole("switch", { name: "הקריאה היא בשביל מישהו אחר" }).click();
+    await page.getByRole("textbox", { name: "שם מי שנמצא בבית" }).fill("סבא יוסף");
+    await page.getByRole("textbox", { name: "טלפון של מי שנמצא בבית" }).fill("050-1234567");
+    await page.getByRole("button", { name: "אישור הכתובת" }).click();
+    await expect(page.getByText(/עבור סבא יוסף/)).toBeVisible();
+
     await page.getByRole("textbox", { name: "ספרו מה צריך" }).fill("נזילה אצל סבא");
     await page.getByRole("button", { name: /המשך עם נזילה/ }).click();
-    // The service page first, as in the demo; then the form.
+    // The service page first, as in the demo; then the form, which only describes the job.
     await page.getByRole("button", { name: /^בקשת .* עכשיו$/ }).click();
-
-    // The person at home belongs to this order: a switch, a name, a mobile.
-    await page.getByRole("switch", { name: "הקריאה היא בשביל מישהו אחר" }).click();
-    await page.getByRole("button", { name: "שליחת הקריאה" }).click();
-    await expect(page.getByText("כתבו את השם ומספר הנייד של מי שיהיה בבית.")).toBeVisible();
-    await page.getByRole("textbox", { name: "שם מי שיהיה בבית" }).fill("סבא יוסף");
-    await page.getByRole("textbox", { name: "מספר הנייד של מי שיהיה בבית" }).fill("050-1234567");
+    await expect(page.getByRole("switch")).toHaveCount(0);
     await page.getByRole("button", { name: "שליחת הקריאה" }).click();
     await expect(page).toHaveURL(/\/jobs\//);
     const jobId = new URL(page.url()).pathname.split("/").pop()!;

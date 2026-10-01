@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import {
-  BackButton,
   DescribeFaultBody,
   catalogServicePages,
   customerDarkTheme,
@@ -14,6 +13,7 @@ import {
 import { api } from "../api";
 import { composeDescription, detailsNoteHe, livePriceHe, priceRows } from "../order";
 import { MediaUploadError, sendErrorHe } from "../sendErrors";
+import { resolveAddress, useOrderTarget } from "../orderTarget";
 import { mediaUploadInputs } from "../request-media";
 import { resolveServiceId, ServiceCatalogueMismatchError, ServiceNotOpenError } from "../serviceResolver";
 import { useWebMediaCapture } from "../useWebMediaCapture";
@@ -37,12 +37,15 @@ export function RequestComposer({ serviceId, media, onBack, onOpenAddresses, onS
   const width = frame.width;
   const height = heightIn ?? frame.height;
   const addresses = useQuery({ queryKey: ["addresses"], queryFn: api.getAddresses });
-  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+  /*
+   * Where the professional goes and who will be there are chosen from home's
+   * address chip and the address screen, as in the demo; this form only
+   * describes the job (docs/sync/SYNC-2026-10-01 C3).
+   */
+  const { target } = useOrderTarget();
+  const address = resolveAddress(addresses.data?.addresses ?? [], target.addressId);
+  const [needsAddress, setNeedsAddress] = useState(false);
   const [text, setText] = useState(initialText);
-  // Ordering for someone else: the person at home belongs to this order only.
-  const [forOther, setForOther] = useState(false);
-  const [onSiteName, setOnSiteName] = useState("");
-  const [onSitePhone, setOnSitePhone] = useState("");
   /*
    * AS IN THE DEMO: no problem questions before calling (Amit, 2026-09-29) —
    * words, a recording, a photo; and where the work is priced by its kind, a
@@ -72,12 +75,6 @@ export function RequestComposer({ serviceId, media, onBack, onOpenAddresses, onS
   );
   const voice = media.voice ? { uri: null, seconds: media.voice.seconds, mimeType: media.voice.blob.type } : null;
 
-  useEffect(() => {
-    if (selectedAddressId === null && addresses.data?.addresses[0]) {
-      setSelectedAddressId(addresses.data.addresses[0].id);
-    }
-  }, [addresses.data, selectedAddressId]);
-
   const onTogglePick = useCallback((id: string) => {
     setPickedIds((current) => (current.includes(id) ? current.filter((x) => x !== id) : [...current, id]));
   }, []);
@@ -89,12 +86,9 @@ export function RequestComposer({ serviceId, media, onBack, onOpenAddresses, onS
   const send = useCallback((withoutMedia = false) => {
     void (async () => {
       if (sending) return;
-      if (!selectedAddressId) {
-        setErrorHe("בחרו כתובת לפני שליחת הקריאה.");
-        return;
-      }
-      if (forOther && (!onSiteName.trim() || !IL_MOBILE.test(onSitePhone.trim()))) {
-        setErrorHe("כתבו את השם ומספר הנייד של מי שיהיה בבית.");
+      if (!address) {
+        setErrorHe("עוד אין כתובת שמורה. הוסיפו כתובת כדי שנדע לאן לשלוח את המקצוען.");
+        setNeedsAddress(true);
         return;
       }
       setSending(true);
@@ -116,14 +110,14 @@ export function RequestComposer({ serviceId, media, onBack, onOpenAddresses, onS
         const { job } = await api.createJob(
           {
             serviceId: dispatchServiceId,
-            addressId: selectedAddressId,
+            addressId: address.id,
             description: composeDescription(serviceId, text, pickedIds, needsDestination ? destinationHe : null),
             mediaRefs,
             structuredAnswers: {
               ...(pickedIds.length > 0 ? { exampleListPicks: pickedIds } : {}),
               ...(needsDestination && destinationHe.trim() ? { destination: destinationHe.trim() } : {}),
             },
-            ...(forOther ? { onSite: { name: onSiteName.trim(), phone: onSitePhone.trim() } } : {}),
+            ...(target.onSite ? { onSite: { name: target.onSite.name.trim(), phone: target.onSite.phone.trim() } } : {}),
           },
           idempotencyKey
         );
@@ -141,36 +135,19 @@ export function RequestComposer({ serviceId, media, onBack, onOpenAddresses, onS
         setSending(false);
       }
     })();
-  }, [destinationHe, forOther, idempotencyKey, media.photos, media.voice, needsDestination, onSent, onSiteName, onSitePhone, pickedIds, selectedAddressId, sending, serviceId, text]);
+  }, [address, destinationHe, idempotencyKey, media.photos, media.voice, needsDestination, onSent, pickedIds, sending, serviceId, target.onSite, text]);
 
   if (addresses.isPending) return <LoadingScreen />;
   if (addresses.isError) return <ErrorScreen offline={!navigator.onLine} onRetry={() => void addresses.refetch()} />;
 
   return (
     <View style={[styles.screen, { width, height, backgroundColor: customerDarkTheme.colors.bg }]}>
-      {/*
-        * BACK, AT THE TOP. The form's own chevron sat under the address and
-        * the "for someone else" panels, halfway down the screen, where it
-        * did not read as the way out (Dvir, 2026-09-30).
-        */}
-      <View style={styles.topBar}>
-        <BackButton onPress={onBack} tone="dark" placement="inline" labelHe="חזרה" />
-      </View>
-      <AddressChoice
-        addresses={addresses.data.addresses}
-        selectedId={selectedAddressId}
-        onSelect={setSelectedAddressId}
-        onOpenAddresses={onOpenAddresses}
-      />
-      <ForSomeoneElse
-        on={forOther}
-        onToggle={() => setForOther((v) => !v)}
-        name={onSiteName}
-        phone={onSitePhone}
-        onName={setOnSiteName}
-        onPhone={setOnSitePhone}
-      />
       {errorHe ? <Text accessibilityRole="alert" style={styles.error}>{errorHe}</Text> : null}
+      {needsAddress && !address ? (
+        <Pressable onPress={onOpenAddresses} accessibilityRole="button" style={styles.sendWithout}>
+          <Text style={styles.sendWithoutText}>הוספת כתובת</Text>
+        </Pressable>
+      ) : null}
       {uploadFailed && !sending ? (
         <Pressable onPress={() => send(true)} accessibilityRole="button" style={styles.sendWithout}>
           <Text style={styles.sendWithoutText}>שליחת הקריאה בלי הקבצים</Text>
@@ -220,121 +197,12 @@ export function RequestComposer({ serviceId, media, onBack, onOpenAddresses, onS
             onStopRecord={media.capture.onStopRecord}
             onDeleteVoice={media.capture.onDeleteVoice}
             onSend={() => send()}
+            onBack={onBack}
             width={width}
             height={formH}
           />
         ) : null}
       </View>
-    </View>
-  );
-}
-
-const IL_MOBILE = /^(\+972-?|0)5\d-?\d{3}-?\d{4}$/;
-const TOP_BAR_H = 60;
-const FOR_OTHER_CLOSED_H = 48;
-const FOR_OTHER_OPEN_H = 148;
-
-/**
- * ORDERING FOR SOMEONE ELSE (docs/21 W6; the demo, 2026-09-28). The person
- * at home belongs to this order, not to the address: a plumber for grandpa
- * today says nothing about who is at that address next time. They get a
- * link with who is coming and a door code, and nothing to approve or pay.
- */
-function ForSomeoneElse({
-  on,
-  onToggle,
-  name,
-  phone,
-  onName,
-  onPhone,
-}: {
-  on: boolean;
-  onToggle: () => void;
-  name: string;
-  phone: string;
-  onName: (v: string) => void;
-  onPhone: (v: string) => void;
-}) {
-  return (
-    <View style={[styles.otherPanel, { height: on ? FOR_OTHER_OPEN_H : FOR_OTHER_CLOSED_H }]}>
-      <Pressable onPress={onToggle} accessibilityRole="switch" accessibilityState={{ checked: on }} style={styles.otherToggle}>
-        <View style={[styles.check, on && styles.checkOn]} />
-        <Text style={styles.addressTitle}>הקריאה היא בשביל מישהו אחר</Text>
-      </Pressable>
-      {on ? (
-        <View style={styles.otherFields}>
-          <TextInput
-            value={name}
-            onChangeText={onName}
-            placeholder="שם מי שיהיה בבית"
-            accessibilityLabel="שם מי שיהיה בבית"
-            placeholderTextColor={customerDarkTheme.colors.textSecondary}
-            style={styles.otherInput}
-            maxLength={60}
-          />
-          <TextInput
-            value={phone}
-            onChangeText={onPhone}
-            placeholder="מספר נייד"
-            accessibilityLabel="מספר הנייד של מי שיהיה בבית"
-            placeholderTextColor={customerDarkTheme.colors.textSecondary}
-            style={styles.otherInput}
-            keyboardType="phone-pad"
-            inputMode="tel"
-            maxLength={16}
-          />
-          <Text style={styles.otherNote}>יקבלו קישור עם שם המקצוען וקוד לדלת. אין להם מה לאשר או לשלם.</Text>
-        </View>
-      ) : null}
-    </View>
-  );
-}
-
-function AddressChoice({
-  addresses,
-  selectedId,
-  onSelect,
-  onOpenAddresses,
-}: {
-  addresses: Array<{ id: string; label: string | null; formatted: string }>;
-  selectedId: string | null;
-  onSelect: (id: string) => void;
-  onOpenAddresses: () => void;
-}) {
-  return (
-    <View style={styles.addressPanel}>
-      <View style={styles.addressHeading}>
-        <Text style={styles.addressTitle}>לאן שולחים את המקצוען?</Text>
-        <Pressable onPress={onOpenAddresses} accessibilityRole="button">
-          <Text style={styles.addressLink}>ניהול כתובות</Text>
-        </Pressable>
-      </View>
-      {addresses.length > 0 ? (
-        <View style={styles.addressRows}>
-          {addresses.slice(0, 3).map((address) => {
-            const selected = selectedId === address.id;
-            return (
-              <Pressable
-                key={address.id}
-                onPress={() => onSelect(address.id)}
-                accessibilityRole="radio"
-                accessibilityState={{ selected }}
-                style={[styles.addressRow, selected && styles.addressRowSelected]}
-              >
-                <View style={[styles.radio, selected && styles.radioSelected]} />
-                <View style={styles.addressCopy}>
-                  <Text style={styles.addressLabel}>{address.label ?? "כתובת"}</Text>
-                  <Text style={styles.addressText} numberOfLines={1}>{address.formatted}</Text>
-                </View>
-              </Pressable>
-            );
-          })}
-        </View>
-      ) : (
-        <Pressable onPress={onOpenAddresses} accessibilityRole="button" style={styles.emptyAddress}>
-          <Text style={styles.emptyAddressText}>אין עדיין כתובת שמורה — הוסיפו אחת כדי לשלוח קריאה.</Text>
-        </Pressable>
-      )}
     </View>
   );
 }
@@ -345,36 +213,6 @@ const styles = StyleSheet.create({
   formArea: { flex: 1 },
   sendWithout: { alignSelf: "flex-end", marginHorizontal: spacing.md, marginTop: spacing.xs, paddingVertical: spacing.xs },
   sendWithoutText: { color: customerDarkTheme.colors.action, fontWeight: "600", textAlign: "right", writingDirection: "rtl" },
-  topBar: { height: TOP_BAR_H, flexDirection: "row-reverse", alignItems: "center", paddingHorizontal: spacing.md },
-  addressPanel: { padding: spacing.md, backgroundColor: colors.surfaceElevated },
-  addressHeading: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" },
-  addressTitle: { color: colors.textPrimary, fontSize: 16, fontWeight: "800", writingDirection: "rtl" },
-  addressLink: { color: colors.trust, fontSize: 12, fontWeight: "800", writingDirection: "rtl" },
-  addressRows: { gap: spacing.xs, marginTop: spacing.sm },
-  addressRow: { flexDirection: "row-reverse", alignItems: "center", gap: spacing.sm, padding: spacing.sm, borderRadius: 12, backgroundColor: colors.bg },
-  addressRowSelected: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.trust },
-  radio: { width: 16, height: 16, borderRadius: 8, borderWidth: 2, borderColor: colors.textSecondary },
-  otherPanel: { paddingHorizontal: spacing.md, backgroundColor: colors.surfaceElevated, borderTopWidth: 1, borderTopColor: colors.bg },
-  otherToggle: { flexDirection: "row-reverse", alignItems: "center", gap: spacing.sm, height: FOR_OTHER_CLOSED_H },
-  check: { width: 18, height: 18, borderRadius: 5, borderWidth: 2, borderColor: colors.textSecondary },
-  checkOn: { borderColor: colors.trust, backgroundColor: colors.trust },
-  otherFields: { gap: spacing.xs },
-  otherInput: {
-    height: 36,
-    borderRadius: 10,
-    paddingHorizontal: spacing.sm,
-    backgroundColor: colors.bg,
-    color: colors.textPrimary,
-    textAlign: "right",
-    writingDirection: "rtl",
-  },
-  otherNote: { color: colors.textSecondary, fontSize: 12, textAlign: "right", writingDirection: "rtl" },
-  radioSelected: { borderColor: colors.trust, backgroundColor: colors.trust },
-  addressCopy: { flex: 1, alignItems: "flex-end" },
-  addressLabel: { color: colors.textPrimary, fontSize: 13, fontWeight: "800", writingDirection: "rtl" },
-  addressText: { color: colors.textSecondary, fontSize: 12, marginTop: 2, writingDirection: "rtl" },
-  emptyAddress: { marginTop: spacing.sm, padding: spacing.sm, backgroundColor: colors.bg, borderRadius: 12 },
-  emptyAddressText: { color: colors.textSecondary, textAlign: "right", writingDirection: "rtl" },
   error: { color: colors.statusDanger, paddingHorizontal: spacing.md, paddingTop: spacing.sm, textAlign: "right", writingDirection: "rtl" },
   sending: { color: colors.trust, paddingHorizontal: spacing.md, paddingTop: spacing.sm, textAlign: "right", writingDirection: "rtl" },
 });
