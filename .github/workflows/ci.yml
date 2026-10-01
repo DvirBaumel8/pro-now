@@ -197,8 +197,11 @@ jobs:
             sleep 2
           done
           echo "S3 bucket was never created" && exit 1
-      # The browser download is cached per Playwright version; the system
-      # packages it needs are installed every time (they live outside the cache).
+      # The browser download is cached per Playwright version. Its system
+      # libraries live outside the cache, but the runner image already has
+      # them (it ships Google Chrome), so `install-deps` — an apt update plus
+      # CJK/Thai fonts this suite never uses, 15–30s a job — runs only when
+      # the cached browser is actually missing a library.
       - name: Playwright version
         id: playwright
         working-directory: apps/web
@@ -212,8 +215,16 @@ jobs:
         run: npx playwright install --with-deps chromium
         working-directory: apps/web
       - if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps chromium
+        name: Chromium system libraries
         working-directory: apps/web
+        run: |
+          missing=$(ldd ~/.cache/ms-playwright/chromium*/chrome-*/chrome* 2>/dev/null | grep "not found" || true)
+          if [ -n "$missing" ]; then
+            echo "$missing"
+            npx playwright install-deps chromium
+          else
+            echo "Every library Chromium links against is present; install-deps skipped."
+          fi
       - run: npm run test:e2e
         env:
           E2E_PRODUCTION: ${{ matrix.build == 'production' && '1' || '0' }}
