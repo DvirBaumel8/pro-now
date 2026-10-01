@@ -21,6 +21,17 @@ test("a professional joins, is reviewed, and is approved for one service", async
   await page.goto(await linkFor(email));
   await expect(page).toHaveURL(/\/pro\/join$/);
 
+  // The four explanation slides first, as in the demo; each picture shows
+  // what its slide says (docs/sync/SYNC-2026-10-01 P1).
+  await expect(page.getByText("הרחוב הזה הוא גם שלך")).toBeVisible();
+  await page.getByRole("button", { name: /^הבא/ }).click();
+  await page.getByRole("button", { name: /^הבא/ }).click();
+  await expect(page.getByText("רואים את העבודה לפני שמקבלים")).toBeVisible();
+  await expect(page.getByText("קריאה חדשה")).toBeVisible();
+  await page.getByRole("button", { name: /^הבא/ }).click();
+  await expect(page.getByText("המחירון שלי")).toBeVisible();
+  await page.getByRole("button", { name: "בואו נתחיל" }).click();
+
   // 0 · the welcome, promising only what exists.
   await expect(page.getByText("ברחוב של כולם", { exact: false })).toBeVisible();
   await page.getByRole("button", { name: "בואו נתחיל" }).click();
