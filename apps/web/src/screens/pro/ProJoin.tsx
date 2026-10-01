@@ -318,6 +318,10 @@ function Services({ view, open, busy, onSave }: { view: ProApplicationView; open
       <Text style={styles.title}>מה אתם עושים?</Text>
       <Text style={styles.soft}>כתבו במילים שלכם, ונסמן את השירותים שמתאימים. כל שירות נבדק ומאושר בנפרד.</Text>
       <Field label="במילים שלכם" value={text} onChange={setText} max={200} placeholder="למשל: אינסטלטור, פותח סתימות ומחליף ברזים" />
+      {/* Nothing understood is said, not left as a list that did not move (the demo, a2bc4a5). */}
+      {text.trim().length >= 2 && suggested.size === 0 ? (
+        <Text style={styles.note}>לא זיהינו שירות מהמילים האלה. בחרו מהרשימה למטה, או נסו לכתוב אחרת — למשל ״חשמלאי״ או ״מספרת כלבים״.</Text>
+      ) : null}
       {ordered.map((s) => (
         <Pressable key={s.id} onPress={() => toggle(s.id)} accessibilityRole="checkbox" accessibilityState={{ checked: chosen.has(s.id) }} accessibilityLabel={s.nameHe} style={styles.listRow}>
           <View style={[styles.check, chosen.has(s.id) && styles.checkOn]} />
