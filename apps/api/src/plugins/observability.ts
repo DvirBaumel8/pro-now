@@ -6,7 +6,7 @@ import { noopAlertNotifier } from "../infra/alerts/alert-notifier.js";
 import { createTelegramAlertNotifier } from "../infra/alerts/telegram.js";
 
 /**
- * Error reporting and alerting (docs/23-OBSERVABILITY.md). Registered
+ * Error reporting and alerting (docs/16-DEPLOYMENT.md §Observability). Registered
  * first, so everything after it — including a plugin that fails to boot —
  * can report through `app.monitor`.
  */

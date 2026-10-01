@@ -17,7 +17,7 @@ export function Addresses() {
   const addresses = useQuery({ queryKey: addressesKey, queryFn: api.getAddresses });
   /*
    * Where the next request goes, and who will be at the door — chosen here,
-   * as in the demo, not on the request form (docs/sync/SYNC-2026-10-01 C3).
+   * as in the demo, not on the request form (docs/DEMO-SYNC.md, 2026-10-01 C3).
    */
   const { target, setTarget } = useOrderTarget();
   const [selectedId, setSelectedId] = useState<string | null>(target.addressId);

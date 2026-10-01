@@ -39,7 +39,7 @@ const DEPT_SHOP: Readonly<Record<string, string>> = {
 
 /**
  * A trade's page in front of its own shop (the demo's `TradeBackdrop`,
- * docs/sync/SYNC-2026-10-01 C2): the city, dimmer and drifting, with the
+ * docs/DEMO-SYNC.md, 2026-10-01 C2): the city, dimmer and drifting, with the
  * trade's shop from our street over it. The demo draws hair and home open
  * with their professional in the door; the product has only the street
  * fronts, so it uses those.

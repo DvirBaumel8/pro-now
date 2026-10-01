@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { clientErrorReportSchema } from "@pro-now/validation";
 
 /**
- * The web app reports its own crashes here (docs/23-OBSERVABILITY.md), so
+ * The web app reports its own crashes here (docs/16-DEPLOYMENT.md §Observability), so
  * an error on a friend's phone reaches our phone even when the browser
  * could not reach Sentry, and before they have signed in.
  *

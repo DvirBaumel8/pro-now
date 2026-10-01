@@ -4,7 +4,7 @@ import { PrimaryAction, customerDarkTheme, spacing, type as t } from "@pro-now/u
 import { reportError } from "./observability";
 
 /**
- * The last line under every screen (docs/23-OBSERVABILITY.md): a render
+ * The last line under every screen (docs/16-DEPLOYMENT.md §Observability): a render
  * crash is reported, and the person gets a way back instead of a blank
  * page. The short code is the start of the Sentry event id, so a friend
  * who sends it lets us find the exact event.

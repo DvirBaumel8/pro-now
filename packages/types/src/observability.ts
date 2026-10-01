@@ -1,6 +1,6 @@
 /**
  * Error reporting hygiene shared by the browser and the server
- * (docs/23-OBSERVABILITY.md). Two jobs, both pure:
+ * (docs/16-DEPLOYMENT.md §Observability). Two jobs, both pure:
  *
  * 1. `scrubText` — nothing that identifies a person leaves the process in
  *    an error report or an alert: email addresses, phone numbers, bearer

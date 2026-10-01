@@ -33,7 +33,7 @@ export default function DashboardPage() {
       <h2 style={{ fontSize: 16, marginTop: 40, marginBottom: 12 }}>Liquidity health</h2>
       <p style={{ color: "var(--text-secondary)", fontSize: 13, maxWidth: 560 }}>
         "When a customer asks NOW, can we reliably get someone moving toward
-        them?" — see /docs/14-ANALYTICS.md §Marketplace / liquidity KPIs. No
+        them?" — see /docs/13-ADMIN-OPS.md §Analytics. No
         threshold is frozen before a real pilot baseline exists.
       </p>
     </div>

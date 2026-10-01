@@ -79,7 +79,7 @@ describe("every admin mutation writes an audit row", () => {
       "POST /api/v1/admin/users/:id/roles": { url: `/api/v1/admin/users/${customerId}/roles`, payload: { role: "PROFESSIONAL", grant: true, reason: "test grant" } },
       "PATCH /api/v1/admin/market/:id": { url: `/api/v1/admin/market/${activation.id}`, payload: { customerVisible: true, reason: "test switch" } },
     };
-    // The debug routes change nothing: they throw, on purpose (monitoring, docs/23).
+    // The debug routes change nothing: they throw, on purpose (monitoring, docs/16).
     const mutations = adminRoutes().filter((r) => r.method !== "GET" && !r.url.includes("/debug/"));
     for (const r of mutations) {
       const key = `${r.method} ${r.url}`;

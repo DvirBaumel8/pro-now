@@ -22,7 +22,7 @@ test("a professional joins, is reviewed, and is approved for one service", async
   await expect(page).toHaveURL(/\/pro\/join$/);
 
   // The four explanation slides first, as in the demo; each picture shows
-  // what its slide says (docs/sync/SYNC-2026-10-01 P1).
+  // what its slide says (docs/DEMO-SYNC.md, 2026-10-01 P1).
   await expect(page.getByText("הרחוב הזה הוא גם שלך")).toBeVisible();
   await page.getByRole("button", { name: /^הבא/ }).click();
   await page.getByRole("button", { name: /^הבא/ }).click();

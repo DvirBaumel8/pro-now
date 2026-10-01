@@ -4,7 +4,7 @@ import { linkFor, uniqueEmail } from "./helpers";
 import { dispatchableProfessional, pendingApplicant } from "./pro-helpers";
 
 /**
- * Demo sync 2026-09-30, item H (docs/sync/SYNC-2026-09-30.md): a
+ * Demo sync 2026-09-30, item H (docs/DEMO-SYNC.md): a
  * professional can sign out, someone registered goes straight to their own
  * page (Amit, 2026-09-30), and the next person on the same device never
  * sees the last one's data.

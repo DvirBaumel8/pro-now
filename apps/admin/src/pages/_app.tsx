@@ -7,7 +7,7 @@ import { AdminShell } from "../components/AdminShell";
  * v1, not "phase 2": dashboard KPIs, live map, job inspector, provider
  * approval queues, remote config — this delivery implements the
  * dashboard and job inspector shell; provider-approval and config screens
- * are the natural next slice (see /docs/EPIC-0-REPORT.md).
+ * are the natural next slice.
  */
 export default function App({ Component, pageProps }: AppProps) {
   return (

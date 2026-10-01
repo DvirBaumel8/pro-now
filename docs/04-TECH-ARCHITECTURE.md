@@ -1,22 +1,25 @@
 # 04 — Technical Architecture
 
-## Stack (frozen for MVP — see `/docs/18-ROADMAP.md` for what's explicitly open)
+## Stack
 | Layer | Choice |
 |---|---|
-| Customer mobile | React Native + Expo + TypeScript |
-| Professional mobile | React Native + Expo + TypeScript |
-| Admin | Next.js + TypeScript |
-| Backend API | Node.js + TypeScript (Fastify) |
-| Database | PostgreSQL + PostGIS |
-| ORM | Prisma |
-| Cache / presence / dispatch locks | Postgres row locks; Redis optional (latency only, off in the MVP — see 21-PRODUCTION-PLAN §2.2) |
-| Realtime | WebSockets (push is fallback/wakeup only) |
-| Object storage | S3-compatible |
-| Push | FCM + APNs |
-| Maps / address / ETA | vendor TBD (see `/docs/18-ROADMAP.md`) behind a `MapsRoutingProvider` interface — needed for geocoding and route ETAs only |
-| Map DRAWING | no vendor. Real OSM geometry, fetched once and committed (`world-geo.ts`, `GeoPlate.tsx`) and drawn in our own palette — see below |
-| Monitoring | Sentry + structured logs + metrics |
-| Analytics | provider-abstracted (PostHog/Amplitude candidate, vendor TBD) |
+| Client | `apps/web`: Vite + React 19 + react-native-web PWA, TanStack Query; admin at `/admin`. Native Expo apps are Phase 3 |
+| Backend API | Node.js + TypeScript (Fastify 5), serving the web app on the same origin |
+| Auth | Better Auth: email link and Google (OIDC), httpOnly cookie sessions |
+| Database | PostgreSQL 16 + PostGIS, Prisma 7 |
+| Dispatch locks | Postgres row locks; Redis optional (latency only, off in the MVP — `21-PRODUCTION-PLAN §2`) |
+| Realtime | WebSockets on an in-process bus; push is a wake-up, never the source of truth |
+| Object storage | S3-compatible (Cloudflare R2; SeaweedFS locally), private, presigned URLs |
+| Push / email | Web Push with our own VAPID keys; email through an outbox (Resend; Mailpit locally) |
+| Geocoding | `GeocodingProvider` — Nominatim |
+| Routing / ETA | vendor TBD behind `MapsRoutingProvider`; until then a labelled straight-line estimate |
+| Map drawing | no vendor: real OSM geometry, fetched once and committed (`world-geo.ts`) and drawn in our palette (below) |
+| Payments | `PaymentProvider`; vendor TBD after legal validation. No money moves in the app today (D1) |
+| Identity/KYC | `IdentityVerificationProvider`; vendor TBD |
+| External reputation | `ExternalReputationProvider`; official APIs only, never scraping |
+| Monitoring | Sentry + Telegram alerts + structured logs (`16-DEPLOYMENT.md §Observability`) |
+| Analytics | provider-abstracted, vendor TBD |
+| Hosting | Render (one web service) + Neon; no Kubernetes or microservices for the MVP |
 
 ### Two different problems that both say "maps"
 
@@ -68,23 +71,9 @@ geometry with no traffic, no turn restrictions and no one-way streets.
 The graph says where movement can be shown; the server says when the
 professional arrives. `/CLAUDE.md §3` — and the type has nothing on it
 that could be mistaken for a duration.
-| Payments | `PaymentProvider` interface; vendor selected after Israel/business/legal validation (Stripe Connect is a candidate, not a decision) |
-| Identity/KYC | `IdentityVerificationProvider` interface; vendor TBD |
-| External reputation | `ExternalReputationProvider` interface; official Google APIs candidate, no scraping ever |
-| Infra | Docker for local deps; local/test/staging/production strictly separated; no Kubernetes/microservices for MVP |
 
 ## Repository layout
-```
-apps/customer-mobile   React Native + Expo + TS
-apps/pro-mobile         React Native + Expo + TS
-apps/admin              Next.js + TS
-apps/api                Node.js + TS (Fastify), Prisma, PostGIS, optional Redis, WS
-packages/ui             design system components (packages/ui/src/theme.ts = tokens)
-packages/types          domain types + provider interfaces
-packages/config          shared env schema (zod)
-packages/api-client      typed client for mobile/admin
-packages/validation      shared zod request/response schemas
-```
+See `/CLAUDE.md §8`.
 
 ## Why PostgreSQL + PostGIS
 The company's core query is geospatial: "find AVAILABLE professionals

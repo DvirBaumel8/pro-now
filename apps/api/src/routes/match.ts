@@ -16,7 +16,7 @@ import {
  * This endpoint exists because the card previously had nowhere to get its
  * facts from: `GET /v1/jobs/:id` does not expand the assigned professional,
  * the accepted offer's ETA snapshot, or the price, so the screen rendered
- * hard-coded values instead (see /docs/EPIC-0-REPORT.md §9.8). Every field
+ * hard-coded values instead. Every field
  * the card shows is assembled here, from real rows, or returned as null.
  *
  * The server is authoritative (/CLAUDE.md §3): the client renders this, it

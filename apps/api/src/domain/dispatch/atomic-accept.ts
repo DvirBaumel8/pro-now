@@ -7,7 +7,7 @@ import type { JobLock } from "./job-lock.js";
  * /docs/08-DISPATCH-ENGINE.md §Atomic assignment. This is the single most
  * important correctness guarantee in the system: two professionals must
  * never both win the same job, even if they tap ACCEPT at the same
- * instant. Definition of Done per /docs/19-CLAUDE-RULES.md: "not done
+ * instant. Definition of Done per /CLAUDE.md §7: "not done
  * until two simultaneous accepts cannot create two assignments" — verified
  * in test/dispatch.atomic-accept.test.ts via a concurrency test, not by
  * inspection.

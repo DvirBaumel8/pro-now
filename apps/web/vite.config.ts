@@ -5,7 +5,7 @@ import { sentryVitePlugin } from "@sentry/vite-plugin";
 
 /*
  * Crash reports point at our source lines only if Sentry has the source
- * maps (docs/23-OBSERVABILITY.md). With a token, the build uploads them
+ * maps (docs/16-DEPLOYMENT.md §Observability). With a token, the build uploads them
  * and deletes them from dist, so they are never served to browsers;
  * without one, no maps are produced at all.
  */

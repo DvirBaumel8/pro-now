@@ -1,4 +1,8 @@
-# 15 — QA, Security & Launch Checklist
+# 15 — QA, release gates and store readiness
+
+How each epic is tested day to day is in `21-PRODUCTION-PLAN.md §6`
+(Playwright on Chromium at iPhone 16 Pro size, `npm run test:int`, a manual pass
+at 393×852). This page is the launch checklist.
 
 ## Release gate
 No production launch until: the critical customer/pro flow passes on real
@@ -74,6 +78,16 @@ GO only if: no open P0 · financial reconciliation passes · assignment
 concurrency passes · the verification gate works · location-privacy
 behavior works · Ops can reconstruct a job timeline end-to-end · responsible
 owners have signed off legal/payment/trust launch requirements.
+
+## App Store / Play (Phase 3)
+App name, icon, splash · privacy policy, terms and support URLs · in-app
+account deletion · plain-language permission strings (location, camera,
+notifications), with location tied to app function (`12-PRIVACY.md`) ·
+screenshots · a tested reviewer account on both platforms · store copy
+reviewed by a human. **No unsupported claims** ("licensed",
+"background-checked", "100% safe") unless the exact check is true and
+current (`10-TRUST-VERIFICATION.md`). Re-validate Google Play's exemption
+for real-world services from Play Billing before submitting.
 
 ## Post-launch (daily pilot review)
 Unfulfilled demand · time-to-match · acceptance · ETA · completion ·

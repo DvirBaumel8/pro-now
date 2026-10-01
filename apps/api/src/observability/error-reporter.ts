@@ -4,7 +4,7 @@ import type { Env } from "@pro-now/config";
 
 /**
  * Where the full detail of an error is kept for later investigation,
- * vendor-neutral (CLAUDE.md §6). Sentry today (docs/23-OBSERVABILITY.md);
+ * vendor-neutral (CLAUDE.md §6). Sentry today (docs/16-DEPLOYMENT.md §Observability);
  * without a DSN nothing is kept beyond the log line.
  */
 export interface ErrorContext {

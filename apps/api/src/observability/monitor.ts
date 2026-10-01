@@ -5,7 +5,7 @@ import type { ErrorReporter } from "./error-reporter.js";
 
 /**
  * One place every error worth waking somebody for goes through
- * (docs/23-OBSERVABILITY.md): kept in the error store, grouped, throttled,
+ * (docs/16-DEPLOYMENT.md §Observability): kept in the error store, grouped, throttled,
  * scrubbed and sent to the phone. Reporting never throws — a broken alert
  * path must not turn one failure into two.
  */

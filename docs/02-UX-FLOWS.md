@@ -1,7 +1,9 @@
 # 02 — UX Flows (screen-by-screen)
 
-RTL-first, Hebrew copy as specified. This is the authoritative screen list
-implemented in `apps/customer-mobile` and `apps/pro-mobile`.
+RTL-first, Hebrew copy as specified. The authoritative screen list. The
+screens are built in `packages/ui` and rendered by `apps/web`; the demo
+(`tools/design-preview`) is the specification by example for anything newer
+than this list.
 
 ## Customer screens
 

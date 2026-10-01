@@ -2,7 +2,7 @@
  * ---------------------------------------------------------------------
  * THE DOCUMENTS EACH SERVICE ASKS OF A PROFESSIONAL
  * ---------------------------------------------------------------------
- * DECIDED 2026-09-30 (Dvir, D4 in docs/sync/SYNC-2026-09-30.md): the
+ * DECIDED 2026-09-30 (Dvir, D4 in docs/18-ROADMAP.md): the
  * research's list is the rule. Copied from the demo's `onboardingDocsFor`
  * (tools/design-preview/lib/types/src/onboarding-docs.ts, from the report
  * "מסמכים נדרשים לבעלי מקצוע", 2026-09-29), in the engine's vocabulary

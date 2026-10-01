@@ -1,6 +1,6 @@
 /**
  * Where an alert goes, vendor-neutral (CLAUDE.md §6). The one adapter
- * today is a Telegram bot (docs/23-OBSERVABILITY.md §Why Telegram); the
+ * today is a Telegram bot (docs/16-DEPLOYMENT.md §Observability); the
  * text is Telegram's HTML subset, which any other chat vendor can be
  * adapted from.
  */

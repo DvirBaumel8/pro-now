@@ -23,7 +23,7 @@ export const meKey = ["me"] as const;
 export function useMe() {
   const me = useQuery({ queryKey: meKey, queryFn: api.me });
   const userId = me.data?.user.id ?? null;
-  // Error reports name the person by id only (docs/23-OBSERVABILITY.md).
+  // Error reports name the person by id only (docs/16-DEPLOYMENT.md §Observability).
   useEffect(() => setReportingUser(userId), [userId]);
   return me;
 }

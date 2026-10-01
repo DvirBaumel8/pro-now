@@ -101,4 +101,4 @@ idempotent and signature-verified before any state change.
 ## Production launch gate
 Legal/privacy review is required before production launch — this is a
 human sign-off, not a code check, and is tracked in
-`/docs/17-APP-STORES.md §Go/No-Go`.
+`/docs/15-QA-TEST-PLAN.md §Go/No-Go`.

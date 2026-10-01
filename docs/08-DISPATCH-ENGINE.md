@@ -58,7 +58,7 @@ immediately, the professional can travel with the required equipment, the
 scope supports dispatch, pricing is fixed/estimable or visit-fee+quote,
 duration is sufficiently bounded, licensing/trust requirements are
 verifiable, local supply is sufficient, and a safety policy exists. This is
-exactly Engine 1 from `/docs/00-VISION.md` — Engines 2/3 (BOOK/REQUEST) do
+exactly Engine 1 from `/docs/01-PRD.md` — Engines 2/3 (BOOK/REQUEST) do
 not go through this module.
 
 ## Mandatory edge cases (see `/docs/15-QA-TEST-PLAN.md` for the full list)

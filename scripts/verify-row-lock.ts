@@ -12,8 +12,8 @@
  * is "the actual source of correctness". `scripts/verify-domain-logic.ts`
  * proves `acceptOffer()` is race-safe against in-memory fakes — but fakes
  * cannot exercise a row lock, so that specific guarantee has never been
- * tested. /docs/EPIC-0-REPORT.md calls it the single most important
- * unverified item in the repository.
+ * tested. It was the single most important unverified item in the
+ * repository.
  *
  * This script closes that gap without Prisma (whose engines cannot be
  * downloaded in this environment): it talks to Postgres directly with
@@ -41,7 +41,7 @@ const DATABASE_URL = process.env.DATABASE_URL;
  * The race now runs against the REAL tables produced by the baseline
  * migration, in `public`, with their real enum columns and real foreign
  * keys — not against a simplified mirror. That upgrade was blocked until
- * the migration existed (see /docs/EPIC-0-REPORT.md §12): a lock proven
+ * the migration existed: a lock proven
  * only against a hand-made copy of two tables proves the SQL, not the
  * schema. Running it here means a constraint that would reject the write
  * in production rejects it in this test too.
