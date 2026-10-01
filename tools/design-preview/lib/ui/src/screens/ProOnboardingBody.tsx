@@ -172,7 +172,7 @@ export function ProOnboardingBody({
   const suggestions = useMemo(() => {
     if (about.trim().length < 3) return [];
     return matchServicesByText(about, matchRules).slice(0, 8).map((m) => m.serviceId).filter((id) => byId[id]);
-  }, [about, matchRules, byId]);
+  }, [about, matchRules, byId, fields]);
   /*
    * WHAT WAS UNDERSTOOD FOLLOWS WHAT IS WRITTEN — NOW, NOT WHILE TYPING.
    *
@@ -182,6 +182,32 @@ export function ProOnboardingBody({
    * worked out from the text as it stands; only what he picks by hand, or
    * takes off by hand, is remembered.
    */
+  /*
+   * COMPLETING THE WORD AS HE TYPES IT.
+   *
+   * Amit: *"שאני מתחיל לרשום שם של מקצוע או שירות — ישלים אותי לבד."* The
+   * matcher needs whole words; this looks at the word being typed and offers
+   * every service whose name, trade or keywords start with it — "נג" offers
+   * נגרות, "מז" offers the air-conditioner. A tap adds it.
+   */
+  const completions = useMemo(() => {
+    const last = about.trim().split(/\s+/).pop() ?? "";
+    if (last.length < 2) return [];
+    const hits: Array<{ id: string; rank: number }> = [];
+    for (const r of matchRules) {
+      const x = byId[r.serviceId];
+      if (!x) continue;
+      const name = x.nameHe.split(/\s+/).some((w) => w.startsWith(last));
+      const cat = x.categoryHe.split(/\s+/).some((w) => w.startsWith(last));
+      /* Two letters match names only; keywords join from the third, or "גר" offers a doctor (גרון). */
+      const kw = last.length >= 3 && r.keywords.some((k) => k.split(/\s+/).some((w) => w.startsWith(last)));
+      /* A trade's own word first: "שיפ" → the renovation services, then the rest. */
+      const field = (fields ?? []).some((f) => f.id === x.groupId && f.labelHe.split(/\s+/).some((w) => w.startsWith(last)));
+      if (field || name || cat || kw) hits.push({ id: x.id, rank: field ? -1 : name ? 0 : cat ? 1 : 2 });
+    }
+    /* What he already has is filtered where the list is drawn (`picked` is declared further down). */
+    return hits.sort((a, b) => a.rank - b.rank).slice(0, 8).map((h) => h.id);
+  }, [about, matchRules, byId]);
   /*
    * …AND ONCE UNDERSTOOD, IT STAYS.
    *
@@ -373,7 +399,20 @@ export function ProOnboardingBody({
                 <Text style={s.addBtnText}>הוספה</Text>
               </Pressable>
             </View>
-            {about.trim().length >= 3 && suggestions.length === 0 ? (
+            {completions.filter((id) => !picked.includes(id)).length > 0 ? (
+              <View style={s.cityList}>
+                {completions.filter((id) => !picked.includes(id)).slice(0, 5).map((id) => (
+                  <Pressable key={id} onPress={() => { addPick(id); setAbout(""); }} accessibilityRole="button" accessibilityLabel={`הוספת ${byId[id]?.nameHe ?? ""}`} style={[s.cityRow, { flexDirection: "row-reverse", alignItems: "center", gap: 10 }]}>
+                    <Text style={[s.pickTick, { color: "#2FBF8A" }]}>+</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.cityText}>{byId[id]?.nameHe}</Text>
+                      <Text style={s.pickCat}>{byId[id]?.categoryHe}</Text>
+                    </View>
+                  </Pressable>
+                ))}
+              </View>
+            ) : null}
+            {about.trim().length >= 3 && suggestions.length === 0 && completions.length === 0 ? (
               <Text style={s.nomatchText}>{`לא מצאנו את ״${about.trim().slice(0, 30)}״ — ״הוספה״ תוסיף אותו כשירות חדש, או בוחרים תחום למטה.`}</Text>
             ) : null}
             {picked.length + custom.length > 0 ? (
