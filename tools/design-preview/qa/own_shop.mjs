@@ -10,8 +10,8 @@ const text = async () => (await p.evaluate(() => document.body.innerText)).repla
 await p.goto('http://127.0.0.1:4421/?time=day'); await p.locator('text=אני בעל מקצוע').first().waitFor();
 await press(/^אני בעל מקצוע/); await p.getByLabel('מספר טלפון').fill('0547770001'); await press(/^שליחת קוד/); await p.getByLabel('קוד האימות').fill('123456'); await press(/^כניסה/);
 await press(/^דילוג על ההסבר/); await press(/^מתחילים$/);
-await p.getByLabel('תיאור חופשי של העבודה שלך').pressSequentially('נגרות', { delay: 40 }); await p.waitForTimeout(1500);
-await p.getByLabel('תיאור חופשי של העבודה שלך').fill(''); await p.getByLabel('תיאור חופשי של העבודה שלך').pressSequentially('שיש', { delay: 40 }); await p.waitForTimeout(1500);
+await p.getByLabel('תיאור חופשי של העבודה שלך').pressSequentially('נגרות', { delay: 40 }); await p.waitForTimeout(1500); console.log('nothing added before a tap:', !(await text()).includes('השירותים שלי')); await press(/^הוספה$/);
+await p.getByLabel('תיאור חופשי של העבודה שלך').fill(''); await p.getByLabel('תיאור חופשי של העבודה שלך').pressSequentially('שיש', { delay: 40 }); await p.waitForTimeout(1500); await press(/^הוספה$/);
 await shot('what'); console.log('kept after more typing:', (await text()).includes('נגרות') && (await text()).includes('ריצוף'));
 await press(/^המשך$/);
 await p.getByLabel('שם מלא').fill('רון לוי'); await p.getByLabel('שם העסק').fill('רון נגרות'); await press(/^עוסק פטור$/); await p.getByLabel('עיר הבסיס').fill('חיפה'); await press(/^המשך$/);

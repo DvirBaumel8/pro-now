@@ -19,7 +19,7 @@ try {
   for (let k = 0; k < 4; k++) { await shot(`explain${k}`); await press(/^הבא$/); } await shot('explain4'); await press(/^בואו נתחיל|^בוא נתחיל/);
   await shot('welcome'); await listButtons('welcome');
   await press(/^בוא נתחיל/);
-  await p.getByLabel('תיאור חופשי של העבודה שלך').fill(process.env.ABOUT || 'אני חשמלאי, מתקין שקעים וגופי תאורה, מתקן קצרים ועושה גם אזעקות ומצלמות');
+  await p.getByLabel('תיאור חופשי של העבודה שלך').fill(process.env.ABOUT || 'אני חשמלאי, מתקין שקעים וגופי תאורה, מתקן קצרים ועושה גם אזעקות ומצלמות'); await press(/^הוספה$/);
   await p.waitForTimeout(900); await shotScroll('what'); await listButtons('what');
   await press(/^המשך$/);
   await p.getByLabel('שם מלא').fill('רון לוי'); await p.getByLabel('שם העסק').fill(process.env.BIZ || 'רון חשמל'); await press(/^עוסק מורשה$/); await p.getByLabel('עיר הבסיס').fill('רמת גן'); await press(/^25 ק״מ$/);

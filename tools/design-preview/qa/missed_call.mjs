@@ -6,7 +6,7 @@ const press = async (re) => { const loc = p.locator('[role=button],button,[role=
 await p.goto('http://127.0.0.1:4421/?time=day'); await p.locator('text=אני בעל מקצוע').first().waitFor();
 await press(/^אני בעל מקצוע/); await p.getByLabel('מספר טלפון').fill('054' + String(Date.now()).slice(-7)); await press(/^שליחת קוד/); await p.getByLabel('קוד האימות').fill('123456'); await press(/^כניסה/);
 await press(/^דילוג על ההסבר/);
-await press(/^מתחילים$/); await p.getByLabel('תיאור חופשי של העבודה שלך').fill('נגר'); await p.waitForTimeout(600); await press(/^המשך$/);
+await press(/^מתחילים$/); await p.getByLabel('תיאור חופשי של העבודה שלך').fill('נגר'); await p.waitForTimeout(600); await press(/^הוספה$/); await press(/^המשך$/);
 await p.getByLabel('שם מלא').fill('אבי נגר'); await press(/^עוסק פטור$/); await p.getByLabel('עיר הבסיס').fill('חיפה'); await press(/^המשך$/);
 await press(/^אחר כך$/); await press(/^המשך$/); await press(/^המשך$/); await press(/^אחר כך$/) || await press(/^המשך$/);
 await press(/^שליחה לאישור/); await p.waitForTimeout(3000); await p.waitForTimeout(8500); await press(/^להתחיל משמרת/); await p.waitForTimeout(2000);

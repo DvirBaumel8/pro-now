@@ -218,20 +218,20 @@ export function ProOnboardingBody({
    * stops typing (long enough not to keep a half-typed word), and leaves only
    * when he takes it off with ×.
    */
-  useEffect(() => {
-    const fresh = suggestions.filter((id) => !removed.includes(id));
-    if (fresh.length === 0) return;
-    const t = setTimeout(() => setManual((m) => [...new Set([...m, ...fresh])]), 1100);
-    return () => clearTimeout(t);
-  }, [suggestions, removed]);
-  const picked = useMemo(
-    () => [...new Set([...manual, ...suggestions.filter((id) => !removed.includes(id))])],
-    [suggestions, removed, manual]
-  );
+  /*
+   * NOTHING IS ADDED FOR HIM.
+   *
+   * Amit, 2026-10-01: *"רשמתי נגר וזה הוסיף לי לבד בלי שלחצתי הוספה."* What
+   * the box understands is OFFERED under it; it joins "השירותים שלי" only
+   * when he taps it or presses "הוספה".
+   */
+  const picked = manual;
   const unpick = (id: string) => {
     setManual((m) => m.filter((x) => x !== id));
     setRemoved((r) => [...new Set([...r, id])]);
   };
+  /* Offered under the box: what the words mean, then completions of the word being typed. */
+  const offered = [...new Set([...suggestions, ...completions])].filter((id) => !picked.includes(id)).slice(0, 5);
   /* "הוספה": keep what was understood now, or add the words as a new service; then the box is free for the next one. */
   const commitTyped = () => {
     const fresh = suggestions.filter((id) => !removed.includes(id));
@@ -399,9 +399,9 @@ export function ProOnboardingBody({
                 <Text style={s.addBtnText}>הוספה</Text>
               </Pressable>
             </View>
-            {completions.filter((id) => !picked.includes(id)).length > 0 ? (
+            {offered.length > 0 ? (
               <View style={s.cityList}>
-                {completions.filter((id) => !picked.includes(id)).slice(0, 5).map((id) => (
+                {offered.map((id) => (
                   <Pressable key={id} onPress={() => { addPick(id); setAbout(""); }} accessibilityRole="button" accessibilityLabel={`הוספת ${byId[id]?.nameHe ?? ""}`} style={[s.cityRow, { flexDirection: "row-reverse", alignItems: "center", gap: 10 }]}>
                     <Text style={[s.pickTick, { color: "#2FBF8A" }]}>+</Text>
                     <View style={{ flex: 1 }}>
@@ -412,7 +412,7 @@ export function ProOnboardingBody({
                 ))}
               </View>
             ) : null}
-            {about.trim().length >= 3 && suggestions.length === 0 && completions.length === 0 ? (
+            {about.trim().length >= 3 && offered.length === 0 ? (
               <Text style={s.nomatchText}>{`לא מצאנו את ״${about.trim().slice(0, 30)}״ — ״הוספה״ תוסיף אותו כשירות חדש, או בוחרים תחום למטה.`}</Text>
             ) : null}
             {picked.length + custom.length > 0 ? (

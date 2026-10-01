@@ -13,7 +13,7 @@ try {
   await p.goto('http://127.0.0.1:4421/?time=day'); await p.locator('text=אני בעל מקצוע').first().waitFor();
   await press(/^אני בעל מקצוע/); await p.getByLabel('מספר טלפון').fill('054' + String(Date.now()).slice(-7)); await press(/^שליחת קוד/); await p.getByLabel('קוד האימות').fill('123456'); await press(/^כניסה/);
   for (let k = 0; k < 4; k++) await press(/^הבא$/); await press(/^בואו נתחיל|^בוא נתחיל/); await press(/^מתחילים$/);
-  await press(/לכתוב במילים/); await p.getByLabel('תיאור חופשי של העבודה שלך').pressSequentially(ABOUT, { delay: 40 }); await shot('what');
+  await press(/לכתוב במילים/); await p.getByLabel('תיאור חופשי של העבודה שלך').pressSequentially(ABOUT, { delay: 40 }); await press(/^הוספה$/); await shot('what');
   if (!(await press(/^המשך$/))) throw new Error('could not continue from "what"');
   await p.getByLabel('שם מלא').fill(NAME); await press(/^עוסק פטור$/); await p.getByLabel('עיר הבסיס').fill('חיפה'); await shot('details'); await press(/^המשך$/);
   await shot('docs'); if (!(await press(/^אחר כך$/))) throw new Error('no docs skip');
