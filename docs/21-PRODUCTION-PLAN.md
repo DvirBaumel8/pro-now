@@ -643,8 +643,9 @@ iOS push waits for the installed app on HTTPS (Phase 2); SMS for D4.
 
 **Status 2026-09-30:** live at **https://pro-now.onrender.com** (accounts
 and deploy done). Open from the first smoke test (`docs/16 §Production`):
-master now deployed by hand (auto-deploy needs the Render GitHub App on
-Amit's account); the catalogue seed has not run; email sign-in needs a
+master deployed by hand at first (auto-deploy needed the Render GitHub
+App on Amit's account; **resolved 2026-10-01, a merge now deploys by
+itself**); the catalogue seed has not run; email sign-in needs a
 verified domain and Google sign-in its client; the Amit iPhone pass and
 the uptime monitor are still to do. Details: `docs/16 §Production`.
 
