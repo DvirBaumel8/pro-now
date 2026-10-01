@@ -156,9 +156,6 @@ describe("the art the world asks for", () => {
      */
     const LEGACY = new Set([
       "welcome_hero",
-      /* The welcome's parade: the twelve venue drawings joined into one strip,
-         drawn by the app's own WelcomeScene rather than the world layer. */
-      "welcome_street",
       "hair_barbershop_hero",
       "shared_ground_street",
       /*

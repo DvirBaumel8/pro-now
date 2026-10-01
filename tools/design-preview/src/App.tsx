@@ -7233,7 +7233,6 @@ function useAllLoaded(urls: readonly string[]): boolean {
     urls.forEach((u) => { const im = new window.Image(); im.onload = done; im.onerror = done; im.src = u; });
     const t = setTimeout(() => live && setReady(true), 2500);
     return () => { live = false; clearTimeout(t); };
-    // eslint-disable-next-line
   }, [key]);
   return ready;
 }
@@ -7616,7 +7615,7 @@ const STREET_CSS = `
  */
 const WELCOME_CSS = "@keyframes pnParade{from{transform:translateX(0)}to{transform:translateX(-50%)}}@keyframes pnCity{0%{transform:scale(1.04)}100%{transform:scale(1.12) translateX(-3%)}}";
 function WelcomeScene() {
-  const ready = useAllLoaded(["./world/welcome_street.webp"]);
+  const ready = useAllLoaded(["./clips/welcome_street.webp"]);
   return (
     <div aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden", background: "#2a1838" }}>
       <style>{WELCOME_CSS}</style>
@@ -7630,8 +7629,8 @@ function WelcomeScene() {
         {/* Shown only once the strip has arrived, then faded in — it used to
             appear in pieces as it loaded (Amit: "הכניסה קופצת"). */}
         <div style={{ display: "flex", height: "100%", width: "max-content", animation: "pnParade 90s linear infinite", willChange: "transform", opacity: ready ? 1 : 0, transition: "opacity .9s ease-out" }}>
-          <img src="./world/welcome_street.webp" alt="" style={{ height: "100%", display: "block", filter: "drop-shadow(0 14px 18px rgba(0,0,0,.45))" }} />
-          <img src="./world/welcome_street.webp" alt="" style={{ height: "100%", display: "block", filter: "drop-shadow(0 14px 18px rgba(0,0,0,.45))" }} />
+          <img src="./clips/welcome_street.webp" alt="" style={{ height: "100%", display: "block", filter: "drop-shadow(0 14px 18px rgba(0,0,0,.45))" }} />
+          <img src="./clips/welcome_street.webp" alt="" style={{ height: "100%", display: "block", filter: "drop-shadow(0 14px 18px rgba(0,0,0,.45))" }} />
         </div>
       </div>
     </div>
