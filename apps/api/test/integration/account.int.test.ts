@@ -46,7 +46,7 @@ describe("delete my account", () => {
       method: "POST",
       url: "/api/v1/me/addresses",
       headers: headers(jar),
-      payload: { formatted: "רחוב הדוגמה 1, תל אביב", lat: 32.07, lng: 34.78, label: "בית" },
+      payload: { kind: "location", lat: 32.07, lng: 34.78, label: "בית" },
     });
     expect(address.statusCode, address.body).toBe(201);
     return { email, jar, userId };

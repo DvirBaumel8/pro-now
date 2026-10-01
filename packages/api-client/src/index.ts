@@ -27,6 +27,7 @@ import type {
   OfferCardView,
   OutsideAppReceiptView,
   RequestMatch,
+  StreetSuggestion,
 } from "@pro-now/types";
 import type { CreateAddressInput, CustomerOnboardingInput, MatchFeedbackInput, MeResponse } from "@pro-now/validation";
 
@@ -191,6 +192,8 @@ export function createApiClient(config: ProNowApiClientConfig = {}) {
     sendMatchFeedback: (input: MatchFeedbackInput) => request<void>("POST", "/match/feedback", input),
     getAddresses: () => request<{ addresses: AddressView[] }>("GET", "/me/addresses"),
     createAddress: (input: CreateAddressInput) => request<{ address: AddressView }>("POST", "/me/addresses", input),
+    suggestStreets: (query: string) =>
+      request<{ suggestions: StreetSuggestion[] }>("GET", `/geo/streets?q=${encodeURIComponent(query)}`),
     searchAddresses: (query: string) => request<{ results: GeocodingResult[] }>("GET", `/geo/search?q=${encodeURIComponent(query)}`),
     reverseGeocode: (location: { lat: number; lng: number }) =>
       request<{ result: GeocodingResult | null }>("GET", `/geo/reverse?lat=${location.lat}&lng=${location.lng}`),

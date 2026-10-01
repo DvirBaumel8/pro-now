@@ -12,8 +12,14 @@ const KEYBOARD_MIN_PX = 120;
  * half under the status bar with an empty band above the keyboard (Dvir,
  * 2026-09-30). The frame subtracts this instead, as a native app would.
  */
-export function keyboardCover(layoutHeight: number, visualHeight: number): number {
-  const covered = Math.round(layoutHeight - visualHeight);
+export function keyboardCover(layoutHeight: number, visualHeight: number, visualScale = 1): number {
+  /*
+   * The visual viewport's height is in CSS pixels at its own zoom: zoomed
+   * in 1.2×, the same strip of glass above the keyboard measures 1.2× fewer
+   * of them. Unscaled, a zoomed page took the zoom for keyboard and shrank
+   * the app until a dark band showed above the keys (Dvir, 2026-10-01).
+   */
+  const covered = Math.round(layoutHeight - visualHeight * visualScale);
   return covered >= KEYBOARD_MIN_PX ? covered : 0;
 }
 
@@ -23,7 +29,7 @@ export function useKeyboardCover(): number {
     const vv = typeof window !== "undefined" ? window.visualViewport : null;
     if (!vv) return;
     const update = () => {
-      const next = keyboardCover(document.documentElement.clientHeight, vv.height);
+      const next = keyboardCover(document.documentElement.clientHeight, vv.height, vv.scale);
       setCover(next);
       // The app now fits above the keyboard, so the page has nothing to
       // slide for; put it back where it was.

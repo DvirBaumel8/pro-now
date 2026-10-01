@@ -114,7 +114,12 @@ export const api = {
    * requires an `addressId` and nothing in the API could make one.
    */
   getAddresses: () => request<{ addresses: AddressView[] }>("/v1/me/addresses"),
-  createAddress: (input: { formatted: string; lat: number; lng: number; label?: string }) =>
+  /** A street from the official list, or the device's own location (packages/validation createAddressSchema). */
+  createAddress: (
+    input:
+      | { kind: "street"; localityCode: number; streetCode: number; houseNumber?: string; details?: string; label?: string }
+      | { kind: "location"; lat: number; lng: number; details?: string; label?: string }
+  ) =>
     request<{ address: AddressView }>("/v1/me/addresses", {
       method: "POST",
       body: JSON.stringify(input),

@@ -140,7 +140,21 @@ export interface AddressView {
   lat: number;
   lng: number;
   placeId: string | null;
+  /** HOUSE, STREET, LOCALITY or DEVICE; null on addresses saved before 2026-10-01. */
+  geoPrecision: string | null;
   createdAt: string;
+}
+
+/** A street from the official list, offered as the customer types (GET /v1/geo/streets). */
+export interface StreetSuggestion {
+  localityCode: number;
+  streetCode: number;
+  streetName: string;
+  localityName: string;
+  /** The house number from the query, carried through. */
+  houseNumber: string | null;
+  /** The locality itself: a village without named streets. */
+  wholeLocality: boolean;
 }
 
 /** Result of the dispatch attempt that POST /v1/jobs kicks off. */
