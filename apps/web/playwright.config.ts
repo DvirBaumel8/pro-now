@@ -41,11 +41,10 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
   projects: [
-    // Primary: Safari's engine at iPhone 16 Pro size (402×874 screen, 402×681 viewport).
-    // CI runs each project as its own job, with its own database (ci.yml).
-    // The push test drives the service worker through Chromium's DevTools (W9).
-    { name: "webkit-iphone16pro", use: { ...devices["iPhone 16 Pro"] }, testIgnore: /w9-push\.spec\.ts/ },
-    { name: "chromium-desktop", use: { ...devices["Desktop Chrome"] } },
+    // One browser while the product is early: Chromium at iPhone 16 Pro size
+    // (402×874 screen, 402×681 viewport), touch and mobile on. WebKit and a
+    // desktop pass come back when the app nears real users.
+    { name: "chromium-iphone16pro", use: { ...devices["iPhone 16 Pro"], browserName: "chromium" } },
   ],
   webServer: {
     command: PRODUCTION

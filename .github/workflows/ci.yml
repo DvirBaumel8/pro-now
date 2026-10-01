@@ -131,23 +131,13 @@ jobs:
   # Safari refusing an upgraded http origin, and one shared sign-in bucket
   # for every visitor.
   e2e:
-    name: End-to-end, ${{ matrix.build }} build, ${{ matrix.project }}
+    name: End-to-end, ${{ matrix.build }} build (Chromium, iPhone 16 Pro)
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    # One job per build and browser, side by side. The tests inside one job
-    # stay serial (workers: 1): they share one database and one city, and a
-    # professional left online by one test would be offered the next test's
-    # job. Separate jobs have separate databases, so they cannot meet.
     strategy:
       fail-fast: false
       matrix:
         build: [development, production]
-        project: [webkit-iphone16pro, chromium-desktop]
-        include:
-          - project: webkit-iphone16pro
-            browser: webkit
-          - project: chromium-desktop
-            browser: chromium
     services:
       postgres:
         image: postgis/postgis:16-3.4
@@ -217,20 +207,20 @@ jobs:
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-${{ matrix.browser }}
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-chromium
       - if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps ${{ matrix.browser }}
+        run: npx playwright install --with-deps chromium
         working-directory: apps/web
       - if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps ${{ matrix.browser }}
+        run: npx playwright install-deps chromium
         working-directory: apps/web
-      - run: npm run e2e -w apps/web -- --project=${{ matrix.project }}
+      - run: npm run test:e2e
         env:
           E2E_PRODUCTION: ${{ matrix.build == 'production' && '1' || '0' }}
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: playwright-report-${{ matrix.build }}-${{ matrix.project }}
+          name: playwright-report-${{ matrix.build }}
           path: apps/web/playwright-report
           retention-days: 7
 
