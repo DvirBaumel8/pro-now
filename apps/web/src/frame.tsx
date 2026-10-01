@@ -15,6 +15,16 @@ const FrameContext = createContext({ width: 390, height: 780 });
 
 export const useFrame = () => useContext(FrameContext);
 
+/** The frame for whatever sits under a bar the caller draws: same width, the height left. */
+export function SubFrame({ height, children }: { height: number; children: ReactNode }) {
+  const { width } = useFrame();
+  return (
+    <FrameContext.Provider value={{ width, height }}>
+      <View style={{ width, height, overflow: "hidden" }}>{children}</View>
+    </FrameContext.Provider>
+  );
+}
+
 /**
  * The browser's own online/offline events, as the demo reads them
  * (`useConnection`). Coming back online shows "reconnecting" while every
