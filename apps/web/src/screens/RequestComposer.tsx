@@ -13,6 +13,7 @@ import {
 } from "@pro-now/ui";
 import { api } from "../api";
 import { composeDescription, detailsNoteHe, livePriceHe, priceRows } from "../order";
+import { MediaUploadError, sendErrorHe } from "../sendErrors";
 import { mediaUploadInputs } from "../request-media";
 import { resolveServiceId, ServiceCatalogueMismatchError, ServiceNotOpenError } from "../serviceResolver";
 import { useWebMediaCapture } from "../useWebMediaCapture";
@@ -83,7 +84,9 @@ export function RequestComposer({ serviceId, media, onBack, onOpenAddresses, onS
   const priceList = useMemo(() => priceRows(serviceId), [serviceId]);
   const needsDestination = service?.needsDestination === true;
 
-  const send = useCallback(() => {
+  // Set when a photo or recording failed to upload: the request can still go without them.
+  const [uploadFailed, setUploadFailed] = useState(false);
+  const send = useCallback((withoutMedia = false) => {
     void (async () => {
       if (sending) return;
       if (!selectedAddressId) {
@@ -96,12 +99,19 @@ export function RequestComposer({ serviceId, media, onBack, onOpenAddresses, onS
       }
       setSending(true);
       setErrorHe(null);
+      setUploadFailed(false);
       try {
         const dispatchServiceId = await resolveServiceId(serviceId);
         const mediaRefs: string[] = [];
-        for (const item of mediaUploadInputs(media.photos, media.voice)) {
-          const { upload } = await api.uploadMedia(item);
-          mediaRefs.push(upload.id);
+        if (!withoutMedia) {
+          try {
+            for (const item of mediaUploadInputs(media.photos, media.voice)) {
+              const { upload } = await api.uploadMedia(item);
+              mediaRefs.push(upload.id);
+            }
+          } catch (error) {
+            throw new MediaUploadError(error);
+          }
         }
         const { job } = await api.createJob(
           {
@@ -124,7 +134,8 @@ export function RequestComposer({ serviceId, media, onBack, onOpenAddresses, onS
         } else if (error instanceof ServiceCatalogueMismatchError) {
           setErrorHe("יש אי־התאמה בין הקטלוג לשרת. זו תקלה אצלנו, לא אצלך.");
         } else {
-          setErrorHe(error instanceof Error ? error.message : "לא הצלחנו לשלוח את הקריאה.");
+          setUploadFailed(error instanceof MediaUploadError);
+          setErrorHe(sendErrorHe(error, mediaUploadInputs(media.photos, media.voice).length));
         }
       } finally {
         setSending(false);
@@ -160,6 +171,11 @@ export function RequestComposer({ serviceId, media, onBack, onOpenAddresses, onS
         onPhone={setOnSitePhone}
       />
       {errorHe ? <Text accessibilityRole="alert" style={styles.error}>{errorHe}</Text> : null}
+      {uploadFailed && !sending ? (
+        <Pressable onPress={() => send(true)} accessibilityRole="button" style={styles.sendWithout}>
+          <Text style={styles.sendWithoutText}>שליחת הקריאה בלי הקבצים</Text>
+        </Pressable>
+      ) : null}
       {sending ? <Text style={styles.sending}>מעלים את הפרטים ושולחים…</Text> : null}
       {/* The form takes whatever the panels above leave, measured rather than estimated. */}
       <View style={styles.formArea} onLayout={(e) => setFormH(Math.round(e.nativeEvent.layout.height))}>
@@ -203,7 +219,7 @@ export function RequestComposer({ serviceId, media, onBack, onOpenAddresses, onS
             onStartRecord={media.capture.onStartRecord}
             onStopRecord={media.capture.onStopRecord}
             onDeleteVoice={media.capture.onDeleteVoice}
-            onSend={send}
+            onSend={() => send()}
             width={width}
             height={formH}
           />
@@ -327,6 +343,8 @@ const colors = customerDarkTheme.colors;
 const styles = StyleSheet.create({
   screen: { overflow: "hidden" },
   formArea: { flex: 1 },
+  sendWithout: { alignSelf: "flex-end", marginHorizontal: spacing.md, marginTop: spacing.xs, paddingVertical: spacing.xs },
+  sendWithoutText: { color: customerDarkTheme.colors.action, fontWeight: "600", textAlign: "right", writingDirection: "rtl" },
   topBar: { height: TOP_BAR_H, flexDirection: "row-reverse", alignItems: "center", paddingHorizontal: spacing.md },
   addressPanel: { padding: spacing.md, backgroundColor: colors.surfaceElevated },
   addressHeading: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" },

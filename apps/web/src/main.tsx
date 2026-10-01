@@ -3,8 +3,10 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { CrashBoundary } from "./crash";
 import { initErrorReporting } from "./observability";
+import { watchForNewVersion } from "./swUpdate";
 
 initErrorReporting();
+watchForNewVersion();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
