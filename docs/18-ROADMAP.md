@@ -229,6 +229,33 @@ and no screen achieves it: *"מחיר נח לכל כיס עם מקצוענים �
 supply-and-price-level strategy. Fairness is the part that can be built
 without inventing a business rule.
 
+### BUILT 2026-10-01 (demo, Amit) — several orders at once; only real data in the customer's profile
+
+Amit ordered a carpenter, walked the city during the wait and ordered a barber
+inside a shop; the first order vanished. Now each order keeps its own
+professional, stage and clock:
+- **Dock.** "ההזמנות שלך עכשיו", a chip per order with a progress ring,
+  status in words and minutes.
+- **Switcher.** "1 מתוך 2" on an order's own screens.
+- **City.** A strip over the 3D street, plus a note when a parked order's
+  professional is getting close.
+- **Calls list.** Every live order is in "הקריאות שלי".
+
+The spec is `tools/design-preview/out/multi-order-spec.md`; the test is
+`qa/multi_order.mjs`.
+
+The customer side now shows only what really happened: addresses the person
+typed, calls they really made, and no sample card. A professional's own shop
+survives reopening the demo (same number → straight to his shop).
+
+**TBD — not decided in code (Open decisions):**
+- The maximum number of simultaneous live orders per customer.
+- Whether the same service at the same address may be ordered twice. The demo
+  neither warns nor blocks.
+- The cancellation policy and fee when one of several orders is cancelled.
+- Whether price-list holds for several orders can coexist. This depends on the
+  payment provider.
+
 ### BUILT 2026-10-01 (demo, Amit) — ordered for someone else: the repair is quoted to whoever ordered
 
 When a call is ordered for someone else (the son abroad for his parents),
