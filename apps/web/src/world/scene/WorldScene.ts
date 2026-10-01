@@ -360,6 +360,41 @@ export function createWorldScene({
 
   const { lamps, lampLights } = buildStreetGeometry(root);
 
+  const LAMP_TINT_RANGE = 14;
+  const LAMP_POOL_RANGE = 40;
+
+  /**
+   * Tint the player sprite from the nearest lamp: warm under a pool of
+   * light, cool-neutral between pools — the demo does this to anchor the
+   * figure in the lighting rather than floating above it.
+   */
+  const tintPlayerFromLamps = () => {
+    if (day || lamps.length === 0) return;
+    let closest = Infinity;
+    for (const lamp of lamps) {
+      const d = Math.hypot(lamp.x - player.x, lamp.z - player.z);
+      if (d < closest) closest = d;
+    }
+    const k = Math.min(1, closest / LAMP_TINT_RANGE);
+    const warm = new THREE.Color("#ffeedd");
+    const cool = new THREE.Color("#b8b0c8");
+    const tint = warm.lerp(cool, k);
+    const mat = player.group.material as THREE.SpriteMaterial;
+    mat.color.copy(tint);
+  };
+
+  /**
+   * Pool lamp point-lights: only the ones near the camera are active,
+   * so we don't pay for dozens of PointLights across the full street.
+   */
+  const poolLampLights = () => {
+    if (lampLights.length === 0) return;
+    const cz = camera.position.z;
+    for (const light of lampLights) {
+      light.visible = Math.abs(light.position.z - cz) < LAMP_POOL_RANGE;
+    }
+  };
+
   for (const shop of WORLD_SHOPS) {
     const assetId = shop.assetId as WorldAssetId;
     const facade = createSprite(loader, assetId, FACADE_SCALE, [shop.x, FACADE_Y, shop.z]);
@@ -495,9 +530,12 @@ export function createWorldScene({
           );
           emitNear();
           updateShadowTarget();
+          tintPlayerFromLamps();
         }
+        poolLampLights();
         followCharacter(camera, player.group.position, reducedMotion);
       } else {
+        poolLampLights();
         frameStreet(camera, reducedMotion);
       }
       renderer.render(scene, camera);
