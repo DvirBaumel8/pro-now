@@ -67,6 +67,8 @@ export interface ProOfferBodyProps {
    * says which way it is going rather than looking inert.
    */
   responding?: boolean;
+  /** Our city behind the call, instead of the grey grid (UX review, 2026-09-30). */
+  backdrop?: React.ReactNode;
   width?: number;
   height?: number;
 }
@@ -80,6 +82,7 @@ export function ProOfferBody({
   proFemale = false,
   onSkip,
   responding = false,
+  backdrop,
   width = 390,
   height = 780,
 }: ProOfferBodyProps) {
@@ -102,15 +105,24 @@ export function ProOfferBody({
 
   return (
     <View style={[styles.screen, { width, height }]}>
-      <MapSurface
-        colors={colors}
-        dark
-        height={height}
-        showAssignedMarker
-        statusText={offer.customerAreaLabel}
-        statusTopOffset={spacing.xl}
-        style={styles.map}
-      />
+      {backdrop ? (
+        <View style={styles.map} pointerEvents="none">
+          {backdrop}
+          <View style={styles.areaPill}>
+            <Text style={styles.areaPillText} numberOfLines={1}>{offer.customerAreaLabel}</Text>
+          </View>
+        </View>
+      ) : (
+        <MapSurface
+          colors={colors}
+          dark
+          height={height}
+          showAssignedMarker
+          statusText={offer.customerAreaLabel}
+          statusTopOffset={spacing.xl}
+          style={styles.map}
+        />
+      )}
 
       {/*
        * A legibility scrim, not decoration. /docs/03-DESIGN-SYSTEM.md rules
@@ -164,7 +176,7 @@ export function ProOfferBody({
           * decision. So the kicker now says what happened and what the
           * countdown means, in one line, before anything else is read.
           */}
-        <Text style={styles.kicker}>קריאה חדשה בשבילך · רק {proFemale ? "את רואה" : "אתה רואה"} אותה עכשיו</Text>
+        <Text style={styles.kicker}>קריאה חדשה · רק אצלך עכשיו</Text>
         <Text style={styles.service} numberOfLines={2}>
           {offer.serviceNameHe}
         </Text>
@@ -172,9 +184,9 @@ export function ProOfferBody({
         {/* The number the decision is actually made on. */}
         {quoteFirst ? (
           <>
-            <Text style={styles.payoutUnknown}>אתה קובע את המחיר</Text>
+            <Text style={styles.payoutUnknown}>המחיר שלך</Text>
             <Text style={styles.payoutReason}>
-              תסתכל על התמונות והפרטים ושלח מחיר. אתה יוצא רק אחרי שהלקוח מאשר — ואת התשלום אתה מקבל ישירות מהלקוח.
+              שולחים מחיר. יוצאים רק אחרי שהלקוח מאשר.
             </Text>
             {quoteFirst.destinationHe ? <Text style={styles.payoutReason}>לאן: {quoteFirst.destinationHe}</Text> : null}
           </>
@@ -262,15 +274,22 @@ export function ProOfferBody({
            * their evening around our guess is owed the difference.
            */
           <Text style={styles.typical}>
-            עבודות כאלה נמשכות בדרך כלל {typical[0]}–{typical[1]} דקות
+            בדרך כלל {typical[0]}–{typical[1]} דק׳
           </Text>
         ) : null}
 
         {countdown.expired ? (
           <View style={styles.expired}>
             <Text style={styles.expiredText}>
-              הזמן נגמר. הקריאה עברה לבעל מקצוע אחר באזור.
+              הזמן נגמר. הקריאה כבר לא אצלך.
             </Text>
+            {/* The way back. Amit was left on this screen with nowhere to go:
+                "זה תקוע אין המשך". */}
+            {onSkip ? (
+              <Pressable onPress={onSkip} accessibilityRole="button" style={styles.expiredBack}>
+                <Text style={styles.acceptLabel}>חזרה למשמרת</Text>
+              </Pressable>
+            ) : null}
           </View>
         ) : (
           <>
@@ -297,7 +316,7 @@ export function ProOfferBody({
               accessibilityState={{ disabled: responding }}
               style={[styles.skip, responding && { opacity: 0.5 }]}
             >
-              <Text style={styles.skipLabel}>לא עכשיו — העבר למקצוען אחר</Text>
+              <Text style={styles.skipLabel}>לא עכשיו</Text>
             </Pressable>
           </>
         )}
@@ -402,6 +421,8 @@ function CountdownRing({
 const styles = StyleSheet.create({
   screen: { backgroundColor: colors.bg, overflow: "hidden", borderRadius: radii.xl },
   map: { ...StyleSheet.absoluteFillObject, borderRadius: 0 },
+  areaPill: { position: "absolute", top: spacing.xl, alignSelf: "center", paddingHorizontal: 14, paddingVertical: 6, borderRadius: 999, backgroundColor: "rgba(16,11,22,0.8)" },
+  areaPillText: { color: "#F7F3FA", fontSize: scale.meta, fontWeight: "700" },
 
   // No card: a vertical wash carries the type instead of a container.
   scrim: { position: "absolute", left: 0, right: 0, bottom: 0 },
@@ -516,4 +537,5 @@ const styles = StyleSheet.create({
     backgroundColor: tint.neutralDark(0.06),
   },
   expiredText: { ...type.captionStrong, color: colors.textSecondary, textAlign: "center", writingDirection: "rtl" },
+  expiredBack: { marginTop: spacing.md, minHeight: 52, borderRadius: radii.lg, alignItems: "center", justifyContent: "center", backgroundColor: colors.action },
 });

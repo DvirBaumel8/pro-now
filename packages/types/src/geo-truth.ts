@@ -298,10 +298,8 @@ export interface GroundDisclosure {
 }
 
 export function groundDisclosureHe({ realStreets, showsSupply = false }: GroundDisclosure): string {
-  const supply = showsSupply
-    ? "מי זמין עכשיו נבדק רק כששולחים בקשה"
-    : "המפה האמיתית תיכנס עם ספק המפות";
-  if (!realStreets) return `תצוגת העיר היא המחשה · ${supply}`;
+  /* No promise about a vendor on screen (UX audit: a developer's sentence) — just what is illustration. */
+  if (!realStreets) return showsSupply ? "תצוגת העיר היא המחשה · מי זמין עכשיו נבדק רק כששולחים בקשה" : "החנויות בעיר הן המחשה";
   /*
    * On a real plan the second clause about a maps provider is simply
    * wrong — the streets are already real — so it is replaced rather than

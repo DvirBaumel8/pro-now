@@ -204,12 +204,13 @@ export function ActiveJobCapsule({
           pressed && { opacity: 0.92 },
         ]}
       >
-        <Text style={styles.capsuleGo}>›</Text>
         <ApproachTrack progress={progress} figureUri={figureUri} />
         {typeof etaMinutes === "number" ? (
           <Text style={styles.capsuleEta}>{etaMinutes} דק׳</Text>
         ) : null}
         {live ? <Pulse color={colors.action} size={7} /> : null}
+        {/* "Open" points forward — in Hebrew that is left, at the far end (multi-order spec, finding E). */}
+        <Text style={styles.capsuleGo}>‹</Text>
       </Pressable>
     </View>
   );

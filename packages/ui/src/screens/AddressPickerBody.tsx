@@ -184,9 +184,10 @@ export function AddressPickerBody({
             <SectionHeader title="הכתובות שלי" colors={colors} />
             <View style={{ gap: spacing.sm }}>
               {saved.map((a) => {
-                const on = a.id === selectedId;
+                /* A typed address is the choice: no saved row stays lit beside it (Amit, in the ad film). */
+                const on = a.id === selectedId && !hasTyped;
                 return (
-                  <Pressable key={a.id} onPress={() => onSelect?.(a.id)} accessibilityRole="radio">
+                  <Pressable key={a.id} onPress={() => { setTyped(""); onSelect?.(a.id); }} accessibilityRole="radio" accessibilityState={{ checked: on }}>
                     <Surface
                       colors={colors}
                       level={1}
