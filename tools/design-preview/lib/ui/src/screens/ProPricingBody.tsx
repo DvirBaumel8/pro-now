@@ -311,7 +311,20 @@ export function ProPricingBody({
           {priceList.map((it) => (
             <View key={it.id} style={styles.listRow}>
               <Text style={styles.listName} numberOfLines={1}>{it.nameHe}</Text>
-              <Text style={styles.listPrice}>₪{(it.amountMinorUnits / 100).toLocaleString("he-IL")}</Text>
+              {/* His price, editable in place — every line is his to set (Amit: "כל אחד מחליט לעצמו"). */}
+              <View style={styles.listPriceBox}>
+                <Text style={styles.listPrice}>₪</Text>
+                <TextInput
+                  value={it.amountMinorUnits ? String(Math.round(it.amountMinorUnits / 100)) : ""}
+                  onChangeText={(t) => {
+                    const n = Number(t.replace(/[^0-9]/g, "")) || 0;
+                    onPriceListChange?.(priceList.map((x) => (x.id === it.id ? { ...x, amountMinorUnits: n * 100 } : x)));
+                  }}
+                  keyboardType="number-pad"
+                  accessibilityLabel={`המחיר של ${it.nameHe}`}
+                  style={styles.listPriceInput}
+                />
+              </View>
               <Pressable
                 onPress={() => onPriceListChange?.(priceList.filter((x) => x.id !== it.id))}
                 accessibilityRole="button"
@@ -382,6 +395,8 @@ const styles = StyleSheet.create({
   listRow: { flexDirection: "row-reverse", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.xs },
   listName: { ...type.body, color: colors.textPrimary, flex: 1, textAlign: "right" },
   listPrice: { ...type.bodyStrong, color: colors.trust },
+  listPriceBox: { flexDirection: "row", alignItems: "center", gap: 2, minHeight: 44, paddingHorizontal: 10, borderRadius: 12, borderWidth: 1, borderColor: colors.border },
+  listPriceInput: { ...type.bodyStrong, color: colors.trust, width: 64, minWidth: 0, textAlign: "center" },
   listRemove: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
   listRemoveText: { ...type.h3, color: colors.textSecondary },
   addRow: { flexDirection: "row-reverse", gap: spacing.sm },
