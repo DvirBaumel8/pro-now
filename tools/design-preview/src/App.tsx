@@ -7610,15 +7610,16 @@ const STREET_CSS = `
  * walking down our street, over the evening city. Nobody bobs or floats —
  * the street moves, the people stay at their doors.
  */
-const WELCOME_CSS = "@keyframes pnParade{from{transform:translateX(0)}to{transform:translateX(-50%)}}";
+const WELCOME_CSS = "@keyframes pnParade{from{transform:translateX(0)}to{transform:translateX(-50%)}}@keyframes pnCity{0%{transform:scale(1.04)}100%{transform:scale(1.12) translateX(-3%)}}";
 function WelcomeScene() {
   const ready = useAllLoaded(["./world/welcome_street.webp"]);
   return (
     <div aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden", background: "#2a1838" }}>
       <style>{WELCOME_CSS}</style>
-      <div style={{ position: "absolute", inset: 0, opacity: 0.55, filter: "blur(1.5px)" }}>
-        <StreetScene painted />
-      </div>
+      {/* Behind the shops: the evening city by the sea, not the old painted
+          street (Amit, twice: "עדיין התמונה הלא טובה פה"). Slowly drifting. */}
+      <img src="./world/splash_city.webp" alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "60% 40%", opacity: 0.85, animation: "pnCity 30s ease-in-out infinite alternate" }} />
+      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(23,14,36,.15) 0%, rgba(23,14,36,.35) 40%, rgba(15,10,22,.92) 62%, #0f0a16 100%)" }} />
       {/* the pavement the shops stand on */}
       <div style={{ position: "absolute", left: 0, right: 0, top: "38%", height: "8%", background: "linear-gradient(180deg, rgba(255,170,110,.22), rgba(42,24,56,0))" }} />
       <div style={{ position: "absolute", left: 0, right: 0, top: "9%", height: "31%", overflow: "hidden" }}>
