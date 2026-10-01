@@ -15,7 +15,7 @@ export function priceExplainer(
    * a tester asked, of the number that used to sit there, *"של מי המחיר?
    * לבעלי המקצוע יש מחירים שונים."* It is shown on the person instead.
    */
-  opts: { stage?: "service" | "match"; proFirstNameHe?: string | null; listFromMinorUnits?: number | null; quoteFirst?: boolean; terms?: VisitTermsHe } = {}
+  opts: { stage?: "service" | "match"; proFirstNameHe?: string | null; listFromMinorUnits?: number | null; quoteFirst?: boolean; terms?: VisitTermsHe; /** Who is at home, when ordered for someone else: the repair is quoted to the orderer, never settled at their door (Amit, 2026-10-01). */ forSomeoneElseHe?: string | null } = {}
 ): { headline: string; detail: string } {
   const m = (v: number | null | undefined) =>
     v === null || v === undefined ? null : formatMoney(money(v, "ILS"));
@@ -50,6 +50,12 @@ export function priceExplainer(
       }
       const t = opts.terms ?? DEFAULT_VISIT_TERMS;
       const the = t.feeHe.replace("דמי ביקור ו", "דמי הביקור וה");
+      if (opts.forSomeoneElseHe) {
+        return {
+          headline: opts.stage === "service" ? "דמי ביקור לפי המקצוען" : m(price.visitFeeMinorUnits) ?? "—",
+          detail: `בהזמנה בשביל ${opts.forSomeoneElseHe}: אחרי האבחון המקצוען שולח אליך הצעת מחיר מסודרת עם תמונות והסבר. רק אצלך מאשרים ומשלמים, באפליקציה — אצל ${opts.forSomeoneElseHe} לא סוגרים מחיר ולא משלמים כלום.`,
+        };
+      }
       if (opts.stage === "service") {
         return {
           headline: "דמי ביקור לפי המקצוען",

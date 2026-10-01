@@ -3725,6 +3725,7 @@ const go = useCallback((r: CustomerRoute) => {
         const reading = supply.supplyFor(route.serviceId);
         return (
           <ServiceDetailBody
+            forSomeoneElseHe={onSiteNameHe ? onSiteNameHe.replace(/ \(תצוגה\)$/, "") : null}
             {...page}
             /* No problem chips before calling — words, a recording, a photo (Amit, 2026-09-29). */
             symptomsHe={[]}
@@ -4583,7 +4584,7 @@ const go = useCallback((r: CustomerRoute) => {
             onHelp={() => setSheet("safety")}
             onBack={() => back({ name: "tracking", stage: st })}
             width={width}
-            height={bodyH}
+            height={height}
           />
         );
       }
@@ -5076,6 +5077,9 @@ const go = useCallback((r: CustomerRoute) => {
    * swap is the preview's alone, which is what Amit asked for when he
    * chose it: *"שלא יסכן חס וחלילה."*
    */
+  /* Grandpa's phone, on its own: no header or menu of ours over it (Amit: "גם לא מובן"). */
+  if (route.name === "onsite") return <View style={{ width, height }}>{body}</View>;
+
   if (route.name === "city" || route.name === "stroll") {
     return (
       <View style={{ width, height }}>

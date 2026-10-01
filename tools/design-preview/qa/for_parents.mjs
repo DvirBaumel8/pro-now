@@ -24,10 +24,13 @@ await press(/^דילוג על ההסבר/); await press(/^דמות 1$/); await p
 await step(/רמת אביב/, 'open address');
 await p.getByRole('radio', { name: /אצל סבא/ }).click(); await p.waitForTimeout(600);
 await step(/^(אישור|שמירה|המשך|זו הכתובת)/, 'confirm address');
-await step(/^תיקונים בבית/, 'category'); await step(/^נזילה/, 'service'); await step(/^בקשת בעל מקצוע עכשיו/, 'request');
+await step(/^תיקונים בבית/, 'category'); await step(/^נזילה/, 'service');
+{ const t = await txt(); check('service page: the quote comes to me, nothing settled at their door', /רק אצלך מאשרים ומשלמים/.test(t) && !/ישירות/.test(t)); if (/ישירות/.test(t)) console.log('   …', t.slice(Math.max(0, t.indexOf('ישירות') - 120), t.indexOf('ישירות') + 30)); if (!/רק אצלך/.test(t)) console.log('   page:', t.slice(0, 300)); }
+await step(/^בקשת בעל מקצוע עכשיו/, 'request');
+check('describe page: nothing "settled directly"', !/ישירות/.test(await txt()));
 await step(/^שליחת הקריאה/, 'send');
 await p.locator('text=/כן, מתאים לי/').first().waitFor({ timeout: 25000 }).catch(() => {}); await p.waitForTimeout(1200);
-check('match says the quote will come to me', /הצעת מחיר אליך לאישור/.test(await txt()));
+check('match says the quote will come to me', /הצעת מחיר אליך לאישור/.test(await txt()) && !/ישירות/.test(await txt()));
 await step(/^(כן, מתאים לי|זה מתאים|אישור)/, 'accept'); await p.waitForTimeout(6500);
 await step(/^מקצוען$/, '→ pro'); await step(/^כן, אני לוקח/, 'pro takes');
 await step(/^(יוצא|יציאה) לדרך/, 'leaves'); await step(/^הגעתי/, 'arrives');
@@ -47,6 +50,7 @@ await step(/^שליחה לעמית לאישור/, 'send to orderer');
 check('pro waits for the orderer', /ממתינים לאישור של עמית/.test(await txt()));
 await step(/^לקוח$/, '→ customer'); await p.waitForTimeout(2000);
 check('the quote opens by itself for whoever ordered', /אישור ההצעה/.test(await txt()));
+check('nothing on the orderer\'s screens says "settled directly"', !/ישירות/.test(await txt()));
 check('quote screen: only you approve', /רק אצלך מאשרים ומשלמים/.test(await txt()));
 check('quote screen shows the photo', (await p.getByLabel('תמונה של התקלה').count()) > 0);
 check('quote screen: what was found, in words', /מה נמצא בבדיקה/.test(await txt()) && /הסיפון מתחת לכיור סדוק/.test(await txt()));
