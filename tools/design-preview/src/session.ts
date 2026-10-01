@@ -173,3 +173,15 @@ export function savedAgoHe(session: SavedSession | null, nowMs: number): string 
   if (hours < 24) return `נשמר לפני ${hours} שע׳`;
   return `נשמר לפני ${Math.floor(hours / 24)} ימים`;
 }
+
+/*
+ * EVERY OPEN STARTS FROM ZERO.
+ *
+ * Amit, 2026-10-01: *"שאני נכנס מפה זה מדלג לי על שלב הרישום ושלב ההסברים —
+ * אני רוצה כל פעם מאפס ולעבור על כל התהליך."* The demo is shown to new
+ * people, each of whom should see sign-up, the explanation and joining. So a
+ * fresh page load forgets the last visit; within a visit everything is still
+ * remembered (switching sides, signing out and back in as a registered
+ * person), which is what "goes straight to his page" needs.
+ */
+clearSession();
