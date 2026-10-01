@@ -1,4 +1,5 @@
 import { launchChromium } from '../browser.mjs';
+import { setAddress } from './address.mjs';
 const b = await launchChromium({ args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'] });
 const p = await b.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
 const errs = []; p.on('pageerror', (e) => errs.push(String(e).slice(0, 200)));
@@ -21,9 +22,7 @@ const shot = (n) => p.screenshot({ path: `out/fp_${n}.png` });
 await p.goto('http://127.0.0.1:4421/?time=night'); await p.locator('text=אני צריך מקצוען').first().waitFor();
 await press(/^אני צריך מקצוען/); await p.getByLabel('מספר טלפון').fill('0501234567'); await press(/^שליחת קוד/); await p.getByLabel('קוד האימות').fill('123456'); await press(/^כניסה/);
 await press(/^דילוג על ההסבר/); await press(/^דמות 1$/); await press(/^(אישור הדמות|זו אני)/);
-await step(/רמת אביב/, 'open address');
-await p.getByRole('radio', { name: /אצל סבא/ }).click(); await p.waitForTimeout(600);
-await step(/^(אישור|שמירה|המשך|זו הכתובת)/, 'confirm address');
+await setAddress(p, press, { forName: 'סבא יוסף' }); console.log('✓ address for grandpa');
 await step(/^תיקונים בבית/, 'category'); await step(/^נזילה/, 'service');
 { const t = await txt(); check('service page: the quote comes to me, nothing settled at their door', /רק אצלך מאשרים ומשלמים/.test(t) && !/ישירות/.test(t)); if (/ישירות/.test(t)) console.log('   …', t.slice(Math.max(0, t.indexOf('ישירות') - 120), t.indexOf('ישירות') + 30)); if (!/רק אצלך/.test(t)) console.log('   page:', t.slice(0, 300)); }
 await step(/^בקשת בעל מקצוע עכשיו/, 'request');

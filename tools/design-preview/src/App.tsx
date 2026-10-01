@@ -72,7 +72,7 @@ import type { IntakeAnswer, IntakeBriefLine, MapsPlatform, OfferCardView, PriceM
 import type { JobState, ProPresenceState } from "@pro-now/demo-types";
 
 import { IdentityCheck } from "./IdentityCheck";
-import type { QuoteMedia } from "@pro-now/demo-ui";
+import type { QuoteMedia, SavedAddress } from "@pro-now/demo-ui";
 import { goBack, installBackGesture, openOverlay, pushBackEntry, readScroll, restoreScroll, setBackHandler } from "./backGesture";
 import { matchFixture, offerFixture } from "./fixtures";
 import {
@@ -103,18 +103,15 @@ import {
   availabilitySnapshot,
   callsList,
   chatSeed,
-  customerHistory,
   customerOpenCall,
   customerQuickReplies,
   earningDays,
   earningJobs,
   proQuickReplies,
   verificationSteps,
-  homeRecent,
   jobDescription,
   jobMedia,
   jobSymptoms,
-  savedAddresses,
   profileReviews,
   profileServices,
   profileWorkPhotos,
@@ -2284,19 +2281,22 @@ function CustomerApp({
    * between "what the person chose" (saved) and "what the server owns"
    * (never saved).
    */
-  const [addressId, setAddressId] = useState<string>(() => {
-    // An order for grandpa last time is not an order for grandpa this time.
-    const a = savedAddresses.find((x) => x.id === saved?.addressId);
-    return a && !a.forSomeoneElseNameHe ? a.id : "addr_home";
-  });
+  /*
+   * ONLY ADDRESSES THIS PERSON GAVE (Amit, 2026-10-01: "אין לי כח לדוגמאות,
+   * רוצה אמת"). No sample home, office or grandpa: each address typed (or the
+   * device's location) is kept here and offered again next time.
+   */
+  const [myAddresses, setMyAddresses] = useState<SavedAddress[]>([]);
+  const [addressId, setAddressId] = useState<string>("");
   const [live, setLive] = useState<LiveLocationState>({ status: "idle" });
 
   /* An address typed on the picker is the address — it wins over the saved one that was highlighted (button audit #20). */
   const [typedAddress, setTypedAddress] = useState<string | null>(null);
-  const savedChosen = savedAddresses.find((a) => a.id === addressId) ?? savedAddresses[0]!;
-  const chosen = typedAddress
-    ? { ...savedChosen, labelHe: typedAddress, formattedHe: typedAddress, forSomeoneElseNameHe: null }
-    : savedChosen;
+  const savedChosen = myAddresses.find((a) => a.id === addressId) ?? null;
+  const hasAddress = Boolean(typedAddress || savedChosen);
+  const chosen: SavedAddress = typedAddress
+    ? { id: "addr_typed", labelHe: typedAddress, formattedHe: typedAddress, forSomeoneElseNameHe: null }
+    : savedChosen ?? { id: "", labelHe: "לאן להגיע?", formattedHe: "", forSomeoneElseNameHe: null };
   /*
    * THE PERSON AT THE DOOR, when the call is for someone else — typed on
    * the address screen, or carried by a saved address such as "אצל סבא".
@@ -2315,7 +2315,7 @@ function CustomerApp({
   const jobOnSiteHe = onSiteNameHe ?? liveOnSiteNameHe;
   const addressLabel = onSiteNameHe
     ? `${chosen.labelHe} · עבור ${onSiteNameHe}`
-    : chosen.formattedHe.split(" · ")[0] ?? chosen.labelHe;
+    : (chosen.formattedHe.split(" · ")[0] || chosen.labelHe);
 
   /*
    * A real permission request, not a decoration. If the device refuses or
@@ -2487,9 +2487,9 @@ function CustomerApp({
     if (stale) {
       clearDraft();
       if (draftSent.current && !addressPickedSinceSend.current) {
-        const a = savedAddresses.find((x) => x.id === addressId);
+        const a = myAddresses.find((x) => x.id === addressId);
         if (a?.forSomeoneElseNameHe || onSiteTyped) {
-          setAddressId("addr_home");
+          setAddressId(myAddresses.find((x) => !x.forSomeoneElseNameHe)?.id ?? "");
           setOnSiteTyped(null);
         }
       }
@@ -2611,6 +2611,7 @@ function CustomerApp({
                 : {
                     label: "סיכום העבודה",
                     next: () => {
+                      if (hasLiveJob) recordDone();
                       setHasLiveJob(false);
                       setRateCall(null);
                       advanceTo({ name: "complete" });
@@ -2750,14 +2751,14 @@ function CustomerApp({
    * silhouette — which is true of every trade.
    */
   const capsuleFigureUri = useMemo(() => {
-    const mark = customerOpenCall[0]?.mark;
+    const mark = trackedService.mark;
     const dept = mark ? (departmentCodeByMark[mark] as DepartmentCode | undefined) : null;
     const id = dept ? WORLD_DISTRICTS[dept]?.characterWorldAssetId : null;
     const src = id ? art[id] : undefined;
     return src && typeof src === "object" && "uri" in src && typeof src.uri === "string"
       ? src.uri
       : null;
-  }, [art]);
+  }, [art, trackedService.mark]);
 
   const capsule =
     pendingQuote && route.name !== "quote"
@@ -2768,7 +2769,7 @@ function CustomerApp({
         }
       : hasLiveJob && customerOpenCall.length > 0 && !jobScreens.includes(route.name)
       ? {
-          textHe: `${matchedName ?? customerOpenCall[0]!.proNameHe} · ${customerOpenCall[0]!.stateHe}`,
+          textHe: `${matchedName ?? "המקצוען"} · ${route.name === "tracking" && !["assigned", "enroute"].includes(route.stage) ? "אצלך" : "בדרך אליך"}`,
           etaMinutes: liveEta,
           progress: liveProgress,
           figureUri: capsuleFigureUri,
@@ -3279,8 +3280,33 @@ const go = useCallback((r: CustomerRoute) => {
    * they asked for and the professional who took it — never the sample
    * "תקלת חשמל בסלון" (button audit #23). With no live call there is no live row.
    */
+  /*
+   * WHAT REALLY HAPPENED, AND NOTHING ELSE (Amit, 2026-10-01: "רוצה אמת").
+   * The calls list, the profile's history and the home's recent chips are
+   * built from the jobs finished in this visit — not from sample history.
+   */
+  const [doneJobs, setDoneJobs] = useState<
+    { id: string; serviceId: string | null; nameHe: string; mark: MarkName; proNameHe: string; totalMinorUnits: number | null; rating: number | null }[]
+  >([]);
+  const recordDone = () =>
+    setDoneJobs((cur) => [
+      { id: `done_${Date.now()}`, serviceId: trackedService.id, nameHe: trackedService.nameHe, mark: trackedService.mark, proNameHe: trackedProfessional.displayName, totalMinorUnits: approvedTotalMinor ?? diagnosisFee ?? null, rating: null },
+      ...cur,
+    ]);
   const myCalls = useMemo<typeof callsList>(() => {
-    const past = callsList.filter((c) => !c.live);
+    const past: typeof callsList = doneJobs.map((d) => ({
+      id: d.id,
+      serviceNameHe: d.nameHe,
+      mark: d.mark,
+      stateHe: "הושלם",
+      whenHe: "היום",
+      live: false,
+      proNameHe: d.proNameHe,
+      proSeed: null,
+      etaMinutes: null,
+      totalMinorUnits: d.totalMinorUnits,
+      myRating: d.rating,
+    }));
     const sample = callsList.find((c) => c.live);
     if (!hasLiveJob || !sample) return past;
     const atDoor = route.name === "tracking" && route.stage !== "assigned" && route.stage !== "enroute";
@@ -3295,7 +3321,7 @@ const go = useCallback((r: CustomerRoute) => {
       },
       ...past,
     ];
-  }, [hasLiveJob, route, trackedService, trackedProfessional, liveEta]);
+  }, [hasLiveJob, route, trackedService, trackedProfessional, liveEta, doneJobs]);
 
   /*
    * WHEN THE VISIT WAS, AND HOW LONG — measured, not written in. The
@@ -3405,10 +3431,12 @@ const go = useCallback((r: CustomerRoute) => {
           displayNameHe="עמית"
           seed="cust_demo_1"
           homeAreaLabelHe={availabilitySnapshot.areaLabel}
-          paymentLabelHe="ויזה · 4417"
-          openCalls={route.name === "tracking" ? customerOpenCall : []}
-          history={customerHistory}
-          lifetimeSpendMinorUnits={164400}
+          /* No card was added — the payment vendor is still an open decision. */
+          paymentLabelHe={null}
+          /* The call that is really open — this person's, never the sample "תקלת חשמל בסלון". */
+          openCalls={hasLiveJob ? myCalls.filter((c) => c.live).map((c) => ({ id: c.id, serviceNameHe: c.serviceNameHe, mark: c.mark, stateHe: c.stateHe, etaMinutes: c.etaMinutes, proSeed: c.proSeed ?? "pro", proNameHe: c.proNameHe ?? "" })) : []}
+          history={doneJobs.map((d) => ({ id: d.id, serviceNameHe: d.nameHe, mark: d.mark, metaHe: "היום · הושלם", proSeed: d.id, proNameHe: d.proNameHe, totalMinorUnits: d.totalMinorUnits ?? 0, myRating: d.rating }))}
+          lifetimeSpendMinorUnits={doneJobs.length ? doneJobs.reduce((sum, d) => sum + (d.totalMinorUnits ?? 0), 0) : null}
           onOpenCall={() => goTab("calls")}
           /*
            * A review session that remembers what you typed needs an
@@ -3595,15 +3623,25 @@ const go = useCallback((r: CustomerRoute) => {
       case "address":
         return (
           <AddressPickerBody
-            saved={savedAddresses}
-            selectedId={addressId}
+            saved={myAddresses}
+            selectedId={addressId || null}
             liveLocation={live}
             onUseLiveLocation={askLocation}
             onSelect={(id) => { addressPickedSinceSend.current = true; setAddressId(id); setTypedAddress(null); }}
             onConfirm={(r) => {
               addressPickedSinceSend.current = true;
-              setTypedAddress(r.typedHe.length > 3 ? r.typedHe : null);
-              setOnSiteTyped(r.forSomeoneElse && r.recipientNameHe ? { forId: r.addressId ?? addressId, nameHe: r.recipientNameHe } : null);
+              /* What was typed (or the device's location) becomes one of my addresses, chosen now and offered next time. */
+              const typed = r.typedHe.length > 3 ? r.typedHe : !r.addressId && live.status === "ready" ? live.coarseLabelHe : null;
+              const who = r.forSomeoneElse && r.recipientNameHe ? r.recipientNameHe.trim() : null;
+              let id = r.addressId ?? addressId;
+              if (typed) {
+                id = `addr_${Date.now()}`;
+                const label = who ? `אצל ${who}` : typed.split(/[,·]/)[0]!.trim();
+                setMyAddresses((cur) => [...cur, { id, labelHe: label, formattedHe: typed, forSomeoneElseNameHe: who }]);
+                setAddressId(id);
+              }
+              setTypedAddress(null);
+              setOnSiteTyped(who ? { forId: id, nameHe: who } : null);
               /* Confirming returns to where the picker was opened, and the picker leaves the history. */
               back({ name: "home" });
             }}
@@ -3841,6 +3879,11 @@ const go = useCallback((r: CustomerRoute) => {
             onDeleteVoice={capture.deleteVoice}
             onBack={() => back({ name: "service", serviceId: route.serviceId })}
             onSend={() => {
+              /* No address yet (no sample one any more): ask for it first; back returns here with the text kept. */
+              if (!hasAddress) {
+                go({ name: "address" });
+                return;
+              }
               /*
                * Everything the customer gave, packed once and handed over.
                * `buildIntakeBrief` is the same pure function the offer card
@@ -4484,6 +4527,7 @@ const go = useCallback((r: CustomerRoute) => {
              */
             onConfirmCompletion={() => {
               onConfirmCompletion?.();
+              if (hasLiveJob) recordDone();
               setHasLiveJob(false);
               setRateCall(null);
               advanceTo({ name: "complete" });
@@ -4792,11 +4836,18 @@ const go = useCallback((r: CustomerRoute) => {
                     : receiptLines
             }
             totalChargedMinorUnits={rateCall ? rateCall.totalMinorUnits ?? 0 : approvedTotalMinor ?? diagnosisFee ?? (trackedService.id ? 0 : 44500)}
-            paymentMethodLabelHe="ויזה · 4417"
+            paymentMethodLabelHe={null}
             // The rating travels with the navigation, so the closing
             // screen can speak about what they actually left rather than
             // thanking somebody for a review they may have skipped.
-            onSubmitReview={(rating) => advanceTo({ name: "closed", ratingGiven: rating })}
+            onSubmitReview={(rating) => {
+              setDoneJobs((cur) => {
+                if (cur.length === 0) return cur;
+                const target = rateCall ? cur.find((d) => d.nameHe === rateCall.nameHe && d.rating === null) : cur[0];
+                return target ? cur.map((d) => (d === target ? { ...d, rating } : d)) : cur;
+              });
+              advanceTo({ name: "closed", ratingGiven: rating });
+            }}
             onDownloadInvoice={() => setSheet("payment")}
             onBack={() => {
               setRateCall(null);
@@ -4882,7 +4933,7 @@ const go = useCallback((r: CustomerRoute) => {
             addressLabelHe={addressLabel}
             onChangeAddress={() => go({ name: "address" })}
             services={HOME_SERVICES}
-            recent={homeRecent}
+            recent={doneJobs.filter((d) => d.serviceId).slice(0, 2).map((d) => ({ id: d.serviceId!, nameHe: d.nameHe, mark: d.mark, metaHe: "היום · הושלם" }))}
             availability={snapshot}
             nowMs={Date.now()}
             matchRules={catalogMatchRules}
@@ -4943,7 +4994,7 @@ const go = useCallback((r: CustomerRoute) => {
           />
         );
     }
-  }, [tab, route, elapsed, width, bodyH, go, goTab, snapshot, supply, addressId, live, askLocation, addressLabel, capture, faultText, intakeAnswers, answerIntake, trackedService, onSendRequest, pendingQuote, writtenQuote, quoteApprovedForOther, quoteVoicePlaying, toggleQuoteVoice, rateCall, myCalls, onSiteNameHe, jobOnSiteHe, proJobState]);
+  }, [tab, route, elapsed, width, bodyH, go, goTab, snapshot, supply, addressId, live, askLocation, addressLabel, capture, faultText, intakeAnswers, answerIntake, trackedService, onSendRequest, pendingQuote, writtenQuote, quoteApprovedForOther, quoteVoicePlaying, toggleQuoteVoice, rateCall, myCalls, onSiteNameHe, jobOnSiteHe, proJobState, myAddresses, hasAddress, doneJobs]);
 
   /*
    * ONLY WHERE THERE IS A STREET TO WALK DOWN.

@@ -1,6 +1,7 @@
 // Amit's demo: a carpenter opens his shop and goes on shift; on the customer's
 // side, searching "נגרות" finds HIS shop first, and ordering matches HIM.
 import { launchChromium } from '../browser.mjs';
+import { setAddress } from './address.mjs';
 import { completeDocs } from './identity.mjs';
 const b = await launchChromium();
 const p = await b.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
@@ -23,7 +24,7 @@ console.log('shift is his:', (await text()).includes('רון') && (await text())
 await press(/^הדגמה: מעבר לצד הלקוח|^לקוח$/); await p.waitForTimeout(1500);
 // customer sign-in and first-time steps
 if (await p.getByLabel('מספר טלפון').count()) { await p.getByLabel('מספר טלפון').fill('0521110002'); await press(/^שליחת קוד/); await p.getByLabel('קוד האימות').fill('123456'); await press(/^כניסה/); }
-await press(/^דילוג על ההסבר/); await press(/^דמות 1$/); await press(/^(אישור הדמות|זו אני|זה אני)/); await p.waitForTimeout(1200);
+await press(/^דילוג על ההסבר/); await press(/^דמות 1$/); await press(/^(אישור הדמות|זו אני|זה אני)/); await p.waitForTimeout(1200); await setAddress(p, press);
 await shot('customer_home');
 const box = p.getByRole('textbox').first(); await box.click(); await box.pressSequentially('נגרות', { delay: 40 }); await p.waitForTimeout(1200);
 await shot('search'); // No card in the middle of the page (Amit): the customer searches as anyone would.

@@ -28,10 +28,10 @@ await run('address', async (A) => {
   await A.toHome();
   await A.press(/^שינוי כתובת/);
   const inp = A.p.locator('input').filter({ visible: true }).first();
-  await inp.fill('דיזנגוף 50');
+  await inp.fill('הרצל 10, חיפה');
   await A.press(/^אישור הכתובת/);
   check('#3 confirm returns home', await isHome(A), await A.sig());
-  check('#20 typed address used', await A.has('דיזנגוף 50'));
+  check('#20 typed address used', await A.has('הרצל 10'));
   await A.histBack();
   check('#3 phone back does not reopen picker', !(await A.has('אישור הכתובת')), await A.sig());
 });
@@ -57,13 +57,13 @@ await run('waiting', async (A) => {
 });
 
 await run('rate', async (A) => {
+  // No sample history (Amit, 2026-10-01: "רוצה אמת"): a new customer's list is empty and says so.
   await A.toHome();
   await A.press(/^תפריט$/);
   await A.press(/^הקריאות שלי/);
-  await A.press(/^דירוג המקצוען/);
-  check('#21 rating opens the pressed call', await A.has('התקנת מזגן'), await A.sig());
+  check('calls list: no sample history for a new customer', (await A.has('עוד לא שלחת קריאה')) && !(await A.has('התקנת מזגן')), await A.sig());
   await A.press(/^חזרה$/);
-  check('#8 rating back → calls list', await A.has('הקריאות שלי'), await A.sig());
+  check('#8 calls list back → menu', await A.has('התפריט'), await A.sig());
 });
 
 await run('avatar', async (A) => {

@@ -1,5 +1,6 @@
 // The whole customer ↔ professional ping-pong for one service, to payment.
 import { launchChromium } from '../browser.mjs';
+import { setAddress } from './address.mjs';
 const [tile, svc] = process.argv.slice(2);
 const b = await launchChromium();
 const p = await b.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
@@ -20,7 +21,7 @@ const need = async (re, name) => { const r = await press(re); steps.push((r ? '�
 try {
   await p.goto('http://127.0.0.1:4421/?time=night'); await p.locator('text=אני צריך מקצוען').first().waitFor();
   await press(/^אני צריך מקצוען/); await p.getByLabel('מספר טלפון').fill('0501234567'); await press(/^שליחת קוד/); await p.getByLabel('קוד האימות').fill('123456'); await press(/^כניסה/);
-  await press(/^דילוג על ההסבר/); await press(/^דמות 1$/); await press(/^(אישור הדמות|זו אני)/);
+  await press(/^דילוג על ההסבר/); await press(/^דמות 1$/); await press(/^(אישור הדמות|זו אני)/); await p.waitForTimeout(800); await setAddress(p, press);
   await need(new RegExp('^' + tile), 'category');
   await need(new RegExp('^' + svc), 'service');
   await need(/^בקשת בעל מקצוע עכשיו/, 'request');
