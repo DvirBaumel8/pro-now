@@ -11,7 +11,6 @@ import {
   releaseBlockedHe,
   type JobState,
   DEFAULT_VISIT_TERMS,
-  selfHe,
   type VisitTermsHe,
   type PricingKind,
 } from "@pro-now/demo-types";
@@ -151,6 +150,12 @@ export interface ProJobBodyProps {
   proFemale?: boolean;
   onFinishDiagnosis?: () => void;
   /**
+   * Ordered for someone else: the name of who ordered. The quote goes to
+   * them, and only they approve and pay — nobody at the door haggles
+   * (Amit, 2026-10-01).
+   */
+  quoteGoesToHe?: string | null;
+  /**
    * GIVING THE JOB BACK.
    *
    * Amit, on this screen right after accepting: *"אחרי שהוא רשם כן אני
@@ -186,7 +191,7 @@ function nextAction(status: JobState): { label: string; kind: "advance" | "quote
     case "WAITING_QUOTE_APPROVAL":
       return null; // The customer's move, not ours. No button to press.
     case "IN_PROGRESS":
-      return { label: "סיימתי את העבודה", kind: "advance" };
+      return { label: "סיימתי", kind: "advance" };
     default:
       return null;
   }
@@ -214,22 +219,29 @@ const STATUS_HE: Partial<Record<JobState, string>> = {
  * line on what to do now — and it slides in fresh at every step.
  */
 const STAGE: Partial<Record<JobState, { n: number; titleHe: string; doHe: string; tint: string; glyph: string }>> = {
-  PRO_ASSIGNED: { n: 1, titleHe: "העבודה שלך!", doHe: "הלקוח כבר יודע שאתה מגיע. צא לדרך כשאתה מוכן.", tint: "#2FBF8A", glyph: "✓" },
-  PRO_EN_ROUTE: { n: 2, titleHe: "בדרך ללקוח", doHe: "הלקוח רואה אותך מתקדם. לחץ ״הגעתי״ כשאתה בכתובת.", tint: "#3B82F6", glyph: "➜" },
+  PRO_ASSIGNED: { n: 1, titleHe: "העבודה שלך!", doHe: "הלקוח כבר יודע. יוצאים לדרך כשמוכנים.", tint: "#FF6B4A", glyph: "✓" },
+  PRO_EN_ROUTE: { n: 2, titleHe: "בדרך ללקוח", doHe: "הלקוח רואה את ההתקדמות. בכתובת? לוחצים ״הגעתי״.", tint: "#FF6B4A", glyph: "➜" },
   PRO_ARRIVED: { n: 3, titleHe: "הגעת", doHe: "הצג את עצמך, ותתחיל לבדוק את מה שהלקוח תיאר.", tint: "#8B5CF6", glyph: "⌂" },
-  DIAGNOSIS: { n: 4, titleHe: "בודקים מה צריך", doHe: "בודקים ומאבחנים. בתיקון — המחיר נסגר ישירות מול הלקוח; במחירון — מתחילים לפי מה שסוכם.", tint: "#F59E0B", glyph: "?" },
-  WAITING_QUOTE_APPROVAL: { n: 5, titleHe: "ההצעה אצל הלקוח", doHe: "מחכים לאישור. אי אפשר להתחיל לעבוד לפני שהוא מאשר.", tint: "#EC4899", glyph: "₪" },
+  DIAGNOSIS: { n: 4, titleHe: "בודקים מה צריך", doHe: "בודקים ומאבחנים. בתיקון — המחיר נסגר ישירות מול הלקוח; במחירון — מתחילים לפי מה שסוכם.", tint: "#8B5CF6", glyph: "?" },
+  WAITING_QUOTE_APPROVAL: { n: 5, titleHe: "ההצעה אצל הלקוח", doHe: "מחכים לאישור. אי אפשר להתחיל לעבוד לפני שהוא מאשר.", tint: "#8B5CF6", glyph: "₪" },
   IN_PROGRESS: { n: 6, titleHe: "ההצעה אושרה — עובדים", doHe: "עושים בדיוק את מה שאושר. לחץ ״סיימתי״ בסוף.", tint: "#FF6B4A", glyph: "⚒" },
-  COMPLETION_PENDING: { n: 7, titleHe: "סיימת!", doHe: "הלקוח מאשר שהעבודה הושלמה, ואז נסגר התשלום.", tint: "#2FBF8A", glyph: "★" },
+  COMPLETION_PENDING: { n: 7, titleHe: "מחכים לאישור הלקוח", doHe: "התשלום נסגר כשהלקוח מאשר.", tint: "#2FBF8A", glyph: "★" },
 };
 const STAGE_COUNT = 7;
+const PHASES = ["בדרך", "בדיקה", "העבודה", "סיום ותשלום"] as const;
+function phaseOf(st: JobState): number {
+  if (st === "PRO_ASSIGNED" || st === "PRO_EN_ROUTE") return 0;
+  if (st === "PRO_ARRIVED" || st === "DIAGNOSIS" || st === "WAITING_QUOTE_APPROVAL") return 1;
+  if (st === "IN_PROGRESS") return 2;
+  return 3;
+}
 
 /*
  * THE BAND IN HIS OWN TRADE'S WORDS (copy review, 2026-09-29): a haircut,
  * a tow, an hour of help and a delivery each read one sentence written for
  * repairs — "בודקים ומאבחנים", "ההצעה אושרה" — and a woman read "אתה".
  */
-function stageFor(status: JobState, kind: PricingKind, female: boolean, workHe: string) {
+function stageFor(status: JobState, kind: PricingKind, female: boolean, workHe: string, quoteTo: string | null = null) {
   const base = STAGE[status];
   if (!base) return undefined;
   const g = (m: string, f: string) => (female ? f : m);
@@ -245,6 +257,7 @@ function stageFor(status: JobState, kind: PricingKind, female: boolean, workHe: 
         doHe: kind === "VISIT" ? `${g("הצג", "הציגי")} את עצמך, ${g("ותתחיל", "ותתחילי")} לבדוק את מה שהלקוח תיאר.` : kind === "DISTANCE" ? `${g("אסוף", "אספי")} את המשלוח ו${g("צא", "צאי")} למסירה.` : `${g("הצג", "הציגי")} את עצמך — ${agreed}.`,
       };
     case "DIAGNOSIS":
+      if (kind === "VISIT" && quoteTo) return { ...base, titleHe: workHe === "התיקון" ? "בודקים ומאבחנים" : "בודקים מה צריך", doHe: `מצלמים, מקליטים ושולחים הצעת מחיר ל${quoteTo} באפליקציה. בבית לא סוגרים מחיר.` };
       if (kind === "VISIT") return { ...base, titleHe: workHe === "התיקון" ? "בודקים ומאבחנים" : "בודקים מה צריך", doHe: `את המחיר של ${workHe} סוגרים ישירות מול הלקוח. באפליקציה — רק דמי הביקור.` };
       if (kind === "DISTANCE") return { ...base, titleHe: "איסוף", doHe: `${g("אסוף", "אספי")} את המשלוח ${g("ולחץ", "ולחצי")} כשיוצאים למסירה.`, glyph: "⬆" };
       return { ...base, titleHe: "מתחילים", doHe: `${agreed}. ${g("לחץ", "לחצי")} ״סיימתי״ בסוף.`, glyph: "⚒" };
@@ -252,14 +265,14 @@ function stageFor(status: JobState, kind: PricingKind, female: boolean, workHe: 
       if (kind === "DISTANCE") return { ...base, titleHe: "בדרך למסירה", doHe: `${g("לחץ", "לחצי")} ״המשלוח נמסר״ כשהוא אצל המקבל.`, glyph: "➜" };
       return { ...base, titleHe: kind === "QUOTE_FIRST" ? "ההצעה אושרה — עובדים" : "עובדים", doHe: `${agreed}. ${g("לחץ", "לחצי")} ״סיימתי״ בסוף.` };
     case "COMPLETION_PENDING":
-      return { ...base, titleHe: g("סיימת!", "סיימת!"), doHe: kind === "VISIT" ? "הלקוח מאשר שהביקור התקיים, ואז נסגר התשלום." : "הלקוח מאשר שהעבודה הושלמה, ואז נסגר התשלום." };
+      return { ...base, titleHe: "מחכים לאישור הלקוח", doHe: kind === "VISIT" ? "התשלום נסגר כשהלקוח מאשר שהביקור התקיים." : "התשלום נסגר כשהלקוח מאשר." };
     default:
       return base;
   }
 }
 
-function StageBand({ status, kind = "VISIT", female = false, workHe = "התיקון" }: { status: JobState; kind?: PricingKind; female?: boolean; workHe?: string }) {
-  const st = stageFor(status, kind, female, workHe);
+function StageBand({ status, kind = "VISIT", female = false, workHe = "התיקון", quoteTo = null }: { status: JobState; kind?: PricingKind; female?: boolean; workHe?: string; quoteTo?: string | null }) {
+  const st = stageFor(status, kind, female, workHe, quoteTo);
   const enter = useRef(new Animated.Value(0)).current;
   /* The bar grows from where the last step left it, so a step is seen
      being completed rather than simply redrawn. */
@@ -305,24 +318,68 @@ function StageBand({ status, kind = "VISIT", female = false, workHe = "התיק�
         </Animated.View>
       ) : null}
       <View style={styles.stageTop}>
-        <Text style={[styles.stageStep, { color: st.tint }]}>שלב {st.n} מתוך {STAGE_COUNT}</Text>
         <View style={[styles.stageGlyph, { backgroundColor: st.tint }]}>
           <Text style={styles.stageGlyphText}>{st.glyph}</Text>
         </View>
+        <Text style={[styles.stageTitle, { flex: 1, marginTop: 0 }]} accessibilityRole="header">{st.titleHe}</Text>
       </View>
-      <Text style={styles.stageTitle}>{st.titleHe}</Text>
       <Text style={styles.stageDo}>{st.doHe}</Text>
       {status === "IN_PROGRESS" || status === "DIAGNOSIS" ? <WorkClock status={status} tint={st.tint} /> : null}
       {status === "WAITING_QUOTE_APPROVAL" ? <QuoteInFlight tint={st.tint} /> : null}
-      <View style={styles.stageTrack}>
-        <Animated.View
-          style={[
-            styles.stageFill,
-            { backgroundColor: st.tint, width: fill.interpolate({ inputRange: [0, 1], outputRange: ["0%", "100%"] }) },
-          ]}
-        />
+      {/*
+        * FOUR NAMED STEPS, NOT "שלב N מתוך 7".
+        *
+        * The count jumped 1→2→4→7 on a visit, because not every job passes
+        * every state. These are the steps the customer sees, by name.
+        */}
+      <View style={styles.phases} accessibilityLabel={`שלב: ${PHASES[phaseOf(status)]}`}>
+        {PHASES.map((p, i) => {
+          const at = phaseOf(status);
+          return (
+            <View key={p} style={styles.phase}>
+              <View style={[styles.phaseBar, { backgroundColor: i <= at ? st.tint : "rgba(255,255,255,0.14)" }]} />
+              <Text style={[styles.phaseText, i === at && { color: "#fff", fontWeight: "800" }]}>{p}</Text>
+            </View>
+          );
+        })}
       </View>
     </Animated.View>
+  );
+}
+
+/*
+ * THE DRIVE, MOVING.
+ *
+ * From the UX review: "בדרך ללקוח" was a still screen — "9 דק׳ נסיעה" never
+ * changed while the customer was told he could see the professional coming.
+ * The van travels from his side to the customer's door over the drive time
+ * the job came with, and the minutes count down from that same number. No
+ * number of our own: when it runs out it says "כמעט שם", not zero.
+ */
+function DriveStrip({ etaMinutes }: { etaMinutes: number }) {
+  const [since] = useState(() => Date.now());
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const total = Math.max(1, etaMinutes) * 60_000;
+  const k = Math.min(0.94, (now - since) / total);
+  const left = Math.ceil((total - (now - since)) / 60_000);
+  return (
+    <View style={styles.drive} accessibilityRole="progressbar" accessibilityLabel={left > 1 ? `עוד ${left} דקות נסיעה` : "כמעט שם"}>
+      <View style={styles.driveTrack}>
+        <View style={[styles.driveDone, { width: `${Math.round(k * 100)}%` }]} />
+      </View>
+      <View style={[styles.driveVan, { right: `${Math.round(k * 100)}%` }]}>
+        <View style={styles.driveDot} />
+      </View>
+      <View style={styles.driveEnds}>
+        <Text style={styles.driveEnd}>יצאת</Text>
+        <Text style={[styles.driveEnd, { color: "#fff", fontWeight: "800" }]}>{left > 1 ? `עוד ${left} דק׳` : "כמעט שם"}</Text>
+        <Text style={styles.driveEnd}>הלקוח</Text>
+      </View>
+    </View>
   );
 }
 
@@ -442,9 +499,12 @@ export function ProJobBody({
   kind = "VISIT",
   proFemale = false,
   onFinishDiagnosis,
+  quoteGoesToHe = null,
   width = 390,
   height = 780,
 }: ProJobBodyProps) {
+  const [reminded, setReminded] = useState(false);
+  useEffect(() => setReminded(false), [status]);
   const baseAction = nextAction(status);
   const agreed = status === "DIAGNOSIS" && agreedPriceHe && onStartAgreed;
   const finishing = status === "DIAGNOSIS" && diagnosisOnly && onFinishDiagnosis && !agreed;
@@ -486,7 +546,7 @@ export function ProJobBody({
      ------------------------------------------------------------------ */
   const problemBlock = (
     <View style={styles.block}>
-      <SectionHeader title={kind === "VISIT" ? "מה הבעיה" : "מה הלקוח ביקש"} colors={colors} />
+      <SectionHeader title={kind === "VISIT" && visitTerms.workHe === "התיקון" ? "מה הבעיה" : "מה הלקוח ביקש"} colors={colors} />
 
       {symptomsHe.length > 0 ? (
         <View style={styles.symptoms}>
@@ -535,7 +595,7 @@ export function ProJobBody({
       <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         {/* ---------------- 1. Where ---------------- */}
         <View style={styles.head}>
-          <StageBand status={status} kind={kind} female={proFemale} workHe={visitTerms.workHe} />
+          <StageBand status={status} kind={kind} female={proFemale} workHe={visitTerms.workHe} quoteTo={quoteGoesToHe} />
           {/* The band says the step; the old pill, the dots and the
               focus line said it three more times. They stay only for a
               state the band does not know. */}
@@ -606,8 +666,9 @@ export function ProJobBody({
               ---------------------------------------------------------- */}
           {focus === "TRAVEL" ? (
             <>
+              {status === "PRO_EN_ROUTE" && routeEtaMinutes !== null ? <DriveStrip etaMinutes={routeEtaMinutes} /> : null}
               <View style={styles.metaRow}>
-                {routeEtaMinutes !== null ? (
+                {routeEtaMinutes !== null && status !== "PRO_EN_ROUTE" ? (
                   <View style={styles.metaChip}>
                     <ClockMark size={13} color={colors.textSecondary} />
                     <Text style={styles.metaText}>{routeEtaMinutes} דק׳ נסיעה</Text>
@@ -656,16 +717,14 @@ export function ProJobBody({
                   <Text style={styles.custMeta} numberOfLines={2}>
                     נמצא בבית · הקריאה הוזמנה על ידי {customerNameHe}
                   </Text>
-                ) : (
-                  <Text style={styles.custMeta}>הזמין את הקריאה</Text>
-                )}
+                ) : null}
               </View>
             </View>
 
-            {doorCodeHe && (status === "PRO_ASSIGNED" || status === "PRO_EN_ROUTE" || status === "PRO_ARRIVED") ? (
+            {doorCodeHe && (status === "PRO_EN_ROUTE" || status === "PRO_ARRIVED") ? (
               <View style={styles.doorCode}>
                 <Text style={styles.doorCodeLabel}>
-                  הקוד שלך — {onSiteContactNameHe ?? customerNameHe} יבקש אותו
+                  קוד אימות מול הלקוח
                 </Text>
                 <Text style={styles.doorCodeDigits}>{doorCodeHe.split("").join(" ")}</Text>
               </View>
@@ -683,7 +742,7 @@ export function ProJobBody({
             <View style={styles.maskRow}>
               <ShieldCheckMark size={14} color={colors.trust} />
               <Text style={styles.maskText}>
-                השיחה עוברת דרך מספר מסווה. המספר הפרטי שלך לא נחשף ללקוח, ושלו לא נחשף לך.
+                המספרים של שניכם מוסתרים.
               </Text>
             </View>
           </Surface>
@@ -704,7 +763,7 @@ export function ProJobBody({
               <>
                 <Text style={styles.payUnknown}>{kind === "VISIT" ? "דמי הביקור שלך" : "לפי מה שסוכם"}</Text>
                 <Text style={styles.payNote}>
-                  {kind === "VISIT" ? `את המחיר של ${visitTerms.workHe} סוגרים ישירות מול הלקוח.` : "הסכום מאושר בכרטיס של הלקוח ועובר אליך אחרי שהוא מאשר."}
+                  {kind === "VISIT" && quoteGoesToHe ? `את המחיר של ${visitTerms.workHe} מאשרים אצל ${quoteGoesToHe}, באפליקציה.` : kind === "VISIT" ? `את המחיר של ${visitTerms.workHe} סוגרים ישירות מול הלקוח.` : "הסכום מאושר בכרטיס של הלקוח ועובר אליך אחרי שהוא מאשר."}
                 </Text>
               </>
             )}
@@ -791,14 +850,12 @@ export function ProJobBody({
           >
             <Text style={styles.ctaLabel}>{action.label}</Text>
           </Pressable>
-          {action.kind === "finishDiagnosis" ? (
-            <Text style={styles.finishNote}>
-              {`באפליקציה נגבים ${visitTerms.feeHe.replace("דמי ביקור ו", "דמי הביקור וה")}. את ${selfHe(visitTerms.workHe)} — המחיר והתשלום — סוגרים ישירות מול הלקוח.`}
-            </Text>
+          {action.kind === "quote" && quoteGoesToHe ? (
+            <Text style={styles.quoteTo}>הקריאה הוזמנה על ידי {quoteGoesToHe}: ההצעה נשלחת לשם, ורק שם מאשרים ומשלמים. בבית לא סוגרים מחיר.</Text>
           ) : null}
           {action.kind === "agreed" && onSendQuote ? (
             <Pressable onPress={onSendQuote} accessibilityRole="button" style={styles.extraLink}>
-              <Text style={styles.extraLinkText}>יש עבודה נוספת? הצעת מחיר לתוספת — הלקוח יאשר</Text>
+              <Text style={styles.extraLinkText}>הצעת מחיר לתוספת</Text>
             </Pressable>
           ) : null}
         </View>
@@ -820,9 +877,7 @@ export function ProJobBody({
          */
         <View style={styles.cta}>
           <View style={styles.waiting}>
-            <Text style={styles.waitingText}>
-              ההצעה נשלחה ללקוח. אי אפשר להתחיל לעבוד עד שהוא מאשר.
-            </Text>
+            {quoteGoesToHe ? <Text style={styles.quoteTo}>ממתינים לאישור של {quoteGoesToHe}. מתחילים לעבוד רק אחרי האישור.</Text> : null}
             {typeof waitingMinutes === "number" ? (
               <Text style={styles.waitingSince}>
                 {waitingMinutes < 1
@@ -834,12 +889,15 @@ export function ProJobBody({
             ) : null}
           </View>
           <View style={styles.waitingActions}>
+            {/* A reminder is a message, not a call sheet (button audit): it says it was sent. */}
             <Pressable
-              onPress={onCall}
+              onPress={() => setReminded(true)}
+              disabled={reminded}
               accessibilityRole="button"
-              style={({ pressed }) => [styles.waitingBtn, pressed && { opacity: 0.88 }]}
+              accessibilityState={{ disabled: reminded }}
+              style={({ pressed }) => [styles.waitingBtn, pressed && { opacity: 0.88 }, reminded && { opacity: 0.6 }]}
             >
-              <Text style={styles.waitingBtnText}>תזכורת ללקוח</Text>
+              <Text style={styles.waitingBtnText}>{reminded ? "✓ נשלחה תזכורת" : quoteGoesToHe ? `תזכורת ל${quoteGoesToHe}` : "תזכורת ללקוח"}</Text>
             </Pressable>
             <Pressable
               onPress={onWithdrawQuote}
@@ -872,20 +930,18 @@ export function ProJobBody({
            ---------------------------------------------------------------- */
         <View style={styles.cta}>
           <View style={styles.waiting}>
-            <Text style={styles.waitingText}>
-              אמרת שסיימת. הלקוח מאשר שהעבודה הושלמה, ואז התשלום נסגר.
-            </Text>
-            <Text style={styles.waitingSince}>
-              התשלום נסגר על אישור הלקוח, לא על ההצהרה שלך — כך זה מוסכם משני הצדדים.
-            </Text>
+            <Text style={styles.waitingText}>אפשר להזכיר ללקוח לאשר.</Text>
           </View>
           <View style={styles.waitingActions}>
+            {/* A reminder is a message, not a call sheet (button audit): it says it was sent. */}
             <Pressable
-              onPress={onCall}
+              onPress={() => setReminded(true)}
+              disabled={reminded}
               accessibilityRole="button"
-              style={({ pressed }) => [styles.waitingBtn, pressed && { opacity: 0.88 }]}
+              accessibilityState={{ disabled: reminded }}
+              style={({ pressed }) => [styles.waitingBtn, pressed && { opacity: 0.88 }, reminded && { opacity: 0.6 }]}
             >
-              <Text style={styles.waitingBtnText}>תזכורת ללקוח</Text>
+              <Text style={styles.waitingBtnText}>{reminded ? "✓ נשלחה תזכורת" : "תזכורת ללקוח"}</Text>
             </Pressable>
           </View>
         </View>
@@ -951,7 +1007,7 @@ function VoiceNote({ item }: { item: JobMediaItem }) {
       <Text style={styles.voiceNote}>
         {item.uri
           ? "הקלטה מהלקוח"
-          : "הקלטה מהלקוח · באב־טיפוס אין קובץ אמיתי, אז ההשמעה כבויה"}
+          : "הקלטה מהלקוח (הדגמה)"}
       </Text>
     </Surface>
   );
@@ -979,6 +1035,7 @@ function Wave() {
 }
 
 const styles = StyleSheet.create({
+  quoteTo: { color: colors.textSecondary, fontSize: scale.meta, textAlign: "center", writingDirection: "rtl", marginTop: spacing.sm, lineHeight: 20 },
   finishNote: { ...type.meta, color: colors.textSecondary, textAlign: "center", writingDirection: "rtl", marginTop: spacing.sm },
   doorCode: {
     marginTop: spacing.sm,
@@ -995,15 +1052,27 @@ const styles = StyleSheet.create({
   screen: { backgroundColor: colors.bg, overflow: "hidden", borderRadius: radii.xl },
   scroll: { paddingBottom: 116 },
   serviceSmall: { fontSize: scale.body, lineHeight: 24, marginTop: 0, color: "rgba(247,243,250,0.75)" },
-  stage: { alignSelf: "stretch", borderRadius: radii.lg, borderWidth: 1, padding: spacing.lg, marginBottom: spacing.lg },
-  stageTop: { flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center" },
+  stage: { alignSelf: "stretch", borderRadius: radii.lg, borderWidth: 1, padding: spacing.md, marginBottom: spacing.md },
+  phases: { flexDirection: "row-reverse", gap: 6, marginTop: spacing.md },
+  phase: { flex: 1 },
+  phaseBar: { height: 4, borderRadius: 2 },
+  phaseText: { color: "rgba(247,243,250,0.6)", fontSize: scale.micro, textAlign: "right", marginTop: 4, writingDirection: "rtl" },
+  stageTop: { flexDirection: "row-reverse", alignItems: "center", gap: spacing.sm },
   stageStep: { fontSize: scale.meta, fontWeight: "800", letterSpacing: 0.3, writingDirection: "rtl" },
-  stageGlyph: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
+  stageGlyph: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
   stageGlyphText: { color: "#0d0a16", fontSize: scale.body, fontWeight: "900" },
   stageTitle: { color: "#FFFFFF", fontSize: scale.title, fontWeight: "900", textAlign: "right", writingDirection: "rtl", marginTop: spacing.sm },
   stageDo: { color: "rgba(247,243,250,0.85)", fontSize: scale.meta, lineHeight: 22, textAlign: "right", writingDirection: "rtl", marginTop: spacing.xs },
   stageTrack: { height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.12)", marginTop: spacing.md, overflow: "hidden", flexDirection: "row-reverse" },
   stageFill: { height: 6, borderRadius: 3 },
+  drive: { alignSelf: "stretch", marginTop: spacing.md, marginBottom: spacing.sm, paddingTop: 22 },
+  driveTrack: { height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.12)", overflow: "hidden", flexDirection: "row-reverse" },
+  driveDone: { height: 6, borderRadius: 3, backgroundColor: "#FF6B4A" },
+  driveVan: { position: "absolute", top: 13, marginRight: -12, width: 24, alignItems: "center" },
+  /* The same coral mark the customer follows on the map. */
+  driveDot: { width: 20, height: 20, borderRadius: 10, backgroundColor: "#FF6B4A", borderWidth: 3, borderColor: "#FFFFFF" },
+  driveEnds: { flexDirection: "row-reverse", justifyContent: "space-between", marginTop: 6 },
+  driveEnd: { color: "rgba(247,243,250,0.6)", fontSize: scale.micro, writingDirection: "rtl" },
   clockRow: { flexDirection: "row-reverse", alignItems: "center", gap: 8, marginTop: spacing.md },
   clockDot: { width: 10, height: 10, borderRadius: 5 },
   clockText: { fontSize: scale.title, fontWeight: "900", ...tabular },
@@ -1105,6 +1174,8 @@ const styles = StyleSheet.create({
   release: {
     minHeight: 44,
     justifyContent: "center",
+    /* It ran off the left edge of the screen: the scroll has no side padding. */
+    marginHorizontal: spacing.lg,
     marginTop: spacing.xl,
     paddingVertical: spacing.sm,
   },

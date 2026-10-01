@@ -45,7 +45,7 @@ const STATE_LABEL: Record<StepState, string> = {
   VERIFIED: "אומת",
   REJECTED: "נדחה",
   EXPIRED: "פג תוקף",
-  SANDBOX: "בדיקת נסיון",
+  SANDBOX: "בדיקת הדגמה",
 };
 
 /** The colour a state is allowed to wear. Only one of them is green. */
@@ -135,7 +135,7 @@ export function ProVerificationStepBody({
             <Text style={styles.costsHead}>מה זה חוסם כרגע</Text>
             <Text style={styles.costsBody}>
               {gates.length === 0
-                ? "את החשבון עצמו — בלי זה אי אפשר לצאת למשמרת."
+                ? "נדרש לפני עבודה אמיתית."
                 : gates.join(" · ")}
             </Text>
           </View>

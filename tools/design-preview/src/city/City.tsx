@@ -1,4 +1,5 @@
 import { isDaytime } from "../daylight";
+import { openOverlay } from "../backGesture";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
@@ -128,6 +129,13 @@ export interface CityProps {
    */
   enterShopId?: string | null;
   /**
+   * The professional who opened his shop in the demo: which house is his, the
+   * name on his sign and his colour. Amit: "יראה לי אותה ברחוב".
+   */
+  ownShop?: { id: string; nameHe: string; colorHex: string; logoUri?: string | null } | null;
+  /** Kept alive behind another screen (a service opened from a shop): stop drawing, keep everything. */
+  paused?: boolean;
+  /**
    * Which of the twelve characters the customer chose, 1–12.
    *
    * Without it the street falls back to Amit's cycle, which is what
@@ -164,7 +172,8 @@ export interface CityProps {
     }
   > | null;
   /** Called when somebody picks a service inside a shop. */
-  onRequestService?: (serviceId: string) => void;
+  /* `fromShopId`: the shop it was ordered in, so back from the service returns inside it. */
+  onRequestService?: (serviceId: string, fromShopId?: string) => void;
   /**
    * A NAMED CAMERA SHOT, FOR SCREENS THAT ARE NOT PLAYED.
    *
@@ -275,6 +284,8 @@ export function City({
   base = "./world/",
   spawn,
   enterShopId = null,
+  ownShop = null,
+  paused = false,
   avatarNo = null,
   shot = null,
   hud = true,
@@ -285,6 +296,8 @@ export function City({
   onExit,
 }: CityProps) {
   const host = useRef<HTMLDivElement | null>(null);
+  const pausedRef = useRef(paused);
+  pausedRef.current = paused;
   const [ready, setReady] = useState(false);
   const [nearName, setNearName] = useState<string | null>(null);
   const [nearId, setNearId] = useState<string | null>(null);
@@ -390,6 +403,23 @@ export function City({
   }, [room]);
   const enterRef = useRef<(() => void) | null>(null);
   const leaveRef = useRef<(() => void) | null>(null);
+  /*
+   * The phone's back inside a shop walks out to the street, and on an open
+   * sheet closes the sheet — it used to leave the whole street (button audit #14).
+   */
+  const inShop = Boolean(room || insideShop);
+  useEffect(
+    () =>
+      inShop
+        ? openOverlay(() => {
+            setRoom(null);
+            setInside(null);
+            leaveRef.current?.();
+          })
+        : undefined,
+    [inShop]
+  );
+  useEffect(() => (openPlace ? openOverlay(() => setOpenPlace(null)) : undefined), [openPlace]);
 
   useEffect(() => {
     const el = host.current;
@@ -673,6 +703,84 @@ export function City({
       );
 
       await Promise.all([facadeWave, roomWave, artWave, panoWave]);
+
+      /*
+       * ---------------------------------------------------------------
+       * HIS SHOP IS THE SHOP HE DESIGNED
+       * ---------------------------------------------------------------
+       * Amit: *"זה לא העיצוב של החנות שבניתי… אני רוצה שיראו את החנות שהם
+       * עיצבו עם הלוגו והשם שלהם — זה כל היתרון והייחודיות שלנו."* So on
+       * the house of his trade the PRO NOW sign is painted over with his:
+       * his full shop name, his colour as neon, his logo — on the facade
+       * itself, so it sits in the street like every other sign rather than
+       * floating in front of it.
+       */
+      if (ownShop) {
+        const sh = SHOPS.find((x) => x.id === ownShop.id);
+        const tex = sh ? facades[sh.facade] : undefined;
+        const img = tex?.image as (CanvasImageSource & { width: number; height: number }) | undefined;
+        if (sh && tex && img?.width) {
+          const logo = ownShop.logoUri
+            ? await new Promise<HTMLImageElement | null>((res) => {
+                const i = new Image();
+                i.onload = () => res(i);
+                i.onerror = () => res(null);
+                i.src = ownShop.logoUri!;
+              })
+            : null;
+          const cv = document.createElement("canvas");
+          cv.width = img.width; cv.height = img.height;
+          const g = cv.getContext("2d");
+          if (g) {
+            g.drawImage(img, 0, 0);
+            const W = cv.width, H = cv.height;
+            /* Where the PRO NOW sign is on every drawn facade (measured). */
+            const x0 = W * 0.08, x1 = W * 0.92, y0 = H * 0.335, y1 = H * 0.5;
+            const bh = y1 - y0, rad = bh * 0.2;
+            const box = () => { g.beginPath(); g.roundRect?.(x0, y0, x1 - x0, bh, rad); };
+            g.save();
+            g.fillStyle = "#120c1c"; box(); g.fill();
+            g.shadowColor = ownShop.colorHex; g.shadowBlur = W * 0.04;
+            g.lineWidth = Math.max(3, W * 0.012); g.strokeStyle = ownShop.colorHex; box(); g.stroke();
+            g.restore();
+            const pad = bh * 0.16;
+            let textRight = x1 - pad;
+            if (logo) {
+              const d = bh - pad * 2, cx = x1 - pad - d / 2, cy = y0 + bh / 2;
+              g.save(); g.beginPath(); g.arc(cx, cy, d / 2, 0, Math.PI * 2); g.clip();
+              g.drawImage(logo, cx - d / 2, cy - d / 2, d, d); g.restore();
+              g.save(); g.lineWidth = Math.max(2, W * 0.006); g.strokeStyle = ownShop.colorHex; g.beginPath(); g.arc(cx, cy, d / 2, 0, Math.PI * 2); g.stroke(); g.restore();
+              textRight = cx - d / 2 - pad;
+            }
+            /* "PRO NOW" on top, his business name under it (Amit, 2026-10-01). */
+            const maxW = textRight - (x0 + pad);
+            const cx = (x0 + pad + textRight) / 2;
+            const font = (n: number) => `900 ${n}px 'Noto Sans Hebrew', 'Heebo', 'Assistant', sans-serif`;
+            g.textAlign = "center"; g.textBaseline = "middle";
+            const brand = bh * 0.24;
+            g.save();
+            g.direction = "ltr"; g.font = font(brand);
+            const wPro = g.measureText("PRO ").width, wNow = g.measureText("NOW").width;
+            g.textAlign = "left";
+            g.fillStyle = "#ffffff"; g.fillText("PRO ", cx - (wPro + wNow) / 2, y0 + bh * 0.27);
+            g.fillStyle = "#FF6B4A"; g.fillText("NOW", cx - (wPro + wNow) / 2 + wPro, y0 + bh * 0.27);
+            g.restore();
+            let size = bh * 0.42;
+            g.direction = "rtl"; g.textAlign = "center";
+            g.font = font(size);
+            while (g.measureText(ownShop.nameHe).width > maxW && size > bh * 0.2) { size -= 2; g.font = font(size); }
+            g.save();
+            g.shadowColor = ownShop.colorHex; g.shadowBlur = W * 0.03; g.fillStyle = "#ffffff";
+            g.fillText(ownShop.nameHe, cx, y0 + bh * 0.66);
+            g.restore();
+            const painted = new THREE.CanvasTexture(cv);
+            painted.colorSpace = tex.colorSpace;
+            painted.wrapS = tex.wrapS; painted.wrapT = tex.wrapT;
+            painted.anisotropy = tex.anisotropy;
+            facades[sh.facade] = painted;
+          }
+        }
+      }
 
       /*
        * ---------------------------------------------------------------
@@ -997,6 +1105,7 @@ export function City({
       let spin = 0;
       let spinArmed = true;
       let atEndFor = 0;
+      let pushOutFor = 0;
 
       /*
        * -----------------------------------------------------------
@@ -1215,6 +1324,11 @@ export function City({
       let vrFade = 0;
 
       const tick = (now: number) => {
+        /* Behind another screen: nothing is drawn, nothing is lost — the way back finds it as it was. */
+        if (pausedRef.current) {
+          raf = requestAnimationFrame(tick);
+          return;
+        }
         const dt = Math.min(0.05, (now - last) / 1000);
         last = now;
 
@@ -1620,6 +1734,21 @@ export function City({
               Math.min(Math.max(deep, shallow), p.x + dx)
             );
             p.z = Math.max(room.z - 3.4, Math.min(room.z + 3.4, p.z + dz));
+            /*
+             * WALKING OUT OF THE DOOR LEAVES THE SHOP (Amit, 2026-10-01: in Lust,
+             * "ניסיתי לצאת מהחנות והוא לא זיהה שיצאתי" — the walls held him in
+             * and the shop stayed his for the rest of the street). Pushing into
+             * the street-side wall, near the doorway, for a moment is the same
+             * as "חזרה לרחוב".
+             */
+            const atDoorWall = Math.abs(p.x - shallow) < 0.08 && dx * room.side < 0;
+            pushOutFor = atDoorWall ? pushOutFor + dt : 0;
+            if (pushOutFor > 0.35 && !entry) {
+              pushOutFor = 0;
+              setRoom(null);
+              setInside(null);
+              leaveRef.current?.();
+            }
           } else {
             /* Wall to wall. Crossing the road is a thing you may do —
                the previous clamp kept you on one pavement, which made
@@ -1936,7 +2065,7 @@ export function City({
         if (id !== lastNear) {
           lastNear = id;
           setNearId(id);
-          setNearName(best ? (best.sponsor ? `${best.he} · בחסות` : best.he) : null);
+          setNearName(best ? (ownShop && best.id === ownShop.id ? ownShop.nameHe : best.sponsor ? `${best.he} · בחסות` : best.he) : null);
           /*
            * -----------------------------------------------------------
            * A DOOR WITH NO PAINTED ROOM STILL OPENS
@@ -2077,7 +2206,7 @@ export function City({
       stop();
       if (renderer.domElement.parentElement === el) el.removeChild(renderer.domElement);
     };
-  }, [base, spawn?.x, spawn?.z, avatarNo, enterShopId]);
+  }, [base, spawn?.x, spawn?.z, avatarNo, enterShopId, ownShop?.id, ownShop?.nameHe, ownShop?.colorHex, ownShop?.logoUri]);
 
   /* ----- the pad, in the DOM because that is where fingers are ----- */
   const padRef = useRef<HTMLDivElement | null>(null);
@@ -2313,7 +2442,7 @@ export function City({
           }}
         >
           {/* The door says whose it is — see "ONLY A SHOP YOU CAN SEE". */}
-          {`היכנס ל${SHOPS.find((x) => x.id === nearId)?.he ?? "חנות"} ›`}
+          {`כניסה ל${ownShop && nearId === ownShop.id ? ownShop.nameHe : SHOPS.find((x) => x.id === nearId)?.he ?? "חנות"} ‹`}
         </button>
       ) : null}
 
@@ -2407,7 +2536,7 @@ export function City({
               })()) ||
             null
           }
-          onRequestService={onRequestService}
+          onRequestService={(id) => onRequestService?.(id, room.id)}
           onLeave={() => {
             setRoom(null);
             leaveRef.current?.();
@@ -2948,7 +3077,7 @@ const S: Record<string, React.CSSProperties> = {
     animation: "pnFill 1.6s ease-in-out infinite",
   },
   name: {
-    position: "absolute", top: 46, left: "50%", transform: "translateX(-50%)",
+    position: "absolute", top: 70, left: "50%", transform: "translateX(-50%)",
     display: "flex", alignItems: "center", gap: 9,
     padding: "9px 16px", borderRadius: 999,
     background: "rgba(12,9,18,.82)", border: "1px solid",
@@ -2972,7 +3101,7 @@ const S: Record<string, React.CSSProperties> = {
   leaveRoom: {
     /* Top left, clear of the joystick. At the bottom it sat on the
        pad and you could not tell which you were pressing. */
-    position: "absolute", left: 16, top: 84,
+    position: "absolute", left: 16, top: 124,
     border: "1px solid rgba(247,243,250,.22)", borderRadius: 999,
     padding: "11px 20px", background: "rgba(16,12,22,.72)",
     color: "rgba(247,243,250,.86)", fontSize: scale.meta, fontFamily: "inherit",

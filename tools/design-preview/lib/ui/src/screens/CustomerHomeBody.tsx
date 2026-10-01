@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import type { AreaAvailabilityView } from "@pro-now/demo-types";
 
@@ -120,6 +120,12 @@ export interface HomeRecentItem {
 }
 
 export interface CustomerHomeBodyProps {
+  /**
+   * The host's history: an open list (all 47 services, all departments) is
+   * registered with how to close it, so the phone's back closes the list
+   * rather than leaving home (button audit #13). Returns the unregister.
+   */
+  onOverlay?: (close: () => void) => () => void;
   /** The city behind the top of the page, when the host can play it. Left out, the painted plate. */
   backdrop?: React.ReactNode;
   /** Short greeting, e.g. "ערב טוב". Locale/time logic lives in the app. */
@@ -168,6 +174,23 @@ export interface CustomerHomeBodyProps {
   /** Total professionals online, for callers with no snapshot yet. */
   totalAvailableNow?: number | null;
   onSelectService?: (id: string) => void;
+  /**
+   * A professional who opened his shop in this demo and is on shift. When the
+   * customer searches for something he does, his shop is the first answer —
+   * Amit: "אם אני מחפש שיפוצים אני מצפה שזה ימצא לי את החנות שבניתי".
+   */
+  ownShop?: {
+    serviceIds: readonly string[];
+    customHe: readonly string[];
+    shopNameHe: string;
+    personHe: string;
+    colorHex: string;
+    imageUri: string | null;
+    tradeHe: string;
+    priceHe: string | null;
+    onOpen: (serviceId: string | null) => void;
+    onStreet?: () => void;
+  } | null;
   onChangeAddress?: () => void;
   /**
    * "יש לי עסק, אני רוצה חנות בשכונה."
@@ -272,6 +295,7 @@ export interface CustomerHomeBodyProps {
 const ALL = "הכול";
 
 export function CustomerHomeBody({
+  onOverlay,
   backdrop,
   greetingHe,
   addressLabelHe,
@@ -286,6 +310,7 @@ export function CustomerHomeBody({
   understand,
   totalAvailableNow,
   onSelectService,
+  ownShop = null,
   onChangeAddress,
   onAdvertise,
   seedQueryHe,
@@ -364,6 +389,14 @@ export function CustomerHomeBody({
    * that says how many, and it opens all of them, searchable.
    */
   const [showAllServices, setShowAllServices] = useState(false);
+  useEffect(
+    () => (showAllServices && onOverlay ? onOverlay(() => { setShowAllServices(false); setFilter(""); }) : undefined),
+    [showAllServices]
+  );
+  useEffect(
+    () => (showAllDepts && onOverlay ? onOverlay(() => setShowAllDepts(false)) : undefined),
+    [showAllDepts]
+  );
   const [filter, setFilter] = useState("");
   const listed = useMemo(
     () => (dept === ALL ? services : services.filter((s) => s.departmentHe === dept)),
@@ -830,6 +863,34 @@ export function CustomerHomeBody({
           </View>
         ) : null}
 
+        {ownShop && hasText && (() => {
+          const hit = (matched ?? []).find((m) => ownShop.serviceIds.includes(m.id))?.id ?? null;
+          const own = q.length >= 2 && (ownShop.shopNameHe.includes(q) || ownShop.customHe.some((c) => c.includes(q) || q.includes(c)));
+          if (!hit && !own) return null;
+          return (
+            <Pressable
+              onPress={() => ownShop.onOpen(hit)}
+              accessibilityRole="button"
+              accessibilityLabel={`החנות של ${ownShop.shopNameHe}, במשמרת עכשיו`}
+              style={({ pressed }) => [styles.ownShop, { borderColor: ownShop.colorHex, shadowColor: ownShop.colorHex }, pressed && { opacity: 0.9 }]}
+            >
+              <View style={[styles.ownShopFace, { borderColor: ownShop.colorHex }]}>
+                {ownShop.imageUri ? <Image source={{ uri: ownShop.imageUri }} style={styles.ownShopImg} resizeMode="cover" /> : null}
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.ownShopLive}>● במשמרת עכשיו</Text>
+                <Text style={styles.ownShopName} numberOfLines={1}>{ownShop.shopNameHe}</Text>
+                <Text style={styles.ownShopSub} numberOfLines={1}>{`${ownShop.personHe} · ${ownShop.tradeHe}${ownShop.priceHe ? ` · ${ownShop.priceHe}` : ""}`}</Text>
+                {ownShop.onStreet ? (
+                  <Pressable onPress={ownShop.onStreet} accessibilityRole="button" style={styles.ownShopStreet}>
+                    <Text style={[styles.ownShopStreetText, { color: ownShop.colorHex }]}>לראות את החנות ברחוב ›</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            </Pressable>
+          );
+        })()}
+
         {suggestions !== null || hasMedia ? (
           <View style={{ marginTop: spacing.lg }}>
             <IntentSuggestions
@@ -1223,4 +1284,12 @@ const styles = StyleSheet.create({
     writingDirection: "rtl",
     marginTop: spacing.xs,
   },
+  ownShop: { marginTop: spacing.lg, flexDirection: "row-reverse", alignItems: "center", gap: 14, padding: 14, borderRadius: 20, borderWidth: 2, backgroundColor: "rgba(16,11,22,0.92)", shadowOpacity: 0.45, shadowRadius: 18, shadowOffset: { width: 0, height: 0 } },
+  ownShopFace: { width: 64, height: 64, borderRadius: 32, borderWidth: 2, overflow: "hidden", backgroundColor: "rgba(255,255,255,0.08)" },
+  ownShopImg: { width: "100%", height: "100%" },
+  ownShopLive: { color: "#2FBF8A", fontSize: type.caption.fontSize, fontWeight: "800", textAlign: "right" },
+  ownShopName: { color: "#FFFFFF", fontSize: type.h3.fontSize, fontWeight: "900", textAlign: "right", writingDirection: "rtl" },
+  ownShopSub: { color: "rgba(247,243,250,0.75)", fontSize: type.caption.fontSize, textAlign: "right", writingDirection: "rtl", marginTop: 2 },
+  ownShopStreet: { minHeight: 36, justifyContent: "center", alignSelf: "flex-end" },
+  ownShopStreetText: { fontSize: type.caption.fontSize, fontWeight: "800" },
 });

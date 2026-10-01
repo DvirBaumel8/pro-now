@@ -197,7 +197,7 @@ export function MatchSheet({ candidate, etaMinutes, arrivalClockHe, visitFeeHe =
 
       {onAnother ? (
         <Pressable onPress={onAnother} accessibilityRole="button" style={styles.secondary}>
-          <Text style={styles.secondaryText}>הראה לי התאמה אחרת</Text>
+          <Text style={styles.secondaryText}>התאמה אחרת</Text>
         </Pressable>
       ) : null}
     </Animated.View>

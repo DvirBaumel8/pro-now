@@ -14,10 +14,10 @@ describe("two kinds of work, each priced one way (Amit, 2026-09-29)", () => {
 
   it("the trades whose price nobody knows until they look are visit-and-diagnosis", () => {
     const byId = Object.fromEntries(services.map((s) => [s.id, s.pricingModel]));
-    for (const id of ["svc-blockage", "svc-leak", "svc-tap", "svc-electric", "svc-socket", "svc-ac", "svc-jump-start", "svc-phone-fix", "svc-handyman"]) {
+    for (const id of ["svc-blockage", "svc-leak", "svc-tap", "svc-electric", "svc-socket", "svc-ac", "svc-jump-start", "svc-phone-fix"]) {
       expect(byId[id], id).toBe("VISIT_QUOTE");
     }
-    for (const id of ["svc-haircut", "svc-dog-walk", "svc-pet-groom", "svc-clean", "svc-flat-tyre", "svc-lock"]) {
+    for (const id of ["svc-handyman", "svc-haircut", "svc-dog-walk", "svc-pet-groom", "svc-clean", "svc-flat-tyre", "svc-lock"]) {
       expect(byId[id], id).toBe("FIXED");
     }
   });

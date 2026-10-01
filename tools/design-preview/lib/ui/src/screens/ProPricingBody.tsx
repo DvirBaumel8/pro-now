@@ -79,6 +79,8 @@ export interface ProPricingBodyProps {
   onAfterHoursChange?: (percent: number | null) => void;
   /** The jobs he does and what each costs — his quotes are built from these. */
   priceList?: readonly { id: string; nameHe: string; amountMinorUnits: number }[];
+  /** False for a professional whose services are priced only by visit-and-diagnosis: no price list to show. */
+  showPriceList?: boolean;
   onPriceListChange?: (list: { id: string; nameHe: string; amountMinorUnits: number }[]) => void;
   onBack?: () => void;
   width?: number;
@@ -109,6 +111,7 @@ export function ProPricingBody({
   afterHoursPercent = null,
   onAfterHoursChange,
   priceList = [],
+  showPriceList = true,
   onPriceListChange,
   onBack,
   width = 390,
@@ -162,10 +165,12 @@ export function ProPricingBody({
         ) : null}
 
         <Text style={styles.title}>המחירים שלך</Text>
+        {/* One sentence, and only about what this professional has (Amit:
+            "כל אחד מחליט לעצמו"; a visit-only trade has no price list). */}
         <Text style={styles.lede}>
-          כל המחירים שלך — אתה קובע אותם, והלקוח רואה אותם לפני שהוא מזמין. בשירות במחיר קבוע
-          זה המחיר לעבודה; בשירות עם אבחון זה מחיר הביקור, ואת העבודה עצמה מתמחרים אחרי שרואים
-          את התקלה — מהמחירון שלך למטה.
+          {showPriceList
+            ? "כל מחיר כאן — שלך. הלקוח רואה אותו לפני שהוא מזמין."
+            : "המחיר שלך לביקור ואבחון. את העבודה עצמה סוגרים מול הלקוח אחרי שרואים את התקלה."}
         </Text>
 
         {/*
@@ -296,7 +301,8 @@ export function ProPricingBody({
           </Text>
         </Surface>
 
-        {/* ---------------- The price list ---------------- */}
+        {/* ---------------- The price list — only for work priced by the job ---------------- */}
+        {showPriceList ? (<>
         <SectionHeader title="המחירון שלך" colors={colors} />
         <Surface kind="raised" colors={colors} style={styles.card}>
           <Text style={styles.help}>
@@ -305,7 +311,20 @@ export function ProPricingBody({
           {priceList.map((it) => (
             <View key={it.id} style={styles.listRow}>
               <Text style={styles.listName} numberOfLines={1}>{it.nameHe}</Text>
-              <Text style={styles.listPrice}>₪{(it.amountMinorUnits / 100).toLocaleString("he-IL")}</Text>
+              {/* His price, editable in place — every line is his to set (Amit: "כל אחד מחליט לעצמו"). */}
+              <View style={styles.listPriceBox}>
+                <Text style={styles.listPrice}>₪</Text>
+                <TextInput
+                  value={it.amountMinorUnits ? String(Math.round(it.amountMinorUnits / 100)) : ""}
+                  onChangeText={(t) => {
+                    const n = Number(t.replace(/[^0-9]/g, "")) || 0;
+                    onPriceListChange?.(priceList.map((x) => (x.id === it.id ? { ...x, amountMinorUnits: n * 100 } : x)));
+                  }}
+                  keyboardType="number-pad"
+                  accessibilityLabel={`המחיר של ${it.nameHe}`}
+                  style={styles.listPriceInput}
+                />
+              </View>
               <Pressable
                 onPress={() => onPriceListChange?.(priceList.filter((x) => x.id !== it.id))}
                 accessibilityRole="button"
@@ -339,6 +358,7 @@ export function ProPricingBody({
             <Text style={styles.addBtnText}>+ הוספה למחירון</Text>
           </Pressable>
         </Surface>
+        </>) : null}
 
         {/*
           * The three steps, restated at the bottom where a professional who
@@ -350,8 +370,10 @@ export function ProPricingBody({
         <SectionHeader title="איך זה עובד" colors={colors} />
         <Surface kind="outlined" colors={colors} style={styles.card}>
           <Text style={styles.step}>1 · תיקון שהמחיר שלו לא ידוע מראש: הלקוח רואה את דמי הביקור והאבחון שלך, וזה מה שנגבה באפליקציה. את התיקון עצמו אתם סוגרים ישירות.</Text>
-          <Text style={styles.step}>2 · עבודה עם מחיר ידוע: הלקוח בוחר מהמחירון שלך, והסכום מאושר בכרטיס ועובר אליך אחרי שהוא מאשר שסיימת.</Text>
-          <Text style={styles.step}>3 · הלקוח רואה את המחיר שלך לפני שהוא מאשר אותך.</Text>
+          {showPriceList ? (
+            <Text style={styles.step}>2 · עבודה עם מחיר ידוע: הלקוח בוחר מהמחירון שלך, והסכום מאושר בכרטיס ועובר אליך אחרי שהוא מאשר שסיימת.</Text>
+          ) : null}
+          <Text style={styles.step}>{showPriceList ? "3" : "2"} · הלקוח רואה את המחיר שלך לפני שהוא מאשר אותך.</Text>
           <Text style={styles.stepNote}>
             אין מכרז ואין הצעות מתחרות. המחיר שלך הוא שלך.
           </Text>
@@ -373,6 +395,8 @@ const styles = StyleSheet.create({
   listRow: { flexDirection: "row-reverse", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.xs },
   listName: { ...type.body, color: colors.textPrimary, flex: 1, textAlign: "right" },
   listPrice: { ...type.bodyStrong, color: colors.trust },
+  listPriceBox: { flexDirection: "row", alignItems: "center", gap: 2, minHeight: 44, paddingHorizontal: 10, borderRadius: 12, borderWidth: 1, borderColor: colors.border },
+  listPriceInput: { ...type.bodyStrong, color: colors.trust, width: 64, minWidth: 0, textAlign: "center" },
   listRemove: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
   listRemoveText: { ...type.h3, color: colors.textSecondary },
   addRow: { flexDirection: "row-reverse", gap: spacing.sm },

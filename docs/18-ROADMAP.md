@@ -229,6 +229,66 @@ and no screen achieves it: *"מחיר נח לכל כיס עם מקצוענים �
 supply-and-price-level strategy. Fairness is the part that can be built
 without inventing a business rule.
 
+### BUILT 2026-10-01 (demo, Amit) — several orders at once; only real data in the customer's profile
+
+Amit ordered a carpenter, walked the city during the wait and ordered a barber
+inside a shop; the first order vanished. Now each order keeps its own
+professional, stage and clock:
+- **Dock.** "ההזמנות שלך עכשיו", a chip per order with a progress ring,
+  status in words and minutes.
+- **Switcher.** "1 מתוך 2" on an order's own screens.
+- **City.** A strip over the 3D street, plus a note when a parked order's
+  professional is getting close.
+- **Calls list.** Every live order is in "הקריאות שלי".
+
+The spec is `tools/design-preview/out/multi-order-spec.md`; the test is
+`qa/multi_order.mjs`.
+
+The customer side now shows only what really happened: addresses the person
+typed, calls they really made, and no sample card. A professional's own shop
+survives reopening the demo (same number → straight to his shop).
+
+**TBD — not decided in code (Open decisions):**
+- The maximum number of simultaneous live orders per customer.
+- Whether the same service at the same address may be ordered twice. The demo
+  neither warns nor blocks.
+- The cancellation policy and fee when one of several orders is cancelled.
+- Whether price-list holds for several orders can coexist. This depends on the
+  payment provider.
+
+### BUILT 2026-10-01 (demo, Amit) — ordered for someone else: the repair is quoted to whoever ordered
+
+When a call is ordered for someone else (the son abroad for his parents),
+the parents must not haggle at the door. So even a repair — normally
+visit-and-diagnosis in the app and the repair settled directly — is
+quoted IN THE APP: the professional must attach a photo of the fault and
+write what he found (a voice note too), the quote goes only to the person
+who ordered, who sees what was found → what the price includes → the sum,
+and approves and pays there. The professional starts only after that
+approval. The person at home is not in the app: they get SMS — the first
+carries the professional and the door code, the second arrives by itself
+when the orderer approves ("עמית אישר ושילם … אין צורך לשלם כלום").
+Ordering for yourself is unchanged. Real SMS needs the notification vendor
+(TBD, `NotificationProvider`).
+
+### BUILT 2026-10-01 (demo, Amit) — identity check before work: ID card, face, match
+
+Amit, after joining Lime: the join photographs the ID card, shows it being
+read, then opens the front camera and asks the professional to look
+straight, then right, then left, and matches the face to the card. Only
+then does the documents step go on. He may skip ahead ("אחר כך") to look
+around the app, but **nobody is approved for work** — no automatic
+approval, the shift button gives way to "השלמת הרישום" — until the
+identity check and the required documents are done.
+
+In the demo (`tools/design-preview/src/IdentityCheck.tsx`) the photo and the
+camera are real and stay on the phone; the reading of the card and the
+face match are played, and the screen says so. **The KYC/identity vendor
+that does it for real is still TBD** (Open decisions above) — the product
+needs an `IdentityVerificationProvider` adapter for it (ID document +
+liveness with head turns + face match), with a sandbox adapter until the
+vendor is chosen.
+
 ### DECIDED 2026-09-30 (Dvir) — how a professional joins: faces, the street, new services, documents
 Answers to D1–D4 of `docs/sync/SYNC-2026-09-30.md`:
 - **D1 — faces.** A professional's photo is approved as it is, for now. Customers see
@@ -335,6 +395,14 @@ Also decided (Amit, 2026-09-30): **someone already registered goes straight to h
 number, plus a "התנתקות" menu item to show it). **Everything required stays required, prices
 included; only the shop's design may be skipped** ("דלג — אעצב את החנות אחר כך"), opening with
 our defaults and a "לעצב את החנות" link on the open-shop screen.
+
+Also decided (Amit, 2026-09-30, after joining as a vet in a live demo):
+- **For demonstrations only, documents and the photo may be skipped too** ("דלג לעכשיו
+  (הדגמה)"); the summary says they were skipped. Not a product rule — in the product they stay
+  required.
+- **The handyman is priced by the kind of job, not by the hour**: "הנדימן" is a price-list
+  service (demo lines: shelf/picture, door or cupboard, small furniture, handle or hinge). Amit
+  on pricing in general: *"צריך לחשוב על זה"* — per-service pricing kinds stay open for review.
 
 Built in the demo (Amit's track): `ProOnboardingBody` (lib/ui) — welcome · "what you do" in
 free text (the matcher ticks the services; custom services allowed) · details & radius ·

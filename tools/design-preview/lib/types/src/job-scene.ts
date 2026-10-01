@@ -143,7 +143,7 @@ export function jobProgressHe(
   status: JobState,
   firstNameHe?: string | null,
   /** A price-list job (a haircut, a dog walk) rather than a repair priced only once somebody looks. */
-  opts: { fixed?: boolean; terms?: VisitTermsHe; female?: boolean; kind?: PricingKind } = {}
+  opts: { fixed?: boolean; terms?: VisitTermsHe; female?: boolean; kind?: PricingKind; forSomeoneElse?: boolean } = {}
 ): string | null {
   const who = firstNameHe ?? "המקצוען";
   const g = (m: string, f: string) => (opts.female ? f : m);
@@ -173,6 +173,9 @@ export function jobProgressHe(
       return `${who} ${g("הגיע. עכשיו הוא בודק", "הגיעה. עכשיו היא בודקת")} מה צריך.`;
     case "DIAGNOSIS":
       /* Amit, 2026-09-29: the app charges the visit and the diagnosis; the repair is settled between you. */
+      /* Ordered for someone else: the price comes here, never settled at their door (Amit, 2026-10-01). */
+      if (!opts.fixed && opts.forSomeoneElse)
+        return `${who} ${t.workHe === "התיקון" ? g("מאבחן", "מאבחנת") : g("בודק", "בודקת")}. הצעת המחיר תגיע אליך לאישור — בבית לא סוגרים מחיר ולא משלמים.`;
       return opts.fixed
         ? `${who} ${g("בודק", "בודקת")} מה צריך. עוד רגע מתחילים לפי מה שהזמנתם.`
         : `${who} ${t.workHe === "התיקון" ? g("מאבחן", "מאבחנת") : g("בודק", "בודקת")}. באפליקציה משלמים רק על ${t.feeSubjectHe} — את המחיר של ${t.workHe} סוגרים ישירות ${g("איתו", "איתה")}.`;
@@ -341,6 +344,12 @@ export interface VisitMoneyFacts {
   terms?: VisitTermsHe;
   /** How the service is paid for (`pricingKindOf`); decides which sentences exist at all. */
   kind?: PricingKind;
+  /**
+   * Ordered for someone else (Amit, 2026-10-01): a repair is not settled
+   * at the door — the professional's quote comes to the person who
+   * ordered, who approves and pays in the app.
+   */
+  forSomeoneElse?: boolean;
   /** HOURLY: the rate, formatted — "₪110". */
   hourlyRateHe?: string | null;
 }
@@ -410,6 +419,7 @@ export function visitMoneyLineHe(status: JobState, facts: VisitMoneyFacts = {}):
     case "PRO_ASSIGNED":
     case "PRO_EN_ROUTE":
     case "PRO_ARRIVED":
+      if (facts.forSomeoneElse) return fee ? `${t.feeHe} ${fee} · אחר כך הצעת מחיר אליך לאישור` : `${t.feeHe} לפי המקצוען · אחר כך הצעת מחיר אליך לאישור`;
       return fee
         ? `${t.feeHe} ${fee} · זה כל מה שמשולם באפליקציה`
         : `${t.feeHe} לפי המקצוען · זה כל מה שמשולם באפליקציה`;
@@ -420,6 +430,7 @@ export function visitMoneyLineHe(status: JobState, facts: VisitMoneyFacts = {}):
      * you the next thing is close rather than repeating the brochure.
      */
     case "DIAGNOSIS":
+      if (facts.forSomeoneElse) return `אחרי ${t.feeSubjectHe} הצעת המחיר תגיע אליך לאישור · בבית לא משלמים כלום`;
       return fee
         ? `${fee} על ${t.feeSubjectHe} · את ${selfHe(t.workHe)} סוגרים ישירות מול המקצוען`
         : `את ${selfHe(t.workHe)} סוגרים ישירות מול המקצוען`;

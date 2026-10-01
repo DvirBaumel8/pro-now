@@ -20,7 +20,11 @@
     />
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>PRO NOW — גלריית רכיבים</title>
+    <title>PRO NOW</title>
+    <meta name="theme-color" content="#0E0B14" />
+    <!-- The welcome's street of shops is fetched with the page, not after the app starts: it is the first thing seen. -->
+    <link rel="preload" as="image" href="./clips/welcome_street.webp" />
+    <link rel="preload" as="image" href="./world/splash_city.webp" />
     <!--
       dir="ltr" is deliberate and is NOT a layout bug.
 
@@ -48,7 +52,7 @@
       body {
         font-family: "Noto Sans Hebrew", "Heebo", "Assistant", -apple-system,
           BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        background: #F2F1EC;
+        background: #0E0B14;
       }
     </style>
   </head>

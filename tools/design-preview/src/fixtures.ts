@@ -115,7 +115,8 @@ export const offerFixture: OfferCardView = {
     isRouteBased: true,
     computedAt: NOW,
   },
-  expectedPayoutMinorUnits: 13400,
+  /* The visit fee — the same ₪179 the job screen shows; nothing taken off. */
+  expectedPayoutMinorUnits: 17900,
   payoutIsEstimate: false,
   customerAreaLabel: "רמת אביב, תל אביב",
   jobDescription: "נזילה מתחת לכיור במטבח, מים מצטברים בארון. דחוף.",

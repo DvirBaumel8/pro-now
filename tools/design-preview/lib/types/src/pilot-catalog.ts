@@ -413,7 +413,7 @@ const painting = scheduled({
   nameHe: "צביעה",
   descriptionHe: "חדר, קיר או תיקוני צבע אחרי נזילה.",
   mark: "painting",
-  keywordsHe: ["צביעה", "לצבוע", "צבע", "קיר", "טיח", "סיד", "צבעי", "צבעים", "לצבוע קיר", "קילוף", "מתקלף", "מתקלפת", "צבע מתקלף", "לצבוע דירה"],
+  keywordsHe: ["צביעה", "לצבוע", "צבע", "קיר", "טיח", "סיד", "צבעי", "צבעים", "לצבוע קיר", "קילוף", "מתקלף", "מתקלפת", "צבע מתקלף", "לצבוע דירה", "שיפוצים", "שיפוץ"],
   symptomsHe: ["לצבוע חדר", "כתם אחרי נזילה", "תיקוני צבע", "קילופים בתקרה"],
   pricingModel: "VISIT_QUOTE", quoteBeforeDispatch: true,
   photoSubjectHe: "רולר צבע על קיר לבן, יריעת הגנה על הרצפה",
@@ -509,7 +509,7 @@ const carpentry = scheduled({
   nameHe: "נגרות",
   descriptionHe: "דלתות, מטבח, מדפים ותיקוני עץ.",
   mark: "carpentry",
-  keywordsHe: ["נגר", "נגרות", "עץ", "דלת", "מטבח", "מדף", "צירים", "מגירה", "ארון מטבח", "דלת עץ", "ידית", "מגירות", "דלת ארון", "עבודות עץ", "נגר עד הבית"],
+  keywordsHe: ["נגר", "נגרות", "עץ", "דלת", "מטבח", "מדף", "צירים", "מגירה", "ארון מטבח", "דלת עץ", "ידית", "מגירות", "דלת ארון", "עבודות עץ", "נגר עד הבית", "שיפוצים", "שיפוץ"],
   symptomsHe: ["דלת ארון נפלה", "מגירה לא נסגרת", "מדף להתקנה", "תיקון דלת עץ"],
   pricingModel: "VISIT_QUOTE",
   photoSubjectHe: "ידיים מכווננות ציר של דלת ארון עץ",
@@ -525,7 +525,7 @@ const tiling = scheduled({
   nameHe: "ריצוף וחיפוי",
   descriptionHe: "אריחים שבורים, רובה, וחיפוי מטבח.",
   mark: "tiling",
-  keywordsHe: ["ריצוף", "אריח", "רובה", "קרמיקה", "חיפוי", "מרצף", "רצף", "אריחים", "מרצפת", "מרצפות", "פורצלן", "פסיפס", "אריח סדוק", "מרצפת שבורה"],
+  keywordsHe: ["ריצוף", "אריח", "רובה", "קרמיקה", "חיפוי", "מרצף", "רצף", "אריחים", "מרצפת", "מרצפות", "פורצלן", "פסיפס", "אריח סדוק", "מרצפת שבורה", "שיש", "שישים", "התקנת שיש", "שיש למטבח", "שיש לרצפה", "משטח שיש", "שיישן", "אבן", "שיפוצים", "שיפוץ"],
   symptomsHe: ["אריח שבור", "רובה מתפוררת", "אריח מתנפח", "חיפוי מאחורי המטבח"],
   pricingModel: "VISIT_QUOTE",
   photoSubjectHe: "אריח נקי ומרית רובה על רצפה",
@@ -541,7 +541,7 @@ const drywall = scheduled({
   nameHe: "גבס וטיח",
   descriptionHe: "מחיצות, תקרות, ותיקון חורים בקיר.",
   mark: "drywall",
-  keywordsHe: ["גבס", "טיח", "מחיצה", "תקרה", "חור בקיר", "שפכטל", "גבסן", "קיר גבס", "סדק", "סדקים", "חור", "נישה", "תקרה אקוסטית", "סדק בקיר", "טייח", "טייחים", "גבסן", "טיח"],
+  keywordsHe: ["גבס", "טיח", "מחיצה", "תקרה", "חור בקיר", "שפכטל", "גבסן", "קיר גבס", "סדק", "סדקים", "חור", "נישה", "תקרה אקוסטית", "סדק בקיר", "טייח", "טייחים", "גבסן", "טיח", "שיפוצים", "שיפוץ"],
   symptomsHe: ["חור בקיר", "תקרת גבס", "מחיצה חדשה", "סדק בטיח"],
   pricingModel: "VISIT_QUOTE",
   photoSubjectHe: "שפכטל על לוח גבס עם סרגל",
@@ -776,7 +776,7 @@ const tutor = personal({
 });
 
 /**
- * הנדימן לשעה — the service that proves the model.
+ * הנדימן — the service that proves the model (priced by job type since 2026-09-30).
  *
  * It is not a trade. It is an hour of a capable person with a bag of tools,
  * and it absorbs every small job the catalogue will never have a name for: a
@@ -791,12 +791,13 @@ const handymanHour: CatalogServiceDef = {
   customerPhotoPromptHe: "צילום של מה שצריך לתקן",
   mobilityProfile: "CARRIES_ON_PERSON",
   code: "ASSIST_HANDYMAN",
-  nameHe: "הנדימן לשעה",
-  descriptionHe: "עבודות קטנות בבית — לפי שעה, בלי להגדיר מראש בדיוק מה.",
+  /* Priced by the kind of job, not by the hour — Amit, 2026-09-30. */
+  nameHe: "הנדימן",
+  descriptionHe: "עבודות קטנות בבית — מחיר לפי סוג העבודה.",
   mark: "handyman",
   keywordsHe: ["הנדימן", "תיקונים קטנים", "לתלות", "לקדוח", "מדף", "להרכיב", "עזרה בבית", "בעל מקצוע כללי", "אחזקה", "תיקונים", "תיקון קטן", "לתלות תמונה", "לתלות מדף", "איש תחזוקה", "שיפוצניק", "איש אחזקה", "תיקונים בבית"],
   symptomsHe: ["לתלות מדף או תמונה", "דלת שנתקעת", "כמה תיקונים קטנים", "לא בטוח מה צריך"],
-  pricingModel: "VISIT_QUOTE",
+  pricingModel: "FIXED",
   fulfillmentProfile: "SAME_DAY_NOW",
   activationStatus: "ACTIVE",
   trustProfile: "STANDARD",

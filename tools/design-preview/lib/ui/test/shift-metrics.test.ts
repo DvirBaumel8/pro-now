@@ -173,7 +173,7 @@ describe("briefingLines", () => {
 
   it("reports an empty area honestly instead of dropping the line", () => {
     const [line] = briefingLines({ peersOnline: 0 });
-    expect(line!.textHe).toContain("אף בעל מקצוע");
+    expect(line!.textHe).toContain("אין עוד מקצוען");
   });
 
   it("keeps last week's rate out when the week was too thin to divide", () => {

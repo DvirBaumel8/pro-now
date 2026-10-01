@@ -173,3 +173,33 @@ export function savedAgoHe(session: SavedSession | null, nowMs: number): string 
   if (hours < 24) return `נשמר לפני ${hours} שע׳`;
   return `נשמר לפני ${Math.floor(hours / 24)} ימים`;
 }
+
+/*
+ * EVERY OPEN STARTS FROM ZERO.
+ *
+ * Amit, 2026-10-01: *"שאני נכנס מפה זה מדלג לי על שלב הרישום ושלב ההסברים —
+ * אני רוצה כל פעם מאפס ולעבור על כל התהליך."* The demo is shown to new
+ * people, each of whom should see sign-up, the explanation and joining. So a
+ * fresh page load forgets the last visit; within a visit everything is still
+ * remembered (switching sides, signing out and back in as a registered
+ * person), which is what "goes straight to his page" needs.
+ */
+/*
+ * …EXCEPT A PROFESSIONAL'S OWN SHOP (Amit, 2026-10-01: "החנות שפתחתי — אם אני
+ * נכנס מחדש זה לא שומר לי אותה?"). A fresh open still starts at the welcome
+ * and the sign-in; signing in as a professional with the same number goes
+ * straight to the shop he built, without joining again. "התחלה מחדש" in the
+ * profile wipes even that, for showing the whole thing to someone new.
+ */
+function keepOnlyTheShop(): void {
+  const prev = loadSession();
+  clearSession();
+  if (!prev?.joinedPro) return;
+  const pros = Object.fromEntries(
+    Object.entries(prev.registered ?? {})
+      .filter(([, v]) => v?.pro)
+      .map(([phone]) => [phone, { pro: true }])
+  );
+  saveSession({ joinedPro: prev.joinedPro, proOnboarded: true, registered: pros });
+}
+keepOnlyTheShop();

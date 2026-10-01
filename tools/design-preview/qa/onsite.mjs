@@ -1,4 +1,5 @@
 import { launchChromium } from '../browser.mjs';
+import { setAddress } from './address.mjs';
 const b = await launchChromium();
 const p = await b.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
 const errs = []; p.on('pageerror', (e) => errs.push(String(e).slice(0, 200)));
@@ -15,9 +16,7 @@ const step = async (re, name) => { const r = await press(re); console.log((r ? '
 await p.goto('http://127.0.0.1:4421/?time=day'); await p.locator('text=אני צריך מקצוען').first().waitFor();
 await press(/^אני צריך מקצוען/); await p.getByLabel('מספר טלפון').fill('0501234567'); await press(/^שליחת קוד/); await p.getByLabel('קוד האימות').fill('123456'); await press(/^כניסה/);
 await press(/^דילוג על ההסבר/); await press(/^דמות 1$/); await press(/^(אישור הדמות|זו אני)/);
-await step(/רמת אביב/, 'open address');
-await p.getByRole('radio', { name: /אצל סבא/ }).click(); await p.waitForTimeout(800); console.log('✓ pick grandpa');
-await step(/^(אישור|שמירה|המשך|זו הכתובת)/, 'confirm address');
+await setAddress(p, press, { forName: 'סבא יוסף' }); console.log('✓ address for grandpa');
 console.log('home label:', (await txt()).match(/אצל סבא[^מ]{0,30}/)?.[0]);
 await step(/^תיקונים בבית/, 'category'); await step(/^נזילה/, 'service'); await step(/^בקשת בעל מקצוע עכשיו/, 'request');
 await step(/^שליחת הקריאה/, 'send'); await p.waitForTimeout(8000);

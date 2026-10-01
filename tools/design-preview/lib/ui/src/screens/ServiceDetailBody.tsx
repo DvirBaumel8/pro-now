@@ -78,6 +78,10 @@ export interface ServiceDetailBodyProps {
   quoteBeforeDispatch?: boolean;
   /** The trade's words for a visit (`visitTermsHe`): a vet's "הטיפול", a plumber's "התיקון". */
   visitTerms?: VisitTermsHe;
+  /** Ordered for someone else: who is at home (the price copy changes — see `priceExplainer`). */
+  forSomeoneElseHe?: string | null;
+  /** Another order is live: "יוסי ממשיך בדרך אליך · זו הזמנה נוספת" (multi-order spec §6.1). */
+  ongoingHe?: string | null;
   /** What the visit covers. Facts from the catalogue, not marketing. */
   includedHe: string[];
   /** What it explicitly does not cover — prevents the dispute, later. */
@@ -142,13 +146,15 @@ export function ServiceDetailBody({
   priceListFromMinorUnits = null,
   quoteBeforeDispatch = false,
   visitTerms,
+  forSomeoneElseHe = null,
+  ongoingHe = null,
   onRequestNow,
   onRecheck,
   onBack,
   width = 390,
   height = 780,
 }: ServiceDetailBodyProps) {
-  const explainer = priceExplainer(price, { stage: "service", listFromMinorUnits: priceListFromMinorUnits, quoteFirst: quoteBeforeDispatch, terms: visitTerms });
+  const explainer = priceExplainer(price, { stage: "service", listFromMinorUnits: priceListFromMinorUnits, quoteFirst: quoteBeforeDispatch, terms: visitTerms, forSomeoneElseHe });
   const comingSoon = comingSoonIn || scheduledOnly;
   /*
    * Unknown is not zero. The page says "נבדוק זמינות כששולחים" when the
@@ -316,7 +322,8 @@ export function ServiceDetailBody({
             {includedHe.map((b, i) => (
               <Bullet key={`in-${i}`} text={b} tone="yes" />
             ))}
-            {notIncludedHe.map((b, i) => (
+            {/* For someone else the repair is not settled at their door: it is quoted to whoever ordered. */}
+            {(forSomeoneElseHe ? notIncludedHe.map((b) => (b.includes("ישירות") ? `${b.split(" — ")[0]} — בהצעת מחיר שתגיע אליך לאישור ולתשלום` : b)) : notIncludedHe).map((b, i) => (
               <Bullet key={`out-${i}`} text={b} tone="no" />
             ))}
           </View>
@@ -376,6 +383,7 @@ export function ServiceDetailBody({
        * as fabricated supply. When the watch is built, this is where it goes.
        */}
       <View style={styles.cta}>
+        {ongoingHe ? <Text style={styles.ongoing}>{ongoingHe}</Text> : null}
         <Pressable
           onPress={canDispatch ? () => onRequestNow?.(picked, note.trim()) : comingSoon ? onBack : onRecheck}
           accessibilityRole="button"
@@ -583,6 +591,7 @@ const styles = StyleSheet.create({
   // Outlined rather than greyed-out: "check again" is a real, enabled action,
   // and a disabled-looking button would say the screen is a dead end.
   ctaBtnQuiet: { backgroundColor: "transparent", borderWidth: 1.5, borderColor: colors.border },
+  ongoing: { ...type.meta, color: colors.textSecondary, textAlign: "center", writingDirection: "rtl", marginBottom: spacing.sm },
   ctaLabel: { ...type.bodyStrong, fontSize: scale.body, color: colors.onAction },
   ctaNote: {
     ...type.caption,
