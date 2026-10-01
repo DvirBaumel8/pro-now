@@ -80,6 +80,8 @@ export interface ServiceDetailBodyProps {
   visitTerms?: VisitTermsHe;
   /** Ordered for someone else: who is at home (the price copy changes — see `priceExplainer`). */
   forSomeoneElseHe?: string | null;
+  /** Another order is live: "יוסי ממשיך בדרך אליך · זו הזמנה נוספת" (multi-order spec §6.1). */
+  ongoingHe?: string | null;
   /** What the visit covers. Facts from the catalogue, not marketing. */
   includedHe: string[];
   /** What it explicitly does not cover — prevents the dispute, later. */
@@ -145,6 +147,7 @@ export function ServiceDetailBody({
   quoteBeforeDispatch = false,
   visitTerms,
   forSomeoneElseHe = null,
+  ongoingHe = null,
   onRequestNow,
   onRecheck,
   onBack,
@@ -380,6 +383,7 @@ export function ServiceDetailBody({
        * as fabricated supply. When the watch is built, this is where it goes.
        */}
       <View style={styles.cta}>
+        {ongoingHe ? <Text style={styles.ongoing}>{ongoingHe}</Text> : null}
         <Pressable
           onPress={canDispatch ? () => onRequestNow?.(picked, note.trim()) : comingSoon ? onBack : onRecheck}
           accessibilityRole="button"
@@ -587,6 +591,7 @@ const styles = StyleSheet.create({
   // Outlined rather than greyed-out: "check again" is a real, enabled action,
   // and a disabled-looking button would say the screen is a dead end.
   ctaBtnQuiet: { backgroundColor: "transparent", borderWidth: 1.5, borderColor: colors.border },
+  ongoing: { ...type.meta, color: colors.textSecondary, textAlign: "center", writingDirection: "rtl", marginBottom: spacing.sm },
   ctaLabel: { ...type.bodyStrong, fontSize: scale.body, color: colors.onAction },
   ctaNote: {
     ...type.caption,

@@ -3506,9 +3506,12 @@ const go = useCallback((r: CustomerRoute) => {
         proNameHe: o.proNameHe,
         stateHe: o.statusHe,
         etaMinutes: o.etaMinutes,
+        attention: o.attention,
+        stage: ({ "מחפשים": 0, "בדרך": 0, "מתקרב": 0, "ליד הדלת": 1, "אצלך": 1, "בבדיקה": 2, "הצעה לאישור": 2, "בעבודה": 3, "לאישור סיום": 4 } as Record<string, number>)[o.statusHe] ?? 0,
+        forHe: o.focused ? jobOnSiteHe : parked.find((x) => x.id === o.id)?.onSiteHe ?? null,
       }));
     return [...live, ...past];
-  }, [dockOrders, doneJobs]);
+  }, [dockOrders, doneJobs, jobOnSiteHe, parked]);
 
   /*
    * WHEN THE VISIT WAS, AND HOW LONG — measured, not written in. The
@@ -3966,6 +3969,16 @@ const go = useCallback((r: CustomerRoute) => {
         return (
           <ServiceDetailBody
             forSomeoneElseHe={onSiteNameHe ? onSiteNameHe.replace(/ \(תצוגה\)$/, "") : null}
+            ongoingHe={
+              dockOrders.filter((o) => o.proNameHe).length === 1
+                ? (() => {
+                    const first = (dockOrders.find((o) => o.proNameHe)!.proNameHe ?? "").split(" ")[0] ?? "";
+                    return `${first} ${FEMALE_NAMES_HE.has(first) ? "ממשיכה" : "ממשיך"} בדרך אליך · זו הזמנה נוספת`;
+                  })()
+                : dockOrders.filter((o) => o.proNameHe).length > 1
+                  ? `${dockOrders.filter((o) => o.proNameHe).length} הזמנות ממשיכות כרגיל · זו הזמנה נוספת`
+                  : null
+            }
             {...page}
             /* No problem chips before calling — words, a recording, a photo (Amit, 2026-09-29). */
             symptomsHe={[]}

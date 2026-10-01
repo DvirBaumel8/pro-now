@@ -97,7 +97,7 @@ export function StrollInvite({ proFirstNameHe, female = false, avatarUri = null,
         pointerEvents="none"
         style={[styles.door, { shadowOpacity: glow.interpolate({ inputRange: [0, 1], outputRange: [0.35, 0.9] }) as unknown as number, transform: [{ scale: glow.interpolate({ inputRange: [0, 1], outputRange: [1, 1.05] }) }] }]}
       >
-        <Text style={styles.doorText}>כניסה ›</Text>
+        <Text style={styles.doorText}>כניסה ‹</Text>
       </Animated.View>
     </Pressable>
   );
@@ -135,9 +135,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 999,
-    backgroundColor: "#FFD36B",
-    shadowColor: "#FFD36B",
+    /* Brand coral, never yellow (Amit's rule; multi-order spec finding F). */
+    backgroundColor: "#FF5C38",
+    shadowColor: "#FF5C38",
     shadowRadius: 16,
   },
-  doorText: { color: "#1B1036", fontSize: scale.meta, fontWeight: "900" },
+  doorText: { color: "#FFFFFF", fontSize: scale.meta, fontWeight: "900" },
 });
