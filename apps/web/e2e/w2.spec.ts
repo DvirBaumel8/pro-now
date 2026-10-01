@@ -100,3 +100,13 @@ test("a double tap on 'send link' sends one email", async ({ page }) => {
   ).json()) as { messages: unknown[] };
   expect(found.messages).toHaveLength(1);
 });
+
+test("the account image opens character selection", async ({ page }) => {
+  await signInByEmail(page, uniqueEmail("e2e-avatar-circle"));
+  await finishFirstRun(page);
+  const account = page.getByRole("button", { name: "החשבון שלי" });
+  await expect(account).toBeEnabled();
+  await account.click();
+  await expect(page).toHaveURL(/\/avatar$/);
+  await expect(page.getByText("מי מטייל ברחוב?")).toBeVisible();
+});

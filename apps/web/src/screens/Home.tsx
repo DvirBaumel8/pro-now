@@ -114,7 +114,7 @@ export function Home() {
   return (
     <View style={{ width, height }}>
       {/* The same button closes the menu again, as in the demo. */}
-      <AppHeader width={width} greetingHe={null} avatarUri={avatarUri} onMenu={() => setTab(tab === "menu" ? "home" : "menu")} />
+      <AppHeader width={width} greetingHe={null} avatarUri={avatarUri} onMenu={() => setTab(tab === "menu" ? "home" : "menu")} onAccount={() => navigate("/avatar")} />
       <View style={{ height: bodyH, overflow: "hidden" }}>
         {tab === "menu" ? (
           <AppMenuBody
