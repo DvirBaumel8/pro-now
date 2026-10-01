@@ -4,10 +4,20 @@ import { routeAt } from "@pro-now/types";
 import type { WorldSceneFactoryArgs, WorldSceneHandle } from "../WorldCanvas";
 import { WORLD_ASSETS, type WorldAssetId, worldAssetUrl } from "../assets";
 import type { WorldMoveCommand, WorldSceneModel, WorldTrade } from "../types";
-import { followCharacter, frameStreet } from "./camera";
-import { canEnterTrade, nearestShop, WORLD_SHOPS } from "./street";
-import { createPlayer, movePlayer, type PlayerState } from "./player";
+import { followCharacter, frameStreet, followInsideShop } from "./camera";
+import {
+  canEnterTrade,
+  nearestShop,
+  WORLD_SHOPS,
+  FRONT_X,
+  ROAD_HALF,
+  STREET_LENGTH,
+  KERB_X,
+  PAVEMENT,
+} from "./street";
+import { createPlayer, movePlayer, createContactShadow, type PlayerState } from "./player";
 import { createRoom } from "./shopRooms";
+import { paving, asphalt, plaster, neonGlow, glow, skyGradient } from "./textures";
 
 const VEHICLE_BY_DEPARTMENT: Partial<Record<string, WorldAssetId>> = {
   HOME_URGENT: "pn_electric_side",
@@ -21,12 +31,29 @@ const VEHICLE_BY_DEPARTMENT: Partial<Record<string, WorldAssetId>> = {
   VEHICLE: "tow_truck",
 };
 
+const LAMP_SPACING = 31;
+const LAMP_HEIGHT = 4.2;
+const TREE_SPACING = 35;
+const FACADE_SCALE: [number, number] = [BAY_W(), 5.2];
+const FACADE_Y = 2.6;
+
+function BAY_W(): number {
+  return 8.8;
+}
+
 function loadTexture(loader: THREE.TextureLoader, id: WorldAssetId): THREE.Texture {
   return loader.load(worldAssetUrl(id));
 }
 
-function createSprite(loader: THREE.TextureLoader, id: WorldAssetId, scale: [number, number], position: [number, number, number]): THREE.Sprite {
-  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: loadTexture(loader, id), transparent: true, depthWrite: false }));
+function createSprite(
+  loader: THREE.TextureLoader,
+  id: WorldAssetId,
+  scale: [number, number],
+  position: [number, number, number],
+): THREE.Sprite {
+  const sprite = new THREE.Sprite(
+    new THREE.SpriteMaterial({ map: loadTexture(loader, id), transparent: true, depthWrite: false }),
+  );
   sprite.scale.set(scale[0], scale[1], 1);
   sprite.position.set(position[0], position[1], position[2]);
   return sprite;
@@ -50,43 +77,325 @@ function tradeForShop(model: WorldSceneModel, shopId: string): WorldTrade | null
   return model.trades[shopId] ?? null;
 }
 
-export function createWorldScene({ renderer, scene, camera, model: initialModel, onEvent }: WorldSceneFactoryArgs): WorldSceneHandle {
+function isDaytime(): boolean {
+  const h = new Date().getHours();
+  return h >= 6 && h < 18;
+}
+
+function buildStreetGeometry(root: THREE.Group): {
+  lamps: THREE.Vector3[];
+  lampLights: THREE.PointLight[];
+} {
+  const day = isDaytime();
+  const halfStreet = STREET_LENGTH / 2;
+
+  const pavingTex = paving(26);
+  const asphaltTex = asphalt();
+
+  const groundGeo = new THREE.PlaneGeometry(FRONT_X * 2, STREET_LENGTH);
+  const leftPavement = new THREE.Mesh(
+    groundGeo.clone(),
+    new THREE.MeshStandardMaterial({ map: pavingTex, roughness: 0.85 }),
+  );
+  leftPavement.rotation.x = -Math.PI / 2;
+  leftPavement.position.set(-FRONT_X / 2 - ROAD_HALF / 2, -0.02, 0);
+  root.add(leftPavement);
+
+  const rightPavement = new THREE.Mesh(
+    groundGeo.clone(),
+    new THREE.MeshStandardMaterial({ map: pavingTex.clone(), roughness: 0.85 }),
+  );
+  rightPavement.rotation.x = -Math.PI / 2;
+  rightPavement.position.set(FRONT_X / 2 + ROAD_HALF / 2, -0.02, 0);
+  root.add(rightPavement);
+
+  const roadGeo = new THREE.PlaneGeometry(ROAD_HALF * 2, STREET_LENGTH);
+  const road = new THREE.Mesh(
+    roadGeo,
+    new THREE.MeshStandardMaterial({
+      map: asphaltTex,
+      roughness: day ? 0.85 : 0.4,
+      metalness: day ? 0 : 0.3,
+    }),
+  );
+  road.rotation.x = -Math.PI / 2;
+  road.position.set(0, 0, 0);
+  root.add(road);
+
+  const kerbGeo = new THREE.BoxGeometry(0.18, 0.15, STREET_LENGTH);
+  const kerbMat = new THREE.MeshStandardMaterial({ color: "#5a5060", roughness: 0.8 });
+  const leftKerb = new THREE.Mesh(kerbGeo, kerbMat);
+  leftKerb.position.set(-KERB_X, 0.06, 0);
+  root.add(leftKerb);
+  const rightKerb = new THREE.Mesh(kerbGeo.clone(), kerbMat.clone());
+  rightKerb.position.set(KERB_X, 0.06, 0);
+  root.add(rightKerb);
+
+  const plasterTex = plaster();
+  const buildingHeight = 8.5;
+  for (let z = -halfStreet; z <= halfStreet; z += BAY_W()) {
+    for (const side of [-1, 1] as const) {
+      const isShop = WORLD_SHOPS.some((s) => Math.abs(s.z - z) < BAY_W() / 2 && s.side === side);
+      if (isShop) continue;
+
+      const wall = new THREE.Mesh(
+        new THREE.PlaneGeometry(BAY_W(), buildingHeight),
+        new THREE.MeshStandardMaterial({
+          map: plasterTex.clone(),
+          roughness: 0.9,
+          color: "#3a3040",
+        }),
+      );
+      wall.rotation.y = side === -1 ? 0 : Math.PI;
+      wall.position.set(side * FRONT_X, buildingHeight / 2, z);
+      root.add(wall);
+
+      if (!day) {
+        const storeys = 2 + Math.floor(Math.random() * 2);
+        for (let s = 1; s <= storeys; s++) {
+          if (Math.random() > 0.4) {
+            const winGeo = new THREE.PlaneGeometry(1.2, 1.5);
+            const winMat = new THREE.MeshBasicMaterial({
+              color: new THREE.Color().setHSL(
+                0.1 + Math.random() * 0.05,
+                0.3,
+                0.15 + Math.random() * 0.1,
+              ),
+              transparent: true,
+              opacity: 0.7,
+            });
+            const win = new THREE.Mesh(winGeo, winMat);
+            win.rotation.y = side === -1 ? 0 : Math.PI;
+            const wx = side * FRONT_X + side * -0.01;
+            const wy = 3.2 + (s - 1) * 2.9 + 0.5;
+            const wz = z + (Math.random() - 0.5) * 4;
+            win.position.set(wx, wy, wz);
+            root.add(win);
+          }
+        }
+      }
+    }
+  }
+
+  const lamps: THREE.Vector3[] = [];
+  const lampLights: THREE.PointLight[] = [];
+  const glowTex = glow();
+
+  for (let z = -halfStreet + 10; z < halfStreet; z += LAMP_SPACING) {
+    for (const side of [-1, 1] as const) {
+      const lx = side * (KERB_X + PAVEMENT * 0.35);
+
+      const poleMat = new THREE.MeshStandardMaterial({ color: "#2a2530", metalness: 0.5 });
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, LAMP_HEIGHT, 6), poleMat);
+      pole.position.set(lx, LAMP_HEIGHT / 2, z);
+      root.add(pole);
+
+      const armLen = 0.8;
+      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, armLen, 4), poleMat.clone());
+      arm.rotation.z = Math.PI / 2;
+      arm.position.set(lx - side * armLen / 2, LAMP_HEIGHT, z);
+      root.add(arm);
+
+      if (!day) {
+        const lampSprite = new THREE.Sprite(
+          new THREE.SpriteMaterial({
+            map: glowTex,
+            transparent: true,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            opacity: 0.85,
+          }),
+        );
+        lampSprite.scale.set(3.5, 3.5, 1);
+        lampSprite.position.set(lx, LAMP_HEIGHT + 0.3, z);
+        root.add(lampSprite);
+
+        const point = new THREE.PointLight("#ffcf8a", 2.4, 14, 1.5);
+        point.position.set(lx, LAMP_HEIGHT - 0.2, z);
+        root.add(point);
+        lampLights.push(point);
+      }
+
+      lamps.push(new THREE.Vector3(lx, LAMP_HEIGHT, z));
+    }
+  }
+
+  for (let z = -halfStreet + 20; z < halfStreet; z += TREE_SPACING) {
+    for (const side of [-1, 1] as const) {
+      const tx = side * (KERB_X + PAVEMENT * 0.7);
+      if ("prop_palm" in WORLD_ASSETS) {
+        // will be a sprite from assets if available
+      }
+      const trunkMat = new THREE.MeshStandardMaterial({ color: "#3d2b1a" });
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.14, 3, 6), trunkMat);
+      trunk.position.set(tx, 1.5, z);
+      root.add(trunk);
+
+      const canopyMat = new THREE.MeshStandardMaterial({
+        color: day ? "#2d5a1e" : "#1a3312",
+        roughness: 0.95,
+        transparent: true,
+        opacity: 0.85,
+      });
+      const canopy = new THREE.Mesh(new THREE.SphereGeometry(1.8, 8, 6), canopyMat);
+      canopy.scale.set(1, 0.7, 1);
+      canopy.position.set(tx, 3.6, z);
+      root.add(canopy);
+    }
+  }
+
+  return { lamps, lampLights };
+}
+
+function buildSky(scene: THREE.Scene, day: boolean): void {
+  const skyTex = skyGradient(day);
+  const skyGeo = new THREE.SphereGeometry(180, 16, 8);
+  const skyMat = new THREE.MeshBasicMaterial({
+    map: skyTex,
+    side: THREE.BackSide,
+    depthWrite: false,
+  });
+  const sky = new THREE.Mesh(skyGeo, skyMat);
+  scene.add(sky);
+
+  if (!day) {
+    const starCount = 300;
+    const starPositions = new Float32Array(starCount * 3);
+    for (let i = 0; i < starCount; i++) {
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.random() * Math.PI * 0.4;
+      const r = 170;
+      starPositions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+      starPositions[i * 3 + 1] = r * Math.cos(phi);
+      starPositions[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+    }
+    const starGeo = new THREE.BufferGeometry();
+    starGeo.setAttribute("position", new THREE.BufferAttribute(starPositions, 3));
+    const starMat = new THREE.PointsMaterial({
+      color: "#ffffff",
+      size: 0.6,
+      transparent: true,
+      opacity: 0.7,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    scene.add(new THREE.Points(starGeo, starMat));
+  }
+}
+
+function buildNeonHalo(
+  colour: string,
+  position: THREE.Vector3,
+  side: -1 | 1,
+): THREE.Sprite {
+  const haloTex = neonGlow(colour);
+  const halo = new THREE.Sprite(
+    new THREE.SpriteMaterial({
+      map: haloTex,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      opacity: 0.6,
+    }),
+  );
+  halo.scale.set(5, 3.5, 1);
+  halo.position.copy(position);
+  halo.position.x -= side * 0.5;
+  halo.position.y = 3.8;
+  return halo;
+}
+
+export function createWorldScene({
+  renderer,
+  scene,
+  camera,
+  model: initialModel,
+  onEvent,
+}: WorldSceneFactoryArgs): WorldSceneHandle {
+  const day = isDaytime();
   const loader = new THREE.TextureLoader();
   const root = new THREE.Group();
   scene.add(root);
 
-  const ambient = new THREE.AmbientLight("#d8b8e8", 1.8);
-  const key = new THREE.DirectionalLight("#ffd7a1", 2.2);
-  key.position.set(-4, 10, 8);
-  scene.add(ambient, key);
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = day ? 1.2 : 1.0;
+  renderer.shadowMap.enabled = !day;
+  if (renderer.shadowMap.enabled) {
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  }
 
-  const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(22, 78),
-    new THREE.MeshStandardMaterial({ color: "#2c2136", roughness: 1 })
-  );
-  ground.rotation.x = -Math.PI / 2;
-  ground.position.set(0, -0.04, -30);
-  root.add(ground);
+  camera.fov = 72;
+  camera.near = 0.1;
+  camera.far = 400;
+  camera.updateProjectionMatrix();
 
-  const road = new THREE.Mesh(
-    new THREE.PlaneGeometry(4.8, 78),
-    new THREE.MeshStandardMaterial({ color: "#55465e", roughness: 0.95 })
+  if (day) {
+    scene.fog = new THREE.FogExp2(0xc4d8ec, 0.0075);
+    renderer.setClearColor(0xc4d8ec);
+  } else {
+    scene.fog = new THREE.FogExp2(0x2a2448, 0.0125);
+    renderer.setClearColor(0x120c18);
+  }
+
+  buildSky(scene, day);
+
+  const hemi = new THREE.HemisphereLight(
+    day ? "#b8d8f0" : "#8090c0",
+    day ? "#705830" : "#1a1018",
+    day ? 1.9 : 0.95,
   );
-  road.rotation.x = -Math.PI / 2;
-  road.position.set(0, 0, -30);
-  root.add(road);
+  scene.add(hemi);
+
+  const sun = new THREE.DirectionalLight(day ? "#ffd8a8" : "#c8b8e0", day ? 2.9 : 0.8);
+  sun.position.set(day ? 8 : -4, 10, 8);
+  if (!day) {
+    sun.castShadow = true;
+    sun.shadow.mapSize.setScalar(1024);
+    sun.shadow.camera.left = -14;
+    sun.shadow.camera.right = 14;
+    sun.shadow.camera.top = 14;
+    sun.shadow.camera.bottom = -14;
+  }
+  scene.add(sun);
+
+  const { lamps, lampLights } = buildStreetGeometry(root);
 
   for (const shop of WORLD_SHOPS) {
     const assetId = shop.assetId as WorldAssetId;
-    const facade = createSprite(loader, assetId, [4.3, 3.8], [shop.x, 1.9, shop.z]);
+    const facade = createSprite(loader, assetId, FACADE_SCALE, [shop.x, FACADE_Y, shop.z]);
     root.add(facade);
+
+    if (!day) {
+      root.add(buildNeonHalo(shop.neonColour, new THREE.Vector3(shop.x, 3.8, shop.z), shop.side));
+
+      const spillLight = new THREE.PointLight(shop.neonColour, 1.2, 8, 2);
+      spillLight.position.set(shop.x - shop.side * 2, 2.0, shop.z);
+      root.add(spillLight);
+    }
   }
 
-  const playerTexture = loadTexture(loader, "avatar_amit_walk_01");
-  const player: PlayerState = createPlayer(playerTexture);
+  const walkTextures: THREE.Texture[] = [];
+  const runTextures: THREE.Texture[] = [];
+  for (let i = 1; i <= 8; i++) {
+    const wId = `avatar_amit_walk_0${i}` as WorldAssetId;
+    const rId = `avatar_amit_run_0${i}` as WorldAssetId;
+    if (wId in WORLD_ASSETS) walkTextures.push(loadTexture(loader, wId));
+    if (rId in WORLD_ASSETS) runTextures.push(loadTexture(loader, rId));
+  }
+
+  const player: PlayerState = createPlayer(walkTextures, runTextures);
   root.add(player.group);
 
-  const vehicle = createSprite(loader, VEHICLE_BY_DEPARTMENT.HOME_URGENT!, [2.8, 1.65], [0, 0.85, -48]);
+  const shadow = createContactShadow();
+  player.group.add(shadow);
+  shadow.position.set(0, -player.group.position.y + 0.03, 0);
+
+  const vehicle = createSprite(
+    loader,
+    VEHICLE_BY_DEPARTMENT.HOME_URGENT!,
+    [2.8, 1.65],
+    [0, 0.85, -48],
+  );
   vehicle.visible = false;
   root.add(vehicle);
 
@@ -130,6 +439,18 @@ export function createWorldScene({ renderer, scene, camera, model: initialModel,
     material.needsUpdate = true;
   };
 
+  const updateShadowTarget = () => {
+    if (sun.castShadow) {
+      sun.shadow.camera.left = player.x - 14;
+      sun.shadow.camera.right = player.x + 14;
+      sun.shadow.camera.top = player.z + 14;
+      sun.shadow.camera.bottom = player.z - 14;
+      sun.target.position.set(player.x, 0, player.z);
+      sun.target.updateMatrixWorld();
+      sun.shadow.camera.updateProjectionMatrix();
+    }
+  };
+
   const enterShop = () => {
     if (!nearbyShopId || insideShopId) return;
     const trade = tradeForShop(model, nearbyShopId);
@@ -156,21 +477,24 @@ export function createWorldScene({ renderer, scene, camera, model: initialModel,
       }
       updateVehicle();
     },
-    // A held key or drag is a command applied every frame (render), not a
-    // step per input event: a key held without auto-repeat must still walk.
     move(command: WorldMoveCommand) {
       moveCommand = command;
     },
     enter: enterShop,
     render(nowMs) {
-      const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
+      const reducedMotion =
+        window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
       if (insideShopId) {
-        camera.position.lerp(new THREE.Vector3(0, 3.4, 8.8), reducedMotion ? 1 : 0.06);
-        camera.lookAt(0, 2.8, 0);
+        followInsideShop(camera, reducedMotion);
       } else if (model.mode === "EXPLORE" || model.mode === "ROUTE") {
         if (moveCommand.x !== 0 || moveCommand.z !== 0) {
-          movePlayer(player, moveCommand, Math.min(0.05, Math.max(0, (nowMs - lastMs) / 1000)));
+          movePlayer(
+            player,
+            moveCommand,
+            Math.min(0.05, Math.max(0, (nowMs - lastMs) / 1000)),
+          );
           emitNear();
+          updateShadowTarget();
         }
         followCharacter(camera, player.group.position, reducedMotion);
       } else {
@@ -182,7 +506,7 @@ export function createWorldScene({ renderer, scene, camera, model: initialModel,
     dispose() {
       disposeObject(root);
       disposeObject(roomLayer);
-      scene.remove(ambient, key, root, roomLayer);
+      scene.remove(hemi, sun, root, roomLayer);
     },
   };
 }

@@ -49,7 +49,7 @@ describe("worldTradesFromCatalog", () => {
     expect(trades.home!).toMatchObject({
       shopId: "home",
       departmentCode: "HOME_URGENT",
-      nameHe: "הבית",
+      nameHe: "תיקונים דחופים",
       interiorAssetId: "home_workshop_hero",
     });
     expect(trades.home!.services).toEqual([
