@@ -67,7 +67,12 @@ when someone presses Deploy.
   domain. That needs a domain (docs/21 §4, "optional domain", ≈$10/yr) —
   a purchase, so Amit's call.
 - **Google sign-in is not configured:** no `GOOGLE_CLIENT_ID` /
-  `GOOGLE_CLIENT_SECRET` on the service.
+  `GOOGLE_CLIENT_SECRET` on the service. Since 2026-10-01 `render.yaml`
+  declares both (`sync: false`); the values go in Render's Environment.
+  The Google OAuth client is a "Web application" with authorized
+  JavaScript origin `https://pro-now.onrender.com` and redirect URI
+  `https://pro-now.onrender.com/api/auth/callback/google`. Leave
+  `GOOGLE_ISSUER_URL` unset in production (it points at the local mock).
 - **So today the tester sign-in is the only way in.** It signs everyone
   into one shared customer; the professional's side and admin are not
   reachable in production until email or Google works.
