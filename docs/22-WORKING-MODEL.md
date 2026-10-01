@@ -42,15 +42,15 @@ PRs whose CI is green.
 2. **Work and check locally**: `npm run lint`, `npm run typecheck`,
    `npm test`, plus `npm run test:int` / `npm run test:e2e` when the change
    touches the API or the web app.
-3. **Open the PR and queue it to merge.** Push the branch, open the PR, and
-   turn on auto-merge:
+3. **Open the PR, and merge it when CI is green.** Auto-merge is not
+   enabled on this repository (`gh pr merge --auto` is refused), so wait
+   for `CI passed` and merge:
    ```bash
    git push -u origin HEAD
    gh pr create --fill --base master
-   gh pr merge --auto --squash --delete-branch
+   gh pr checks --watch && gh pr merge --squash --delete-branch
    ```
-   The PR merges by itself when CI turns green. It is squashed, so each
-   change is one commit on `master`.
+   It is squashed, so each change is one commit on `master`.
 4. **If CI fails**: read it with `gh pr checks` and `gh run view --log-failed`,
    fix it on the same branch, and push. Never merge around a red check, and
    never weaken a test to get green (CLAUDE.md §6).
@@ -71,9 +71,10 @@ conflicts in them by hand. Never resolve them with `--ours` or `--theirs`.
 
 | Job | What |
 |---|---|
-| Lint, typecheck, unit tests | `npm run lint` (with the type-scale, demo-isolation and navigation checks), `typecheck`, `npm test` in every workspace, `verify:domain`, and both builds (demo and web app) |
-| Migrations and row lock | migrations on a fresh Postgres + PostGIS, `db:drift`, `verify:rowlock`, `test:int` (every route against a real database, with Mailpit, the mock OIDC server and S3), `db:verify` |
-| End-to-end | Playwright on Chromium at iPhone 16 Pro size against the real server |
+| Lint, typecheck, unit tests | the product's workspaces (`lint:product`, `typecheck:product`, `test:product`), `audit:shipped`, the web build |
+| Demo | `check:demo`, only when the demo or what it shares (lockfile, root config) changed; always on master |
+| Migrations and integration tests | migrations on fresh Postgres + PostGIS, `db:drift`, `test:int` |
+| End-to-end | Playwright on Chromium at iPhone 16 Pro size, on the production build |
 | **CI passed** | the one **required** check: green only when all of the above are |
 
 ### How it is enforced

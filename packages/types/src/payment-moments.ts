@@ -133,9 +133,8 @@ export function paymentFlowViolations(
   /*
    * The flow is a parameter so the checks can be handed a deliberately
    * wrong one. An invariant that has only ever seen the right answer is
-   * not evidence of anything — the same reason `verify:rowlock` runs
-   * against a real conflict and the sweep plants its own off-screen
-   * card.
+   * not evidence of anything — the same reason the accept race runs
+   * against a real conflict.
    */
   flow: readonly PaymentMomentSpec[] = PAYMENT_FLOW
 ): string[] {

@@ -41,11 +41,10 @@ npm run dev:app                      # http://localhost:5180 — sign-in emails 
 
 ## Checks
 ```bash
-npm run lint && npm run typecheck && npm test   # every workspace
+npm run lint && npm run typecheck && npm test   # every workspace (CI splits product and demo)
 npm run test:int        # every API route against a real database (needs compose)
 npm run test:e2e        # Playwright: Chromium at iPhone 16 Pro size
 npm run parity          # screenshots demo vs product (during a demo catch-up)
-npm run verify:rowlock  # two simultaneous accepts → exactly one winner, with a control
 npm run smoke:prod      # read-only check of production
 ```
 CI runs all of these except `parity` and `smoke:prod` (`docs/16-DEPLOYMENT.md`).

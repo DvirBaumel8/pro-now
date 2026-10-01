@@ -9,8 +9,7 @@ import { NoopJobLock } from "../../src/domain/dispatch/job-lock.js";
 
 /**
  * Two professionals must never both win one job — through the path that
- * ships (docs/21 W10: "add a Prisma-path race"). `verify:rowlock` proves
- * the SELECT ... FOR UPDATE with raw SQL; this races `acceptOffer` itself,
+ * ships (docs/21 W10: "add a Prisma-path race"). This races `acceptOffer` itself,
  * through the app's own client (the pg driver adapter and the job event
  * bus extension), with no job lock in front, as the MVP runs.
  */

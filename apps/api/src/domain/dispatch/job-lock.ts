@@ -5,7 +5,7 @@ import type { Redis } from "ioredis";
  *
  * It is a LATENCY OPTIMISATION, never the guarantee. Correctness comes from
  * the `SELECT ... FOR UPDATE` row lock inside the accept transaction
- * (proven against real Postgres by `npm run verify:rowlock`). The lock only
+ * (proven against real Postgres by `accept-race.int.test.ts`). The lock only
  * saves two racing requests from both opening a transaction that would
  * serialise anyway.
  *

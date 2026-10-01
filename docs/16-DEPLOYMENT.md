@@ -44,9 +44,10 @@ and each epic recognised by a route it added. Run it after every deploy.
 ## CI (every PR — `.github/workflows/ci.yml`)
 | Job | What |
 |---|---|
-| Lint, typecheck, unit tests | `npm run lint` (type-scale, demo-isolation and navigation checks included), `typecheck`, `npm test`, `verify:domain`, `audit:shipped` (fails on a high/critical advisory in what the API or web app ships), both builds |
-| Migrations and row lock | migrations on fresh PostGIS, `db:drift`, `verify:rowlock`, `test:int` (every route against a real database with Mailpit, the mock OIDC server and S3), `db:verify` |
-| End-to-end | Playwright on Chromium at iPhone 16 Pro size, on the development and the production build (WebKit returns before real users) |
+| Lint, typecheck, unit tests | the product's workspaces: `lint:product` (with the type-scale, demo-isolation and navigation checks), `typecheck:product`, `test:product`, `audit:shipped` (fails on a high/critical advisory in what the API or web app ships), the web build |
+| Demo | `check:demo` — the demo's lint, typecheck, tests and build. Only when `tools/**`, the lockfile or root config changed, and always on master |
+| Migrations and integration tests | migrations on fresh PostGIS, `db:drift` (migrations = schema), `test:int` (every route against a real database with Mailpit, the mock OIDC server and S3, including the accept race) |
+| End-to-end | Playwright on Chromium at iPhone 16 Pro size, on the production build (WebKit returns before real users) |
 | **CI passed** | the one required check |
 
 ## Health and readiness
