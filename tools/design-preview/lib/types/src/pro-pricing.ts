@@ -253,7 +253,7 @@ export function payoutNoteHe(
     return {
       grossHe,
       netHe: null,
-      noteHe: "זה מה שהלקוח משלם. תנאי התשלום למקצוען טרם נקבעו.",
+      noteHe: "זה מה שהלקוח משלם.",
     };
   }
   const net = Math.round(gross * (1 - commissionPercent / 100));

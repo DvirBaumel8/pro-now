@@ -3,7 +3,6 @@ import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 
 
 import {
   formatMoney,
-  groundDisclosureHe,
   money,
   type ProPresenceState,
   type WorldGeo,
@@ -75,10 +74,13 @@ export interface ShiftServiceChip {
   nameHe: string;
   mark: MarkName;
   live: boolean;
+  /** He switched it off himself (as opposed to a missing document). */
+  off?: boolean;
 }
 
-function ShiftClock({ baseMinutes, style }: { baseMinutes: number; style: object }) {
-  const [start] = React.useState(() => Date.now() - Math.max(0, baseMinutes) * 60_000);
+function ShiftClock({ baseMinutes, sinceMs = null, style }: { baseMinutes: number; sinceMs?: number | null; style: object }) {
+  /* From the moment the shift began, to the second — it used to restart at whole minutes on every return. */
+  const [start] = React.useState(() => sinceMs ?? Date.now() - Math.max(0, baseMinutes) * 60_000);
   const [now, setNow] = React.useState(() => Date.now());
   React.useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -110,6 +112,12 @@ export interface ProShiftBodyProps {
   /** Injected so the screen is deterministic in tests and in the gallery. */
   nowMs?: number;
   onToggleOnline?: () => void;
+  /**
+   * Not approved for work yet — the identity check or required documents
+   * are missing (Amit, 2026-10-01: you may look around, you may not work).
+   * The shift button gives way to what is missing and the way to finish it.
+   */
+  notApproved?: { missingHe: string; onFinish: () => void } | null;
   /**
    * "פנוי בעוד XX דקות" — Amit, 2026-09-27: a professional finishing
    * another job can say when he will be free; to a customer he already
@@ -169,6 +177,7 @@ export function ProShiftBody({
   services,
   nowMs,
   onToggleOnline,
+  notApproved = null,
   availableAtMs = null,
   pendingPriceHe = null,
   onAvailableIn,
@@ -254,12 +263,7 @@ export function ProShiftBody({
                 {isOnline ? "במשמרת · מחכים לקריאה" : "מחוץ למשמרת"}
               </Text>
             </View>
-            {/* The one line that keeps an invented city honest. */}
-            <View style={styles.worldNote} pointerEvents="none">
-              <Text style={styles.worldNoteText} numberOfLines={1}>
-                {groundDisclosureHe({ realStreets: Boolean(geo?.real) })}
-              </Text>
-            </View>
+            {/* No engineer's note over his shop (UX audit): the band is his storefront, not a map. */}
           </>
         ) : (
           <MapSurface
@@ -305,7 +309,7 @@ export function ProShiftBody({
         {isOnline ? (
           <View style={styles.live} accessibilityLiveRegion="polite">
             <Text style={styles.liveLabel}>זמן במשמרת</Text>
-            <ShiftClock baseMinutes={reading.onlineMinutes} style={styles.bigValue} />
+            <ShiftClock baseMinutes={reading.onlineMinutes} sinceMs={shift.onlineSinceMs} style={styles.bigValue} />
             <Text style={styles.liveSub}>
               {money0(reading.settledNetMinorUnits)} במשמרת ·{" "}
               {reading.completedJobs === 0 ? "עוד לא נסגרה עבודה" : reading.completedJobs === 1 ? "עבודה אחת" : `${reading.completedJobs} עבודות`}
@@ -313,7 +317,9 @@ export function ProShiftBody({
             </Text>
           </View>
         ) : liveServices.length === 0 ? (
-          <Text style={styles.blocked}>חסר אימות לשירותים · ״המסמכים שלי״</Text>
+          <Text style={styles.blocked}>
+            {services.some((x) => x.off) ? "כל השירותים כבויים · ״עריכה״ כדי להדליק" : "חסר אימות לשירותים · ״המסמכים שלי״"}
+          </Text>
         ) : null}
 
         {/* The area, only when the server actually said something. */}
@@ -395,8 +401,25 @@ export function ProShiftBody({
                 <Text style={styles.soonChipText}>{m} דק׳</Text>
               </Pressable>
             ))}
+            {/* A way out without choosing (button audit). */}
+            <Pressable onPress={() => setSoonOpen(false)} accessibilityRole="button" accessibilityLabel="ביטול" style={({ pressed }) => [styles.soonChip, pressed && { opacity: 0.8 }]}>
+              <Text style={styles.soonChipText}>ביטול</Text>
+            </Pressable>
           </View>
         ) : null}
+        {notApproved && !isOnline ? (
+          <View style={styles.locked}>
+            <Text style={styles.lockedTitle}>עוד לא מאושר לעבודה</Text>
+            <Text style={styles.lockedSub}>חסר: {notApproved.missingHe}</Text>
+            <Pressable
+              onPress={notApproved.onFinish}
+              accessibilityRole="button"
+              style={({ pressed }) => [styles.cta, styles.ctaStart, pressed && { opacity: 0.85 }]}
+            >
+              <Text style={[styles.ctaText, { color: colors.onAction }]}>השלמת הרישום</Text>
+            </Pressable>
+          </View>
+        ) : (
         <Pressable
           onPress={onToggleOnline}
           disabled={isTransitioning || (!isOnline && liveServices.length === 0)}
@@ -413,7 +436,8 @@ export function ProShiftBody({
             {isTransitioning ? "רגע…" : isOnline ? "סיום משמרת" : "התחלת משמרת"}
           </Text>
         </Pressable>
-        {!isOnline && onAvailableIn && liveServices.length > 0 && availableAtMs === null && !soonOpen ? (
+        )}
+        {!notApproved && !isOnline && onAvailableIn && liveServices.length > 0 && availableAtMs === null && !soonOpen ? (
           <Pressable onPress={() => setSoonOpen(true)} accessibilityRole="button" style={styles.soonToggle}>
             <Text style={styles.soonToggleText}>או: זמינות בעוד…</Text>
           </Pressable>
@@ -446,6 +470,9 @@ function Beacon({ color }: { color: string }) {
 }
 
 const styles = StyleSheet.create({
+  locked: { gap: 6 },
+  lockedTitle: { color: colors.textPrimary, fontSize: scale.body, fontWeight: "900", textAlign: "center", writingDirection: "rtl" },
+  lockedSub: { color: colors.textSecondary, fontSize: scale.meta, textAlign: "center", writingDirection: "rtl", marginBottom: 6 },
   screen: { backgroundColor: colors.bg, overflow: "hidden" },
   mapBand: { height: MAP_BAND_HEIGHT, overflow: "hidden" },
   worldStatus: {

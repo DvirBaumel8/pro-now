@@ -57,6 +57,8 @@ export interface OnboardingResult {
   priceLines?: Record<string, Array<{ id: string; nameHe: string; amountMinorUnits: number }>>;
   /** The documents he actually uploaded (the rest were skipped, in a demo). */
   uploadedDocIds?: string[];
+  /** The ID card was photographed and the face matched to it. Nobody is approved for work without it. */
+  identityVerified?: boolean;
 }
 
 export interface ProOnboardingBodyProps {
@@ -64,10 +66,17 @@ export interface ProOnboardingBodyProps {
   matchRules: ServiceMatchRule[];
   /** Editing an approved shop: the last button saves rather than sends for approval. */
   editing?: boolean;
+  /** Filled with this screen's own "back", for the phone's back gesture. */
+  backRef?: { current: (() => boolean) | null };
   /** The trades as pictures: the first way in, for people who would rather not read. */
   fields?: ReadonlyArray<{ id: string; labelHe: string; iconUri: string }>;
   /** The trade's shopfront and its drawn professional, for the shop preview. */
   shopFor: (serviceId: string | null) => { facadeUri: string; characterUri: string };
+  /**
+   * The identity check — ID card, face, match — drawn by the host (it needs
+   * the camera). Opens the documents step; the other documents follow it.
+   */
+  renderIdentity?: (args: { nameHe: string; done: (r: { idUri: string; selfieUri: string | null }) => void }) => React.ReactNode;
   /** Opens the device's picker; resolves the chosen file, or null. */
   onPickFile?: () => Promise<{ uri: string; name: string } | null>;
   /** The main colour of a logo, when the host can read pixels. */
@@ -91,9 +100,11 @@ export interface ProOnboardingBodyProps {
 const STEPS = ["ברוכים הבאים", "השירותים שלך", "פרטים ואזור", "מסמכים", "מחירים", "החנות שלך", "התמונה שלך", "שליחה"] as const;
 const BRAND_SWATCHES = [
   { hex: "#FF5C38", he: "כתום" }, { hex: "#8B5CF6", he: "סגול" }, { hex: "#2FBF8A", he: "ירוק" }, { hex: "#3B82F6", he: "כחול" },
-  { hex: "#F59E0B", he: "ענבר" }, { hex: "#EC4899", he: "ורוד" }, { hex: "#14B8A6", he: "טורקיז" }, { hex: "#E5E7EB", he: "לבן" },
+  { hex: "#EC4899", he: "ורוד" }, { hex: "#14B8A6", he: "טורקיז" }, { hex: "#E5E7EB", he: "לבן" },
 ];
 const RADII_KM = [5, 10, 15, 25, 40];
+/* The usual jobs of a trade, without our numbers on them: he writes his own prices. */
+const blankList = (l?: ReadonlyArray<{ id: string; nameHe: string; amountMinorUnits: number }>) => (l ?? []).map((r) => ({ ...r, amountMinorUnits: 0 }));
 /* Israeli cities and towns for the base-city box — facts, not a vendor's data. */
 const ISRAEL_CITIES: readonly string[] = [
   "תל אביב", "ירושלים", "חיפה", "ראשון לציון", "פתח תקווה", "אשדוד", "נתניה", "באר שבע", "בני ברק", "חולון",
@@ -113,8 +124,10 @@ export function ProOnboardingBody({
   matchRules,
   fields,
   editing = false,
+  backRef,
   shopFor,
   onPickFile,
+  renderIdentity,
   extractColor,
   backgroundUri = null,
   areaMapUri: _areaMapUri = null,
@@ -128,7 +141,26 @@ export function ProOnboardingBody({
   height,
 }: ProOnboardingBodyProps) {
   const [step, setStep] = useState(startStep ?? (initial ? 7 : 0));
-  const [fromSummary, setFromSummary] = useState(false);
+  /* Opened on one step to edit it (from the summary, or "לעצב את החנות"):
+     forward and back both return to the summary, never through the rest. */
+  const [fromSummary, setFromSummary] = useState(Boolean(initial) && startStep !== undefined && startStep < STEPS.length - 1);
+  const SUMMARY = STEPS.length - 1;
+  const stepNext = () => {
+    /* Editing one thing from the summary returns to the summary —
+       not through every step after it (Amit: "מחזיר לשלב הראשון"). */
+    if (fromSummary) { setFromSummary(false); setStep(SUMMARY); return; }
+    setStep((n) => n + 1);
+  };
+  const stepBack = () => {
+    if (fromSummary) { setFromSummary(false); setStep(SUMMARY); return; }
+    /* An edit opened at the summary leaves to where it came from, not to step 6. */
+    if (step === 0 || ((editing || Boolean(initial)) && step === SUMMARY)) { onExit?.(); return; }
+    setStep((n) => n - 1);
+  };
+  /* The phone's back does what the chevron does (the shell asks through this). */
+  useEffect(() => {
+    if (backRef) backRef.current = () => { stepBack(); return true; };
+  });
   const [shopSkipped, setShopSkipped] = useState(initial?.shopSkipped ?? false);
   /* For demonstrations only (Amit, 2026-09-30): documents may wait, and say so. */
   const [docsSkipped, setDocsSkipped] = useState(false);
@@ -154,6 +186,8 @@ export function ProOnboardingBody({
   }, [city]);
   /* 3 — documents */
   const [files, setFiles] = useState<Record<string, { name: string; uri: string }>>({});
+  /* Verified once is verified: an edit does not ask for the face again. */
+  const [identity, setIdentity] = useState<boolean>(Boolean(initial?.identityVerified) || !renderIdentity);
   const [numbers, setNumbers] = useState<Record<string, string>>({});
   /* 4 — prices, per service */
   const [prices, setPrices] = useState<Record<string, number>>({});
@@ -260,22 +294,24 @@ export function ProOnboardingBody({
   const pricesMissing = picked.reduce((n, id) => {
     const x = byId[id];
     if (!x) return n;
-    if (x.kind === "VISIT") return n + ((splitVisit ? prices[id] ?? x.visitFee : prices.__visit ?? byId[visitIds[0]!]?.visitFee) ? 0 : 1);
-    if (x.kind === "HOURLY") return n + ((prices[id] ?? x.hourly) ? 0 : 1);
-    if (x.kind === "DISTANCE") return n + ((prices[id] ?? x.deliveryBase) ? 0 : 1);
+    if (x.kind === "VISIT") return n + ((splitVisit ? prices[id]  : prices.__visit ) ? 0 : 1);
+    if (x.kind === "HOURLY") return n + ((prices[id] ) ? 0 : 1);
+    if (x.kind === "DISTANCE") return n + ((prices[id] ) ? 0 : 1);
     if (x.kind === "LIST") {
-      const rows = lines[id] ?? x.list ?? [];
+      const rows = lines[id] ?? blankList(x.list);
       return n + (rows.length === 0 ? 1 : rows.filter((r) => !r.nameHe.trim() || !r.amountMinorUnits).length);
     }
     return n;
   }, 0);
-  const mustDocs = docs.filter((x) => x.level !== "RECOMMENDED" && !x.whenHe);
+  /* The card and the face are the identity check's, not rows in the list. */
+  const listDocs = renderIdentity ? docs.filter((x) => x.id !== "ID" && x.id !== "SELFIE") : docs;
+  const mustDocs = listDocs.filter((x) => x.level !== "RECOMMENDED" && !x.whenHe);
   const mustLeft = mustDocs.filter((x) => !files[x.id]).length;
   const canNext = [
     true,
     picked.length + custom.length > 0,
     name.trim().length > 1 && Boolean(dealer) && city.trim().length > 1,
-    mustLeft === 0 || docsSkipped,
+    (identity && mustLeft === 0) || docsSkipped,
     pricesMissing === 0,
     shopName.trim().length > 0,
     Boolean(photo) || useCharacter,
@@ -285,7 +321,7 @@ export function ProOnboardingBody({
     "",
     "חסר שירות",
     "חסרים שם, סוג עוסק ועיר בסיס",
-    mustLeft === 1 ? "עוד מסמך חובה אחד" : `עוד ${mustLeft} מסמכי חובה`,
+    !identity ? "קודם אימות זהות" : mustLeft === 1 ? "עוד מסמך חובה אחד" : `עוד ${mustLeft} מסמכי חובה`,
     pricesMissing === 1 ? "חסר מחיר אחד" : `חסרים ${pricesMissing} מחירים`,
     "חסר שם לשלט",
     "חסרה תמונה",
@@ -299,10 +335,10 @@ export function ProOnboardingBody({
         .map((id) => {
           const x = byId[id];
           const v =
-            x?.kind === "VISIT" ? (splitVisit ? prices[id] ?? x.visitFee : prices.__visit ?? byId[visitIds[0]!]?.visitFee)
-            : x?.kind === "HOURLY" ? prices[id] ?? x.hourly
-            : x?.kind === "DISTANCE" ? prices[id] ?? x.deliveryBase
-            : x?.kind === "LIST" ? (lines[id] ?? x.list ?? [])[0]?.amountMinorUnits
+            x?.kind === "VISIT" ? (splitVisit ? prices[id]  : prices.__visit )
+            : x?.kind === "HOURLY" ? prices[id] 
+            : x?.kind === "DISTANCE" ? prices[id] 
+            : x?.kind === "LIST" ? (lines[id] ?? blankList(x.list))[0]?.amountMinorUnits
             : undefined;
           return [id, v] as const;
         })
@@ -529,10 +565,34 @@ export function ProOnboardingBody({
       case 3:
         return (
           <>
+            {/* First who you are — the card, the face, the match (Amit, 2026-10-01). The rest follow it. */}
+            {!identity && renderIdentity ? (
+              renderIdentity({
+                nameHe: name,
+                done: (r) => {
+                  setFiles((cur) => ({
+                    ...cur,
+                    ID: { name: "תעודת זהות", uri: r.idUri },
+                    ...(r.selfieUri ? { SELFIE: { name: "סלפי", uri: r.selfieUri } } : {}),
+                  }));
+                  setIdentity(true);
+                },
+              })
+            ) : (
+            <>
+            {renderIdentity ? (
+              <View style={s.idDone}>
+                <Text style={s.idDoneTick}>✓</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.idDoneTitle}>הזהות אומתה</Text>
+                  <Text style={s.idDoneSub}>התעודה נסרקה והפנים תואמות לה</Text>
+                </View>
+              </View>
+            ) : null}
             <Text style={s.h1}>המסמכים שלך</Text>
             <Text style={s.lead}>רק מה שצריך לשירותים שבחרת. מצלמים או מעלים — אנחנו בודקים.</Text>
-            <Text style={s.counter}>{mustDocs.length - mustLeft} מתוך {mustDocs.length} מסמכי חובה</Text>
-            {docs.map((doc) => {
+            {mustDocs.length > 0 ? <Text style={s.counter}>{mustDocs.length - mustLeft} מתוך {mustDocs.length} מסמכי חובה</Text> : null}
+            {listDocs.map((doc) => {
               const f = files[doc.id];
               return (
                 <View key={doc.id} style={[s.doc, f && s.docDone]}>
@@ -565,6 +625,8 @@ export function ProOnboardingBody({
               );
             })}
             <Text style={s.fine}>לפי החוק לא נבקש ממך תעודת יושר. את הרישיונות אנחנו בודקים מול המאגרים הממשלתיים.</Text>
+            </>
+            )}
           </>
         );
       case 4:
@@ -572,15 +634,15 @@ export function ProOnboardingBody({
           <>
             {/* Amit: "מה זה מילאנו מחירים לדוגמה? איפה אני בוחר?" — the
                 question is his, the numbers in the boxes are a starting point. */}
-            <Text style={s.h1}>כמה אתה לוקח?</Text>
-            <Text style={s.lead}>לוחצים על מחיר ומשנים. מה שרשום — מחיר מקובל בשוק.</Text>
+            <Text style={s.h1}>מה המחירים שלך?</Text>
+            <Text style={s.lead}>כותבים כמה אתם לוקחים — זה המחיר שהלקוח יראה.</Text>
             {visitIds.length > 0 ? (
               <View style={s.priceCard}>
                 <Text style={s.priceName}>דמי ביקור ובדיקה</Text>
                 <Text style={s.priceKind}>{visitIds.map((id) => byId[id]?.nameHe).join(" · ")}</Text>
-                <MoneyField value={prices.__visit ?? byId[visitIds[0]!]?.visitFee ?? 0} onChange={(t) => setPrices((p) => ({ ...p, __visit: toMinor(t) }))} />
+                <MoneyField value={prices.__visit ?? 0} onChange={(t) => setPrices((p) => ({ ...p, __visit: toMinor(t) }))} />
                 <View style={s.previewChip}>
-                  <Text style={s.previewText}>הלקוח יראה: ״דמי ביקור {ils(prices.__visit ?? byId[visitIds[0]!]?.visitFee)} · את העבודה עצמה סוגרים ישירות איתך״</Text>
+                  <Text style={s.previewText}>הלקוח יראה: ״דמי ביקור {ils(prices.__visit)} · את העבודה עצמה סוגרים ישירות איתך״</Text>
                 </View>
                 {visitIds.length > 1 ? (
                   <Pressable onPress={() => setSplitVisit((v) => !v)} accessibilityRole="button" style={s.linkRow}>
@@ -594,7 +656,7 @@ export function ProOnboardingBody({
               if (!x) return null;
               const val = prices[id];
               const set = (t: string) => setPrices((p) => ({ ...p, [id]: toMinor(t) }));
-              const rows = lines[id] ?? x.list?.map((r) => ({ ...r })) ?? [];
+              const rows = lines[id] ?? blankList(x.list);
               const setRows = (next: typeof rows) => setLines((l) => ({ ...l, [id]: next }));
               return (
                 <View key={id} style={s.priceCard}>
@@ -602,19 +664,19 @@ export function ProOnboardingBody({
                   {x.kind === "VISIT" ? (
                     <>
                       <Text style={s.priceKind}>דמי ביקור ובדיקה — זה מה שנגבה באפליקציה</Text>
-                      <MoneyField value={val ?? x.visitFee ?? 0} onChange={set} />
-                      <View style={s.previewChip}><Text style={s.previewText}>הלקוח יראה: ״דמי ביקור {ils(val ?? x.visitFee)} · את העבודה עצמה סוגרים ישירות איתך״</Text></View>
+                      <MoneyField value={val  ?? 0} onChange={set} />
+                      <View style={s.previewChip}><Text style={s.previewText}>הלקוח יראה: ״דמי ביקור {ils(val )} · את העבודה עצמה סוגרים ישירות איתך״</Text></View>
                     </>
                   ) : x.kind === "HOURLY" ? (
                     <>
                       <Text style={s.priceKind}>לפי שעה</Text>
-                      <MoneyField value={val ?? x.hourly ?? 0} onChange={set} suffixHe="לשעה" />
-                      <View style={s.previewChip}><Text style={s.previewText}>הלקוח יראה: ״{ils(val ?? x.hourly)} לשעה · לפי זמן בפועל״</Text></View>
+                      <MoneyField value={val  ?? 0} onChange={set} suffixHe="לשעה" />
+                      <View style={s.previewChip}><Text style={s.previewText}>הלקוח יראה: ״{ils(val )} לשעה · לפי זמן בפועל״</Text></View>
                     </>
                   ) : x.kind === "DISTANCE" ? (
                     <>
                       <Text style={s.priceKind}>לפי מרחק — מחיר בסיס + לכל ק״מ</Text>
-                      <MoneyField value={val ?? x.deliveryBase ?? 0} onChange={set} suffixHe="בסיס" />
+                      <MoneyField value={val  ?? 0} onChange={set} suffixHe="בסיס" />
                       <Text style={s.preview}>+ {ils(x.perKm)} לכל ק״מ</Text>
                     </>
                   ) : x.kind === "QUOTE_FIRST" ? (
@@ -666,7 +728,7 @@ export function ProOnboardingBody({
               onPress={async () => {
                 const f = await pick("LOGO");
                 if (!f) return;
-                setLogo(f.uri);
+                setLogo(f.uri); setShopSkipped(false);
                 const c = await extractColor?.(f.uri);
                 if (c) setColor(c);
               }}
@@ -680,7 +742,7 @@ export function ProOnboardingBody({
             <Text style={s.label}>צבע המותג</Text>
             <View style={s.row}>
               {BRAND_SWATCHES.map((c) => (
-                <Pressable key={c.hex} onPress={() => setColor(c.hex)} accessibilityRole="radio" accessibilityState={{ checked: color === c.hex }} accessibilityLabel={`צבע ${c.he}`} style={[s.swatch, { backgroundColor: c.hex }, color === c.hex && s.swatchOn]} />
+                <Pressable key={c.hex} onPress={() => { setColor(c.hex); setShopSkipped(false); }} accessibilityRole="radio" accessibilityState={{ checked: color === c.hex }} accessibilityLabel={`צבע ${c.he}`} style={[s.swatch, { backgroundColor: c.hex }, color === c.hex && s.swatchOn]} />
               ))}
             </View>
           </>
@@ -739,8 +801,9 @@ export function ProOnboardingBody({
               { t: "שירותים", v: `${picked.length + custom.length}`, to: 1 },
               { t: "אזור", v: `${city || "—"} · ${radius} ק״מ`, to: 2 },
               { t: "מסמכים", v: docsSkipped && mustLeft > 0 ? `${mustDocs.length - mustLeft}/${mustDocs.length} · יושלם אחר כך` : `${mustDocs.length - mustLeft}/${mustDocs.length} חובה${Object.keys(files).filter((k) => docs.some((d) => d.id === k && d.level === "RECOMMENDED")).length ? " · + מומלצים" : ""}`, to: 3 },
-              { t: "מחירים", v: visitIds.length ? `דמי ביקור ${ils(prices.__visit ?? byId[visitIds[0]!]?.visitFee)}` : "לפי המחירון שלך", to: 4 },
+              { t: "מחירים", v: visitIds.length ? `דמי ביקור ${ils(prices.__visit)}` : "לפי המחירון שלך", to: 4 },
               { t: "החנות", v: shopSkipped ? `${shopName} · עיצוב ברירת מחדל, אפשר אחר כך` : shopName, to: 5 },
+              { t: "התמונה", v: photo ? "תמונה אמיתית" : useCharacter ? "דמות מהעיר" : "עוד אין", to: 6 },
             ].map((r) => (
               <Pressable key={r.t} onPress={() => { setFromSummary(true); setStep(r.to); }} accessibilityRole="button" accessibilityLabel={`עריכת ${r.t}`} style={s.sumRow}>
                 <Text style={s.sumLabel}>{r.t}</Text>
@@ -770,7 +833,7 @@ export function ProOnboardingBody({
       ) : null}
       {step === 0 ? <View style={s.heroShade} /> : null}
       <View style={s.top}>
-        <Pressable onPress={() => (step === 0 ? onExit?.() : setStep((n) => n - 1))} accessibilityRole="button" accessibilityLabel="חזרה" hitSlop={10} style={s.back}>
+        <Pressable onPress={stepBack} accessibilityRole="button" accessibilityLabel="חזרה" hitSlop={10} style={s.back}>
           <Text style={s.backText}>›</Text>
         </Pressable>
         {step > 0 ? (
@@ -790,12 +853,12 @@ export function ProOnboardingBody({
         {/* Documents and the photo may be skipped too — for demonstrations
             only, until the app runs for real (Amit, 2026-09-30). The
             summary says they were skipped; nothing pretends they arrived. */}
-        {(step === 3 && mustLeft > 0) || (step === 6 && !photo && !useCharacter) ? (
+        {(step === 3 && (mustLeft > 0 || !identity)) || (step === 6 && !photo && !useCharacter) ? (
           <Pressable
             onPress={() => {
               if (step === 3) setDocsSkipped(true);
               else setUseCharacter(true);
-              setStep((n) => n + 1);
+              stepNext();
             }}
             accessibilityRole="button"
             accessibilityLabel="אחר כך"
@@ -808,7 +871,7 @@ export function ProOnboardingBody({
           <Pressable
             onPress={() => {
               setShopSkipped(true);
-              setStep((n) => n + 1);
+              stepNext();
             }}
             accessibilityRole="button"
             style={s.skip}
@@ -820,17 +883,10 @@ export function ProOnboardingBody({
           onPress={() => {
             if (!canNext) return;
             if (step === STEPS.length - 1) {
-              onDone({ nameHe: name, businessHe: business, serviceIds: picked, customServicesHe: custom, shopNameHe: shopName, brandColor: color, shopSkipped, logoUri: logo, photoUri: useCharacter ? null : photo ?? files.SELFIE?.uri ?? null, city, radiusKm: radius, pricesMinorUnits: priceOf(), uploadedDocIds: Object.keys(files), priceLines: Object.fromEntries(picked.filter((id) => byId[id]?.kind === "LIST").map((id) => [id, [...(lines[id] ?? byId[id]?.list ?? [])]])) });
+              onDone({ nameHe: name, businessHe: business, serviceIds: picked, customServicesHe: custom, shopNameHe: shopName, brandColor: color, shopSkipped, logoUri: logo, photoUri: useCharacter ? null : photo ?? files.SELFIE?.uri ?? null, city, radiusKm: radius, pricesMinorUnits: priceOf(), uploadedDocIds: Object.keys(files), identityVerified: identity && Boolean(renderIdentity), priceLines: Object.fromEntries(picked.filter((id) => byId[id]?.kind === "LIST").map((id) => [id, [...(lines[id] ?? blankList(byId[id]?.list))]])) });
               return;
             }
-            /* Editing one thing from the summary returns to the summary —
-               not through every step after it (Amit: "מחזיר לשלב הראשון"). */
-            if (fromSummary) {
-              setFromSummary(false);
-              setStep(STEPS.length - 1);
-              return;
-            }
-            setStep((n) => n + 1);
+            stepNext();
           }}
           accessibilityRole="button"
           accessibilityState={{ disabled: !canNext }}
@@ -894,6 +950,10 @@ const s = StyleSheet.create({
   radiiRow: { flexDirection: "row-reverse", gap: 6 },
   radiusChip: { flex: 1, paddingHorizontal: 0, alignItems: "center" },
   svcX: { color: "rgba(247,243,250,0.6)", fontSize: scale.body, fontWeight: "700", marginRight: 4 },
+  idDone: { flexDirection: "row-reverse", alignItems: "center", gap: 12, padding: spacing.md, borderRadius: 14, backgroundColor: "rgba(47,191,138,0.12)", borderWidth: 1, borderColor: "rgba(47,191,138,0.45)", marginBottom: spacing.lg },
+  idDoneTick: { width: 34, height: 34, borderRadius: 17, backgroundColor: "#2FBF8A", color: "#fff", textAlign: "center", lineHeight: 34, fontSize: scale.body, fontWeight: "900", overflow: "hidden" },
+  idDoneTitle: { color: "#fff", fontSize: scale.body, fontWeight: "900", textAlign: "right" },
+  idDoneSub: { color: "rgba(247,243,250,0.72)", fontSize: scale.meta, textAlign: "right", marginTop: 2 },
   counter: { color: "#FFB08A", fontSize: scale.meta, fontWeight: "800", textAlign: "right", marginTop: -6, marginBottom: spacing.md },
   docLaw: { color: "#FF9A86", fontSize: scale.micro, fontWeight: "800", textAlign: "right", marginTop: 2 },
   previewChip: { marginTop: 10, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.06)" },

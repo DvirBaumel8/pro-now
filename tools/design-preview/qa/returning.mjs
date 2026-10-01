@@ -1,5 +1,6 @@
 // Registered people go straight in; only the shop's design may be skipped (Amit, 2026-09-30).
 import { launchChromium } from '../browser.mjs';
+import { completeDocs } from './identity.mjs';
 const b = await launchChromium();
 const p = await (await b.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })).newPage();
 const errs = []; p.on('pageerror', (e) => errs.push(String(e).slice(0, 160)));
@@ -17,9 +18,10 @@ try {
   await press(/^מתחילים$/);
   await press(/לכתוב במילים/); await p.getByLabel('תיאור חופשי של העבודה שלך').fill('מספרה עד הבית, תספורות גברים ונשים'); await p.waitForTimeout(800); await press(/^הוספה$/); await press(/^המשך$/);
   await p.getByLabel('שם מלא').fill('מאיה כהן'); await press(/^עוסק פטור$/); await p.getByLabel('עיר הבסיס').fill('חולון'); await press(/^המשך$/);
-  for (let k = 0; k < 6; k++) { if (!(await press(/^העלאת /))) break; } await press(/^המשך$/);
-  out.push((await has('כמה אתה לוקח')) ? '✓ prices step' : '✗ prices');
+  await completeDocs(p, press);
+  out.push((await has('מה המחירים שלך')) ? '✓ prices step' : '✗ prices');
   out.push((await has('דילוג')) || (await has('אעצב')) ? '✗ prices can be skipped' : '✓ prices cannot be skipped');
+  for (const el of await p.getByLabel(/^מחיר/).all()) { if (await el.isVisible().catch(() => false)) await el.fill('150'); } 
   await press(/^המשך$/);
   out.push((await press(/^אעצב אחר כך/)) ? '✓ shop skipped' : '✗ no shop skip');
   /* Photo and documents may be skipped in demos only (Amit, 2026-09-30) — and say so. */

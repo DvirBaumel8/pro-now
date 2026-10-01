@@ -5,6 +5,7 @@ import { formatMoney, money } from "@pro-now/demo-types";
 
 import { customerTheme, elevation, palette, radii, scale, spacing, tabular, tint, type } from "../theme";
 import { lex } from "../lexicon";
+import { BackButton, BACK_BUTTON_CLEARANCE } from "../components/BackButton";
 import { ClockMark, Mark, type MarkName, PinMark, ShieldCheckMark, StarMark } from "../components/marks";
 import { Persona } from "../components/Persona";
 import { SectionHeader, Surface } from "../components/surfaces";
@@ -62,6 +63,8 @@ export interface CustomerOpenCall {
 }
 
 export interface CustomerProfileBodyProps {
+  /* A visible way back (button audit #25) — the phone's back was the only one. */
+  onBack?: () => void;
   displayNameHe: string;
   /** Stable seed for their own illustration — their user id. */
   seed: string;
@@ -93,6 +96,7 @@ export interface CustomerProfileBodyProps {
 }
 
 export function CustomerProfileBody({
+  onBack,
   displayNameHe,
   seed,
   homeAreaLabelHe,
@@ -115,6 +119,7 @@ export function CustomerProfileBody({
   return (
     <View style={[styles.screen, { width, height }]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+        <BackButton onPress={onBack} tone="light" placement="absolute" />
         {/* ---------------- Header, no card around it ---------------- */}
         <View style={styles.hero}>
           <View style={styles.heroRow}>
@@ -352,7 +357,7 @@ const styles = StyleSheet.create({
   screen: { backgroundColor: colors.bg, overflow: "hidden", borderRadius: radii.xl },
   scroll: { paddingBottom: spacing.xxl },
 
-  hero: { paddingHorizontal: spacing.lg, paddingTop: spacing.xxl, paddingBottom: spacing.lg },
+  hero: { paddingHorizontal: spacing.lg, paddingTop: BACK_BUTTON_CLEARANCE, paddingBottom: spacing.lg },
   heroRow: { flexDirection: "row-reverse", alignItems: "center", gap: spacing.lg },
   heroText: { flex: 1, alignItems: "flex-end" },
   name: { ...type.h1, color: colors.textPrimary, writingDirection: "rtl" },

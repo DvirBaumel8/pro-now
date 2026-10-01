@@ -495,6 +495,8 @@ export function ProJobBody({
   width = 390,
   height = 780,
 }: ProJobBodyProps) {
+  const [reminded, setReminded] = useState(false);
+  useEffect(() => setReminded(false), [status]);
   const baseAction = nextAction(status);
   const agreed = status === "DIAGNOSIS" && agreedPriceHe && onStartAgreed;
   const finishing = status === "DIAGNOSIS" && diagnosisOnly && onFinishDiagnosis && !agreed;
@@ -875,12 +877,15 @@ export function ProJobBody({
             ) : null}
           </View>
           <View style={styles.waitingActions}>
+            {/* A reminder is a message, not a call sheet (button audit): it says it was sent. */}
             <Pressable
-              onPress={onCall}
+              onPress={() => setReminded(true)}
+              disabled={reminded}
               accessibilityRole="button"
-              style={({ pressed }) => [styles.waitingBtn, pressed && { opacity: 0.88 }]}
+              accessibilityState={{ disabled: reminded }}
+              style={({ pressed }) => [styles.waitingBtn, pressed && { opacity: 0.88 }, reminded && { opacity: 0.6 }]}
             >
-              <Text style={styles.waitingBtnText}>תזכורת ללקוח</Text>
+              <Text style={styles.waitingBtnText}>{reminded ? "✓ נשלחה תזכורת" : "תזכורת ללקוח"}</Text>
             </Pressable>
             <Pressable
               onPress={onWithdrawQuote}
@@ -916,12 +921,15 @@ export function ProJobBody({
             <Text style={styles.waitingText}>אפשר להזכיר ללקוח לאשר.</Text>
           </View>
           <View style={styles.waitingActions}>
+            {/* A reminder is a message, not a call sheet (button audit): it says it was sent. */}
             <Pressable
-              onPress={onCall}
+              onPress={() => setReminded(true)}
+              disabled={reminded}
               accessibilityRole="button"
-              style={({ pressed }) => [styles.waitingBtn, pressed && { opacity: 0.88 }]}
+              accessibilityState={{ disabled: reminded }}
+              style={({ pressed }) => [styles.waitingBtn, pressed && { opacity: 0.88 }, reminded && { opacity: 0.6 }]}
             >
-              <Text style={styles.waitingBtnText}>תזכורת ללקוח</Text>
+              <Text style={styles.waitingBtnText}>{reminded ? "✓ נשלחה תזכורת" : "תזכורת ללקוח"}</Text>
             </Pressable>
           </View>
         </View>

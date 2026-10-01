@@ -1,6 +1,7 @@
 // A professional of ANY trade joins and works one sample call — Amit's vet, end to end, on a phone.
 // ABOUT="וטרينר" NAME="דנה כהן" TAG=vet node qa/join_trade.mjs
 import { launchChromium } from '../browser.mjs';
+import { completeDocs } from './identity.mjs';
 import fs from 'node:fs';
 const TAG = process.env.TAG || 'trade', ABOUT = process.env.ABOUT || 'וטרינר', NAME = process.env.NAME || 'דנה כהן';
 const b = await launchChromium();
@@ -16,8 +17,8 @@ try {
   await press(/לכתוב במילים/); await p.getByLabel('תיאור חופשי של העבודה שלך').pressSequentially(ABOUT, { delay: 40 }); await press(/^הוספה$/); await shot('what');
   if (!(await press(/^המשך$/))) throw new Error('could not continue from "what"');
   await p.getByLabel('שם מלא').fill(NAME); await press(/^עוסק פטור$/); await p.getByLabel('עיר הבסיס').fill('חיפה'); await shot('details'); await press(/^המשך$/);
-  await shot('docs'); if (!(await press(/^אחר כך$/))) throw new Error('no docs skip');
-  await shot('prices'); if (!(await press(/^המשך$/))) throw new Error('prices blocked');
+  await shot('docs'); await completeDocs(p, press); await shot('docs_done');
+  await shot('prices'); for (const el of await p.getByLabel(/^מחיר/).all()) { if (await el.isVisible().catch(() => false)) await el.fill('150'); } if (!(await press(/^המשך$/))) throw new Error('prices blocked');
   await shot('shop'); await press(/^המשך$/);
   await shot('photo'); if (!(await press(/^אחר כך$/))) await press(/^המשך$/);
   await shot('summary'); await press(/^שליחה לאישור/); await p.waitForTimeout(3500); await shot('sent');

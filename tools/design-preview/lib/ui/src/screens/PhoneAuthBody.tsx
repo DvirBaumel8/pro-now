@@ -167,7 +167,7 @@ export function PhoneAuthBody({
           <Text style={[styles.privacyText, { color: colors.textSecondary }]}>
             {stage === "phone"
               ? "לא נשלח אליך פרסומות ולא נמכור את המספר."
-              : "באב־טיפוס אין שליחת SMS אמיתית ולא נוצר חשבון — כל קוד בן 6 ספרות ימשיך."}
+              : "הקוד נשלח במסרון למספר שכתבתם."}
           </Text>
         </View>
       </View>
@@ -190,7 +190,7 @@ export function PhoneAuthBody({
 
         {stage === "phone" ? (
           <Text style={[styles.terms, { color: colors.textSecondary }]}>
-            בהמשך אתה מאשר את תנאי השימוש ומדיניות הפרטיות.
+            בכניסה מאשרים את תנאי השימוש ומדיניות הפרטיות.
           </Text>
         ) : null}
       </View>

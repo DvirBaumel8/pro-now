@@ -64,6 +64,27 @@ export function setBackHandler(fn: BackHandler | null): () => void {
  * query strings, so a URL-encoded route would work locally and silently
  * break in the one place Amit actually looks at this.
  */
+/*
+ * SHEETS AND PANELS THE PHONE'S BACK CLOSES.
+ *
+ * A sheet or an expanded list is not a screen, so it has no place in a
+ * side's route history — but on a phone, back is how people close one
+ * (button audit #11, #13, #14: the gesture left the screen instead and the
+ * sheet stayed open over the wrong page). Opening one pushes a history
+ * entry and registers how to close it; the next back closes it and nothing
+ * else. Closing it on screen just unregisters — the spare entry is then
+ * consumed by the next back as an ordinary step.
+ */
+const overlays: (() => void)[] = [];
+export function openOverlay(close: () => void): () => void {
+  overlays.push(close);
+  pushBackEntry();
+  return () => {
+    const i = overlays.lastIndexOf(close);
+    if (i >= 0) overlays.splice(i, 1);
+  };
+}
+
 export function pushBackEntry(): void {
   if (typeof window === "undefined") return;
   window.history.pushState({ proNow: true }, "");
@@ -78,6 +99,12 @@ export function pushBackEntry(): void {
 export function installBackGesture(): () => void {
   if (typeof window === "undefined") return () => {};
   const onPop = () => {
+    /* An open sheet or panel closes first; the screen under it stays. */
+    const close = overlays.pop();
+    if (close) {
+      close();
+      return;
+    }
     handler?.();
   };
   window.addEventListener("popstate", onPop);

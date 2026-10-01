@@ -100,7 +100,8 @@ describe("what the professional is told about their own take", () => {
     const p = payoutNoteHe(price({ pricingModel: "FIXED", amountMinorUnits: 18_000 }), null);
     expect(p?.grossHe).toBe("₪180");
     expect(p?.netHe).toBeNull();
-    expect(p?.noteHe).toContain("טרם נקבעו");
+    // No net is invented, and no engineer's note about it either (UX audit): just what the customer pays.
+    expect(p?.noteHe).toBe("זה מה שהלקוח משלם.");
   });
 
   it("computes a net the moment a commission exists", () => {

@@ -25,7 +25,7 @@ try {
   for (let k = 0; k < 8; k++) { if (!(await press(/^העלאת /))) break; await p.waitForTimeout(500); }
   const lic = p.getByLabel(/רישיון חשמלאי — מספר רישיון/); if (await lic.count()) await lic.first().fill('123456');
   await shot('docs_done'); await press(/^המשך$/);
-  await shot('prices'); await press(/^המשך$/);
+  await shot('prices'); for (const el of await p.getByLabel(/^מחיר/).all()) { if (await el.isVisible().catch(() => false)) await el.fill('150'); } await press(/^המשך$/);
   await press(/^העלאת לוגו/); await p.waitForTimeout(1200); await shot('shop'); await press(/^המשך$/);
   await press(/^הדמות של המקצוע/); await shot('photo'); await press(/^המשך$/);
   await shot('summary'); await press(/^שליחה לאישור/);

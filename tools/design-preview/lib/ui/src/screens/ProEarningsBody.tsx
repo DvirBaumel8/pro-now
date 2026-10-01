@@ -128,7 +128,7 @@ export function ProEarningsBody({
             {formatMoney(money(periodNetMinorUnits ?? periodGrossMinorUnits, "ILS"))}
           </Text>
           <Text style={styles.netLabel}>
-            {periodNetMinorUnits === null ? "סכום העבודות · העמלה טרם נקבעה" : "נטו · אחרי כל הניכויים"}
+            {periodNetMinorUnits === null ? "סכום העבודות" : "נטו · אחרי כל הניכויים"}
           </Text>
 
           {/* Gross beside net. Showing only take-home hides the commission
@@ -212,7 +212,7 @@ export function ProEarningsBody({
               <Text style={styles.payoutNote}>עוד לא נסגרה עבודה. כל עבודה שהלקוח מאשר תופיע כאן.</Text>
             ) : null}
             {jobs.map((j) => (
-              <Pressable key={j.id} onPress={() => onOpenJob?.(j.id)}>
+              <Pressable key={j.id} onPress={onOpenJob ? () => onOpenJob(j.id) : undefined} disabled={!onOpenJob}>
                 <Surface colors={colors} level={1} dark>
                   <View style={styles.jobRow}>
                     <View style={styles.jobMark}>

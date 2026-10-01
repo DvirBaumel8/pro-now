@@ -5,6 +5,7 @@ import { formatMoney, money } from "@pro-now/demo-types";
 
 import { customerTheme, elevation, radii, scale, spacing, tabular, tint, type } from "../theme";
 import { lex } from "../lexicon";
+import { BackButton, BACK_BUTTON_CLEARANCE } from "../components/BackButton";
 import { ClockMark, Mark, type MarkName, StarMark } from "../components/marks";
 import { Persona } from "../components/Persona";
 import { SectionHeader, Surface } from "../components/surfaces";
@@ -45,6 +46,8 @@ export interface CallListItem {
 }
 
 export interface CallsListBodyProps {
+  /* A visible way back (button audit #25) — the phone's back was the only one. */
+  onBack?: () => void;
   calls: CallListItem[];
   onOpen?: (id: string) => void;
   onRate?: (id: string) => void;
@@ -55,6 +58,7 @@ export interface CallsListBodyProps {
 }
 
 export function CallsListBody({
+  onBack,
   calls,
   onOpen,
   onRate,
@@ -70,6 +74,7 @@ export function CallsListBody({
   return (
     <View style={[styles.screen, { width, height }]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+        <BackButton onPress={onBack} tone="light" placement="absolute" />
         <View style={styles.head}>
           <Text style={styles.title}>{lex.myCalls}</Text>
         </View>
@@ -167,9 +172,15 @@ export function CallsListBody({
   );
 }
 
-function Row({ call: c }: { call: CallListItem; onOpen?: (id: string) => void }) {
+function Row({ call: c, onOpen }: { call: CallListItem; onOpen?: (id: string) => void }) {
+  /* The whole row opens its call (button audit #22) — it used to look pressable and do nothing. */
   return (
-    <>
+    <Pressable
+      disabled={!onOpen}
+      onPress={() => onOpen?.(c.id)}
+      accessibilityRole="button"
+      accessibilityLabel={`${c.serviceNameHe} · ${c.stateHe}`}
+    >
       <View style={styles.row}>
         <View style={styles.rowMark}>
           <Mark name={c.mark} size={18} color={colors.action} />
@@ -207,7 +218,7 @@ function Row({ call: c }: { call: CallListItem; onOpen?: (id: string) => void })
           ) : null}
         </View>
       ) : null}
-    </>
+    </Pressable>
   );
 }
 
@@ -215,7 +226,7 @@ const styles = StyleSheet.create({
   screen: { backgroundColor: colors.bg, overflow: "hidden", borderRadius: radii.xl },
   scroll: { paddingBottom: spacing.xxl },
 
-  head: { paddingHorizontal: spacing.lg, paddingTop: spacing.xxl, alignItems: "flex-end" },
+  head: { paddingHorizontal: spacing.lg, paddingTop: BACK_BUTTON_CLEARANCE, alignItems: "flex-end" },
   title: { ...type.h1, color: colors.textPrimary, writingDirection: "rtl" },
 
   block: { paddingHorizontal: spacing.lg, marginTop: spacing.xl },

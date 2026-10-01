@@ -229,6 +229,24 @@ and no screen achieves it: *"מחיר נח לכל כיס עם מקצוענים �
 supply-and-price-level strategy. Fairness is the part that can be built
 without inventing a business rule.
 
+### BUILT 2026-10-01 (demo, Amit) — identity check before work: ID card, face, match
+
+Amit, after joining Lime: the join photographs the ID card, shows it being
+read, then opens the front camera and asks the professional to look
+straight, then right, then left, and matches the face to the card. Only
+then does the documents step go on. He may skip ahead ("אחר כך") to look
+around the app, but **nobody is approved for work** — no automatic
+approval, the shift button gives way to "השלמת הרישום" — until the
+identity check and the required documents are done.
+
+In the demo (`tools/design-preview/src/IdentityCheck.tsx`) the photo and the
+camera are real and stay on the phone; the reading of the card and the
+face match are played, and the screen says so. **The KYC/identity vendor
+that does it for real is still TBD** (Open decisions above) — the product
+needs an `IdentityVerificationProvider` adapter for it (ID document +
+liveness with head turns + face match), with a sandbox adapter until the
+vendor is chosen.
+
 ### DECIDED 2026-09-30 (Dvir) — how a professional joins: faces, the street, new services, documents
 Answers to D1–D4 of `docs/sync/SYNC-2026-09-30.md`:
 - **D1 — faces.** A professional's photo is approved as it is, for now. Customers see

@@ -71,7 +71,8 @@ import { onboardingDocsFor, canHandOffToMaps, categoryAsksForPerson, mapsHandoff
 import type { IntakeAnswer, IntakeBriefLine, MapsPlatform, OfferCardView, PriceModel } from "@pro-now/demo-types";
 import type { JobState, ProPresenceState } from "@pro-now/demo-types";
 
-import { goBack, installBackGesture, pushBackEntry, readScroll, restoreScroll, setBackHandler } from "./backGesture";
+import { IdentityCheck } from "./IdentityCheck";
+import { goBack, installBackGesture, openOverlay, pushBackEntry, readScroll, restoreScroll, setBackHandler } from "./backGesture";
 import { matchFixture, offerFixture } from "./fixtures";
 import {
   catalogHomeServices,
@@ -190,6 +191,8 @@ export interface LiveRequest {
   areaLabelHe: string;
   typicalMinutes?: [number, number] | null;
   createdAtMs: number;
+  /** "קריאה לדוגמה" — no customer is on the other side. */
+  sample?: boolean;
 }
 
 type CustomerTab = "home" | "calls" | "card" | "menu";
@@ -214,7 +217,7 @@ type Gate =
    */
   | { name: "intro"; side: Side }
   /** A new professional joining — see ProOnboardingBody (Amit, 2026-09-29). */
-  | { name: "onboard"; initial?: OnboardingResult | null; startStep?: number; approved?: boolean }
+  | { name: "onboard"; initial?: OnboardingResult | null; startStep?: number; approved?: boolean; from?: "welcome" | "menu" | "sent" | "shopOpen" | "pro" }
   /** Sent for approval: work arrives only after PRO NOW approves. */
   | { name: "onboardSent"; result: OnboardingResult }
   /** Approved (demo): the shop opens. */
@@ -331,7 +334,7 @@ type CustomerRoute =
    */
   | { name: "sponsor"; shopId: string; from: "assigned" | "enroute" | "stroll" }
   /** The page for a business owner who wants a shop of their own. */
-  | { name: "advertise" };
+  | { name: "advertise"; fromWelcome?: true };
 
 /**
  * DEEP LINK TO ONE LIVING MAP PHASE — `?phase=SEARCHING`, `CANDIDATES_FOUND`,
@@ -395,7 +398,8 @@ const SERVICE_PAGES: typeof catalogServicePages = Object.fromEntries(
  * professional who joined, it is his first service, at the demo's own
  * sample address, with nothing the customer did not say.
  */
-function sampleRequestFor(serviceId: string): LiveRequest {
+function sampleRequestFor(serviceId: string, cityHe?: string | null): LiveRequest {
+  const city = cityHe?.trim() || null;
   const page = SERVICE_PAGES[serviceId]!;
   const def = pilotServiceById[serviceId];
   return {
@@ -408,13 +412,14 @@ function sampleRequestFor(serviceId: string): LiveRequest {
     items: page.price.priceModel === "FIXED" ? priceListFor(serviceId).slice(0, 1) : undefined,
     quoteFirst: Boolean(def?.quoteBeforeDispatch),
     destinationHe: def?.needsDestination ? "רמת גן" : null,
-    addressHe: "רחוב הברזל 12, רמת אביב, תל אביב · קומה 3, דירה 9 · קוד לבניין 1408",
+    addressHe: city ? `רחוב הרצל 12, ${city} · קומה 3, דירה 9 · קוד לבניין 1408` : "רחוב הברזל 12, רמת אביב, תל אביב · קומה 3, דירה 9 · קוד לבניין 1408",
     textHe: "",
     photos: 0,
     voiceSeconds: null,
-    areaLabelHe: "רמת אביב, תל אביב",
+    areaLabelHe: city ?? "רמת אביב, תל אביב",
     typicalMinutes: def?.typicalMinutes ?? null,
     createdAtMs: Date.now(),
+    sample: true,
   };
 }
 /* The same opening for the lists the service pages are reached from. */
@@ -533,6 +538,29 @@ export function App() {
    * point Amit was reviewing the professional flow. See `backGesture.ts`.
    */
   useEffect(() => installBackGesture(), []);
+
+  /*
+   * THE PHONE'S BACK, BEFORE EITHER APP (Amit: "החזור לא מחזיר אותי אחורה").
+   *
+   * During sign-in, the explanation and the join, the gesture used to leave
+   * the demo altogether. Now it does what the screen's own back does: a
+   * join step goes to the previous step (or back to the summary when
+   * editing), an edit returns to where it was opened, and the rest return
+   * to the welcome. A fresh entry is kept in history so the next back stays
+   * inside too.
+   */
+  useEffect(() => {
+    if (!gate || gate.name === "welcome") return;
+    pushBackEntry();
+    return setBackHandler(() => {
+      if (gate.name === "onboard") onboardBack.current?.();
+      /* The picker opened from inside the app closes back into it, keeping the figure. */
+      else if (gate.name === "avatar" && avatarFromApp.current) { avatarFromApp.current = false; pickingForStroll.current = false; setGate(null); }
+      else if (gate.name !== "onboardSent" && gate.name !== "shopOpen") setGate({ name: "welcome" });
+      pushBackEntry();
+      return true;
+    });
+  }, [gate]);
 
   /**
    * Switching sides is a navigation and is recorded as one.
@@ -755,6 +783,8 @@ export function App() {
    * between the tap and the answer would be the only thing state buys.
    */
   const pickingForStroll = useRef(false);
+  /* Opened from the menu or the street door rather than the first run: its back returns to the app. */
+  const avatarFromApp = useRef(false);
   const [openStrollOnce, setOpenStrollOnce] = useState(false);
   const [openAdvertiseOnce, setOpenAdvertiseOnce] = useState(false);
   const [introSlide, setIntroSlide] = useState(0);
@@ -794,6 +824,8 @@ export function App() {
   /* Who joined on this device, as he described himself — the pro app is his. */
   const [joinedPro, setJoinedPro] = useState<OnboardingResult | null>(() => loadSession()?.joinedPro ?? null);
   const startShiftOnEnter = useRef(false);
+  /* The join's own "back", so the phone's back gesture steps through it. */
+  const onboardBack = useRef<(() => boolean) | null>(null);
   /* Whether the professional who joined is on shift — the customer side finds his shop only then. */
   const [joinedOnline, setJoinedOnline] = useState(false);
   /* The professional's own prices, as he set them — what the customer is shown. */
@@ -1092,29 +1124,52 @@ export function App() {
             editing={Boolean(gate.approved)}
             shopFor={onboardShopFor}
             onPickFile={pickLocalFile}
+            renderIdentity={({ nameHe, done }) => <IdentityCheck nameHe={nameHe} onPickFile={pickIdPhoto} onDone={done} />}
             extractColor={dominantColor}
             backgroundUri="./world/splash_city.webp"
             areaMapUri="./world/world_neighbourhood.webp"
             lineupUris={["home", "hair", "auto", "pets", "care"].map((id) => `./world/character_${id}_icon.webp`)}
             initial={gate.initial ?? null}
             startStep={gate.startStep}
-            onExit={() => setGate({ name: "welcome" })}
+            backRef={onboardBack}
+            /* Back out of the join returns to wherever it was opened from —
+               an edit never drops him on the welcome screen. */
+            onExit={() => {
+              const r = gate.initial ?? null;
+              if (gate.from === "shopOpen" && r) setGate({ name: "shopOpen", result: r });
+              else if (gate.from === "sent" && r) setGate({ name: "onboardSent", result: r });
+              else if (gate.from === "pro" || gate.from === "menu") setGate(null);
+              else setGate({ name: "welcome" });
+            }}
             onDone={(r) => {
               proOnboarded.current = true;
               const ph = lastPhone.current;
               if (ph) registered.current = { ...registered.current, [ph]: { ...registered.current[ph], pro: true } };
-              saveSession({ proOnboarded: true, registered: registered.current });
-              /* Designing the shop after approval returns to the open shop, not to the queue. */
-              setGate(gate.approved ? { name: "shopOpen", result: r } : { name: "onboardSent", result: r });
+              /* He is himself from the moment he sends — never the sample pro, even after a reload of the side. */
+              setJoinedPro(r);
+              saveSession({ proOnboarded: true, registered: registered.current, joinedPro: r });
+              /* An edit from inside his app saves straight back to his app; designing
+                 the shop after approval returns to the open shop, not to the queue. */
+              if (gate.from === "pro") { setSide("pro"); setGate(null); }
+              else setGate(gate.approved ? { name: "shopOpen", result: r } : { name: "onboardSent", result: r });
             }}
             width={w}
             height={h - bannerH}
           />
         ) : gate?.name === "onboardSent" ? (
           <OnboardSent
+            docsGiven={(gate.result.uploadedDocIds?.length ?? 0) > 0}
+            missing={missingForWork(gate.result)}
+            onFinish={() => setGate({ name: "onboard", initial: gate.result, startStep: 3, from: "sent" })}
+            onEnterAnyway={() => {
+              setJoinedPro(gate.result);
+              saveSession({ joinedPro: gate.result });
+              setSide("pro");
+              setGate(null);
+            }}
             shopNameHe={gate.result.shopNameHe}
             color={gate.result.brandColor}
-            onEdit={() => setGate({ name: "onboard", initial: gate.result })}
+            onEdit={() => setGate({ name: "onboard", initial: gate.result, from: "sent" })}
             onApprove={() => setGate({ name: "shopOpen", result: gate.result })}
             width={w}
             height={h - bannerH}
@@ -1123,8 +1178,8 @@ export function App() {
           <ShopOpen
             result={gate.result}
             facadeUri={onboardShopFor(gate.result.serviceIds[0] ?? null).facadeUri}
-            onDesign={gate.result.shopSkipped ? () => setGate({ name: "onboard", initial: gate.result, startStep: 5, approved: true }) : undefined}
-            onEdit={() => setGate({ name: "onboard", initial: gate.result, startStep: 7, approved: true })}
+            onDesign={gate.result.shopSkipped ? () => setGate({ name: "onboard", initial: gate.result, startStep: 5, approved: true, from: "shopOpen" }) : undefined}
+            onEdit={() => setGate({ name: "onboard", initial: gate.result, startStep: 7, approved: true, from: "shopOpen" })}
             onStart={() => {
               /* "להתחיל משמרת" starts the shift — it used to land offline. */
               startShiftOnEnter.current = true;
@@ -1140,9 +1195,21 @@ export function App() {
           <AvatarPickerBody
             value={avatar}
             sources={art}
+            onBack={
+              avatarFromApp.current
+                ? () => {
+                    if (!goBack()) {
+                      avatarFromApp.current = false;
+                      pickingForStroll.current = false;
+                      setGate(null);
+                    }
+                  }
+                : undefined
+            }
             onChoose={(id) => {
               setAvatar(id);
               avatarAnswered.current = true;
+              avatarFromApp.current = false;
               saveSession({ avatar: id, avatarAnswered: true });
               setGate(null);
               /*
@@ -1161,7 +1228,8 @@ export function App() {
              * deferral means asking again tomorrow, which is what makes an
              * optional step feel compulsory.
              */
-            onSkip={() => {
+            onSkip={avatarFromApp.current && avatar ? undefined : () => {
+              avatarFromApp.current = false;
               setAvatar(null);
               avatarAnswered.current = true;
               saveSession({ avatar: null, avatarAnswered: true });
@@ -1178,8 +1246,10 @@ export function App() {
             width={w}
             height={h - bannerH}
             onSwitch={() => switchTo("pro")}
-            onStartOnboarding={() => setGate({ name: "onboard" })}
+            onStartOnboarding={() => setGate({ name: "onboard", from: "menu" })}
             onSignOut={() => {
+              /* Signing out forgets where the customer was (it used to reopen on the menu). */
+              customerMemory.current = null;
               authedSides.current.clear();
               saveSession({ authedSides: [] });
               setGate({ name: "welcome" });
@@ -1220,6 +1290,21 @@ export function App() {
               avatarArtReady
                 ? () => {
                     pickingForStroll.current = true;
+                    avatarFromApp.current = true;
+                    setGate({ name: "avatar" });
+                  }
+                : undefined
+            }
+            /* "הדמות שלי" in the menu: change the figure and come back to the menu, not into the street. */
+            onBackToWelcome={() => {
+              customerMemory.current = null;
+              setGate({ name: "welcome" });
+            }}
+            onChangeAvatar={
+              avatarArtReady
+                ? () => {
+                    pickingForStroll.current = false;
+                    avatarFromApp.current = true;
                     setGate({ name: "avatar" });
                   }
                 : undefined
@@ -1293,7 +1378,20 @@ export function App() {
              * must not reach into it.
              */
             memory={proMemory}
-            onReleaseJob={() => setJobReleased(true)}
+            onReleaseJob={(sample) => { if (!sample) setJobReleased(true); }}
+            /*
+             * A SAMPLE CALL HAS NO CUSTOMER TO CROSS TO. Crossing showed the
+             * customer's sample screens — "יוסי", a tap washer — beside his
+             * carpentry job (button audit, 2026-10-01). For a sample call the
+             * customer's answer arrives by itself a moment later.
+             */
+            onSampleCustomer={(what) => {
+              if (what === "prequote") {
+                setPreQuoteApprovedAt(Date.now());
+                if (preQuote) { setQuoteTotal(preQuote.amount); setAgreedTotal({ amount: preQuote.amount, nameHe: "לפי ההצעה שאישרתם" }); }
+              } else if (what === "quote") { setQuoteDecision("APPROVED"); setPendingQuote(null); }
+              else setCompletionConfirmed(true);
+            }}
             /*
              * Carried across from the picker, which runs on the other
              * side of the app. `art` rather than `worldSources` so the
@@ -1311,10 +1409,12 @@ export function App() {
             onJobChange={setProJobState}
             availableAtMs={proAvailableAt}
             onAvailableAtChange={setProAvailableAt}
-            selfNameHe={joinedPro ? joinedPro.nameHe.trim().split(/\s+/)[0] || proName : proName}
+            selfNameHe={joinedPro ? joinedPro.nameHe.trim() || proName : proName}
             joined={joinedPro}
             onOnlineChange={setJoinedOnline}
-            onEditJoin={joinedPro ? () => setGate({ name: "onboard", initial: joinedPro, startStep: 7, approved: true }) : undefined}
+            onEditJoin={joinedPro ? () => setGate({ name: "onboard", initial: joinedPro, startStep: 7, approved: true, from: "pro" }) : undefined}
+            /* Not approved yet: finish the identity check and documents, then the approval runs. */
+            onFinishJoin={joinedPro ? () => setGate({ name: "onboard", initial: joinedPro, startStep: 3, from: "sent" }) : undefined}
             startShift={startShiftOnEnter.current}
             onShiftStarted={() => { startShiftOnEnter.current = false; }}
             onPricesChange={setProPrices}
@@ -1356,9 +1456,11 @@ export function App() {
           // Offset by the banner, which is in the layout above this overlay.
           // Without it the prototype notice lands on top of the message
           // saying the data may be wrong — the less important of the two.
-          <Pressable style={[styles.notice, { top: bannerH + spacing.lg }]} onPress={() => setNotice(false)}>
+          /* Taps pass through it (button audit: it swallowed the first tap on the back
+             button and the address row beneath it); it leaves by itself. */
+          <View pointerEvents="none" style={[styles.notice, { top: bannerH + spacing.lg }]}>
             <Text style={styles.noticeText}>
-              אב־טיפוס. אין שרת — כל הנתונים הם דוגמאות. גע כדי לסגור.
+              אב־טיפוס. אין שרת — כל הנתונים הם דוגמאות.
             </Text>
             {/*
               * WHAT IS REMEMBERED, SAID WHERE IT MATTERS.
@@ -1376,7 +1478,7 @@ export function App() {
                 פעילה לא נשמרת
               </Text>
             ) : null}
-          </Pressable>
+          </View>
         ) : null}
       </View>
     </View>
@@ -1537,12 +1639,83 @@ function AtTheDoor({ result, color }: { result: OnboardingResult; color: string 
     return <img src={result.photoUri} alt="" style={{ position: "absolute", left: "50%", bottom: "6%", width: 72, height: 72, marginLeft: 26, borderRadius: 36, objectFit: "cover", border: `3px solid ${color}`, boxShadow: `0 0 18px ${color}` }} />;
   return <img src={onboardShopFor(result.serviceIds[0] ?? null).characterUri.replace("_icon.", "_world.")} alt="" style={{ position: "absolute", left: "50%", bottom: 0, height: "40%", marginLeft: 18, filter: "drop-shadow(0 10px 14px rgba(0,0,0,.55))" }} />;
 }
+/* "PRO NOW" above his business name — the sign of every shop he opens with us (Amit). */
+function ProNowMark({ size }: { size: number }) {
+  return (
+    <span style={{ display: "block", direction: "ltr", fontSize: size, fontWeight: 900, letterSpacing: 0.5, lineHeight: 1.1 }}>
+      <span style={{ color: "#fff" }}>PRO </span><span style={{ color: "#FF6B4A" }}>NOW</span>
+    </span>
+  );
+}
+/*
+ * HIS SIGN, ON HIS FACADE — painted over the drawn "PRO NOW <trade>" sign at
+ * the same place it sits on every facade (33.5%–50% of its height), the way
+ * the 3D street paints it. `px` is the facade's rendered height.
+ */
+function FacadeWithSign({ facadeUri, result, px, lit = Infinity, style }: { facadeUri: string; result: OnboardingResult; px: number; lit?: number; style?: React.CSSProperties }) {
+  const c = result.brandColor;
+  const name = (result.shopNameHe || result.businessHe || result.nameHe).trim();
+  const bh = px * 0.165;
+  const nameSize = Math.max(10, Math.min(bh * 0.44, (px * 0.7) / Math.max(4, name.length) * 1.6));
+  return (
+    <div style={{ position: "absolute", left: "50%", bottom: 0, height: px, aspectRatio: "1", transform: "translateX(-50%)", ...style }}>
+      <img src={facadeUri} alt="" style={{ width: "100%", height: "100%", display: "block" }} />
+      <div style={{ position: "absolute", left: "8%", right: "8%", top: "33.5%", height: "16.5%", borderRadius: bh * 0.2, border: `2px solid ${c}`, background: "#120c1c", boxShadow: `0 0 ${bh * 0.5}px ${c}`, display: "flex", alignItems: "center", justifyContent: "center", gap: bh * 0.14, padding: `0 ${bh * 0.16}px`, direction: "rtl" }}>
+        {result.logoUri ? <img src={result.logoUri} alt="" style={{ width: bh * 0.7, height: bh * 0.7, borderRadius: "50%", objectFit: "cover", border: `1.5px solid ${c}` }} /> : null}
+        <span style={{ display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1.05, minWidth: 0 }}>
+          <ProNowMark size={Math.max(8, bh * 0.24)} />
+          <span aria-label={name} style={{ fontSize: nameSize, fontWeight: 900, color: "#fff", whiteSpace: "nowrap" }}>
+            {[...name].map((ch, i) => (
+              <span key={i} style={{ opacity: i < lit ? 1 : 0.12, textShadow: i < lit ? `0 0 8px ${c}, 0 0 18px ${c}` : "none", animation: i === lit - 1 ? "pnFlick .35s" : undefined }}>{ch}</span>
+            ))}
+          </span>
+        </span>
+      </div>
+    </div>
+  );
+}
+/* His shop as he designed it: which house, its full name, colour and logo. */
+function ownShopDesign(r: OnboardingResult): { id: string; nameHe: string; colorHex: string; logoUri: string | null } {
+  return { id: ownShopId(r), nameHe: (r.shopNameHe || r.businessHe || r.nameHe).trim(), colorHex: r.brandColor, logoUri: r.logoUri };
+}
 /* Which house in our street is his: the shop of his first trade. */
+/*
+ * WHAT STANDS BETWEEN HIM AND WORK.
+ *
+ * Amit (2026-10-01): you may skip ahead to see the app, but until the
+ * identity check (card + face) and the required documents are done you are
+ * not approved for work. Empty means approved.
+ */
+function missingForWork(r: OnboardingResult): string[] {
+  const out: string[] = [];
+  if (!r.identityVerified) out.push("אימות זהות");
+  const given = new Set(r.uploadedDocIds ?? []);
+  const left = onboardingDocsFor(r.serviceIds).filter(
+    (d) => d.level !== "RECOMMENDED" && !d.whenHe && d.id !== "ID" && d.id !== "SELFIE" && !given.has(d.id)
+  ).length;
+  if (left > 0) out.push(left === 1 ? "מסמך חובה אחד" : `${left} מסמכי חובה`);
+  return out;
+}
 function ownShopId(r: OnboardingResult): string {
   const m = onboardShopFor(r.serviceIds[0] ?? null).facadeUri.match(/shop_([a-z]+)\.webp/);
   return m?.[1] ?? "help";
 }
 /* The device's own picker: a photo, a scan or a PDF — nothing leaves the phone in the demo. */
+/* The ID card: straight to the back camera on a phone (a computer offers its file picker). */
+function pickIdPhoto(): Promise<{ uri: string; name: string } | null> {
+  return new Promise((resolve) => {
+    if (typeof document === "undefined") return resolve(null);
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+    input.setAttribute("capture", "environment");
+    input.onchange = () => {
+      const f = input.files?.[0];
+      resolve(f ? { uri: URL.createObjectURL(f), name: f.name } : null);
+    };
+    input.click();
+  });
+}
 function pickLocalFile(): Promise<{ uri: string; name: string } | null> {
   return new Promise((resolve) => {
     if (typeof document === "undefined") return resolve(null);
@@ -1593,7 +1766,8 @@ function dominantColor(uri: string): Promise<string | null> {
  * checks that "finish" in three seconds are fake verification). Received;
  * in the queue; waiting. Only the demo bar moves it forward.
  */
-function OnboardSent({ shopNameHe, color, onEdit, onApprove, width, height }: { shopNameHe: string; color: string; onEdit: () => void; onApprove: () => void; width: number; height: number }) {
+function OnboardSent({ shopNameHe, color, onEdit, onApprove, width, height, docsGiven = true, missing = [], onFinish, onEnterAnyway }: { shopNameHe: string; color: string; onEdit: () => void; onApprove: () => void; width: number; height: number; docsGiven?: boolean; /* What still stops approval; empty = approved. */ missing?: string[]; onFinish?: () => void; onEnterAnyway?: () => void }) {
+  const blocked = missing.length > 0;
   const pulse = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     const a = Animated.loop(Animated.timing(pulse, { toValue: 1, duration: 1600, easing: Easing.out(Easing.quad), useNativeDriver: true }));
@@ -1608,28 +1782,31 @@ function OnboardSent({ shopNameHe, color, onEdit, onApprove, width, height }: { 
    * shop opens on its own. (In the product a person at PRO NOW approves; the
    * demo plays that wait in a few seconds.)
    */
-  const [at, setAt] = useState(1);
+  const [at, setAt] = useState(blocked ? 0 : 1);
   /* The handler is a fresh arrow on every render of the shell; a ref keeps the timers from restarting. */
   const approve = useRef(onApprove);
   approve.current = onApprove;
   useEffect(() => {
+    /* Missing identity or documents: the check stops at the first step, and nothing is approved. */
+    if (blocked) return;
     if (at > APPROVAL_STEPS_HE.length) {
       const t = setTimeout(() => approve.current(), 900);
       return () => clearTimeout(t);
     }
     const t = setTimeout(() => setAt((n) => n + 1), 1500);
     return () => clearTimeout(t);
-  }, [at]);
-  const state = (i: number) => (i < at ? "✓ עבר" : i === at ? "בבדיקה…" : "ממתין");
+  }, [at, blocked]);
+  /* Nothing is ticked that was not given: skipped documents say so (UX audit). */
+  const state = (i: number) => (blocked ? (i === 0 ? "חסר" : "ממתין") : i === 0 && !docsGiven ? "יושלם אחר כך" : i < at ? "✓ עבר" : i === at ? "בבדיקה…" : "ממתין");
   return (
     <View style={{ width, height, backgroundColor: "#0F0B17" }}>
       <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 64 }}>
         <View style={{ alignSelf: "center", width: 96, height: 96, borderRadius: 48, alignItems: "center", justifyContent: "center", borderWidth: 3, borderColor: color, backgroundColor: "rgba(255,255,255,0.05)", marginBottom: 22 }}>
-          <Text style={{ color: "#fff", fontSize: scale.hero, fontWeight: "900" }}>✓</Text>
+          <Text style={{ color: "#fff", fontSize: scale.hero, fontWeight: "900" }}>{blocked ? "!" : "✓"}</Text>
         </View>
         <Text style={{ color: "#fff", fontSize: scale.title, fontWeight: "900", textAlign: "center" }}>הבקשה נשלחה</Text>
         <Text style={{ color: "rgba(247,243,250,0.75)", fontSize: scale.body, textAlign: "center", marginTop: 6, marginBottom: 26 }}>
-          {at > APPROVAL_STEPS_HE.length ? "אושר! פותחים את החנות…" : shopNameHe ? `״${shopNameHe}״ כמעט ברחוב.` : "החנות שלך כמעט ברחוב."}
+          {blocked ? `כדי לקבל עבודות חסר: ${missing.join(" ו")}` : at > APPROVAL_STEPS_HE.length ? "אושר! פותחים את החנות…" : shopNameHe ? `״${shopNameHe}״ כמעט ברחוב.` : "החנות שלך כמעט ברחוב."}
         </Text>
         {APPROVAL_STEPS_HE.map((t, i) => (
           <View key={t} style={{ flexDirection: "row-reverse", alignItems: "center", gap: 12, paddingVertical: 10 }}>
@@ -1645,9 +1822,20 @@ function OnboardSent({ shopNameHe, color, onEdit, onApprove, width, height }: { 
             <Text style={{ color: i < at ? "#2FBF8A" : i === at ? "#FFB08A" : "rgba(247,243,250,0.5)", fontSize: scale.micro, fontWeight: "800" }}>{state(i)}</Text>
           </View>
         ))}
+        {blocked ? (
+          <>
+            <Pressable onPress={onFinish} accessibilityRole="button" style={{ alignSelf: "stretch", minHeight: 54, borderRadius: 27, backgroundColor: "#FF6B4A", alignItems: "center", justifyContent: "center", marginTop: 22 }}>
+              <Text style={{ color: "#fff", fontSize: scale.body, fontWeight: "900" }}>השלמת הרישום</Text>
+            </Pressable>
+            <Pressable onPress={onEnterAnyway} accessibilityRole="button" style={{ alignSelf: "center", minHeight: 44, justifyContent: "center", marginTop: 10, paddingHorizontal: 16 }}>
+              <Text style={{ color: "rgba(247,243,250,0.8)", fontSize: scale.meta, fontWeight: "800" }}>כניסה לאפליקציה בינתיים</Text>
+            </Pressable>
+          </>
+        ) : (
         <Pressable onPress={onEdit} accessibilityRole="button" style={{ alignSelf: "center", minHeight: 44, justifyContent: "center", marginTop: 18, paddingHorizontal: 16 }}>
           <Text style={{ color: "#FF9A6B", fontSize: scale.meta, fontWeight: "800" }}>עריכת הפרטים</Text>
         </Pressable>
+        )}
       </View>
     </View>
   );
@@ -1669,18 +1857,8 @@ function ShopOpen({ result, facadeUri, onStart, onDesign, onEdit, width, height 
     <View style={{ width, height, backgroundColor: "#0F0B17", alignItems: "center" }}>
       <style>{"@keyframes pnFlick{0%,100%{opacity:1}40%{opacity:.35}45%{opacity:1}70%{opacity:.6}72%{opacity:1}}@keyframes pnRise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}"}</style>
       <div style={{ position: "relative", width: "100%", height: Math.round(height * 0.52), overflow: "hidden", background: "radial-gradient(120% 90% at 50% 25%, #3A2166 0%, #160F26 70%)" }}>
-        <img src={facadeUri} alt="" style={{ position: "absolute", left: "50%", bottom: 0, transform: "translateX(-50%)", height: "88%" }} />
+        <FacadeWithSign facadeUri={facadeUri} result={result} px={Math.round(height * 0.52 * 0.88)} lit={lit} />
         <AtTheDoor result={result} color={c} />
-        <div style={{ position: "absolute", left: "50%", top: "22%", transform: "translateX(-50%)", display: "flex", alignItems: "center", gap: 10, padding: "8px 18px", borderRadius: 14, border: `2px solid ${c}`, background: "rgba(10,6,18,.88)", boxShadow: `0 0 26px ${c}`, direction: "rtl", whiteSpace: "nowrap" }}>
-          {result.logoUri ? <img src={result.logoUri} alt="" style={{ width: 34, height: 34, borderRadius: 17, objectFit: "cover" }} /> : null}
-          <span style={{ fontSize: scale.section, fontWeight: 900, color: "#fff" }} aria-label={name}>
-            {[...name].map((ch, i) => (
-              <span key={i} style={{ opacity: i < lit ? 1 : 0.12, textShadow: i < lit ? `0 0 10px ${c}, 0 0 24px ${c}` : "none", animation: i === lit - 1 ? "pnFlick .35s" : undefined }}>
-                {ch}
-              </span>
-            ))}
-          </span>
-        </div>
         <div style={{ position: "absolute", left: "50%", bottom: -60, width: 320, height: 120, transform: "translateX(-50%)", borderRadius: "50%", background: c, opacity: 0.25, filter: "blur(30px)" }} />
       </div>
       <div style={{ padding: "26px 24px 0", textAlign: "center", direction: "rtl", animation: "pnRise .6s .9s both" }}>
@@ -1720,14 +1898,24 @@ function ShopOpen({ result, facadeUri, onStart, onDesign, onEdit, width, height 
 function ShiftStorefront({ result, online }: { result: OnboardingResult; online: boolean }) {
   const facade = onboardShopFor(result.serviceIds[0] ?? null).facadeUri;
   const c = result.brandColor;
-  const name = result.shopNameHe || result.nameHe;
   return (
     <div aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden", background: "radial-gradient(120% 90% at 50% 20%, #3A2166 0%, #160F26 72%)" }}>
-      <style>{"@keyframes pnSignBreathe{0%,100%{opacity:1}50%{opacity:.78}}"}</style>
+      {/* Keyframes, not transitions: the shift screen is rebuilt when the shift
+          starts or ends, so a transition never had a "before" to move from and
+          the shutter snapped (UX audit). These play from the start each time. */}
+      <style>{"@keyframes pnSignBreathe{0%,100%{opacity:1}50%{opacity:.78}}@keyframes pnShutterUp{from{transform:scaleY(1)}to{transform:scaleY(0)}}@keyframes pnShutterDown{from{transform:scaleY(0)}to{transform:scaleY(1)}}@keyframes pnLightOn{from{opacity:0}to{opacity:1}}@keyframes pnShopWake{from{filter:brightness(.5) saturate(.6)}to{filter:brightness(.92) saturate(.95)}}@keyframes pnShopSleep{from{filter:brightness(.92) saturate(.95)}to{filter:brightness(.5) saturate(.6)}}@keyframes pnDim{from{opacity:0}to{opacity:.28}}@keyframes pnUndim{from{opacity:.28}to{opacity:0}}"}</style>
       {/* Quieter than before (Amit: "יותר נעים לעין, שלא לוקח פוקוס"): a softer city, the shop a touch dimmer. */}
       <img src={CITY_BG.src} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: CITY_BG.pos, opacity: 0.22, filter: "blur(3px)" }} />
-      <div style={{ position: "absolute", left: "50%", bottom: 0, height: "88%", transform: "translateX(-50%)", filter: online ? "brightness(.88) saturate(.9)" : "brightness(.5) saturate(.6)", transition: "filter .6s ease-out" }}>
-        <img src={facade} alt="" style={{ height: "100%", display: "block" }} />
+      {/*
+        * THE SHUTTER IS THE STATE (Amit: "שיורגש שהחלון באמת נפתח… והמסך
+        * יתבהר; ביציאה התריס נסגר והמסך מתכהה"). Opening: the shutter rolls
+        * up over 0.9s, the shop lights a moment after it passes halfway, and
+        * the whole band brightens a touch. Closing is slower, 1.1s, and heavier.
+        */}
+      <div style={{ position: "absolute", inset: 0, background: "#000", opacity: online ? 0 : 0.28, animation: online ? "pnUndim .9s ease-out both" : "pnDim 1.4s ease-in both", pointerEvents: "none" }} />
+      <div style={{ position: "absolute", left: "50%", bottom: 0, height: "88%", transform: "translateX(-50%)", animation: online ? "pnShopWake .6s ease-out .45s both" : "pnShopSleep 1.4s ease-in both" }}>
+        <div style={{ position: "absolute", left: "8%", right: "8%", top: "48%", bottom: 0, background: `radial-gradient(60% 70% at 50% 60%, ${c}55, transparent 70%)`, opacity: online ? 1 : 0, animation: online ? "pnLightOn .7s ease-out .5s both" : undefined, pointerEvents: "none" }} />
+        <FacadeWithSign facadeUri={facade} result={result} px={185} style={{ position: "relative", left: 0, transform: "none", height: "100%" }} />
         {/* The shutter over the shopfront: down off shift, rolled up on it. */}
         <div
           style={{
@@ -1735,15 +1923,11 @@ function ShiftStorefront({ result, online }: { result: OnboardingResult; online:
             background: "repeating-linear-gradient(180deg, #5b5566 0 7px, #474252 7px 9px)",
             boxShadow: "inset 0 -6px 12px rgba(0,0,0,.45)",
             transformOrigin: "top", transform: online ? "scaleY(0)" : "scaleY(1)",
-            transition: "transform .7s cubic-bezier(.2,.7,.2,1)",
+            animation: online ? "pnShutterUp .9s cubic-bezier(.2,.7,.2,1) .1s both" : "pnShutterDown 1.4s cubic-bezier(.6,0,.4,1) both",
           }}
         />
       </div>
       {online ? <AtTheDoor result={result} color={c} /> : null}
-      <div style={{ position: "absolute", left: "50%", top: "26%", transform: "translateX(-50%)", display: "flex", alignItems: "center", gap: 8, padding: "6px 14px", borderRadius: 12, border: `2px solid ${c}`, background: "rgba(10,6,18,.88)", boxShadow: online ? `0 0 24px ${c}` : "none", direction: "rtl", whiteSpace: "nowrap", opacity: online ? 1 : 0.55, transition: "opacity .4s .5s, box-shadow .4s .5s", animation: online ? "pnSignBreathe 2.4s ease-in-out 1.2s infinite" : undefined }}>
-        {result.logoUri ? <img src={result.logoUri} alt="" style={{ width: 26, height: 26, borderRadius: 13, objectFit: "cover" }} /> : null}
-        <span style={{ fontSize: scale.body, fontWeight: 900, color: "#fff", textShadow: online ? `0 0 10px ${c}` : "none" }}>{name}</span>
-      </div>
     </div>
   );
 }
@@ -1754,6 +1938,8 @@ const FEMALE_NAMES_HE = new Set(["מאיה", "נועה", "שירה"]);
 
 interface CustomerMemory {
   route: CustomerRoute;
+  /* The tab too: back from the professional's side or from the avatar picker returns to the menu it left. */
+  tab?: CustomerTab;
   approvedTotalMinor: number | null;
   approvedLines: readonly { id: string; descriptionHe: string; totalMinorUnits: number }[] | null;
 }
@@ -1777,6 +1963,8 @@ function CustomerApp({
   jobReleased,
   onReleaseSeen,
   onPickAvatar,
+  onChangeAvatar,
+  onBackToWelcome,
   openStrollOnce,
   proJobState = null,
   proAvailableAtMs = null,
@@ -1841,6 +2029,9 @@ function CustomerApp({
    * somebody who skipped it can answer again.
    */
   onPickAvatar?: () => void;
+  onChangeAvatar?: () => void;
+  /* Back from the business page that the welcome's door opened. */
+  onBackToWelcome?: () => void;
   /**
    * Where the professional's side of the visit is, mirrored by the shell.
    * Only used to move the customer's screen on when the professional does
@@ -1893,7 +2084,7 @@ function CustomerApp({
    * of the freshness boundary and disagree on screen.
    */
   const supply = readAvailability(snapshot, Date.now());
-  const [tab, setTab] = useState<CustomerTab>("home");
+  const [tab, setTab] = useState<CustomerTab>(PINNED || REVIEW_CYCLE ? "home" : (memory?.current?.tab ?? "home"));
   const capture = useCapture();
   /* What the recording said, into the text box (see useCapture). */
   const [dictated, setDictated] = useState<{ text: string; n: number } | null>(null);
@@ -1946,6 +2137,8 @@ function CustomerApp({
   const addressPickedSinceSend = useRef(false);
   const [chat, setChat] = useState<ChatMessage[]>(chatSeed);
   const [sheet, setSheet] = useState<null | "call" | "safety" | "payment" | "released">(null);
+  /* The phone's back closes an open sheet and stays on the screen under it (button audit #11). */
+  useEffect(() => (sheet ? openOverlay(() => setSheet(null)) : undefined), [sheet]);
   /**
    * THE HANDOFF, RECORDED RATHER THAN PERFORMED.
    *
@@ -2032,7 +2225,12 @@ function CustomerApp({
   });
   const [live, setLive] = useState<LiveLocationState>({ status: "idle" });
 
-  const chosen = savedAddresses.find((a) => a.id === addressId) ?? savedAddresses[0]!;
+  /* An address typed on the picker is the address — it wins over the saved one that was highlighted (button audit #20). */
+  const [typedAddress, setTypedAddress] = useState<string | null>(null);
+  const savedChosen = savedAddresses.find((a) => a.id === addressId) ?? savedAddresses[0]!;
+  const chosen = typedAddress
+    ? { ...savedChosen, labelHe: typedAddress, formattedHe: typedAddress, forSomeoneElseNameHe: null }
+    : savedChosen;
   /*
    * THE PERSON AT THE DOOR, when the call is for someone else — typed on
    * the address screen, or carried by a saved address such as "אצל סבא".
@@ -2304,7 +2502,7 @@ function CustomerApp({
     tab === "home" && route.name === "arrival"
       ? {
           label: "אימתתי את הקוד — הוא נכנס",
-          next: () => go({ name: "tracking", stage: "arrived" }),
+          next: () => advanceTo({ name: "tracking", stage: "arrived" }),
         }
       : null;
 
@@ -2320,28 +2518,29 @@ function CustomerApp({
   const advance =
     tab === "home" && route.name === "tracking"
       ? route.stage === "assigned"
-        ? { label: "המקצוען יצא לדרך", next: () => go({ name: "tracking", stage: "enroute" }) }
+        ? { label: "המקצוען יצא לדרך", next: () => advanceTo({ name: "tracking", stage: "enroute" }) }
         : route.stage === "enroute"
-          ? { label: "המקצוען כמעט אצלך", next: () => go({ name: "arrival" }) }
+          ? { label: "המקצוען כמעט אצלך", next: () => advanceTo({ name: "arrival" }) }
           : route.stage === "arrived"
             ? {
                 label: "המקצוען מתחיל לבדוק",
-                next: () => go({ name: "tracking", stage: "diagnosis" }),
+                next: () => advanceTo({ name: "tracking", stage: "diagnosis" }),
               }
             : route.stage === "diagnosis"
               ? trackedService.price?.priceModel === "VISIT_QUOTE" && !(trackedService.id && pilotServiceById[trackedService.id]?.quoteBeforeDispatch)
-                ? { label: "המקצוען סיים את האבחון", next: () => go({ name: "tracking", stage: "done" }) }
-                : { label: "המקצוען התחיל לעבוד", next: () => go({ name: "tracking", stage: "working" }) }
+                ? { label: "המקצוען סיים את האבחון", next: () => advanceTo({ name: "tracking", stage: "done" }) }
+                : { label: "המקצוען התחיל לעבוד", next: () => advanceTo({ name: "tracking", stage: "working" }) }
               : route.stage === "working"
                 ? {
                     label: "המקצוען סיים את העבודה",
-                    next: () => go({ name: "tracking", stage: "done" }),
+                    next: () => advanceTo({ name: "tracking", stage: "done" }),
                   }
                 : {
                     label: "סיכום העבודה",
                     next: () => {
                       setHasLiveJob(false);
-                      go({ name: "complete" });
+                      setRateCall(null);
+                      advanceTo({ name: "complete" });
                     },
                   }
       : null;
@@ -2408,6 +2607,8 @@ function CustomerApp({
    * where it was never a lie.
    */
   const [hasLiveJob, setHasLiveJob] = useState(false);
+  /* A past call opened from "הקריאות שלי" to rate it — its own name, professional and total (button audit #21). */
+  const [rateCall, setRateCall] = useState<{ nameHe: string; totalMinorUnits: number | null; proNameHe: string | null; whenHe: string } | null>(null);
 
   /*
    * ---------------------------------------------------------------
@@ -2476,7 +2677,7 @@ function CustomerApp({
         }
       : hasLiveJob && customerOpenCall.length > 0 && !jobScreens.includes(route.name)
       ? {
-          textHe: `${customerOpenCall[0]!.proNameHe} · ${customerOpenCall[0]!.stateHe}`,
+          textHe: `${matchedName ?? customerOpenCall[0]!.proNameHe} · ${customerOpenCall[0]!.stateHe}`,
           etaMinutes: liveEta,
           progress: liveProgress,
           figureUri: capsuleFigureUri,
@@ -2498,8 +2699,9 @@ function CustomerApp({
    *
    * A review control, and it says so like every other one in this row.
    */
-  const showReturnToPro =
-    (returnToPro ?? false) && (route.name === "tracking" || route.name === "arrival");
+  /* The way back to his side stays wherever the customer's answer took them —
+     the payment and rating screens included (button audit). */
+  const showReturnToPro = (returnToPro ?? false) && route.name !== "home";
 
   const UTIL = 56;
   const bodyH =
@@ -2613,6 +2815,21 @@ const go = useCallback((r: CustomerRoute) => {
   const back = useCallback((fallback: CustomerRoute) => {
     if (backStack.current.length > 0 && goBack()) return;
     setRoute(fallback);
+    setTab("home");
+  }, []);
+  /*
+   * A STEP OF THE JOB, NOT A PLACE TO RETURN TO.
+   *
+   * The visit moving on (arrived → diagnosis → working → done → summary)
+   * replaces the screen rather than stacking it, so back never walks into
+   * a stage that is over (button audit #10). `fresh` also forgets what was
+   * behind: once the request is accepted, back leaves the job for home
+   * instead of reopening the match card that dispatches it again (#5–#7).
+   */
+  const advanceTo = useCallback((r: CustomerRoute, fresh = false) => {
+    if (fresh) backStack.current = [];
+    setRoute(r);
+    setTab("home");
   }, []);
 
   /* Following the professional is the real map, with his vehicle on the
@@ -2641,12 +2858,12 @@ const go = useCallback((r: CustomerRoute) => {
    */
   useEffect(() => {
     if (proJobState === "COMPLETION_PENDING" && route.name === "tracking" && (route.stage === "working" || route.stage === "diagnosis" || route.stage === "arrived")) {
-      go({ name: "tracking", stage: "done" });
+      advanceTo({ name: "tracking", stage: "done" });
       return;
     }
     /* Straight to work at an agreed price: no quote step to wait at. */
     if (proJobState === "IN_PROGRESS" && route.name === "tracking" && (route.stage === "arrived" || route.stage === "diagnosis")) {
-      go({ name: "tracking", stage: "working" });
+      advanceTo({ name: "tracking", stage: "working" });
       return;
     }
     if (proJobState !== "PRO_ARRIVED" && proJobState !== "DIAGNOSIS") return;
@@ -2655,7 +2872,7 @@ const go = useCallback((r: CustomerRoute) => {
       (route.name === "tracking" && (route.stage === "assigned" || route.stage === "enroute"));
     if (stillWaiting) {
       if (realMap) onToggleRealMap();
-      go({ name: "tracking", stage: "diagnosis" });
+      advanceTo({ name: "tracking", stage: "diagnosis" });
     }
     // Only the professional's move triggers this, not every route change.
   }, [proJobState]);
@@ -2703,8 +2920,8 @@ const go = useCallback((r: CustomerRoute) => {
   useEffect(() => {
     if (!openCompletionOnce) return;
     onCompletionOpened?.();
-    go({ name: "tracking", stage: "done" });
-  }, [openCompletionOnce, onCompletionOpened, go]);
+    advanceTo({ name: "tracking", stage: "done" });
+  }, [openCompletionOnce, onCompletionOpened, advanceTo]);
 
   /*
    * TOLD AT ONCE, AND PUT BACK IN THE QUEUE.
@@ -2725,7 +2942,9 @@ const go = useCallback((r: CustomerRoute) => {
   useEffect(() => {
     if (!openAdvertiseOnce) return;
     onAdvertiseOpened?.();
-    go({ name: "advertise" });
+    backStack.current = [];
+    setRoute({ name: "advertise", fromWelcome: true });
+    pushHistory();
   }, [openAdvertiseOnce, onAdvertiseOpened, go]);
 
   useEffect(() => {
@@ -2749,7 +2968,7 @@ const go = useCallback((r: CustomerRoute) => {
   const goTab = useCallback((t: CustomerTab) => {
     backStack.current = [...backStack.current, { route: hereRef.current, tab: tabRef.current }].slice(-40);
     setTab(t);
-    setRoute({ name: "home" });
+    /* The screen under the menu stays (a live job stays a live job); back returns to it (button audit #4). */
     pushHistory();
   }, []);
 
@@ -2798,6 +3017,11 @@ const go = useCallback((r: CustomerRoute) => {
   useEffect(
     () =>
       setBackHandler(() => {
+        /* The business page opened from the welcome's door goes back to the welcome. */
+        if (hereRef.current.name === "advertise" && hereRef.current.fromWelcome && onBackToWelcome) {
+          onBackToWelcome();
+          return true;
+        }
         const previous = backStack.current.pop();
         if (previous) {
           setRoute(previous.route);
@@ -2808,12 +3032,18 @@ const go = useCallback((r: CustomerRoute) => {
           setTab(previous.tab);
           return true;
         }
-        // Nothing left on this side. If we arrived here from the
-        // professional side, the gesture takes us back there; otherwise
-        // the page is allowed to go — see `backGesture.ts`.
+        // Nothing left on this side. Away from home, back is home (a live
+        // job stays reachable from its capsule); at home, if we arrived from
+        // the professional side the gesture takes us back there.
+        if (hereRef.current.name !== "home" || tabRef.current !== "home") {
+          setRoute({ name: "home" });
+          setTab("home");
+          pushHistory();
+          return true;
+        }
         return onBackOut();
       }),
-    [onBackOut]
+    [onBackOut, onBackToWelcome]
   );
 
   // Keep the "where we are" refs in step with the state they mirror. This
@@ -2827,7 +3057,7 @@ const go = useCallback((r: CustomerRoute) => {
      * professional's side and back lands where it left off rather than
      * on the home screen. See `memory` in the shell.
      */
-    if (memory) memory.current = { route, approvedTotalMinor, approvedLines };
+    if (memory) memory.current = { route, tab, approvedTotalMinor, approvedLines };
   }, [route, tab, approvedTotalMinor, approvedLines, memory]);
 
   /**
@@ -2933,7 +3163,9 @@ const go = useCallback((r: CustomerRoute) => {
       : null;
   const trackedProfessional = useMemo(() => {
     /* The accepted professional's own record: the demo pro's if it was him, new otherwise. */
-    const isDemoPro = !matchedName || matchedName === matchedFirstRef.current;
+    /* The professional who joined today is new: no rating, no jobs (UX audit: he showed 4.9★ · 342). */
+    const isJoined = Boolean(ownPro && matchedName && matchedName === ownPro.nameHe.trim());
+    const isDemoPro = !isJoined && (!matchedName || matchedName === matchedFirstRef.current);
     const base = matchedName
       ? {
           ...matchFixture.professional,
@@ -2947,7 +3179,30 @@ const go = useCallback((r: CustomerRoute) => {
     const uri =
       src && typeof src === "object" && "uri" in src && typeof src.uri === "string" ? src.uri : null;
     return uri ? { ...base, profilePhotoUrl: uri } : base;
-  }, [trackedService, art, matchedName]);
+  }, [trackedService, art, matchedName, ownPro]);
+
+  /*
+   * "הקריאות שלי" holds THIS customer's call while one is live — the service
+   * they asked for and the professional who took it — never the sample
+   * "תקלת חשמל בסלון" (button audit #23). With no live call there is no live row.
+   */
+  const myCalls = useMemo<typeof callsList>(() => {
+    const past = callsList.filter((c) => !c.live);
+    const sample = callsList.find((c) => c.live);
+    if (!hasLiveJob || !sample) return past;
+    const atDoor = route.name === "tracking" && route.stage !== "assigned" && route.stage !== "enroute";
+    return [
+      {
+        ...sample,
+        serviceNameHe: trackedService.nameHe,
+        mark: trackedService.mark,
+        proNameHe: trackedProfessional.displayName,
+        stateHe: atDoor ? "אצלך" : "בדרך אליך",
+        etaMinutes: atDoor ? null : liveEta,
+      },
+      ...past,
+    ];
+  }, [hasLiveJob, route, trackedService, trackedProfessional, liveEta]);
 
   /*
    * WHEN THE VISIT WAS, AND HOW LONG — measured, not written in. The
@@ -3075,6 +3330,7 @@ const go = useCallback((r: CustomerRoute) => {
           reviewSavedHe={savedAgoHe(saved, Date.now())}
           onEditAddresses={() => go({ name: "address" })}
           onEditPayment={() => setSheet("payment")}
+          onBack={() => back({ name: "home" })}
           width={width}
           height={bodyH}
         />
@@ -3151,7 +3407,7 @@ const go = useCallback((r: CustomerRoute) => {
                   id: "avatar",
                   labelHe: "הדמות שלי",
                   detailHe: "מי מטייל ברחוב בזמן ההמתנה",
-                  onPress: onPickAvatar,
+                  onPress: onChangeAvatar,
                 },
               ],
             },
@@ -3204,7 +3460,7 @@ const go = useCallback((r: CustomerRoute) => {
             },
           ]}
           footnoteHe={supportHoursHe()}
-          onBack={() => setTab("home")}
+          onBack={() => back({ name: "home" })}
           width={width}
           height={bodyH}
         />
@@ -3214,14 +3470,23 @@ const go = useCallback((r: CustomerRoute) => {
     if (tab === "calls") {
       return (
         <CallsListBody
-          calls={callsList}
-          onOpen={(id) =>
-            id === "call_live" ? go({ name: "tracking", stage: "enroute" }) : setSheet("payment")
-          }
-          onRate={() => {
-            setHasLiveJob(false);
+          calls={myCalls}
+          onOpen={(id) => {
+            const c = myCalls.find((x) => x.id === id);
+            if (c?.live) go({ name: "tracking", stage: "enroute" });
+            /* A call still waiting for its rating opens that call's summary, not a generic sheet. */
+            else if (c && c.myRating === null) {
+              setRateCall({ nameHe: c.serviceNameHe, totalMinorUnits: c.totalMinorUnits, proNameHe: c.proNameHe, whenHe: c.whenHe });
+              go({ name: "complete" });
+            } else setSheet("payment");
+          }}
+          onRate={(id) => {
+            /* The rating opens for the call that was pressed, not for the last visit (button audit #21). */
+            const c = myCalls.find((x) => x.id === id);
+            setRateCall(c && !c.live ? { nameHe: c.serviceNameHe, totalMinorUnits: c.totalMinorUnits, proNameHe: c.proNameHe, whenHe: c.whenHe } : null);
             go({ name: "complete" });
           }}
+          onBack={() => back({ name: "home" })}
           onApproveQuote={() => go({ name: "quote" })}
           onNewCall={() => {
             setRoute({ name: "home" });
@@ -3241,11 +3506,13 @@ const go = useCallback((r: CustomerRoute) => {
             selectedId={addressId}
             liveLocation={live}
             onUseLiveLocation={askLocation}
-            onSelect={(id) => { addressPickedSinceSend.current = true; setAddressId(id); }}
+            onSelect={(id) => { addressPickedSinceSend.current = true; setAddressId(id); setTypedAddress(null); }}
             onConfirm={(r) => {
               addressPickedSinceSend.current = true;
+              setTypedAddress(r.typedHe.length > 3 ? r.typedHe : null);
               setOnSiteTyped(r.forSomeoneElse && r.recipientNameHe ? { forId: r.addressId ?? addressId, nameHe: r.recipientNameHe } : null);
-              go({ name: "home" });
+              /* Confirming returns to where the picker was opened, and the picker leaves the history. */
+              back({ name: "home" });
             }}
             onBack={() => back({ name: "home" })}
             width={width}
@@ -3545,7 +3812,7 @@ const go = useCallback((r: CustomerRoute) => {
 
         const namesFor = (i: number) =>
           his && i === 0
-            ? (ownPro!.nameHe.trim().split(/\s+/)[0] ?? ownPro!.nameHe)
+            ? ownPro!.nameHe.trim()
             : (FEMALE_FIGURE.has(shopOf(i)) ? [...FEMALE_NAMES_HE] : ["יוסי", "איתי", "רון"])[i % 3]!;
         const cands: CandidatePresence[] = demoCandidatesFor(route.serviceId, 3).map((c, i) => ({
           candidateId: `demo-cand-${i}`,
@@ -3575,7 +3842,9 @@ const go = useCallback((r: CustomerRoute) => {
               : i === pick % 3 && (route.phase === "MATCH_REVEAL" || route.phase === "ASSIGNED_ROUTE")
                 ? ("CHOSEN" as const)
                 : ("ELIGIBLE" as const),
-        }));
+        })).slice(0, his ? 1 : 3);
+        /* When the professional who joined is the one on shift for this, he is
+           the only one found — no invented second and third (UX audit). */
 
         const page = SERVICE_PAGES[route.serviceId];
         /* He said "free in XX": the wait is part of when he arrives. */
@@ -3624,13 +3893,14 @@ const go = useCallback((r: CustomerRoute) => {
             /* The city we built behind the search, not the old plate — the
                street itself, the same for every trade. */
             backdrop={route.phase === "ASSIGNED_ROUTE" ? (
-              <RouteCity serviceId={route.serviceId} etaSeconds={(etaMin ?? 14) * 60} startedAtMs={tripStartedAt} moving proFirstNameHe={(cands[pick % cands.length]?.displayNameHe ?? "").split(" ")[0] || null} />
+              <RouteCity serviceId={route.serviceId} etaSeconds={(etaMin ?? 14) * 60} startedAtMs={tripStartedAt} moving proFirstNameHe={(cands[pick % cands.length]?.displayNameHe ?? "") || null} />
             ) : (
               <SearchCity
                 dept={departmentCodeByServiceId[route.serviceId] ?? null}
                 found={route.phase !== "SEARCHING"}
                 pick={pick}
-                proName={(cands[pick % cands.length]?.displayNameHe ?? "").split(" ")[0]}
+                proName={his && pick % 3 === 0 ? (ownPro!.shopNameHe || ownPro!.nameHe) : (cands[pick % cands.length]?.displayNameHe ?? "")}
+                own={his && pick % 3 === 0 ? { ...ownShopDesign(ownPro!), figureUri: ownPro!.photoUri ?? onboardShopFor(route.serviceId).characterUri.replace("_icon.", "_world.") } : null}
               />
             )}
             onOpenRealMap={followPro}
@@ -3638,7 +3908,7 @@ const go = useCallback((r: CustomerRoute) => {
             liveEta={
               route.phase === "ASSIGNED_ROUTE" && etaMin !== null
                 ? (() => {
-                    const first = (cands[pick % cands.length]?.displayNameHe ?? "").split(" ")[0] ?? "";
+                    const first = cands[pick % cands.length]?.displayNameHe ?? "";
                     const start = tripStartedAt ?? Date.now();
                     return {
                       proFirstNameHe: first,
@@ -3729,7 +3999,7 @@ const go = useCallback((r: CustomerRoute) => {
             visitFeeHe={(() => {
               if (route.phase === "SEARCHING" || !page?.price) return null;
               const cand = cands[pick % cands.length];
-              const first = (cand?.displayNameHe ?? "").split(" ")[0] ?? "";
+              const first = cand?.displayNameHe ?? "";
               const isDemoPro = pick % cands.length === 0;
               const pm = page.price.priceModel;
               /* Priced before dispatch: the line is his price, or that it is on its way. */
@@ -3796,7 +4066,7 @@ const go = useCallback((r: CustomerRoute) => {
             acceptLabelHe={
               pilotServiceById[route.serviceId]?.quoteBeforeDispatch
                 ? (pick % cands.length === 0 ? preQuote?.serviceId === route.serviceId : otherQuote?.pick === pick)
-                  ? `אישור ההצעה — ${(cands[pick % cands.length]?.displayNameHe ?? "").split(" ")[0]} יוצא`
+                  ? `אישור ההצעה — ${(cands[pick % cands.length]?.displayNameHe ?? "")} יוצא`
                   : "מחכים להצעת המחיר…"
                 : undefined
             }
@@ -3816,7 +4086,8 @@ const go = useCallback((r: CustomerRoute) => {
               }
               setOnTheWayAt(Date.now());
               setTripStartedAt(Date.now());
-              go({ name: "living", serviceId: route.serviceId, phase: "ASSIGNED_ROUTE" });
+              setHasLiveJob(true);
+              advanceTo({ name: "living", serviceId: route.serviceId, phase: "ASSIGNED_ROUTE" }, true);
             }}
             /*
              * Turned down: the camera lifts and goes into the next shop —
@@ -3824,7 +4095,7 @@ const go = useCallback((r: CustomerRoute) => {
              * separate confirmation card instead, which read as choosing the
              * person rather than moving on (a tester, on "הראה לי התאמה אחרת").
              */
-            onAnother={() => setPick((n) => n + 1)}
+            onAnother={his ? undefined : () => setPick((n) => n + 1)}
             onSafety={() => setSheet("safety")}
             onOpenProfile={(id) => setOpenVenue(id)}
             /*
@@ -3858,9 +4129,11 @@ const go = useCallback((r: CustomerRoute) => {
              * list still holds it.
              */
             onBack={() =>
+              /* Waiting for him: back is home, the job keeps running (#7). Before that it is a
+                 cancel, and the cancelled match leaves the history so back cannot revive it (#5). */
               route.phase === "ASSIGNED_ROUTE"
-                ? go({ name: "tracking", stage: "enroute" })
-                : go({ name: "service", serviceId: route.serviceId })
+                ? back({ name: "home" })
+                : back({ name: "service", serviceId: route.serviceId })
             }
             backLabelHe={route.phase === "ASSIGNED_ROUTE" ? null : "ביטול הבקשה"}
             width={width}
@@ -3877,6 +4150,7 @@ const go = useCallback((r: CustomerRoute) => {
               proName={namesFor(pick)}
               etaMinutes={Math.round((matchFixture.eta?.etaSeconds ?? 840) / 60)}
               onSiteNameHe={onSiteNameHe}
+              own={ownPro && namesFor(pick) === ownPro.nameHe.trim() ? ownPro : null}
               onDone={() => setOnTheWayAt(null)}
             />
           ) : null}
@@ -3959,7 +4233,7 @@ const go = useCallback((r: CustomerRoute) => {
             }
             onAccept={() => {
               setHasLiveJob(true);
-              go({ name: "tracking", stage: "assigned" });
+              advanceTo({ name: "tracking", stage: "assigned" }, true);
             }}
             onAnother={() => {
               /* Back onto the street, into the next shop — the same move as the card's. */
@@ -3997,8 +4271,7 @@ const go = useCallback((r: CustomerRoute) => {
               onOpenSite={(picked) => setSponsorHandoff(picked.siteUrl)}
               onBack={() => {
                 setSponsorHandoff(null);
-                if (route.from === "stroll") go({ name: "stroll" });
-                else go({ name: "tracking", stage: route.from });
+                back(route.from === "stroll" ? { name: "stroll" } : { name: "tracking", stage: route.from });
               }}
               width={width}
               height={bodyH}
@@ -4018,7 +4291,8 @@ const go = useCallback((r: CustomerRoute) => {
               onSubmit={(lead) => setAdvertiseLead(lead.businessNameHe)}
               onBack={() => {
                 setAdvertiseLead(null);
-                go({ name: "home" });
+                if (route.fromWelcome && onBackToWelcome) onBackToWelcome();
+                else back({ name: "home" });
               }}
               width={width}
               height={bodyH}
@@ -4032,7 +4306,7 @@ const go = useCallback((r: CustomerRoute) => {
         return (
           <TrackingBody
             /* Our street behind the visit; the clock opens the real map. */
-            backdrop={<StreetScene />}
+            backdrop={<CityHero />}
             /* The follow screen is the real map only — no toggle back to the city. */
             onOpenRealMap={undefined}
             /* The trade's own figure, in the work scene while he is in the home. */
@@ -4111,7 +4385,9 @@ const go = useCallback((r: CustomerRoute) => {
              */
             onConfirmCompletion={() => {
               onConfirmCompletion?.();
-              go({ name: "complete" });
+              setHasLiveJob(false);
+              setRateCall(null);
+              advanceTo({ name: "complete" });
             }}
             /*
              * The world, and who is coming through it. `departmentCode`
@@ -4212,7 +4488,7 @@ const go = useCallback((r: CustomerRoute) => {
             arrivalClockHe={clock}
             minutesAway={matchFixture.eta ? Math.round(matchFixture.eta.etaSeconds / 60) : null}
             codeHe={DOOR_CODE}
-            vehicleHe="יונדאי i20 לבנה"
+            vehicleHe={ownPro && matchedName === ownPro.nameHe.trim() ? null : "יונדאי i20 לבנה"}
             onCallOrderer={() => setSheet("call")}
             onCallPro={() => setSheet("call")}
             onHelp={() => setSheet("safety")}
@@ -4237,7 +4513,7 @@ const go = useCallback((r: CustomerRoute) => {
              */
             codeHe={DOOR_CODE}
             onSiteNameHe={onSiteNameHe}
-            vehicleHe="יונדאי i20 לבנה"
+            vehicleHe={ownPro && matchedName === ownPro.nameHe.trim() ? null : "יונדאי i20 לבנה"}
             plateTailHe="47"
             etaMinutes={2}
             onCall={() => setSheet("call")}
@@ -4264,7 +4540,7 @@ const go = useCallback((r: CustomerRoute) => {
         return (
           <View style={{ width, height: bodyH }}>
             <TrackingBody
-              backdrop={<StreetScene />}
+              backdrop={<CityHero />}
               onOpenRealMap={onToggleRealMap}
               proFigureUri={`./world/character_${DEPT_SHOP[departmentCodeByServiceId[trackedService.id ?? ""] ?? ""] ?? "home"}_icon.webp`}
               geo={geo}
@@ -4289,8 +4565,8 @@ const go = useCallback((r: CustomerRoute) => {
             />
             <FocusSheet
               visible
-              titleHe={`${matchFixture.professional.displayName} שלח הצעת מחיר`}
-              onDismiss={() => go({ name: "tracking", stage: "diagnosis" })}
+              titleHe={`${trackedProfessional.displayName} שלח הצעת מחיר`}
+              onDismiss={() => back({ name: "tracking", stage: "diagnosis" })}
               width={width}
               height={bodyH}
             >
@@ -4348,12 +4624,12 @@ const go = useCallback((r: CustomerRoute) => {
                   }
                   onQuoteDecision("APPROVED");
                   // An approved price is the professional's cue to start.
-                  go({ name: "tracking", stage: "working" });
+                  advanceTo({ name: "tracking", stage: "working" });
                 }}
                 onDecline={() => {
                   onQuoteDecision("DECLINED");
                   // Declined, he is still in the room and still diagnosing.
-                  go({ name: "tracking", stage: "diagnosis" });
+                  advanceTo({ name: "tracking", stage: "diagnosis" });
                 }}
                 onAskQuestion={() => go({ name: "chat" })}
                 /*
@@ -4361,7 +4637,7 @@ const go = useCallback((r: CustomerRoute) => {
                  * pending, and the professional is told nothing — because a
                  * navigation control must never carry a financial answer.
                  */
-                onBack={() => go({ name: "tracking", stage: "diagnosis" })}
+                onBack={() => back({ name: "tracking", stage: "diagnosis" })}
                 width={width}
                 height={Math.round(bodyH * 0.78) - 56}
               />
@@ -4376,11 +4652,11 @@ const go = useCallback((r: CustomerRoute) => {
               const k = def ? pricingKindOf(def) : null;
               return k === "VISIT" ? "הביקור הסתיים" : k === "DISTANCE" ? "המשלוח נמסר" : "העבודה הושלמה";
             })()}
-            serviceNameHe={trackedService.nameHe}
+            serviceNameHe={rateCall?.nameHe ?? trackedService.nameHe}
             mark={trackedService.mark}
-            professionalDisplayName={trackedProfessional.displayName}
-            professionalPhotoUrl={trackedProfessional.profilePhotoUrl ?? null}
-            whenHe={visitWhenHe}
+            professionalDisplayName={rateCall?.proNameHe ?? trackedProfessional.displayName}
+            professionalPhotoUrl={rateCall ? null : trackedProfessional.profilePhotoUrl ?? null}
+            whenHe={rateCall?.whenHe ?? visitWhenHe}
             /*
              * The receipt is the quote that was approved on this visit —
              * the same lines and the same total the customer agreed to a
@@ -4388,7 +4664,11 @@ const go = useCallback((r: CustomerRoute) => {
              * the screen (a deep link reviewing the layout).
              */
             receiptLines={
-              approvedLines
+              rateCall
+                ? rateCall.totalMinorUnits !== null
+                  ? [{ id: "past", labelHe: rateCall.nameHe, amountMinorUnits: rateCall.totalMinorUnits }]
+                  : []
+                : approvedLines
                 ? approvedLines.map((l) => ({ id: l.id, labelHe: l.descriptionHe, amountMinorUnits: l.totalMinorUnits }))
                 : diagnosisFee !== null
                   ? [{ id: "visit", labelHe: `${visitTermsHe({ id: trackedService.id ?? "" }).feeHe} · את ${visitTermsHe({ id: trackedService.id ?? "" }).workHe} סוגרים ישירות מול המקצוען`, amountMinorUnits: diagnosisFee }]
@@ -4397,14 +4677,17 @@ const go = useCallback((r: CustomerRoute) => {
                     ? []
                     : receiptLines
             }
-            totalChargedMinorUnits={approvedTotalMinor ?? diagnosisFee ?? (trackedService.id ? 0 : 44500)}
+            totalChargedMinorUnits={rateCall ? rateCall.totalMinorUnits ?? 0 : approvedTotalMinor ?? diagnosisFee ?? (trackedService.id ? 0 : 44500)}
             paymentMethodLabelHe="ויזה · 4417"
             // The rating travels with the navigation, so the closing
             // screen can speak about what they actually left rather than
             // thanking somebody for a review they may have skipped.
-            onSubmitReview={(rating) => go({ name: "closed", ratingGiven: rating })}
+            onSubmitReview={(rating) => advanceTo({ name: "closed", ratingGiven: rating })}
             onDownloadInvoice={() => setSheet("payment")}
-            onBack={() => go({ name: "home" })}
+            onBack={() => {
+              setRateCall(null);
+              back({ name: "home" });
+            }}
             width={width}
             height={bodyH}
           />
@@ -4412,10 +4695,10 @@ const go = useCallback((r: CustomerRoute) => {
       case "closed":
         return (
           <JobClosedBody
-            serviceNameHe={trackedService.nameHe}
+            serviceNameHe={rateCall?.nameHe ?? trackedService.nameHe}
             mark={trackedService.mark}
-            professionalDisplayName={trackedProfessional.displayName}
-            whenHe={visitWhenHe}
+            professionalDisplayName={rateCall?.proNameHe ?? trackedProfessional.displayName}
+            whenHe={rateCall?.whenHe ?? visitWhenHe}
             /*
              * THE AMOUNT THAT WAS APPROVED, not a number on this screen.
              *
@@ -4424,7 +4707,7 @@ const go = useCallback((r: CustomerRoute) => {
              * the fallback for a deep link that lands here with no visit
              * behind it, which is how this screen is usually reviewed.
              */
-            totalChargedMinorUnits={approvedTotalMinor ?? diagnosisFee ?? 44500}
+            totalChargedMinorUnits={rateCall ? rateCall.totalMinorUnits ?? 0 : approvedTotalMinor ?? diagnosisFee ?? 44500}
             /*
              * And what the money bought, in the professional's own
              * words — the lines of the quote that was approved. Null
@@ -4432,7 +4715,7 @@ const go = useCallback((r: CustomerRoute) => {
              * the screen says nothing rather than describing work it did
              * not see.
              */
-            workLines={approvedLines ?? undefined}
+            workLines={rateCall ? undefined : approvedLines ?? undefined}
             /*
              * False, and it is the default for a reason: no payment
              * provider has been chosen (/CLAUDE.md §4), so the money has
@@ -4442,7 +4725,10 @@ const go = useCallback((r: CustomerRoute) => {
              */
             paymentCaptured={false}
             ratingGiven={route.ratingGiven}
-            onDone={() => go({ name: "home" })}
+            onDone={() => {
+              setRateCall(null);
+              advanceTo({ name: "home" }, true);
+            }}
             onOpenReceipt={() => setSheet("payment")}
             onGetHelp={() => setSheet("safety")}
             /*
@@ -4461,6 +4747,7 @@ const go = useCallback((r: CustomerRoute) => {
       default:
         return (
           <CustomerHomeBody
+            onOverlay={openOverlay}
             /* Our street behind the top of the page, not the old plate. */
             backdrop={<CityHero />}
             /* Same door, same rule — see the closing screen above. */
@@ -4485,28 +4772,6 @@ const go = useCallback((r: CustomerRoute) => {
             availability={snapshot}
             nowMs={Date.now()}
             matchRules={catalogMatchRules}
-            ownShop={
-              ownPro
-                ? {
-                    serviceIds: ownPro.serviceIds,
-                    customHe: ownPro.customServicesHe,
-                    shopNameHe: ownPro.shopNameHe || ownPro.nameHe,
-                    personHe: ownPro.nameHe.trim().split(/\s+/)[0] ?? ownPro.nameHe,
-                    colorHex: ownPro.brandColor,
-                    imageUri: ownPro.photoUri ?? ownPro.logoUri ?? onboardShopFor(ownPro.serviceIds[0] ?? null).characterUri,
-                    tradeHe: [...ownPro.serviceIds.map((id) => SERVICE_PAGES[id]?.nameHe ?? ""), ...ownPro.customServicesHe].filter(Boolean).slice(0, 2).join(" · "),
-                    priceHe: (() => {
-                      const v = Object.values(ownPro.pricesMinorUnits ?? {}).filter((n) => n > 0);
-                      return v.length ? `מ־${formatMoney(money(Math.min(...v), "ILS"))}` : null;
-                    })(),
-                    onOpen: (id) => {
-                      const sid = id ?? ownPro.serviceIds[0] ?? null;
-                      if (sid && SERVICE_PAGES[sid]) go({ name: "service", serviceId: sid });
-                    },
-                    onStreet: () => go({ name: "city", enterShopId: ownShopId(ownPro) }),
-                  }
-                : null
-            }
             injectedText={dictated}
             photoMatch={photoMatch}
             recognising={recognising}
@@ -4718,13 +4983,21 @@ const go = useCallback((r: CustomerRoute) => {
           avatarNo={avatar ? Number(String(avatar).replace(/\D/g, "")) : null}
           trades={cityTrades}
           enterShopId={route.name === "city" ? route.enterShopId ?? null : null}
-          ownShop={ownPro ? { id: ownShopId(ownPro), nameHe: ownPro.shopNameHe || ownPro.nameHe, colorHex: ownPro.brandColor } : null}
-          onRequestService={(id) => go({ name: "service", serviceId: id })}
+          ownShop={ownPro ? ownShopDesign(ownPro) : null}
+          onRequestService={(id, fromShopId) => {
+            /* Back from the service returns inside the shop it was ordered in, not to the street's start. */
+            if (fromShopId) {
+              hereRef.current = route.name === "city" && route.from
+                ? { name: "city", enterShopId: fromShopId, from: route.from }
+                : { name: "city", enterShopId: fromShopId };
+            }
+            go({ name: "service", serviceId: id });
+          }}
           onExit={() => {
             const from = route.name === "city" ? route.from : undefined;
-            if (from === "stroll") go({ name: "stroll" });
-            else if (from) go({ name: "tracking", stage: from });
-            else go({ name: "home" });
+            /* Back is back — to the screen the street was opened from (the wait for the
+               pro, the visit), never a jump home that loses a live job (button audit #1). */
+            back(from === "stroll" ? { name: "stroll" } : from ? { name: "tracking", stage: from } : { name: "home" });
           }}
         />
       </View>
@@ -5069,6 +5342,7 @@ function ProApp({
   onSendQuote,
   onQuoteSeen,
   onSeeAsCustomer,
+  onSampleCustomer,
   completionConfirmed,
   onJobChange,
   availableAtMs = null,
@@ -5077,6 +5351,7 @@ function ProApp({
   joined = null,
   onOnlineChange,
   onEditJoin,
+  onFinishJoin,
   startShift = false,
   onShiftStarted,
   onPricesChange,
@@ -5131,6 +5406,8 @@ function ProApp({
    * "הדגמה" before it says anything else.
    */
   onSeeAsCustomer?: (what: "quote" | "completion" | "prequote") => void;
+  /** For a sample call: the customer's answer, simulated. */
+  onSampleCustomer?: (what: "quote" | "completion" | "prequote") => void;
   /** Quote-first: the price this professional named, when the customer approved it, and naming one. */
   preQuoteSent?: { serviceId: string; amount: number; notesHe: string } | null;
   preQuoteApprovedAt?: number | null;
@@ -5155,6 +5432,7 @@ function ProApp({
   joined?: OnboardingResult | null;
   /** Back to his details and shop, from inside the app. */
   onEditJoin?: () => void;
+  onFinishJoin?: () => void;
   /** Tells the shell when he goes on or off shift. */
   onOnlineChange?: (online: boolean) => void;
   /** Arrived by "להתחיל משמרת": go on shift at once. */
@@ -5165,7 +5443,7 @@ function ProApp({
   /** Work starts at a price agreed in advance: tell the shell what it is. */
   onAgreedStart?: (amountMinorUnits: number, nameHe: string) => void;
   /** The professional gave the job back. The customer has to be told. */
-  onReleaseJob?: () => void;
+  onReleaseJob?: (sample?: boolean) => void;
   /**
    * The avatar the customer picked for themselves, if they picked one.
    * Their own choice, carried across — not a likeness we invented.
@@ -5323,6 +5601,8 @@ function ProApp({
    * fixture. End the shift and they reset, because they describe THIS shift.
    */
   const [shiftNet, setShiftNet] = useState(kept?.shiftNet ?? 0);
+  /* The jobs he closed in this demo, for "הרווחים" — header and list agree. */
+  const [doneJobs, setDoneJobs] = useState<React.ComponentProps<typeof ProEarningsBody>["jobs"]>([]);
   const [shiftJobs, setShiftJobs] = useState(kept?.shiftJobs ?? 0);
   /** The payout just settled, while the completion screen is showing. */
   const [settled, setSettled] = useState<number | null>(kept?.settled ?? null);
@@ -5409,8 +5689,9 @@ function ProApp({
     job === null &&
     settled === null &&
     !(preQuoteSent && !preQuoteApprovedAt) &&
+    proView !== "quote" &&
     /* A sample call needs one of his services; never the sample plumber's. */
-    (!joinedIds || joinedIds.length > 0 || Boolean(request));
+    (!joinedIds || joinedIds.some((id) => armed[id] !== false) || Boolean(request));
 
   /*
    * ---------------------------------------------------------------------
@@ -5638,7 +5919,8 @@ function ProApp({
           // the card must say so rather than carry the fixture's number
           // across to a different service.
           expectedPayoutMinorUnits: offerPayout,
-          payoutIsEstimate: takenRequest.priceModel !== "FIXED",
+          /* His own visit fee is a price, not an estimate; only hourly/quote work is open-ended. */
+          payoutIsEstimate: takenRequest.priceModel !== "FIXED" && takenRequest.priceModel !== "VISIT_QUOTE",
         }
       : {
           ...offerFixture,
@@ -5786,6 +6068,19 @@ function ProApp({
         0;
       setShiftNet((n) => n + payout);
       setShiftJobs((n) => n + 1);
+      setDoneJobs((l) => [
+        {
+          id: `done_${Date.now()}`,
+          serviceNameHe: takenRequest?.serviceNameHe ?? "עבודה",
+          mark: ((takenRequest?.markName as MarkName) ?? "plumbing"),
+          whenHe: `היום, ${nowHHMM()}`,
+          grossMinorUnits: payout,
+          deductions: [],
+          /* Nothing is taken off: the commission is undecided (/CLAUDE.md §4). */
+          netMinorUnits: payout,
+        },
+        ...l,
+      ]);
       setSettled(payout);
       setJob(null);
       return;
@@ -5829,9 +6124,35 @@ function ProApp({
     memory.current = { tab, presence, job, proView, onlineSince, shiftNet, shiftJobs, settled, takenRequest };
   }, [memory, tab, presence, job, proView, onlineSince, shiftNet, shiftJobs, settled, takenRequest]);
 
+  /* A sample call's customer answers by himself, three seconds after he is asked.
+     (A ref: the shell hands a fresh handler on every render, which would restart the wait.) */
+  const sampleAnswer = useRef(onSampleCustomer);
+  sampleAnswer.current = onSampleCustomer;
+  useEffect(() => {
+    if (!takenRequest?.sample) return;
+    const what: "prequote" | "quote" | "completion" | null =
+      preQuoteSent && !preQuoteApprovedAt && !job ? "prequote"
+      : job === "WAITING_QUOTE_APPROVAL" ? "quote"
+      : job === "COMPLETION_PENDING" && !completionConfirmed ? "completion"
+      : null;
+    if (!what) return;
+    const t = setTimeout(() => sampleAnswer.current?.(what), 3000);
+    return () => clearTimeout(t);
+  }, [takenRequest?.sample, preQuoteSent, preQuoteApprovedAt, job, completionConfirmed]);
+
+  /* An open sheet is the first thing the phone's back closes. */
+  const proSheetRef = useRef(proSheet);
+  proSheetRef.current = proSheet;
+  useEffect(() => {
+    if (proSheet) pushBackEntry();
+  }, [proSheet]);
   useEffect(
     () =>
       setBackHandler(() => {
+        if (proSheetRef.current) {
+          setProSheet(null);
+          return true;
+        }
         const previous = proBack.current.pop();
         if (previous) {
           setProView(previous.view);
@@ -5930,7 +6251,7 @@ function ProApp({
       quickRepliesHe={proQuickReplies}
       onSend={(t) => setProChat((c) => [...c, { id: `p${c.length}`, from: "pro", textHe: t, atHe: nowHHMM() }])}
       onCall={() => setProSheet("call")}
-      onBack={() => setProView(null)}
+      onBack={() => { if (!goBack()) setProView(null); }}
       width={width}
       height={bodyH}
     />
@@ -5947,7 +6268,7 @@ function ProApp({
       periodJobCount={joined ? shiftJobs : 14}
       periodLabelHe={joined ? "היום" : "השבוע"}
       days={joined ? [] : earningDays}
-      jobs={joined ? [] : earningJobs}
+      jobs={joined ? doneJobs : earningJobs}
       nextPayoutHe={null}
       nextPayoutMinorUnits={null}
       width={width}
@@ -5980,7 +6301,14 @@ function ProApp({
     <ProVerificationBody
       displayNameHe={selfNameHe ?? "יוסי"}
       steps={joinedSteps ?? verificationSteps}
-      services={joinedIds && joinedCreds ? eligibilityFor(joinedCreds, joinedIds) : proEligibility}
+      /* Not approved yet: no service is "מאושר לעבודה" while the identity check or documents are missing. */
+      services={
+        joinedIds && joinedCreds
+          ? joined && missingForWork(joined).length > 0
+            ? eligibilityFor(joinedCreds, joinedIds).map((x) => ({ ...x, live: false, blockedByHe: `חסר: ${missingForWork(joined).join(" ו")}` }))
+            : eligibilityFor(joinedCreds, joinedIds)
+          : proEligibility
+      }
       onOpenStep={(id) => setOpenStepId(id)}
       width={width}
       height={bodyH}
@@ -6015,7 +6343,7 @@ function ProApp({
              */
             professional={
               joined
-                ? { id: "joined", displayName: joined.nameHe, profilePhotoUrl: joined.photoUri, verifications: ["IDENTITY_VERIFIED", "BUSINESS_VERIFIED"], proNowCompletedJobs: 0, proNowRatingAverage: null, proNowRatingCount: 0, externalReputation: null }
+                ? { id: "joined", displayName: joined.nameHe, profilePhotoUrl: joined.photoUri, verifications: [...(joined.uploadedDocIds?.includes("ID") ? (["IDENTITY_VERIFIED"] as const) : []), ...(joined.uploadedDocIds?.includes("BUSINESS") ? (["BUSINESS_VERIFIED"] as const) : [])], proNowCompletedJobs: 0, proNowRatingAverage: null, proNowRatingCount: 0, externalReputation: null }
                 : matchFixture.professional
             }
             services={
@@ -6058,6 +6386,8 @@ function ProApp({
          * The lines already sent, when there are any — so "עדכון ההצעה"
          * opens what was sent rather than an empty form.
          */
+        /* "עדכון" only when a quote really was sent before (button audit). */
+        updating={Boolean(sentQuoteLines?.length)}
         initialLines={
           /*
            * The bridge carries `kind` as a plain string — it crosses two
@@ -6101,8 +6431,8 @@ function ProApp({
          * screen — told here, before the quote goes out, rather than
          * behind the professional's back.
          */
-        usualUpToMinorUnits={48000}
-        usualSampleSize={14}
+        usualUpToMinorUnits={null}
+        usualSampleSize={0}
         onSend={(draft) => {
           /* Quote-first, before any job: the price goes to the match card. */
           if (!job && takenRequest?.quoteFirst) {
@@ -6119,7 +6449,11 @@ function ProApp({
           advanceJob();
           setProView(null);
         }}
-        onBack={() => setProView(null)}
+        onBack={() => {
+          /* Quote-first, nothing sent yet: back is to the call he was answering. */
+          if (!job && takenRequest?.quoteFirst && !preQuoteSent) { setProView(null); setOfferAt(Date.now()); return; }
+          if (!goBack()) setProView(null);
+        }}
         width={width}
         height={bodyH}
       />
@@ -6170,8 +6504,8 @@ function ProApp({
          * jobs — so on a marketplace that has not opened, neither side
          * sees anything.
          */
-        usualUpToMinorUnits={48000}
-        usualSampleSize={14}
+        usualUpToMinorUnits={null}
+        usualSampleSize={0}
         payoutMinorUnits={
           (takenRequest?.priceModel ?? "VISIT_QUOTE") === "VISIT_QUOTE" && approvedTotal === null && !takenRequest?.quoteFirst
             ? ownVisitFee ?? SERVICE_PAGES[takenRequest?.serviceId ?? "svc-leak"]?.price?.visitFeeMinorUnits ?? null
@@ -6251,7 +6585,7 @@ function ProApp({
         onToggleOnline={toggle}
         onManageServices={() => setProSheet("services")}
         onOpenPricing={() => goPro("pricing")}
-        onBack={() => setProView(null)}
+        onBack={() => { if (!goBack()) setProView(null); }}
         width={width}
         height={bodyH}
       />
@@ -6278,12 +6612,17 @@ function ProApp({
             prev.map((r) => (r.serviceId === serviceId ? { ...r, amountMinorUnits } : r))
           )
         }
-        onBack={() => setProView(null)}
+        onBack={() => { if (!goBack()) setProView(null); }}
         width={width}
         height={bodyH}
       />
     ) : (
       <ProShiftBody
+        notApproved={
+          joined && missingForWork(joined).length > 0 && onFinishJoin
+            ? { missingHe: missingForWork(joined).join(" ו"), onFinish: onFinishJoin }
+            : null
+        }
         pendingPriceHe={
           preQuoteSent && !preQuoteApprovedAt
             ? `${formatMoney(money(preQuoteSent.amount, "ILS"))} · ${takenRequest?.serviceNameHe ?? ""}`
@@ -6327,6 +6666,8 @@ function ProApp({
           mark: s.mark,
           // Eligible AND armed. Either one alone is not "taking calls".
           live: s.enabled && !s.blockedReasonHe && (armed[s.id] ?? true),
+          /* Switched off by him — not a missing document. */
+          off: s.enabled && !s.blockedReasonHe && armed[s.id] === false,
         }))}
         nowMs={shiftNow}
         onToggleOnline={() => {
@@ -6417,8 +6758,8 @@ function ProApp({
       {preQuoteSent && !preQuoteApprovedAt && !job && !offer && proView !== "quote" ? (
         <DemoBar
           dark
-          label={`ההצעה נשלחה · ${formatMoney(money(preQuoteSent.amount, "ILS"))} — מעבר לצד הלקוח כדי לאשר`}
-          onPress={() => onSeeAsCustomer?.("prequote")}
+          label={takenRequest?.sample ? `ההצעה נשלחה · ${formatMoney(money(preQuoteSent.amount, "ILS"))} — מחכים לאישור הלקוח…` : `ההצעה נשלחה · ${formatMoney(money(preQuoteSent.amount, "ILS"))} — מעבר לצד הלקוח כדי לאשר`}
+          onPress={() => (takenRequest?.sample ? onSampleCustomer?.("prequote") : onSeeAsCustomer?.("prequote"))}
           width={width}
         />
       ) : null}
@@ -6427,11 +6768,17 @@ function ProApp({
         <DemoBar
           dark
           label={
-            job === "COMPLETION_PENDING"
-              ? "מעבר לצד הלקוח כדי לאשר שהעבודה הושלמה"
-              : "מעבר לצד הלקוח כדי לאשר את ההצעה"
+            takenRequest?.sample
+              ? "מחכים לאישור הלקוח…"
+              : job === "COMPLETION_PENDING"
+                ? "מעבר לצד הלקוח כדי לאשר שהעבודה הושלמה"
+                : "מעבר לצד הלקוח כדי לאשר את ההצעה"
           }
-          onPress={() => onSeeAsCustomer?.(job === "COMPLETION_PENDING" ? "completion" : "quote")}
+          onPress={() => {
+            const what = job === "COMPLETION_PENDING" ? "completion" : "quote";
+            if (takenRequest?.sample) onSampleCustomer?.(what);
+            else onSeeAsCustomer?.(what);
+          }}
           width={width}
         />
       ) : null}
@@ -6446,7 +6793,7 @@ function ProApp({
            */
           label={request ? "הקריאה ששלחת בצד הלקוח ממתינה" : "קריאה לדוגמה"}
           onPress={() => {
-            setTakenRequest(request ?? (joinedIds ? sampleRequestFor(joinedIds[0]!) : null));
+            setTakenRequest(request ?? (joinedIds ? sampleRequestFor(joinedIds.find((id) => armed[id] !== false) ?? joinedIds[0]!, joined?.city) : null));
             if (request) onTakeRequest();
             setOfferAt(Date.now());
           }}
@@ -6592,7 +6939,7 @@ function ProApp({
             setProSheet(null);
             setJob(null);
             setTakenRequest(null);
-            onReleaseJob?.();
+            onReleaseJob?.(Boolean(takenRequest?.sample));
           }}
         >
           <Text style={styles.sheetPrimaryText}>שחרור הקריאה</Text>
@@ -6617,7 +6964,8 @@ function ProApp({
         height={height}
       >
         <Text style={styles.sheetBodyDark}>
-          רחוב הברזל 12, רמת אביב · קומה 3, דירה 9 · קוד לבניין 1408
+          {/* The job's own address — the customer's, not a sample one. */}
+          {takenRequest?.addressHe ?? "רחוב הברזל 12, רמת אביב · קומה 3, דירה 9 · קוד לבניין 1408"}
         </Text>
         {/*
           * IT OPENS MAPS NOW.
@@ -6639,7 +6987,7 @@ function ProApp({
         <Pressable
           style={styles.sheetPrimary}
           onPress={() => {
-            const address = "רחוב הברזל 12, רמת אביב, תל אביב";
+            const address = takenRequest?.addressHe?.split(" · ")[0] ?? "רחוב הברזל 12, רמת אביב, תל אביב";
             if (!canHandOffToMaps(address)) return;
             const platform: MapsPlatform =
               Platform.OS === "android" ? "android" : Platform.OS === "ios" ? "ios" : "web";
@@ -6709,7 +7057,8 @@ function ProApp({
           { key: "profile", label: "הפרופיל", mark: "person" as const },
         ]}
         active={tab}
-        onPress={(k) => goProTab(k as ProTab)}
+        /* A tab opens its own list, not a document left open on it last time. */
+        onPress={(k) => { setOpenStepId(null); goProTab(k as ProTab); }}
         onSwitch={onSwitch}
         switchLabel="לקוח"
       />
@@ -7194,7 +7543,7 @@ const CITY_HERO_CSS = "@keyframes pnCity{0%{transform:scale(1.02) translateX(0)}
  */
 const DAY = isDaytime();
 const CITY_BG = DAY
-  ? { src: "./world/splash_city_day.webp", pos: "50% 40%" }
+  ? { src: "./world/splash_city.webp", pos: "64% 50%" } /* the evening city in both modes — the daytime render was the foggy one (UX audit) */
   : { src: "./world/splash_city.webp", pos: "64% 50%" };
 
 function CityHero({ lift = 0 }: { lift?: number }) {
@@ -7397,7 +7746,7 @@ const OTW_CSS = `
 `;
 /* The trades whose van is drawn from the side; the rest drive the PRO NOW van. */
 const SIDE_DRAWN = new Set(["appliance", "beauty", "clean", "courier", "electric", "tech", "tow", "vet", "well"]);
-function OnTheWay({ shop, proName, etaMinutes, onSiteNameHe = null, vehicle = null, homeUri = null, onDone }: { shop: string; proName: string; etaMinutes: number; onSiteNameHe?: string | null; vehicle?: string | null; homeUri?: string | null; onDone: () => void }) {
+function OnTheWay({ shop, proName, etaMinutes, onSiteNameHe = null, vehicle = null, homeUri = null, own = null, onDone }: { shop: string; proName: string; etaMinutes: number; onSiteNameHe?: string | null; vehicle?: string | null; homeUri?: string | null; /* The professional who joined: his own designed shop, sign and all. */ own?: OnboardingResult | null; onDone: () => void }) {
   const shopId = shop;
   const she = FEMALE_NAMES_HE.has(proName);
   const g = (m: string, f: string) => (she ? f : m);
@@ -7419,11 +7768,17 @@ function OnTheWay({ shop, proName, etaMinutes, onSiteNameHe = null, vehicle = nu
         </svg>
         <img src={`./world/character_${shopId}_icon.webp`} alt="" style={{ position: "absolute", left: 25, top: 18, width: 100, height: 112, objectFit: "contain" }} />
       </div>
-      <div style={{ marginTop: 18, color: "#fff", fontSize: scale.title, fontWeight: 900, animation: "pnOtwCard .6s .1s both" }}>{onSiteNameHe ? `${proName} ${g("יצא", "יצאה")} אל ${onSiteNameHe.replace(/ \(תצוגה\)$/, "")}!` : `${proName} ${g("יצא", "יצאה")} אליך!`}</div>
+      <div style={{ marginTop: 18, color: "#fff", fontSize: scale.title, fontWeight: 900, animation: "pnOtwCard .6s .1s both" }}>{onSiteNameHe ? `${proName} ${g("קיבל", "קיבלה")} את הקריאה אל ${onSiteNameHe.replace(/ \(תצוגה\)$/, "")}!` : `${proName} ${g("קיבל", "קיבלה")} את הקריאה!`}</div>
       <div style={{ marginTop: 6, color: "#FF9A6B", fontSize: scale.body, fontWeight: 800, animation: "pnOtwCard .6s .2s both" }}>{g("מגיע", "מגיעה")} בעוד {etaMinutes} דק׳</div>
       <div style={{ position: "relative", width: "86%", height: 120, marginTop: 26, animation: "pnOtwCard .6s .3s both" }}>
         <div style={{ position: "absolute", left: "8%", right: "8%", top: 76, height: 6, borderRadius: 3, backgroundImage: "linear-gradient(90deg, rgba(255,154,107,.9) 50%, transparent 50%)", backgroundSize: "20px 6px", animation: "pnOtwDash .6s linear infinite" }} />
-        <img src={`./world/m/shop_${shopId}.webp`} alt="" style={{ position: "absolute", right: 0, top: 0, width: 88, height: 88, objectFit: "contain" }} />
+        {own ? (
+          <div style={{ position: "absolute", right: 0, top: 0, width: 88, height: 88 }}>
+            <FacadeWithSign facadeUri={onboardShopFor(own.serviceIds[0] ?? null).facadeUri} result={own} px={88} />
+          </div>
+        ) : (
+          <img src={`./world/m/shop_${shopId}.webp`} alt="" style={{ position: "absolute", right: 0, top: 0, width: 88, height: 88, objectFit: "contain" }} />
+        )}
         <div style={{ position: "absolute", left: 0, top: 22, width: 64, height: 64, borderRadius: 32, overflow: "hidden", background: "rgba(255,255,255,.1)", border: "2px solid #FF9A6B", boxShadow: "0 0 18px rgba(255,107,74,.5)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: scale.title }}>
           {homeUri ? <img src={homeUri} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : "⌂"}
         </div>
@@ -7433,6 +7788,8 @@ function OnTheWay({ shop, proName, etaMinutes, onSiteNameHe = null, vehicle = nu
         <div style={{ position: "absolute", left: 8, top: 96, color: "rgba(247,243,250,.7)", fontSize: scale.micro }}>{onSiteNameHe ? `אצל ${onSiteNameHe.split(" ")[0]}` : "הבית שלך"}</div>
       </div>
       <div style={{ marginTop: 22, color: "rgba(247,243,250,.75)", fontSize: scale.meta, animation: "pnOtwCard .6s .5s both" }}>{onSiteNameHe ? `ל${onSiteNameHe.split(" ")[0]} נשלחה הודעה עם הפרטים וקוד לדלת` : g("אפשר לעקוב אחריו בכל רגע", "אפשר לעקוב אחריה בכל רגע")}</div>
+      {/* The whole screen is the button (button audit #24 found taps "swallowed"): say so. */}
+      <div style={{ position: "absolute", bottom: 28, color: "rgba(247,243,250,.55)", fontSize: scale.micro, animation: "pnOtwCard .6s 1.2s both" }}>נגיעה במסך להמשך</div>
     </div>
   );
 }
@@ -7471,9 +7828,10 @@ function warmCity() {
  * their shop, and the professional steps into the frame at the window.
  */
 const RADAR_CSS = "@keyframes pnRadar{0%{transform:translate(-50%,-50%) scale(.15);opacity:.9}100%{transform:translate(-50%,-50%) scale(2.6);opacity:0}}@keyframes pnProIn{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}";
-function SearchCity({ dept, found, proName, pick = 0 }: { dept: string | null; found: boolean; proName?: string; pick?: number }) {
+function SearchCity({ dept, found, proName, pick = 0, own = null }: { dept: string | null; found: boolean; proName?: string; pick?: number; own?: { id: string; nameHe: string; colorHex: string; logoUri: string | null; figureUri: string } | null }) {
   const list = (dept && DEPT_SHOPS[dept]) || [(dept && DEPT_SHOP[dept]) || "home"];
-  const shopId = list[pick % list.length]!;
+  /* When the one found is the professional who joined, the camera finds HIS shop — the one he designed. */
+  const shopId = own ? own.id : list[pick % list.length]!;
   const [arrived, setArrived] = useState(false);
   useEffect(() => {
     setArrived(false);
@@ -7488,17 +7846,21 @@ function SearchCity({ dept, found, proName, pick = 0 }: { dept: string | null; f
       {/* Brighter while searching: the night street is moody at eye level
           and simply dark from this high up. */}
       <div style={{ position: "absolute", inset: 0, filter: found ? "none" : "brightness(1.45) saturate(1.15)", transition: "filter 1.2s ease" }}>
-        <City hud={false} search={{ shopId, phase: found ? "found" : "searching", visit: pick }} />
+        <City hud={false} search={{ shopId, phase: found ? "found" : "searching", visit: pick }} ownShop={own ? { id: own.id, nameHe: own.nameHe, colorHex: own.colorHex, logoUri: own.logoUri } : null} />
       </div>
       {!found ? [0, 1, 2].map((i) => (
         <div key={i} style={{ position: "absolute", left: "50%", top: "46%", width: 320, height: 320, borderRadius: "50%", border: "2px solid rgba(255,154,107,.85)", boxShadow: "0 0 30px rgba(255,107,74,.45) inset", animation: `pnRadar 2.4s ease-out ${i * 0.8}s infinite`, pointerEvents: "none" }} />
       )) : null}
       {!found ? <div style={{ position: "absolute", left: "50%", top: "46%", width: 14, height: 14, borderRadius: "50%", background: "#FF6B4A", transform: "translate(-50%,-50%)", boxShadow: "0 0 20px #FF6B4A" }} /> : null}
       {arrived ? (
-        <img src={`./world/character_${shopId}_world.webp`} alt="" onError={(e) => { e.currentTarget.style.display = "none"; }} style={{ position: "absolute", right: "6%", bottom: "30%", height: "38%", filter: "drop-shadow(0 16px 24px rgba(0,0,0,.55))", animation: "pnProIn .8s cubic-bezier(.2,.8,.2,1) both" }} />
+        own && own.figureUri.startsWith("blob:") ? (
+          <img src={own.figureUri} alt="" style={{ position: "absolute", right: "8%", bottom: "34%", width: 96, height: 96, borderRadius: 48, objectFit: "cover", border: `3px solid ${own.colorHex}`, boxShadow: `0 0 22px ${own.colorHex}`, animation: "pnProIn .8s cubic-bezier(.2,.8,.2,1) both" }} />
+        ) : (
+          <img src={own ? own.figureUri : `./world/character_${shopId}_world.webp`} alt="" onError={(e) => { e.currentTarget.style.display = "none"; }} style={{ position: "absolute", right: "6%", bottom: "30%", height: "38%", filter: "drop-shadow(0 16px 24px rgba(0,0,0,.55))", animation: "pnProIn .8s cubic-bezier(.2,.8,.2,1) both" }} />
+        )
       ) : null}
       {arrived && proName ? (
-        <div style={{ position: "absolute", right: "6%", bottom: "calc(30% + 38% + 8px)", padding: "6px 12px", borderRadius: 999, background: "#2FBF8A", color: "#0d0a16", fontWeight: 800, fontSize: scale.meta, direction: "rtl", animation: "pnProIn .8s .2s both" }}>
+        <div style={{ position: "absolute", right: "6%", bottom: "calc(30% + 38% + 8px)", padding: "6px 12px", borderRadius: 999, background: own ? own.colorHex : "#2FBF8A", color: own ? "#fff" : "#0d0a16", fontWeight: 800, fontSize: scale.meta, direction: "rtl", animation: "pnProIn .8s .2s both" }}>
           ✓ {proName} · פנוי עכשיו
         </div>
       ) : null}
@@ -7568,30 +7930,6 @@ function RouteCity({ serviceId, etaSeconds, startedAtMs, moving, proFirstNameHe 
  * drifting up — and the whole view easing in slowly. The glows are placed
  * on the drawing's own signs and lamps, and move with it.
  */
-const STREET_GLOWS: ReadonlyArray<{ x: number; y: number; r: number; c: string; kind: "neon" | "lamp" | "head" }> = [
-  { x: 0.18, y: 0.255, r: 0.2, c: "255,70,190", kind: "neon" },
-  { x: 0.44, y: 0.265, r: 0.17, c: "60,120,255", kind: "neon" },
-  { x: 0.655, y: 0.26, r: 0.15, c: "70,230,120", kind: "neon" },
-  { x: 0.845, y: 0.258, r: 0.13, c: "255,60,80", kind: "neon" },
-  { x: 0.585, y: 0.3, r: 0.06, c: "255,200,120", kind: "lamp" },
-  { x: 0.77, y: 0.305, r: 0.05, c: "255,200,120", kind: "lamp" },
-  { x: 0.95, y: 0.29, r: 0.05, c: "255,200,120", kind: "lamp" },
-  { x: 0.84, y: 0.68, r: 0.1, c: "255,200,120", kind: "lamp" },
-  { x: 0.965, y: 0.925, r: 0.08, c: "255,200,120", kind: "lamp" },
-  { x: 0.03, y: 0.76, r: 0.07, c: "255,240,200", kind: "head" },
-  { x: 0.17, y: 0.77, r: 0.07, c: "255,240,200", kind: "head" },
-  { x: 0.435, y: 0.64, r: 0.06, c: "255,240,200", kind: "head" },
-  { x: 0.635, y: 0.54, r: 0.05, c: "255,240,200", kind: "head" },
-  { x: 0.72, y: 0.545, r: 0.05, c: "255,240,200", kind: "head" },
-  { x: 0.845, y: 0.46, r: 0.04, c: "255,240,200", kind: "head" },
-  { x: 0.9, y: 0.46, r: 0.04, c: "255,240,200", kind: "head" },
-];
-const STREET_CSS = `
-@keyframes pnNeon{0%,100%{opacity:.55}45%{opacity:1}50%{opacity:.35}55%{opacity:.95}}
-@keyframes pnLamp{0%,100%{opacity:.7}30%{opacity:.95}33%{opacity:.5}36%{opacity:.9}}
-@keyframes pnHead{0%,100%{opacity:.55;transform:translate(-50%,-50%) scale(1)}50%{opacity:1;transform:translate(-50%,-50%) scale(1.35)}}
-@keyframes pnSpeck{0%{transform:translateY(0);opacity:0}15%{opacity:.9}100%{transform:translateY(-140px);opacity:0}}
-`;
 /*
  * THE FIRST PICTURE: OUR SHOPS.
  *
@@ -7636,52 +7974,6 @@ function WelcomeScene() {
   );
 }
 
-/* `painted`: always the painted street of neon shops, whatever the hour — the
-   welcome's picture (Amit: "תמונה של חנויות ונאונים"). */
-function StreetScene({ painted = false }: { painted?: boolean } = {}) {
-  const day = DAY && !painted;
-  const box = useRef<HTMLDivElement>(null);
-  const [size, setSize] = useState({ w: 390, h: 700 });
-  useEffect(() => {
-    const el = box.current;
-    if (!el) return;
-    const measure = () => setSize({ w: el.clientWidth, h: el.clientHeight });
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-  /* The image's own frame, fitted as `cover` would fit it (2:3), so a
-     glow placed on a sign stays on that sign at any screen size. */
-  const iw = Math.max(size.w, (size.h * 2) / 3);
-  const ih = iw * 1.5;
-  const left = (size.w - iw) / 2;
-  const top = (size.h - ih) * 0.3;
-  const specks = useMemo(() => Array.from({ length: 14 }, (_, i) => ({ x: (i * 37) % 100, y: 35 + ((i * 53) % 55), d: 5 + (i % 5), delay: -(i * 0.9) })), []);
-  return (
-    <div ref={box} aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden", background: "#2a1838" }}>
-      <style>{CITY_HERO_CSS + STREET_CSS}</style>
-      <div style={{ position: "absolute", left, top, width: iw, height: ih, animation: "pnCity 24s ease-in-out infinite alternate", transformOrigin: "50% 40%" }}>
-        <img src={day ? "./clips/city_street_day.jpg" : "./clips/city_street.jpg"} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
-        {/* The glows sit on the painting's own lamps and signs, so they belong to the evening picture only. */}
-        {(day ? [] : STREET_GLOWS).map((g, i) => (
-          <div
-            key={i}
-            style={{
-              position: "absolute", left: `${g.x * 100}%`, top: `${g.y * 100}%`, width: g.r * iw, height: g.r * iw,
-              transform: "translate(-50%,-50%)", borderRadius: "50%", mixBlendMode: "screen", pointerEvents: "none",
-              background: `radial-gradient(circle, rgba(${g.c},.75) 0%, rgba(${g.c},.25) 40%, rgba(${g.c},0) 70%)`,
-              animation: g.kind === "neon" ? `pnNeon ${3.2 + i * 0.4}s ease-in-out infinite` : g.kind === "lamp" ? `pnLamp ${4 + i * 0.3}s linear infinite` : `pnHead ${2.2 + (i % 3) * 0.5}s ease-in-out ${-i * 0.3}s infinite`,
-            }}
-          />
-        ))}
-      </div>
-      {(day ? [] : specks).map((p, i) => (
-        <div key={i} style={{ position: "absolute", left: `${p.x}%`, top: `${p.y}%`, width: 4, height: 4, borderRadius: "50%", background: "rgba(255,210,150,.9)", boxShadow: "0 0 8px rgba(255,190,120,.9)", animation: `pnSpeck ${p.d}s linear ${p.delay}s infinite` }} />
-      ))}
-    </div>
-  );
-}
 
 function AvatarsLineup() {
   const ids = ["01", "06", "02", "09", "03", "07", "04", "11", "05", "08", "12", "10"];
@@ -7704,8 +7996,8 @@ function IntroBackdrop({ side, slide }: { side: "customer" | "pro"; slide: numbe
     if (slide === 2) return <ProsLineup />;
     if (slide === 3) return <TrustCard />;
     if (slide === 4) return <FamilyScene />;
-    /* "A whole city", from inside one of its streets. */
-    return <StreetScene />;
+    /* "A whole city": our street of shops with their professionals, alive. */
+    return <WelcomeScene />;
   }
   if (slide === 1) return <ProsLineup />;
   /* Amit, 2026-09-30: *"גם התמונות במסכי הסבר היו לא נכונות."* "See the
@@ -7713,7 +8005,9 @@ function IntroBackdrop({ side, slide }: { side: "customer" | "pro"; slide: numbe
      are yours" showed the street. Each now shows what it says. */
   if (slide === 2) return <ProOfferScene />;
   if (slide === 3) return <ProPricesScene />;
-  return <StreetScene />;
+  /* "הרחוב הזה הוא גם שלך": the same living street of shops (Amit: the
+     foggy daytime render "עדיין מופיעה" — it is gone everywhere). */
+  return <WelcomeScene />;
 }
 
 /*

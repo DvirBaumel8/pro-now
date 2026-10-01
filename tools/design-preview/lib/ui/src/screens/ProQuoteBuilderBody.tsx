@@ -103,6 +103,8 @@ export interface ProQuoteBuilderBodyProps {
    */
   agreedPriceNoteHe?: string | null;
   usualUpToMinorUnits?: number | null;
+  /** A quote already went to the customer: this one replaces it. */
+  updating?: boolean;
   usualSampleSize?: number;
   /**
    * The lines of the quote being REPLACED, when this is a new version.
@@ -137,6 +139,7 @@ export function ProQuoteBuilderBody({
   customerTextHe = null,
   agreedPriceNoteHe = null,
   usualUpToMinorUnits = null,
+  updating,
   usualSampleSize = 0,
   initialLines,
   initialNotesHe = "",
@@ -204,10 +207,10 @@ export function ProQuoteBuilderBody({
     <View style={[styles.screen, { width, height }]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         <Text style={styles.title}>
-          {initialLines && initialLines.length > 0 ? "עדכון הצעת מחיר" : "הצעת מחיר"} ·{" "}
+          {(updating ?? Boolean(initialLines && initialLines.length > 0)) ? "עדכון הצעת מחיר" : "הצעת מחיר"} ·{" "}
           {serviceNameHe}
         </Text>
-        {initialLines && initialLines.length > 0 ? (
+        {(updating ?? Boolean(initialLines && initialLines.length > 0)) ? (
           /*
            * Said once, here. A new version supersedes the old one and the
            * customer approves the new hash — so a professional editing

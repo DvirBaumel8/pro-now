@@ -11,7 +11,7 @@ for (const [id, z, side, he] of SHOPS) {
     const stick = (x, y) => p.evaluate(([x, y]) => { for (const el of document.querySelectorAll('div')) if (el.__stick) { el.__stick(x, y); return true; } return false; }, [x, y]);
     await stick(0, -0.15); await p.waitForTimeout(250); await stick(0, 0); await p.waitForTimeout(1500);
     const pill = (await p.evaluate(() => document.body.innerText)).replace(/\s+/g, ' ').slice(0, 80);
-    const btn = p.getByRole('button', { name: /היכנס|כדאי להיכנס/ }).first();
+    const btn = p.getByRole('button', { name: /כניסה ל|כדאי להיכנס/ }).first();
     let room = '(no enter button)';
     if (await btn.count()) { await btn.click({ force: true }); await p.waitForTimeout(5000); room = (await p.evaluate(() => document.body.innerText)).replace(/\s+/g, ' ').slice(0, 40); await p.screenshot({ path: `out/walk_${id}_${dz}.png` }); }
     const bad = room !== '(no enter button)' && !room.includes(he);

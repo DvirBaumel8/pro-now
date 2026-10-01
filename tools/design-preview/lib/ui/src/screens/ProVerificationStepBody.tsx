@@ -135,7 +135,7 @@ export function ProVerificationStepBody({
             <Text style={styles.costsHead}>מה זה חוסם כרגע</Text>
             <Text style={styles.costsBody}>
               {gates.length === 0
-                ? "את החשבון עצמו — בלי זה אי אפשר לצאת למשמרת."
+                ? "נדרש לפני עבודה אמיתית."
                 : gates.join(" · ")}
             </Text>
           </View>

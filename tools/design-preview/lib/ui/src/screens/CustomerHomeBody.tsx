@@ -120,6 +120,12 @@ export interface HomeRecentItem {
 }
 
 export interface CustomerHomeBodyProps {
+  /**
+   * The host's history: an open list (all 47 services, all departments) is
+   * registered with how to close it, so the phone's back closes the list
+   * rather than leaving home (button audit #13). Returns the unregister.
+   */
+  onOverlay?: (close: () => void) => () => void;
   /** The city behind the top of the page, when the host can play it. Left out, the painted plate. */
   backdrop?: React.ReactNode;
   /** Short greeting, e.g. "ערב טוב". Locale/time logic lives in the app. */
@@ -289,6 +295,7 @@ export interface CustomerHomeBodyProps {
 const ALL = "הכול";
 
 export function CustomerHomeBody({
+  onOverlay,
   backdrop,
   greetingHe,
   addressLabelHe,
@@ -382,6 +389,14 @@ export function CustomerHomeBody({
    * that says how many, and it opens all of them, searchable.
    */
   const [showAllServices, setShowAllServices] = useState(false);
+  useEffect(
+    () => (showAllServices && onOverlay ? onOverlay(() => { setShowAllServices(false); setFilter(""); }) : undefined),
+    [showAllServices]
+  );
+  useEffect(
+    () => (showAllDepts && onOverlay ? onOverlay(() => setShowAllDepts(false)) : undefined),
+    [showAllDepts]
+  );
   const [filter, setFilter] = useState("");
   const listed = useMemo(
     () => (dept === ALL ? services : services.filter((s) => s.departmentHe === dept)),

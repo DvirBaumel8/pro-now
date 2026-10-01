@@ -1,4 +1,5 @@
 import { isDaytime } from "../daylight";
+import { openOverlay } from "../backGesture";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
@@ -131,7 +132,7 @@ export interface CityProps {
    * The professional who opened his shop in the demo: which house is his, the
    * name on his sign and his colour. Amit: "יראה לי אותה ברחוב".
    */
-  ownShop?: { id: string; nameHe: string; colorHex: string } | null;
+  ownShop?: { id: string; nameHe: string; colorHex: string; logoUri?: string | null } | null;
   /**
    * Which of the twelve characters the customer chose, 1–12.
    *
@@ -169,7 +170,8 @@ export interface CityProps {
     }
   > | null;
   /** Called when somebody picks a service inside a shop. */
-  onRequestService?: (serviceId: string) => void;
+  /* `fromShopId`: the shop it was ordered in, so back from the service returns inside it. */
+  onRequestService?: (serviceId: string, fromShopId?: string) => void;
   /**
    * A NAMED CAMERA SHOT, FOR SCREENS THAT ARE NOT PLAYED.
    *
@@ -396,6 +398,23 @@ export function City({
   }, [room]);
   const enterRef = useRef<(() => void) | null>(null);
   const leaveRef = useRef<(() => void) | null>(null);
+  /*
+   * The phone's back inside a shop walks out to the street, and on an open
+   * sheet closes the sheet — it used to leave the whole street (button audit #14).
+   */
+  const inShop = Boolean(room || insideShop);
+  useEffect(
+    () =>
+      inShop
+        ? openOverlay(() => {
+            setRoom(null);
+            setInside(null);
+            leaveRef.current?.();
+          })
+        : undefined,
+    [inShop]
+  );
+  useEffect(() => (openPlace ? openOverlay(() => setOpenPlace(null)) : undefined), [openPlace]);
 
   useEffect(() => {
     const el = host.current;
@@ -682,6 +701,84 @@ export function City({
 
       /*
        * ---------------------------------------------------------------
+       * HIS SHOP IS THE SHOP HE DESIGNED
+       * ---------------------------------------------------------------
+       * Amit: *"זה לא העיצוב של החנות שבניתי… אני רוצה שיראו את החנות שהם
+       * עיצבו עם הלוגו והשם שלהם — זה כל היתרון והייחודיות שלנו."* So on
+       * the house of his trade the PRO NOW sign is painted over with his:
+       * his full shop name, his colour as neon, his logo — on the facade
+       * itself, so it sits in the street like every other sign rather than
+       * floating in front of it.
+       */
+      if (ownShop) {
+        const sh = SHOPS.find((x) => x.id === ownShop.id);
+        const tex = sh ? facades[sh.facade] : undefined;
+        const img = tex?.image as (CanvasImageSource & { width: number; height: number }) | undefined;
+        if (sh && tex && img?.width) {
+          const logo = ownShop.logoUri
+            ? await new Promise<HTMLImageElement | null>((res) => {
+                const i = new Image();
+                i.onload = () => res(i);
+                i.onerror = () => res(null);
+                i.src = ownShop.logoUri!;
+              })
+            : null;
+          const cv = document.createElement("canvas");
+          cv.width = img.width; cv.height = img.height;
+          const g = cv.getContext("2d");
+          if (g) {
+            g.drawImage(img, 0, 0);
+            const W = cv.width, H = cv.height;
+            /* Where the PRO NOW sign is on every drawn facade (measured). */
+            const x0 = W * 0.08, x1 = W * 0.92, y0 = H * 0.335, y1 = H * 0.5;
+            const bh = y1 - y0, rad = bh * 0.2;
+            const box = () => { g.beginPath(); g.roundRect?.(x0, y0, x1 - x0, bh, rad); };
+            g.save();
+            g.fillStyle = "#120c1c"; box(); g.fill();
+            g.shadowColor = ownShop.colorHex; g.shadowBlur = W * 0.04;
+            g.lineWidth = Math.max(3, W * 0.012); g.strokeStyle = ownShop.colorHex; box(); g.stroke();
+            g.restore();
+            const pad = bh * 0.16;
+            let textRight = x1 - pad;
+            if (logo) {
+              const d = bh - pad * 2, cx = x1 - pad - d / 2, cy = y0 + bh / 2;
+              g.save(); g.beginPath(); g.arc(cx, cy, d / 2, 0, Math.PI * 2); g.clip();
+              g.drawImage(logo, cx - d / 2, cy - d / 2, d, d); g.restore();
+              g.save(); g.lineWidth = Math.max(2, W * 0.006); g.strokeStyle = ownShop.colorHex; g.beginPath(); g.arc(cx, cy, d / 2, 0, Math.PI * 2); g.stroke(); g.restore();
+              textRight = cx - d / 2 - pad;
+            }
+            /* "PRO NOW" on top, his business name under it (Amit, 2026-10-01). */
+            const maxW = textRight - (x0 + pad);
+            const cx = (x0 + pad + textRight) / 2;
+            const font = (n: number) => `900 ${n}px 'Noto Sans Hebrew', 'Heebo', 'Assistant', sans-serif`;
+            g.textAlign = "center"; g.textBaseline = "middle";
+            const brand = bh * 0.24;
+            g.save();
+            g.direction = "ltr"; g.font = font(brand);
+            const wPro = g.measureText("PRO ").width, wNow = g.measureText("NOW").width;
+            g.textAlign = "left";
+            g.fillStyle = "#ffffff"; g.fillText("PRO ", cx - (wPro + wNow) / 2, y0 + bh * 0.27);
+            g.fillStyle = "#FF6B4A"; g.fillText("NOW", cx - (wPro + wNow) / 2 + wPro, y0 + bh * 0.27);
+            g.restore();
+            let size = bh * 0.42;
+            g.direction = "rtl"; g.textAlign = "center";
+            g.font = font(size);
+            while (g.measureText(ownShop.nameHe).width > maxW && size > bh * 0.2) { size -= 2; g.font = font(size); }
+            g.save();
+            g.shadowColor = ownShop.colorHex; g.shadowBlur = W * 0.03; g.fillStyle = "#ffffff";
+            g.fillText(ownShop.nameHe, cx, y0 + bh * 0.66);
+            g.restore();
+            const painted = new THREE.CanvasTexture(cv);
+            painted.colorSpace = tex.colorSpace;
+            painted.wrapS = tex.wrapS; painted.wrapT = tex.wrapT;
+            painted.anisotropy = tex.anisotropy;
+            facades[sh.facade] = painted;
+          }
+        }
+      }
+
+      /*
+       * ---------------------------------------------------------------
        * YOU WALK AS THE CHARACTER YOU CHOSE
        * ---------------------------------------------------------------
        * The city has been hard-coded to Amit's cycle since it was
@@ -762,33 +859,6 @@ export function City({
       if (disposed) return;
 
       const street = buildStreet(SHOPS, facades, { day: isDaytime() });
-      /*
-       * HIS SIGN OVER HIS DOOR.
-       *
-       * The house of his trade carries the name he gave his shop, lit in his
-       * colour — drawn once to a canvas and hung as a sprite above the door.
-       */
-      const mine = ownShop ? street.shops.find((x) => x.id === ownShop.id) : undefined;
-      if (ownShop && mine) {
-        const cv = document.createElement("canvas");
-        cv.width = 1024; cv.height = 256;
-        const g = cv.getContext("2d");
-        if (g) {
-          g.fillStyle = "rgba(10,6,18,0.9)";
-          g.beginPath(); g.roundRect?.(16, 16, 992, 224, 48); g.fill();
-          g.lineWidth = 14; g.strokeStyle = ownShop.colorHex; g.shadowColor = ownShop.colorHex; g.shadowBlur = 40;
-          g.beginPath(); g.roundRect?.(16, 16, 992, 224, 48); g.stroke();
-          g.shadowBlur = 30; g.fillStyle = "#fff"; g.textAlign = "center"; g.textBaseline = "middle";
-          g.font = "900 120px 'Noto Sans Hebrew', 'Heebo', sans-serif"; g.direction = "rtl";
-          g.fillText(ownShop.nameHe.slice(0, 16), 512, 132);
-          const tex = new THREE.CanvasTexture(cv);
-          tex.colorSpace = THREE.SRGBColorSpace;
-          const sign = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
-          sign.scale.set(6.4, 1.6, 1);
-          sign.position.set(FRONT_X * mine.side * 0.92, 6.2, mine.doorway.z);
-          street.scene.add(sign);
-        }
-      }
       const vrRooms = new Map<string, PanoRoom>();
       for (const sh of SHOPS) {
         const back = facades[`room_${sh.id}_back.webp`];
@@ -2110,7 +2180,7 @@ export function City({
       stop();
       if (renderer.domElement.parentElement === el) el.removeChild(renderer.domElement);
     };
-  }, [base, spawn?.x, spawn?.z, avatarNo, enterShopId, ownShop?.id, ownShop?.nameHe, ownShop?.colorHex]);
+  }, [base, spawn?.x, spawn?.z, avatarNo, enterShopId, ownShop?.id, ownShop?.nameHe, ownShop?.colorHex, ownShop?.logoUri]);
 
   /* ----- the pad, in the DOM because that is where fingers are ----- */
   const padRef = useRef<HTMLDivElement | null>(null);
@@ -2346,7 +2416,7 @@ export function City({
           }}
         >
           {/* The door says whose it is — see "ONLY A SHOP YOU CAN SEE". */}
-          {`היכנס ל${ownShop && nearId === ownShop.id ? ownShop.nameHe : SHOPS.find((x) => x.id === nearId)?.he ?? "חנות"} ›`}
+          {`כניסה ל${ownShop && nearId === ownShop.id ? ownShop.nameHe : SHOPS.find((x) => x.id === nearId)?.he ?? "חנות"} ‹`}
         </button>
       ) : null}
 
@@ -2440,7 +2510,7 @@ export function City({
               })()) ||
             null
           }
-          onRequestService={onRequestService}
+          onRequestService={(id) => onRequestService?.(id, room.id)}
           onLeave={() => {
             setRoom(null);
             leaveRef.current?.();
