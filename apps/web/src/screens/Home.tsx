@@ -253,6 +253,8 @@ export function Home() {
             capture={media.capture}
             injectedText={media.transcript}
             seedQueryHe={seedQuery}
+            onStroll={() => navigate("/world")}
+            strollNeedsAvatar={!me.data?.customer?.avatarId}
             // Whose door this is, as in the demo: a call for someone else says so.
             addressLabelHe={
               firstAddress
