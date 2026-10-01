@@ -283,6 +283,13 @@ export function ProOfferBody({
             <Text style={styles.expiredText}>
               הזמן נגמר. הקריאה כבר לא אצלך.
             </Text>
+            {/* The way back. Amit was left on this screen with nowhere to go:
+                "זה תקוע אין המשך". */}
+            {onSkip ? (
+              <Pressable onPress={onSkip} accessibilityRole="button" style={styles.expiredBack}>
+                <Text style={styles.acceptLabel}>חזרה למשמרת</Text>
+              </Pressable>
+            ) : null}
           </View>
         ) : (
           <>
@@ -530,4 +537,5 @@ const styles = StyleSheet.create({
     backgroundColor: tint.neutralDark(0.06),
   },
   expiredText: { ...type.captionStrong, color: colors.textSecondary, textAlign: "center", writingDirection: "rtl" },
+  expiredBack: { marginTop: spacing.md, minHeight: 52, borderRadius: radii.lg, alignItems: "center", justifyContent: "center", backgroundColor: colors.action },
 });

@@ -1487,6 +1487,9 @@ const ONBOARD_SERVICES: OnboardingService[] = Object.keys(SERVICE_PAGES).map((id
     list: priceListFor(id),
   };
 });
+/* How long a call waits for his answer. Amit: 30 seconds was not enough to
+   read it — "לא מספיקים לקרוא את כל הפרטים ונגמר הזמן". */
+const OFFER_SECONDS = 60;
 /* The trades as pictures for the join — short words, our own characters (Amit: most can barely read). */
 const ONBOARD_FIELDS: ReadonlyArray<{ id: string; labelHe: string; iconUri: string }> = (
   [
@@ -5412,6 +5415,14 @@ function ProApp({
     // Once, on arrival.
   }, []);
 
+  /* A call that ran out returns him to his shift by itself, a moment after
+     saying so — the screen used to stay there with no way out. */
+  useEffect(() => {
+    if (offerAt === null) return;
+    const t = setTimeout(() => setOfferAt((cur) => (cur === offerAt ? null : cur)), OFFER_SECONDS * 1000 + 4_000);
+    return () => clearTimeout(t);
+  }, [offerAt]);
+
   /* When the time he gave comes, he is on shift — nobody has to press it. */
   useEffect(() => {
     if (availableAtMs === null || presence !== "OFFLINE") return;
@@ -5506,7 +5517,7 @@ function ProApp({
           serviceCode: takenRequest.serviceCode,
           priceModel: takenRequest.priceModel,
           offeredAt: new Date(offerAt).toISOString(),
-          expiresAt: new Date(offerAt + 30_000).toISOString(),
+          expiresAt: new Date(offerAt + OFFER_SECONDS * 1000).toISOString(),
           customerAreaLabel: takenRequest.areaLabelHe,
           jobDescription: takenRequest.textHe.trim() || null,
           intakeBrief: takenRequest.intakeBrief,
@@ -5527,7 +5538,7 @@ function ProApp({
       : {
           ...offerFixture,
           offeredAt: new Date(offerAt).toISOString(),
-          expiresAt: new Date(offerAt + 30_000).toISOString(),
+          expiresAt: new Date(offerAt + OFFER_SECONDS * 1000).toISOString(),
         }
     : null;
 
@@ -6259,6 +6270,7 @@ function ProApp({
       {offer ? (
         <RiseIn key={offerAt ?? 0} width={width} height={height}>
           <ProOfferBody
+            totalSeconds={OFFER_SECONDS}
             backdrop={<CityHero />}
             proFemale={proIsFemale}
             offer={offer}
