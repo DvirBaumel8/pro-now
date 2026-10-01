@@ -4822,8 +4822,7 @@ const go = useCallback((r: CustomerRoute) => {
         height={height}
       >
         <Text style={styles.sheetBody}>
-          החיוג עובר דרך מספר מסווה. המספר הפרטי שלך לא נחשף למקצוען, ושלו לא נחשף לך — גם אחרי
-          שהעבודה נסגרת.
+          המספרים של שניכם מוסתרים.
         </Text>
         <Pressable style={styles.sheetPrimary} onPress={() => setSheet(null)}>
           <Text style={styles.sheetPrimaryText}>חיוג למקצוען</Text>
@@ -6467,28 +6466,28 @@ function ProApp({
         {[
           {
             n: "1",
-            t: "אתה מחליט מתי אתה עובד",
-            d: "כל עוד אתה לא במשמרת — לא מגיעות אליך קריאות. לוחצים ״התחלת משמרת״ ומתחילים.",
+            t: "עובדים מתי שרוצים",
+            d: "קריאות מגיעות רק במשמרת.",
           },
           {
             n: "2",
-            t: "קריאה מגיעה אליך לבד",
-            d: "לא מחפשים לקוחות ולא מתמודדים מול אחרים. הקריאה נשלחת לבעל מקצוע אחד בכל פעם — אליך.",
+            t: "הקריאה מגיעה אליך",
+            d: "כל קריאה נשלחת למקצוען אחד בכל פעם.",
           },
           {
             n: "3",
-            t: "רואה הכל לפני שאתה מחליט",
-            d: "מה צריך שם, איפה זה, כמה זמן נסיעה וכמה אתה מקבל. יש לך כמה שניות לענות כן או לא.",
+            t: "הכול לפני שמחליטים",
+            d: "מה צריך, איפה, זמן נסיעה והתמורה. דקה לענות.",
           },
           {
             n: "4",
-            t: "אמרת לא — לא קרה כלום",
-            d: "הקריאה עוברת לבעל מקצוע אחר. אין קנס, אין ציון, אין פגיעה בך.",
+            t: "לא עכשיו? אפשר לדלג",
+            d: "הקריאה עוברת הלאה.",
           },
           {
             n: "5",
-            t: "אתה קובע את המחירים שלך",
-            d: "לפני שמתחילים מגדירים ב״המחירים שלך״, לפי סוג העבודה: בתיקון — דמי ביקור ואבחון (זה מה שנגבה באפליקציה; את התיקון סוגרים ישירות מול הלקוח). בעבודה עם מחיר ידוע — מחירון לכל סוג עבודה. בגרירה, הובלה, צביעה וכדומה — אתה שולח מחיר לפי התמונות, ויוצא רק אחרי שהלקוח מאשר. אפשר גם תוספת לילה ושבת.",
+            t: "המחירים שלך",
+            d: "קובעים ב״המחירים שלי״ — לכל שירות לפי סוג התשלום שלו.",
           },
         ].map((x) => (
           <View key={x.n} style={styles.howRow}>
@@ -6509,10 +6508,10 @@ function ProApp({
             goPro("pricing");
           }}
         >
-          <Text style={styles.sheetPrimaryText}>להגדרת המחירים שלי</Text>
+          <Text style={styles.sheetPrimaryText}>למחירים שלי</Text>
         </Pressable>
         <Pressable onPress={() => setProSheet(null)} accessibilityRole="button" style={{ alignSelf: "center", padding: 8 }}>
-          <Text style={styles.howBody}>הבנתי, אגדיר אחר כך</Text>
+          <Text style={styles.howBody}>אחר כך</Text>
         </Pressable>
       </Sheet>
 
@@ -6551,7 +6550,7 @@ function ProApp({
         height={height}
       >
         <Text style={styles.sheetBodyDark}>
-          החיוג עובר דרך מספר מסווה. המספר הפרטי שלך לא נחשף ללקוח — גם לא אחרי שהעבודה נסגרת.
+          המספרים של שניכם מוסתרים.
         </Text>
         <Pressable style={styles.sheetPrimary} onPress={() => setProSheet(null)}>
           <Text style={styles.sheetPrimaryText}>חיוג ללקוח</Text>
@@ -6705,7 +6704,7 @@ function ProApp({
            * goes.
            */
           { key: "shift", label: "המשמרת", mark: "clock" as const },
-          { key: "earnings", label: "כמה הרווחתי", mark: "wallet" as const },
+          { key: "earnings", label: "הרווחים", mark: "wallet" as const },
           { key: "verify", label: "המסמכים שלי", mark: "shield" as const },
           { key: "profile", label: "הפרופיל", mark: "person" as const },
         ]}

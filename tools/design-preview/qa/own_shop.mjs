@@ -29,5 +29,20 @@ await shot('search'); const t = await text();
 console.log('his shop in search:', t.includes('רון נגרות'), '| on shift:', t.includes('במשמרת עכשיו'));
 await press(/^החנות של רון נגרות/); await p.waitForTimeout(1200); await shot('service');
 console.log('service page:', (await text()).slice(0, 80));
+// …and orders: the match must be HIM, and the call must reach HIS side.
+const pressRaw = press;
+const toPro = async () => (await pressRaw(/^הדגמה: (הצצה לצד המקצוען|מעבר לצד המקצוען)/)) || ((await pressRaw(/^תפריט$/)) && (await pressRaw(/^הצצה לצד המקצוען|מעבר לצד המקצוען/)));
+console.log('request:', await press(/^בקשת בעל מקצוע עכשיו/));
+const words = p.locator('textarea').filter({ visible: true }).first(); if (await words.count()) await words.fill('צריך לתקן דלת של ארון מטבח');
+const firstLine = p.getByRole('checkbox').first(); if (await firstLine.count()) await firstLine.click({ force: true });
+await shot('describe'); console.log('send:', await press(/^שליחת הקריאה/));
+await p.locator('text=/מחכים להצעת המחיר|מתאים לי|אישור ההתאמה|בחירה|בדרך/').first().waitFor({ timeout: 25000 }).catch(() => {});
+await p.waitForTimeout(2500); await shot('match'); const tm = await text();
+console.log('match is him:', tm.includes('רון'), '| new:', tm.includes('חדש'));
+if (/מתאים לי|כן, מתאים/.test(tm)) console.log('accept:', await press(/^(כן, מתאים לי|זה מתאים|אישור)/));
+await p.waitForTimeout(2500);
+console.log('to pro:', await toPro()); await p.waitForTimeout(2500); await shot('pro_side'); const tp = await text();
+console.log('pro has the call:', /קריאה|הקריאה ששלחת|העבודה שלך|קריאה חדשה/.test(tp), '| his name:', tp.includes('רון'), '| no plumber:', !tp.includes('נזילה'));
+
 console.log('errors:', errs.join(' | ') || 'none');
 await b.close();

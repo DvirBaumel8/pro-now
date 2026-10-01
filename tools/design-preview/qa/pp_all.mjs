@@ -78,7 +78,7 @@ try {
   }
   if (!diagOnly) {
     if (await press(/^(מתחילים לעבוד|אספתי|מתחיל לעבוד|התחלת עבודה|מתחיל)/)) steps.push('✓ start work');
-    await need(/^(סיימתי את העבודה|המשלוח נמסר)/, 'pro done');
+    await need(/^(סיימתי|המשלוח נמסר)/, 'pro done');
   }
   const bar2 = p.locator('[role=button],button').filter({ hasText: 'כדי לאשר שהעבודה הושלמה' }); if (await bar2.count()) { await bar2.last().click(); await p.waitForTimeout(1500); } else await need(/^לקוח$/, '→ customer');
   await need(/^(אישור תשלום|אישור)/, 'customer pays');

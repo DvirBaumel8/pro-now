@@ -45,7 +45,7 @@ const STATE_LABEL: Record<StepState, string> = {
   VERIFIED: "אומת",
   REJECTED: "נדחה",
   EXPIRED: "פג תוקף",
-  SANDBOX: "בדיקת נסיון",
+  SANDBOX: "בדיקת הדגמה",
 };
 
 /** The colour a state is allowed to wear. Only one of them is green. */

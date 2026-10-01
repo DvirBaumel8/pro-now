@@ -76,7 +76,7 @@ const STATE_LABEL: Record<StepState, string> = {
   VERIFIED: "אומת",
   REJECTED: "נדחה",
   EXPIRED: "פג תוקף",
-  SANDBOX: "בדיקת נסיון",
+  SANDBOX: "בדיקת הדגמה",
 };
 
 export function ProVerificationBody({
@@ -200,8 +200,7 @@ export function ProVerificationBody({
 
                   {st.state === "SANDBOX" ? (
                     <Text style={styles.sandboxNote}>
-                      הבדיקה רצה מול סביבת נסיון של הספק, ולכן היא לא מזכה בתג אימות. כשהחיבור
-                      האמיתי יהיה פעיל — הבדיקה תיספר.
+                      בדיקת הדגמה — לא נספרת לאימות.
                     </Text>
                   ) : null}
 

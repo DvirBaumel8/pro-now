@@ -184,9 +184,9 @@ export function ProOfferBody({
         {/* The number the decision is actually made on. */}
         {quoteFirst ? (
           <>
-            <Text style={styles.payoutUnknown}>אתה קובע את המחיר</Text>
+            <Text style={styles.payoutUnknown}>המחיר שלך</Text>
             <Text style={styles.payoutReason}>
-              תסתכל על התמונות והפרטים ושלח מחיר. אתה יוצא רק אחרי שהלקוח מאשר — והסכום מאושר בכרטיס ועובר אליך בסוף.
+              שולחים מחיר. יוצאים רק אחרי שהלקוח מאשר.
             </Text>
             {quoteFirst.destinationHe ? <Text style={styles.payoutReason}>לאן: {quoteFirst.destinationHe}</Text> : null}
           </>
@@ -274,7 +274,7 @@ export function ProOfferBody({
            * their evening around our guess is owed the difference.
            */
           <Text style={styles.typical}>
-            עבודות כאלה נמשכות בדרך כלל {typical[0]}–{typical[1]} דקות
+            בדרך כלל {typical[0]}–{typical[1]} דק׳
           </Text>
         ) : null}
 

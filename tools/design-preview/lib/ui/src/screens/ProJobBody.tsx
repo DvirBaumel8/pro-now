@@ -185,7 +185,7 @@ function nextAction(status: JobState): { label: string; kind: "advance" | "quote
     case "WAITING_QUOTE_APPROVAL":
       return null; // The customer's move, not ours. No button to press.
     case "IN_PROGRESS":
-      return { label: "סיימתי את העבודה", kind: "advance" };
+      return { label: "סיימתי", kind: "advance" };
     default:
       return null;
   }
@@ -732,7 +732,7 @@ export function ProJobBody({
             <View style={styles.maskRow}>
               <ShieldCheckMark size={14} color={colors.trust} />
               <Text style={styles.maskText}>
-                השיחה עוברת דרך מספר מסווה. המספר הפרטי שלך לא נחשף ללקוח, ושלו לא נחשף לך.
+                המספרים של שניכם מוסתרים.
               </Text>
             </View>
           </Surface>
@@ -842,7 +842,7 @@ export function ProJobBody({
           </Pressable>
           {action.kind === "agreed" && onSendQuote ? (
             <Pressable onPress={onSendQuote} accessibilityRole="button" style={styles.extraLink}>
-              <Text style={styles.extraLinkText}>יש עבודה נוספת? הצעת מחיר לתוספת — הלקוח יאשר</Text>
+              <Text style={styles.extraLinkText}>הצעת מחיר לתוספת</Text>
             </Pressable>
           ) : null}
         </View>
