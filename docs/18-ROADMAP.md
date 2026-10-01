@@ -229,6 +229,21 @@ and no screen achieves it: *"מחיר נח לכל כיס עם מקצוענים �
 supply-and-price-level strategy. Fairness is the part that can be built
 without inventing a business rule.
 
+### BUILT 2026-10-01 (demo, Amit) — ordered for someone else: the repair is quoted to whoever ordered
+
+When a call is ordered for someone else (the son abroad for his parents),
+the parents must not haggle at the door. So even a repair — normally
+visit-and-diagnosis in the app and the repair settled directly — is
+quoted IN THE APP: the professional must attach a photo of the fault and
+write what he found (a voice note too), the quote goes only to the person
+who ordered, who sees what was found → what the price includes → the sum,
+and approves and pays there. The professional starts only after that
+approval. The person at home is not in the app: they get SMS — the first
+carries the professional and the door code, the second arrives by itself
+when the orderer approves ("עמית אישר ושילם … אין צורך לשלם כלום").
+Ordering for yourself is unchanged. Real SMS needs the notification vendor
+(TBD, `NotificationProvider`).
+
 ### BUILT 2026-10-01 (demo, Amit) — identity check before work: ID card, face, match
 
 Amit, after joining Lime: the join photographs the ID card, shows it being

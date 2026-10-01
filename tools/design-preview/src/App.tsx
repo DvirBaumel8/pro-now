@@ -72,6 +72,7 @@ import type { IntakeAnswer, IntakeBriefLine, MapsPlatform, OfferCardView, PriceM
 import type { JobState, ProPresenceState } from "@pro-now/demo-types";
 
 import { IdentityCheck } from "./IdentityCheck";
+import type { QuoteMedia } from "@pro-now/demo-ui";
 import { goBack, installBackGesture, openOverlay, pushBackEntry, readScroll, restoreScroll, setBackHandler } from "./backGesture";
 import { matchFixture, offerFixture } from "./fixtures";
 import {
@@ -847,7 +848,7 @@ export function App() {
   const [quoteTotal, setQuoteTotal] = useState<number | null>(null);
   const [pendingQuote, setPendingQuote] = useState<{
     sentAtMs: number;
-    draft: { lines: { id: string; description: string; quantity: number; unitPriceMinorUnits: number; kind: string }[]; notesHe: string } | null;
+    draft: { lines: { id: string; description: string; quantity: number; unitPriceMinorUnits: number; kind: string }[]; notesHe: string; media?: QuoteMedia } | null;
   } | null>(null);
   const [quoteDecision, setQuoteDecision] = useState<"APPROVED" | "DECLINED" | null>(null);
   /**
@@ -869,6 +870,8 @@ export function App() {
    * way every other fact between the two sides does.
    */
   const [jobReleased, setJobReleased] = useState(false);
+  /* Who is at home for the call that was sent — kept after the professional takes it (the request itself is cleared then). */
+  const [jobOnSite, setJobOnSite] = useState<string | null>(null);
   /**
    * The prototype notice. It covers the address row while it is up, so it
    * takes itself away — a permanent overlay on the first thing a reviewer
@@ -1125,6 +1128,13 @@ export function App() {
             shopFor={onboardShopFor}
             onPickFile={pickLocalFile}
             renderIdentity={({ nameHe, done }) => <IdentityCheck nameHe={nameHe} onPickFile={pickIdPhoto} onDone={done} />}
+            renderShopPreview={(d) => (
+              <FacadeWithSign
+                facadeUri={onboardShopFor(d.serviceId).facadeUri}
+                result={{ nameHe: "", businessHe: "", serviceIds: d.serviceId ? [d.serviceId] : [], customServicesHe: [], shopNameHe: d.shopNameHe, brandColor: d.brandColor, logoUri: d.logoUri, photoUri: null, shopSkipped: false, city: "", radiusKm: 0 }}
+                px={d.heightPx}
+              />
+            )}
             extractColor={dominantColor}
             backgroundUri="./world/splash_city.webp"
             areaMapUri="./world/world_neighbourhood.webp"
@@ -1257,6 +1267,7 @@ export function App() {
             onBackOut={backOut}
             onSendRequest={(r) => {
               setLiveRequest(r);
+              setJobOnSite(r.onSiteNameHe ?? null);
               setPreQuote(null);
               setPreQuoteApprovedAt(null);
             }}
@@ -1296,6 +1307,7 @@ export function App() {
                 : undefined
             }
             /* "הדמות שלי" in the menu: change the figure and come back to the menu, not into the street. */
+            liveOnSiteNameHe={jobOnSite}
             onBackToWelcome={() => {
               customerMemory.current = null;
               setGate({ name: "welcome" });
@@ -1701,6 +1713,44 @@ function ownShopId(r: OnboardingResult): string {
   return m?.[1] ?? "help";
 }
 /* The device's own picker: a photo, a scan or a PDF — nothing leaves the phone in the demo. */
+/*
+ * A VOICE NOTE, recorded on this device and kept on it (a blob URL). Used by
+ * the professional to explain a quote in his own voice. Resolves false when
+ * there is no microphone or it is not allowed here.
+ */
+const voiceRecorder = (() => {
+  let rec: MediaRecorder | null = null;
+  let stream: MediaStream | null = null;
+  let chunks: Blob[] = [];
+  let startedAt = 0;
+  return {
+    start: async (): Promise<boolean> => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        rec = new MediaRecorder(stream);
+        chunks = [];
+        rec.ondataavailable = (e) => chunks.push(e.data);
+        rec.start();
+        startedAt = Date.now();
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    stop: (): Promise<{ uri: string; seconds: number } | null> =>
+      new Promise((resolve) => {
+        const r = rec;
+        if (!r) return resolve(null);
+        r.onstop = () => {
+          stream?.getTracks().forEach((t) => t.stop());
+          const blob = new Blob(chunks, { type: r.mimeType || "audio/webm" });
+          resolve({ uri: URL.createObjectURL(blob), seconds: Math.max(1, Math.round((Date.now() - startedAt) / 1000)) });
+        };
+        rec = null;
+        r.stop();
+      }),
+  };
+})();
 /* The ID card: straight to the back camera on a phone (a computer offers its file picker). */
 function pickIdPhoto(): Promise<{ uri: string; name: string } | null> {
   return new Promise((resolve) => {
@@ -1965,6 +2015,7 @@ function CustomerApp({
   onPickAvatar,
   onChangeAvatar,
   onBackToWelcome,
+  liveOnSiteNameHe = null,
   openStrollOnce,
   proJobState = null,
   proAvailableAtMs = null,
@@ -2006,7 +2057,7 @@ function CustomerApp({
   /** A quote the professional sent and the customer has not answered. */
   pendingQuote: {
     sentAtMs: number;
-    draft: { lines: { id: string; description: string; quantity: number; unitPriceMinorUnits: number; kind: string }[]; notesHe: string } | null;
+    draft: { lines: { id: string; description: string; quantity: number; unitPriceMinorUnits: number; kind: string }[]; notesHe: string; media?: QuoteMedia } | null;
   } | null;
   /**
    * Set when the professional asked, from their own side, to see this
@@ -2032,6 +2083,8 @@ function CustomerApp({
   onChangeAvatar?: () => void;
   /* Back from the business page that the welcome's door opened. */
   onBackToWelcome?: () => void;
+  /** The call that was sent, if it was for someone else: who is at home. */
+  liveOnSiteNameHe?: string | null;
   /**
    * Where the professional's side of the visit is, mirrored by the shell.
    * Only used to move the customer's screen on when the professional does
@@ -2204,7 +2257,8 @@ function CustomerApp({
       ...quoteFixture,
       id: "quote_written",
       lineItems,
-      notes: draft.notesHe || quoteFixture.notes,
+      /* His words or none — never the fixture's sentence about a cracked siphon. */
+      notes: draft.notesHe,
       totalMinorUnits: draft.lines.reduce(
         (sum, l) => sum + Math.round(l.quantity * l.unitPriceMinorUnits),
         0
@@ -2236,10 +2290,17 @@ function CustomerApp({
    * the address screen, or carried by a saved address such as "אצל סבא".
    */
   const [onSiteTyped, setOnSiteTyped] = useState<{ forId: string | null; nameHe: string } | null>(null);
+  /*
+   * The call already sent knows whose door it is — crossing to the
+   * professional's side and back must not turn grandpa's call into your own
+   * (the address choice is not kept across that crossing; the request is).
+   */
   const onSiteNameHe =
     onSiteTyped && onSiteTyped.forId === addressId ? onSiteTyped.nameHe : chosen.forSomeoneElseNameHe ?? null;
   // The label on the home screen says whose door this is. Forgetting that a
   // call is for someone else is how a professional ends up at the wrong flat.
+  /* The job on screen: who is at home, from the call that was sent when this device no longer holds the choice. */
+  const jobOnSiteHe = onSiteNameHe ?? liveOnSiteNameHe;
   const addressLabel = onSiteNameHe
     ? `${chosen.labelHe} · עבור ${onSiteNameHe}`
     : chosen.formattedHe.split(" · ")[0] ?? chosen.labelHe;
@@ -2607,6 +2668,24 @@ function CustomerApp({
    * where it was never a lie.
    */
   const [hasLiveJob, setHasLiveJob] = useState(false);
+  /* The quote for someone at home was approved here: their page says "אישר ושילם". */
+  const [quoteApprovedForOther, setQuoteApprovedForOther] = useState(false);
+  /* The professional's voice note on a quote, played here. */
+  const quoteAudio = useRef<HTMLAudioElement | null>(null);
+  const [quoteVoicePlaying, setQuoteVoicePlaying] = useState(false);
+  const toggleQuoteVoice = useCallback((uri: string) => {
+    if (typeof Audio === "undefined") return;
+    const cur = quoteAudio.current;
+    if (cur && !cur.paused) {
+      cur.pause();
+      setQuoteVoicePlaying(false);
+      return;
+    }
+    const a = cur && cur.src === uri ? cur : new Audio(uri);
+    quoteAudio.current = a;
+    a.onended = () => setQuoteVoicePlaying(false);
+    void a.play().then(() => setQuoteVoicePlaying(true)).catch(() => setQuoteVoicePlaying(false));
+  }, []);
   /* A past call opened from "הקריאות שלי" to rate it — its own name, professional and total (button audit #21). */
   const [rateCall, setRateCall] = useState<{ nameHe: string; totalMinorUnits: number | null; proNameHe: string | null; whenHe: string } | null>(null);
 
@@ -2866,14 +2945,16 @@ const go = useCallback((r: CustomerRoute) => {
       advanceTo({ name: "tracking", stage: "working" });
       return;
     }
-    if (proJobState !== "PRO_ARRIVED" && proJobState !== "DIAGNOSIS") return;
+    if (proJobState !== "PRO_ARRIVED" && proJobState !== "DIAGNOSIS" && proJobState !== "WAITING_QUOTE_APPROVAL") return;
     const stillWaiting =
       (route.name === "living" && route.phase === "ASSIGNED_ROUTE") ||
-      (route.name === "tracking" && (route.stage === "assigned" || route.stage === "enroute"));
+      (route.name === "tracking" && (route.stage === "assigned" || route.stage === "enroute" || route.stage === "arrived"));
     if (stillWaiting) {
       if (realMap) onToggleRealMap();
       advanceTo({ name: "tracking", stage: "diagnosis" });
     }
+    /* His quote is waiting: it opens for whoever ordered, rather than waiting to be found (Amit, 2026-10-01). */
+    if (proJobState === "WAITING_QUOTE_APPROVAL" && pendingQuote && route.name !== "quote") go({ name: "quote" });
     // Only the professional's move triggers this, not every route change.
   }, [proJobState]);
 
@@ -3309,7 +3390,7 @@ const go = useCallback((r: CustomerRoute) => {
     if (tab === "card") {
       return (
         <CustomerProfileBody
-          displayNameHe="אמית"
+          displayNameHe="עמית"
           seed="cust_demo_1"
           homeAreaLabelHe={availabilitySnapshot.areaLabel}
           paymentLabelHe="ויזה · 4417"
@@ -3709,6 +3790,8 @@ const go = useCallback((r: CustomerRoute) => {
                 case "QUOTE_FIRST": return "המקצוען יסתכל על התמונות והפרטים וישלח מחיר · הוא יוצא רק אחרי שתאשרו";
                 case "VISIT": {
                   const t = visitTermsHe({ id: route.serviceId });
+                  /* For someone else, the repair is quoted to whoever ordered (Amit, 2026-10-01). */
+                  if (onSiteNameHe) return `באפליקציה: ${t.feeHe}, ואחרי האבחון הצעת מחיר אליך לאישור · בבית לא משלמים כלום`;
                   return `באפליקציה משלמים רק ${t.feeHe} · את ${t.workHe} סוגרים ישירות מול המקצוען`;
                 }
                 case "LIST": {
@@ -3777,6 +3860,7 @@ const go = useCallback((r: CustomerRoute) => {
                 createdAtMs: Date.now(),
               });
               setLastRequestedId(route.serviceId);
+              setQuoteApprovedForOther(false);
               draftSent.current = true;
               addressPickedSinceSend.current = false;
               setOtherQuote(null);
@@ -3988,7 +4072,7 @@ const go = useCallback((r: CustomerRoute) => {
              * has one figure per service, shown as this one's.
              */
             availableInHe={waitMin > 0 && route.phase !== "SEARCHING" ? `פנוי בעוד ${waitMin} דק׳` : null}
-            onSiteNameHe={route.phase === "ASSIGNED_ROUTE" ? onSiteNameHe : null}
+            onSiteNameHe={route.phase === "ASSIGNED_ROUTE" ? jobOnSiteHe : null}
             onOpenOnSite={() => go({ name: "onsite", stage: "enroute" })}
             /*
              * THIS PROFESSIONAL'S PRICE, in one sentence. The demo pro (the
@@ -4038,7 +4122,9 @@ const go = useCallback((r: CustomerRoute) => {
                         return fare ? `המחיר של ${first}: ${formatMoney(money(fare, "ILS"))} · לפי כ־${PREVIEW_DELIVERY_KM} ק״מ עד היעד` : null;
                       })()
                   : pm === "VISIT_QUOTE"
-                    ? `${visitTermsHe({ id: route.serviceId }).feeHe} של ${first}: ${amt}${extra} · זה כל מה שמשולם באפליקציה`
+                    ? jobOnSiteHe
+                      ? `${visitTermsHe({ id: route.serviceId }).feeHe} של ${first}: ${amt}${extra} · אחרי האבחון הצעת מחיר אליך לאישור`
+                      : `${visitTermsHe({ id: route.serviceId }).feeHe} של ${first}: ${amt}${extra} · זה כל מה שמשולם באפליקציה`
                     : null;
             })()}
             checkingEligibility={route.phase !== "SEARCHING"}
@@ -4149,7 +4235,7 @@ const go = useCallback((r: CustomerRoute) => {
               vehicle={fleetTradeFor(route.serviceId)}
               proName={namesFor(pick)}
               etaMinutes={Math.round((matchFixture.eta?.etaSeconds ?? 840) / 60)}
-              onSiteNameHe={onSiteNameHe}
+              onSiteNameHe={jobOnSiteHe}
               own={ownPro && namesFor(pick) === ownPro.nameHe.trim() ? ownPro : null}
               onDone={() => setOnTheWayAt(null)}
             />
@@ -4355,16 +4441,16 @@ const go = useCallback((r: CustomerRoute) => {
               return `${String(at.getHours()).padStart(2, "0")}:${String(at.getMinutes()).padStart(2, "0")}`;
             })()}
             onGetHelp={() => setSheet("safety")}
-            onSiteNameHe={onSiteNameHe}
+            onSiteNameHe={jobOnSiteHe}
             onSiteStatusHe={
-              onSiteNameHe
+              jobOnSiteHe
                 ? route.stage === "assigned" || route.stage === "enroute"
-                  ? `${onSiteNameHe} קיבל/ה הודעה עם פרטי המקצוען וקוד לדלת`
+                  ? `${jobOnSiteHe} קיבל/ה הודעה עם פרטי המקצוען וקוד לדלת`
                   : route.stage === "arrived"
-                    ? `${trackedProfessional.displayName.split(" ")[0]} בדלת של ${onSiteNameHe} — הקוד נבדק שם`
+                    ? `${trackedProfessional.displayName.split(" ")[0]} בדלת של ${jobOnSiteHe} — הקוד נבדק שם`
                     : route.stage === "done"
-                      ? `העבודה אצל ${onSiteNameHe} הסתיימה — נשאר רק האישור שלך`
-                      : `${trackedProfessional.displayName.split(" ")[0]} אצל ${onSiteNameHe}. המחיר והאישור אצלך.`
+                      ? `העבודה אצל ${jobOnSiteHe} הסתיימה — נשאר רק האישור שלך`
+                      : `${trackedProfessional.displayName.split(" ")[0]} אצל ${jobOnSiteHe}. המחיר והאישור אצלך.`
                 : null
             }
             onOpenOnSiteView={() => go({ name: "onsite", stage: route.stage })}
@@ -4435,6 +4521,7 @@ const go = useCallback((r: CustomerRoute) => {
              */
             professionalFemale={FEMALE_NAMES_HE.has(trackedProfessional.displayName.split(" ")[0] ?? "")}
             money={{
+              forSomeoneElse: Boolean(jobOnSiteHe),
               terms: trackedService.id ? visitTermsHe({ id: trackedService.id }) : undefined,
               kind: trackedService.id && pilotServiceById[trackedService.id] ? pricingKindOf(pilotServiceById[trackedService.id]!) : undefined,
               hourlyRateHe:
@@ -4478,8 +4565,8 @@ const go = useCallback((r: CustomerRoute) => {
         const st = route.stage;
         return (
           <OnSiteBody
-            ordererNameHe="אמית"
-            onSiteNameHe={onSiteNameHe ?? "סבא"}
+            ordererNameHe="עמית"
+            onSiteNameHe={jobOnSiteHe ?? "סבא"}
             serviceNameHe={trackedService.nameHe}
             proNameHe={trackedProfessional.displayName}
             proPhotoUri={`./world/character_${DEPT_SHOP[departmentCodeByServiceId[trackedService.id ?? ""] ?? ""] ?? "home"}_icon.webp`}
@@ -4489,6 +4576,8 @@ const go = useCallback((r: CustomerRoute) => {
             minutesAway={matchFixture.eta ? Math.round(matchFixture.eta.etaSeconds / 60) : null}
             codeHe={DOOR_CODE}
             vehicleHe={ownPro && matchedName === ownPro.nameHe.trim() ? null : "יונדאי i20 לבנה"}
+            /* Updates by itself the moment the quote is sent and approved — nobody has to call grandpa. */
+            priceState={pendingQuote ? "sent" : quoteApprovedForOther ? "approved" : null}
             onCallOrderer={() => setSheet("call")}
             onCallPro={() => setSheet("call")}
             onHelp={() => setSheet("safety")}
@@ -4512,7 +4601,7 @@ const go = useCallback((r: CustomerRoute) => {
              * carries a fixed one and says nothing that implies otherwise.
              */
             codeHe={DOOR_CODE}
-            onSiteNameHe={onSiteNameHe}
+            onSiteNameHe={jobOnSiteHe}
             vehicleHe={ownPro && matchedName === ownPro.nameHe.trim() ? null : "יונדאי i20 לבנה"}
             plateTailHe="47"
             etaMinutes={2}
@@ -4546,7 +4635,8 @@ const go = useCallback((r: CustomerRoute) => {
               geo={geo}
               // He is in the room and diagnosing; the price is what he
               // came out of the diagnosis with.
-              status="DIAGNOSIS"
+              status="WAITING_QUOTE_APPROVAL"
+              money={{ forSomeoneElse: Boolean(jobOnSiteHe), terms: trackedService.id ? visitTermsHe({ id: trackedService.id }) : undefined }}
               serviceNameHe={trackedService.nameHe}
               professional={trackedProfessional}
               eta={matchFixture.eta}
@@ -4565,8 +4655,10 @@ const go = useCallback((r: CustomerRoute) => {
             />
             <FocusSheet
               visible
+              /* Nearly the whole screen: the photos, his voice, the lines and the sum all fit (Amit). */
+              heightFraction={0.94}
               titleHe={`${trackedProfessional.displayName} שלח הצעת מחיר`}
-              onDismiss={() => back({ name: "tracking", stage: "diagnosis" })}
+              onDismiss={() => advanceTo({ name: "tracking", stage: "diagnosis" })}
               width={width}
               height={bodyH}
             >
@@ -4623,6 +4715,7 @@ const go = useCallback((r: CustomerRoute) => {
                     );
                   }
                   onQuoteDecision("APPROVED");
+                  if (jobOnSiteHe) setQuoteApprovedForOther(true);
                   // An approved price is the professional's cue to start.
                   advanceTo({ name: "tracking", stage: "working" });
                 }}
@@ -4632,14 +4725,22 @@ const go = useCallback((r: CustomerRoute) => {
                   advanceTo({ name: "tracking", stage: "diagnosis" });
                 }}
                 onAskQuestion={() => go({ name: "chat" })}
+                /* What he saw at the door, so it can be decided from far away (Amit, 2026-10-01). */
+                photos={pendingQuote?.draft?.media?.photos ?? []}
+                voiceNote={
+                  pendingQuote?.draft?.media?.voice
+                    ? { seconds: pendingQuote.draft.media.voice.seconds, playing: quoteVoicePlaying, onTogglePlay: () => toggleQuoteVoice(pendingQuote.draft!.media!.voice!.uri) }
+                    : null
+                }
+                forOnSiteHe={jobOnSiteHe ? jobOnSiteHe.replace(/ \(תצוגה\)$/, "") : null}
                 /*
                  * Back is not a decline. The sheet closes, the quote stays
                  * pending, and the professional is told nothing — because a
                  * navigation control must never carry a financial answer.
                  */
-                onBack={() => back({ name: "tracking", stage: "diagnosis" })}
+                onBack={() => advanceTo({ name: "tracking", stage: "diagnosis" })}
                 width={width}
-                height={Math.round(bodyH * 0.78) - 56}
+                height={Math.round(bodyH * 0.94) - 56}
               />
             </FocusSheet>
           </View>
@@ -4829,7 +4930,7 @@ const go = useCallback((r: CustomerRoute) => {
           />
         );
     }
-  }, [tab, route, elapsed, width, bodyH, go, goTab, snapshot, supply, addressId, live, askLocation, addressLabel, capture, faultText, intakeAnswers, answerIntake, trackedService, onSendRequest]);
+  }, [tab, route, elapsed, width, bodyH, go, goTab, snapshot, supply, addressId, live, askLocation, addressLabel, capture, faultText, intakeAnswers, answerIntake, trackedService, onSendRequest, pendingQuote, writtenQuote, quoteApprovedForOther, quoteVoicePlaying, toggleQuoteVoice, rateCall, myCalls, onSiteNameHe, jobOnSiteHe, proJobState]);
 
   /*
    * ONLY WHERE THERE IS A STREET TO WALK DOWN.
@@ -5388,7 +5489,7 @@ function ProApp({
   /** A quote this professional sent that the customer has not answered. */
   pendingQuote: {
     sentAtMs: number;
-    draft: { lines: { id: string; description: string; quantity: number; unitPriceMinorUnits: number; kind: string }[]; notesHe: string } | null;
+    draft: { lines: { id: string; description: string; quantity: number; unitPriceMinorUnits: number; kind: string }[]; notesHe: string; media?: QuoteMedia } | null;
   } | null;
   /** The customer's answer, once it arrives. */
   quoteDecision: "APPROVED" | "DECLINED" | null;
@@ -5397,7 +5498,7 @@ function ProApp({
   /** What the customer approved, in minor units — the payout. */
   approvedQuoteTotal?: number | null;
   sentQuoteNotes: string;
-  onSendQuote: (draft: { lines: { id: string; description: string; quantity: number; unitPriceMinorUnits: number; kind: string }[]; notesHe: string }) => void;
+  onSendQuote: (draft: { lines: { id: string; description: string; quantity: number; unitPriceMinorUnits: number; kind: string }[]; notesHe: string; media?: QuoteMedia }) => void;
   onQuoteSeen: () => void;
   /**
    * Review-only: cross to the customer's side and open the quote that is
@@ -6243,7 +6344,7 @@ function ProApp({
   ) : proView === "chat" ? (
     <ChatBody
       side="pro"
-      counterpartNameHe="אמית"
+      counterpartNameHe="עמית"
       counterpartSeed="cust_demo_1"
       jobTitleHe={takenRequest?.serviceNameHe ?? "העבודה"}
       jobOpen
@@ -6375,6 +6476,10 @@ function ProApp({
     ) : proView === "quote" ? (
       <ProQuoteBuilderBody
         simple={Boolean(takenRequest?.quoteFirst)}
+        /* Ordered for someone else: the quote goes to the person who ordered (Amit, 2026-10-01). */
+        forOrderer={takenRequest?.onSiteNameHe ? { ordererHe: "עמית", onSiteHe: takenRequest.onSiteNameHe.replace(/ \(תצוגה\)$/, "") } : null}
+        onPickPhoto={takenRequest?.quoteFirst ? undefined : async () => (await pickIdPhoto())?.uri ?? null}
+        voiceRecorder={takenRequest?.quoteFirst ? null : voiceRecorder}
         /* This trade's rows, never the demo account's plumbing list on a tow. */
         priceList={
           takenRequest
@@ -6472,7 +6577,7 @@ function ProApp({
         accessNoteHe={takenRequest?.addressHe ? takenRequest.addressHe.split(" · ").slice(1).join(" · ") || null : "קומה 3, דירה 9 · קוד לבניין 1408"}
         routeEtaMinutes={9}
         distanceHe="2.4 ק״מ"
-        customerNameHe="אמית"
+        customerNameHe="עמית"
         onSiteContactNameHe={takenRequest?.onSiteNameHe ?? null}
         doorCodeHe={DOOR_CODE}
         customerSeed="cust_demo_1"
@@ -6515,7 +6620,10 @@ function ProApp({
         onAdvance={advanceJob}
         agreedPriceHe={agreedStart?.labelHe ?? null}
         /* Work priced only once somebody looks: the visit is the job in the app (Amit, 2026-09-29). */
-        diagnosisOnly={(takenRequest?.priceModel ?? "VISIT_QUOTE") === "VISIT_QUOTE" && !takenRequest?.quoteFirst}
+        /* …except when ordered for someone else: then the repair is quoted in the app and approved by
+           whoever ordered, so nobody at the door haggles or pays (Amit, 2026-10-01). */
+        diagnosisOnly={(takenRequest?.priceModel ?? "VISIT_QUOTE") === "VISIT_QUOTE" && !takenRequest?.quoteFirst && !takenRequest?.onSiteNameHe}
+        quoteGoesToHe={takenRequest?.onSiteNameHe ? "עמית" : null}
         visitTerms={visitTermsHe({ id: takenRequest?.serviceId ?? "svc-leak" })}
         kind={takenRequest && pilotServiceById[takenRequest.serviceId] ? pricingKindOf(pilotServiceById[takenRequest.serviceId]!) : "VISIT"}
         proFemale={proIsFemale}

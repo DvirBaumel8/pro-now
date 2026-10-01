@@ -17,8 +17,8 @@
  * Built for a phone held by someone who may not read small print: few
  * words, large type, one instruction at a time.
  */
-import React from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useRef } from "react";
+import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { customerTheme, radii, spacing, tabular, tint, type } from "../theme";
 import { ProviderPortrait } from "../components/ProviderPortrait";
@@ -29,7 +29,7 @@ const colors = customerTheme.colors;
 export type OnSiteStage = "coming" | "at_door" | "inside" | "done";
 
 export interface OnSiteBodyProps {
-  /** Who ordered — "אמית". */
+  /** Who ordered — "עמית". */
   ordererNameHe: string;
   /** Who is at home — "סבא יוסף". */
   onSiteNameHe: string;
@@ -45,12 +45,39 @@ export interface OnSiteBodyProps {
   /** The code the professional says at the door. */
   codeHe: string | null;
   vehicleHe?: string | null;
+  /**
+   * Where the price stands (Amit, 2026-10-01). "approved": the person who
+   * ordered approved and paid — an SMS says so, by itself; nobody asks for
+   * money at the door and nobody has to call. ("sent" adds nothing here.)
+   */
+  priceState?: "sent" | "approved" | null;
   onCallOrderer?: () => void;
   onCallPro?: () => void;
   onHelp?: () => void;
   onBack?: () => void;
   width?: number;
   height?: number;
+}
+
+/* One SMS bubble; a fresh one slides in and glows for a moment, the way a new message does. */
+function Sms({ fromHe, whenHe, fresh = false, children }: { fromHe: string; whenHe: string; fresh?: boolean; children: React.ReactNode }) {
+  const v = useRef(new Animated.Value(fresh ? 0 : 1)).current;
+  useEffect(() => {
+    if (!fresh) return;
+    Animated.timing(v, { toValue: 1, duration: 420, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+  }, [fresh, v]);
+  return (
+    <Animated.View
+      accessibilityLiveRegion={fresh ? "polite" : undefined}
+      style={[styles.sms, fresh && styles.smsFresh, { opacity: v, transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }] }]}
+    >
+      <View style={styles.smsHead}>
+        <Text style={styles.smsFrom}>{fromHe} · הודעה</Text>
+        <Text style={styles.smsWhen}>{whenHe}</Text>
+      </View>
+      <Text style={styles.smsText}>{children}</Text>
+    </Animated.View>
+  );
 }
 
 export function OnSiteBody({
@@ -65,6 +92,7 @@ export function OnSiteBody({
   minutesAway = null,
   codeHe,
   vehicleHe = null,
+  priceState = null,
   onCallOrderer,
   onCallPro,
   onHelp,
@@ -104,14 +132,23 @@ export function OnSiteBody({
           </Pressable>
         ) : null}
 
-        {/* The message that brought them here, as it arrived. */}
-        <View style={styles.sms}>
-          <Text style={styles.smsFrom}>PRO NOW · הודעה</Text>
-          <Text style={styles.smsText}>
-            שלום {first}, {ordererNameHe} הזמין אליך בעל מקצוע דרך PRO NOW ({serviceNameHe}). {proFirst} עבר
-            אימות זהות. התמונה שלו וקוד לדלת — בקישור.
-          </Text>
-        </View>
+        {/*
+          * THE MESSAGES, AS THEY ARRIVE ON THE PHONE (Amit, 2026-10-01).
+          *
+          * The person at home is not in the app: they get SMS. The first
+          * one carries the door code itself; the second arrives by itself
+          * the moment the person who ordered approves and pays — so nobody
+          * asks grandpa for money at the door, and nobody has to call him.
+          */}
+        <Sms fromHe="PRO NOW" whenHe="לפני כמה דקות">
+          שלום {first}, {ordererNameHe} הזמין אליך בעל מקצוע דרך PRO NOW ({serviceNameHe}): {proNameHe}, עבר אימות זהות.
+          {codeHe ? ` הקוד לדלת: ${codeHe} — אם הוא לא יודע אותו, לא פותחים.` : ""} אין צורך לשלם או לאשר כלום.
+        </Sms>
+        {priceState === "approved" ? (
+          <Sms fromHe="PRO NOW" whenHe="עכשיו" fresh>
+            {ordererNameHe} אישר ושילם את {serviceNameHe}. אין צורך לשלם ל{proFirst} כלום — הכול מסודר. 🙂
+          </Sms>
+        ) : null}
 
         <Text style={styles.headline}>{headline}</Text>
         <Text style={styles.when}>{when}</Text>
@@ -179,7 +216,11 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 4,
     backgroundColor: tint.neutralDark(0.06),
     gap: 4,
+    marginBottom: spacing.sm,
   },
+  smsFresh: { borderWidth: 1.5, borderColor: colors.trust, backgroundColor: tint.trust(0.1) },
+  smsHead: { flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center" },
+  smsWhen: { ...type.micro, color: colors.textSecondary },
   smsFrom: { ...type.microStrong, color: colors.textSecondary, textAlign: "right", writingDirection: "rtl" },
   smsText: { ...type.body, color: colors.textPrimary, textAlign: "right", writingDirection: "rtl" },
   headline: { ...type.title, color: colors.textPrimary, textAlign: "right", writingDirection: "rtl", marginTop: spacing.sm },

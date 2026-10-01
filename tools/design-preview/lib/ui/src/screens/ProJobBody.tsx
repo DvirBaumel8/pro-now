@@ -150,6 +150,12 @@ export interface ProJobBodyProps {
   proFemale?: boolean;
   onFinishDiagnosis?: () => void;
   /**
+   * Ordered for someone else: the name of who ordered. The quote goes to
+   * them, and only they approve and pay — nobody at the door haggles
+   * (Amit, 2026-10-01).
+   */
+  quoteGoesToHe?: string | null;
+  /**
    * GIVING THE JOB BACK.
    *
    * Amit, on this screen right after accepting: *"אחרי שהוא רשם כן אני
@@ -213,8 +219,8 @@ const STATUS_HE: Partial<Record<JobState, string>> = {
  * line on what to do now — and it slides in fresh at every step.
  */
 const STAGE: Partial<Record<JobState, { n: number; titleHe: string; doHe: string; tint: string; glyph: string }>> = {
-  PRO_ASSIGNED: { n: 1, titleHe: "העבודה שלך!", doHe: "הלקוח כבר יודע שאתה מגיע. צא לדרך כשאתה מוכן.", tint: "#FF6B4A", glyph: "✓" },
-  PRO_EN_ROUTE: { n: 2, titleHe: "בדרך ללקוח", doHe: "הלקוח רואה אותך מתקדם. לחץ ״הגעתי״ כשאתה בכתובת.", tint: "#FF6B4A", glyph: "➜" },
+  PRO_ASSIGNED: { n: 1, titleHe: "העבודה שלך!", doHe: "הלקוח כבר יודע. יוצאים לדרך כשמוכנים.", tint: "#FF6B4A", glyph: "✓" },
+  PRO_EN_ROUTE: { n: 2, titleHe: "בדרך ללקוח", doHe: "הלקוח רואה את ההתקדמות. בכתובת? לוחצים ״הגעתי״.", tint: "#FF6B4A", glyph: "➜" },
   PRO_ARRIVED: { n: 3, titleHe: "הגעת", doHe: "הצג את עצמך, ותתחיל לבדוק את מה שהלקוח תיאר.", tint: "#8B5CF6", glyph: "⌂" },
   DIAGNOSIS: { n: 4, titleHe: "בודקים מה צריך", doHe: "בודקים ומאבחנים. בתיקון — המחיר נסגר ישירות מול הלקוח; במחירון — מתחילים לפי מה שסוכם.", tint: "#8B5CF6", glyph: "?" },
   WAITING_QUOTE_APPROVAL: { n: 5, titleHe: "ההצעה אצל הלקוח", doHe: "מחכים לאישור. אי אפשר להתחיל לעבוד לפני שהוא מאשר.", tint: "#8B5CF6", glyph: "₪" },
@@ -235,7 +241,7 @@ function phaseOf(st: JobState): number {
  * a tow, an hour of help and a delivery each read one sentence written for
  * repairs — "בודקים ומאבחנים", "ההצעה אושרה" — and a woman read "אתה".
  */
-function stageFor(status: JobState, kind: PricingKind, female: boolean, workHe: string) {
+function stageFor(status: JobState, kind: PricingKind, female: boolean, workHe: string, quoteTo: string | null = null) {
   const base = STAGE[status];
   if (!base) return undefined;
   const g = (m: string, f: string) => (female ? f : m);
@@ -251,6 +257,7 @@ function stageFor(status: JobState, kind: PricingKind, female: boolean, workHe: 
         doHe: kind === "VISIT" ? `${g("הצג", "הציגי")} את עצמך, ${g("ותתחיל", "ותתחילי")} לבדוק את מה שהלקוח תיאר.` : kind === "DISTANCE" ? `${g("אסוף", "אספי")} את המשלוח ו${g("צא", "צאי")} למסירה.` : `${g("הצג", "הציגי")} את עצמך — ${agreed}.`,
       };
     case "DIAGNOSIS":
+      if (kind === "VISIT" && quoteTo) return { ...base, titleHe: workHe === "התיקון" ? "בודקים ומאבחנים" : "בודקים מה צריך", doHe: `מצלמים, מקליטים ושולחים הצעת מחיר ל${quoteTo} באפליקציה. בבית לא סוגרים מחיר.` };
       if (kind === "VISIT") return { ...base, titleHe: workHe === "התיקון" ? "בודקים ומאבחנים" : "בודקים מה צריך", doHe: `את המחיר של ${workHe} סוגרים ישירות מול הלקוח. באפליקציה — רק דמי הביקור.` };
       if (kind === "DISTANCE") return { ...base, titleHe: "איסוף", doHe: `${g("אסוף", "אספי")} את המשלוח ${g("ולחץ", "ולחצי")} כשיוצאים למסירה.`, glyph: "⬆" };
       return { ...base, titleHe: "מתחילים", doHe: `${agreed}. ${g("לחץ", "לחצי")} ״סיימתי״ בסוף.`, glyph: "⚒" };
@@ -264,8 +271,8 @@ function stageFor(status: JobState, kind: PricingKind, female: boolean, workHe: 
   }
 }
 
-function StageBand({ status, kind = "VISIT", female = false, workHe = "התיקון" }: { status: JobState; kind?: PricingKind; female?: boolean; workHe?: string }) {
-  const st = stageFor(status, kind, female, workHe);
+function StageBand({ status, kind = "VISIT", female = false, workHe = "התיקון", quoteTo = null }: { status: JobState; kind?: PricingKind; female?: boolean; workHe?: string; quoteTo?: string | null }) {
+  const st = stageFor(status, kind, female, workHe, quoteTo);
   const enter = useRef(new Animated.Value(0)).current;
   /* The bar grows from where the last step left it, so a step is seen
      being completed rather than simply redrawn. */
@@ -492,6 +499,7 @@ export function ProJobBody({
   kind = "VISIT",
   proFemale = false,
   onFinishDiagnosis,
+  quoteGoesToHe = null,
   width = 390,
   height = 780,
 }: ProJobBodyProps) {
@@ -587,7 +595,7 @@ export function ProJobBody({
       <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         {/* ---------------- 1. Where ---------------- */}
         <View style={styles.head}>
-          <StageBand status={status} kind={kind} female={proFemale} workHe={visitTerms.workHe} />
+          <StageBand status={status} kind={kind} female={proFemale} workHe={visitTerms.workHe} quoteTo={quoteGoesToHe} />
           {/* The band says the step; the old pill, the dots and the
               focus line said it three more times. They stay only for a
               state the band does not know. */}
@@ -755,7 +763,7 @@ export function ProJobBody({
               <>
                 <Text style={styles.payUnknown}>{kind === "VISIT" ? "דמי הביקור שלך" : "לפי מה שסוכם"}</Text>
                 <Text style={styles.payNote}>
-                  {kind === "VISIT" ? `את המחיר של ${visitTerms.workHe} סוגרים ישירות מול הלקוח.` : "הסכום מאושר בכרטיס של הלקוח ועובר אליך אחרי שהוא מאשר."}
+                  {kind === "VISIT" && quoteGoesToHe ? `את המחיר של ${visitTerms.workHe} מאשרים אצל ${quoteGoesToHe}, באפליקציה.` : kind === "VISIT" ? `את המחיר של ${visitTerms.workHe} סוגרים ישירות מול הלקוח.` : "הסכום מאושר בכרטיס של הלקוח ועובר אליך אחרי שהוא מאשר."}
                 </Text>
               </>
             )}
@@ -842,6 +850,9 @@ export function ProJobBody({
           >
             <Text style={styles.ctaLabel}>{action.label}</Text>
           </Pressable>
+          {action.kind === "quote" && quoteGoesToHe ? (
+            <Text style={styles.quoteTo}>הקריאה הוזמנה על ידי {quoteGoesToHe}: ההצעה נשלחת לשם, ורק שם מאשרים ומשלמים. בבית לא סוגרים מחיר.</Text>
+          ) : null}
           {action.kind === "agreed" && onSendQuote ? (
             <Pressable onPress={onSendQuote} accessibilityRole="button" style={styles.extraLink}>
               <Text style={styles.extraLinkText}>הצעת מחיר לתוספת</Text>
@@ -866,6 +877,7 @@ export function ProJobBody({
          */
         <View style={styles.cta}>
           <View style={styles.waiting}>
+            {quoteGoesToHe ? <Text style={styles.quoteTo}>ממתינים לאישור של {quoteGoesToHe}. מתחילים לעבוד רק אחרי האישור.</Text> : null}
             {typeof waitingMinutes === "number" ? (
               <Text style={styles.waitingSince}>
                 {waitingMinutes < 1
@@ -885,7 +897,7 @@ export function ProJobBody({
               accessibilityState={{ disabled: reminded }}
               style={({ pressed }) => [styles.waitingBtn, pressed && { opacity: 0.88 }, reminded && { opacity: 0.6 }]}
             >
-              <Text style={styles.waitingBtnText}>{reminded ? "✓ נשלחה תזכורת" : "תזכורת ללקוח"}</Text>
+              <Text style={styles.waitingBtnText}>{reminded ? "✓ נשלחה תזכורת" : quoteGoesToHe ? `תזכורת ל${quoteGoesToHe}` : "תזכורת ללקוח"}</Text>
             </Pressable>
             <Pressable
               onPress={onWithdrawQuote}
@@ -1023,6 +1035,7 @@ function Wave() {
 }
 
 const styles = StyleSheet.create({
+  quoteTo: { color: colors.textSecondary, fontSize: scale.meta, textAlign: "center", writingDirection: "rtl", marginTop: spacing.sm, lineHeight: 20 },
   finishNote: { ...type.meta, color: colors.textSecondary, textAlign: "center", writingDirection: "rtl", marginTop: spacing.sm },
   doorCode: {
     marginTop: spacing.sm,

@@ -404,7 +404,7 @@ export function Gallery() {
 
       <Section
         title="סגירת קריאה"
-        subtitle="C14 · אחרי החשבונית ולפני התפריט. אמית: ״חייב עוד מסך כלשהו אחרי המסך של החשבונית לפני שחוזרים לתפריט.״ למקצוען יש את זה מזמן; ללקוח לא היה."
+        subtitle="C14 · אחרי החשבונית ולפני התפריט. עמית: ״חייב עוד מסך כלשהו אחרי המסך של החשבונית לפני שחוזרים לתפריט.״ למקצוען יש את זה מזמן; ללקוח לא היה."
       >
         <Frame dark caption="C14 · נסגרה · עם דירוג שנשאר">
           <JobClosedBody
@@ -477,7 +477,7 @@ export function Gallery() {
       >
         <Frame caption="C14 · קריאה פתוחה עכשיו + היסטוריה" height={900}>
           <CustomerProfileBody
-            displayNameHe="אמית (תצוגה)"
+            displayNameHe="עמית (תצוגה)"
             seed="cust_demo_1"
             homeAreaLabelHe="רמת אביב, תל אביב"
             paymentLabelHe="ויזה · 4417"
@@ -505,7 +505,7 @@ export function Gallery() {
 
         <Frame caption="C14 · בלי קריאה פתוחה · היסטוריה בלבד" height={900}>
           <CustomerProfileBody
-            displayNameHe="אמית (תצוגה)"
+            displayNameHe="עמית (תצוגה)"
             seed="cust_demo_1"
             homeAreaLabelHe="רמת אביב, תל אביב"
             paymentLabelHe="ויזה · 4417"
@@ -915,7 +915,7 @@ export function Gallery() {
             accessNoteHe="קומה 3, דירה 9 · קוד כניסה 1408"
             routeEtaMinutes={9}
             distanceHe="2.4 ק״מ"
-            customerNameHe="אמית (תצוגה)"
+            customerNameHe="עמית (תצוגה)"
             customerSeed="cust_demo_1"
             symptomsHe={["נזילה מתחת לכיור", "התחיל אתמול"]}
             descriptionHe="יש מים על הרצפה כל בוקר."
@@ -936,7 +936,7 @@ export function Gallery() {
             accessNoteHe="קומה 3, דירה 9 · קוד כניסה 1408"
             routeEtaMinutes={9}
             distanceHe="2.4 ק״מ"
-            customerNameHe="אמית (תצוגה)"
+            customerNameHe="עמית (תצוגה)"
             customerSeed="cust_demo_1"
             symptomsHe={["נזילה מתחת לכיור", "התחיל אתמול"]}
             descriptionHe="יש מים על הרצפה כל בוקר."

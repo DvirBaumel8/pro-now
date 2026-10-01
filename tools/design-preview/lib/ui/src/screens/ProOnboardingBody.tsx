@@ -77,6 +77,12 @@ export interface ProOnboardingBodyProps {
    * the camera). Opens the documents step; the other documents follow it.
    */
   renderIdentity?: (args: { nameHe: string; done: (r: { idUri: string; selfieUri: string | null }) => void }) => React.ReactNode;
+  /**
+   * The shop exactly as it will open — the host's own facade-with-sign, so
+   * the preview and the open shop are one drawing (UX audit: the preview's
+   * plate floated above the drawn sign).
+   */
+  renderShopPreview?: (d: { serviceId: string | null; shopNameHe: string; brandColor: string; logoUri: string | null; heightPx: number }) => React.ReactNode;
   /** Opens the device's picker; resolves the chosen file, or null. */
   onPickFile?: () => Promise<{ uri: string; name: string } | null>;
   /** The main colour of a logo, when the host can read pixels. */
@@ -128,6 +134,7 @@ export function ProOnboardingBody({
   shopFor,
   onPickFile,
   renderIdentity,
+  renderShopPreview,
   extractColor,
   backgroundUri = null,
   areaMapUri: _areaMapUri = null,
@@ -712,6 +719,10 @@ export function ProOnboardingBody({
             <Text style={s.h1}>החנות שלך ברחוב</Text>
             <Text style={s.lead}>ככה לקוחות יראו אותך — בעיר שלנו ובכרטיס שלך.</Text>
             <View style={s.shopStage}>
+              {renderShopPreview ? (
+                renderShopPreview({ serviceId: firstTrade, shopNameHe: shopName || "השם שלך", brandColor: color, logoUri: logo, heightPx: 210 })
+              ) : (
+              <>
               <Image source={{ uri: shop.facadeUri }} style={s.facade} resizeMode="contain" />
               <View style={[s.sign, { borderColor: color, shadowColor: color }]}>
                 {logo ? <Image source={{ uri: logo }} style={s.signLogo} /> : null}
@@ -720,6 +731,8 @@ export function ProOnboardingBody({
                 </Text>
               </View>
               <View style={[s.glow, { backgroundColor: color }]} />
+              </>
+              )}
             </View>
             <Text style={s.label}>השם על השלט</Text>
             <TextInput value={shopName} onChangeText={(t) => { setShopName(t); setShopSkipped(false); }} maxLength={22} style={s.input} textAlign="right" accessibilityLabel="השם על השלט" />
