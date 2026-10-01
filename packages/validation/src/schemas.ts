@@ -233,7 +233,7 @@ export interface MeResponse {
 
 /**
  * A crash the web app reports about itself (`POST /api/v1/client-errors`,
- * docs/23-OBSERVABILITY.md). Everything is optional except what an alert
+ * docs/16-DEPLOYMENT.md §Observability). Everything is optional except what an alert
  * cannot do without, and every string is bounded: the endpoint accepts
  * reports from people who are not signed in, so it is an open door and is
  * sized like one.

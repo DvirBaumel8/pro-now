@@ -232,7 +232,7 @@ export async function buildServer(opts: { logger?: boolean } = {}) {
     /*
      * A 4xx is the server doing its job — refusing something — and is only
      * logged. A 5xx is a bug or an outage: it is stored with its request
-     * and sent to the phone (docs/23-OBSERVABILITY.md).
+     * and sent to the phone (docs/16-DEPLOYMENT.md §Observability).
      */
     if (status >= 500) {
       req.log.error({ err }, "Unhandled error");

@@ -4,7 +4,7 @@ import { errorFingerprint, scrubText } from "@pro-now/types";
 import type { ClientErrorReport } from "@pro-now/validation";
 
 /**
- * Crash reporting for the web app (docs/23-OBSERVABILITY.md).
+ * Crash reporting for the web app (docs/16-DEPLOYMENT.md §Observability).
  *
  * Every crash goes two ways:
  * - to Sentry, when this build has a DSN, which keeps the stack, the

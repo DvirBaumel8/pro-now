@@ -5,7 +5,7 @@ import { startApp } from "./harness.js";
 import { signInByEmail, uniqueEmail, whoAmI } from "./auth-helpers.js";
 
 /**
- * The alert path through the real server (docs/23-OBSERVABILITY.md): a 5xx
+ * The alert path through the real server (docs/16-DEPLOYMENT.md §Observability): a 5xx
  * reaches the monitor with its request, a refusal does not, and the web
  * app's crash reports are accepted from anybody.
  */

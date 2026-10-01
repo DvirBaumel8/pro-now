@@ -1,207 +1,108 @@
-# 03 — Design System
+# 03 — Design system and visual rules
+
+Status: **binding**. Tokens live in `packages/ui/src/theme.ts` (the demo has
+its own copy in `tools/design-preview/lib/ui`). Where a rule is checked by a
+machine, the check is named. The Living Map world layer has its own art
+direction, `03c-LIVING-MAP-ART-DIRECTION.md`, which wins on composition
+questions only.
 
 ## Personality
-Premium, immediate, safe, human, energetic — a modern mobility/marketplace
-product, not a contractor directory. Customer surfaces: warm off-white,
-selective photography, clean cards. Professional operational surfaces: dark
-charcoal, vivid live-green, large numbers, strong map presence. Avoid
-generic blue SaaS, heavy gradients, clutter, skeuomorphism, cartoon trade
-icons.
+Premium, immediate, safe, human, energetic — a modern mobility product, not
+a contractor directory. Avoid generic blue SaaS, heavy gradients, clutter,
+skeuomorphism and cartoon trade icons.
 
-## Tokens (semantic — never raw colors in feature code)
-`color.bg.customer` · `color.bg.pro` · `color.surface.primary` ·
-`color.surface.elevated` · `color.text.primary` · `color.text.secondary` ·
-`color.action.primary` · `color.status.live` · `color.status.warning` ·
-`color.status.danger` · `color.border`.
+## Two decisions everything follows from
 
-Implementation defaults (see `packages/ui/src/theme.ts`) — accessibility
-contrast-tested, replaceable centrally without touching feature code:
+**1. Both sides are dark; light is the accent, and it is reserved.** The
+customer app is `customerDarkTheme`, the professional's is `proTheme`.
+(An earlier rule made the customer side light; Amit rejected the result,
+2026-09.) A light surface is spent only on what the customer must
+**touch** (the capture card, the "now" group in a category) or **read
+closely** (the quote, the receipt).
 
-```
-customer.bg        #FAF9F6   (warm off-white)
-customer.surface    #FFFFFF
-pro.bg              #0B0F0E   (near-black charcoal)
-pro.surface         #151A18
-text.primary(light) #14151A
-text.primary(dark)  #F3F5F3
-action.primary      #17C964   (vivid live-green)
-status.warning      #F5A524
-status.danger       #F31260
-border(light)       #E7E5E1
-border(dark)        #262B28
-```
-
-Spacing: 4px base unit; rhythm 8/12/16/24/32. Radius: 12 small, 16 default
-cards, 24 hero/bottom-sheets, full-pill for live chips. Touch target
-minimum 44×44pt. Motion 150–250ms; offer/live pulses may loop subtly;
-reduced-motion respected. Haptics on offer-received/accept-success/
-arrival/critical-error where the platform supports it.
-
-## Typography
-Hebrew-first, RTL, production-licensed/system-compatible family. Roles:
-Display (hero/earnings/ETA), H1, H2, Body, Body Strong, Caption, Button,
-Numeric Metric (tabular numerals for timers/money). No tiny gray legal copy
-for critical price/cancellation info; no text baked into images.
-
-## RTL rules
-All screens authored RTL first. Navigation direction mirrors correctly.
-Maps stay geographically correct (never mirrored). Directional
-transport/navigation icons keep real-world meaning. ₪ formatting via locale
-utilities. Phone/email/URL fields use correct bidi handling. Test mixed
-Hebrew + numbers + English names.
-
-## Component inventory
-`Button · IconButton · Card · ServiceTile · ProfessionalCard ·
-VerificationBadge · RatingSource · PriceCard · OfferCard · JobStatus ·
-MapSheet · BottomSheet · OTPInput · UploadCard · CredentialCard ·
-EarningsMetric · EmptyState · ErrorState · Skeleton · Toast · Modal ·
-SafetyAction`.
-
-Every async component implements: default / pressed / disabled / loading /
-success / error / offline. Every list: skeleton, empty, error, populated.
-Every form: inline validation + summary where needed. Every destructive
-action: confirmation when impact is meaningful.
-
-## Signature screen — "the Wolt moment"
-After "מצא לי מקצוען עכשיו": full-screen map, pulse from customer location,
-"מחפשים מקצוען לידך" → "מצאנו!" → professional marker appears → bottom card
-rises with name, rating, ETA. No fake avatars scattered on the map.
-
-## Accessibility
-WCAG-minded contrast, dynamic type/font scaling, screen-reader labels, never
-color-alone status, large hit targets, reduced motion, accessible map
-alternative/status text, offer timer announced without spamming the screen
-reader.
-
-## Content rules
-Real, diverse, consented/licensed professional photography. No generated
-fake review avatars in production. Portfolio images belong to providers and
-carry moderation/reporting. One consistent icon library. Never embed text
-in marketing-style images inside functional UI.
-
----
-
-## Implemented components (`packages/ui`)
-
-| Component | Side | Purpose |
-|---|---|---|
-| `MatchCard` / `MatchCardSkeleton` | Customer | C09 match found — professional, factual badges, dominant ETA, price by archetype |
-| `OfferCard` / `OfferCardSkeleton` | Professional | P16 incoming offer — server-deadline countdown, payout before acceptance, coarse area |
-| `VerificationBadge` | Both | One enumerated, factual trust fact |
-| `Avatar`, `StatusPill`, `MetaChip`, `LiveDot`, `Skeleton`, `Divider`, `SectionLabel` | Both | Shared primitives |
-| `Mark` (+ `ClockMark`, `PinMark`, `ShieldCheckMark`, `StarMark`, `ArrowMark`) | Both | The single icon system: 24×24, 1.8 stroke, no fills, inherits `color`. Replaces the "cartoon trade icons" this document rules out. |
-| `Surface`, `BottomSheet`, `SectionHeader`, `Chip`, `RingedAvatar`, `HeroFlourish` | Both | Depth and shape: radius + soft wide shadow only, never a gradient or a competing border |
-| `ImageSlot` | Both | Where licensed photography goes. With no real `uri` it renders a labelled placeholder naming the intended subject — never a stock photo (see §Content rules) |
-| `MapSurface` | Both | Stylised abstract grid + pulse for the signature screen. **Not a map** and never shippable as one; the production surface belongs to the `MapsRoutingProvider` |
-| `ServiceTile` / `ServiceRow` | Customer | Catalogue entry: photo, mark, real `availableNowCount` or nothing at all |
-| `JobProgress` | Customer | Maps authoritative `JobState` to four presentation steps; CANCELLED/DISPUTED render no progress |
-
-### Screen bodies (`packages/ui/src/screens`)
-
-Full-screen compositions, presentational only — no fetching, no navigation —
-so the apps and the gallery render the *same* code and a design review is a
-review of what ships.
-
-| Body | Screen | The decision it protects |
-|---|---|---|
-| `CustomerHomeBody` | C01 | Supply is shown per service or not at all |
-| `ServiceDetailBody` | C04 | What is included, what it costs, what happens on press — before anyone is dispatched. CTA disables at zero supply instead of promising |
-| `SearchingBody` | C08 | The signature screen. Failure to match is designed as carefully as success |
-| `TrackingBody` | C10 | Progress and ETA, contact masked until assignment |
-| `ProProfileBody` | C12 | PRO NOW rating, completed jobs and external reputation as three separate facts — never merged into one score |
-| `QuoteApprovalBody` | C11 | Every line from the server; approval pinned to `versionHash`; a superseded quote cannot be approved |
-| `JobCompleteBody` | C13 | Receipt is a ledger record, not a summary. The review is earned, optional, and has no pre-selected star |
-| `ProOnlineBody` | P02 | Presence belongs to the server; transitional states render as themselves |
-
-Presentation logic that could otherwise fabricate something — ETA rounding,
-rating display, countdown, payout disclosure, the hourly minimum — lives in
-`packages/ui/src/format.ts` as pure functions, and is unit-tested. A card
-must not compute those inline. The same rule put the pricing-model copy in
-`packages/ui/src/pricing-copy.ts` (`priceExplainer`): a VISIT_QUOTE fee must
-never be worded like a FIXED price, so that wording is an assertion in
-`test/price-explainer.test.ts` rather than a code-review opinion.
-
-**Reviewing the components:** `npm run preview:design` starts a browser
-gallery (`tools/design-preview`) that renders the real components, including
-their loading and honest-absence states. Note its `index.html` is
-deliberately `dir="ltr"` — see /docs/EPIC-0-REPORT.md §10.7 for why, and for
-the outstanding RTL decision.
-
----
-
-## The palette (revised)
-
-The original palette was a green-and-charcoal system that could have belonged
-to any marketplace. It was replaced because "looks like every other app in
-the category" is a product problem, not a taste one: Wolt owns cyan-blue,
-Gett owns black-and-yellow, Uber owns black, and landing near any of them
-makes a new product read as a copy before a word is read.
-
-The system now rests on **two colours doing two different jobs**, and the
-split is the whole idea:
+**2. Two colours, two jobs.**
 
 | Role | Colour | Used for |
 |---|---|---|
-| **Signal** | coral `#FF5C38` | "now" — every act of summoning someone: the primary button, the live search pulse, the countdown, the payout |
-| **Trust** | teal `#0FA47F` | "verified" — every fact that has been checked: badges, licences, the professional's ONLINE state, confirmations |
+| **Signal** | coral `#FF5C38` (`signal*`) | "now" — summoning someone: the primary action, the search pulse, the countdown, the payout |
+| **Trust** | teal `#0FA47F` (`trust*`) | "verified" — checked facts: badges, licences, the ONLINE state, confirmations |
 
-Keeping them apart is a **product rule, not a preference**. If urgency and
-verification share a colour, "hurry" and "safe" become the same visual word —
-and this product's entire claim is that speed did not cost safety. On the
-professional's screen the rule is at its sharpest: "אתה ONLINE" is a state
-the *server* is asserting, so it is teal; the button that starts a shift is
-an action, so it is coral. A professional glancing at the phone can tell
-intent from fact without reading.
+If urgency and verification shared a colour, "hurry" and "safe" would read
+as the same word. Supporting: sun `#FFB020` (thin supply, caution), berry
+`#E01E5A` (danger). Ink is a warm plum, never `#000`. Feature code uses
+semantic tokens only, never raw colours.
 
-Supporting: sun `#FFB020` (thin supply, caution), berry `#E01E5A` (danger).
-Backgrounds are warm ivory `#FBF6EE`, and the darkest ink is a warm plum
-`#17121F` rather than `#000`. Pure neutrals are what make an interface feel
-clinical; the warmth is where "inviting" actually comes from.
+## The twelve rules
+1. **Typography owns hierarchy.** Only the scale: display 56 · hero 44 ·
+   title 32 · section 24 · body 17 · meta 14 · micro 12. At most one
+   display/hero per viewport, three weights per screen. *Enforced:
+   `npm run verify:type-scale` (inside `npm run lint`).*
+2. **Coral means consequence.** Primary/live action, critical attention,
+   the brand mark. At most one coral-filled action per viewport.
+3. **At most three elevated surfaces per viewport** (modals, sheets and the
+   active-job capsule excluded).
+4. **Cards require semantics** — something selectable, movable, openable
+   or with its own state. Never to group a name and subtitle or a metric
+   and its label.
+5. **Borders never create hierarchy.** A surface is raised or outlined,
+   never both.
+6. **The Live Field appears only with a live state** (IDLE, SEARCHING,
+   MATCHED, ROUTE, ONLINE, OFFER). IDLE must never look like matching.
+7. **Motion explains a state transition.** No looping glow, bouncing CTA
+   or decorative float. Reduced motion gets an equivalent without motion.
+8. **Reality has visual priority:** real approved photo → approved
+   portfolio → neutral placeholder. Never an invented face in place of a
+   provider. Before MATCH there are no faces.
+9. **One screen, one question**, and at most one primary action.
+10. **Live data must have provenance.** Availability, ETA, earnings,
+    distance, demand and countdowns come from typed view-model values,
+    never string literals. UNKNOWN never becomes 0.
+11. **Maps are never decorative.** A real map only after assignment, for
+    tracking or navigation; everywhere else the Live Field.
+12. **Light is earned** (decision 1).
 
-`ThemeColors` now carries `trust` alongside `action`, so the distinction is
-enforced by the type system rather than by memory.
+## Screen map
+| Screen | Tone | Background |
+|---|---|---|
+| Welcome, home, service/intake, history | dark | — (home: one lit capture card) |
+| Searching, match, door verification | dark | Living Map / Live Field — no real positions before assignment |
+| Tracking after assignment, pro navigation | dark | real map |
+| **Quote, receipt** | **light** | a document, not a live event |
+| Pro offline / online / offer | dark | Live Field IDLE / ONLINE / OFFER |
 
-## Illustrated people (`Persona`)
+## Spacing, shape, motion
+4 px base unit (8/12/16/24/32). Radius 12 small, 16 cards, 24 sheets, pill
+for live chips. Touch targets ≥ 44 pt. Motion 150–250 ms. Haptics on offer
+received, accept, arrival and critical errors where supported.
 
-The screens were grey wherever a person belonged, and a marketplace that
-looks unpopulated is one nobody joins. The fix is narrow and rests on the
-difference between a **portrait** and a **character**.
+## RTL and Hebrew
+Authored RTL first; navigation mirrors, maps never do. ₪ through locale
+utilities; correct bidi for phone, email and URL fields; test mixed
+Hebrew, numbers and English names. **The lexicon** (`packages/ui/src/lexicon.ts`)
+holds the product's words: a professional is "פנוי" only when the server
+says so; a request is a **קריאה**, not a "הזמנה"; second person, warm, no
+"לקוח יקר". Plurals are unit-tested ("1 מקצוענים" must never ship).
 
-A photorealistic face invites the viewer to believe a specific person exists
-and is available — that is fabricated supply wearing a friendly expression,
-and §Content rules forbids it. A flat vector character invites nobody to
-believe anything: it is visibly a drawing. It warms the layout without
-making a claim.
+## Accessibility
+WCAG contrast, font scaling, screen-reader labels, never colour-only
+status, reduced motion, text alternatives for maps, an offer timer that is
+announced without spamming. *Checked: `npm run verify:a11y` (the demo).*
 
-So `Persona` draws deliberately illustrative figures — no rendering, no
-texture, no attempt at likeness — from a stable seed, so the same person is
-drawn the same way on every screen. The feature set is broad on purpose
-(six skin tones, five hair styles including a head covering): this product
-serves a city, and a wall of identical avatars quietly says otherwise.
+## People and photography
+Real, consented photography of real professionals. Where there is none,
+`Persona` draws a visibly illustrated figure from a stable seed (six skin
+tones, five hair styles including a head covering), never beside a claim
+that it is a photo. Since D1 (2026-09-30) a professional may choose their
+trade's drawn character as their public face. No generated review avatars,
+no text baked into images, one icon system (`Mark`: 24×24, 1.8 stroke).
 
-**A real professional's own photograph always wins.** `Persona` is what
-stands in when there is none, and it never appears beside a claim that it
-is a photograph.
-
-## The lexicon (`packages/ui/src/lexicon.ts`)
-
-Products that feel like one thing use the same word for the same idea
-everywhere. Products that feel assembled say "בקשה" on one screen, "הזמנה"
-on the next and "קריאה" in the push notification, and the user stops
-believing there is one system behind it.
-
-The words now live in one file. Three rules chose them:
-
-1. **Say what is true.** A professional is "פנוי" only when the server says
-   they are dispatchable. "זמין" was rejected as a synonym precisely because
-   it is vaguer and therefore easier to over-claim.
-2. **Ours, not the category's.** "הזמנה" belongs to food delivery and implies
-   a basket and a checkout. What happens here is a **קריאה** — you call, a
-   person comes. That is the product in one word, and it is the word people
-   already use when a pipe bursts.
-3. **Warm, not corporate.** Second person, present tense, no "לקוח יקר".
-
-`prosFree()`, `prosFreeNearYou()` and `nearestLine()` are unit-tested,
-because Hebrew has a distinct singular and "1 מקצוענים" is the kind of error
-that ships, survives, and tells every reader the product was not written by
-anyone who speaks the language.
+## Components
+Every async component has default, pressed, disabled, loading, success,
+error and offline states; every list has skeleton, empty, error and
+populated. Screen bodies in `packages/ui/src/screens` are presentational
+(no fetching, no navigation), so the app renders the same code a design
+review sees. Logic that could fabricate something — ETA rounding, rating
+display, countdowns, payout disclosure, the hourly minimum — lives in
+`packages/ui/src/format.ts` as tested pure functions; pricing copy per
+pricing kind lives in `pricing-copy.ts` and is asserted by
+`test/price-explainer.test.ts`.

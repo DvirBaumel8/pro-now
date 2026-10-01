@@ -109,7 +109,7 @@ export const envSchema = z.object({
   ALLOW_LOCAL_STANDINS: z.enum(["0", "1"]).default("0"),
 
   /*
-   * Monitoring and alerting (docs/23-OBSERVABILITY.md). All optional: with
+   * Monitoring and alerting (docs/16-DEPLOYMENT.md §Observability). All optional: with
    * none set, errors are only logged. SENTRY_DSN keeps the details of every
    * error (stack, request, breadcrumbs); the Telegram pair sends the alert
    * to a phone. The DSN is the API project's; the web app's is a build-time

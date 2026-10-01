@@ -5,9 +5,9 @@ It is derived from the PRO NOW pre-development package (Master Product
 Bible, Claude Code Build Specification, UX/UI Design Specification,
 Database/API/State Machines, QA/Security/Launch Checklist, Final
 Pre-Development Decisions, Service Catalog & Pilot Matrix) authored before
-any code existed. Those source documents are preserved under
-`/docs/_source/` verbatim. Everything under `/docs/00-*.md` … `/docs/19-*.md`
-is the working, code-facing distillation of that package.
+any code existed. The Master Product Bible is kept verbatim in
+`/docs/_source/`; the numbered files in `/docs` are the working, code-facing
+specs, kept current. Index: `/docs/CURRENT-STATE.md`.
 
 ## 1. Source of truth order
 
@@ -17,8 +17,8 @@ When documents conflict, resolve in this order:
 2. `/docs/04-TECH-ARCHITECTURE.md`, `/docs/07-JOB-STATE-MACHINE.md`, `/docs/08-DISPATCH-ENGINE.md`.
 3. `/docs/05-DATABASE.md`, `/docs/06-API-SPEC.md` for backend invariants.
 4. `/docs/03-DESIGN-SYSTEM.md`, `/docs/02-UX-FLOWS.md` for UI implementation.
-5. `/docs/15-QA-TEST-PLAN.md`, `/docs/17-APP-STORES.md` for release gates.
-6. Original research/concepts in `/docs/_source/` as context only.
+5. `/docs/15-QA-TEST-PLAN.md` for release gates.
+6. The original bible in `/docs/_source/` as context only.
 
 Generated UI concept boards are inspiration, never pixel specs.
 
@@ -107,21 +107,40 @@ Code implemented · migration applied/tested if needed · unit/integration
 tests passing · typecheck clean · lint clean · relevant E2E/manual path
 walked and recorded · error/loading/empty states implemented · analytics
 events wired · security review note added · docs updated · no TODO that
-blocks the epic's stated acceptance criteria.
+blocks the epic's stated acceptance criteria. Web-app specifics:
+`/docs/21-PRODUCTION-PLAN.md §6`.
+
+Per domain, "done" means a passing test, not a review opinion:
+- **Dispatch:** two simultaneous accepts never create two assignments.
+- **Realtime:** a killed, backgrounded or reconnecting client re-syncs from
+  the server.
+- **Payments:** duplicate and out-of-order webhooks have one effect.
+- **Verification:** an expired required credential removes that service's
+  dispatch eligibility.
+- **Reviews:** only an eligible completed job can create a verified review
+  (DB constraint + test).
+- **Location:** `OFFLINE` blocks tracking; a stale `ONLINE` location removes
+  eligibility.
+- **Admin:** Ops can reconstruct a failed job from the event timeline alone.
+
+Keep documentation small: an epic's report and QA findings go in its PR
+description, not in new files. Update the existing spec instead of adding a
+page.
 
 ## 8. Repository map
 
 ```
 /CLAUDE.md
-/docs/                  — working specs (00…19) + /docs/_source (originals)
-/apps/customer-mobile   — React Native + Expo + TypeScript
-/apps/pro-mobile        — React Native + Expo + TypeScript
-/apps/admin             — Next.js + TypeScript
-/apps/api               — Node.js + TypeScript (Fastify), Prisma, PostGIS, Redis
+/docs/                  — CURRENT-STATE (start here), numbered specs, DEMO-SYNC, _source (the bible)
+/apps/web               — THE PRODUCT'S CLIENT: Vite + React 19 + react-native-web PWA, admin at /admin
+/apps/api               — Node.js + TypeScript (Fastify), Prisma, PostGIS; serves apps/web in production
+/apps/customer-mobile   — React Native + Expo (Phase 3; typechecks, never built for a device)
+/apps/pro-mobile        — React Native + Expo (Phase 3)
+/apps/admin             — Next.js scaffold, unused since the admin moved into apps/web (D7)
 /packages/ui            — the product's design-system components (not used by the demo)
 /packages/types         — the product's domain types + provider interfaces (not used by the demo)
 /packages/config         — shared config/env schema
-/packages/api-client     — typed client consumed by mobile/admin
+/packages/api-client     — typed client consumed by the web app
 /packages/validation     — shared zod schemas (request/response validation)
 /tools/design-preview    — THE DEMO (Amit's track, not a shipping target). Self-contained: its own
                            copies of ui/types in `lib/ui` (@pro-now/demo-ui) and `lib/types`
@@ -131,58 +150,14 @@ blocks the epic's stated acceptance criteria.
 
 ## 9. Current status
 
-**Working model (2026-09-29):** Amit works on the demo, Dvir on the product.
-They share no code. The product catches up with the demo through the
-procedure in `/docs/22-WORKING-MODEL.md §4`, starting from the marker in
-`/docs/DEMO-SYNC.md`.
+**Start with `/docs/CURRENT-STATE.md`** — who Amit and Dvir are, where the
+demo, the product and production live, how to work on each, and what is
+next. Amit works on the demo, Dvir on the product; they share no code
+(`/docs/22-WORKING-MODEL.md`). The product catches up with the demo from
+the marker in `/docs/DEMO-SYNC.md`.
 
-**Start with `/docs/CURRENT-STATE.md`** — who Amit and the reviewer are,
-where the demo, films and tools live, how to publish, the latest
-decisions and the next steps. The rest of this section is older history.
-
-See `/docs/EPIC-0-REPORT.md` for the as-built state, contradictions found
-between source documents, and the recommended next epic.
-
-**Read `§26` in that report first**, then `§25`, `§24` and `§15` —
-together they are the current truth about what has actually been
-installed, compiled, linted, bundled, rendered and executed. They
-supersede the older `§7`/`§8`.
-
-`§19` records the first end-to-end walk of the product, which found the
-dispatch fallback that was described but never built, the professional
-stranded out of the market by one unanswered offer, and the error handler
-that had never executed. `§18` records the database and the server's first
-boot; `§17` the move out of the build container. `§15` is still the one to
-read before touching either mobile app.
-
-`npm run verify:journey` walks the whole product against a running server
-— sign-in, catalogue, request, dispatch, accept, arrival, quote, approval,
-completion — and is the fastest way to learn whether the parts are still
-connected to each other. It needs `npm run dev:pulse` running beside it.
-
-Short version: **typecheck is clean across all 10 workspaces** — the first
-time in this project's history — lint is clean, 1010 unit tests pass, the
-admin build is green, and `verify:domain`, `verify:geo`, `verify:a11y`,
-`verify:screens` and `verify:game` all pass. The **baseline migration
-exists** (`apps/api/prisma/migrations/0_init`, derived from the schema by
-`npm run db:ddl`) and was verified against a real PostgreSQL 16 + PostGIS
-3.4 in both directions (`npm run db:verify` — 1411/1411), with the
-`SELECT ... FOR UPDATE` row lock proven against those real tables
-(`npm run verify:rowlock` — 7/7, with a control).
-
-`prisma generate` is a required setup step, not an optional one: nothing
-in `apps/api` compiles until it has run. The old note here said the
-Prisma engine host was blocked permanently — that was true of the build
-container and of nowhere else, and the wording outlived the container.
-Two other container assumptions outlived it the same way, a hard-coded
-browser path and a hard-coded port, both since removed (§17.3).
-
-The database checks now run here too: `db:verify` 1411/1411 and
-`verify:rowlock` 7/7 against PostgreSQL 16.15 + PostGIS 3.4.6, and
-`npm run dev:api` boots and serves the catalogue out of it (§18). The one
-remaining unmeasured gate on this machine is `expo export`.
-
-Local setup has one step the docs used to omit: the env file belongs at
-`apps/api/.env`, because the Prisma CLI and the API both run with
-`apps/api` as their working directory. Nothing read `.env` at all until
-§18.1 — every earlier session exported its variables by hand.
+The product's epics W0–W11 are done (`/docs/21-PRODUCTION-PLAN.md`) and it
+runs at https://pro-now.onrender.com. Local setup is in `/README.md`. Two
+steps are easy to miss: `npm run db:generate -w apps/api` (nothing in
+`apps/api` compiles without the Prisma client), and the env file belongs at
+`apps/api/.env`.

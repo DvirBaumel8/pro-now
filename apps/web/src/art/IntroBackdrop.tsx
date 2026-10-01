@@ -18,7 +18,7 @@ export function IntroBackdrop({ slide, side = "customer" }: { slide: number; sid
     if (slide === 1) return <ProsLineup />;
     /* Amit, 2026-09-30: "See the job before you accept" showed the hair
        salon and "the prices are yours" showed the street; each now shows
-       what it says (demo 19d78e1, docs/sync/SYNC-2026-10-01 P1). */
+       what it says (demo 19d78e1, docs/DEMO-SYNC.md, 2026-10-01 P1). */
     if (slide === 2) return <ProOfferScene />;
     if (slide === 3) return <ProPricesScene />;
     return <StreetScene />;

@@ -1,50 +1,62 @@
-# 13 — Admin / Live Operations
+# 13 — Admin, operations and analytics
 
-Admin is built from v1, not "phase 2".
+The admin is built from v1. Since W8 (2026-09-30) it lives inside the web
+app at `/admin` (D7); `apps/admin` (Next.js) is unused. Every admin route
+is 403 for anyone not in `ADMIN_EMAILS`, and every admin mutation writes an
+`audit_log` row.
 
-## Dashboard KPIs
-jobs today · GMV · platform revenue · online professionals · active
-searches · active jobs · average ETA · acceptance rate · cancellation rate ·
-completion rate · unfulfilled demand.
+## What exists (W8)
+- **Applications / verification queue** per professional and per service:
+  account documents, licences, approve or reject with a reason.
+- **Job inspector** with the full `job_events` timeline. It is what turns
+  "I waited half an hour and nobody came" into an answer:
+  ```
+  10:31:04  Customer created job
+  10:31:09  Offer → Pro #291
+  10:31:31  Offer expired
+  10:31:32  Offer → Pro #831
+  10:31:40  Accepted
+  10:43:21  Arrived
+  ```
+- **Users and roles.**
+- **Market switches** (`MarketActivation`: service × area × customer
+  visibility × onboarding × dispatch).
+- **Match feedback** review (W5) and storage/DB usage against free-tier
+  limits.
 
-## Live map
-Online professionals · searching customers/jobs · assigned/en-route jobs ·
-stalled/exception jobs · "no Pro found" hotspots.
+## Still to build
+- A dashboard: jobs today, GMV, online professionals, active searches and
+  jobs, average ETA, acceptance, cancellation and completion rates,
+  unfulfilled demand.
+- A live map: online professionals, searching jobs, en-route jobs, stalled
+  jobs, "no pro found" hotspots.
+- Risk queues: duplicates, complaints/incidents, re-verification,
+  suspensions and appeals, each with reason codes.
+- Remote configuration in `app_config` for offer timeout, radius
+  expansion, location freshness, scoring weights, cancellation rules and
+  feature flags. **No production-critical constant lives in client code.**
+- Support runbooks (detection, user message, admin action, escalation,
+  audit) for: no professional found, professional not moving, unreachable
+  party, safety complaint, payment failure, refund, credential issue,
+  vendor outage, suspend/restore.
 
-## Job inspector
-Customer, professional, service, timestamps, media, quotes, payments,
-messages (where support access is permitted), and the **complete event
-timeline** — e.g.:
-```
-10:31:04  Customer created job
-10:31:07  Matching started
-10:31:09  Offer → Pro #291
-10:31:31  Offer expired
-10:31:32  Offer → Pro #831
-10:31:40  Accepted
-10:31:44  En route
-10:43:21  Arrived
-```
-This is what turns "I waited half an hour and nobody came" from a guess
-into an answer. Manual support actions are always audit-logged.
+## Analytics (vendor TBD)
+Behind `analytics-provider.ts`. Every event carries version, actor,
+job/session id and timestamp, and no unnecessary PII.
 
-## Provider approval & risk queues
-Identity review · credential review · business/profile review · external-
-reputation linking · duplicate/risk flags · complaints/incidents ·
-re-verification · suspensions/appeals. The provider timeline records who
-reviewed what, when, source/status changes and reason codes. All sensitive
-admin actions require role-based access and are audit-logged.
+- **Customer:** `app_opened · address_selected · category_selected ·
+  request_submitted · matching_started · match_found · match_failed ·
+  match_cancelled · quote_received · quote_approved · quote_rejected ·
+  job_completed · payment_succeeded · payment_failed · review_submitted ·
+  job_cancelled · support_opened`.
+- **Professional:** `onboarding_started · identity_submitted ·
+  verification_approved · service_enabled · shift_started · shift_ended ·
+  offer_received · offer_accepted · offer_skipped · offer_expired ·
+  arrived · quote_sent · service_completed · payout_viewed`.
+- **Liquidity KPIs** — "when a customer asks NOW, can we get someone moving
+  toward them?": online and eligible supply by service and zone, match
+  rate, time to first offer and to acceptance, ETA, acceptance rate,
+  utilisation, earnings per online hour, cancellations, no-shows,
+  completion, repeat rate, unfulfilled demand.
 
-## Configuration (remote, RBAC-protected, audited)
-Market/service activation · offer timeout · search-radius expansion ·
-location-freshness threshold · dispatch scoring weights · pricing config ·
-credential requirements · cancellation rules · feature flags. **No
-production-critical constant is hidden in mobile code** — everything above
-is `app_config`, editable without an app release.
-
-## Support runbooks (minimum set — full list in `/docs/15-QA-TEST-PLAN.md`)
-No professional found · professional stuck/not moving · customer/provider
-unreachable · safety complaint · payment failed after work · refund ·
-credential issue · KYC pending · maps/push/realtime/payment-provider outage
-· suspend/restore provider. Each runbook defines: detection, user
-communication, admin action, escalation, audit.
+No KPI threshold is frozen before a real pilot baseline exists.

@@ -10,7 +10,7 @@ import type { Redis } from "ioredis";
  * serialise anyway.
  *
  * That is why the MVP runs with `NoopJobLock` and no Redis at all
- * (/docs/21-PRODUCTION-PLAN.md §2.2): one fewer free-tier service to run,
+ * (/docs/21-PRODUCTION-PLAN.md §2): one fewer free-tier service to run,
  * and nothing about who wins a job changes.
  */
 export interface JobLock {

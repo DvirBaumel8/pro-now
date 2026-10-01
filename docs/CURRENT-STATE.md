@@ -1,10 +1,8 @@
 # PRO NOW — Current state and handoff (read this first)
 
-Last updated 2026-09-30. This page is
-the short version of "who we are, where things are, how we work, what is
-next". The history behind it lives in `docs/EPIC-0-REPORT.md` and the
-product decisions in `docs/18-ROADMAP.md` (sections marked **DECIDED** and
-**BUILT**).
+Last updated 2026-10-01. Who we are, where things are, how we work, what is
+next. Product decisions live in `docs/18-ROADMAP.md`; the product's epics in
+`docs/21-PRODUCTION-PLAN.md`; older history in `git log`.
 
 ---
 
@@ -46,14 +44,14 @@ product decisions in `docs/18-ROADMAP.md` (sections marked **DECIDED** and
 | Thing | Where | State |
 |---|---|---|
 | **The demo** (what investors see) | `tools/design-preview` → published as a Claude Artifact: https://claude.ai/artifact/7YRPcVfEuhVCmcK3PKVeJW (see the version in the last commit message; "anyone with the link") | Static bundle, **no backend**: fixtures in the bundle, the customer↔pro loop simulated client-side. Every one of the 47 services passes the full flow to payment (`qa/pp_all.mjs`). |
-| **The real app** (Dvir's track) | `apps/web` (React 19 + react-native-web, the demo's screens) on `apps/api` | W0–W10 done (`docs/21`). **Production: https://pro-now.onrender.com** (Render; state and the last smoke test in `docs/16 §Production`; check it with `npm run smoke:prod`). Run locally: `docker compose up -d`, then `npm run dev:app` → http://localhost:5180 (emails: http://localhost:8025). Tests: `npm run test:int`, `npm run test:e2e` (Chromium at iPhone 16 Pro size), `npm run parity` (vs the demo). |
+| **The real app** (Dvir's track) | `apps/web` (React 19 + react-native-web, the demo's screens) on `apps/api` | W0–W11 done (`docs/21`). **Production: https://pro-now.onrender.com** (Render; state and open items in `docs/16 §Production`; check it with `npm run smoke:prod`). Run locally: `docker compose up -d`, then `npm run dev:app` → http://localhost:5180 (emails: http://localhost:8025). Tests: `npm run test:int`, `npm run test:e2e` (Chromium at iPhone 16 Pro size), `npm run parity` (vs the demo). |
 | API | `apps/api` (Fastify, Prisma, Postgres 16 + PostGIS; Redis optional) | Served with the web app at https://pro-now.onrender.com. Local stack: `docker compose up -d` (PostGIS on :54320, Mailpit :8025, S3 :8333, mock OIDC :8089), `cp .env.example apps/api/.env`, `npm run db:migrate:deploy -w apps/api && npm run db:seed && npm run dev:api`. |
 | Mobile apps | `apps/customer-mobile`, `apps/pro-mobile` (Expo) | Typecheck clean. **Never built for a device.** |
 | Admin | `apps/admin` (Next.js 14) | About 320-line scaffold: KPI page with labelled demo figures, and a job inspector that fetches the API. **No auth/RBAC yet.** |
 | Shared logic | `packages/types` (domain, catalogue, state machines, pricing), `packages/ui` (the product's screens). The demo has its own fork in `tools/design-preview/lib/{ui,types}` since 2026-09-29 | Tested 2026-09-29: types 726, ui 453, api 262, validation 18; the demo's copies run the same 726 + 453. |
 | Films (customer / pro / business) | `~/Desktop/PRO NOW - סרטונים/` (mp4). Code: `tools/design-preview/film/` | Recorded from the demo. They **predate** the 2026-09-28 shops, search and pricing work, and should be re-recorded. |
 | NDA draft (Hebrew, .docx) | `~/Desktop/PRO NOW - הסכם סודיות.docx` | A draft, not legal advice. Blanks: parties, term in years, court district. |
-| Git | Private GitHub repo `nivamit1210-sketch/pro-now` | `gh` is installed and authenticated here, so `git push` works from the shell — still confirm with Amit before pushing. Check with `git status -sb`. |
+| Git | Private GitHub repo `nivamit1210-sketch/pro-now` | Every change lands as a PR with auto-merge once `CI passed` is green (`docs/22 §2`). |
 
 ## 4. How to work on the demo
 
@@ -112,9 +110,8 @@ Screenshots go to `qa/out/`.
 - Rooms are `boxRoom.ts`: walls, floor, props, a procedural ceiling with downlights and cove light, and props that fade when the camera is inside them.
 - Street cut-outs (trees, parked vehicles) hide when the camera passes through them.
 
-## 5. Decisions and recent work (details in `docs/18-ROADMAP.md`)
+## 5. Recent work (details in `docs/18-ROADMAP.md` and `docs/21-PRODUCTION-PLAN.md`)
 
-**Recent decisions**
 - **Demo, 2026-10-01 (Amit's track), published as one version before a live presentation:**
   - Professional's join: free text recognises the trade, with autocomplete. Prices are his own and every line is editable. The join ends in his own shop: his sign with PRO NOW above his name, in his colour.
   - Identity check: ID card, then face straight/right/left, then a match. Without it and the required documents nobody is approved for work.
@@ -122,37 +119,19 @@ Screenshots go to `qa/out/`.
   - Ordered for someone else: even a repair is quoted in the app (photo plus written findings) to the person who ordered, who approves and pays there. The person at home only gets SMS: the door code, then "עמית אישר ושילם".
   - The customer's name is עמית.
   - Details are in `docs/18-ROADMAP.md` (2026-10-01 entries).
-- **W10 (Dvir's track, 2026-09-30):** hardening. Security headers and CSP, logs without personal data, a body limit, every route swept with garbage input, audited dependencies in CI, `/api/health` + `/api/ready`, a Neon runbook, a tested backup restore, and the whole e2e suite green on the production build (now a CI job). That run found two production-only bugs, both fixed: Safari never loading an http production build, and one sign-in bucket shared by every visitor. Render now needs `TRUST_PROXY_HOPS=3` (measured; in `render.yaml`) and, on Neon, `DIRECT_DATABASE_URL`. See `docs/reports/W10.md`.
-- **W9 (Dvir's track, 2026-09-30):** live channels (offers reach professionals instantly; the customer's ETA moves), an inbox, email through an outbox, and Web Push with our own VAPID keys (set `VAPID_*` on Render to turn push on). See `docs/reports/W9.md`.
-- **W8 (Dvir's track, 2026-09-30):** the admin at `/admin` in the web app: applications (account, licences, each service), the job inspector, users and roles, market switches, match feedback and usage. Every change audited; every admin route closed to non-admins. See `docs/reports/W8.md`.
-- **W7 (Dvir's track, 2026-09-30):** a professional joins from the web (details, services, area, documents, own prices), is approved per service through the API (the admin screens are W8), goes online and works a job end to end. See `docs/reports/W7.md`.
-- **W6 (Dvir's track, 2026-09-30):** the customer can order and follow a job end to end on the web, live. No money moves in the app (D1): the quote is approved on sending and the customer pays the professional directly. Ordering for someone else gives the person at home a link and a door code. See `docs/reports/W6.md`.
-- **Errors and alerts (Dvir's track):** errors from the web app and the API go to Sentry, and a Telegram bot sends an alert to the phone. See `docs/23-OBSERVABILITY.md`.
-- Each pro sets their own visit fee. There is no floor or ceiling, and abusers are blocked.
-- An approved quote **includes** the visit fee.
-- Locksmith is a fixed-price service.
-- A pro may set a night/Shabbat surcharge, which the customer sees before ordering.
-- "פנוי בעוד XX דקות" counts as availability. Future booking is the next stage: "request for a later time", with no pro calendar.
-- The preview opens every service for demonstration.
-- **Only the person who ordered approves a quote and pays.** The person at home never does.
-
-- **2026-09-29: two kinds of work.** Repairs whose price is unknown upfront → the app charges only the visit-and-diagnosis fee; the repair is settled directly between customer and pro. Price-list work → the customer picks from the pro's list; the amount is held and released after completion. No problem questions before calling. A third kind, **priced before dispatch** (towing, moving, post-reno cleaning, painting, gardening, pest control): the pro answers the offer with a price, the customer approves on the match card, then he is assigned. See the DECIDED entry in `docs/18-ROADMAP.md`. Code (demo): `tools/design-preview/lib/ui/src/catalog/priceLists.ts`, `ProJobBody.diagnosisOnly`, `DescribeFaultBody.priceList`/`destination`, `quoteBeforeDispatch` in the catalogue, `preQuote` in `tools/design-preview/src/App.tsx`.
-
-**Built 2026-09-29 (see the BUILT entry of that date in `docs/18-ROADMAP.md`)**
-- The on-the-way (waiting) screen is the 3D street with the professional's own van driving to a light at the customer's home (`City` `route`, `RouteCity`), one live card with a minutes-first countdown (`LiveEtaCard`) and a live "window into the city" (`StrollInvite`). "לעקוב אחרי …" is the street plan (`RouteLayer` in plan mode), framed on vehicle + home. Amit decided: two maps, no toggle.
-- "(תצוגה)" was removed from example names by Amit's decision; the demo declares itself in the demo bar, the welcome and "מפת הדגמה".
-- The "מקצוען" switch left the header; the menu and the demo bar carry it.
-- Order drafts are scoped per service and per order; "for someone else" applies to one order.
-- Pricing copy comes from `pricingKindOf` / `visitTermsHe`; per-trade quote lines; gender-aware verbs.
-- Lust opens as its new room (`enterShopId`); another match at a one-shop trade flies a loop down the street.
-
-**Built in the session before**
-- Free-text search understands everyday Hebrew: word forms, one-letter typos, symptoms, and Claude as a fallback when framed. A life-threatening sentence shows "מד״א 101".
-- A fixed or hourly price follows the intake answers. The per-answer tables are example prices, scaled by each pro's own base.
-- Every one of the 14 shops is built like the barbershop. The build and help pros were redrawn in the illustrated style.
-- Ordering for someone else now reaches the door. The person at home gets a page via SMS link (`OnSiteBody`) with the pro and the door code. The pro sees who opens the door and the code to say.
-- Rooms have ceilings, and camera clipping into props and trees is fixed.
-- The welcome screen is the neon street alone.
+- **Product (Dvir's track), up to 2026-10-01:** W0–W11 are done — accounts,
+  the web app, addresses, media, request understanding, the customer's and the
+  professional's flows on real data, admin, realtime and push, hardening, and
+  the `/world` neighbourhood. Demo catch-ups of 2026-09-30 and 2026-10-01 are
+  shipped except the items open in `docs/DEMO-SYNC.md`. No money moves in the
+  app (D1): the customer pays the professional directly.
+- **Rules worth knowing by heart:** each pro sets their own visit fee (no floor
+  or ceiling); an approved quote includes the visit fee; repairs are charged
+  only the visit-and-diagnosis fee, price-list work is held and released after
+  completion, and some work is priced before dispatch ("two kinds of work");
+  only the person who ordered approves and pays; "פנוי בעוד XX דקות" counts as
+  availability; the next stage is "request for a later time", with no pro
+  calendar.
 
 ## 6. Working with Amit (standing preferences)
 
@@ -165,10 +144,17 @@ Screenshots go to `qa/out/`.
 
 ## 7. Open items and suggested next steps
 
-1. **Push to GitHub** (after Amit says yes): `git push`.
-2. **Re-record the three films** so they show the new shops, search, pricing, and ordering for someone else.
-3. **"Request for a later time"**, the agreed next stage.
-4. **Pro-side editor for per-answer prices** (the design needs Amit).
-5. **Remove the remaining real-brand logos** in the appliance lab art.
-6. **Reviewer's findings:** CI (none today), Git LFS or a bucket for art (1,300+ binaries in git), splitting `tools/design-preview/src/App.tsx` (about 6,600 lines), shorter code comments, and shorter sessions to save tokens. See `docs/REVIEW-BRIEF.md`.
-7. **Before any real deployment:** auth/RBAC on the API and admin, a server-issued door code, an SMS vendor, and the other vendor decisions in `docs/18-ROADMAP.md §Open Decisions`.
+1. **Production** (`docs/16 §Production`): a domain for email sign-in, Google sign-in keys,
+   Amit's iPhone pass, an uptime monitor.
+2. **Next demo catch-up** from the marker in `docs/DEMO-SYNC.md` — the
+   2026-10-01 demo work (several orders, the repair quoted to the orderer,
+   the identity check) is waiting.
+3. **Re-record the three films** so they show the new shops, search,
+   pricing, joining and ordering for someone else.
+4. **"Request for a later time"**, the agreed next stage.
+5. **Per-professional price lists** (sync item D; the design needs Amit).
+6. **Remove the remaining real-brand logos** in the appliance lab art.
+7. **Repository hygiene:** Git LFS or a bucket for art (1,300+ binaries in
+   git), and splitting `tools/design-preview/src/App.tsx`.
+8. **Before real money or real users:** the vendor decisions in
+   `docs/18-ROADMAP.md §Open decisions` (payments, KYC, SMS, routing).

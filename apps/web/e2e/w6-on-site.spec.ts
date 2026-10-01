@@ -21,7 +21,7 @@ test("the person at home gets a page with the professional and the door code", a
   const pro = await dispatchableProfessional({ serviceCode: "HOME_PLUMB_LEAK", lat: LAT, lng: LNG, baseURL: baseURL! });
   try {
     // The person at home is chosen with the address, from home's chip, as in
-    // the demo (docs/sync/SYNC-2026-10-01 C3): a switch, a name, a mobile.
+    // the demo (docs/DEMO-SYNC.md, 2026-10-01 C3): a switch, a name, a mobile.
     await page.reload();
     await page.getByRole("button", { name: "שינוי כתובת" }).click();
     await page.getByRole("switch", { name: "הקריאה היא בשביל מישהו אחר" }).click();

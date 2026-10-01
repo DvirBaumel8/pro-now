@@ -1,5 +1,5 @@
 /**
- * Keeps one bug from becoming two hundred messages (docs/23-OBSERVABILITY.md
+ * Keeps one bug from becoming two hundred messages (docs/16-DEPLOYMENT.md §Observability
  * §Alert hygiene).
  *
  * - The first occurrence of a fingerprint is sent at once.

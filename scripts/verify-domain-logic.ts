@@ -3,7 +3,7 @@
  *
  * WHY THIS FILE EXISTS: the sandboxed session that wrote this repository
  * could not run `npm install` (registry.npmjs.org is blocked at the
- * network-policy level — see /docs/EPIC-0-REPORT.md §7), so the vitest
+ * network-policy level), so the vitest
  * suite under apps/api/test/*.test.ts has never actually been executed.
  * This script uses the globally-available `tsx`/`typescript` (no
  * third-party install needed) to import the REAL source modules — not

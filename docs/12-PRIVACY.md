@@ -22,7 +22,7 @@ launch, not bolted on after.
 ## Consent & documentation
 Consent text is reviewed before launch. Vendor DPAs are in place where
 required. Analytics events exclude unnecessary PII (see
-`/docs/14-ANALYTICS.md` for the exact event shape). Crash logs scrub
+`/docs/13-ADMIN-OPS.md §Analytics` for the event shape). Crash logs scrub
 sensitive fields. Raw KYC documents never appear in analytics or support
 screenshots/tools.
 

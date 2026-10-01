@@ -40,7 +40,7 @@ export function RequestComposer({ serviceId, media, onBack, onOpenAddresses, onS
   /*
    * Where the professional goes and who will be there are chosen from home's
    * address chip and the address screen, as in the demo; this form only
-   * describes the job (docs/sync/SYNC-2026-10-01 C3).
+   * describes the job (docs/DEMO-SYNC.md, 2026-10-01 C3).
    */
   const { target } = useOrderTarget();
   const address = resolveAddress(addresses.data?.addresses ?? [], target.addressId);

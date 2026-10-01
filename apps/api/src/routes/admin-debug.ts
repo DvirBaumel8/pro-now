@@ -3,7 +3,7 @@ import { requireRole } from "../auth/access.js";
 
 /**
  * Proves the alert path end to end on a deployed server
- * (docs/23-OBSERVABILITY.md §Verify): an admin calls one of these and a
+ * (docs/16-DEPLOYMENT.md §Observability): an admin calls one of these and a
  * message arrives on the phone. Admin-only; neither touches data.
  */
 export default async function adminDebugRoutes(app: FastifyInstance) {

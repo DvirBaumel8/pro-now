@@ -21,7 +21,7 @@ export function useAvatarUri(): string | null {
 /**
  * The customer's header above a screen that is not home — the job, from
  * searching to the review — as in the demo, where it never goes away
- * (docs/sync/SYNC-2026-10-01 C1). Its menu opens home's menu.
+ * (docs/DEMO-SYNC.md, 2026-10-01 C1). Its menu opens home's menu.
  */
 export function WithHeader({ children }: { children: ReactNode }) {
   const { width, height } = useFrame();

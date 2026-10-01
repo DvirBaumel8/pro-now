@@ -7,7 +7,7 @@ import {
 } from "../src/domain/dispatch/credential-eligibility.js";
 
 /**
- * Epic 3's Definition of Done, stated in /docs/19-CLAUDE-RULES.md and
+ * Epic 3's Definition of Done, stated in /CLAUDE.md §7 and
  * /docs/10-TRUST-VERIFICATION.md §Onboarding step 4: an expired required
  * credential must actually remove that service's dispatch eligibility.
  *

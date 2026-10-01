@@ -5,7 +5,7 @@ import { createContext, useCallback, useContext, useState, type ReactNode } from
  *
  * As in the demo, the address is chosen from the home screen's chip and the
  * person at the door ("for someone else") on the address screen; the
- * request form only describes the job (docs/sync/SYNC-2026-10-01 C3).
+ * request form only describes the job (docs/DEMO-SYNC.md, 2026-10-01 C3).
  *
  * Kept for the browser tab's session, so a reload does not quietly send the
  * professional to a different address. The server stays the truth for the

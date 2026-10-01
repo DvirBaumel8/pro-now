@@ -145,13 +145,10 @@ Dvir starts a catch-up by asking for one.
    - **Needs a decision.** The demo does something the product cannot do
      without a decision from `CLAUDE.md §4`, such as a vendor, legal or
      money question. Add it to `18-ROADMAP §Open Decisions` and ask.
-3. **Plan.** Write `docs/sync/SYNC-<YYYY-MM-DD>.md` with four parts:
-   - the range covered;
-   - a table of every commit (hash, one line, class, product impact);
-   - the product changes, grouped into work items, each mapped to the
-     files or epic it touches and sized S/M/L;
-   - what is deliberately skipped, and why.
-
+3. **Plan.** Add the work items to `DEMO-SYNC.md §Open items` (what,
+   which files or epic, size S/M/L), and put the full plan in the PR that
+   moves the marker: the range, a table of every commit (hash, one line,
+   class, product impact), and what is deliberately skipped and why.
    Dvir reviews the plan before any code is written.
 4. **Implement** as ordinary epics (`CLAUDE.md §5`, with the Definition of
    Done in `docs/21 §6`). Porting a screen or rule from
@@ -163,9 +160,11 @@ Dvir starts a catch-up by asking for one.
    moves constantly; a catch-up is exactly when it should be run.
 5. **Advance the marker.** The marker moves as soon as the plan is
    approved, **not** when the work ships. It means "every demo commit up to
-   here has been read and planned". The sync plan tracks whether each item
-   is done. Add a log line to `DEMO-SYNC.md`. The next catch-up starts from
-   the new marker.
+   here has been read and planned". Move the range's entries out of
+   `18-ROADMAP.md §Built in the demo, not yet planned` (into §Decided, or
+   delete them once planned). When an item ships, remove it from
+   §Open items and name its PR in the log line. The next catch-up starts
+   from the new marker.
 
 ## 5. Claude sessions: who is typing
 

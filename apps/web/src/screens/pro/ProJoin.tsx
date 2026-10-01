@@ -114,7 +114,7 @@ export function ProJoin() {
   const [step, setStep] = useState(at === "summary" ? STEPS.length - 1 : at === "shop" ? SHOP_STEP : 0);
   /*
    * The four explanation slides, then the welcome — once, for someone who has
-   * not started joining (the demo's order, docs/sync/SYNC-2026-10-01 P1).
+   * not started joining (the demo's order, docs/DEMO-SYNC.md, 2026-10-01 P1).
    * Remembered on this device for this person: whoever skips or finishes
    * them is not shown them again here, and the next person on the same
    * device still is.
