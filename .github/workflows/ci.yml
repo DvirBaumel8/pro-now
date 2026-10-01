@@ -131,7 +131,7 @@ jobs:
   # Safari refusing an upgraded http origin, and one shared sign-in bucket
   # for every visitor.
   e2e:
-    name: End-to-end, ${{ matrix.build }} build (WebKit iPhone 15 + Chromium)
+    name: End-to-end, ${{ matrix.build }} build (Chromium, iPhone 16 Pro)
     runs-on: ubuntu-latest
     timeout-minutes: 25
     strategy:
@@ -197,7 +197,22 @@ jobs:
             sleep 2
           done
           echo "S3 bucket was never created" && exit 1
-      - run: npx playwright install --with-deps webkit chromium
+      # The browser download is cached per Playwright version; the system
+      # packages it needs are installed every time (they live outside the cache).
+      - name: Playwright version
+        id: playwright
+        working-directory: apps/web
+        run: echo "version=$(npx playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-chromium
+      - if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+        working-directory: apps/web
+      - if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
         working-directory: apps/web
       - run: npm run test:e2e
         env:

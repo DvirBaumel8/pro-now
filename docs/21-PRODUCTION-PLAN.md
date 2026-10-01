@@ -144,8 +144,9 @@ docs → commit → report. Sizes are relative (S/M/L), not dates.
   dev-only plugin, registered only when `NODE_ENV !== "production"`.
 - GitHub Actions CI (free minutes): install, lint, typecheck, unit tests,
   `prisma migrate diff` check, then Playwright against the compose stack.
-- Playwright projects: **WebKit + `devices["iPhone 15"]`** (primary), and
-  Chromium desktop.
+- Playwright project: **Chromium + `devices["iPhone 16 Pro"]`** only (since
+  2026-10-01; before, WebKit/iPhone 15 plus Chromium desktop). One browser
+  while the product is early, for speed; WebKit returns before real users.
 - **Acceptance:** `docker compose up && npm run dev` gives a working stack,
   and CI is green on a PR.
 
