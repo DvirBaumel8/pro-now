@@ -131,13 +131,23 @@ jobs:
   # Safari refusing an upgraded http origin, and one shared sign-in bucket
   # for every visitor.
   e2e:
-    name: End-to-end, ${{ matrix.build }} build (WebKit iPhone 15 + Chromium)
+    name: End-to-end, ${{ matrix.build }} build, ${{ matrix.project }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    # One job per build and browser, side by side. The tests inside one job
+    # stay serial (workers: 1): they share one database and one city, and a
+    # professional left online by one test would be offered the next test's
+    # job. Separate jobs have separate databases, so they cannot meet.
     strategy:
       fail-fast: false
       matrix:
         build: [development, production]
+        project: [webkit-iphone16pro, chromium-desktop]
+        include:
+          - project: webkit-iphone16pro
+            browser: webkit
+          - project: chromium-desktop
+            browser: chromium
     services:
       postgres:
         image: postgis/postgis:16-3.4
@@ -197,15 +207,30 @@ jobs:
             sleep 2
           done
           echo "S3 bucket was never created" && exit 1
-      - run: npx playwright install --with-deps webkit chromium
+      # The browser download is cached per Playwright version; the system
+      # packages it needs are installed every time (they live outside the cache).
+      - name: Playwright version
+        id: playwright
         working-directory: apps/web
-      - run: npm run test:e2e
+        run: echo "version=$(npx playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-${{ matrix.browser }}
+      - if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+        working-directory: apps/web
+      - if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps ${{ matrix.browser }}
+        working-directory: apps/web
+      - run: npm run e2e -w apps/web -- --project=${{ matrix.project }}
         env:
           E2E_PRODUCTION: ${{ matrix.build == 'production' && '1' || '0' }}
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: playwright-report-${{ matrix.build }}
+          name: playwright-report-${{ matrix.build }}-${{ matrix.project }}
           path: apps/web/playwright-report
           retention-days: 7
 

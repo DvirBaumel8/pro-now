@@ -73,7 +73,7 @@ conflicts in them by hand. Never resolve them with `--ours` or `--theirs`.
 |---|---|
 | Lint, typecheck, unit tests | `npm run lint` (with the type-scale, demo-isolation and navigation checks), `typecheck`, `npm test` in every workspace, `verify:domain`, and both builds (demo and web app) |
 | Migrations and row lock | migrations on a fresh Postgres + PostGIS, `db:drift`, `verify:rowlock`, `test:int` (every route against a real database, with Mailpit, the mock OIDC server and S3), `db:verify` |
-| End-to-end | Playwright on WebKit (iPhone 15) and Chromium against the real server |
+| End-to-end | Playwright on WebKit (iPhone 16 Pro) and Chromium against the real server |
 | **CI passed** | the one **required** check: green only when all of the above are |
 
 ### How it is enforced
