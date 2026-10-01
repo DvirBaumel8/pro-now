@@ -6,7 +6,7 @@ import { formatMoney, money } from "@pro-now/types";
 
 import { BackButton } from "../components/BackButton";
 import { proTheme, radii, scale, spacing, tabular, tint, type } from "../theme";
-import { Mark, type MarkName, ShieldCheckMark } from "../components/marks";
+import { Mark, type MarkName } from "../components/marks";
 import { SectionHeader, Surface } from "../components/surfaces";
 
 /**
@@ -122,30 +122,26 @@ export function ProEarningsBody({
           <BackButton onPress={onBack} tone={"light"} placement="absolute" />
 
           <Text style={styles.period}>{periodLabelHe}</Text>
+          {/* While the commission is undecided the big number is what the jobs
+              came to — a fact — and it says so, rather than "בחישוב". */}
           <Text style={styles.net}>
-            {periodNetMinorUnits === null
-              ? PENDING_NET_HE
-              : formatMoney(money(periodNetMinorUnits, "ILS"))}
+            {formatMoney(money(periodNetMinorUnits ?? periodGrossMinorUnits, "ILS"))}
           </Text>
           <Text style={styles.netLabel}>
-            {periodNetMinorUnits === null
-              ? "הסכומים נרשמו · חלוקת העמלה טרם נקבעה"
-              : "נטו · אחרי כל הניכויים"}
+            {periodNetMinorUnits === null ? "סכום העבודות" : "נטו · אחרי כל הניכויים"}
           </Text>
 
           {/* Gross beside net. Showing only take-home hides the commission
               behind a friendly number. */}
           <View style={styles.grossRow}>
-            <Text style={styles.grossText}>
-              ברוטו {formatMoney(money(periodGrossMinorUnits, "ILS"))}
-            </Text>
             {taken === null ? null : (
               <>
+                <Text style={styles.grossText}>ברוטו {formatMoney(money(periodGrossMinorUnits, "ILS"))}</Text>
                 <Text style={styles.grossDot}>·</Text>
                 <Text style={styles.grossText}>נוכה {formatMoney(money(taken, "ILS"))}</Text>
+                <Text style={styles.grossDot}>·</Text>
               </>
             )}
-            <Text style={styles.grossDot}>·</Text>
             <Text style={styles.grossText}>
               {periodJobCount === 1 ? "עבודה אחת" : `${periodJobCount} עבודות`}
             </Text>
@@ -153,6 +149,7 @@ export function ProEarningsBody({
         </View>
 
         {/* ---------------- The week ---------------- */}
+        {days.length > 0 ? (
         <View style={styles.block}>
           <SectionHeader title="השבוע" colors={colors} />
           <Surface colors={colors} level={1} dark>
@@ -183,11 +180,13 @@ export function ProEarningsBody({
                 );
               })}
             </View>
-            <Text style={styles.chartNote}>בשקלים, נטו. העמודה הכתומה היא היום.</Text>
+            <Text style={styles.chartNote}>בשקלים. העמודה הכתומה — היום.</Text>
           </Surface>
         </View>
+        ) : null}
 
-        {/* ---------------- Next payout ---------------- */}
+        {/* ---------------- Next payout — only when there is one ---------------- */}
+        {nextPayoutHe && nextPayoutMinorUnits !== null ? (
         <View style={styles.block}>
           <SectionHeader title="תשלום הבא" colors={colors} />
           <Surface colors={colors} level={1} dark>
@@ -199,22 +198,21 @@ export function ProEarningsBody({
                     {formatMoney(money(nextPayoutMinorUnits, "ILS"))}
                   </Text>
                 </View>
-                <Text style={styles.payoutNote}>
-                  "הרווחת" ו"נכנס לחשבון" הם שני דברים שונים. זה התאריך שבו הכסף באמת מגיע.
-                </Text>
               </>
-            ) : (
-              <Text style={styles.payoutNote}>אין כרגע תשלום ממתין.</Text>
-            )}
+            ) : null}
           </Surface>
         </View>
+        ) : null}
 
         {/* ---------------- Job by job ---------------- */}
         <View style={styles.block}>
           <SectionHeader title="לפי עבודה" colors={colors} />
           <View style={{ gap: spacing.sm }}>
+            {jobs.length === 0 ? (
+              <Text style={styles.payoutNote}>עוד לא נסגרה עבודה. כל עבודה שהלקוח מאשר תופיע כאן.</Text>
+            ) : null}
             {jobs.map((j) => (
-              <Pressable key={j.id} onPress={() => onOpenJob?.(j.id)}>
+              <Pressable key={j.id} onPress={onOpenJob ? () => onOpenJob(j.id) : undefined} disabled={!onOpenJob}>
                 <Surface colors={colors} level={1} dark>
                   <View style={styles.jobRow}>
                     <View style={styles.jobMark}>
@@ -256,15 +254,6 @@ export function ProEarningsBody({
           </View>
         </View>
 
-        <View style={styles.block}>
-          <View style={styles.noteRow}>
-            <ShieldCheckMark size={14} color={colors.trust} />
-            <Text style={styles.noteText}>
-              כל ניכוי מופיע בשמו. אם משהו לא מסתדר לך — כל עבודה כאן נפתחת לפירוט מלא, ואפשר
-              לפתוח בירור עליה.
-            </Text>
-          </View>
-        </View>
       </ScrollView>
     </View>
   );

@@ -104,6 +104,8 @@ export function BackButton({
   onArtwork = false,
 }: BackButtonProps) {
   const colors = tone === "dark" ? customerDarkTheme.colors : customerTheme.colors;
+  /* A back arrow that goes nowhere is not drawn — a tab's own root has none. */
+  if (!onPress) return null;
   /*
    * Over artwork the chip stops being a tint and becomes an object: a
    * near-opaque ink disc with a light rim, legible on a night street and

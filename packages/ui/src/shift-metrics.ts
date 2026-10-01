@@ -195,13 +195,13 @@ export function rateWithheldCopy(reading: ShiftReading): string | null {
     case null:
       return null;
     case "OFFLINE":
-      return "התחל משמרת כדי לראות רווח לשעת חיבור";
+      return "יוצג במשמרת";
     case "TOO_SHORT":
-      return `נציג אחרי ${reading.rule.minOnlineMinutes} דק׳ חיבור — קודם לכן המספר מטעה`;
+      return `יוצג אחרי ${reading.rule.minOnlineMinutes} דק׳`;
     case "TOO_FEW_JOBS":
       return reading.rule.minCompletedJobs === 2
-        ? "נציג אחרי שתי עבודות — עבודה אחת זה עוד לא קצב"
-        : `נציג אחרי ${reading.rule.minCompletedJobs} עבודות — פחות מזה זה עוד לא קצב`;
+        ? "יוצג אחרי 2 עבודות"
+        : `יוצג אחרי ${reading.rule.minCompletedJobs} עבודות`;
     case "NO_SETTLED_EARNINGS":
       return "טרם נסגרה עבודה במשמרת הזו";
     default:
@@ -254,7 +254,7 @@ export function briefingLines(b: ShiftBriefing): BriefingLine[] {
   const calls = b.recentCallsInArea;
   const win = b.windowMinutes;
   if (typeof calls === "number" && calls > 0 && typeof win === "number" && win > 0) {
-    const windowHe = win >= 60 ? `${Math.round(win / 60)} השעות האחרונות` : `${win} הדקות האחרונות`;
+    const windowHe = win >= 60 ? (Math.round(win / 60) === 1 ? "השעה האחרונה" : `${Math.round(win / 60)} השעות האחרונות`) : `${win} הדקות האחרונות`;
     out.push({
       kind: "DEMAND",
       textHe: calls === 1 ? `קריאה אחת באזור שלך ב${windowHe}` : `${calls} קריאות באזור שלך ב${windowHe}`,
@@ -270,10 +270,10 @@ export function briefingLines(b: ShiftBriefing): BriefingLine[] {
       // even when the real number is discouraging.
       textHe:
         peers === 0
-          ? "אף בעל מקצוע בתחום שלך לא מחובר כרגע באזור"
+          ? "אין עוד מקצוען בתחום שלך במשמרת באזור"
           : peers === 1
-            ? "בעל מקצוע אחד נוסף בתחום שלך מחובר באזור"
-            : `${peers} בעלי מקצוע בתחום שלך מחוברים באזור`,
+            ? "עוד מקצוען אחד בתחום שלך במשמרת באזור"
+            : `${peers} מקצוענים בתחום שלך במשמרת באזור`,
     });
   }
 

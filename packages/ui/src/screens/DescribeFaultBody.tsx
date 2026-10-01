@@ -429,7 +429,7 @@ export function DescribeFaultBody({
           <View style={styles.privacyRow}>
             <ShieldCheckMark size={15} color={colors.trust} />
             <Text style={styles.privacyText}>
-              מה שתוסיף נשלח רק למקצוען שיקבל את הקריאה, ואחרי שהוא מקבל אותה. הכתובת המלאה נחשפת
+              מה שמוסיפים נשלח רק למקצוען שיקבל את הקריאה, ואחרי שהוא מקבל אותה. הכתובת המלאה נחשפת
               באותו רגע — לא לפניו.
             </Text>
           </View>

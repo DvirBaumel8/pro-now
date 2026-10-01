@@ -11,7 +11,6 @@ import {
   releaseBlockedHe,
   type JobState,
   DEFAULT_VISIT_TERMS,
-  selfHe,
   type VisitTermsHe,
   type PricingKind,
 } from "@pro-now/types";
@@ -186,7 +185,7 @@ function nextAction(status: JobState): { label: string; kind: "advance" | "quote
     case "WAITING_QUOTE_APPROVAL":
       return null; // The customer's move, not ours. No button to press.
     case "IN_PROGRESS":
-      return { label: "סיימתי את העבודה", kind: "advance" };
+      return { label: "סיימתי", kind: "advance" };
     default:
       return null;
   }
@@ -214,15 +213,22 @@ const STATUS_HE: Partial<Record<JobState, string>> = {
  * line on what to do now — and it slides in fresh at every step.
  */
 const STAGE: Partial<Record<JobState, { n: number; titleHe: string; doHe: string; tint: string; glyph: string }>> = {
-  PRO_ASSIGNED: { n: 1, titleHe: "העבודה שלך!", doHe: "הלקוח כבר יודע שאתה מגיע. צא לדרך כשאתה מוכן.", tint: "#2FBF8A", glyph: "✓" },
-  PRO_EN_ROUTE: { n: 2, titleHe: "בדרך ללקוח", doHe: "הלקוח רואה אותך מתקדם. לחץ ״הגעתי״ כשאתה בכתובת.", tint: "#3B82F6", glyph: "➜" },
+  PRO_ASSIGNED: { n: 1, titleHe: "העבודה שלך!", doHe: "הלקוח כבר יודע. יוצאים לדרך כשמוכנים.", tint: "#FF6B4A", glyph: "✓" },
+  PRO_EN_ROUTE: { n: 2, titleHe: "בדרך ללקוח", doHe: "הלקוח רואה את ההתקדמות. בכתובת? לוחצים ״הגעתי״.", tint: "#FF6B4A", glyph: "➜" },
   PRO_ARRIVED: { n: 3, titleHe: "הגעת", doHe: "הצג את עצמך, ותתחיל לבדוק את מה שהלקוח תיאר.", tint: "#8B5CF6", glyph: "⌂" },
-  DIAGNOSIS: { n: 4, titleHe: "בודקים מה צריך", doHe: "בודקים ומאבחנים. בתיקון — המחיר נסגר ישירות מול הלקוח; במחירון — מתחילים לפי מה שסוכם.", tint: "#F59E0B", glyph: "?" },
-  WAITING_QUOTE_APPROVAL: { n: 5, titleHe: "ההצעה אצל הלקוח", doHe: "מחכים לאישור. אי אפשר להתחיל לעבוד לפני שהוא מאשר.", tint: "#EC4899", glyph: "₪" },
+  DIAGNOSIS: { n: 4, titleHe: "בודקים מה צריך", doHe: "בודקים ומאבחנים. בתיקון — המחיר נסגר ישירות מול הלקוח; במחירון — מתחילים לפי מה שסוכם.", tint: "#8B5CF6", glyph: "?" },
+  WAITING_QUOTE_APPROVAL: { n: 5, titleHe: "ההצעה אצל הלקוח", doHe: "מחכים לאישור. אי אפשר להתחיל לעבוד לפני שהוא מאשר.", tint: "#8B5CF6", glyph: "₪" },
   IN_PROGRESS: { n: 6, titleHe: "ההצעה אושרה — עובדים", doHe: "עושים בדיוק את מה שאושר. לחץ ״סיימתי״ בסוף.", tint: "#FF6B4A", glyph: "⚒" },
-  COMPLETION_PENDING: { n: 7, titleHe: "סיימת!", doHe: "הלקוח מאשר שהעבודה הושלמה, ואז נסגר התשלום.", tint: "#2FBF8A", glyph: "★" },
+  COMPLETION_PENDING: { n: 7, titleHe: "מחכים לאישור הלקוח", doHe: "התשלום נסגר כשהלקוח מאשר.", tint: "#2FBF8A", glyph: "★" },
 };
 const STAGE_COUNT = 7;
+const PHASES = ["בדרך", "בדיקה", "העבודה", "סיום ותשלום"] as const;
+function phaseOf(st: JobState): number {
+  if (st === "PRO_ASSIGNED" || st === "PRO_EN_ROUTE") return 0;
+  if (st === "PRO_ARRIVED" || st === "DIAGNOSIS" || st === "WAITING_QUOTE_APPROVAL") return 1;
+  if (st === "IN_PROGRESS") return 2;
+  return 3;
+}
 
 /*
  * THE BAND IN HIS OWN TRADE'S WORDS (copy review, 2026-09-29): a haircut,
@@ -252,7 +258,7 @@ function stageFor(status: JobState, kind: PricingKind, female: boolean, workHe: 
       if (kind === "DISTANCE") return { ...base, titleHe: "בדרך למסירה", doHe: `${g("לחץ", "לחצי")} ״המשלוח נמסר״ כשהוא אצל המקבל.`, glyph: "➜" };
       return { ...base, titleHe: kind === "QUOTE_FIRST" ? "ההצעה אושרה — עובדים" : "עובדים", doHe: `${agreed}. ${g("לחץ", "לחצי")} ״סיימתי״ בסוף.` };
     case "COMPLETION_PENDING":
-      return { ...base, titleHe: g("סיימת!", "סיימת!"), doHe: kind === "VISIT" ? "הלקוח מאשר שהביקור התקיים, ואז נסגר התשלום." : "הלקוח מאשר שהעבודה הושלמה, ואז נסגר התשלום." };
+      return { ...base, titleHe: "מחכים לאישור הלקוח", doHe: kind === "VISIT" ? "התשלום נסגר כשהלקוח מאשר שהביקור התקיים." : "התשלום נסגר כשהלקוח מאשר." };
     default:
       return base;
   }
@@ -299,22 +305,30 @@ function StageBand({ status, kind = "VISIT", female = false, workHe = "התיק�
         </Animated.View>
       ) : null}
       <View style={styles.stageTop}>
-        <Text style={[styles.stageStep, { color: st.tint }]}>שלב {st.n} מתוך {STAGE_COUNT}</Text>
         <View style={[styles.stageGlyph, { backgroundColor: st.tint }]}>
           <Text style={styles.stageGlyphText}>{st.glyph}</Text>
         </View>
+        <Text style={[styles.stageTitle, { flex: 1, marginTop: 0 }]} accessibilityRole="header">{st.titleHe}</Text>
       </View>
-      <Text style={styles.stageTitle}>{st.titleHe}</Text>
       <Text style={styles.stageDo}>{st.doHe}</Text>
       {status === "IN_PROGRESS" || status === "DIAGNOSIS" ? <WorkClock status={status} tint={st.tint} /> : null}
       {status === "WAITING_QUOTE_APPROVAL" ? <QuoteInFlight tint={st.tint} /> : null}
-      <View style={styles.stageTrack}>
-        <Animated.View
-          style={[
-            styles.stageFill,
-            { backgroundColor: st.tint, width: fill.interpolate({ inputRange: [0, 1], outputRange: ["0%", "100%"] }) },
-          ]}
-        />
+      {/*
+        * FOUR NAMED STEPS, NOT "שלב N מתוך 7".
+        *
+        * The count jumped 1→2→4→7 on a visit, because not every job passes
+        * every state. These are the steps the customer sees, by name.
+        */}
+      <View style={styles.phases} accessibilityLabel={`שלב: ${PHASES[phaseOf(status)]}`}>
+        {PHASES.map((p, i) => {
+          const at = phaseOf(status);
+          return (
+            <View key={p} style={styles.phase}>
+              <View style={[styles.phaseBar, { backgroundColor: i <= at ? st.tint : "rgba(255,255,255,0.14)" }]} />
+              <Text style={[styles.phaseText, i === at && { color: "#fff", fontWeight: "800" }]}>{p}</Text>
+            </View>
+          );
+        })}
       </View>
     </Animated.View>
   );
@@ -480,7 +494,7 @@ export function ProJobBody({
      ------------------------------------------------------------------ */
   const problemBlock = (
     <View style={styles.block}>
-      <SectionHeader title={kind === "VISIT" ? "מה הבעיה" : "מה הלקוח ביקש"} colors={colors} />
+      <SectionHeader title={kind === "VISIT" && visitTerms.workHe === "התיקון" ? "מה הבעיה" : "מה הלקוח ביקש"} colors={colors} />
 
       {symptomsHe.length > 0 ? (
         <View style={styles.symptoms}>
@@ -650,16 +664,14 @@ export function ProJobBody({
                   <Text style={styles.custMeta} numberOfLines={2}>
                     נמצא בבית · הקריאה הוזמנה על ידי {customerNameHe}
                   </Text>
-                ) : (
-                  <Text style={styles.custMeta}>הזמין את הקריאה</Text>
-                )}
+                ) : null}
               </View>
             </View>
 
-            {doorCodeHe && (status === "PRO_ASSIGNED" || status === "PRO_EN_ROUTE" || status === "PRO_ARRIVED") ? (
+            {doorCodeHe && (status === "PRO_EN_ROUTE" || status === "PRO_ARRIVED") ? (
               <View style={styles.doorCode}>
                 <Text style={styles.doorCodeLabel}>
-                  הקוד שלך — {onSiteContactNameHe ?? customerNameHe} יבקש אותו
+                  קוד אימות מול הלקוח
                 </Text>
                 <Text style={styles.doorCodeDigits}>{doorCodeHe.split("").join(" ")}</Text>
               </View>
@@ -687,7 +699,7 @@ export function ProJobBody({
                 <View style={styles.maskRow}>
                   <ShieldCheckMark size={14} color={colors.trust} />
                   <Text style={styles.maskText}>
-                    השיחה עוברת דרך מספר מסווה. המספר הפרטי שלך לא נחשף ללקוח, ושלו לא נחשף לך.
+                    המספרים של שניכם מוסתרים.
                   </Text>
                 </View>
               </>
@@ -797,14 +809,9 @@ export function ProJobBody({
           >
             <Text style={styles.ctaLabel}>{action.label}</Text>
           </Pressable>
-          {action.kind === "finishDiagnosis" ? (
-            <Text style={styles.finishNote}>
-              {`באפליקציה נגבים ${visitTerms.feeHe.replace("דמי ביקור ו", "דמי הביקור וה")}. את ${selfHe(visitTerms.workHe)} — המחיר והתשלום — סוגרים ישירות מול הלקוח.`}
-            </Text>
-          ) : null}
           {action.kind === "agreed" && onSendQuote ? (
             <Pressable onPress={onSendQuote} accessibilityRole="button" style={styles.extraLink}>
-              <Text style={styles.extraLinkText}>יש עבודה נוספת? הצעת מחיר לתוספת — הלקוח יאשר</Text>
+              <Text style={styles.extraLinkText}>הצעת מחיר לתוספת</Text>
             </Pressable>
           ) : null}
         </View>
@@ -1001,10 +1008,14 @@ const styles = StyleSheet.create({
   screen: { backgroundColor: colors.bg, overflow: "hidden", borderRadius: radii.xl },
   scroll: { paddingBottom: 116 },
   serviceSmall: { fontSize: scale.body, lineHeight: 24, marginTop: 0, color: "rgba(247,243,250,0.75)" },
-  stage: { alignSelf: "stretch", borderRadius: radii.lg, borderWidth: 1, padding: spacing.lg, marginBottom: spacing.lg },
-  stageTop: { flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center" },
+  stage: { alignSelf: "stretch", borderRadius: radii.lg, borderWidth: 1, padding: spacing.md, marginBottom: spacing.md },
+  phases: { flexDirection: "row-reverse", gap: 6, marginTop: spacing.md },
+  phase: { flex: 1 },
+  phaseBar: { height: 4, borderRadius: 2 },
+  phaseText: { color: "rgba(247,243,250,0.6)", fontSize: scale.micro, textAlign: "right", marginTop: 4, writingDirection: "rtl" },
+  stageTop: { flexDirection: "row-reverse", alignItems: "center", gap: spacing.sm },
   stageStep: { fontSize: scale.meta, fontWeight: "800", letterSpacing: 0.3, writingDirection: "rtl" },
-  stageGlyph: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
+  stageGlyph: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
   stageGlyphText: { color: "#0d0a16", fontSize: scale.body, fontWeight: "900" },
   stageTitle: { color: "#FFFFFF", fontSize: scale.title, fontWeight: "900", textAlign: "right", writingDirection: "rtl", marginTop: spacing.sm },
   stageDo: { color: "rgba(247,243,250,0.85)", fontSize: scale.meta, lineHeight: 22, textAlign: "right", writingDirection: "rtl", marginTop: spacing.xs },
@@ -1111,6 +1122,8 @@ const styles = StyleSheet.create({
   release: {
     minHeight: 44,
     justifyContent: "center",
+    /* It ran off the left edge of the screen: the scroll has no side padding. */
+    marginHorizontal: spacing.lg,
     marginTop: spacing.xl,
     paddingVertical: spacing.sm,
   },

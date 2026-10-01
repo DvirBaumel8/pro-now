@@ -157,8 +157,8 @@ const PRO_SLIDES: readonly Slide[] = [
     zoom: 0.42,
   },
   {
-    titleHe: "אתה מחליט מתי אתה באוויר",
-    bodyHe: "מתחילים משמרת ומפסיקים מתי שרוצים. קריאות מגיעות רק כשאתה מחובר.",
+    titleHe: "מחליטים לבד מתי במשמרת",
+    bodyHe: "מתחילים משמרת ומסיימים מתי שרוצים. קריאות מגיעות רק במשמרת.",
     // His own front, close enough to read the sign over it. The slide is
     // about being open for business; the picture should be the business.
     focus: SHOPFRONT,

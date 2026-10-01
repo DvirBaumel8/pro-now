@@ -137,7 +137,8 @@ describe("what the screen says about the ground it is drawing", () => {
     expect(stale).toContain("ספק המפות");
     // And the live pair disagrees with it, which is the whole point.
     expect(groundDisclosureHe({ realStreets: true })).not.toBe(stale);
-    expect(groundDisclosureHe({ realStreets: false })).toBe(stale);
+    // The painted city no longer promises a vendor either (UX audit, 2026-10-01).
+    expect(groundDisclosureHe({ realStreets: false })).toBe("החנויות בעיר הן המחשה");
   });
 });
 
