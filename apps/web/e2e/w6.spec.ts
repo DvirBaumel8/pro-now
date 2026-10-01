@@ -18,7 +18,7 @@ test("from a typed sentence to a review, with no money in the app", async ({ pag
   await signInByEmail(page, uniqueEmail("e2e-w6"));
   await finishFirstRun(page);
   const address = await page.request.post("/api/v1/me/addresses", {
-    data: { formatted: "הרצל 1, תל אביב", lat: LAT, lng: LNG },
+    data: { kind: "location", lat: LAT, lng: LNG, details: "הרצל 1" },
     headers: { origin: baseURL! },
   });
   expect(address.ok(), await address.text()).toBe(true);
@@ -83,7 +83,7 @@ test("the customer can cancel while nobody has been found yet", async ({ page, b
   await signInByEmail(page, uniqueEmail("e2e-w6-cancel"));
   await finishFirstRun(page);
   await page.request.post("/api/v1/me/addresses", {
-    data: { formatted: "הרצל 2, תל אביב", lat: LAT, lng: LNG },
+    data: { kind: "location", lat: LAT, lng: LNG, details: "הרצל 2" },
     headers: { origin: baseURL! },
   });
   await page.getByRole("textbox", { name: "ספרו מה צריך" }).fill("המזגן לא מקרר");

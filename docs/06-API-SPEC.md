@@ -103,7 +103,8 @@ wrong-person case and a right-person case.
 | Route | Role | Ownership |
 |---|---|---|
 | `GET /v1/catalog` | public | — |
-| `GET/POST /v1/me/addresses` | CUSTOMER | the caller's own, by construction |
+| `GET/POST /v1/me/addresses` | CUSTOMER | The caller's own, by construction. POST takes `{kind:"street", localityCode, streetCode, houseNumber?, details?}` (the server geocodes it; 422 `ADDRESS_NOT_ON_MAP` when the map does not know the street) or `{kind:"location", lat, lng, details?}`. Never free text with coordinates. |
+| `GET /v1/geo/streets?q=` | CUSTOMER | Street suggestions from two characters, from `street_names` (no third party sees keystrokes). |
 | `POST /v1/jobs` | CUSTOMER | The address must be the caller's. An Idempotency-Key used by another customer gets 409 and no replay. |
 | `GET /v1/jobs/:id`, `GET /v1/jobs/:id/match` | CUSTOMER | the job's customer |
 | `POST /v1/jobs/:id/cancel`, `/confirm-completion` | CUSTOMER | the job's customer |

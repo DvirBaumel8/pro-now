@@ -1,13 +1,29 @@
 import type { FastifyInstance } from "fastify";
-import { Prisma } from "@prisma/client";
 import type { GeocodingResult } from "@pro-now/types";
-import { reverseGeocodeQuerySchema, searchGeocodeQuerySchema } from "@pro-now/validation";
+import { reverseGeocodeQuerySchema, searchGeocodeQuerySchema, streetSuggestQuerySchema } from "@pro-now/validation";
 
 import { cacheKeyForReverse, cacheKeyForSearch, normalizeSearchQuery } from "../domain/geocoding/cache.js";
-
-const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+import { readCache, writeCache } from "../domain/geocoding/cache-store.js";
+import { suggestStreets } from "../domain/streets/search.js";
+import { requireRole } from "../auth/access.js";
 
 export default async function geoRoutes(app: FastifyInstance) {
+  /*
+   * As-you-type suggestions for the address box, from the official street
+   * list in our own database: no third party sees the keystrokes, and none
+   * rate-limits them (Nominatim's policy forbids autocomplete). A query a
+   * keystroke, so only for a signed-in customer, whose screen asks.
+   */
+  app.get("/v1/geo/streets", { onRequest: requireRole("CUSTOMER") }, async (req, reply) => {
+    const { q } = streetSuggestQuerySchema.parse(req.query);
+    try {
+      await app.streetsReady;
+    } catch {
+      return reply.status(503).send({ code: "STREETS_UNAVAILABLE", message: "Address suggestions are temporarily unavailable" });
+    }
+    return reply.send({ suggestions: await suggestStreets(app.prisma, q) });
+  });
+
   app.get("/v1/geo/reverse", async (req, reply) => {
     const { lat, lng } = reverseGeocodeQuerySchema.parse(req.query);
     const cacheKey = cacheKeyForReverse({ lat, lng });
@@ -39,24 +55,5 @@ export default async function geoRoutes(app: FastifyInstance) {
       req.log.warn({ err: error }, "Address search failed");
       return reply.status(502).send({ code: "GEOCODING_UNAVAILABLE", message: "Address lookup is temporarily unavailable" });
     }
-  });
-}
-
-async function readCache(app: FastifyInstance, cacheKey: string): Promise<unknown | undefined> {
-  const cached = await app.prisma.geocodeCache.findUnique({ where: { cacheKey } });
-  if (!cached) return undefined;
-  if (cached.expiresAt <= new Date()) {
-    await app.prisma.geocodeCache.delete({ where: { cacheKey } }).catch(() => undefined);
-    return undefined;
-  }
-  return cached.value;
-}
-
-async function writeCache(app: FastifyInstance, cacheKey: string, kind: string, value: unknown): Promise<void> {
-  const jsonValue = value === null ? Prisma.JsonNull : (value as object);
-  await app.prisma.geocodeCache.upsert({
-    where: { cacheKey },
-    update: { kind, value: jsonValue, expiresAt: new Date(Date.now() + CACHE_TTL_MS) },
-    create: { cacheKey, kind, value: jsonValue, expiresAt: new Date(Date.now() + CACHE_TTL_MS) },
   });
 }

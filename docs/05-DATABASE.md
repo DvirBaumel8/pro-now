@@ -34,7 +34,17 @@ external_reputation_sources, professional_external_profiles,
 external_rating_snapshots, chat_threads, chat_messages, notifications,
 refunds, disputes, support_tickets, risk_signals, risk_actions,
 blocked_relationships, admin_users, admin_roles, audit_logs, app_config,
-market_activations`.
+market_activations, street_names, geocode_cache`.
+
+## Addresses
+An `Address` is saved from one of two sources only (`POST /v1/me/addresses`):
+a street from `street_names` — Israel's official street list (data.gov.il),
+loaded on boot from `apps/api/data/il-streets.json.gz` and refreshed with
+`node apps/api/scripts/fetch-streets.mjs` — which the server places on the
+map itself, or the device's own location. `geoPrecision` says how closely:
+`HOUSE`, `STREET`, `LOCALITY` (only a village of ≤40 streets) or `DEVICE`;
+null on rows from before 2026-10-01, when the client sent the coordinates.
+`localityCode`/`streetCode` point back into the list.
 
 ## Market activation
 `MarketActivation` keys on (market/geography, service) and carries

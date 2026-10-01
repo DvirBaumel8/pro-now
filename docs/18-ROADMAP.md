@@ -153,6 +153,18 @@ Also decided (Amit, 2026-09-30, after joining as a vet in a live demo):
 
 ## Decided
 
+### 2026-10-01 (Dvir) — an address is a real place
+- Suggestions as you type, from two characters, come from Israel's official
+  street list (data.gov.il) in our own database — not from a vendor, and
+  not from Nominatim, whose policy forbids autocomplete.
+- An address is saved only from that list or from the device's location;
+  the server places a street on the map itself and refuses one the map
+  does not know (`ADDRESS_NOT_ON_MAP`) rather than guess. A big city is
+  never located at its centre.
+- Known gap, for the maps-vendor decision above: OpenStreetMap misses some
+  streets under their official names (e.g. ז'בוטינסקי in Ramat Gan is
+  "דרך זאב ז'בוטינסקי"), and those are refused today.
+
 ### 2026-09-30 (Dvir) — how a professional joins (sync D1–D4)
 - **D1 — faces.** A photo is approved as it is, for now. Customers see the
   photo, or the trade's drawn character when that was the choice, on the

@@ -14,7 +14,7 @@ test("the person at home gets a page with the professional and the door code", a
   await signInByEmail(page, uniqueEmail("e2e-orderer"));
   await finishFirstRun(page);
   const address = await page.request.post("/api/v1/me/addresses", {
-    data: { formatted: "סבא: ויצמן 3, תל אביב", lat: LAT, lng: LNG },
+    data: { kind: "location", lat: LAT, lng: LNG, details: "סבא: ויצמן 3" },
     headers: { origin: baseURL! },
   });
   expect(address.ok(), await address.text()).toBe(true);

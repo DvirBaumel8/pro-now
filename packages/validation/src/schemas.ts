@@ -51,13 +51,32 @@ export type CreateJobInput = z.infer<typeof createJobSchema>;
  * `label` ("בית", "המשרד") is optional because most people have one
  * address and naming it is ceremony.
  */
-export const createAddressSchema = z.object({
-  formatted: z.string().min(3).max(300),
-  lat: z.number().min(-90).max(90),
-  lng: z.number().min(-180).max(180),
+/**
+ * A new address is a street from the official list or the device's own
+ * location — never free text with coordinates the client made up. The
+ * server places a street on the map itself (apps/api routes/addresses.ts).
+ */
+const addressExtras = {
+  /** Floor, entrance, apartment: for the person at the door, never searched. */
+  details: z.string().trim().max(80).optional(),
   label: z.string().max(40).optional(),
-  placeId: z.string().max(200).optional(),
-});
+};
+export const houseNumberSchema = z.string().trim().regex(/^\d{1,4}[א-ת]?$/);
+export const createAddressSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("street"),
+    localityCode: z.number().int().positive(),
+    streetCode: z.number().int().positive(),
+    houseNumber: houseNumberSchema.optional(),
+    ...addressExtras,
+  }),
+  z.object({
+    kind: z.literal("location"),
+    lat: z.number().min(-90).max(90),
+    lng: z.number().min(-180).max(180),
+    ...addressExtras,
+  }),
+]);
 export type CreateAddressInput = z.infer<typeof createAddressSchema>;
 
 export const uploadKindSchema = z.enum(["PHOTO", "VOICE_NOTE", "DOCUMENT"]);
@@ -78,6 +97,11 @@ export const searchGeocodeQuerySchema = z.object({
   q: z.string().trim().min(3).max(200),
 });
 export type SearchGeocodeQuery = z.infer<typeof searchGeocodeQuerySchema>;
+
+/** Two characters are enough to start suggesting, as in any maps search box. */
+export const streetSuggestQuerySchema = z.object({
+  q: z.string().trim().min(2).max(100),
+});
 
 export const locationPingSchema = z.object({
   lat: z.number().min(-90).max(90),

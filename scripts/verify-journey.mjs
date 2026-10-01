@@ -96,7 +96,7 @@ const run = async () => {
 
   const addr = await call("POST", "/api/v1/me/addresses", {
     token: custToken,
-    body: { formatted: "פלורנטין 12, תל אביב", lat: 32.056, lng: 34.77, label: "בית" },
+    body: { kind: "location", lat: 32.056, lng: 34.77, label: "בית" },
   });
   const addrId = addr.json?.address?.id ?? addr.json?.id;
   addrId ? ok("address saved") : bad("address saved", addr.text.slice(0, 120));

@@ -1,4 +1,4 @@
-import type { GeocodingProvider, GeocodingResult, LatLng } from "@pro-now/types";
+import type { GeocodingParts, GeocodingProvider, GeocodingResult, LatLng, StructuredAddressQuery } from "@pro-now/types";
 
 interface NominatimOptions {
   endpoint: string;
@@ -14,6 +14,7 @@ interface NominatimPlace {
   lat?: unknown;
   lon?: unknown;
   display_name?: unknown;
+  address?: Record<string, unknown>;
 }
 
 /**
@@ -68,6 +69,23 @@ export class NominatimGeocodingProvider implements GeocodingProvider {
     });
   }
 
+  searchStructured(query: StructuredAddressQuery): Promise<GeocodingResult[]> {
+    return this.enqueue(async () => {
+      const params = new URLSearchParams({
+        format: "jsonv2",
+        city: query.locality,
+        countrycodes: "il",
+        addressdetails: "1",
+        limit: "3",
+        "accept-language": "he,en",
+      });
+      if (query.street) params.set("street", query.houseNumber ? `${query.houseNumber} ${query.street}` : query.street);
+      this.addContact(params);
+      const places = await this.request<NominatimPlace[]>(`/search?${params}`);
+      return places.map(toResult).filter((result): result is GeocodingResult => result !== null);
+    });
+  }
+
   private addContact(params: URLSearchParams): void {
     if (this.options.contactEmail) params.set("email", this.options.contactEmail);
   }
@@ -105,5 +123,23 @@ function toResult(place: NominatimPlace): GeocodingResult | null {
     return null;
   }
   const placeId = typeof place.osm_type === "string" && typeof place.osm_id === "number" ? `${place.osm_type}:${place.osm_id}` : null;
-  return { lat, lng, formattedAddress, placeId };
+  return { lat, lng, formattedAddress, placeId, ...(place.address ? { parts: toParts(place.address) } : {}) };
+}
+
+function toParts(address: Record<string, unknown>): GeocodingParts {
+  const text = (...keys: string[]) => {
+    for (const key of keys) {
+      const value = address[key];
+      if (typeof value === "string" && value.trim()) return value.trim();
+    }
+    return null;
+  };
+  return {
+    houseNumber: text("house_number"),
+    road: text("road", "pedestrian", "footway", "residential", "square"),
+    localities: ["city", "town", "village", "hamlet", "municipality"]
+      .map((key) => address[key])
+      .filter((value): value is string => typeof value === "string" && value.trim() !== "")
+      .map((value) => value.trim()),
+  };
 }

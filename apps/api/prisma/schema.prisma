@@ -527,12 +527,42 @@ model Address {
   lat        Float
   lng        Float
   placeId    String?
+  /// Set when the address was picked from the official street list
+  /// (`street_names`); null for a device location and for older rows.
+  localityCode Int?
+  streetCode   Int?
+  houseNumber  String?
+  /// How closely `lat`/`lng` was placed: HOUSE, STREET, LOCALITY (a small
+  /// place, located as a whole) or DEVICE (the phone's own fix). Null on
+  /// rows saved before 2026-10-01, when the client sent the coordinates.
+  geoPrecision String?
   createdAt  DateTime        @default(now())
 
   jobs Job[]
 
   @@index([customerId])
   @@map("addresses")
+}
+
+/// Israel's official street list (data.gov.il, "רשימת רחובות בישראל"),
+/// loaded on boot from apps/api/data/il-streets.json.gz. The address box
+/// suggests from it, and an address can only be saved from one of its rows
+/// or from the device's own location — so nobody sends a professional to
+/// a place that does not exist.
+model StreetName {
+  localityCode Int
+  /// 9000 and up: the locality itself, for places without named streets.
+  streetCode   Int
+  localityName String
+  streetName   String
+  /// Both names in the form the search compares: see domain/streets/normalize.ts.
+  searchText   String
+  /// How many streets the locality has: ranks Tel Aviv's הרצל above a
+  /// village's, and tells a village (locate it as a whole) from a city.
+  localityStreets Int
+
+  @@id([localityCode, streetCode])
+  @@map("street_names")
 }
 
 /// What a typed sentence was matched to, and what the customer chose

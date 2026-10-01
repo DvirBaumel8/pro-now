@@ -56,31 +56,78 @@ export type LiveLocationState =
   | { status: "denied" }
   | { status: "unavailable" };
 
+/** A street from the official list, offered while the customer types. */
+export interface AddressSuggestion {
+  localityCode: number;
+  streetCode: number;
+  streetName: string;
+  localityName: string;
+  houseNumber: string | null;
+  /** The locality itself: a village without named streets. */
+  wholeLocality: boolean;
+}
+
+export type AddressSuggestionsState = "idle" | "loading" | "ready" | "error";
+
+/**
+ * Where the professional goes: ONE of these, never two at once. Typed
+ * text alone is none of them — it only finds a street to pick.
+ */
+export type AddressChoice =
+  | { kind: "saved"; addressId: string }
+  | { kind: "street"; suggestion: AddressSuggestion; houseNumber: string; detailsHe: string }
+  | { kind: "live"; detailsHe: string };
+
+export interface AddressPickerResult {
+  choice: AddressChoice;
+  forSomeoneElse: boolean;
+  recipientNameHe: string;
+  recipientPhone: string;
+}
+
 export interface AddressPickerBodyProps {
   saved: SavedAddress[];
+  /** The saved address chosen when the screen opens, if any. */
   selectedId: string | null;
   liveLocation: LiveLocationState;
   /** W6 owns the order-level recipient; until then the affordance is visible but closed. */
   forSomeoneElseEnabled?: boolean;
+  /** Streets for the text in the box, from two characters; the caller fetches them. */
+  suggestions?: AddressSuggestion[];
+  suggestionsState?: AddressSuggestionsState;
+  onQueryChange?: (text: string) => void;
+  /** The confirmed address is being placed on the map. */
+  saving?: boolean;
+  /** Why the last confirm did not go through, in the customer's words. */
+  errorHe?: string | null;
   onUseLiveLocation?: () => void;
   onSelect?: (id: string) => void;
-  onConfirm?: (result: {
-    addressId: string | null;
-    typedHe: string;
-    forSomeoneElse: boolean;
-    recipientNameHe: string;
-    recipientPhone: string;
-  }) => void;
+  onConfirm?: (result: AddressPickerResult) => void;
   onBack?: () => void;
   width?: number;
   height?: number;
 }
+
+/** What the box needs before it starts suggesting. */
+export const SUGGEST_MIN_CHARS = 2;
+const HOUSE_NUMBER = /^\d{1,4}[א-ת]?$/;
+
+type Picked =
+  | { kind: "saved"; id: string }
+  | { kind: "street"; suggestion: AddressSuggestion }
+  | { kind: "live" }
+  | null;
 
 export function AddressPickerBody({
   saved,
   selectedId,
   liveLocation,
   forSomeoneElseEnabled = true,
+  suggestions = [],
+  suggestionsState = "idle",
+  onQueryChange,
+  saving = false,
+  errorHe = null,
   onUseLiveLocation,
   onSelect,
   onConfirm,
@@ -89,20 +136,77 @@ export function AddressPickerBody({
   height = 780,
 }: AddressPickerBodyProps) {
   const [typed, setTyped] = useState("");
+  /*
+   * ONE CHOICE, NOT THREE THAT RACE.
+   *
+   * This screen used to hold a saved address (always one: the first, by
+   * default), the typed text and the live location side by side, and the
+   * confirm took whichever it checked first. So typing a new address and
+   * confirming quietly kept the old one, and the other way round (Dvir,
+   * 2026-10-01). Now picking any of them un-picks the others.
+   */
+  const [pick, setPick] = useState<Picked>(selectedId ? { kind: "saved", id: selectedId } : null);
+  const [houseNumber, setHouseNumber] = useState("");
+  const [details, setDetails] = useState("");
   const [forOther, setForOther] = useState(false);
   const [recipientName, setRecipientName] = useState("");
   const [recipientPhone, setRecipientPhone] = useState("");
 
-  const hasTyped = typed.trim().length > 3;
-  const hasPlace = selectedId !== null || hasTyped || liveLocation.status === "ready";
+  // The live card is a choice only once the device has answered.
+  const livePicked = pick?.kind === "live" && liveLocation.status === "ready";
+  const houseOk = pick?.kind !== "street" || houseNumber.trim() === "" || HOUSE_NUMBER.test(houseNumber.trim());
+  const hasPlace = pick?.kind === "saved" || pick?.kind === "street" || livePicked;
   // Sending someone to a stranger's door without a name and a number is how
   // a job fails at the doorstep, so the CTA waits for both.
   const recipientOk = !forOther || (recipientName.trim().length > 1 && recipientPhone.trim().length >= 9);
-  const canConfirm = hasPlace && recipientOk;
+  const canConfirm = hasPlace && houseOk && recipientOk && !saving;
+  const searching = pick?.kind !== "street" && typed.trim().length >= SUGGEST_MIN_CHARS;
+
+  const changeTyped = (text: string) => {
+    setTyped(text);
+    // Typing is looking for a new address: whatever was picked is not it.
+    if (pick?.kind !== "street") setPick(null);
+    onQueryChange?.(text);
+  };
+  const pickStreet = (suggestion: AddressSuggestion) => {
+    setPick({ kind: "street", suggestion });
+    setHouseNumber(suggestion.houseNumber ?? "");
+  };
+  const pickSaved = (id: string) => {
+    setPick({ kind: "saved", id });
+    setTyped("");
+    onSelect?.(id);
+  };
+  const pickLive = () => {
+    setPick({ kind: "live" });
+    setTyped("");
+    onUseLiveLocation?.();
+  };
+  const unpickStreet = () => {
+    setPick(null);
+    setHouseNumber("");
+  };
+  const confirm = () => {
+    if (!canConfirm || !pick) return;
+    const choice: AddressChoice =
+      pick.kind === "saved"
+        ? { kind: "saved", addressId: pick.id }
+        : pick.kind === "street"
+          ? { kind: "street", suggestion: pick.suggestion, houseNumber: houseNumber.trim(), detailsHe: details.trim() }
+          : { kind: "live", detailsHe: details.trim() };
+    onConfirm?.({ choice, forSomeoneElse: forOther, recipientNameHe: recipientName.trim(), recipientPhone: recipientPhone.trim() });
+  };
+  const ctaLabel = saving
+    ? "מאתרים את הכתובת במפה…"
+    : forOther && !recipientOk
+      ? "צריך שם וטלפון של מי שבבית"
+      : !hasPlace && typed.trim()
+        ? "בחרו כתובת מהרשימה"
+        : "אישור הכתובת";
 
   return (
     <View style={[styles.screen, { width, height }]}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scroll}>
         <View style={styles.head}>
           <BackButton onPress={onBack} tone={"light"} placement="absolute" />
           <Text style={styles.title}>לאן לשלוח את המקצוען?</Text>
@@ -127,23 +231,119 @@ export function AddressPickerBody({
          */}
         <View style={styles.block}>
           <SectionHeader title="הקלידו כתובת" colors={colors} />
-          <TextInput
-            value={typed}
-            onChangeText={setTyped}
-            placeholder="רחוב, מספר, עיר · קומה ודירה"
-            accessibilityLabel="כתובת חדשה"
-            placeholderTextColor={colors.textSecondary}
-            style={styles.input}
-            textAlign="right"
-          />
+          {pick?.kind === "street" ? (
+            /*
+             * The street is settled — it is a real one, from the official
+             * list — so what is left is the door: the number, and the
+             * floor and flat the professional will ask for at the gate.
+             */
+            <View style={{ gap: spacing.sm }}>
+              <View style={[styles.savedCard, styles.pickedCard]}>
+                <View style={styles.savedRow}>
+                  <View style={[styles.savedIcon, { backgroundColor: tint.action(0.14) }]}>
+                    <PinMark size={17} color={colors.action} />
+                  </View>
+                  <View style={styles.savedText}>
+                    <Text style={styles.savedLabel} numberOfLines={1}>
+                      {pick.suggestion.wholeLocality ? pick.suggestion.localityName : pick.suggestion.streetName}
+                    </Text>
+                    {pick.suggestion.wholeLocality ? null : (
+                      <Text style={styles.savedAddr} numberOfLines={1}>
+                        {pick.suggestion.localityName}
+                      </Text>
+                    )}
+                  </View>
+                  <Pressable onPress={unpickStreet} accessibilityRole="button" accessibilityLabel="החלפת הרחוב" hitSlop={10}>
+                    <Text style={styles.change}>החלפה</Text>
+                  </Pressable>
+                </View>
+              </View>
+              {pick.suggestion.wholeLocality ? null : (
+                <TextInput
+                  value={houseNumber}
+                  onChangeText={setHouseNumber}
+                  placeholder="מספר בית"
+                  accessibilityLabel="מספר בית"
+                  placeholderTextColor={colors.textSecondary}
+                  keyboardType="numbers-and-punctuation"
+                  style={[styles.input, !houseOk && { borderColor: colors.statusDanger }]}
+                  textAlign="right"
+                />
+              )}
+              {!houseOk ? (
+                <Text style={styles.fieldNote}>מספר בית הוא מספר, ואולי אות אחריו — למשל 12 או 12א.</Text>
+              ) : houseNumber.trim() === "" && !pick.suggestion.wholeLocality ? (
+                <Text style={styles.fieldNote}>בלי מספר בית המקצוען מגיע לרחוב, לא לדלת.</Text>
+              ) : null}
+              <TextInput
+                value={details}
+                onChangeText={setDetails}
+                placeholder="קומה, כניסה ודירה (לא חובה)"
+                accessibilityLabel="קומה, כניסה ודירה"
+                placeholderTextColor={colors.textSecondary}
+                style={styles.input}
+                textAlign="right"
+              />
+            </View>
+          ) : (
+            <>
+              <TextInput
+                value={typed}
+                onChangeText={changeTyped}
+                placeholder="רחוב ומספר, ואפשר גם עיר"
+                accessibilityLabel="כתובת חדשה"
+                placeholderTextColor={colors.textSecondary}
+                style={styles.input}
+                textAlign="right"
+                autoCorrect={false}
+              />
+              {searching ? (
+                <Surface colors={colors} level={1} style={styles.suggestions}>
+                  {suggestions.map((s, i) => (
+                    <Pressable
+                      key={`${s.localityCode}:${s.streetCode}`}
+                      onPress={() => pickStreet(s)}
+                      accessibilityRole="button"
+                      accessibilityLabel={suggestionLabel(s)}
+                      style={({ pressed }) => [styles.suggestion, i > 0 && styles.suggestionRule, pressed && { opacity: 0.7 }]}
+                    >
+                      <View style={styles.savedRow}>
+                        <PinMark size={15} color={colors.textSecondary} />
+                        <View style={styles.savedText}>
+                          <Text style={styles.suggestionTitle} numberOfLines={1}>
+                            {s.wholeLocality ? s.localityName : `${s.streetName}${s.houseNumber ? ` ${s.houseNumber}` : ""}`}
+                          </Text>
+                          {s.wholeLocality ? null : (
+                            <Text style={styles.savedAddr} numberOfLines={1}>
+                              {s.localityName}
+                            </Text>
+                          )}
+                        </View>
+                      </View>
+                    </Pressable>
+                  ))}
+                  {suggestions.length === 0 ? (
+                    <Text style={styles.suggestionNote}>
+                      {suggestionsState === "error"
+                        ? "החיפוש לא זמין כרגע. אפשר לבחור את המיקום שלי עכשיו."
+                        : suggestionsState === "ready"
+                          ? "לא מצאנו רחוב כזה. בדקו את האיות, או בחרו את המיקום שלי עכשיו."
+                          : "מחפשים…"}
+                    </Text>
+                  ) : null}
+                </Surface>
+              ) : null}
+            </>
+          )}
         </View>
 
         {/* ---------------- Live location ---------------- */}
         <View style={styles.block}>
           <Pressable
-            onPress={onUseLiveLocation}
-            accessibilityRole="button"
-            style={({ pressed }) => [styles.liveCard, pressed && { opacity: 0.9 }]}
+            onPress={pickLive}
+            accessibilityRole="radio"
+            aria-checked={livePicked}
+            style={({ pressed }) => [styles.liveCard, livePicked && styles.liveCardOn, pressed && { opacity: 0.9 }]}
           >
             <View style={styles.liveIcon}>
               <PinMark size={19} color={colors.action} />
@@ -162,19 +362,28 @@ export function AddressPickerBody({
                       : "נשתמש במיקום המכשיר"}
               </Text>
             </View>
-            {liveLocation.status === "ready" ? (
+            {livePicked ? (
               <View style={styles.tick}>
                 <ShieldCheckMark size={15} color={colors.trust} />
               </View>
             ) : null}
           </Pressable>
 
-          {liveLocation.status === "ready" ? (
+          {livePicked ? (
             // A coordinate is not a door. Saying so is cheaper than sending a
             // professional to the middle of the street.
-            <Text style={styles.liveNote}>
-              המיקום אותר. הוסיפו קומה, כניסה או מספר דירה בשורה למעלה — בלי זה המקצוען מגיע לרחוב, לא לדלת.
-            </Text>
+            <View style={{ gap: spacing.sm, marginTop: spacing.sm }}>
+              <TextInput
+                value={details}
+                onChangeText={setDetails}
+                placeholder="קומה, כניסה ודירה"
+                accessibilityLabel="קומה, כניסה ודירה"
+                placeholderTextColor={colors.textSecondary}
+                style={styles.input}
+                textAlign="right"
+              />
+              <Text style={styles.fieldNote}>בלי קומה ודירה המקצוען מגיע לבניין, לא לדלת.</Text>
+            </View>
           ) : null}
         </View>
 
@@ -184,10 +393,9 @@ export function AddressPickerBody({
             <SectionHeader title="הכתובות שלי" colors={colors} />
             <View style={{ gap: spacing.sm }}>
               {saved.map((a) => {
-                /* A typed address is the choice: no saved row stays lit beside it (Amit, in the ad film). */
-                const on = a.id === selectedId && !hasTyped;
+                const on = pick?.kind === "saved" && pick.id === a.id;
                 return (
-                  <Pressable key={a.id} onPress={() => { setTyped(""); onSelect?.(a.id); }} accessibilityRole="radio" accessibilityState={{ checked: on }}>
+                  <Pressable key={a.id} onPress={() => pickSaved(a.id)} accessibilityRole="radio" aria-checked={on}>
                     <Surface
                       colors={colors}
                       level={1}
@@ -279,17 +487,10 @@ export function AddressPickerBody({
       </ScrollView>
 
       <View style={styles.cta}>
+        {errorHe ? <Text style={styles.error}>{errorHe}</Text> : null}
         <Pressable
           disabled={!canConfirm}
-          onPress={() =>
-            onConfirm?.({
-              addressId: selectedId,
-              typedHe: typed.trim(),
-              forSomeoneElse: forOther,
-              recipientNameHe: recipientName.trim(),
-              recipientPhone: recipientPhone.trim(),
-            })
-          }
+          onPress={confirm}
           accessibilityRole="button"
           style={({ pressed }) => [
             styles.ctaBtn,
@@ -297,13 +498,15 @@ export function AddressPickerBody({
             pressed && { opacity: 0.88 },
           ]}
         >
-          <Text style={[styles.ctaLabel, !canConfirm && { color: colors.textSecondary }]}>
-            {forOther && !recipientOk ? "צריך שם וטלפון של מי שבבית" : "אישור הכתובת"}
-          </Text>
+          <Text style={[styles.ctaLabel, !canConfirm && { color: colors.textSecondary }]}>{ctaLabel}</Text>
         </Pressable>
       </View>
     </View>
   );
+}
+
+function suggestionLabel(s: AddressSuggestion): string {
+  return s.wholeLocality ? s.localityName : `${s.streetName}${s.houseNumber ? ` ${s.houseNumber}` : ""}, ${s.localityName}`;
 }
 
 const styles = StyleSheet.create({
@@ -334,6 +537,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     ...elevation(1),
   },
+  liveCardOn: { borderWidth: 2, borderColor: colors.action },
   liveIcon: {
     width: 42,
     height: 42,
@@ -369,6 +573,35 @@ const styles = StyleSheet.create({
   },
 
   savedCard: { paddingVertical: spacing.md, borderWidth: 2, borderColor: "transparent" },
+  pickedCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radii.lg,
+    paddingHorizontal: spacing.lg,
+    borderColor: colors.action,
+  },
+  change: { ...type.bodyStrong, fontSize: scale.meta, color: colors.actionText },
+
+  suggestions: { marginTop: spacing.sm, paddingVertical: spacing.xs, paddingHorizontal: spacing.md },
+  suggestion: { justifyContent: "center", minHeight: 52, paddingVertical: spacing.sm },
+  suggestionRule: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+  suggestionTitle: { ...type.bodyStrong, fontSize: scale.meta, color: colors.textPrimary, writingDirection: "rtl" },
+  suggestionNote: {
+    ...type.caption,
+    color: colors.textSecondary,
+    textAlign: "right",
+    writingDirection: "rtl",
+    paddingVertical: spacing.md,
+    lineHeight: 18,
+  },
+  fieldNote: { ...type.caption, color: colors.textSecondary, textAlign: "right", writingDirection: "rtl", lineHeight: 18 },
+  error: {
+    ...type.caption,
+    color: colors.statusDanger,
+    textAlign: "right",
+    writingDirection: "rtl",
+    marginBottom: spacing.sm,
+    lineHeight: 18,
+  },
   savedRow: { flexDirection: "row-reverse", alignItems: "center", gap: spacing.md },
   savedIcon: {
     width: 38,

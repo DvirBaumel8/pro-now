@@ -3,7 +3,7 @@ import { Alert, useWindowDimensions, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import * as Location from "expo-location";
 
-import { AddressPickerBody, customerDarkTheme, type LiveLocationState, type SavedAddress } from "@pro-now/ui";
+import { AddressPickerBody, customerDarkTheme, type AddressPickerResult, type LiveLocationState, type SavedAddress } from "@pro-now/ui";
 
 import type { CustomerStackParamList } from "../navigation/types";
 import { api } from "../api/client";
@@ -118,20 +118,30 @@ export function AddressScreen({ route, navigation }: Props) {
   }, []);
 
   const onConfirm = useCallback(
-    (result: { addressId: string | null; typedHe: string }) => {
+    (result: AddressPickerResult) => {
       void (async () => {
         if (sending) return;
         setSending(true);
         try {
-          let addressId = result.addressId;
+          const { choice } = result;
+          let addressId: string;
 
-          if (!addressId) {
+          if (choice.kind === "saved") {
+            addressId = choice.addressId;
+          } else if (choice.kind === "street") {
+            // The server places the street on the map, or refuses it.
+            const { address } = await api.createAddress({
+              kind: "street",
+              localityCode: choice.suggestion.localityCode,
+              streetCode: choice.suggestion.streetCode,
+              houseNumber: choice.houseNumber || undefined,
+              details: choice.detailsHe || undefined,
+            });
+            addressId = address.id;
+          } else {
             /*
-             * A new address needs a coordinate, and the only one we have
-             * without a maps vendor is the device's. Typed text refines
-             * the label — "דירה 4, קומה 2" is exactly the kind of detail a
-             * professional needs and a GPS fix does not carry — but it
-             * cannot stand alone.
+             * The device's own location; the floor and flat the customer
+             * typed are exactly what a GPS fix does not carry.
              */
             if (!liveFix) {
               Alert.alert(
@@ -140,11 +150,11 @@ export function AddressScreen({ route, navigation }: Props) {
               );
               return;
             }
-            const formatted = result.typedHe.trim() || liveFix.labelHe;
             const { address } = await api.createAddress({
-              formatted,
+              kind: "location",
               lat: liveFix.lat,
               lng: liveFix.lng,
+              details: choice.detailsHe || undefined,
             });
             addressId = address.id;
           }

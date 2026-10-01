@@ -14,7 +14,7 @@ test("a failed photo upload says so, and the request can go without it", async (
   await signInByEmail(page, uniqueEmail("e2e-upload-fail"));
   await finishFirstRun(page);
   await page.request.post("/api/v1/me/addresses", {
-    data: { formatted: "הרצל 3, תל אביב", lat: 32.0853, lng: 34.7818 },
+    data: { kind: "location", lat: 32.0853, lng: 34.7818, details: "הרצל 3" },
     headers: { origin: baseURL! },
   });
 

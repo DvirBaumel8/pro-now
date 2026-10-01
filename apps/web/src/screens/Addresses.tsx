@@ -1,6 +1,15 @@
-import { useCallback, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AddressPickerBody, type LiveLocationState, type SavedAddress } from "@pro-now/ui";
+import { useCallback, useEffect, useState } from "react";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ApiError } from "@pro-now/api-client";
+import {
+  AddressPickerBody,
+  SUGGEST_MIN_CHARS,
+  type AddressPickerResult,
+  type AddressSuggestionsState,
+  type LiveLocationState,
+  type SavedAddress,
+} from "@pro-now/ui";
+import type { CreateAddressInput } from "@pro-now/validation";
 import { useNavigate } from "react-router";
 
 import { api } from "../api";
@@ -9,6 +18,8 @@ import { ErrorScreen, LoadingScreen } from "../states";
 import { useFrame } from "../frame";
 
 const addressesKey = ["addresses"] as const;
+/** Long enough to skip the letters of a word being typed, short enough to feel instant. */
+const SUGGEST_DEBOUNCE_MS = 150;
 
 export function Addresses() {
   const { width, height } = useFrame();
@@ -20,20 +31,53 @@ export function Addresses() {
    * as in the demo, not on the request form (docs/DEMO-SYNC.md, 2026-10-01 C3).
    */
   const { target, setTarget } = useOrderTarget();
-  const [selectedId, setSelectedId] = useState<string | null>(target.addressId);
-  const onSiteFor = (addressId: string | null, r: { forSomeoneElse: boolean; recipientNameHe: string; recipientPhone: string }) =>
+  const setOrderTarget = (addressId: string, r: AddressPickerResult) =>
     setTarget({ addressId, onSite: r.forSomeoneElse ? { name: r.recipientNameHe, phone: r.recipientPhone } : null });
-  // The person at home, kept for the address being saved below.
-  const [pendingOnSite, setPendingOnSite] = useState<{ forSomeoneElse: boolean; recipientNameHe: string; recipientPhone: string } | null>(null);
   const [live, setLive] = useState<LiveLocationState>({ status: "idle" });
-  const [liveFix, setLiveFix] = useState<{ lat: number; lng: number; labelHe: string; placeId: string | null } | null>(null);
+  const [liveFix, setLiveFix] = useState<{ lat: number; lng: number } | null>(null);
+  const [errorHe, setErrorHe] = useState<string | null>(null);
+
+  // What the box holds, settled for a moment before the server is asked.
+  const [query, setQuery] = useState("");
+  const [settled, setSettled] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setSettled(query.trim()), SUGGEST_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [query]);
+  const streets = useQuery({
+    queryKey: ["streets", settled],
+    queryFn: () => api.suggestStreets(settled),
+    enabled: settled.length >= SUGGEST_MIN_CHARS,
+    staleTime: Infinity,
+    // The last answer stays up while the next is on its way, as in any maps search box.
+    placeholderData: keepPreviousData,
+  });
+  const typing = query.trim();
+  const suggestionsState: AddressSuggestionsState =
+    typing.length < SUGGEST_MIN_CHARS
+      ? "idle"
+      : streets.isError
+        ? "error"
+        : streets.isFetching || settled !== typing
+          ? "loading"
+          : "ready";
+  const suggestions = typing.length >= SUGGEST_MIN_CHARS ? (streets.data?.suggestions ?? []) : [];
 
   const save = useMutation({
-    mutationFn: api.createAddress,
-    onSuccess: async ({ address }) => {
-      onSiteFor(address.id, pendingOnSite ?? { forSomeoneElse: false, recipientNameHe: "", recipientPhone: "" });
+    mutationFn: ({ input }: { input: CreateAddressInput; result: AddressPickerResult }) => api.createAddress(input),
+    onSuccess: async ({ address }, { result }) => {
+      setOrderTarget(address.id, result);
       await queryClient.invalidateQueries({ queryKey: addressesKey });
       navigate("/", { replace: true });
+    },
+    onError: (error) => {
+      setErrorHe(
+        error instanceof ApiError && error.code === "ADDRESS_NOT_ON_MAP"
+          ? "המפה עוד לא מכירה את הרחוב הזה, ולא נשלח מקצוען לנקודה משוערת. בחרו רחוב אחר בקרבת מקום, או את המיקום שלי עכשיו."
+          : !navigator.onLine
+            ? "אין חיבור לאינטרנט. נסו שוב כשהחיבור יחזור."
+            : "לא הצלחנו לשמור את הכתובת. נסו שוב בעוד רגע."
+      );
     },
   });
 
@@ -51,14 +95,10 @@ export function Addresses() {
     setLive({ status: "asking" });
     navigator.geolocation.getCurrentPosition(
       async ({ coords }) => {
-        try {
-          const { result } = await api.reverseGeocode({ lat: coords.latitude, lng: coords.longitude });
-          const labelHe = result?.formattedAddress ?? "המיקום הנוכחי";
-          setLiveFix({ lat: coords.latitude, lng: coords.longitude, labelHe, placeId: result?.placeId ?? null });
-          setLive({ status: "ready", coarseLabelHe: labelHe });
-        } catch {
-          setLive({ status: "unavailable" });
-        }
+        // The words are only for the card; the server names the place itself when it is saved.
+        const { result } = await api.reverseGeocode({ lat: coords.latitude, lng: coords.longitude }).catch(() => ({ result: null }));
+        setLiveFix({ lat: coords.latitude, lng: coords.longitude });
+        setLive({ status: "ready", coarseLabelHe: result?.formattedAddress ?? "המיקום הנוכחי" });
       },
       (error) => setLive({ status: error.code === error.PERMISSION_DENIED ? "denied" : "unavailable" }),
       { enableHighAccuracy: false, maximumAge: 30_000, timeout: 10_000 }
@@ -71,52 +111,44 @@ export function Addresses() {
   return (
     <AddressPickerBody
       saved={saved}
-      selectedId={resolveAddress(saved, selectedId)?.id ?? null}
+      selectedId={resolveAddress(saved, target.addressId)?.id ?? null}
       liveLocation={live}
       forSomeoneElseEnabled
+      suggestions={suggestions}
+      suggestionsState={suggestionsState}
+      onQueryChange={(text) => {
+        setQuery(text);
+        setErrorHe(null);
+      }}
+      saving={save.isPending}
+      errorHe={errorHe}
       onUseLiveLocation={onUseLiveLocation}
-      onSelect={setSelectedId}
       onBack={() => navigate(-1)}
-      onConfirm={async (r) => {
-        const { addressId, typedHe } = r;
+      onConfirm={(r) => {
         if (save.isPending) return;
-        if (r.forSomeoneElse && !IL_MOBILE.test(r.recipientPhone.trim())) {
-          window.alert("כתבו מספר נייד ישראלי של מי שיהיה בבית — הוא יקבל קישור עם שם המקצוען וקוד לדלת.");
+        setErrorHe(null);
+        if (r.forSomeoneElse && !IL_MOBILE.test(r.recipientPhone)) {
+          setErrorHe("כתבו מספר נייד ישראלי של מי שיהיה בבית — הוא יקבל קישור עם שם המקצוען וקוד לדלת.");
           return;
         }
-        if (addressId) {
-          onSiteFor(addressId, r);
+        const { choice } = r;
+        if (choice.kind === "saved") {
+          setOrderTarget(choice.addressId, r);
           navigate("/", { replace: true });
-          return;
+        } else if (choice.kind === "street") {
+          save.mutate({
+            input: {
+              kind: "street",
+              localityCode: choice.suggestion.localityCode,
+              streetCode: choice.suggestion.streetCode,
+              houseNumber: choice.houseNumber || undefined,
+              details: choice.detailsHe || undefined,
+            },
+            result: r,
+          });
+        } else if (liveFix) {
+          save.mutate({ input: { kind: "location", ...liveFix, details: choice.detailsHe || undefined }, result: r });
         }
-        setPendingOnSite(r);
-
-        const typed = typedHe.trim();
-        let location = liveFix;
-        if (typed) {
-          const { results } = await api.searchAddresses(typed);
-          if (results[0]) {
-            location = {
-              lat: results[0].lat,
-              lng: results[0].lng,
-              labelHe: results[0].formattedAddress,
-              placeId: results[0].placeId,
-            };
-          } else if (!location) {
-            window.alert("לא מצאנו את הכתובת. נסו להוסיף רחוב, מספר ועיר.");
-            return;
-          }
-        }
-        if (!location) {
-          window.alert("בחרו כתובת או הפעילו את המיקום שלי עכשיו.");
-          return;
-        }
-        save.mutate({
-          formatted: typed || location.labelHe,
-          lat: location.lat,
-          lng: location.lng,
-          placeId: location.placeId ?? undefined,
-        });
       }}
       width={width}
       height={height}

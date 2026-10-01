@@ -34,7 +34,7 @@ test("the customer and the professional, two browsers, request to review", async
     const c = await custCtx.newPage();
     await signInByEmail(c, uniqueEmail("e2e-w7-customer"));
     await finishFirstRun(c);
-    await c.request.post("/api/v1/me/addresses", { data: { formatted: "דיזנגוף 50, תל אביב", lat: LAT, lng: LNG }, headers: { origin: baseURL! } });
+    await c.request.post("/api/v1/me/addresses", { data: { kind: "location", lat: LAT, lng: LNG, details: "דיזנגוף 50" }, headers: { origin: baseURL! } });
     await c.getByRole("textbox", { name: "ספרו מה צריך" }).fill("נזילה במטבח");
     await c.getByRole("button", { name: /המשך עם נזילה/ }).click();
     // The service page first, as in the demo; then the form.
@@ -45,7 +45,7 @@ test("the customer and the professional, two browsers, request to review", async
     // The offer reaches her with the server's countdown; she takes it.
     await expect(p.getByText("שניות להחליט")).toBeVisible({ timeout: 15_000 });
     await p.getByRole("button", { name: /^קבלת העבודה/ }).click();
-    await expect(p.getByText("דיזנגוף 50, תל אביב")).toBeVisible();
+    await expect(p.getByText("דיזנגוף 50")).toBeVisible();
 
     // The customer sees who is coming.
     await c.getByRole("button", { name: /^שליחת .* אליי$/ }).click({ timeout: 15_000 });
