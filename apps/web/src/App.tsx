@@ -5,6 +5,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient, useMe } from "./api";
 import { useSession } from "./auth";
 import { Frame } from "./frame";
+import { WithHeader } from "./CustomerHeader";
 import { ErrorScreen, LoadingScreen } from "./states";
 import { Home } from "./screens/Home";
 import { Job } from "./screens/Job";
@@ -77,7 +78,7 @@ export function App() {
             <Route path="/avatar" element={<SignedIn><Avatar /></SignedIn>} />
             <Route path="/addresses" element={<SignedIn><Addresses /></SignedIn>} />
             <Route path="/world" element={<SignedIn><FirstRun><World /></FirstRun></SignedIn>} />
-            <Route path="/jobs/:id" element={<SignedIn><Job /></SignedIn>} />
+            <Route path="/jobs/:id" element={<SignedIn><WithHeader><Job /></WithHeader></SignedIn>} />
             {/* The professional's side (docs/21 W7). */}
             <Route path="/pro" element={<SignedIn><ProHome /></SignedIn>} />
             <Route path="/pro/join" element={<SignedIn><ProJoin /></SignedIn>} />

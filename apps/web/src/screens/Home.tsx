@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { View } from "react-native";
-import { useNavigate, useSearchParams } from "react-router";
+import { useLocation, useNavigate, useSearchParams } from "react-router";
 import {
   ActiveJobCapsule,
   AppHeader,
@@ -18,21 +18,20 @@ import {
   matchServicesByText,
   pilotServiceById,
 } from "@pro-now/ui";
-import { avatarById, categoryAsksForPerson, customerCategoryById, greetingAt, type CatalogServiceDef } from "@pro-now/types";
+import { categoryAsksForPerson, customerCategoryById, greetingAt, type CatalogServiceDef } from "@pro-now/types";
 
 import { api, useMe } from "../api";
 import { servicesForCategory } from "../categories";
 import { shortAddressHe } from "../addressLabel";
 import { signOutHere } from "../auth";
-import { CityHero } from "../art/CityHero";
+import { CityHero, TradeBackdrop } from "../art/CityHero";
 import { worldSources } from "../art/worldSources";
+import { HEADER_H, useAvatarUri } from "../CustomerHeader";
 import { useFrame } from "../frame";
 import { useWebMediaCapture } from "../useWebMediaCapture";
 import { inboxKey } from "../useUserChannel";
 import { RequestComposer } from "./RequestComposer";
 
-/** The header's own height in the demo's customer shell (`UTIL`). */
-const HEADER_H = 56;
 
 /**
  * The customer's side: the demo's shell (header, then the body under it)
@@ -60,7 +59,9 @@ export function Home() {
   const { width, height } = useFrame();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [tab, setTab] = useState<Tab>("home");
+  // The job screens' header opens this menu (WithHeader).
+  const location = useLocation();
+  const [tab, setTab] = useState<Tab>((location.state as { menu?: boolean } | null)?.menu ? "menu" : "home");
   /*
    * A chosen service opens its page first, then the request form — the
    * demo's order (service → describe). `composing` is the second step.
@@ -83,8 +84,7 @@ export function Home() {
   const me = useMe();
   const media = useWebMediaCapture();
   /* The face they chose, in the header, as in the demo; the glyph if none. */
-  const chosen = avatarById(me.data?.customer?.avatarId ?? null);
-  const avatarUri = chosen ? ((worldSources[chosen.portraitAssetId] as { uri?: string } | undefined)?.uri ?? null) : null;
+  const avatarUri = useAvatarUri();
   /*
    * A job still in progress is one tap away from home, after a reload or in
    * a new tab (docs/21 W6). Closed and cancelled jobs are history, not a
@@ -205,9 +205,7 @@ export function Home() {
           />
         ) : category ? (
           <CategoryBody
-            // The home's own street rather than the demo's per-trade scene,
-            // which the web does not have.
-            backdrop={<CityHero />}
+            backdrop={<TradeBackdrop department={category.faceDepartment} />}
             category={category}
             services={servicesForCategory(category, HOME_SERVICES).map((s) => ({
               id: s.id,
