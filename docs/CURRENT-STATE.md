@@ -115,6 +115,13 @@ Screenshots go to `qa/out/`.
 ## 5. Decisions and recent work (details in `docs/18-ROADMAP.md`)
 
 **Recent decisions**
+- **Demo, 2026-10-01 (Amit's track), published as one version before a live presentation:**
+  - Professional's join: free text recognises the trade, with autocomplete. Prices are his own and every line is editable. The join ends in his own shop: his sign with PRO NOW above his name, in his colour.
+  - Identity check: ID card, then face straight/right/left, then a match. Without it and the required documents nobody is approved for work.
+  - Customers find his shop by searching inside the 3D city. Every customer back button now goes back.
+  - Ordered for someone else: even a repair is quoted in the app (photo plus written findings) to the person who ordered, who approves and pays there. The person at home only gets SMS: the door code, then "עמית אישר ושילם".
+  - The customer's name is עמית.
+  - Details are in `docs/18-ROADMAP.md` (2026-10-01 entries).
 - **W10 (Dvir's track, 2026-09-30):** hardening. Security headers and CSP, logs without personal data, a body limit, every route swept with garbage input, audited dependencies in CI, `/api/health` + `/api/ready`, a Neon runbook, a tested backup restore, and the whole e2e suite green on the production build (now a CI job). That run found two production-only bugs, both fixed: Safari never loading an http production build, and one sign-in bucket shared by every visitor. Render now needs `TRUST_PROXY_HOPS=3` (measured; in `render.yaml`) and, on Neon, `DIRECT_DATABASE_URL`. See `docs/reports/W10.md`.
 - **W9 (Dvir's track, 2026-09-30):** live channels (offers reach professionals instantly; the customer's ETA moves), an inbox, email through an outbox, and Web Push with our own VAPID keys (set `VAPID_*` on Render to turn push on). See `docs/reports/W9.md`.
 - **W8 (Dvir's track, 2026-09-30):** the admin at `/admin` in the web app: applications (account, licences, each service), the job inspector, users and roles, market switches, match feedback and usage. Every change audited; every admin route closed to non-admins. See `docs/reports/W8.md`.

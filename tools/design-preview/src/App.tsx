@@ -1759,9 +1759,15 @@ function pickIdPhoto(): Promise<{ uri: string; name: string } | null> {
     input.type = "file";
     input.accept = "image/*";
     input.setAttribute("capture", "environment");
+    /* In the page, not floating: iPhone Safari sometimes drops the choice of a picker that is not
+       attached to the document — the photo "did not load" (Amit, 2026-10-01). */
+    input.style.position = "fixed";
+    input.style.left = "-9999px";
+    document.body.appendChild(input);
     input.onchange = () => {
       const f = input.files?.[0];
       resolve(f ? { uri: URL.createObjectURL(f), name: f.name } : null);
+      input.remove();
     };
     input.click();
   });
@@ -1772,9 +1778,15 @@ function pickLocalFile(): Promise<{ uri: string; name: string } | null> {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = "image/*,application/pdf";
+    /* In the page, not floating: iPhone Safari sometimes drops the choice of a picker that is not
+       attached to the document — the photo "did not load" (Amit, 2026-10-01). */
+    input.style.position = "fixed";
+    input.style.left = "-9999px";
+    document.body.appendChild(input);
     input.onchange = () => {
       const f = input.files?.[0];
       resolve(f ? { uri: URL.createObjectURL(f), name: f.name } : null);
+      input.remove();
     };
     input.click();
   });

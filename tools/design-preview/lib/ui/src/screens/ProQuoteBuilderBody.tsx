@@ -174,6 +174,7 @@ export function ProQuoteBuilderBody({
   const [photos, setPhotos] = useState<string[]>([]);
   const [voice, setVoice] = useState<{ uri: string; seconds: number } | null>(null);
   const [recording, setRecording] = useState(false);
+  const [micBlocked, setMicBlocked] = useState(false);
   const [recSeconds, setRecSeconds] = useState(0);
   useEffect(() => {
     if (!recording) return;
@@ -187,7 +188,8 @@ export function ProQuoteBuilderBody({
       setRecording(false);
       const v = await voiceRecorder.stop();
       if (v) setVoice(v);
-    } else if (await voiceRecorder.start()) setRecording(true);
+    } else if (await voiceRecorder.start()) { setMicBlocked(false); setRecording(true); }
+    else setMicBlocked(true);
   };
   const showEvidence = Boolean(onPickPhoto || voiceRecorder);
   const [lines, setLines] = useState<QuoteDraftLine[]>(
@@ -523,6 +525,44 @@ export function ProQuoteBuilderBody({
           textAlign="right"
         />
 
+        {showEvidence ? (
+          <>
+            <SectionHeader title="התקלה בתמונות ובקול" colors={colors} />
+            <Text style={styles.evidenceHint}>{forOrderer ? "כדי שיראו מרחוק בדיוק מה ראית." : "כדי שהלקוח יראה מה ראית."}</Text>
+            <View style={styles.evidenceRow}>
+              {photos.map((u) => (
+                <View key={u} style={styles.evidenceThumb}>
+                  <Image source={{ uri: u }} style={{ width: "100%", height: "100%" }} />
+                  {/* Only the small × removes it — tapping the picture used to delete it (Amit). */}
+                  <Pressable onPress={() => setPhotos((p) => p.filter((x) => x !== u))} accessibilityRole="button" accessibilityLabel="הסרת התמונה" hitSlop={6} style={styles.evidenceXBtn}>
+                    <Text style={styles.evidenceX}>×</Text>
+                  </Pressable>
+                </View>
+              ))}
+              {onPickPhoto && photos.length < 4 ? (
+                <Pressable
+                  onPress={async () => {
+                    const u = await onPickPhoto();
+                    if (u) setPhotos((p) => [...p, u]);
+                  }}
+                  accessibilityRole="button"
+                  style={styles.evidenceAdd}
+                >
+                  <Text style={styles.evidenceAddText}>+ צילום התקלה</Text>
+                </Pressable>
+              ) : null}
+            </View>
+            {voiceRecorder ? (
+              <Pressable onPress={toggleRecord} accessibilityRole="button" accessibilityLabel={recording ? "עצירת ההקלטה" : voice ? "הקלטה מחדש" : "הקלטה קולית"} style={[styles.recBtn, recording && styles.recOn]}>
+                <Text style={styles.recText}>
+                  {recording ? `■ עצירה · ${recSeconds} שנ׳` : voice ? `✓ הוקלט · ${voice.seconds} שנ׳ · הקלטה מחדש` : "🎙  הקלטה קולית (לא חובה)"}
+                </Text>
+              </Pressable>
+            ) : null}
+            {micBlocked ? <Text style={styles.evidenceHint}>המיקרופון לא זמין כאן — אפשר להמשיך בלי הקלטה.</Text> : null}
+          </>
+        ) : null}
+
         {usualUpToMinorUnits !== null && usualSampleSize > 0 ? (
           <Text style={styles.usual}>
             עבודות כאלה כאן יצאו בדרך כלל עד{" "}
@@ -561,40 +601,6 @@ export function ProQuoteBuilderBody({
           * customer approves the HASH — so the screen must not imply its
           * own total is the contract.
           */}
-        {showEvidence ? (
-          <>
-            <SectionHeader title="התקלה בתמונות ובקול" colors={colors} />
-            <Text style={styles.evidenceHint}>{forOrderer ? "כדי שיראו מרחוק בדיוק מה ראית." : "כדי שהלקוח יראה מה ראית."}</Text>
-            <View style={styles.evidenceRow}>
-              {photos.map((u) => (
-                <Pressable key={u} onPress={() => setPhotos((p) => p.filter((x) => x !== u))} accessibilityRole="button" accessibilityLabel="הסרת התמונה" style={styles.evidenceThumb}>
-                  <Image source={{ uri: u }} style={{ width: "100%", height: "100%" }} />
-                  <Text style={styles.evidenceX}>×</Text>
-                </Pressable>
-              ))}
-              {onPickPhoto && photos.length < 4 ? (
-                <Pressable
-                  onPress={async () => {
-                    const u = await onPickPhoto();
-                    if (u) setPhotos((p) => [...p, u]);
-                  }}
-                  accessibilityRole="button"
-                  style={styles.evidenceAdd}
-                >
-                  <Text style={styles.evidenceAddText}>+ צילום התקלה</Text>
-                </Pressable>
-              ) : null}
-            </View>
-            {voiceRecorder ? (
-              <Pressable onPress={toggleRecord} accessibilityRole="button" accessibilityLabel={recording ? "עצירת ההקלטה" : voice ? "הקלטה מחדש" : "הקלטה קולית"} style={[styles.recBtn, recording && styles.recOn]}>
-                <Text style={styles.recText}>
-                  {recording ? `● מקליט… ${recSeconds} שנ׳ · עצירה` : voice ? `✓ הקלטה · ${voice.seconds} שנ׳ · הקלטה מחדש` : "הקלטה: מה מצאתי ומה צריך לעשות"}
-                </Text>
-              </Pressable>
-            ) : null}
-          </>
-        ) : null}
-
         {includesVisitFee ? (
           <Text style={styles.serverNote}>דמי הביקור כלולים בהצעה: אם הלקוח יאשר, זה כל מה שישולם על העבודה.</Text>
         ) : null}
@@ -631,7 +637,8 @@ const styles = StyleSheet.create({
   evidenceHint: { color: colors.textSecondary, fontSize: scale.meta, textAlign: "right", writingDirection: "rtl", marginHorizontal: spacing.lg, marginTop: -4 },
   evidenceRow: { flexDirection: "row-reverse", flexWrap: "wrap", gap: spacing.sm, marginHorizontal: spacing.lg, marginTop: spacing.sm },
   evidenceThumb: { width: 72, height: 72, borderRadius: radii.md, overflow: "hidden" },
-  evidenceX: { position: "absolute", top: 2, left: 6, color: "#fff", fontSize: scale.body, fontWeight: "900" },
+  evidenceXBtn: { position: "absolute", top: 4, left: 4, width: 24, height: 24, borderRadius: 12, backgroundColor: "rgba(0,0,0,0.6)", alignItems: "center", justifyContent: "center" },
+  evidenceX: { color: "#fff", fontSize: scale.meta, fontWeight: "900", lineHeight: 16 },
   evidenceAdd: { minWidth: 120, height: 72, borderRadius: radii.md, borderWidth: 1.5, borderStyle: "dashed", borderColor: "rgba(247,243,250,0.35)", alignItems: "center", justifyContent: "center", paddingHorizontal: spacing.md },
   evidenceAddText: { color: colors.textPrimary, fontSize: scale.meta, fontWeight: "800" },
   recBtn: { marginHorizontal: spacing.lg, marginTop: spacing.sm, minHeight: 48, borderRadius: radii.md, backgroundColor: "rgba(255,255,255,0.08)", alignItems: "center", justifyContent: "center", paddingHorizontal: spacing.md },
