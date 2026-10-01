@@ -29,7 +29,7 @@ try {
   await press(/^הדמות של המקצוע/); await shot('photo'); await press(/^המשך$/);
   await shot('summary'); await press(/^שליחה לאישור/);
   await p.waitForTimeout(4500); await shot('sent');
-  await press(/אישור החשבון/); await p.waitForTimeout(2600); await shot('shop_open');
+  await p.waitForTimeout(8500); await shot('shop_open');
   await press(/^להתחיל משמרת/); await p.waitForTimeout(1500); await shot('approved');
   console.log('OK', errs.join(' | '));
 } catch (e) { console.log('FAIL', String(e).slice(0, 300), errs.join(' | ')); await shot('fail'); }

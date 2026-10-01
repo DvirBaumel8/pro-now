@@ -8,8 +8,8 @@ await press(/^אני בעל מקצוע/); await p.getByLabel('מספר טלפו�
 await press(/^דילוג על ההסבר/);
 await press(/^מתחילים$/); await p.getByLabel('תיאור חופשי של העבודה שלך').fill('נגר'); await p.waitForTimeout(600); await press(/^המשך$/);
 await p.getByLabel('שם מלא').fill('אבי נגר'); await press(/^עוסק פטור$/); await p.getByLabel('עיר הבסיס').fill('חיפה'); await press(/^המשך$/);
-await press(/^דילוג \(הדגמה\)/); await press(/^המשך$/); await press(/^המשך$/); await press(/^דילוג \(הדגמה\)/) || await press(/^המשך$/);
-await press(/^שליחה לאישור/); await p.waitForTimeout(3000); await press(/אישור החשבון/); await p.waitForTimeout(2500); await press(/^להתחיל משמרת/); await p.waitForTimeout(2000);
+await press(/^אחר כך$/); await press(/^המשך$/); await press(/^המשך$/); await press(/^אחר כך$/) || await press(/^המשך$/);
+await press(/^שליחה לאישור/); await p.waitForTimeout(3000); await p.waitForTimeout(8500); await press(/^להתחיל משמרת/); await p.waitForTimeout(2000);
 await press(/קריאה לדוגמה/); await p.waitForTimeout(1000);
 console.log('call on screen:', (await p.locator('text=קריאה חדשה').count()) > 0);
 await p.waitForTimeout(61_000); await p.screenshot({ path: 'out/missed_1.png' });

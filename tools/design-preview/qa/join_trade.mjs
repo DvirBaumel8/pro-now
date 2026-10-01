@@ -16,12 +16,12 @@ try {
   await press(/לכתוב במילים/); await p.getByLabel('תיאור חופשי של העבודה שלך').pressSequentially(ABOUT, { delay: 40 }); await shot('what');
   if (!(await press(/^המשך$/))) throw new Error('could not continue from "what"');
   await p.getByLabel('שם מלא').fill(NAME); await press(/^עוסק פטור$/); await p.getByLabel('עיר הבסיס').fill('חיפה'); await shot('details'); await press(/^המשך$/);
-  await shot('docs'); if (!(await press(/^דילוג \(הדגמה\)/))) throw new Error('no docs skip');
+  await shot('docs'); if (!(await press(/^אחר כך$/))) throw new Error('no docs skip');
   await shot('prices'); if (!(await press(/^המשך$/))) throw new Error('prices blocked');
   await shot('shop'); await press(/^המשך$/);
-  await shot('photo'); if (!(await press(/^דילוג \(הדגמה\)/))) await press(/^המשך$/);
+  await shot('photo'); if (!(await press(/^אחר כך$/))) await press(/^המשך$/);
   await shot('summary'); await press(/^שליחה לאישור/); await p.waitForTimeout(3500); await shot('sent');
-  await press(/אישור החשבון/); await p.waitForTimeout(2500); await shot('shop_open');
+  await p.waitForTimeout(8500); await shot('shop_open');
   await press(/^להתחיל משמרת/); await p.waitForTimeout(1500); await press(/^סגירה$|^הבנתי/); await shot('shift'); await press(/^סיום משמרת$/); await p.waitForTimeout(1200); await shot('shift_off'); await press(/^התחלת משמרת$/); await p.waitForTimeout(2200); await shot('shift_on');
   await press(/^התחלת משמרת/); await p.waitForTimeout(1000); await shot('online');
   await press(/קריאה לדוגמה/); await p.waitForTimeout(1500); await shot('offer');

@@ -794,6 +794,8 @@ export function App() {
   /* Who joined on this device, as he described himself — the pro app is his. */
   const [joinedPro, setJoinedPro] = useState<OnboardingResult | null>(() => loadSession()?.joinedPro ?? null);
   const startShiftOnEnter = useRef(false);
+  /* Whether the professional who joined is on shift — the customer side finds his shop only then. */
+  const [joinedOnline, setJoinedOnline] = useState(false);
   /* The professional's own prices, as he set them — what the customer is shown. */
   const [proPrices, setProPrices] = useState<{ byService: Record<string, number | null>; afterHoursPct: number | null }>({ byService: {}, afterHoursPct: null });
   /* A price agreed before he came (fixed/hourly): it is the job's total. */
@@ -1087,6 +1089,7 @@ export function App() {
             services={ONBOARD_SERVICES}
             matchRules={catalogMatchRules}
             fields={ONBOARD_FIELDS}
+            editing={Boolean(gate.approved)}
             shopFor={onboardShopFor}
             onPickFile={pickLocalFile}
             extractColor={dominantColor}
@@ -1121,6 +1124,7 @@ export function App() {
             result={gate.result}
             facadeUri={onboardShopFor(gate.result.serviceIds[0] ?? null).facadeUri}
             onDesign={gate.result.shopSkipped ? () => setGate({ name: "onboard", initial: gate.result, startStep: 5, approved: true }) : undefined}
+            onEdit={() => setGate({ name: "onboard", initial: gate.result, startStep: 7, approved: true })}
             onStart={() => {
               /* "להתחיל משמרת" starts the shift — it used to land offline. */
               startShiftOnEnter.current = true;
@@ -1170,6 +1174,7 @@ export function App() {
           />
         ) : side === "customer" ? (
           <CustomerApp
+            ownPro={joinedPro && joinedOnline ? joinedPro : null}
             width={w}
             height={h - bannerH}
             onSwitch={() => switchTo("pro")}
@@ -1257,6 +1262,9 @@ export function App() {
             onToggleRealMap={() => setRealMap((r) => !r)}
           />
         ) : (
+          /* His app opens slowly, as a reveal rather than a cut (Amit: "שיפתח המסך של המקצוען לאט באפקט מעניין"). */
+          <div style={{ width: w, height: h - bannerH, animation: "pnProIn .9s cubic-bezier(.2,.7,.2,1) both" }}>
+            <style>{"@keyframes pnProIn{from{opacity:0;transform:scale(1.04);filter:blur(6px)}to{opacity:1;transform:none;filter:none}}"}</style>
           <ProApp
             geo={geo}
             width={w}
@@ -1305,6 +1313,8 @@ export function App() {
             onAvailableAtChange={setProAvailableAt}
             selfNameHe={joinedPro ? joinedPro.nameHe.trim().split(/\s+/)[0] || proName : proName}
             joined={joinedPro}
+            onOnlineChange={setJoinedOnline}
+            onEditJoin={joinedPro ? () => setGate({ name: "onboard", initial: joinedPro, startStep: 7, approved: true }) : undefined}
             startShift={startShiftOnEnter.current}
             onShiftStarted={() => { startShiftOnEnter.current = false; }}
             onPricesChange={setProPrices}
@@ -1326,6 +1336,7 @@ export function App() {
               switchTo("customer");
             }}
           />
+          </div>
         )}
         </ScreenTransition>
         </View>
@@ -1507,11 +1518,29 @@ function onboardShopFor(serviceId: string | null): { facadeUri: string; characte
   /* A trade with its own house in the street stands in front of it — the vet
      has a clinic, not the pet shop (Amit, joining as a vet, 2026-09-30). */
   const own: Record<string, string> = { "svc-vet": "vet", "svc-nails": "nails" };
-  const shop = (serviceId && own[serviceId]) || (dept && DEPT_SHOP[dept]) || "home";
+  /* No service of ours (only his own new one): the general shop, never plumbing. */
+  const shop = (serviceId && own[serviceId]) || (dept && DEPT_SHOP[dept]) || "help";
   const drawn = ["appliance", "auto", "build", "care", "hair", "help", "home", "move", "pets", "tech", "well"];
   /* An electrician is not the plumber with a wrench: the tool-belt technician stands in. */
   const figure = serviceId && /svc-(electric|socket|alarm|solar)/.test(serviceId) ? "appliance" : shop;
   return { facadeUri: `./world/m/shop_${shop}.webp`, characterUri: `./world/character_${drawn.includes(figure) ? figure : "home"}_icon.webp` };
+}
+/*
+ * HIM, AT HIS OWN DOOR.
+ *
+ * Amit: *"שיהיה פה גם הדמות שבחר או הדמות האמיתית שלו."* A real photo is
+ * shown as a round portrait at the doorway; without one, his trade's drawn
+ * character stands there.
+ */
+function AtTheDoor({ result, color }: { result: OnboardingResult; color: string }) {
+  if (result.photoUri)
+    return <img src={result.photoUri} alt="" style={{ position: "absolute", left: "50%", bottom: "6%", width: 72, height: 72, marginLeft: 26, borderRadius: 36, objectFit: "cover", border: `3px solid ${color}`, boxShadow: `0 0 18px ${color}` }} />;
+  return <img src={onboardShopFor(result.serviceIds[0] ?? null).characterUri.replace("_icon.", "_world.")} alt="" style={{ position: "absolute", left: "50%", bottom: 0, height: "40%", marginLeft: 18, filter: "drop-shadow(0 10px 14px rgba(0,0,0,.55))" }} />;
+}
+/* Which house in our street is his: the shop of his first trade. */
+function ownShopId(r: OnboardingResult): string {
+  const m = onboardShopFor(r.serviceIds[0] ?? null).facadeUri.match(/shop_([a-z]+)\.webp/);
+  return m?.[1] ?? "help";
 }
 /* The device's own picker: a photo, a scan or a PDF — nothing leaves the phone in the demo. */
 function pickLocalFile(): Promise<{ uri: string; name: string } | null> {
@@ -1571,7 +1600,27 @@ function OnboardSent({ shopNameHe, color, onEdit, onApprove, width, height }: { 
     a.start();
     return () => a.stop();
   }, [pulse]);
-  const state = (i: number) => (i === 0 ? "התקבלו" : i === 1 ? "בתור לבדיקה" : "ממתין");
+  /*
+   * THE REVIEW MOVES BY ITSELF.
+   *
+   * Amit: *"למה הדגמה לא חלק מהאופציה? אני רוצה שהכל יעבוד."* The approval
+   * waited on a "(הדגמה)" button. Now each check completes in turn and the
+   * shop opens on its own. (In the product a person at PRO NOW approves; the
+   * demo plays that wait in a few seconds.)
+   */
+  const [at, setAt] = useState(1);
+  /* The handler is a fresh arrow on every render of the shell; a ref keeps the timers from restarting. */
+  const approve = useRef(onApprove);
+  approve.current = onApprove;
+  useEffect(() => {
+    if (at > APPROVAL_STEPS_HE.length) {
+      const t = setTimeout(() => approve.current(), 900);
+      return () => clearTimeout(t);
+    }
+    const t = setTimeout(() => setAt((n) => n + 1), 1500);
+    return () => clearTimeout(t);
+  }, [at]);
+  const state = (i: number) => (i < at ? "✓ עבר" : i === at ? "בבדיקה…" : "ממתין");
   return (
     <View style={{ width, height, backgroundColor: "#0F0B17" }}>
       <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 64 }}>
@@ -1580,28 +1629,26 @@ function OnboardSent({ shopNameHe, color, onEdit, onApprove, width, height }: { 
         </View>
         <Text style={{ color: "#fff", fontSize: scale.title, fontWeight: "900", textAlign: "center" }}>הבקשה נשלחה</Text>
         <Text style={{ color: "rgba(247,243,250,0.75)", fontSize: scale.body, textAlign: "center", marginTop: 6, marginBottom: 26 }}>
-          {shopNameHe ? `״${shopNameHe}״ כמעט ברחוב.` : "החנות שלך כמעט ברחוב."} נעדכן אותך בהודעה.
+          {at > APPROVAL_STEPS_HE.length ? "אושר! פותחים את החנות…" : shopNameHe ? `״${shopNameHe}״ כמעט ברחוב.` : "החנות שלך כמעט ברחוב."}
         </Text>
         {APPROVAL_STEPS_HE.map((t, i) => (
           <View key={t} style={{ flexDirection: "row-reverse", alignItems: "center", gap: 12, paddingVertical: 10 }}>
             <View style={{ width: 30, height: 30, alignItems: "center", justifyContent: "center" }}>
-              {i === 1 ? (
+              {i === at ? (
                 <Animated.View style={{ position: "absolute", width: 30, height: 30, borderRadius: 15, borderWidth: 2, borderColor: "#FF9A6B", opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.8, 0] }), transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.7] }) }] }} />
               ) : null}
-              <View style={{ width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center", backgroundColor: i === 0 ? "#2FBF8A" : i === 1 ? "#FF5C38" : "rgba(255,255,255,0.1)" }}>
-                <Text style={{ color: "#fff", fontSize: scale.meta, fontWeight: "900" }}>{i === 0 ? "✓" : i + 1}</Text>
+              <View style={{ width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center", backgroundColor: i < at ? "#2FBF8A" : i === at ? "#FF5C38" : "rgba(255,255,255,0.1)" }}>
+                <Text style={{ color: "#fff", fontSize: scale.meta, fontWeight: "900" }}>{i < at ? "✓" : i + 1}</Text>
               </View>
             </View>
-            <Text style={{ flex: 1, color: i < 2 ? "#fff" : "rgba(247,243,250,0.62)", fontSize: scale.meta, fontWeight: "700", textAlign: "right" }}>{t}</Text>
-            <Text style={{ color: i === 0 ? "#2FBF8A" : i === 1 ? "#FFB08A" : "rgba(247,243,250,0.5)", fontSize: scale.micro, fontWeight: "800" }}>{state(i)}</Text>
+            <Text style={{ flex: 1, color: i <= at ? "#fff" : "rgba(247,243,250,0.62)", fontSize: scale.meta, fontWeight: "700", textAlign: "right" }}>{t}</Text>
+            <Text style={{ color: i < at ? "#2FBF8A" : i === at ? "#FFB08A" : "rgba(247,243,250,0.5)", fontSize: scale.micro, fontWeight: "800" }}>{state(i)}</Text>
           </View>
         ))}
-        <Text style={{ color: "rgba(247,243,250,0.62)", fontSize: scale.micro, textAlign: "right", marginTop: 16 }}>עבודות מגיעות רק אחרי אישור PRO NOW.</Text>
         <Pressable onPress={onEdit} accessibilityRole="button" style={{ alignSelf: "center", minHeight: 44, justifyContent: "center", marginTop: 18, paddingHorizontal: 16 }}>
           <Text style={{ color: "#FF9A6B", fontSize: scale.meta, fontWeight: "800" }}>עריכת הפרטים</Text>
         </Pressable>
       </View>
-      <DemoBar label="אישור החשבון (הדגמה)" onPress={onApprove} width={width} />
     </View>
   );
 }
@@ -1610,7 +1657,7 @@ function OnboardSent({ shopNameHe, color, onEdit, onApprove, width, height }: { 
  * THE SHOP OPENS — the moment approval lands. His facade, his sign lighting
  * letter by letter in his colour, one line, one button (design review).
  */
-function ShopOpen({ result, facadeUri, onStart, onDesign, width, height }: { result: OnboardingResult; facadeUri: string; onStart: () => void; onDesign?: () => void; width: number; height: number }) {
+function ShopOpen({ result, facadeUri, onStart, onDesign, onEdit, width, height }: { result: OnboardingResult; facadeUri: string; onStart: () => void; onDesign?: () => void; onEdit?: () => void; width: number; height: number }) {
   const name = result.shopNameHe || result.nameHe || "החנות שלך";
   const [lit, setLit] = useState(0);
   useEffect(() => {
@@ -1623,6 +1670,7 @@ function ShopOpen({ result, facadeUri, onStart, onDesign, width, height }: { res
       <style>{"@keyframes pnFlick{0%,100%{opacity:1}40%{opacity:.35}45%{opacity:1}70%{opacity:.6}72%{opacity:1}}@keyframes pnRise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}"}</style>
       <div style={{ position: "relative", width: "100%", height: Math.round(height * 0.52), overflow: "hidden", background: "radial-gradient(120% 90% at 50% 25%, #3A2166 0%, #160F26 70%)" }}>
         <img src={facadeUri} alt="" style={{ position: "absolute", left: "50%", bottom: 0, transform: "translateX(-50%)", height: "88%" }} />
+        <AtTheDoor result={result} color={c} />
         <div style={{ position: "absolute", left: "50%", top: "22%", transform: "translateX(-50%)", display: "flex", alignItems: "center", gap: 10, padding: "8px 18px", borderRadius: 14, border: `2px solid ${c}`, background: "rgba(10,6,18,.88)", boxShadow: `0 0 26px ${c}`, direction: "rtl", whiteSpace: "nowrap" }}>
           {result.logoUri ? <img src={result.logoUri} alt="" style={{ width: 34, height: 34, borderRadius: 17, objectFit: "cover" }} /> : null}
           <span style={{ fontSize: scale.section, fontWeight: 900, color: "#fff" }} aria-label={name}>
@@ -1641,11 +1689,18 @@ function ShopOpen({ result, facadeUri, onStart, onDesign, width, height }: { res
           הקריאות מגיעות במשמרת, לפי המיקום שלך.
         </div>
       </div>
-      {onDesign ? (
-        <Pressable onPress={onDesign} accessibilityRole="button" style={{ position: "absolute", bottom: 96, minHeight: 44, justifyContent: "center", paddingHorizontal: 16 }}>
-          <Text style={{ color: "#FF9A6B", fontSize: scale.meta, fontWeight: "800" }}>לעצב את החנות — לוגו, צבעים ושלט</Text>
-        </Pressable>
-      ) : null}
+      <View style={{ position: "absolute", bottom: 92, flexDirection: "row-reverse", gap: 18 }}>
+        {onDesign ? (
+          <Pressable onPress={onDesign} accessibilityRole="button" style={{ minHeight: 44, justifyContent: "center", paddingHorizontal: 8 }}>
+            <Text style={{ color: "#FF9A6B", fontSize: scale.meta, fontWeight: "800" }}>לעצב את החנות</Text>
+          </Pressable>
+        ) : null}
+        {onEdit ? (
+          <Pressable onPress={onEdit} accessibilityRole="button" style={{ minHeight: 44, justifyContent: "center", paddingHorizontal: 8 }}>
+            <Text style={{ color: "#FF9A6B", fontSize: scale.meta, fontWeight: "800" }}>עריכת הפרטים</Text>
+          </Pressable>
+        ) : null}
+      </View>
       <Pressable onPress={onStart} accessibilityRole="button" style={({ pressed }) => ({ position: "absolute", left: 24, right: 24, bottom: 28, height: 56, borderRadius: 28, alignItems: "center", justifyContent: "center", backgroundColor: "#FF5C38", transform: [{ scale: pressed ? 0.98 : 1 }] })}>
         <Text style={{ color: "#fff", fontSize: scale.body, fontWeight: "900" }}>להתחיל משמרת</Text>
       </Pressable>
@@ -1669,8 +1724,9 @@ function ShiftStorefront({ result, online }: { result: OnboardingResult; online:
   return (
     <div aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden", background: "radial-gradient(120% 90% at 50% 20%, #3A2166 0%, #160F26 72%)" }}>
       <style>{"@keyframes pnSignBreathe{0%,100%{opacity:1}50%{opacity:.78}}"}</style>
-      <img src={CITY_BG.src} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: CITY_BG.pos, opacity: 0.35, filter: "blur(2px)" }} />
-      <div style={{ position: "absolute", left: "50%", bottom: 0, height: "90%", transform: "translateX(-50%)", filter: online ? "none" : "brightness(.55) saturate(.7)", transition: "filter .6s ease-out" }}>
+      {/* Quieter than before (Amit: "יותר נעים לעין, שלא לוקח פוקוס"): a softer city, the shop a touch dimmer. */}
+      <img src={CITY_BG.src} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: CITY_BG.pos, opacity: 0.22, filter: "blur(3px)" }} />
+      <div style={{ position: "absolute", left: "50%", bottom: 0, height: "88%", transform: "translateX(-50%)", filter: online ? "brightness(.88) saturate(.9)" : "brightness(.5) saturate(.6)", transition: "filter .6s ease-out" }}>
         <img src={facade} alt="" style={{ height: "100%", display: "block" }} />
         {/* The shutter over the shopfront: down off shift, rolled up on it. */}
         <div
@@ -1683,6 +1739,7 @@ function ShiftStorefront({ result, online }: { result: OnboardingResult; online:
           }}
         />
       </div>
+      {online ? <AtTheDoor result={result} color={c} /> : null}
       <div style={{ position: "absolute", left: "50%", top: "26%", transform: "translateX(-50%)", display: "flex", alignItems: "center", gap: 8, padding: "6px 14px", borderRadius: 12, border: `2px solid ${c}`, background: "rgba(10,6,18,.88)", boxShadow: online ? `0 0 24px ${c}` : "none", direction: "rtl", whiteSpace: "nowrap", opacity: online ? 1 : 0.55, transition: "opacity .4s .5s, box-shadow .4s .5s", animation: online ? "pnSignBreathe 2.4s ease-in-out 1.2s infinite" : undefined }}>
         {result.logoUri ? <img src={result.logoUri} alt="" style={{ width: 26, height: 26, borderRadius: 13, objectFit: "cover" }} /> : null}
         <span style={{ fontSize: scale.body, fontWeight: 900, color: "#fff", textShadow: online ? `0 0 10px ${c}` : "none" }}>{name}</span>
@@ -1702,6 +1759,7 @@ interface CustomerMemory {
 }
 
 function CustomerApp({
+  ownPro = null,
   width,
   height,
   onSwitch,
@@ -1793,6 +1851,8 @@ function CustomerApp({
   proAvailableAtMs?: number | null;
   /** The name of the professional the customer accepted, for the other side. */
   onProName?: (name: string | null) => void;
+  /** The professional who opened his shop in this demo, while he is on shift. */
+  ownPro?: OnboardingResult | null;
   /** The professional the customer accepted, kept by the shell across side switches. */
   acceptedProName?: string | null;
   proPrices?: { byService: Record<string, number | null>; afterHoursPct: number | null };
@@ -3474,20 +3534,25 @@ const go = useCallback((r: CustomerRoute) => {
          */
         /* The name follows the drawn figure standing in that shop, so a
            card never says "מאיה" over a man in overalls. */
+        /* His own shop answers first when he does this and is on shift. */
+        const his = Boolean(ownPro && ownPro.serviceIds.includes(route.serviceId));
         const shopOf = (i: number) => {
+          if (his && i === 0) return ownShopId(ownPro!);
           const d = departmentCodeByServiceId[route.serviceId] ?? "";
           const l = DEPT_SHOPS[d] ?? [DEPT_SHOP[d] ?? "home"];
           return l[i % l.length]!;
         };
 
         const namesFor = (i: number) =>
-          (FEMALE_FIGURE.has(shopOf(i)) ? [...FEMALE_NAMES_HE] : ["יוסי", "איתי", "רון"])[i % 3]!;
+          his && i === 0
+            ? (ownPro!.nameHe.trim().split(/\s+/)[0] ?? ownPro!.nameHe)
+            : (FEMALE_FIGURE.has(shopOf(i)) ? [...FEMALE_NAMES_HE] : ["יוסי", "איתי", "רון"])[i % 3]!;
         const cands: CandidatePresence[] = demoCandidatesFor(route.serviceId, 3).map((c, i) => ({
           candidateId: `demo-cand-${i}`,
           displayNameHe: `${namesFor(i)}`,
           professionHe: c.headlineHe,
           /* The trade's own drawn professional, so the card has a face. */
-          photoUri: `./world/character_${shopOf(i)}_icon.webp`,
+          photoUri: his && i === 0 ? ownPro!.photoUri ?? onboardShopFor(route.serviceId).characterUri : `./world/character_${shopOf(i)}_icon.webp`,
           /*
            * Carried through from the fixture rather than invented here. A
            * derived candidate has no rating and no jobs, so `matchFactsHe`
@@ -3500,9 +3565,10 @@ const go = useCallback((r: CustomerRoute) => {
            * carries that record here too. The card said "חדש ב-PRO NOW"
            * about a man whose profile says 342 jobs. The others stay new.
            */
-          ratingAverage: i === 0 ? matchFixture.professional.proNowRatingAverage : c.ratingAverage,
-          ratingCount: i === 0 ? matchFixture.professional.proNowRatingCount : c.ratingCount,
-          completedJobs: i === 0 ? matchFixture.professional.proNowCompletedJobs : c.completedJobs,
+          /* He joined today: no rating, no jobs — "חדש ב-PRO NOW", which is true. */
+          ratingAverage: his && i === 0 ? null : i === 0 ? matchFixture.professional.proNowRatingAverage : c.ratingAverage,
+          ratingCount: his && i === 0 ? 0 : i === 0 ? matchFixture.professional.proNowRatingCount : c.ratingCount,
+          completedJobs: his && i === 0 ? 0 : i === 0 ? matchFixture.professional.proNowCompletedJobs : c.completedJobs,
           state:
             route.phase === "SEARCHING"
               ? ("CHECKING" as const)
@@ -4419,6 +4485,28 @@ const go = useCallback((r: CustomerRoute) => {
             availability={snapshot}
             nowMs={Date.now()}
             matchRules={catalogMatchRules}
+            ownShop={
+              ownPro
+                ? {
+                    serviceIds: ownPro.serviceIds,
+                    customHe: ownPro.customServicesHe,
+                    shopNameHe: ownPro.shopNameHe || ownPro.nameHe,
+                    personHe: ownPro.nameHe.trim().split(/\s+/)[0] ?? ownPro.nameHe,
+                    colorHex: ownPro.brandColor,
+                    imageUri: ownPro.photoUri ?? ownPro.logoUri ?? onboardShopFor(ownPro.serviceIds[0] ?? null).characterUri,
+                    tradeHe: [...ownPro.serviceIds.map((id) => SERVICE_PAGES[id]?.nameHe ?? ""), ...ownPro.customServicesHe].filter(Boolean).slice(0, 2).join(" · "),
+                    priceHe: (() => {
+                      const v = Object.values(ownPro.pricesMinorUnits ?? {}).filter((n) => n > 0);
+                      return v.length ? `מ־${formatMoney(money(Math.min(...v), "ILS"))}` : null;
+                    })(),
+                    onOpen: (id) => {
+                      const sid = id ?? ownPro.serviceIds[0] ?? null;
+                      if (sid && SERVICE_PAGES[sid]) go({ name: "service", serviceId: sid });
+                    },
+                    onStreet: () => go({ name: "city", enterShopId: ownShopId(ownPro) }),
+                  }
+                : null
+            }
             injectedText={dictated}
             photoMatch={photoMatch}
             recognising={recognising}
@@ -4630,6 +4718,7 @@ const go = useCallback((r: CustomerRoute) => {
           avatarNo={avatar ? Number(String(avatar).replace(/\D/g, "")) : null}
           trades={cityTrades}
           enterShopId={route.name === "city" ? route.enterShopId ?? null : null}
+          ownShop={ownPro ? { id: ownShopId(ownPro), nameHe: ownPro.shopNameHe || ownPro.nameHe, colorHex: ownPro.brandColor } : null}
           onRequestService={(id) => go({ name: "service", serviceId: id })}
           onExit={() => {
             const from = route.name === "city" ? route.from : undefined;
@@ -4987,6 +5076,8 @@ function ProApp({
   onAvailableAtChange,
   selfNameHe = null,
   joined = null,
+  onOnlineChange,
+  onEditJoin,
   startShift = false,
   onShiftStarted,
   onPricesChange,
@@ -5063,6 +5154,10 @@ function ProApp({
   selfNameHe?: string | null;
   /** The professional who joined on this device: his services, prices and trade. */
   joined?: OnboardingResult | null;
+  /** Back to his details and shop, from inside the app. */
+  onEditJoin?: () => void;
+  /** Tells the shell when he goes on or off shift. */
+  onOnlineChange?: (online: boolean) => void;
   /** Arrived by "להתחיל משמרת": go on shift at once. */
   startShift?: boolean;
   onShiftStarted?: () => void;
@@ -5178,7 +5273,10 @@ function ProApp({
     { id: "d3", nameHe: "פתיחת סתימה בכיור", amountMinorUnits: 30000 },
     { id: "d4", nameHe: "החלפת ברז מטבח", amountMinorUnits: 32000 },
   ]);
-  const joinedIds = joined?.serviceIds.length ? joined.serviceIds : null;
+  /* A professional who joined is always himself — even with only a new
+     service of his own and none of ours ticked. That case used to fall back to
+     the sample plumber: Amit opened a carpentry shop and got plumbing. */
+  const joinedIds = joined ? joined.serviceIds : null;
   /* Approved means approved for what he offers: those services' own credentials. */
   const joinedCreds = joinedIds
     ? ([...new Set([...DEMO_VERIFIED, ...joinedIds.flatMap((id) => pilotServiceById[id]?.requiredCredentials ?? [])])] as Parameters<typeof togglesFor>[0])
@@ -5271,7 +5369,7 @@ function ProApp({
           titleHe: d.nameHe,
           explainHe: d.checkHe,
           state: given ? ("VERIFIED" as const) : ("NOT_STARTED" as const),
-          ...(given ? {} : { actionHe: "דולג בהדגמה." }),
+          ...(given ? {} : { actionHe: "עוד לא הועלה." }),
         };
       })
     : null;
@@ -5309,7 +5407,9 @@ function ProApp({
     offerAt === null &&
     job === null &&
     settled === null &&
-    !(preQuoteSent && !preQuoteApprovedAt);
+    !(preQuoteSent && !preQuoteApprovedAt) &&
+    /* A sample call needs one of his services; never the sample plumber's. */
+    (!joinedIds || joinedIds.length > 0 || Boolean(request));
 
   /*
    * ---------------------------------------------------------------------
@@ -5422,6 +5522,10 @@ function ProApp({
     const t = setTimeout(() => setOfferAt((cur) => (cur === offerAt ? null : cur)), OFFER_SECONDS * 1000 + 4_000);
     return () => clearTimeout(t);
   }, [offerAt]);
+
+  useEffect(() => {
+    onOnlineChange?.(presence !== "OFFLINE" && presence !== "ENDING_SHIFT");
+  }, [presence, onOnlineChange]);
 
   /* When the time he gave comes, he is on shift — nobody has to press it. */
   useEffect(() => {
@@ -5891,9 +5995,17 @@ function ProApp({
        * shown framed, under a line that says whose eyes these are.
        */
       <View style={{ width, height: bodyH, backgroundColor: "#0F0B17" }}>
-        <Text accessibilityRole="header" style={{ color: "#F7F3FA", fontSize: scale.section, fontWeight: "900", textAlign: "right", writingDirection: "rtl", paddingHorizontal: 16, paddingTop: 20, paddingBottom: 12 }}>
-          ככה הלקוחות רואים אותך
-        </Text>
+        <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: 20, paddingBottom: 12 }}>
+          <Text accessibilityRole="header" style={{ color: "#F7F3FA", fontSize: scale.section, fontWeight: "900", textAlign: "right", writingDirection: "rtl" }}>
+            ככה הלקוחות רואים אותך
+          </Text>
+          {/* Amit: "איך אני חוזר לעריכה?" — from here, to the summary of his join. */}
+          {onEditJoin ? (
+            <Pressable onPress={onEditJoin} accessibilityRole="button" accessibilityLabel="עריכת החנות והפרטים" style={{ minHeight: 44, justifyContent: "center", paddingHorizontal: 14, borderRadius: 999, backgroundColor: "#FF6B4A" }}>
+              <Text style={{ color: "#17121F", fontSize: scale.meta, fontWeight: "800" }}>עריכה</Text>
+            </Pressable>
+          ) : null}
+        </View>
         <View style={{ marginHorizontal: 12, borderRadius: 24, overflow: "hidden", borderWidth: 1, borderColor: "rgba(247,243,250,0.18)" }}>
           <ProProfileBody
             /*
@@ -6177,10 +6289,17 @@ function ProApp({
         /* The professional's city is ours, not the old plate — and for one
            who joined, his own shop in it, shutter down or up. */
         backdrop={joined ? <ShiftStorefront result={joined} online={presence !== "OFFLINE" && presence !== "ENDING_SHIFT"} /> : <CityHero />}
-        bandHeight={joined ? 260 : undefined}
+        bandHeight={joined ? 210 : undefined}
         geo={proGeo}
         displayNameHe={selfNameHe ?? "יוסי"}
-        tradeHe={joinedIds ? `${SERVICE_PAGES[joinedIds[0]!]?.nameHe ?? ""}${joinedIds.length > 1 ? ` ועוד ${joinedIds.length - 1}` : ""}` : null}
+        tradeHe={
+          joined
+            ? (() => {
+                const names = [...(joinedIds ?? []).map((id) => SERVICE_PAGES[id]?.nameHe ?? ""), ...joined.customServicesHe].filter(Boolean);
+                return names.length ? `${names[0]}${names.length > 1 ? ` ועוד ${names.length - 1}` : ""}` : null;
+              })()
+            : null
+        }
         onOpenPricing={() => goPro("pricing")}
         presenceState={presence}
         shift={{
@@ -7093,11 +7212,36 @@ function CityHero({ lift = 0 }: { lift?: number }) {
 }
 
 const PRO_LINEUP = ["home", "hair", "auto", "care", "tech", "pets", "appliance", "well", "move"] as const;
+/*
+ * PICTURES ARRIVE TOGETHER, NOT ONE BY ONE.
+ *
+ * Amit: *"הדמויות נטענות לא טוב"* — each figure popped in as its file came,
+ * so a row of people assembled itself in front of him. A group is held until
+ * every file has arrived (or 2.5 seconds have passed), then it rises in as one.
+ */
+function useAllLoaded(urls: readonly string[]): boolean {
+  const [ready, setReady] = useState(false);
+  const key = urls.join("|");
+  useEffect(() => {
+    let left = urls.length;
+    let live = true;
+    const done = () => { if (live && --left <= 0) setReady(true); };
+    urls.forEach((u) => { const im = new window.Image(); im.onload = done; im.onerror = done; im.src = u; });
+    const t = setTimeout(() => live && setReady(true), 2500);
+    return () => { live = false; clearTimeout(t); };
+    // eslint-disable-next-line
+  }, [key]);
+  return ready;
+}
+const ARRIVE_CSS = "@keyframes pnArrive{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}";
+
 function ProsLineup() {
+  const ready = useAllLoaded(PRO_LINEUP.map((id) => `./world/character_${id}_world.webp`));
   return (
     <div aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden", background: "radial-gradient(120% 70% at 50% 28%, #6a3f73 0%, #2a1838 55%, #120c18 90%)" }}>
+      <style>{ARRIVE_CSS}</style>
       <img src="./clips/show_salon_side.jpg" alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.3, filter: "blur(2px)" }} />
-      <div style={{ position: "absolute", left: 0, right: 0, top: "9%", height: "50%", display: "flex", flexWrap: "wrap", justifyContent: "center", alignItems: "flex-end", gap: "0 2px", padding: "0 6px" }}>
+      <div style={{ position: "absolute", left: 0, right: 0, top: "9%", height: "50%", display: "flex", flexWrap: "wrap", justifyContent: "center", alignItems: "flex-end", gap: "0 2px", padding: "0 6px", opacity: ready ? 1 : 0, animation: ready ? "pnArrive .6s cubic-bezier(.2,.7,.2,1) both" : undefined }}>
         {PRO_LINEUP.map((id, i) => (
           <img
             key={id}
@@ -7468,6 +7612,7 @@ const STREET_CSS = `
  */
 const WELCOME_CSS = "@keyframes pnParade{from{transform:translateX(0)}to{transform:translateX(-50%)}}";
 function WelcomeScene() {
+  const ready = useAllLoaded(["./world/welcome_street.webp"]);
   return (
     <div aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden", background: "#2a1838" }}>
       <style>{WELCOME_CSS}</style>
@@ -7477,7 +7622,9 @@ function WelcomeScene() {
       {/* the pavement the shops stand on */}
       <div style={{ position: "absolute", left: 0, right: 0, top: "38%", height: "8%", background: "linear-gradient(180deg, rgba(255,170,110,.22), rgba(42,24,56,0))" }} />
       <div style={{ position: "absolute", left: 0, right: 0, top: "9%", height: "31%", overflow: "hidden" }}>
-        <div style={{ display: "flex", height: "100%", width: "max-content", animation: "pnParade 90s linear infinite", willChange: "transform" }}>
+        {/* Shown only once the strip has arrived, then faded in — it used to
+            appear in pieces as it loaded (Amit: "הכניסה קופצת"). */}
+        <div style={{ display: "flex", height: "100%", width: "max-content", animation: "pnParade 90s linear infinite", willChange: "transform", opacity: ready ? 1 : 0, transition: "opacity .9s ease-out" }}>
           <img src="./world/welcome_street.webp" alt="" style={{ height: "100%", display: "block", filter: "drop-shadow(0 14px 18px rgba(0,0,0,.45))" }} />
           <img src="./world/welcome_street.webp" alt="" style={{ height: "100%", display: "block", filter: "drop-shadow(0 14px 18px rgba(0,0,0,.45))" }} />
         </div>
@@ -7535,10 +7682,12 @@ function StreetScene({ painted = false }: { painted?: boolean } = {}) {
 
 function AvatarsLineup() {
   const ids = ["01", "06", "02", "09", "03", "07", "04", "11", "05", "08", "12", "10"];
+  const ready = useAllLoaded(ids.map((id) => `./world/avatar_${id}_portrait.webp`));
   return (
     <div aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden", background: "radial-gradient(120% 70% at 50% 28%, #6a3f73 0%, #2a1838 55%, #120c18 90%)" }}>
+      <style>{ARRIVE_CSS}</style>
       <img src="./clips/show_salon_in.jpg" alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.3, filter: "blur(2px)" }} />
-      <div style={{ position: "absolute", left: "6%", right: "6%", top: "8%", display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
+      <div style={{ position: "absolute", left: "6%", right: "6%", top: "8%", display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, opacity: ready ? 1 : 0, animation: ready ? "pnArrive .6s cubic-bezier(.2,.7,.2,1) both" : undefined }}>
         {ids.map((id) => (
           <img key={id} src={`./world/avatar_${id}_portrait.webp`} alt="" style={{ width: "100%", aspectRatio: "1", objectFit: "cover", borderRadius: 18, background: "rgba(255,255,255,.06)", boxShadow: "0 8px 20px rgba(0,0,0,.45)" }} />
         ))}
@@ -7578,7 +7727,9 @@ function ProExampleStage({ children }: { children: React.ReactNode }) {
   return (
     <div aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden", background: "radial-gradient(120% 70% at 50% 28%, #6a3f73 0%, #2a1838 55%, #120c18 90%)" }}>
       <img src={CITY_BG.src} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: CITY_BG.pos, opacity: 0.25, filter: "blur(3px)" }} />
-      <div style={{ position: "absolute", left: "7%", right: "7%", top: "6%", borderRadius: 22, padding: "16px 16px 18px", background: "rgba(23,18,31,.86)", border: "1px solid rgba(255,255,255,.12)", boxShadow: "0 20px 50px rgba(0,0,0,.5)", direction: "rtl" }}>
+      <style>{ARRIVE_CSS}</style>
+      {/* The card comes in (Amit: "שיכנס המחירון שלי באפקט"). */}
+      <div style={{ position: "absolute", left: "7%", right: "7%", top: "6%", borderRadius: 22, padding: "16px 16px 18px", background: "rgba(23,18,31,.86)", border: "1px solid rgba(255,255,255,.12)", boxShadow: "0 20px 50px rgba(0,0,0,.5)", direction: "rtl", animation: "pnArrive .7s .15s cubic-bezier(.2,.7,.2,1) both" }}>
         {children}
       </div>
     </div>

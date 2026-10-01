@@ -43,7 +43,7 @@ const CASES: Array<[string, string[]]> = [
   ["הנדימן", ["svc-handyman", "svc-hands"]], ["איש אחזקה", ["svc-handyman", "svc-hands"]],
   ["מורה פרטי", ["svc-tutor"]], ["מורה למתמטיקה", ["svc-tutor"]],
   ["צבעי", ["svc-paint"]], ["צבע", ["svc-paint"]],
-  ["רצף", ["svc-tiling"]], ["גבסן", ["svc-drywall"]], ["טייח", ["svc-drywall"]],
+  ["רצף", ["svc-tiling"]], ["שיש", ["svc-tiling", "svc-carpentry"]], ["שיישן", ["svc-tiling"]], ["נגרות", ["svc-carpentry", "svc-furniture"]], ["גבסן", ["svc-drywall"]], ["טייח", ["svc-drywall"]],
   ["נגר", ["svc-carpentry", "svc-furniture"]], ["הרכבת רהיטים", ["svc-furniture"]],
   ["תליית טלוויזיה", ["svc-tv"]], ["וילונות", ["svc-curtains"]], ["אלומיניום", ["svc-glass"]], ["זגג", ["svc-glass"]],
   ["מתקין אזעקות", ["svc-alarm"]], ["מצלמות אבטחה", ["svc-alarm"]],

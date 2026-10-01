@@ -61,6 +61,8 @@ export interface OnboardingResult {
 export interface ProOnboardingBodyProps {
   services: readonly OnboardingService[];
   matchRules: ServiceMatchRule[];
+  /** Editing an approved shop: the last button saves rather than sends for approval. */
+  editing?: boolean;
   /** The trades as pictures: the first way in, for people who would rather not read. */
   fields?: ReadonlyArray<{ id: string; labelHe: string; iconUri: string }>;
   /** The trade's shopfront and its drawn professional, for the shop preview. */
@@ -91,6 +93,17 @@ const BRAND_SWATCHES = [
   { hex: "#F59E0B", he: "ענבר" }, { hex: "#EC4899", he: "ורוד" }, { hex: "#14B8A6", he: "טורקיז" }, { hex: "#E5E7EB", he: "לבן" },
 ];
 const RADII_KM = [5, 10, 15, 25, 40];
+/* Israeli cities and towns for the base-city box — facts, not a vendor's data. */
+const ISRAEL_CITIES: readonly string[] = [
+  "תל אביב", "ירושלים", "חיפה", "ראשון לציון", "פתח תקווה", "אשדוד", "נתניה", "באר שבע", "בני ברק", "חולון",
+  "רמת גן", "אשקלון", "רחובות", "בת ים", "בית שמש", "כפר סבא", "הרצליה", "חדרה", "מודיעין", "לוד", "רמלה",
+  "רעננה", "הוד השרון", "רהט", "נצרת", "גבעתיים", "קריית גת", "קריית אתא", "קריית ביאליק", "קריית מוצקין",
+  "קריית ים", "קריית שמונה", "קריית אונו", "קריית מלאכי", "קריית טבעון", "נהריה", "עכו", "עפולה", "טבריה",
+  "צפת", "כרמיאל", "אילת", "דימונה", "ערד", "נתיבות", "שדרות", "אופקים", "יבנה", "נס ציונה", "ראש העין",
+  "אור יהודה", "יהוד", "גבעת שמואל", "קריית שמונה", "טירת כרמל", "נשר", "יקנעם", "מעלות תרשיחא", "בית שאן",
+  "אלעד", "ביתר עילית", "מודיעין עילית", "אריאל", "מעלה אדומים", "זכרון יעקב", "פרדס חנה כרכור", "אור עקיבא",
+  "קיסריה", "רמת השרון", "כפר יונה", "גדרה", "גן יבנה", "קדימה צורן", "טייבה", "אום אל פחם", "שפרעם",
+].filter((c, i, all) => all.indexOf(c) === i);
 const ils = (minor: number | null | undefined) => (minor ? `₪${Math.round(minor / 100).toLocaleString("en-US")}` : "");
 const toMinor = (t: string) => (Number(t.replace(/[^0-9]/g, "")) || 0) * 100;
 
@@ -98,11 +111,12 @@ export function ProOnboardingBody({
   services,
   matchRules,
   fields,
+  editing = false,
   shopFor,
   onPickFile,
   extractColor,
   backgroundUri = null,
-  areaMapUri = null,
+  areaMapUri: _areaMapUri = null,
   lineupUris = [],
   phoneHe = null,
   onDone,
@@ -113,6 +127,7 @@ export function ProOnboardingBody({
   height,
 }: ProOnboardingBodyProps) {
   const [step, setStep] = useState(startStep ?? (initial ? 7 : 0));
+  const [fromSummary, setFromSummary] = useState(false);
   const [shopSkipped, setShopSkipped] = useState(initial?.shopSkipped ?? false);
   /* For demonstrations only (Amit, 2026-09-30): documents may wait, and say so. */
   const [docsSkipped, setDocsSkipped] = useState(false);
@@ -129,6 +144,13 @@ export function ProOnboardingBody({
   const [dealer, setDealer] = useState<"פטור" | "מורשה" | "חברה" | null>(initial ? "מורשה" : null);
   const [city, setCity] = useState(initial?.city ?? "");
   const [radius, setRadius] = useState(initial?.radiusKm ?? 15);
+  const cityHits = useMemo(() => {
+    const q = city.trim();
+    if (q.length < 2 || ISRAEL_CITIES.includes(q)) return [];
+    const starts = ISRAEL_CITIES.filter((c) => c.startsWith(q));
+    const has = ISRAEL_CITIES.filter((c) => !c.startsWith(q) && c.includes(q));
+    return [...starts, ...has].slice(0, 5);
+  }, [city]);
   /* 3 — documents */
   const [files, setFiles] = useState<Record<string, { name: string; uri: string }>>({});
   const [numbers, setNumbers] = useState<Record<string, string>>({});
@@ -160,13 +182,36 @@ export function ProOnboardingBody({
    * worked out from the text as it stands; only what he picks by hand, or
    * takes off by hand, is remembered.
    */
+  /*
+   * …AND ONCE UNDERSTOOD, IT STAYS.
+   *
+   * Amit, 2026-10-01: *"כשהוספתי שיש נעלם הנגרות — חייב לשמור על כל
+   * המקצועות."* Following the text meant that writing anything else wiped
+   * what had been found — and with nothing left he was dropped into the
+   * sample plumber. So what the box understands is kept a moment after he
+   * stops typing (long enough not to keep a half-typed word), and leaves only
+   * when he takes it off with ×.
+   */
+  useEffect(() => {
+    const fresh = suggestions.filter((id) => !removed.includes(id));
+    if (fresh.length === 0) return;
+    const t = setTimeout(() => setManual((m) => [...new Set([...m, ...fresh])]), 1100);
+    return () => clearTimeout(t);
+  }, [suggestions, removed]);
   const picked = useMemo(
-    () => [...new Set([...suggestions.filter((id) => !removed.includes(id)), ...manual])],
+    () => [...new Set([...manual, ...suggestions.filter((id) => !removed.includes(id))])],
     [suggestions, removed, manual]
   );
   const unpick = (id: string) => {
     setManual((m) => m.filter((x) => x !== id));
-    if (suggestions.includes(id)) setRemoved((r) => [...r, id]);
+    setRemoved((r) => [...new Set([...r, id])]);
+  };
+  /* "הוספה": keep what was understood now, or add the words as a new service; then the box is free for the next one. */
+  const commitTyped = () => {
+    const fresh = suggestions.filter((id) => !removed.includes(id));
+    if (fresh.length) setManual((m) => [...new Set([...m, ...fresh])]);
+    else if (about.trim().length >= 2) addCustom(about.trim());
+    setAbout("");
   };
   const addPick = (id: string) => {
     setManual((m) => [...new Set([...m, id])]);
@@ -297,78 +342,99 @@ export function ProOnboardingBody({
       case 1: {
         /*
          * --------------------------------------------------------------------
-         * ONE BOX THAT UNDERSTANDS, AND THE TRADES AS WORDS.
+         * ONE BOX THAT UNDERSTANDS; THE TRADES AS OUR CHARACTERS.
          *
-         * Amit: *"פשוט לבעל מקצוע — טקסט חופשי וקטגוריות; חיפוש חופשי שיאתר
-         * את המקצוע לבד — המרכזי."* The box is the main way: he writes his
-         * trade the way he says it, and what we understood appears under it
-         * as big rows, already ticked. Below, the trades as plain words for
-         * whoever would rather tap; a trade opens its services as the same
-         * rows. No pictures, no separate search, no wall of 47 buttons.
+         * Amit: free text that finds the trade by itself is the main way
+         * ("שיזהה כל מילה מתוך ה־47"), with "הוספה" beside it; under it the
+         * trades as our drawn characters, like the customer's side. What he
+         * has chosen is one clear list, "השירותים שלי", each with × to
+         * remove — pressing a row never makes it vanish.
          * --------------------------------------------------------------------
          */
         const f = fields?.find((x) => x.id === field) ?? null;
         const inField = f ? services.filter((x) => x.groupId === f.id && !picked.includes(x.id)) : [];
-        const Row = ({ id, on }: { id: string; on: boolean }) => (
-          <Pressable onPress={() => (on ? unpick(id) : addPick(id))} accessibilityRole="checkbox" accessibilityState={{ checked: on }} accessibilityLabel={byId[id]?.nameHe} style={[s.pickRow, on && s.pickRowOn]}>
-            <View style={[s.pickBox, on && s.pickBoxOn]}>{on ? <Text style={s.pickTick}>✓</Text> : null}</View>
-            <View style={{ flex: 1 }}>
-              <Text style={s.pickName}>{byId[id]?.nameHe}</Text>
-              <Text style={s.pickCat}>{byId[id]?.categoryHe}</Text>
-            </View>
-          </Pressable>
-        );
         return (
           <>
             <Text style={s.h1}>מה המקצוע שלך?</Text>
             <Text style={s.lead}>כותבים במילים שלך — נזהה לבד.</Text>
-            <TextInput
-              value={about}
-              onChangeText={setAbout}
-              placeholder="למשל: וטרינר · חשמלאי · מנקה"
-              placeholderTextColor="rgba(247,243,250,0.48)"
-              accessibilityLabel="תיאור חופשי של העבודה שלך"
-              style={[s.input, s.bigInput]}
-              textAlign="right"
-            />
-            {about.trim().length >= 3 && suggestions.length === 0 && picked.length === 0 && custom.length === 0 ? (
-              <View style={s.nomatch}>
-                <Text style={s.nomatchText}>לא מצאנו. אפשר לבחור תחום למטה, או להוסיף כשירות חדש.</Text>
-                <Pressable onPress={() => addCustom(about.trim())} accessibilityRole="button" style={s.linkRow}>
-                  <Text style={s.link}>{`+ להוסיף ״${about.trim().slice(0, 40)}״`}</Text>
-                </Pressable>
-              </View>
-            ) : null}
-            {picked.map((id) => (
-              <RiseRow key={id}>
-                <Row id={id} on />
-              </RiseRow>
-            ))}
-            {custom.map((c) => (
-              <Pressable key={c} onPress={() => setCustom((p) => p.filter((x) => x !== c))} accessibilityRole="checkbox" accessibilityState={{ checked: true }} style={[s.pickRow, s.pickRowOn]}>
-                <View style={[s.pickBox, s.pickBoxOn]}><Text style={s.pickTick}>✓</Text></View>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.pickName}>{c}</Text>
-                  <Text style={s.pickCat}>שירות חדש · נבדוק</Text>
-                </View>
+            <View style={s.row}>
+              <TextInput
+                value={about}
+                onChangeText={setAbout}
+                onSubmitEditing={commitTyped}
+                placeholder="למשל: נגר · וטרינר · מנקה"
+                placeholderTextColor="rgba(247,243,250,0.48)"
+                accessibilityLabel="תיאור חופשי של העבודה שלך"
+                style={[s.input, s.bigInput, { flex: 1, minWidth: 0, width: 0 }]}
+                textAlign="right"
+                returnKeyType="done"
+              />
+              <Pressable onPress={commitTyped} disabled={!about.trim()} accessibilityRole="button" accessibilityState={{ disabled: !about.trim() }} style={[s.addBtn, s.addBtnBig, !about.trim() && { opacity: 0.4 }]}>
+                <Text style={s.addBtnText}>הוספה</Text>
               </Pressable>
-            ))}
+            </View>
+            {about.trim().length >= 3 && suggestions.length === 0 ? (
+              <Text style={s.nomatchText}>{`לא מצאנו את ״${about.trim().slice(0, 30)}״ — ״הוספה״ תוסיף אותו כשירות חדש, או בוחרים תחום למטה.`}</Text>
+            ) : null}
+            {picked.length + custom.length > 0 ? (
+              <>
+                <Text style={s.section}>השירותים שלי</Text>
+                {picked.map((id) => (
+                  <RiseRow key={id}>
+                    <View style={[s.pickRow, s.pickRowOn]}>
+                      <View style={[s.pickBox, s.pickBoxOn]}><Text style={s.pickTick}>✓</Text></View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={s.pickName}>{byId[id]?.nameHe}</Text>
+                        <Text style={s.pickCat}>{byId[id]?.categoryHe}</Text>
+                      </View>
+                      <Pressable onPress={() => unpick(id)} accessibilityRole="button" accessibilityLabel={`הסרת ${byId[id]?.nameHe ?? ""}`} style={s.pickX}>
+                        <Text style={s.svcX}>×</Text>
+                      </Pressable>
+                    </View>
+                  </RiseRow>
+                ))}
+                {custom.map((c) => (
+                  <View key={c} style={[s.pickRow, s.pickRowOn]}>
+                    <View style={[s.pickBox, s.pickBoxOn]}><Text style={s.pickTick}>✓</Text></View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.pickName}>{c}</Text>
+                      <Text style={s.pickCat}>שירות חדש · נבדוק</Text>
+                    </View>
+                    <Pressable onPress={() => setCustom((p) => p.filter((x) => x !== c))} accessibilityRole="button" accessibilityLabel={`הסרת ${c}`} style={s.pickX}>
+                      <Text style={s.svcX}>×</Text>
+                    </Pressable>
+                  </View>
+                ))}
+              </>
+            ) : null}
             {fields && fields.length > 0 ? (
               <>
-                <Text style={s.section}>{picked.length + custom.length > 0 ? "עוד משהו? לפי תחום" : "או לפי תחום"}</Text>
-                <View style={s.wrap}>
+                <Text style={s.section}>{picked.length + custom.length > 0 ? "עוד תחום?" : "או בוחרים תחום"}</Text>
+                <View style={s.fieldGrid}>
                   {fields.map((x) => {
+                    const n = picked.filter((id) => byId[id]?.groupId === x.id).length;
                     const onF = field === x.id;
                     return (
-                      <Pressable key={x.id} onPress={() => setField(onF ? null : x.id)} accessibilityRole="button" accessibilityState={{ expanded: onF }} style={[s.fieldPill, onF && s.fieldPillOn]}>
-                        <Text style={[s.fieldPillText, onF && { color: "#0d0a16" }]}>{x.labelHe}</Text>
+                      <Pressable key={x.id} onPress={() => setField(onF ? null : x.id)} accessibilityRole="button" accessibilityState={{ expanded: onF }} accessibilityLabel={x.labelHe} style={({ pressed }) => [s.fieldTile, (n > 0 || onF) && s.fieldTileOn, pressed && { transform: [{ scale: 0.97 }] }]}>
+                        <Image source={{ uri: x.iconUri }} style={s.fieldImg} resizeMode="contain" />
+                        <Text style={s.fieldLabel} numberOfLines={2}>{x.labelHe}</Text>
+                        {n > 0 ? <View style={s.fieldBadge}><Text style={s.fieldBadgeText}>✓ {n}</Text></View> : null}
                       </Pressable>
                     );
                   })}
                 </View>
-                {inField.map((x) => (
-                  <Row key={x.id} id={x.id} on={false} />
-                ))}
+                {f ? (
+                  <>
+                    <Text style={s.section}>{`${f.labelHe} · מסמנים מה עושים`}</Text>
+                    {inField.length === 0 ? <Text style={s.pickCat}>כל השירותים בתחום כבר אצלך.</Text> : null}
+                    {inField.map((x) => (
+                      <Pressable key={x.id} onPress={() => addPick(x.id)} accessibilityRole="button" accessibilityLabel={`הוספת ${x.nameHe}`} style={s.pickRow}>
+                        <View style={s.pickBox}><Text style={[s.pickTick, { color: "rgba(247,243,250,0.7)" }]}>+</Text></View>
+                        <Text style={[s.pickName, { flex: 1 }]}>{x.nameHe}</Text>
+                      </Pressable>
+                    ))}
+                  </>
+                ) : null}
               </>
             ) : null}
           </>
@@ -388,6 +454,17 @@ export function ProOnboardingBody({
             <Text style={s.h2}>אזור עבודה</Text>
             <Text style={s.label}>עיר הבסיס</Text>
             <TextInput value={city} onChangeText={setCity} placeholder="למשל: רמת גן" placeholderTextColor="rgba(247,243,250,0.48)" style={s.input} textAlign="right" accessibilityLabel="עיר הבסיס" />
+            {/* Amit: "אם אני רושם קריית — שיזהה לבד מתוך רשימה". From a list of
+                Israeli cities kept in the app; a maps vendor is not chosen yet. */}
+            {cityHits.length > 0 ? (
+              <View style={s.cityList}>
+                {cityHits.map((c) => (
+                  <Pressable key={c} onPress={() => setCity(c)} accessibilityRole="button" style={s.cityRow}>
+                    <Text style={s.cityText}>{c}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            ) : null}
             <Text style={s.label}>עד כמה רחוק</Text>
             <View style={s.radiiRow}>
               {RADII_KM.map((km) => (
@@ -397,7 +474,13 @@ export function ProOnboardingBody({
               ))}
             </View>
             <View style={s.radar}>
-              {areaMapUri ? <Image source={{ uri: areaMapUri }} style={[StyleSheet.absoluteFill, { opacity: 0.75 }]} resizeMode="cover" /> : null}
+              {/* A drawn area, not the old neighbourhood picture (Amit: "ישנה ולא
+                  קשורה"): the distances as quiet rings, his chosen one in coral. */}
+              {[0.9, 0.62, 0.36].map((k) => (
+                <View key={k} style={[s.radarGuide, { width: 300 * k, height: 300 * k, borderRadius: 150 * k }]} />
+              ))}
+              <View style={s.radarAxisH} />
+              <View style={s.radarAxisV} />
               <RadiusRing size={60 + radius * 4} />
               <View style={s.radarDot} />
               <Text style={s.radarText}>{city.trim() || "הבסיס שלך"} · {radius} ק״מ</Text>
@@ -449,8 +532,10 @@ export function ProOnboardingBody({
       case 4:
         return (
           <>
-            <Text style={s.h1}>המחירים שלך</Text>
-            <Text style={s.lead}>מילאנו מחירים לדוגמה. אפשר לשנות ולהוסיף.</Text>
+            {/* Amit: "מה זה מילאנו מחירים לדוגמה? איפה אני בוחר?" — the
+                question is his, the numbers in the boxes are a starting point. */}
+            <Text style={s.h1}>כמה אתה לוקח?</Text>
+            <Text style={s.lead}>לוחצים על מחיר ומשנים. מה שרשום — מחיר מקובל בשוק.</Text>
             {visitIds.length > 0 ? (
               <View style={s.priceCard}>
                 <Text style={s.priceName}>דמי ביקור ובדיקה</Text>
@@ -615,11 +700,11 @@ export function ProOnboardingBody({
             {[
               { t: "שירותים", v: `${picked.length + custom.length}`, to: 1 },
               { t: "אזור", v: `${city || "—"} · ${radius} ק״מ`, to: 2 },
-              { t: "מסמכים", v: docsSkipped && mustLeft > 0 ? `${mustDocs.length - mustLeft}/${mustDocs.length} · דולג בהדגמה` : `${mustDocs.length - mustLeft}/${mustDocs.length} חובה${Object.keys(files).filter((k) => docs.some((d) => d.id === k && d.level === "RECOMMENDED")).length ? " · + מומלצים" : ""}`, to: 3 },
+              { t: "מסמכים", v: docsSkipped && mustLeft > 0 ? `${mustDocs.length - mustLeft}/${mustDocs.length} · יושלם אחר כך` : `${mustDocs.length - mustLeft}/${mustDocs.length} חובה${Object.keys(files).filter((k) => docs.some((d) => d.id === k && d.level === "RECOMMENDED")).length ? " · + מומלצים" : ""}`, to: 3 },
               { t: "מחירים", v: visitIds.length ? `דמי ביקור ${ils(prices.__visit ?? byId[visitIds[0]!]?.visitFee)}` : "לפי המחירון שלך", to: 4 },
               { t: "החנות", v: shopSkipped ? `${shopName} · עיצוב ברירת מחדל, אפשר אחר כך` : shopName, to: 5 },
             ].map((r) => (
-              <Pressable key={r.t} onPress={() => setStep(r.to)} accessibilityRole="button" accessibilityLabel={`עריכת ${r.t}`} style={s.sumRow}>
+              <Pressable key={r.t} onPress={() => { setFromSummary(true); setStep(r.to); }} accessibilityRole="button" accessibilityLabel={`עריכת ${r.t}`} style={s.sumRow}>
                 <Text style={s.sumLabel}>{r.t}</Text>
                 <Text style={s.sumValue} numberOfLines={1}>{r.v}</Text>
                 <Text style={s.sumEdit}>עריכה</Text>
@@ -658,7 +743,8 @@ export function ProOnboardingBody({
         ) : null}
       </View>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
-        {body}
+        {/* Every step comes in, rather than cutting (Amit: "שיכנס באפקט"). */}
+        <RiseRow key={step}>{body}</RiseRow>
       </ScrollView>
       <View style={s.foot}>
         {/* The shop's design may wait (Amit, 2026-09-30); everything else
@@ -674,10 +760,10 @@ export function ProOnboardingBody({
               setStep((n) => n + 1);
             }}
             accessibilityRole="button"
-            accessibilityLabel="דלג לעכשיו — להדגמה בלבד"
+            accessibilityLabel="אחר כך"
             style={s.skip}
           >
-            <Text style={s.skipText}>דילוג (הדגמה)</Text>
+            <Text style={s.skipText}>אחר כך</Text>
           </Pressable>
         ) : null}
         {step === 5 ? (
@@ -699,13 +785,20 @@ export function ProOnboardingBody({
               onDone({ nameHe: name, businessHe: business, serviceIds: picked, customServicesHe: custom, shopNameHe: shopName, brandColor: color, shopSkipped, logoUri: logo, photoUri: useCharacter ? null : photo ?? files.SELFIE?.uri ?? null, city, radiusKm: radius, pricesMinorUnits: priceOf(), uploadedDocIds: Object.keys(files), priceLines: Object.fromEntries(picked.filter((id) => byId[id]?.kind === "LIST").map((id) => [id, [...(lines[id] ?? byId[id]?.list ?? [])]])) });
               return;
             }
+            /* Editing one thing from the summary returns to the summary —
+               not through every step after it (Amit: "מחזיר לשלב הראשון"). */
+            if (fromSummary) {
+              setFromSummary(false);
+              setStep(STEPS.length - 1);
+              return;
+            }
             setStep((n) => n + 1);
           }}
           accessibilityRole="button"
           accessibilityState={{ disabled: !canNext }}
           style={({ pressed }) => [s.cta, !canNext && s.ctaOff, pressed && canNext && { transform: [{ scale: 0.98 }] }]}
         >
-          <Text style={s.ctaText}>{!canNext && whyNot ? whyNot : step === 0 ? "מתחילים" : step === STEPS.length - 1 ? "שליחה לאישור PRO NOW" : "המשך"}</Text>
+          <Text style={s.ctaText}>{!canNext && whyNot ? whyNot : step === 0 ? "מתחילים" : step === STEPS.length - 1 ? (editing ? "שמירת השינויים" : "שליחה לאישור PRO NOW") : fromSummary ? "שמירה" : "המשך"}</Text>
         </Pressable>
       </View>
     </View>
@@ -828,6 +921,8 @@ const s = StyleSheet.create({
   pickTick: { color: "#0d0a16", fontSize: scale.body, fontWeight: "900" },
   pickName: { color: "#fff", fontSize: scale.body, fontWeight: "700", textAlign: "right", writingDirection: "rtl" },
   pickCat: { color: "rgba(247,243,250,0.55)", fontSize: scale.micro, textAlign: "right", marginTop: 2 },
+  pickX: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 22, backgroundColor: "rgba(255,255,255,0.06)" },
+  addBtnBig: { minHeight: 58, paddingHorizontal: 18 },
   bigInput: { minHeight: 58, fontSize: scale.body, borderColor: "rgba(255,92,56,0.55)", borderWidth: 1.5 },
   fieldPill: { minHeight: 44, paddingHorizontal: 14, justifyContent: "center", borderRadius: 999, borderWidth: 1, borderColor: "rgba(247,243,250,0.22)", backgroundColor: "rgba(255,255,255,0.04)" },
   fieldPillOn: { backgroundColor: "#F7F3FA", borderColor: "#F7F3FA" },
@@ -844,6 +939,12 @@ const s = StyleSheet.create({
   addBtnText: { color: "#fff", fontSize: scale.meta, fontWeight: "800" },
   radar: { height: 170, marginBottom: 24, marginTop: spacing.md, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.04)", overflow: "hidden" },
   radarRing: { position: "absolute", borderWidth: 2, borderColor: "rgba(255,92,56,0.6)", backgroundColor: "rgba(255,92,56,0.08)" },
+  radarGuide: { position: "absolute", borderWidth: 1, borderColor: "rgba(247,243,250,0.08)" },
+  radarAxisH: { position: "absolute", left: 0, right: 0, height: 1, backgroundColor: "rgba(247,243,250,0.06)" },
+  radarAxisV: { position: "absolute", top: 0, bottom: 0, width: 1, backgroundColor: "rgba(247,243,250,0.06)" },
+  cityList: { marginTop: 6, borderRadius: 14, overflow: "hidden", backgroundColor: "rgba(255,255,255,0.06)" },
+  cityRow: { minHeight: 48, justifyContent: "center", paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.06)" },
+  cityText: { color: "#fff", fontSize: scale.body, textAlign: "right", writingDirection: "rtl" },
   radarDot: { width: 14, height: 14, borderRadius: 7, backgroundColor: palette.signal500, shadowColor: palette.signal500, shadowOpacity: 0.9, shadowRadius: 12 },
   radarText: { position: "absolute", bottom: 10, color: "rgba(247,243,250,0.8)", fontSize: scale.micro, fontWeight: "700" },
   doc: { marginBottom: 10, padding: 14, borderRadius: 18, backgroundColor: "rgba(255,255,255,0.05)", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },

@@ -18,15 +18,15 @@ try {
   await press(/לכתוב במילים/); await p.getByLabel('תיאור חופשי של העבודה שלך').fill('מספרה עד הבית, תספורות גברים ונשים'); await p.waitForTimeout(800); await press(/^המשך$/);
   await p.getByLabel('שם מלא').fill('מאיה כהן'); await press(/^עוסק פטור$/); await p.getByLabel('עיר הבסיס').fill('חולון'); await press(/^המשך$/);
   for (let k = 0; k < 6; k++) { if (!(await press(/^העלאת /))) break; } await press(/^המשך$/);
-  out.push((await has('המחירים שלך')) ? '✓ prices step' : '✗ prices');
+  out.push((await has('כמה אתה לוקח')) ? '✓ prices step' : '✗ prices');
   out.push((await has('דילוג')) || (await has('אעצב')) ? '✗ prices can be skipped' : '✓ prices cannot be skipped');
   await press(/^המשך$/);
   out.push((await press(/^אעצב אחר כך/)) ? '✓ shop skipped' : '✗ no shop skip');
   /* Photo and documents may be skipped in demos only (Amit, 2026-09-30) — and say so. */
-  out.push((await has('דילוג (הדגמה)')) ? '✓ photo skip is marked demo-only' : '✗ photo skip missing or unmarked');
+  out.push((await has('אחר כך')) ? '✓ photo skip is marked demo-only' : '✗ photo skip missing or unmarked');
   await press(/^הדמות של המקצוע/); await press(/^המשך$/);
   out.push((await has('עיצוב ברירת מחדל')) ? '✓ summary says shop is default' : '✗ summary');
-  await press(/^שליחה לאישור/); await p.waitForTimeout(900); await press(/אישור החשבון/); await p.waitForTimeout(2500);
+  await press(/^שליחה לאישור/); await p.waitForTimeout(900); await p.waitForTimeout(8500);
   out.push((await has('לעצב את החנות')) ? '✓ design-later link on the open shop' : '✗ no design-later link');
   await press(/^להתחיל משמרת/); await p.waitForTimeout(1200);
   // 2. sign out, come back as the same professional

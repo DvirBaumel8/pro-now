@@ -128,6 +128,11 @@ export interface CityProps {
    */
   enterShopId?: string | null;
   /**
+   * The professional who opened his shop in the demo: which house is his, the
+   * name on his sign and his colour. Amit: "יראה לי אותה ברחוב".
+   */
+  ownShop?: { id: string; nameHe: string; colorHex: string } | null;
+  /**
    * Which of the twelve characters the customer chose, 1–12.
    *
    * Without it the street falls back to Amit's cycle, which is what
@@ -275,6 +280,7 @@ export function City({
   base = "./world/",
   spawn,
   enterShopId = null,
+  ownShop = null,
   avatarNo = null,
   shot = null,
   hud = true,
@@ -756,6 +762,33 @@ export function City({
       if (disposed) return;
 
       const street = buildStreet(SHOPS, facades, { day: isDaytime() });
+      /*
+       * HIS SIGN OVER HIS DOOR.
+       *
+       * The house of his trade carries the name he gave his shop, lit in his
+       * colour — drawn once to a canvas and hung as a sprite above the door.
+       */
+      const mine = ownShop ? street.shops.find((x) => x.id === ownShop.id) : undefined;
+      if (ownShop && mine) {
+        const cv = document.createElement("canvas");
+        cv.width = 1024; cv.height = 256;
+        const g = cv.getContext("2d");
+        if (g) {
+          g.fillStyle = "rgba(10,6,18,0.9)";
+          g.beginPath(); g.roundRect?.(16, 16, 992, 224, 48); g.fill();
+          g.lineWidth = 14; g.strokeStyle = ownShop.colorHex; g.shadowColor = ownShop.colorHex; g.shadowBlur = 40;
+          g.beginPath(); g.roundRect?.(16, 16, 992, 224, 48); g.stroke();
+          g.shadowBlur = 30; g.fillStyle = "#fff"; g.textAlign = "center"; g.textBaseline = "middle";
+          g.font = "900 120px 'Noto Sans Hebrew', 'Heebo', sans-serif"; g.direction = "rtl";
+          g.fillText(ownShop.nameHe.slice(0, 16), 512, 132);
+          const tex = new THREE.CanvasTexture(cv);
+          tex.colorSpace = THREE.SRGBColorSpace;
+          const sign = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+          sign.scale.set(6.4, 1.6, 1);
+          sign.position.set(FRONT_X * mine.side * 0.92, 6.2, mine.doorway.z);
+          street.scene.add(sign);
+        }
+      }
       const vrRooms = new Map<string, PanoRoom>();
       for (const sh of SHOPS) {
         const back = facades[`room_${sh.id}_back.webp`];
@@ -1936,7 +1969,7 @@ export function City({
         if (id !== lastNear) {
           lastNear = id;
           setNearId(id);
-          setNearName(best ? (best.sponsor ? `${best.he} · בחסות` : best.he) : null);
+          setNearName(best ? (ownShop && best.id === ownShop.id ? ownShop.nameHe : best.sponsor ? `${best.he} · בחסות` : best.he) : null);
           /*
            * -----------------------------------------------------------
            * A DOOR WITH NO PAINTED ROOM STILL OPENS
@@ -2077,7 +2110,7 @@ export function City({
       stop();
       if (renderer.domElement.parentElement === el) el.removeChild(renderer.domElement);
     };
-  }, [base, spawn?.x, spawn?.z, avatarNo, enterShopId]);
+  }, [base, spawn?.x, spawn?.z, avatarNo, enterShopId, ownShop?.id, ownShop?.nameHe, ownShop?.colorHex]);
 
   /* ----- the pad, in the DOM because that is where fingers are ----- */
   const padRef = useRef<HTMLDivElement | null>(null);
@@ -2313,7 +2346,7 @@ export function City({
           }}
         >
           {/* The door says whose it is — see "ONLY A SHOP YOU CAN SEE". */}
-          {`היכנס ל${SHOPS.find((x) => x.id === nearId)?.he ?? "חנות"} ›`}
+          {`היכנס ל${ownShop && nearId === ownShop.id ? ownShop.nameHe : SHOPS.find((x) => x.id === nearId)?.he ?? "חנות"} ›`}
         </button>
       ) : null}
 
