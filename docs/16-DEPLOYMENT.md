@@ -38,7 +38,13 @@ added (401 to a stranger = deployed, 404 = not). Run it after every deploy.
   unclogging first and the leak second — "כיור" is an unclogging word and
   ties with "נזילה".
 
-### Why master was not deploying (2026-09-30, fixed by hand)
+### Auto-deploy works (confirmed 2026-10-01)
+Merging #51 to `master` started a deploy in Render on its own (seen in the
+service's Events by Dvir). The cause below no longer holds, so a merge
+deploys by itself once its CI is green. Use Manual Deploy only to redeploy
+a commit, or after changing the environment.
+
+### Why master was not deploying (2026-09-30, resolved by 2026-10-01)
 Every deploy in the service's Events was "Manually triggered via
 Dashboard"; not one came from a push, although Auto-Deploy is "On Commit"
 on `master`. Render pulls the code through **Dvir's** GitHub credential
@@ -52,10 +58,11 @@ when someone presses Deploy.
   Blueprint declared it, but Blueprint changes are not applied until
   synced) — first 1, then the measured 3 — and master deployed manually. Migrations ran at
   boot; smoke 9/10, with only the empty catalogue failing.
-- **The lasting fix is Amit's (repository owner):** install the Render
+- **The lasting fix was Amit's (repository owner):** install the Render
   GitHub App on `nivamit1210-sketch` with access to `pro-now`
-  (github.com/apps/render → Configure). Until then, every merge needs
-  Manual Deploy → "Deploy latest commit".
+  (github.com/apps/render → Configure). **Resolved:** auto-deploy worked
+  on 2026-10-01 (see above), so manual deploys after a merge are no
+  longer needed.
 - **Also Amit's, in the Blueprint page:** "Sync" once, so the settings
   `render.yaml` declares (`DIRECT_DATABASE_URL`, `VAPID_*`, the alert
   keys) appear on the service.
