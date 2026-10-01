@@ -80,6 +80,8 @@ test("the product's screens match the demo's", async ({ browser }) => {
 
   await demo.getByText("דלג כרגע").click();
   await product.getByText("דלג כרגע").click();
+  // Reloading before the skip is saved lands back on the avatar screen.
+  await product.waitForURL(`${PRODUCT}/`);
   // The product's home shows the saved address, as the demo's does.
   await product.request.post(`${PRODUCT}/api/v1/me/addresses`, {
     data: { formatted: "18, אהרון דוד גורדון, תל־אביב־יפו, ישראל", lat: 32.0853, lng: 34.7818 },
