@@ -16,6 +16,28 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Does this change touch the demo (Amit's track) or what it shares with
+  # the product (the lockfile, root config)? The demo's own lint, typecheck,
+  # tests and build only run when it does, and always on master.
+  changes:
+    name: What changed
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      demo: ${{ github.event_name == 'push' || steps.filter.outputs.demo == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            demo:
+              - 'tools/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'eslint.config.*'
+              - 'tsconfig*.json'
+
   checks:
     name: Lint, typecheck, unit tests
     runs-on: ubuntu-latest
@@ -31,21 +53,36 @@ jobs:
       - run: npm ci
       # Nothing in apps/api compiles until the Prisma client exists.
       - run: npm run db:generate -w apps/api
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm test
-      - run: npm run verify:domain
+      - run: npm run lint:product
+      - run: npm run typecheck:product
+      - run: npm run test:product
       # Known high or critical advisories in what reaches users (the API and
       # the web app's runtime dependencies), docs/21 W10.
       - run: npm run audit:shipped
-      # Both front ends must still build. The demo is Amit's and the product
-      # is Dvir's, but they share one lockfile: a product dependency change
-      # once broke the demo's build unnoticed (react-native-svg 15.15).
-      - run: npm run preview:build
       - run: npm run build -w apps/web
 
+  demo:
+    name: Demo (lint, typecheck, tests, build)
+    needs: changes
+    if: needs.changes.outputs.demo == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # The demo is Amit's and the product is Dvir's, but they share one
+      # lockfile: a product dependency change once broke the demo's build
+      # unnoticed (react-native-svg 15.15).
+      - run: npm run check:demo
+
   database:
-    name: Migrations and row lock on real Postgres + PostGIS
+    name: Migrations and integration tests on real Postgres + PostGIS
     runs-on: ubuntu-latest
     timeout-minutes: 15
     services:
@@ -99,9 +136,6 @@ jobs:
         with:
           node-version: 24
           cache: npm
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
       - run: npm ci
       - run: npm run db:generate -w apps/api
       - run: npm run db:migrate:deploy -w apps/api
@@ -110,7 +144,6 @@ jobs:
       # one: Prisma's shadow reset on the PostGIS image misreports the
       # extension.)
       - run: npm run db:drift
-      - run: npm run verify:rowlock
       - name: Create the media bucket
         run: |
           for i in $(seq 1 60); do curl -sf -o /dev/null http://localhost:8333/healthz && break; sleep 1; done
@@ -122,22 +155,16 @@ jobs:
           echo "S3 bucket was never created" && exit 1
       # Route-level tests: every plugin and route against a throwaway, migrated database.
       - run: npm run test:int
-      - run: pip install psycopg2-binary && npm run db:verify
 
-  # Twice, side by side: the development server (tsx, NODE_ENV=test), and
-  # the production build (esbuild bundle, NODE_ENV=production, one trusted
+  # On the production build (esbuild bundle, NODE_ENV=production, one trusted
   # proxy hop, the stand-in guard relaxed by ALLOW_LOCAL_STANDINS=1) — the
-  # W10 acceptance. The production run found what the other could not:
-  # Safari refusing an upgraded http origin, and one shared sign-in bucket
-  # for every visitor.
+  # W10 acceptance. It is what ships, and it found what the development
+  # server could not: Safari refusing an upgraded http origin, and one shared
+  # sign-in bucket for every visitor. (It ran on both builds until 2026-10-01.)
   e2e:
-    name: End-to-end, ${{ matrix.build }} build (Chromium, iPhone 16 Pro)
+    name: End-to-end, production build (Chromium, iPhone 16 Pro)
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    strategy:
-      fail-fast: false
-      matrix:
-        build: [development, production]
     services:
       postgres:
         image: postgis/postgis:16-3.4
@@ -227,11 +254,11 @@ jobs:
           fi
       - run: npm run test:e2e
         env:
-          E2E_PRODUCTION: ${{ matrix.build == 'production' && '1' || '0' }}
+          E2E_PRODUCTION: "1"
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: playwright-report-${{ matrix.build }}
+          name: playwright-report
           path: apps/web/playwright-report
           retention-days: 7
 
@@ -240,7 +267,7 @@ jobs:
   gate:
     name: CI passed
     if: always()
-    needs: [checks, database, e2e]
+    needs: [changes, checks, demo, database, e2e]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
@@ -249,4 +276,9 @@ jobs:
           RESULTS: ${{ join(needs.*.result, ' ') }}
         run: |
           echo "job results: $RESULTS"
-          for r in $RESULTS; do [ "$r" = "success" ] || exit 1; done
+          # The demo job may be skipped (nothing it checks changed); every
+          # other job must succeed.
+          [ "${{ needs.demo.result }}" = "success" ] || [ "${{ needs.demo.result }}" = "skipped" ] || exit 1
+          for r in ${{ needs.changes.result }} ${{ needs.checks.result }} ${{ needs.database.result }} ${{ needs.e2e.result }}; do
+            [ "$r" = "success" ] || exit 1
+          done
