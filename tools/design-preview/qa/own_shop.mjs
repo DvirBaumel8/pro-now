@@ -17,7 +17,7 @@ await press(/^המשך$/);
 await p.getByLabel('שם מלא').fill('רון לוי'); await p.getByLabel('שם העסק').fill('רון נגרות'); await press(/^עוסק פטור$/); await p.getByLabel('עיר הבסיס').fill('חיפה'); await press(/^המשך$/);
 await press(/^אחר כך$/); await shot('prices'); await press(/^המשך$/); await press(/^המשך$/); await press(/^אחר כך$/) || await press(/^המשך$/);
 await shot('summary'); await press(/^שליחה לאישור/); await p.waitForTimeout(3000); await p.waitForTimeout(8500); await shot('shop_open');
-await press(/^להתחיל משמרת/); await p.waitForTimeout(2500); await shot('shift');
+await press(/^להתחיל משמרת/); await p.waitForTimeout(2500); await shot('shift'); await press(/^המחירים שלי/); await p.waitForTimeout(1000); await shot('my_prices'); console.log('my prices are mine:', !(await text()).includes('החלפת אטם'), '| no list for visit-only:', !(await text()).includes('המחירון שלך')); await press(/^חזרה|חזרה$/); await p.waitForTimeout(800);
 console.log('shift is his:', (await text()).includes('רון') && (await text()).includes('נגרות'));
 await press(/^הדגמה: מעבר לצד הלקוח|^לקוח$/); await p.waitForTimeout(1500);
 // customer sign-in and first-time steps

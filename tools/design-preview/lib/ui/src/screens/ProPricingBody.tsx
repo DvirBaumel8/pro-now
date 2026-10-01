@@ -79,6 +79,8 @@ export interface ProPricingBodyProps {
   onAfterHoursChange?: (percent: number | null) => void;
   /** The jobs he does and what each costs — his quotes are built from these. */
   priceList?: readonly { id: string; nameHe: string; amountMinorUnits: number }[];
+  /** False for a professional whose services are priced only by visit-and-diagnosis: no price list to show. */
+  showPriceList?: boolean;
   onPriceListChange?: (list: { id: string; nameHe: string; amountMinorUnits: number }[]) => void;
   onBack?: () => void;
   width?: number;
@@ -109,6 +111,7 @@ export function ProPricingBody({
   afterHoursPercent = null,
   onAfterHoursChange,
   priceList = [],
+  showPriceList = true,
   onPriceListChange,
   onBack,
   width = 390,
@@ -162,10 +165,12 @@ export function ProPricingBody({
         ) : null}
 
         <Text style={styles.title}>המחירים שלך</Text>
+        {/* One sentence, and only about what this professional has (Amit:
+            "כל אחד מחליט לעצמו"; a visit-only trade has no price list). */}
         <Text style={styles.lede}>
-          כל המחירים שלך — אתה קובע אותם, והלקוח רואה אותם לפני שהוא מזמין. בשירות במחיר קבוע
-          זה המחיר לעבודה; בשירות עם אבחון זה מחיר הביקור, ואת העבודה עצמה מתמחרים אחרי שרואים
-          את התקלה — מהמחירון שלך למטה.
+          {showPriceList
+            ? "כל מחיר כאן — שלך. הלקוח רואה אותו לפני שהוא מזמין."
+            : "המחיר שלך לביקור ואבחון. את העבודה עצמה סוגרים מול הלקוח אחרי שרואים את התקלה."}
         </Text>
 
         {/*
@@ -296,7 +301,8 @@ export function ProPricingBody({
           </Text>
         </Surface>
 
-        {/* ---------------- The price list ---------------- */}
+        {/* ---------------- The price list — only for work priced by the job ---------------- */}
+        {showPriceList ? (<>
         <SectionHeader title="המחירון שלך" colors={colors} />
         <Surface kind="raised" colors={colors} style={styles.card}>
           <Text style={styles.help}>
@@ -339,6 +345,7 @@ export function ProPricingBody({
             <Text style={styles.addBtnText}>+ הוספה למחירון</Text>
           </Pressable>
         </Surface>
+        </>) : null}
 
         {/*
           * The three steps, restated at the bottom where a professional who
@@ -350,8 +357,10 @@ export function ProPricingBody({
         <SectionHeader title="איך זה עובד" colors={colors} />
         <Surface kind="outlined" colors={colors} style={styles.card}>
           <Text style={styles.step}>1 · תיקון שהמחיר שלו לא ידוע מראש: הלקוח רואה את דמי הביקור והאבחון שלך, וזה מה שנגבה באפליקציה. את התיקון עצמו אתם סוגרים ישירות.</Text>
-          <Text style={styles.step}>2 · עבודה עם מחיר ידוע: הלקוח בוחר מהמחירון שלך, והסכום מאושר בכרטיס ועובר אליך אחרי שהוא מאשר שסיימת.</Text>
-          <Text style={styles.step}>3 · הלקוח רואה את המחיר שלך לפני שהוא מאשר אותך.</Text>
+          {showPriceList ? (
+            <Text style={styles.step}>2 · עבודה עם מחיר ידוע: הלקוח בוחר מהמחירון שלך, והסכום מאושר בכרטיס ועובר אליך אחרי שהוא מאשר שסיימת.</Text>
+          ) : null}
+          <Text style={styles.step}>{showPriceList ? "3" : "2"} · הלקוח רואה את המחיר שלך לפני שהוא מאשר אותך.</Text>
           <Text style={styles.stepNote}>
             אין מכרז ואין הצעות מתחרות. המחיר שלך הוא שלך.
           </Text>

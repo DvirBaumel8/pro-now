@@ -5267,7 +5267,9 @@ function ProApp({
   /* Night/Shabbat surcharge and the price list — his, set on "המחירים שלך". */
   const [afterHoursPct, setAfterHoursPct] = useState<number | null>(null);
   /* The demo account's own list, so a quote can be built from it out of the box. */
-  const [priceList, setPriceList] = useState<PriceListItem[]>(() => Object.values(joined?.priceLines ?? {})[0]?.map((l) => ({ ...l })) ?? [
+  /* A joined professional's own lines, or none — never the sample plumber's
+     list (Amit: "למה זה מכניס לי דברים שלא קשורים אליי?"). */
+  const [priceList, setPriceList] = useState<PriceListItem[]>(() => joined ? Object.values(joined.priceLines ?? {}).flat().map((l) => ({ ...l })) : [
     { id: "d1", nameHe: "החלפת אטם בברז", amountMinorUnits: 18000 },
     { id: "d2", nameHe: "החלפת סיפון", amountMinorUnits: 25000 },
     { id: "d3", nameHe: "פתיחת סתימה בכיור", amountMinorUnits: 30000 },
@@ -6270,12 +6272,14 @@ function ProApp({
         onAfterHoursChange={setAfterHoursPct}
         priceList={priceList}
         onPriceListChange={setPriceList}
+        /* Visit-and-diagnosis only: just the diagnosis price, no price list (Amit). */
+        showPriceList={!joined || (joinedIds ?? []).some((id) => pilotServiceById[id] && pricingKindOf(pilotServiceById[id]!) === "LIST")}
         onChange={(serviceId, amountMinorUnits) =>
           setPricing((prev) =>
             prev.map((r) => (r.serviceId === serviceId ? { ...r, amountMinorUnits } : r))
           )
         }
-        onBack={() => setProView("presence")}
+        onBack={() => setProView(null)}
         width={width}
         height={bodyH}
       />
