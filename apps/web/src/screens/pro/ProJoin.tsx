@@ -12,13 +12,15 @@ import {
   pilotServiceIdForDatabaseCode,
   type ProApplicationView,
 } from "@pro-now/types";
-import { PrimaryAction, customerDarkTheme, spacing, type as t } from "@pro-now/ui";
+import { IntroBody, PrimaryAction, customerDarkTheme, spacing, type as t } from "@pro-now/ui";
 
-import { api } from "../../api";
+import { api, useMe } from "../../api";
 import { useFrame } from "../../frame";
 import { compressImage } from "../../media";
 import { pickFile } from "../../pickFile";
 import { brandColorFromFile } from "../../art/brandColor";
+import { IntroBackdrop } from "../../art/IntroBackdrop";
+import { worldSources } from "../../art/worldSources";
 import { tradeCharacterFor, tradeShopFor } from "../../tradeCharacter";
 import { ErrorScreen, LoadingScreen } from "../../states";
 import { APPROVAL_STEPS_HE } from "./approval";
@@ -92,6 +94,16 @@ async function uploadDocument(file: File, asPhoto: boolean): Promise<string> {
   return (await api.uploadMedia({ kind: "DOCUMENT", mime, body: file })).upload.id;
 }
 
+const PRO_INTRO_KEY = "pn.proIntroSeen";
+
+function readFlag(key: string): boolean {
+  try {
+    return localStorage.getItem(key) === "1";
+  } catch {
+    return false;
+  }
+}
+
 export function ProJoin() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -100,6 +112,18 @@ export function ProJoin() {
   const [params] = useSearchParams();
   const at = params.get("at");
   const [step, setStep] = useState(at === "summary" ? STEPS.length - 1 : at === "shop" ? SHOP_STEP : 0);
+  /*
+   * The four explanation slides, then the welcome — once, for someone who has
+   * not started joining (the demo's order, docs/sync/SYNC-2026-10-01 P1).
+   * Remembered on this device for this person: whoever skips or finishes
+   * them is not shown them again here, and the next person on the same
+   * device still is.
+   */
+  const me = useMe();
+  const introKey = me.data ? `${PRO_INTRO_KEY}.${me.data.user.id}` : null;
+  const [introDone, setIntroDone] = useState(false);
+  const introSeen = introDone || (introKey !== null && readFlag(introKey));
+  const [introSlide, setIntroSlide] = useState(0);
   // The welcome, once, for someone who has not started joining.
   const [welcomed, setWelcomed] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -138,6 +162,27 @@ export function ProJoin() {
 
   if (application.isPending) return <LoadingScreen />;
   if (application.isError) return <ErrorScreen offline={!navigator.onLine} onRetry={() => void application.refetch()} />;
+  if (me.isPending) return <LoadingScreen />;
+  if (!application.data && !introSeen) {
+    return (
+      <IntroBody
+        side="PRO"
+        background={<IntroBackdrop side="pro" slide={introSlide} />}
+        onSlide={setIntroSlide}
+        sources={worldSources}
+        onDone={() => {
+          try {
+            if (introKey) localStorage.setItem(introKey, "1");
+          } catch {
+            /* private mode: shown again next time, nothing lost */
+          }
+          setIntroDone(true);
+        }}
+        width={width}
+        height={height}
+      />
+    );
+  }
   if (!application.data && !welcomed) return <Welcome width={width} height={height} onStart={() => setWelcomed(true)} onBack={() => navigate("/welcome")} />;
 
   const stepBody = (() => {
