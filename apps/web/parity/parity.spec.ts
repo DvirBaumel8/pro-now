@@ -47,6 +47,7 @@ function compare(name: string, demo: PNG, product: PNG, assert = true) {
 }
 
 test("the product's screens match the demo's", async ({ browser }) => {
+  test.setTimeout(600_000);
   const demo = await (await browser.newContext()).newPage();
   const product = await (await browser.newContext()).newPage();
 
@@ -79,5 +80,49 @@ test("the product's screens match the demo's", async ({ browser }) => {
 
   await demo.getByText("דלג כרגע").click();
   await product.getByText("דלג כרגע").click();
+  // Reloading before the skip is saved lands back on the avatar screen.
+  await product.waitForURL(`${PRODUCT}/`);
+  // The product's home shows the saved address, as the demo's does.
+  await product.request.post(`${PRODUCT}/api/v1/me/addresses`, {
+    data: { formatted: "18, אהרון דוד גורדון, תל־אביב־יפו, ישראל", lat: 32.0853, lng: 34.7818 },
+    headers: { origin: PRODUCT },
+  });
+  await product.reload();
   compare("4-home", await shot(demo), await shot(product), false);
+
+  /*
+   * THE CUSTOMER FLOW, past home (catch-up 2026-10-01). Reported, not yet
+   * asserted: these screens were wired one by one, and the report is how the
+   * remaining differences are found. Each step drives both apps by the same
+   * labels — they share their screen components — and a step that cannot be
+   * reached in one of them is recorded rather than ending the run.
+   */
+  const step = async (name: string, act: (p: Page) => Promise<void>) => {
+    for (const [label, p] of [["demo", demo], ["product", product]] as const) {
+      try {
+        await act(p);
+      } catch (e) {
+        unreachable[name] = `${label}: ${(e as Error).message.split("\n")[0]}`;
+      }
+    }
+    compare(name, await shot(demo), await shot(product), false);
+  };
+  const unreachable: Record<string, string> = {};
+
+  await step("5-home-scrolled", async (p) => void (await p.mouse.wheel(0, 700)));
+  await step("6-menu", (p) => p.getByRole("button", { name: "תפריט" }).click({ timeout: 5000 }));
+  await step("6b-menu-closed", (p) => p.getByRole("button", { name: "תפריט" }).click({ timeout: 5000 }));
+  await step("7-category", async (p) => {
+    await p.mouse.wheel(0, -2000);
+    await p.getByRole("button", { name: "ניקיון", exact: true }).click({ timeout: 5000 });
+  });
+  await step("8-service", (p) => p.getByRole("button", { name: "ניקיון דחוף" }).first().click({ timeout: 5000 }));
+  await step("9-form", (p) => p.getByRole("button", { name: /^בקשת .* עכשיו$/ }).click({ timeout: 5000 }));
+  await step("10-form-picked", (p) => p.getByText("ביקור ניקיון · 3 שעות").first().click({ timeout: 5000 }));
+  await step("11-searching", (p) => p.getByRole("button", { name: "שליחת הקריאה" }).click({ timeout: 5000 }));
+
+  writeFileSync(path.join(OUT, "unreachable.json"), JSON.stringify(unreachable, null, 2));
+  // Leave nothing searching behind on the product's server.
+  const job = product.url().match(/\/jobs\/([^/?#]+)/)?.[1];
+  if (job) await product.request.post(`${PRODUCT}/api/v1/jobs/${job}/cancel`, { data: {}, headers: { origin: PRODUCT } });
 });
