@@ -133,6 +133,8 @@ export interface CityProps {
    * name on his sign and his colour. Amit: "יראה לי אותה ברחוב".
    */
   ownShop?: { id: string; nameHe: string; colorHex: string; logoUri?: string | null } | null;
+  /** Kept alive behind another screen (a service opened from a shop): stop drawing, keep everything. */
+  paused?: boolean;
   /**
    * Which of the twelve characters the customer chose, 1–12.
    *
@@ -283,6 +285,7 @@ export function City({
   spawn,
   enterShopId = null,
   ownShop = null,
+  paused = false,
   avatarNo = null,
   shot = null,
   hud = true,
@@ -293,6 +296,8 @@ export function City({
   onExit,
 }: CityProps) {
   const host = useRef<HTMLDivElement | null>(null);
+  const pausedRef = useRef(paused);
+  pausedRef.current = paused;
   const [ready, setReady] = useState(false);
   const [nearName, setNearName] = useState<string | null>(null);
   const [nearId, setNearId] = useState<string | null>(null);
@@ -1100,6 +1105,7 @@ export function City({
       let spin = 0;
       let spinArmed = true;
       let atEndFor = 0;
+      let pushOutFor = 0;
 
       /*
        * -----------------------------------------------------------
@@ -1318,6 +1324,11 @@ export function City({
       let vrFade = 0;
 
       const tick = (now: number) => {
+        /* Behind another screen: nothing is drawn, nothing is lost — the way back finds it as it was. */
+        if (pausedRef.current) {
+          raf = requestAnimationFrame(tick);
+          return;
+        }
         const dt = Math.min(0.05, (now - last) / 1000);
         last = now;
 
@@ -1723,6 +1734,21 @@ export function City({
               Math.min(Math.max(deep, shallow), p.x + dx)
             );
             p.z = Math.max(room.z - 3.4, Math.min(room.z + 3.4, p.z + dz));
+            /*
+             * WALKING OUT OF THE DOOR LEAVES THE SHOP (Amit, 2026-10-01: in Lust,
+             * "ניסיתי לצאת מהחנות והוא לא זיהה שיצאתי" — the walls held him in
+             * and the shop stayed his for the rest of the street). Pushing into
+             * the street-side wall, near the doorway, for a moment is the same
+             * as "חזרה לרחוב".
+             */
+            const atDoorWall = Math.abs(p.x - shallow) < 0.08 && dx * room.side < 0;
+            pushOutFor = atDoorWall ? pushOutFor + dt : 0;
+            if (pushOutFor > 0.35 && !entry) {
+              pushOutFor = 0;
+              setRoom(null);
+              setInside(null);
+              leaveRef.current?.();
+            }
           } else {
             /* Wall to wall. Crossing the road is a thing you may do —
                the previous clamp kept you on one pavement, which made
@@ -3051,7 +3077,7 @@ const S: Record<string, React.CSSProperties> = {
     animation: "pnFill 1.6s ease-in-out infinite",
   },
   name: {
-    position: "absolute", top: 46, left: "50%", transform: "translateX(-50%)",
+    position: "absolute", top: 70, left: "50%", transform: "translateX(-50%)",
     display: "flex", alignItems: "center", gap: 9,
     padding: "9px 16px", borderRadius: 999,
     background: "rgba(12,9,18,.82)", border: "1px solid",
@@ -3075,7 +3101,7 @@ const S: Record<string, React.CSSProperties> = {
   leaveRoom: {
     /* Top left, clear of the joystick. At the bottom it sat on the
        pad and you could not tell which you were pressing. */
-    position: "absolute", left: 16, top: 84,
+    position: "absolute", left: 16, top: 124,
     border: "1px solid rgba(247,243,250,.22)", borderRadius: 999,
     padding: "11px 20px", background: "rgba(16,12,22,.72)",
     color: "rgba(247,243,250,.86)", fontSize: scale.meta, fontFamily: "inherit",

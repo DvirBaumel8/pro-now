@@ -64,7 +64,7 @@ const proWorldSources: WorldAssetSources = Object.fromEntries(
 import fixtureGeo from "../geo/fixture_grid.json";
 
 import { ProOnboardingBody, type OnboardingResult, type OnboardingService } from "@pro-now/demo-ui";
-import { ActiveJobCapsule, AddressPickerBody, AppHeader, AppMenuBody, AvatarPickerBody, IntroBody, customerDarkTheme, FocusSheet, ScreenTransition, ArrivalVerifyBody, OnSiteBody, CallsListBody, CAPSULE_HEIGHT, ChatBody, ConnectionBanner, CategoryBody, CustomerHomeBody, CustomerProfileBody, customerTheme, DescribeFaultBody, JobClosedBody, JobCompleteBody, MatchConfirmBody, NavGlyph, Persona, PhoneAuthBody, ProEarningsBody, ProJobBody, ProJobSettledBody, ProOfferBody, ProOnlineBody, ProPricingBody, ProProfileBody, ProQuoteBuilderBody, ProServicesBody, ProShiftBody, proTheme, ProVerificationBody, ProVerificationStepBody, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, SponsorShopBody, AdvertiseBody, StrollBody, Sheet, spacing, tint, TrackingBody, type as t, WelcomeBody } from "@pro-now/demo-ui";
+import { ActiveJobCapsule, OrdersDock, AddressPickerBody, AppHeader, AppMenuBody, AvatarPickerBody, IntroBody, customerDarkTheme, FocusSheet, ScreenTransition, ArrivalVerifyBody, OnSiteBody, CallsListBody, CAPSULE_HEIGHT, ChatBody, ConnectionBanner, CategoryBody, CustomerHomeBody, CustomerProfileBody, customerTheme, DescribeFaultBody, JobClosedBody, JobCompleteBody, MatchConfirmBody, NavGlyph, Persona, PhoneAuthBody, ProEarningsBody, ProJobBody, ProJobSettledBody, ProOfferBody, ProOnlineBody, ProPricingBody, ProProfileBody, ProQuoteBuilderBody, ProServicesBody, ProShiftBody, proTheme, ProVerificationBody, ProVerificationStepBody, QuoteApprovalBody, radii, scale, SearchingBody, ServiceDetailBody, SponsorShopBody, AdvertiseBody, StrollBody, Sheet, spacing, tint, TrackingBody, type as t, WelcomeBody } from "@pro-now/demo-ui";
 import type { JobMediaItem, LiveLocationState, MarkName, NavGlyphName, ProPricingRow } from "@pro-now/demo-ui";
 import type { AuthStage, ChatMessage, ConnectionState } from "@pro-now/demo-ui";
 import { onboardingDocsFor, canHandOffToMaps, categoryAsksForPerson, mapsHandoffUrl, buildIntakeBrief, pilotIntakeByService, pilotServiceById, pricingKindOf, readAvailability, visitTermsHe, APPROVAL_STEPS_HE } from "@pro-now/demo-types";
@@ -72,7 +72,7 @@ import type { IntakeAnswer, IntakeBriefLine, MapsPlatform, OfferCardView, PriceM
 import type { JobState, ProPresenceState } from "@pro-now/demo-types";
 
 import { IdentityCheck } from "./IdentityCheck";
-import type { QuoteMedia, SavedAddress } from "@pro-now/demo-ui";
+import type { DockOrder, QuoteMedia, SavedAddress } from "@pro-now/demo-ui";
 import { goBack, installBackGesture, openOverlay, pushBackEntry, readScroll, restoreScroll, setBackHandler } from "./backGesture";
 import { matchFixture, offerFixture } from "./fixtures";
 import {
@@ -2312,7 +2312,9 @@ function CustomerApp({
   // The label on the home screen says whose door this is. Forgetting that a
   // call is for someone else is how a professional ends up at the wrong flat.
   /* The job on screen: who is at home, from the call that was sent when this device no longer holds the choice. */
-  const jobOnSiteHe = onSiteNameHe ?? liveOnSiteNameHe;
+  /* Who is at home for the order in focus, when it was restored from the dock (several orders). */
+  const [onSiteOverride, setOnSiteOverride] = useState<string | null | undefined>(undefined);
+  const jobOnSiteHe = onSiteOverride !== undefined ? onSiteOverride : onSiteNameHe ?? liveOnSiteNameHe;
   const addressLabel = onSiteNameHe
     ? `${chosen.labelHe} · עבור ${onSiteNameHe}`
     : (chosen.formattedHe.split(" · ")[0] || chosen.labelHe);
@@ -2369,6 +2371,8 @@ function CustomerApp({
   /* The name the first candidate had — the demo professional. */
   const matchedFirstRef = useRef<string | null>(null);
 
+  /* The street a service was opened from, kept alive (paused) behind it — see `cityLayer`. */
+  const [keptCity, setKeptCity] = useState<CustomerRoute | null>(null);
   const [route, setRoute] = useState<CustomerRoute>(
     /*
      * A pin or a review cycle is an instruction about where to open and
@@ -2745,6 +2749,52 @@ function CustomerApp({
       : null;
 
   /*
+   * ---------------------------------------------------------------------
+   * SEVERAL ORDERS AT ONCE (Amit, 2026-10-01; out/multi-order-spec.md)
+   * ---------------------------------------------------------------------
+   * The screens still show one order — the one "in focus". The others are
+   * parked here, each with its own clock, professional and stage, and are
+   * restored when chosen from the dock, the switcher or the city's strip.
+   * The demo's professional side serves the newest order (`proBoundId`).
+   */
+  type ParkedOrder = {
+    id: string;
+    seq: number;
+    serviceId: string | null;
+    nameHe: string;
+    mark: MarkName;
+    proNameHe: string | null;
+    route: CustomerRoute;
+    tripStartedAt: number | null;
+    eta: { minutes: number; atMs: number } | null;
+    approvedTotalMinor: number | null;
+    approvedLines: CustomerMemory["approvedLines"];
+    quoteApprovedForOther: boolean;
+    onSiteHe: string | null;
+  };
+  const [parked, setParked] = useState<ParkedOrder[]>([]);
+  const [focus, setFocus] = useState<{ id: string; seq: number } | null>(null);
+  const orderSeq = useRef(0);
+  const proBoundId = useRef<string | null>(null);
+  /* The order's own screen to return to, remembered while the person walks elsewhere. */
+  const lastJobRoute = useRef<CustomerRoute | null>(null);
+  useEffect(() => {
+    if (["living", "tracking", "arrival", "quote"].includes(route.name)) lastJobRoute.current = route;
+  }, [route]);
+  const ETA_MIN = Math.round((matchFixture.eta?.etaSeconds ?? 840) / 60);
+  /* Each order counts from its own acceptance — the second one no longer inherits the first one's clock. */
+  const startOrderClock = () => {
+    firstEta.current = { minutes: ETA_MIN, atMs: Date.now() };
+  };
+  const [orderToast, setOrderToast] = useState<{ titleHe: string; metaHe: string; orderId: string | null } | null>(null);
+  useEffect(() => {
+    if (!orderToast) return;
+    const t = setTimeout(() => setOrderToast(null), 6000);
+    return () => clearTimeout(t);
+  }, [orderToast]);
+
+
+  /*
    * The drawn professional for the trade that was called out, from the
    * same lookup the tracking screen already uses for the face. A trade
    * with no drawing simply has none, and the capsule keeps its
@@ -2760,8 +2810,12 @@ function CustomerApp({
       : null;
   }, [art, trackedService.mark]);
 
-  const capsule =
-    pendingQuote && route.name !== "quote"
+  /* Two orders or more: the dock (below) replaces the one-order capsule. */
+  const multiOrder = parked.length > 0 && (hasLiveJob || route.name === "living");
+  const showDock = multiOrder && !jobScreens.includes(route.name) && tab !== "calls";
+  const capsule = multiOrder
+    ? null
+    : pendingQuote && route.name !== "quote"
       ? {
           textHe: "הצעת מחיר ממתינה לאישורך",
           etaMinutes: null,
@@ -2773,7 +2827,7 @@ function CustomerApp({
           etaMinutes: liveEta,
           progress: liveProgress,
           figureUri: capsuleFigureUri,
-          onPress: () => go({ name: "tracking", stage: "enroute" }),
+          onPress: () => go(lastJobRoute.current ?? { name: "tracking", stage: "enroute" }),
         }
       : null;
 
@@ -2801,7 +2855,7 @@ function CustomerApp({
     UTIL -
     (demo ? DEMO_H : 0) -
     (showReturnToPro ? DEMO_H : 0) -
-    (capsule ? CAPSULE_HEIGHT : 0);
+    (capsule || showDock ? CAPSULE_HEIGHT : 0);
 
   /**
    * The live job, as one sentence. Present only while there is a job to
@@ -2949,6 +3003,8 @@ const go = useCallback((r: CustomerRoute) => {
    * visit is at the door the customer's wait turns into the visit.
    */
   useEffect(() => {
+    /* The professional's side serves one order (the newest); its moves belong to that order only. */
+    if (focus && proBoundId.current && focus.id !== proBoundId.current) return;
     if (proJobState === "COMPLETION_PENDING" && route.name === "tracking" && (route.stage === "working" || route.stage === "diagnosis" || route.stage === "arrived")) {
       advanceTo({ name: "tracking", stage: "done" });
       return;
@@ -3096,6 +3152,11 @@ const go = useCallback((r: CustomerRoute) => {
    * leaving without being rebuilt on every navigation.
    */
   const hereRef = useRef<CustomerRoute>({ name: "home" });
+  /* Off the service/describe screens (and not back in the street), the kept street is let go. */
+  useEffect(() => {
+    if (keptCity && !["service", "describe", "city", "stroll"].includes(route.name)) setKeptCity(null);
+    if (route.name === "city" || route.name === "stroll") setKeptCity(null);
+  }, [route.name]);
   const tabRef = useRef<CustomerTab>("home");
   const pushHistory = pushBackEntry;
 
@@ -3275,6 +3336,130 @@ const go = useCallback((r: CustomerRoute) => {
     return uri ? { ...base, profilePhotoUrl: uri } : base;
   }, [trackedService, art, matchedName, ownPro]);
 
+  /* ---- several orders: park, restore, and how each one reads ---- */
+  const JOB_ROUTES = ["living", "tracking", "arrival", "quote"];
+  const routeForPro = (pj: JobState | null): CustomerRoute | null =>
+    pj === "PRO_ARRIVED" || pj === "DIAGNOSIS" ? { name: "tracking", stage: "diagnosis" }
+    : pj === "WAITING_QUOTE_APPROVAL" ? (pendingQuote ? { name: "quote" } : { name: "tracking", stage: "diagnosis" })
+    : pj === "IN_PROGRESS" ? { name: "tracking", stage: "working" }
+    : pj === "COMPLETION_PENDING" ? { name: "tracking", stage: "done" }
+    : null;
+  const parkCurrent = (): ParkedOrder | null =>
+    focus && hasLiveJob
+      ? {
+          id: focus.id,
+          seq: focus.seq,
+          /* The order's own service — at the moment of parking the screen may already show the next one. */
+          serviceId: lastRequestedId,
+          nameHe: (lastRequestedId ? SERVICE_PAGES[lastRequestedId]?.nameHe : null) ?? trackedService.nameHe,
+          mark: ((lastRequestedId ? SERVICE_PAGES[lastRequestedId]?.mark : null) ?? trackedService.mark) as MarkName,
+          proNameHe: matchedName ?? trackedProfessional.displayName,
+          route: (JOB_ROUTES.includes(route.name) ? route : lastJobRoute.current) ?? { name: "tracking", stage: "enroute" },
+          tripStartedAt,
+          eta: firstEta.current,
+          approvedTotalMinor,
+          approvedLines,
+          quoteApprovedForOther,
+          onSiteHe: jobOnSiteHe,
+        }
+      : null;
+  const restore = (o: ParkedOrder) => {
+    setFocus({ id: o.id, seq: o.seq });
+    setLastRequestedId(o.serviceId);
+    setMatchedName(o.proNameHe);
+    setHasLiveJob(true);
+    setTripStartedAt(o.tripStartedAt);
+    firstEta.current = o.eta;
+    setApprovedTotalMinor(o.approvedTotalMinor);
+    setApprovedLines(o.approvedLines);
+    setQuoteApprovedForOther(o.quoteApprovedForOther);
+    setOnSiteOverride(o.onSiteHe);
+    /* The order the professional's side serves may have moved on while it was parked. */
+    const moved = o.id === proBoundId.current ? routeForPro(proJobState) : null;
+    lastJobRoute.current = moved ?? o.route;
+    return lastJobRoute.current;
+  };
+  /* Open an order from the dock, the switcher, the city's strip, the calls list or a toast. */
+  const openOrder = (id: string) => {
+    if (focus && id === focus.id) {
+      go(lastJobRoute.current ?? { name: "tracking", stage: "enroute" });
+      return;
+    }
+    const target = parked.find((o) => o.id === id);
+    if (!target) return;
+    const cur = parkCurrent();
+    setParked((ps) => [...ps.filter((o) => o.id !== id), ...(cur ? [cur] : [])]);
+    const r = restore(target);
+    /* Switching is a replace on an order's own screens — back never walks through orders. */
+    if (JOB_ROUTES.includes(route.name)) advanceTo(r);
+    else go(r);
+  };
+  /* The order in focus ended: the next one waiting comes into focus (no screen change). */
+  useEffect(() => {
+    if (hasLiveJob || parked.length === 0) return;
+    if (["complete", "closed", "living", "matchconfirm", "describe", "service", "quote"].includes(route.name)) return;
+    const [next, ...rest] = [...parked].sort((a, b) => a.seq - b.seq);
+    setParked(rest);
+    restore(next!);
+  }, [hasLiveJob, parked.length, route.name]);
+
+  const minutesLeft = (eta: { minutes: number; atMs: number } | null) =>
+    eta ? Math.max(0, Math.ceil(eta.minutes - (nowMs - eta.atMs) / 60000)) : null;
+  const readOrder = (r: CustomerRoute | null, pj: JobState | null, quoteWaits: boolean, left: number | null) => {
+    if (quoteWaits) return { statusHe: "הצעה לאישור", onSite: true, attention: true, driving: false };
+    if (pj === "PRO_ARRIVED") return { statusHe: "אצלך", onSite: true, attention: false, driving: false };
+    if (pj === "DIAGNOSIS") return { statusHe: "בבדיקה", onSite: true, attention: false, driving: false };
+    if (pj === "IN_PROGRESS") return { statusHe: "בעבודה", onSite: true, attention: false, driving: false };
+    if (pj === "COMPLETION_PENDING") return { statusHe: "לאישור סיום", onSite: true, attention: true, driving: false };
+    if (!r) return { statusHe: "בדרך", onSite: false, attention: false, driving: true };
+    if (r.name === "living") return r.phase === "ASSIGNED_ROUTE" ? { statusHe: left !== null && left <= 3 ? "מתקרב" : "בדרך", onSite: false, attention: false, driving: true } : { statusHe: "מחפשים", onSite: false, attention: false, driving: false };
+    if (r.name === "arrival") return { statusHe: "ליד הדלת", onSite: true, attention: true, driving: false };
+    if (r.name === "quote") return { statusHe: "הצעה לאישור", onSite: true, attention: true, driving: false };
+    if (r.name === "tracking") {
+      if (r.stage === "assigned" || r.stage === "enroute") return { statusHe: left !== null && left <= 3 ? "מתקרב" : "בדרך", onSite: false, attention: false, driving: true };
+      if (r.stage === "arrived") return { statusHe: "אצלך", onSite: true, attention: false, driving: false };
+      if (r.stage === "diagnosis") return { statusHe: "בבדיקה", onSite: true, attention: false, driving: false };
+      if (r.stage === "working") return { statusHe: "בעבודה", onSite: true, attention: false, driving: false };
+      return { statusHe: "לאישור סיום", onSite: true, attention: true, driving: false };
+    }
+    return { statusHe: "בדרך", onSite: false, attention: false, driving: true };
+  };
+  const dockOrders: DockOrder[] = (() => {
+    const out: DockOrder[] = [];
+    const searching = route.name === "living" && route.phase !== "ASSIGNED_ROUTE";
+    if (focus && (hasLiveJob || searching)) {
+      const r = JOB_ROUTES.includes(route.name) ? route : lastJobRoute.current;
+      const bound = focus.id === proBoundId.current;
+      const rd = readOrder(r, bound ? proJobState : null, bound && Boolean(pendingQuote), liveEta);
+      out.push({
+        id: focus.id, seq: focus.seq, serviceNameHe: trackedService.nameHe, proNameHe: hasLiveJob ? matchedName ?? trackedProfessional.displayName : null,
+        mark: trackedService.mark, statusHe: rd.statusHe, etaMinutes: rd.driving ? liveEta : null, progress: rd.driving ? liveProgress : null,
+        onSite: rd.onSite, attention: rd.attention, focused: true,
+      });
+    }
+    for (const o of parked) {
+      const bound = o.id === proBoundId.current;
+      const left = minutesLeft(o.eta);
+      const rd = readOrder(o.route, bound ? proJobState : null, bound && Boolean(pendingQuote), left);
+      out.push({
+        id: o.id, seq: o.seq, serviceNameHe: o.nameHe, proNameHe: o.proNameHe, mark: o.mark, statusHe: rd.statusHe,
+        etaMinutes: rd.driving ? left : null,
+        progress: rd.driving && o.eta && o.eta.minutes > 0 ? Math.min(1, (nowMs - o.eta.atMs) / 60000 / o.eta.minutes) : null,
+        onSite: rd.onSite, attention: rd.attention, focused: false,
+      });
+    }
+    return out;
+  })();
+  /* A parked order getting close (or at the door) says so wherever the person is — the city's promise "נקרא לכם כשהוא מתקרב". */
+  const toldClose = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    for (const o of dockOrders) {
+      if (o.focused || o.etaMinutes === null || o.etaMinutes > 3 || toldClose.current.has(o.id)) continue;
+      toldClose.current.add(o.id);
+      setOrderToast({ titleHe: `${(o.proNameHe ?? "המקצוען").split(" ")[0]} מתקרב`, metaHe: `${o.serviceNameHe} · עוד ${o.etaMinutes} דק׳`, orderId: o.id });
+    }
+  }, [nowMs]);
+
   /*
    * "הקריאות שלי" holds THIS customer's call while one is live — the service
    * they asked for and the professional who took it — never the sample
@@ -3308,20 +3493,22 @@ const go = useCallback((r: CustomerRoute) => {
       myRating: d.rating,
     }));
     const sample = callsList.find((c) => c.live);
-    if (!hasLiveJob || !sample) return past;
-    const atDoor = route.name === "tracking" && route.stage !== "assigned" && route.stage !== "enroute";
-    return [
-      {
+    if (!sample) return past;
+    /* One live row per order — the one in focus and every parked one — in order of creation. */
+    const live = dockOrders
+      .filter((o) => o.proNameHe)
+      .sort((a, b) => a.seq - b.seq)
+      .map((o) => ({
         ...sample,
-        serviceNameHe: trackedService.nameHe,
-        mark: trackedService.mark,
-        proNameHe: trackedProfessional.displayName,
-        stateHe: atDoor ? "אצלך" : "בדרך אליך",
-        etaMinutes: atDoor ? null : liveEta,
-      },
-      ...past,
-    ];
-  }, [hasLiveJob, route, trackedService, trackedProfessional, liveEta, doneJobs]);
+        id: o.focused ? "call_live" : o.id,
+        serviceNameHe: o.serviceNameHe,
+        mark: o.mark,
+        proNameHe: o.proNameHe,
+        stateHe: o.statusHe,
+        etaMinutes: o.etaMinutes,
+      }));
+    return [...live, ...past];
+  }, [dockOrders, doneJobs]);
 
   /*
    * WHEN THE VISIT WAS, AND HOW LONG — measured, not written in. The
@@ -3594,7 +3781,10 @@ const go = useCallback((r: CustomerRoute) => {
           calls={myCalls}
           onOpen={(id) => {
             const c = myCalls.find((x) => x.id === id);
-            if (c?.live) go({ name: "tracking", stage: "enroute" });
+            if (c?.live) {
+              if (id === "call_live") go(lastJobRoute.current ?? { name: "tracking", stage: "enroute" });
+              else openOrder(id);
+            }
             /* A call still waiting for its rating opens that call's summary, not a generic sheet. */
             else if (c && c.myRating === null) {
               setRateCall({ nameHe: c.serviceNameHe, totalMinorUnits: c.totalMinorUnits, proNameHe: c.proNameHe, whenHe: c.whenHe });
@@ -3884,6 +4074,19 @@ const go = useCallback((r: CustomerRoute) => {
                 go({ name: "address" });
                 return;
               }
+              /* A second order while one is live: the first is parked, keeps its clock and stays in the dock. */
+              if (hasLiveJob) {
+                const cur = parkCurrent();
+                if (cur) setParked((ps) => [...ps, cur]);
+                setHasLiveJob(false);
+                setMatchedName(null);
+                setApprovedTotalMinor(null);
+                setApprovedLines(null);
+              }
+              setOnSiteOverride(undefined);
+              orderSeq.current = Math.max(orderSeq.current, focus?.seq ?? 0, ...parked.map((o) => o.seq)) + 1;
+              setFocus({ id: `ord_${orderSeq.current}`, seq: orderSeq.current });
+              proBoundId.current = `ord_${orderSeq.current}`;
               /*
                * Everything the customer gave, packed once and handed over.
                * `buildIntakeBrief` is the same pure function the offer card
@@ -4228,6 +4431,8 @@ const go = useCallback((r: CustomerRoute) => {
               }
               setOnTheWayAt(Date.now());
               setTripStartedAt(Date.now());
+              startOrderClock();
+              if (parked.length > 0) setOrderToast({ titleHe: parked.length === 1 ? "שתי הזמנות פעילות" : `${parked.length + 1} הזמנות פעילות`, metaHe: `${parked.map((o) => `${(o.proNameHe ?? "").split(" ")[0]} (${o.nameHe})`).join(" · ")} — ממשיכים כרגיל`, orderId: null });
               setHasLiveJob(true);
               advanceTo({ name: "living", serviceId: route.serviceId, phase: "ASSIGNED_ROUTE" }, true);
             }}
@@ -4374,6 +4579,8 @@ const go = useCallback((r: CustomerRoute) => {
               isPersonFit(route.serviceId) && route.index < personFitCandidates.length - 1
             }
             onAccept={() => {
+              setTripStartedAt(Date.now());
+              startOrderClock();
               setHasLiveJob(true);
               advanceTo({ name: "tracking", stage: "assigned" }, true);
             }}
@@ -5143,37 +5350,54 @@ const go = useCallback((r: CustomerRoute) => {
   /* Grandpa's phone, on its own: no header or menu of ours over it (Amit: "גם לא מובן"). */
   if (route.name === "onsite") return <View style={{ width, height }}>{body}</View>;
 
-  if (route.name === "city" || route.name === "stroll") {
-    return (
-      <View style={{ width, height }}>
-        <City
-          base="./world/"
-          avatarNo={avatar ? Number(String(avatar).replace(/\D/g, "")) : null}
-          trades={cityTrades}
-          enterShopId={route.name === "city" ? route.enterShopId ?? null : null}
-          ownShop={ownPro ? ownShopDesign(ownPro) : null}
-          onRequestService={(id, fromShopId) => {
-            /* Back from the service returns inside the shop it was ordered in, not to the street's start. */
-            if (fromShopId) {
-              hereRef.current = route.name === "city" && route.from
-                ? { name: "city", enterShopId: fromShopId, from: route.from }
-                : { name: "city", enterShopId: fromShopId };
-            }
-            go({ name: "service", serviceId: id });
-          }}
-          onExit={() => {
-            const from = route.name === "city" ? route.from : undefined;
-            /* Back is back — to the screen the street was opened from (the wait for the
-               pro, the visit), never a jump home that loses a live job (button audit #1). */
-            back(from === "stroll" ? { name: "stroll" } : from ? { name: "tracking", stage: from } : { name: "home" });
-          }}
-        />
-      </View>
-    );
-  }
+  /*
+   * THE CITY STAYS WHERE YOU LEFT IT (Amit, 2026-10-01: a service opened from
+   * inside the pet shop, then back — "זה עשה כאילו טוען את כל העיר מחדש").
+   * The service and describe screens opened from the street are drawn over a
+   * paused city instead of replacing it, so back lands inside the same shop.
+   */
+  const cityVisible = route.name === "city" || route.name === "stroll";
+  const cityRoute: CustomerRoute | null = cityVisible ? route : keptCity && (route.name === "service" || route.name === "describe") ? keptCity : null;
+  const cityLayer = cityRoute ? (
+    <View
+      key="cityLayer"
+      pointerEvents={cityVisible ? "auto" : "none"}
+      style={{ position: "absolute", left: 0, top: 0, width, height, opacity: cityVisible ? 1 : 0, zIndex: cityVisible ? 1 : -1 }}
+    >
+      <City
+        base="./world/"
+        paused={!cityVisible}
+        avatarNo={avatar ? Number(String(avatar).replace(/\D/g, "")) : null}
+        trades={cityTrades}
+        enterShopId={cityRoute.name === "city" ? cityRoute.enterShopId ?? null : null}
+        ownShop={ownPro ? ownShopDesign(ownPro) : null}
+        onRequestService={(id) => {
+          setKeptCity(route);
+          go({ name: "service", serviceId: id });
+        }}
+        onExit={() => {
+          const from = route.name === "city" ? route.from : undefined;
+          /* Back is back — to the screen the street was opened from (the wait for the
+             pro, the visit), never a jump home that loses a live job (button audit #1). */
+          back(from === "stroll" ? { name: "stroll" } : from ? { name: "tracking", stage: from } : { name: "home" });
+        }}
+      />
+      {/* Walking the city with orders on the way: each one stays in sight, and tapping opens it (spec §2.1, finding B). */}
+      {cityVisible && dockOrders.length > 0 && (hasLiveJob || parked.length > 0) ? (
+        <View style={{ position: "absolute", top: 14, left: 14 }} pointerEvents="box-none">
+          <OrdersDock variant="hud" orders={dockOrders} onOpen={openOrder} width={width} />
+        </View>
+      ) : null}
+      {cityVisible && orderToast ? (
+        <OrderToastView toast={orderToast} onPress={() => { const id = orderToast.orderId; setOrderToast(null); if (id) openOrder(id); }} top={70} />
+      ) : null}
+    </View>
+  ) : null;
+  if (cityVisible) return <View style={{ width, height }}>{cityLayer}</View>;
 
   return (
     <View style={{ width, height }}>
+      {cityLayer}
       {walkingDemo}
       {groundSwitch}
       <AppHeader
@@ -5432,6 +5656,20 @@ const go = useCallback((r: CustomerRoute) => {
         * not pretend to be. (Visual System v1, and the reasoning is in
         * CommandChrome.tsx.)
         */}
+      {showDock ? (
+        <View style={{ height: CAPSULE_HEIGHT, justifyContent: "center" }}>
+          <OrdersDock orders={dockOrders} onOpen={openOrder} width={width} />
+        </View>
+      ) : null}
+      {/* On an order's own screens, with several orders: the switcher, beside the back arrow. */}
+      {multiOrder && ["living", "tracking", "arrival", "quote"].includes(route.name) && tab === "home" ? (
+        <View style={{ position: "absolute", top: 56 + 10, left: 16 }} pointerEvents="box-none">
+          <OrdersDock variant="switcher" orders={dockOrders} onOpen={openOrder} width={width} />
+        </View>
+      ) : null}
+      {orderToast ? (
+        <OrderToastView toast={orderToast} onPress={() => { const id = orderToast.orderId; setOrderToast(null); if (id) openOrder(id); }} top={56 + 8} />
+      ) : null}
       {capsule ? (
         /*
          * NO `progress` HERE, AND THAT IS THE POINT.
@@ -7921,6 +8159,37 @@ const OTW_CSS = `
 `;
 /* The trades whose van is drawn from the side; the rest drive the PRO NOW van. */
 const SIDE_DRAWN = new Set(["appliance", "beauty", "clean", "courier", "electric", "tech", "tow", "vet", "well"]);
+/* A short note about an order that is not on screen (multi-order spec §4): tap to open it. */
+function OrderToastView({ toast, onPress, top }: { toast: { titleHe: string; metaHe: string; orderId: string | null }; onPress: () => void; top: number }) {
+  const v = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(v, { toValue: 1, duration: 320, easing: Easing.bezier(0.16, 0.84, 0.34, 1), useNativeDriver: true }).start();
+  }, [v]);
+  return (
+    <Animated.View
+      accessibilityLiveRegion="polite"
+      style={{ position: "absolute", top, left: 16, right: 16, zIndex: 60, opacity: v, transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [-16, 0] }) }] }}
+    >
+      <Pressable
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={`${toast.titleHe}. ${toast.metaHe}`}
+        style={{ minHeight: 64, borderRadius: 18, backgroundColor: "rgba(23,18,31,0.96)", borderRightWidth: 3, borderRightColor: "#FF5C38", paddingVertical: 12, paddingHorizontal: 16, flexDirection: "row-reverse", alignItems: "center", gap: 12 }}
+      >
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: "#F7F3FA", fontSize: scale.body, fontWeight: "800", textAlign: "right" }}>{toast.titleHe}</Text>
+          <Text style={{ color: "rgba(247,243,250,0.68)", fontSize: scale.meta, textAlign: "right", marginTop: 2 }}>{toast.metaHe}</Text>
+        </View>
+        {toast.orderId ? (
+          <View style={{ minHeight: 40, paddingHorizontal: 14, borderRadius: 999, backgroundColor: "#FF5C38", alignItems: "center", justifyContent: "center" }}>
+            <Text style={{ color: "#fff", fontSize: scale.meta, fontWeight: "800" }}>לצפייה</Text>
+          </View>
+        ) : null}
+      </Pressable>
+    </Animated.View>
+  );
+}
+
 function OnTheWay({ shop, proName, etaMinutes, onSiteNameHe = null, vehicle = null, homeUri = null, own = null, onDone }: { shop: string; proName: string; etaMinutes: number; onSiteNameHe?: string | null; vehicle?: string | null; homeUri?: string | null; /* The professional who joined: his own designed shop, sign and all. */ own?: OnboardingResult | null; onDone: () => void }) {
   const shopId = shop;
   const she = FEMALE_NAMES_HE.has(proName);
