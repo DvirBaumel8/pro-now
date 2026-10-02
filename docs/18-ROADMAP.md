@@ -67,7 +67,15 @@ split (fee rounds down; fee + payable = charge). Until then
 keeps jobs, payments and reviews pointing at the anonymised user. Open: how
 long those are kept and whether a review's text is erased (needs a legal
 and tax answer). Photos, voice and text: **decided 4 days** (D3, a
-setting). Error data: follows Sentry's plan.
+setting). Error data: follows Sentry's plan. Identity-check photos (ID card,
+face): **decided, kept until the admin's decision on that check, then
+deleted**; the decision record stays (Dvir, 2026-10-02,
+`10-TRUST-VERIFICATION.md §Identity check`).
+
+### Minimum age for a professional
+**18, for now** (Dvir, 2026-10-02). The server enforces it on the date of
+birth and again at account approval (`10-TRUST-VERIFICATION.md §Identity
+check`). A legal review may change it per category.
 
 ### How long a customer waits before being told nobody is coming
 `DISPATCH_SEARCH_DEADLINE_SECONDS`, default **300**. After it, SYSTEM
