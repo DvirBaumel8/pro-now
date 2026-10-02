@@ -87,10 +87,18 @@ Must:
 - Work on a branch in your own git worktree, and land it through a pull
   request with auto-merge (`/docs/22-WORKING-MODEL.md §2`). Several sessions
   share this repository; the main checkout is not yours.
+- Before starting any task, fetch and branch from the latest `origin/master`.
+  Never start from a stale local `master` or from another task's branch.
+- One task = one new branch = one new PR.
+- Once a PR is merged, delete its branch (remote and local).
 
 Must NOT:
 - Commit or push to `master` directly, merge a PR whose `CI passed` check is
   not green, or edit files in a worktree another session is using.
+- Push to a branch whose PR is already merged or closed. Before pushing,
+  check the branch's PR state (`gh pr view --json state`); if it is
+  MERGED or CLOSED, branch again from latest `origin/master` and open a
+  new PR (cherry-pick the new commits if needed).
 - Rewrite architecture casually or add microservices/Kubernetes for MVP.
 - Hard-code secrets, or commit `.env`.
 - Skip a migration.
