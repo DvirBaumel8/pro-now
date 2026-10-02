@@ -15,6 +15,9 @@ export const WORLD_ASSETS = {
   world_neighbourhood: "world_neighbourhood.webp",
   splash_city: "splash_city.webp",
   splash_city_day: "splash_city_day.webp",
+  // The demo's ground: photographed stone and asphalt, tiled.
+  mat_paving: "m/mat_paving.webp",
+  mat_road: "m/mat_road.webp",
   avatar_01_portrait: "avatar_01_portrait.webp",
   avatar_02_portrait: "avatar_02_portrait.webp",
   avatar_03_portrait: "avatar_03_portrait.webp",
@@ -71,6 +74,62 @@ export const WORLD_ASSETS = {
   appliance_workshop_hero: "appliance_workshop_hero.webp",
   care_studio_hero: "care_studio_hero.webp",
   pets_salon_hero: "pets_salon_hero.webp",
+
+  // NPC walkers
+  walk_man: "walk_man.webp",
+  walk_woman: "walk_woman.webp",
+  walk_dogwalker: "walk_dogwalker.webp",
+
+  // Street props
+  prop_bench: "prop_bench.webp",
+  prop_bin: "prop_bin.webp",
+  prop_cafe_set: "prop_cafe_set.webp",
+  prop_jacaranda: "prop_jacaranda.webp",
+  prop_lamp: "prop_lamp.webp",
+  prop_palm: "prop_palm.webp",
+  prop_planter_box: "prop_planter_box.webp",
+  prop_planter_round: "prop_planter_round.webp",
+
+  // Places
+  place_dogpark: "place_dogpark.webp",
+  place_garden: "place_garden.webp",
+  place_pickup: "place_pickup.webp",
+  place_roadside: "place_roadside.webp",
+
+  // Dog park figures
+  park_dog1: "park_dog1.webp",
+  park_dog2: "park_dog2.webp",
+  park_dog3: "park_dog3.webp",
+  park_person1: "park_person1.webp",
+  park_person2: "park_person2.webp",
+  park_person3: "park_person3.webp",
+
+  // Parked vehicles
+  van_side: "van_side.webp",
+  scooter_side: "scooter_side.webp",
+
+  // Shop facades (medium res, used for detailed rendering)
+  shop_hair: "m/shop_hair.webp",
+  shop_pets: "m/shop_pets.webp",
+  shop_home: "m/shop_home.webp",
+  shop_tech: "m/shop_tech.webp",
+  shop_auto: "m/shop_auto.webp",
+  shop_well: "m/shop_well.webp",
+  shop_appliance: "m/shop_appliance.webp",
+  shop_care: "m/shop_care.webp",
+  shop_nails: "m/shop_nails.webp",
+  shop_move: "m/shop_move.webp",
+  shop_vet: "m/shop_vet.webp",
+  shop_build: "m/shop_build.webp",
+  shop_help: "m/shop_help.webp",
+
+  // Building facades
+  bld_1_wall: "bld_1_wall.webp",
+  bld_2_wall: "bld_2_wall.webp",
+  bld_3_wall: "bld_3_wall.webp",
+  bld_4_wall: "bld_4_wall.webp",
+  bld_5_wall: "bld_5_wall.webp",
+  bld_6_wall: "bld_6_wall.webp",
 } as const;
 
 export type WorldAssetId = keyof typeof WORLD_ASSETS;

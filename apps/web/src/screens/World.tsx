@@ -76,6 +76,7 @@ export function World() {
         avatarNo={scene.avatarNo}
         scene={scene}
         sceneFactory={createWorldScene}
+        arrival
         onEvent={onEvent}
         fallback={<CityHero />}
       />
@@ -84,7 +85,6 @@ export function World() {
         nearbyTrade={nearbyTrade}
         openTrade={openTrade}
         onEvent={onEvent}
-        onContinueWithoutWorld={() => navigate("/")}
       />
     </View>
   );
