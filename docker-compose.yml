@@ -1,0 +1,95 @@
+# Local development infrastructure only. Never used for staging/production,
+# per PRO NOW engineering rules (see /CLAUDE.md and /docs/16-DEPLOYMENT.md).
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: pro-now-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: pronow
+      POSTGRES_PASSWORD: pronow_local_only
+      POSTGRES_DB: pronow
+    ports:
+      # 54320, not 5432, so it never collides with a Postgres already
+      # installed on the host (Homebrew's listens on 5432).
+      - "54320:5432"
+    volumes:
+      - pronow_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pronow"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    profiles: ["redis"]  # optional; see apps/api/src/domain/dispatch/job-lock.ts
+    image: redis:7-alpine
+    container_name: pro-now-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Stand-ins for the Phase 2 vendors (/docs/21-PRODUCTION-PLAN.md §0).
+  # Each speaks the real protocol; env vars choose them, and
+  # packages/config refuses to boot staging/production while any of them
+  # is configured.
+
+  # SMTP stand-in for Resend. Catches every email; UI and API on :8025.
+  mailpit:
+    image: axllent/mailpit:v1.31.3
+    container_name: pro-now-mailpit
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+  # S3 stand-in for Cloudflare R2. The plan named MinIO, which no longer
+  # publishes public images; SeaweedFS (Apache-2.0) serves the same S3 API.
+  s3:
+    image: chrislusf/seaweedfs:4.48
+    container_name: pro-now-s3
+    restart: unless-stopped
+    command: server -dir=/data -s3 -s3.port=8333 -s3.config=/etc/seaweedfs/s3.json
+    ports:
+      - "8333:8333"
+    volumes:
+      - pronow_s3_data:/data
+      - ./infra/local/seaweedfs-s3.json:/etc/seaweedfs/s3.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8333/healthz || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # One-shot: creates the media bucket once S3 is up.
+  s3-init:
+    image: chrislusf/seaweedfs:4.48
+    depends_on:
+      s3:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["echo 's3.bucket.create -name pronow-media' | weed shell -master=s3:9333"]
+    restart: "no"
+
+  # OpenID Connect stand-in for Google sign-in. Issuer:
+  # http://localhost:8089/google (discovery at /.well-known/openid-configuration).
+  oidc:
+    image: ghcr.io/navikt/mock-oauth2-server:6.0.4
+    container_name: pro-now-oidc
+    restart: unless-stopped
+    environment:
+      SERVER_PORT: "8080"
+      # The login page takes a username and a claims JSON, so a test (or a
+      # person) can sign in as any email, verified or not.
+      JSON_CONFIG: '{"interactiveLogin": true}'
+    ports:
+      - "8089:8080"
+
+volumes:
+  pronow_pg_data:
+  pronow_s3_data:

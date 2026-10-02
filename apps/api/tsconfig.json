@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    // ESM, resolved like a bundler, the same as every package it imports
+    // (they ship extensionless TypeScript source). Dev runs through tsx;
+    // production must be bundled (docs/21 W10).
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    // An application, not a library: nothing consumes its .d.ts files, and
+    // Better Auth's inferred types are not nameable from here.
+    "declaration": false
+  },
+  "include": ["src"]
+}

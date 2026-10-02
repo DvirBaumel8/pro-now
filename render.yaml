@@ -1,0 +1,125 @@
+# PRO NOW — single-origin Render deployment
+#
+# The repository is a workspace monorepo, so the root directory stays at the
+# repository root. The API serves apps/web/dist through Fastify; this keeps
+# Better Auth's cookie first-party on the public URL.
+
+services:
+  - type: web
+    name: pro-now
+    runtime: node
+    plan: free
+    region: frankfurt
+    branch: master
+    # Deploy a master commit only after its CI is green (docs/22 §2).
+    autoDeployTrigger: checksPass
+
+    buildCommand: >-
+      npm ci --include=dev &&
+      npm run db:generate -w apps/api &&
+      npm run build -w apps/web &&
+      npm run build -w apps/api
+
+    # Render Free does not support pre-deploy commands. Prisma's migrate deploy
+    # is idempotent, so run it before each API boot instead.
+    startCommand: npm run db:migrate:deploy -w apps/api && npm run start -w apps/api
+    healthCheckPath: /health
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "24"
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: DEMO_AUTH_ENABLED
+        value: "1"
+      - key: DATABASE_URL
+        sync: false
+      # Neon's direct (unpooled) URL, used only by migrate deploy at boot.
+      # See docs/16 §Neon runbook.
+      - key: DIRECT_DATABASE_URL
+        sync: false
+      - key: PUBLIC_URL
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      # Google sign-in (docs/16 §Google sign-in). Without both, the server
+      # leaves Google off. Redirect URI: <PUBLIC_URL>/api/auth/callback/google
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: S3_ENDPOINT
+        sync: false
+      - key: S3_REGION
+        value: auto
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: ADMIN_EMAILS
+        value: ""
+      - key: CORS_ORIGINS
+        value: https://pro-now.onrender.com
+      # Measured 2026-09-30: Cloudflare, Render's load balancer and one more
+      # internal proxy stand in front (docs/16 §Client address).
+      - key: TRUST_PROXY_HOPS
+        value: "3"
+      - key: ALLOW_LOCAL_STANDINS
+        value: "0"
+      # Relative to the repository root (not the start command's working
+      # directory, apps/api). The API bundle runs from apps/api/dist.
+      - key: WEB_DIST_DIR
+        value: apps/web/dist
+
+      # The public deployment is a tester build. Money, identity, maps and
+      # reputation remain explicitly sandboxed until their real vendors are
+      # selected and integrated.
+      - key: PAYMENT_PROVIDER
+        value: sandbox
+      - key: IDENTITY_PROVIDER
+        value: sandbox
+      - key: MAPS_PROVIDER
+        value: sandbox
+      - key: GEOCODING_PROVIDER
+        value: nominatim
+      - key: NOMINATIM_URL
+        value: https://nominatim.openstreetmap.org
+      - key: NOMINATIM_USER_AGENT
+        value: PRO-NOW/0.1
+      - key: NOMINATIM_CONTACT_EMAIL
+        sync: false
+      - key: EXTERNAL_REPUTATION_PROVIDER
+        value: sandbox
+
+      # Monitoring and alerting (docs/16-DEPLOYMENT.md §Observability). All optional:
+      # without them errors are only logged. VITE_SENTRY_DSN and the three
+      # SENTRY_* build values are read at BUILD time by apps/web.
+      - key: SENTRY_DSN
+        sync: false
+      - key: SENTRY_ORG_URL
+        sync: false
+      - key: VITE_SENTRY_DSN
+        sync: false
+      - key: SENTRY_AUTH_TOKEN
+        sync: false
+      - key: SENTRY_ORG
+        sync: false
+      - key: SENTRY_WEB_PROJECT
+        sync: false
+      - key: ALERT_TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: ALERT_TELEGRAM_CHAT_ID
+        sync: false
+      # Web Push (docs/21 W9): `npx web-push generate-vapid-keys`. All three or none.
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        sync: false

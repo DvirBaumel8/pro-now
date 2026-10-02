@@ -1,0 +1,147 @@
+import type { WorldAssetSources } from "@pro-now/ui";
+
+/**
+ * THE ART THAT HAS ACTUALLY ARRIVED.
+ *
+ * One line per delivered asset, and nothing else. An id that is not in here
+ * renders as `AssetSlot`'s grey rectangle, which is the correct and
+ * deliberately ugly picture of "commissioned, not delivered".
+ *
+ * Copied 1:1 from the demo (tools/design-preview/src/worldSources.ts, which
+ * ingest-pack.mjs generates). The files it names are copied into
+ * apps/web/public/world/ alongside it.
+ */
+export const worldSources: WorldAssetSources = {
+  /*
+   * A WALK CYCLE, CUT OUT OF A CHARACTER SHEET.
+   *
+   * Sixteen poses of one person seen from behind — eight walking, eight
+   * running — sliced and trimmed by `slice-walkcycle.mjs`. The first
+   * drawing in this project of somebody who can walk away from you.
+   */
+  avatar_amit_walk_01: { uri: "/world/avatar_amit_walk_01.webp" },
+  avatar_amit_walk_02: { uri: "/world/avatar_amit_walk_02.webp" },
+  avatar_amit_walk_03: { uri: "/world/avatar_amit_walk_03.webp" },
+  avatar_amit_walk_04: { uri: "/world/avatar_amit_walk_04.webp" },
+  avatar_amit_walk_05: { uri: "/world/avatar_amit_walk_05.webp" },
+  avatar_amit_walk_06: { uri: "/world/avatar_amit_walk_06.webp" },
+  avatar_amit_walk_07: { uri: "/world/avatar_amit_walk_07.webp" },
+  avatar_amit_walk_08: { uri: "/world/avatar_amit_walk_08.webp" },
+  avatar_amit_run_01: { uri: "/world/avatar_amit_run_01.webp" },
+  avatar_amit_run_02: { uri: "/world/avatar_amit_run_02.webp" },
+  avatar_amit_run_03: { uri: "/world/avatar_amit_run_03.webp" },
+  avatar_amit_run_04: { uri: "/world/avatar_amit_run_04.webp" },
+  avatar_amit_run_05: { uri: "/world/avatar_amit_run_05.webp" },
+  avatar_amit_run_06: { uri: "/world/avatar_amit_run_06.webp" },
+  avatar_amit_run_07: { uri: "/world/avatar_amit_run_07.webp" },
+  avatar_amit_run_08: { uri: "/world/avatar_amit_run_08.webp" },
+  avatar_01_portrait: { uri: "/world/avatar_01_portrait.webp" },
+  avatar_02_portrait: { uri: "/world/avatar_02_portrait.webp" },
+  avatar_03_portrait: { uri: "/world/avatar_03_portrait.webp" },
+  avatar_04_portrait: { uri: "/world/avatar_04_portrait.webp" },
+  avatar_05_portrait: { uri: "/world/avatar_05_portrait.webp" },
+  avatar_06_portrait: { uri: "/world/avatar_06_portrait.webp" },
+  avatar_07_portrait: { uri: "/world/avatar_07_portrait.webp" },
+  avatar_08_portrait: { uri: "/world/avatar_08_portrait.webp" },
+  avatar_09_portrait: { uri: "/world/avatar_09_portrait.webp" },
+  avatar_10_portrait: { uri: "/world/avatar_10_portrait.webp" },
+  avatar_11_portrait: { uri: "/world/avatar_11_portrait.webp" },
+  avatar_12_portrait: { uri: "/world/avatar_12_portrait.webp" },
+  /*
+   * THE PRO NOW FLEET — the side views the tracking route draws.
+   *
+   * These were drawn, installed, measured and registered in the world
+   * manifest, and the route still showed a delivery scooter, because
+   * this file is what decides whether an id has a picture. An asset can
+   * be finished in five places and absent in the one that matters.
+   */
+  pn_appliance_side: { uri: "/world/pn_appliance_side.webp" },
+  pn_beauty_side: { uri: "/world/pn_beauty_side.webp" },
+  pn_clean_side: { uri: "/world/pn_clean_side.webp" },
+  pn_courier_side: { uri: "/world/pn_courier_side.webp" },
+  pn_electric_side: { uri: "/world/pn_electric_side.webp" },
+  pn_tech_side: { uri: "/world/pn_tech_side.webp" },
+  pn_tow_side: { uri: "/world/pn_tow_side.webp" },
+  pn_vet_side: { uri: "/world/pn_vet_side.webp" },
+  pn_well_side: { uri: "/world/pn_well_side.webp" },
+
+  character_appliance_icon: { uri: "/world/character_appliance_icon.webp" },
+  character_appliance_world: { uri: "/world/character_appliance_world.webp" },
+  character_auto_icon: { uri: "/world/character_auto_icon.webp" },
+  character_auto_world: { uri: "/world/character_auto_world.webp" },
+  character_build_icon: { uri: "/world/character_build_icon.webp" },
+  character_build_world: { uri: "/world/character_build_world.webp" },
+  character_care_icon: { uri: "/world/character_care_icon.webp" },
+  character_care_world: { uri: "/world/character_care_world.webp" },
+  character_hair_icon: { uri: "/world/character_hair_icon.webp" },
+  character_hair_world: { uri: "/world/character_hair_world.webp" },
+  character_help_icon: { uri: "/world/character_help_icon.webp" },
+  character_help_world: { uri: "/world/character_help_world.webp" },
+  character_home_icon: { uri: "/world/character_home_icon.webp" },
+  character_home_world: { uri: "/world/character_home_world.webp" },
+  character_move_icon: { uri: "/world/character_move_icon.webp" },
+  character_move_world: { uri: "/world/character_move_world.webp" },
+  character_pets_icon: { uri: "/world/character_pets_icon.webp" },
+  character_pets_world: { uri: "/world/character_pets_world.webp" },
+  character_tech_icon: { uri: "/world/character_tech_icon.webp" },
+  character_tech_world: { uri: "/world/character_tech_world.webp" },
+  character_well_icon: { uri: "/world/character_well_icon.webp" },
+  character_well_world: { uri: "/world/character_well_world.webp" },
+  courier_scooter: { uri: "/world/courier_scooter.webp" },
+  /* The street's own palm and lamp, stood on the real map. */
+  prop_palm: { uri: "/world/m/prop_palm.webp" },
+  prop_lamp: { uri: "/world/m/prop_lamp.webp" },
+  district_appliance: { uri: "/world/district_appliance.webp" },
+  district_auto: { uri: "/world/district_auto.webp" },
+  district_care: { uri: "/world/district_care.webp" },
+  district_hair: { uri: "/world/district_hair.webp" },
+  district_home: { uri: "/world/district_home.webp" },
+  district_move: { uri: "/world/district_move.webp" },
+  district_nails: { uri: "/world/district_nails.webp" },
+  district_pets: { uri: "/world/district_pets.webp" },
+  district_tech: { uri: "/world/district_tech.webp" },
+  district_well: { uri: "/world/district_well.webp" },
+  dog_walker: { uri: "/world/dog_walker.webp" },
+  /*
+   * INSIDE THE SHOP, ONE FILE PER TRADE.
+   *
+   * Amit, four times: *"אני חייב להיכנס לתוך החנות ממש."* These are the
+   * interiors, cut from the open-front shops in the generated pack —
+   * the part behind the shutter, which is the picture "going inside"
+   * needs and the one a façade cannot give however far you zoom.
+   *
+   * Named by `venueInteriorAssetId`, so the renderer finds them without
+   * knowing where they came from. The trades still missing one fall
+   * back to the drawn room, which says on its face that it is a
+   * drawing.
+   */
+  hair_barbershop_hero: { uri: "/world/hair_barbershop_hero.webp" },
+  auto_garage_hero: { uri: "/world/auto_garage_hero.webp" },
+  pets_salon_hero: { uri: "/world/pets_salon_hero.webp" },
+  appliance_workshop_hero: { uri: "/world/appliance_workshop_hero.webp" },
+  care_studio_hero: { uri: "/world/care_studio_hero.webp" },
+  home_workshop_hero: { uri: "/world/home_workshop_hero.webp" },
+  /*
+   * A SHOP THAT IS NOT OURS.
+   *
+   * The first sponsor building — see `sponsors.ts` beside this file,
+   * and `sponsor-shops.ts` for the rules it has to obey. Named
+   * `sponsor_*` rather than `district_*` so that the id itself says
+   * whose shop it is, and so `sponsorShopViolations` can tell the two
+   * apart without a lookup table.
+   */
+  sponsor_lust_venue: { uri: "/world/sponsor_lust_venue.webp" },
+  sponsor_lust_hero: { uri: "/world/sponsor_lust_hero.webp" },
+  moving_van: { uri: "/world/moving_van.webp" },
+  shared_ground_street: { uri: "/world/shared_ground_street.webp" },
+  tow_truck: { uri: "/world/tow_truck.webp" },
+  welcome_hero: { uri: "/world/welcome_hero.webp" },
+  world_ground_grass: { uri: "/world/world_ground_grass.webp" },
+  world_ground_mat_1: { uri: "/world/world_ground_mat_1.webp" },
+  world_ground_mat_2: { uri: "/world/world_ground_mat_2.webp" },
+  world_ground_mat_3: { uri: "/world/world_ground_mat_3.webp" },
+  world_ground_mat_4: { uri: "/world/world_ground_mat_4.webp" },
+  world_neighbourhood: { uri: "/world/world_neighbourhood.webp" },
+  /* The street, three plates long — see `stitch.mjs`. */
+  world_neighbourhood_xl: { uri: "/world/world_neighbourhood_xl.webp" },
+};

@@ -1,0 +1,292 @@
+# Runs on every pull request and every push to master (/docs/16-DEPLOYMENT.md §CI).
+# Free for this repository within GitHub's monthly Actions minutes.
+#
+# `CI passed` at the bottom is the ONE required status check on master
+# (docs/22-WORKING-MODEL.md §2). Add a job to its `needs` and it becomes
+# required too; no branch-protection change is needed.
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  # A newer push replaces a PR's run. On master every merge runs to the
+  # end: a cancelled run there left a red "CI passed" on a good commit.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
+
+jobs:
+  # Does this change touch the demo (Amit's track) or what it shares with
+  # the product (the lockfile, root config)? The demo's own lint, typecheck,
+  # tests and build only run when it does, and always on master.
+  changes:
+    name: What changed
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      demo: ${{ github.event_name == 'push' || steps.filter.outputs.demo == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            demo:
+              - 'tools/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'eslint.config.*'
+              - 'tsconfig*.json'
+
+  checks:
+    name: Lint, typecheck, unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # Nothing in apps/api compiles until the Prisma client exists.
+      - run: npm run db:generate -w apps/api
+      - run: npm run lint:product
+      - run: npm run typecheck:product
+      - run: npm run test:product
+      # Known high or critical advisories in what reaches users (the API and
+      # the web app's runtime dependencies), docs/21 W10.
+      - run: npm run audit:shipped
+      - run: npm run build -w apps/web
+
+  demo:
+    name: Demo (lint, typecheck, tests, build)
+    needs: changes
+    if: needs.changes.outputs.demo == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # The demo is Amit's and the product is Dvir's, but they share one
+      # lockfile: a product dependency change once broke the demo's build
+      # unnoticed (react-native-svg 15.15).
+      - run: npm run check:demo
+
+  database:
+    name: Migrations and integration tests on real Postgres + PostGIS
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: pronow
+          POSTGRES_PASSWORD: pronow_ci_only
+          POSTGRES_DB: pronow
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U pronow"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      # Stand-ins the sign-in tests talk to (same images as docker-compose.yml).
+      mailpit:
+        image: axllent/mailpit:v1.31.3
+        ports: ["1025:1025", "8025:8025"]
+      oidc:
+        image: ghcr.io/navikt/mock-oauth2-server:6.0.4
+        env:
+          SERVER_PORT: "8080"
+          JSON_CONFIG: '{"interactiveLogin": true}'
+        ports: ["8089:8080"]
+    env:
+      DATABASE_URL: postgresql://pronow:pronow_ci_only@localhost:5432/pronow
+      NODE_ENV: test
+      AUTH_SECRET: ci-only-auth-secret-not-used-anywhere-0123
+      PUBLIC_URL: http://localhost:4000
+      SMTP_URL: smtp://localhost:1025
+      EMAIL_FROM: PRO NOW <no-reply@pronow.test>
+      GOOGLE_CLIENT_ID: pronow-local
+      GOOGLE_CLIENT_SECRET: pronow-local-secret
+      GOOGLE_ISSUER_URL: http://localhost:8089/google
+      # S3 stand-in for the media tests (SeaweedFS, as in docker-compose.yml).
+      S3_ENDPOINT: http://localhost:8333
+      S3_REGION: us-east-1
+      S3_BUCKET: pronow-media
+      S3_ACCESS_KEY_ID: pronow_local
+      S3_SECRET_ACCESS_KEY: pronow_local_only_secret
+    steps:
+      - uses: actions/checkout@v4
+      # Not a `services:` entry: SeaweedFS needs a command and a mounted
+      # config, which service containers cannot take.
+      - name: Start S3 stand-in
+        run: |
+          docker run -d --name s3 -p 8333:8333 \
+            -v "$PWD/infra/local/seaweedfs-s3.json:/etc/seaweedfs/s3.json:ro" \
+            chrislusf/seaweedfs:4.48 \
+            server -dir=/data -s3 -s3.port=8333 -s3.config=/etc/seaweedfs/s3.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run db:generate -w apps/api
+      - run: npm run db:migrate:deploy -w apps/api
+        # In CI a street list that fails to load fails the step (production carries on without it).
+        env:
+          STREETS_SYNC_STRICT: "1"
+      # The migrations, applied to a fresh database, must produce exactly the
+      # Prisma schema. (Diffing against a live database rather than a shadow
+      # one: Prisma's shadow reset on the PostGIS image misreports the
+      # extension.)
+      - run: npm run db:drift
+      - name: Create the media bucket
+        run: |
+          for i in $(seq 1 60); do curl -sf -o /dev/null http://localhost:8333/healthz && break; sleep 1; done
+          for i in $(seq 1 20); do
+            docker exec s3 sh -c "echo 's3.bucket.create -name pronow-media' | weed shell -master=localhost:9333" || true
+            docker exec s3 sh -c "echo 's3.bucket.list' | weed shell -master=localhost:9333" | grep -q pronow-media && exit 0
+            sleep 2
+          done
+          echo "S3 bucket was never created" && exit 1
+      # Route-level tests: every plugin and route against a throwaway, migrated database.
+      - run: npm run test:int
+
+  # On the production build (esbuild bundle, NODE_ENV=production, one trusted
+  # proxy hop, the stand-in guard relaxed by ALLOW_LOCAL_STANDINS=1) — the
+  # W10 acceptance. It is what ships, and it found what the development
+  # server could not: Safari refusing an upgraded http origin, and one shared
+  # sign-in bucket for every visitor. (It ran on both builds until 2026-10-01.)
+  e2e:
+    name: End-to-end, production build (Chromium, iPhone 16 Pro)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: pronow
+          POSTGRES_PASSWORD: pronow_ci_only
+          POSTGRES_DB: pronow
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U pronow"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      mailpit:
+        image: axllent/mailpit:v1.31.3
+        ports: ["1025:1025", "8025:8025"]
+      oidc:
+        image: ghcr.io/navikt/mock-oauth2-server:6.0.4
+        env:
+          SERVER_PORT: "8080"
+          JSON_CONFIG: '{"interactiveLogin": true}'
+        ports: ["8089:8080"]
+    env:
+      DATABASE_URL: postgresql://pronow:pronow_ci_only@localhost:5432/pronow
+      AUTH_SECRET: ci-only-auth-secret-not-used-anywhere-0123
+      SMTP_URL: smtp://localhost:1025
+      EMAIL_FROM: PRO NOW <no-reply@pronow.test>
+      GOOGLE_CLIENT_ID: pronow-local
+      GOOGLE_CLIENT_SECRET: pronow-local-secret
+      GOOGLE_ISSUER_URL: http://localhost:8089/google
+      # S3 stand-in: the professional's documents are uploaded from the browser (W7).
+      S3_ENDPOINT: http://localhost:8333
+      S3_REGION: us-east-1
+      S3_BUCKET: pronow-media
+      S3_ACCESS_KEY_ID: pronow_local
+      S3_SECRET_ACCESS_KEY: pronow_local_only_secret
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start S3 stand-in
+        run: |
+          docker run -d --name s3 -p 8333:8333 \
+            -v "$PWD/infra/local/seaweedfs-s3.json:/etc/seaweedfs/s3.json:ro" \
+            chrislusf/seaweedfs:4.48 \
+            server -dir=/data -s3 -s3.port=8333 -s3.config=/etc/seaweedfs/s3.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run db:generate -w apps/api
+      - run: npm run db:migrate:deploy -w apps/api
+        # In CI a street list that fails to load fails the step (production carries on without it).
+        env:
+          STREETS_SYNC_STRICT: "1"
+      - run: npm run db:seed
+      - name: Create the media bucket
+        run: |
+          for i in $(seq 1 60); do curl -sf -o /dev/null http://localhost:8333/healthz && break; sleep 1; done
+          for i in $(seq 1 20); do
+            docker exec s3 sh -c "echo 's3.bucket.create -name pronow-media' | weed shell -master=localhost:9333" || true
+            docker exec s3 sh -c "echo 's3.bucket.list' | weed shell -master=localhost:9333" | grep -q pronow-media && exit 0
+            sleep 2
+          done
+          echo "S3 bucket was never created" && exit 1
+      # The browser download is cached per Playwright version. Its system
+      # libraries live outside the cache, but the runner image already has
+      # them (it ships Google Chrome), so `install-deps` — an apt update plus
+      # CJK/Thai fonts this suite never uses, 15–30s a job — runs only when
+      # the cached browser is actually missing a library.
+      - name: Playwright version
+        id: playwright
+        working-directory: apps/web
+        run: echo "version=$(npx playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-chromium
+      - if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+        working-directory: apps/web
+      - if: steps.playwright-cache.outputs.cache-hit == 'true'
+        name: Chromium system libraries
+        working-directory: apps/web
+        run: |
+          missing=$(ldd ~/.cache/ms-playwright/chromium*/chrome-*/chrome* 2>/dev/null | grep "not found" || true)
+          if [ -n "$missing" ]; then
+            echo "$missing"
+            npx playwright install-deps chromium
+          else
+            echo "Every library Chromium links against is present; install-deps skipped."
+          fi
+      - run: npm run test:e2e
+        env:
+          E2E_PRODUCTION: "1"
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report
+          retention-days: 7
+
+  # The single required check for merging into master. It passes only when
+  # every job above passed; a skipped or cancelled job counts as a failure.
+  gate:
+    name: CI passed
+    if: always()
+    needs: [changes, checks, demo, database, e2e]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Every required job succeeded
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "job results: $RESULTS"
+          # The demo job may be skipped (nothing it checks changed); every
+          # other job must succeed.
+          [ "${{ needs.demo.result }}" = "success" ] || [ "${{ needs.demo.result }}" = "skipped" ] || exit 1
+          for r in ${{ needs.changes.result }} ${{ needs.checks.result }} ${{ needs.database.result }} ${{ needs.e2e.result }}; do
+            [ "$r" = "success" ] || exit 1
+          done

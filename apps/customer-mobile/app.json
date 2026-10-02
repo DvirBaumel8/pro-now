@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "PRO NOW",
+    "slug": "pro-now-customer",
+    "scheme": "pronow-customer",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "locales": {
+      "he": "./locales/he.json"
+    },
+    "ios": {
+      "bundleIdentifier": "com.pronow.customer",
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "כדי להראות לך אנשי מקצוע זמינים לידך ולחשב זמן הגעה, PRO NOW משתמשת במיקום שלך.",
+        "NSCameraUsageDescription": "כדי לצלם תמונה של התקלה עבור בעל המקצוע.",
+        "NSPhotoLibraryUsageDescription": "כדי לצרף תמונה קיימת של התקלה."
+      }
+    },
+    "android": {
+      "package": "com.pronow.customer",
+      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION", "CAMERA"]
+    },
+    "extra": {
+      "apiBaseUrl": "http://localhost:4000"
+    }
+  }
+}

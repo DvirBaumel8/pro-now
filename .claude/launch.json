@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "demo",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["--prefix", "tools/design-preview", "vite", "preview", "tools/design-preview", "--port", "4421", "--strictPort", "--host", "127.0.0.1"],
+      "port": 4421
+    }
+  ]
+}

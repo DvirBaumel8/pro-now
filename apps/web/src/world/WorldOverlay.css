@@ -1,0 +1,64 @@
+.world-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  color: #f7f3fa;
+  font-family: inherit;
+}
+
+.world-overlay button {
+  pointer-events: auto;
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 16px;
+  background: #ff6b4a;
+  color: #1a0f0c;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.world-overlay__professional,
+.world-overlay__sheet {
+  position: absolute;
+  pointer-events: auto;
+  background: rgba(18, 12, 24, 0.82);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
+}
+
+/* Read out, not shown: the demo's street has no title pill. */
+.world-overlay__status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The demo's round back button (City.tsx S.back), top right. */
+.world-overlay .world-overlay__back {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(16, 11, 22, 0.9);
+  border: 1px solid rgba(247, 243, 250, 0.55);
+  color: #f7f3fa;
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1;
+}
+.world-overlay .world-overlay__back:focus-visible { outline: 2px solid #ff6b4a; outline-offset: 2px; }
+.world-overlay__professional { top: 14px; right: 64px; padding: 8px 12px; border-radius: 12px; }
+.world-overlay__sheet { left: 16px; right: 16px; bottom: 16px; padding: 16px; border-radius: 20px; }
+.world-overlay__sheet h2 { margin: 0 0 10px; font-size: 20px; }
+.world-overlay__sheet p { margin: 0; color: rgba(247, 243, 250, 0.7); }
+.world-overlay__services { display: grid; gap: 8px; }
+.world-overlay__services button { text-align: right; border-radius: 12px; }

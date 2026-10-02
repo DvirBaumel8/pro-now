@@ -1,0 +1,1189 @@
+// PRO NOW — Prisma schema
+// Source of truth: /docs/05-DATABASE.md. Do not change without updating
+// that document (see /CLAUDE.md §6). Money = integer minor units. IDs =
+// cuid. Geospatial columns use PostGIS via the postgis extension.
+
+generator client {
+  provider        = "prisma-client-js"
+  // PostGIS is declared as a managed extension, which Prisma gates behind
+  // this preview feature. Without it the schema does not parse at all.
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  // The connection URL lives in prisma.config.ts (Prisma 7).
+  provider   = "postgresql"
+  extensions = [postgis, pg_trgm]
+}
+
+// ---------------------------------------------------------------------
+// Identity
+// ---------------------------------------------------------------------
+
+/// A person. Sign-in is Better Auth (/docs/21-PRODUCTION-PLAN.md W1):
+/// Google or an email magic link, so email is the identity and phone is an
+/// optional contact detail. Better Auth reads and writes id, name, email,
+/// emailVerified, image, createdAt and updatedAt.
+model User {
+  id            String    @id @default(cuid())
+  phone         String?   @unique
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  name          String    @default("")
+  image         String?
+  /// Set by "delete my account": the row stays for the records that point
+  /// at it, and personal fields are anonymised.
+  deletedAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  sessions            Session[]
+  accounts            Account[]
+  roles               UserRole[]
+  customerProfile     CustomerProfile?
+  professionalProfile ProfessionalProfile?
+  adminUser           AdminUser?
+  uploads             Upload[]
+  matchFeedback       MatchFeedback[]
+  pushSubscriptions   PushSubscription[]
+
+  @@map("users")
+}
+
+/// A signed-in browser. The cookie carries `token`; Better Auth owns this table.
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+/// A way to sign in, linked to a user: `google`, or `magic-link`'s
+/// credential-less email account. Better Auth owns this table.
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  /// Unused: there are no passwords in the MVP. Better Auth's schema has it.
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+/// One-time secrets (magic-link tokens), stored hashed. Better Auth owns this table.
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verifications")
+}
+
+enum Role {
+  CUSTOMER
+  PROFESSIONAL
+  ADMIN
+}
+
+/// What a user may do. A user can hold several roles. CUSTOMER is granted
+/// at sign-up; PROFESSIONAL when they create a professional profile
+/// (dispatch is still gated per service by verification); ADMIN only via
+/// the ADMIN_EMAILS allowlist, and every grant is written to audit_logs.
+model UserRole {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role
+  createdAt DateTime @default(now())
+
+  @@unique([userId, role])
+  @@map("user_roles")
+}
+
+model CustomerProfile {
+  id             String    @id @default(cuid())
+  userId         String    @unique
+  user           User      @relation(fields: [userId], references: [id])
+  fullName       String?
+  /// The character they walk the street as (an id from AVATARS in
+  /// @pro-now/types), or null.
+  avatarId       String?
+  /// Whether the avatar question was answered. Skipping is an answer, so
+  /// null avatarId alone cannot tell "never asked" from "said no".
+  avatarAnswered Boolean   @default(false)
+  /// When the intro slides were seen. Seen once, on any device.
+  introSeenAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  addresses Address[]
+  jobs      Job[]
+  reviews   Review[]
+
+  @@map("customer_profiles")
+}
+
+// Verification status machine — see /docs/10-TRUST-VERIFICATION.md §Verification status model
+enum VerificationStatus {
+  DRAFT
+  IDENTITY_PENDING
+  IDENTITY_REVIEW
+  IDENTITY_VERIFIED
+  BUSINESS_PENDING
+  CREDENTIALS_PENDING
+  SERVICE_REVIEW
+  APPROVED
+  LIMITED
+  SUSPENDED
+  REVERIFY_REQUIRED
+  REJECTED
+}
+
+model ProfessionalProfile {
+  id                 String             @id @default(cuid())
+  userId             String             @unique
+  user               User               @relation(fields: [userId], references: [id])
+  legalName          String
+  dateOfBirth        DateTime? @db.Date
+  displayName        String
+  /// How the professional asked to be addressed in Hebrew ("M" or "F"), so
+  /// the screens never guess from a name (docs/21 W7). Null: not asked yet.
+  addressAs          String?
+  profilePhotoRef    String?
+  /// The face they chose while joining (Amit, 2026-09-30: required): "PHOTO"
+  /// (their own, in `portraitUpload`) or "CHARACTER" (their trade's drawn
+  /// character). Null: not chosen yet. The customer they are sent to sees it
+  /// (D1, Dvir 2026-09-30: a photo is approved as it is, for now), through
+  /// `domain/portrait.ts`. `profilePhotoRef` is unused and older.
+  portraitKind       String?
+  portraitUploadId   String?
+  portraitUpload     Upload?            @relation("ProfessionalPortrait", fields: [portraitUploadId], references: [id], onDelete: SetNull)
+  /// Their shop in our street (Amit, 2026-09-30; sync item E): the sign's
+  /// name (22 characters), the brand colour ("#RRGGBB") and an optional
+  /// logo. All null: not designed yet — the only step joining may skip.
+  shopName           String?
+  shopBrandColor     String?
+  shopLogoUploadId   String?
+  shopLogoUpload     Upload?            @relation("ProfessionalShopLogo", fields: [shopLogoUploadId], references: [id], onDelete: SetNull)
+  verificationStatus VerificationStatus @default(DRAFT)
+  presenceState      ProPresenceState   @default(OFFLINE)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  identityChecks IdentityVerification[]
+  businessProfile      BusinessProfile?
+  documents            ProfessionalDocument[]
+  credentials          ProfessionalCredential[]
+  services             ProfessionalService[]
+  availabilitySessions AvailabilitySession[]
+  locations            ProfessionalLocation[]
+  assignedJobs         Job[]                         @relation("AssignedProfessional")
+  dispatchOffers       DispatchOffer[]
+  reviewsReceived      Review[]
+  externalProfiles     ProfessionalExternalProfile[]
+  payoutAccount        PayoutAccount?
+  riskSignals          RiskSignal[]
+
+  @@map("professional_profiles")
+}
+
+enum ProPresenceState {
+  OFFLINE
+  STARTING_SHIFT
+  AVAILABLE
+  OFFER_RECEIVED
+  RESERVED
+  ASSIGNED
+  EN_ROUTE
+  ARRIVED
+  SERVICING
+  COMPLETING
+  ENDING_SHIFT
+}
+
+model IdentityVerification {
+  id             String              @id @default(cuid())
+  professionalId String
+  professional   ProfessionalProfile @relation(fields: [professionalId], references: [id])
+  vendorName     String
+  isSandbox      Boolean             @default(true)
+  /// MANUAL_REVIEW | VERIFIED | REJECTED | RETAKE_REQUESTED | SUPERSEDED | PENDING
+  status         String
+  /// VENDOR (a real vendor's answer) | MANUAL (a PRO NOW reviewer). Null until decided.
+  method         String?
+  verificationId String?
+  /// [idCard, faceStraight, faceRight, faceLeft]; emptied when the photos are deleted (Dvir, 2026-10-02).
+  uploadIds      String[]            @default([])
+  photosDeletedAt DateTime?
+  nameMatch      Boolean?
+  livenessPassed Boolean?
+  documentValid  Boolean?
+  reasonCodes    String[]            @default([])
+  decidedById    String?
+  decidedAt      DateTime?
+  decisionReason String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@index([professionalId, createdAt])
+  @@map("identity_verifications")
+}
+
+model BusinessProfile {
+  id              String              @id @default(cuid())
+  professionalId  String              @unique
+  professional    ProfessionalProfile @relation(fields: [professionalId], references: [id])
+  tradingName     String?
+  taxStatus       String?
+  yearsExperience Int?
+  languages       String[]            @default([])
+  vehicleType     String?
+
+  // The existence of this row means the professional ENTERED business
+  // details, not that anyone checked them. The customer-facing "עסק אומת"
+  // badge is driven by this explicit status and nothing else — see
+  // /docs/10-TRUST-VERIFICATION.md §Onboarding step 3.
+  verificationStatus BusinessVerificationStatus @default(UNVERIFIED)
+  verifiedAt         DateTime?
+  // Who/what established the status (reviewer id, registry name). Kept as a
+  // free string until the review tooling exists.
+  verificationSource String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([verificationStatus])
+  @@map("business_profiles")
+}
+
+enum BusinessVerificationStatus {
+  UNVERIFIED
+  PENDING
+  VERIFIED
+  REJECTED
+  REVERIFY_REQUIRED
+}
+
+model ProfessionalDocument {
+  id             String              @id @default(cuid())
+  professionalId String
+  professional   ProfessionalProfile @relation(fields: [professionalId], references: [id])
+  kind           String // e.g. GOVERNMENT_ID, INSURANCE_CERT
+  storageRef     String // short-lived signed URL reference, never a public path
+  uploadId       String?
+  upload         Upload?             @relation(fields: [uploadId], references: [id])
+  status         String              @default("PENDING")
+  createdAt      DateTime            @default(now())
+
+  @@index([professionalId])
+  @@index([uploadId])
+  @@map("professional_documents")
+}
+
+model Upload {
+  id         String   @id @default(cuid())
+  ownerId    String
+  owner      User     @relation(fields: [ownerId], references: [id])
+  kind       String
+  mime       String
+  bytes      Int
+  sha256     String?
+  status     String   @default("PENDING")
+  width      Int?
+  height     Int?
+  durationMs Int?
+  storageKey String   @unique
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  jobMedia              JobMedia[]
+  professionalDocuments ProfessionalDocument[]
+  portraitOf            ProfessionalProfile[]  @relation("ProfessionalPortrait")
+  shopLogoOf            ProfessionalProfile[]  @relation("ProfessionalShopLogo")
+
+  @@index([ownerId, status])
+  @@index([status, createdAt])
+  @@map("uploads")
+}
+
+model ProfessionalCredential {
+  id             String              @id @default(cuid())
+  professionalId String
+  professional   ProfessionalProfile @relation(fields: [professionalId], references: [id])
+  serviceId      String
+  service        Service             @relation(fields: [serviceId], references: [id])
+  type           String // LICENSE | CERTIFICATE | INSURANCE
+  number         String?
+  issuer         String?
+  documentRef    String?
+  status         String              @default("PENDING") // PENDING | VERIFIED | EXPIRED | REJECTED
+  expiresAt      DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@index([professionalId, type, expiresAt])
+  @@map("professional_credentials")
+}
+
+// ---------------------------------------------------------------------
+// Taxonomy — Department -> Category -> Service -> Variant/Add-on
+// See /docs/09b-SERVICE-CATALOG.md and /docs/_source/01-master-product-bible.md §26.3
+// ---------------------------------------------------------------------
+
+model Department {
+  id         String     @id @default(cuid())
+  code       String     @unique
+  nameHe     String
+  nameEn     String
+  sortOrder  Int        @default(0)
+  categories Category[]
+
+  @@map("departments")
+}
+
+model Category {
+  id           String     @id @default(cuid())
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+  code         String     @unique
+  nameHe       String
+  nameEn       String
+  services     Service[]
+
+  @@index([departmentId])
+  @@map("categories")
+}
+
+enum PriceModel {
+  FIXED
+  HOURLY
+  VISIT_QUOTE
+  DISTANCE_TIME
+}
+
+enum BookingMode {
+  NOW
+  BOOK
+  REQUEST
+  HYBRID
+}
+
+model Service {
+  id                        String      @id @default(cuid())
+  categoryId                String
+  category                  Category    @relation(fields: [categoryId], references: [id])
+  code                      String      @unique // matches /docs/09b-SERVICE-CATALOG.md Service ID
+  nameHe                    String
+  nameEn                    String
+  bookingMode               BookingMode @default(NOW)
+  priceModel                PriceModel
+  typicalDurationMinutesMin Int?
+  typicalDurationMinutesMax Int?
+  trustTier                 String // A | B | C | D | E — see /docs/_source/01-master-product-bible.md §26.7
+  equipmentNotes            String?
+  customerInputsNotes       String?
+  createdAt                 DateTime    @default(now())
+
+  variants               ServiceVariant[]
+  addOns                 ServiceAddOn[]
+  requirements           ServiceRequirement[]
+  professionalServices   ProfessionalService[]
+  credentialRequirements ProfessionalCredential[]
+  marketActivations      MarketActivation[]
+  jobs                   Job[]
+
+  @@index([categoryId])
+  @@map("services")
+}
+
+model ServiceVariant {
+  id                   String  @id @default(cuid())
+  serviceId            String
+  service              Service @relation(fields: [serviceId], references: [id])
+  nameHe               String
+  priceDeltaMinorUnits Int     @default(0)
+
+  @@index([serviceId])
+  @@map("service_variants")
+}
+
+model ServiceAddOn {
+  id              String  @id @default(cuid())
+  serviceId       String
+  service         Service @relation(fields: [serviceId], references: [id])
+  nameHe          String
+  priceMinorUnits Int
+
+  @@index([serviceId])
+  @@map("service_add_ons")
+}
+
+model ServiceRequirement {
+  id          String  @id @default(cuid())
+  serviceId   String
+  service     Service @relation(fields: [serviceId], references: [id])
+  requirement String // e.g. "LICENSE:ELECTRICAL", "IDENTITY", "BUSINESS"
+  mandatory   Boolean @default(true)
+
+  @@index([serviceId])
+  @@map("service_requirements")
+}
+
+enum ProfessionalServiceStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  DISABLED
+  SUSPENDED
+}
+
+model ProfessionalService {
+  id             String                    @id @default(cuid())
+  professionalId String
+  professional   ProfessionalProfile       @relation(fields: [professionalId], references: [id])
+  serviceId      String
+  service        Service                   @relation(fields: [serviceId], references: [id])
+  status         ProfessionalServiceStatus @default(DRAFT)
+
+  // ---- Pricing configuration -----------------------------------------
+  // All money is integer minor units (/CLAUDE.md §3). Which of these apply
+  // is decided by the SERVICE's priceModel, per /docs/09-PAYMENTS.md
+  // §Pricing archetypes:
+  //
+  //   FIXED         → basePriceMinorUnits is the whole price.
+  //   VISIT_QUOTE   → basePriceMinorUnits is the visit fee; the rest of the
+  //                   job is priced by an approved quote.
+  //   HOURLY        → basePriceMinorUnits is the rate PER HOUR, and
+  //                   minimumBillableMinutes is the minimum charged.
+  //   DISTANCE_TIME → basePriceMinorUnits is the fixed base component,
+  //                   perKmMinorUnits the distance rate, and
+  //                   minimumFareMinorUnits the floor.
+  //
+  // No default amounts are set here: actual prices are a professional's own
+  // commercial decision, and the pilot price points are a business decision
+  // (/CLAUDE.md §4). Nulls mean "not configured", never "free".
+  basePriceMinorUnits    Int?
+  minimumBillableMinutes Int?
+  perKmMinorUnits        Int?
+  minimumFareMinorUnits  Int?
+
+  travelRadiusMeters Int?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([professionalId, serviceId])
+  @@index([serviceId, status])
+  @@map("professional_services")
+}
+
+model ServiceArea {
+  id             String @id @default(cuid())
+  professionalId String
+  centerLat      Float
+  centerLng      Float
+  radiusMeters   Int
+
+  @@index([professionalId])
+  @@map("service_areas")
+}
+
+model MarketActivation {
+  id                        String    @id @default(cuid())
+  marketCode                String // e.g. "IL-TLV-GUSHDAN"
+  serviceId                 String
+  service                   Service   @relation(fields: [serviceId], references: [id])
+  customerVisible           Boolean   @default(false)
+  providerOnboardingEnabled Boolean   @default(false)
+  dispatchEnabled           Boolean   @default(false)
+  effectiveFrom             DateTime  @default(now())
+  effectiveTo               DateTime?
+
+  @@unique([marketCode, serviceId])
+  @@map("market_activations")
+}
+
+// ---------------------------------------------------------------------
+// Addresses, availability, location
+// ---------------------------------------------------------------------
+
+model Address {
+  id         String          @id @default(cuid())
+  customerId String
+  customer   CustomerProfile @relation(fields: [customerId], references: [id])
+  label      String?
+  formatted  String
+  lat        Float
+  lng        Float
+  placeId    String?
+  /// Set when the address was picked from the official street list
+  /// (`street_names`); null for a device location and for older rows.
+  localityCode Int?
+  streetCode   Int?
+  houseNumber  String?
+  /// How closely `lat`/`lng` was placed: HOUSE, STREET, LOCALITY (a small
+  /// place, located as a whole) or DEVICE (the phone's own fix). Null on
+  /// rows saved before 2026-10-01, when the client sent the coordinates.
+  geoPrecision String?
+  createdAt  DateTime        @default(now())
+
+  jobs Job[]
+
+  @@index([customerId])
+  @@map("addresses")
+}
+
+/// Israel's official street list (data.gov.il, "רשימת רחובות בישראל"),
+/// loaded on boot from apps/api/data/il-streets.json.gz. The address box
+/// suggests from it, and an address can only be saved from one of its rows
+/// or from the device's own location — so nobody sends a professional to
+/// a place that does not exist.
+model StreetName {
+  localityCode Int
+  /// 9000 and up: the locality itself, for places without named streets.
+  streetCode   Int
+  localityName String
+  streetName   String
+  /// Both names in the form the search compares: see domain/streets/normalize.ts.
+  searchText   String
+  /// How many streets the locality has: ranks Tel Aviv's הרצל above a
+  /// village's, and tells a village (locate it as a whole) from a city.
+  localityStreets Int
+
+  @@id([localityCode, streetCode])
+  /// Trigram index: the address box's "contains" search (search.ts) reads it
+  /// instead of scanning every street on every keystroke.
+  @@index([searchText(ops: raw("gin_trgm_ops"))], type: Gin, map: "street_names_search_trgm")
+  @@map("street_names")
+}
+
+/// What a typed sentence was matched to, and what the customer chose
+/// (docs/21 W5). Reviewed in admin (W8) and fed into the golden set. The
+/// text is personal data: kept 4 days (decision D3), then swept.
+model MatchFeedback {
+  id                  String   @id @default(cuid())
+  userId              String?
+  user                User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  text                String
+  suggestedServiceIds String[] @default([])
+  chosenServiceId     String?
+  confidence          String
+  classifier          String
+  /// Set when the professional reports on arrival that the service was wrong (W7).
+  proFlaggedWrong     Boolean?
+  createdAt           DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([userId])
+  @@map("match_feedback")
+}
+
+model GeocodeCache {
+  id        String   @id @default(cuid())
+  cacheKey  String   @unique
+  kind      String
+  value     Json
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([expiresAt])
+  @@map("geocode_cache")
+}
+
+model AvailabilitySession {
+  id                String              @id @default(cuid())
+  professionalId    String
+  professional      ProfessionalProfile @relation(fields: [professionalId], references: [id])
+  startedAt         DateTime            @default(now())
+  endedAt           DateTime?
+  enabledServiceIds String[]            @default([])
+  status            String              @default("ACTIVE") // ACTIVE | ENDED
+  jobsOffered       Int                 @default(0)
+  jobsAccepted      Int                 @default(0)
+  jobsCompleted     Int                 @default(0)
+
+  @@index([professionalId, status])
+  @@map("availability_sessions")
+}
+
+model ProfessionalLocation {
+  id             String              @id @default(cuid())
+  professionalId String
+  professional   ProfessionalProfile @relation(fields: [professionalId], references: [id])
+  lat            Float
+  lng            Float
+  accuracyMeters Float?
+  headingDegrees Float?
+  speedMps       Float?
+  capturedAt     DateTime
+  receivedAt     DateTime            @default(now())
+
+  @@index([professionalId, receivedAt])
+  @@map("professional_locations")
+}
+
+// ---------------------------------------------------------------------
+// Jobs — see /docs/07-JOB-STATE-MACHINE.md
+// ---------------------------------------------------------------------
+
+enum JobStatus {
+  DRAFT
+  SEARCHING
+  OFFERING
+  PRO_ASSIGNED
+  PRO_EN_ROUTE
+  PRO_ARRIVED
+  DIAGNOSIS
+  WAITING_QUOTE_APPROVAL
+  IN_PROGRESS
+  COMPLETION_PENDING
+  COMPLETED
+  PAYMENT_PENDING
+  PAYMENT_CAPTURED
+  REVIEW_PENDING
+  CLOSED
+  CANCELLED
+  DISPUTED
+}
+
+model Job {
+  id                     String               @id @default(cuid())
+  customerId             String
+  customer               CustomerProfile      @relation(fields: [customerId], references: [id])
+  serviceId              String
+  service                Service              @relation(fields: [serviceId], references: [id])
+  addressId              String
+  address                Address              @relation(fields: [addressId], references: [id])
+  assignedProfessionalId String?
+  assignedProfessional   ProfessionalProfile? @relation("AssignedProfessional", fields: [assignedProfessionalId], references: [id])
+
+  status               JobStatus @default(DRAFT)
+  description          String?
+  /// Ordering for someone else (docs/21 W6): the person at home, with this
+  /// one order only. Personal data about somebody who is not a user: erased
+  /// with the orderer's account.
+  onSiteName           String?
+  onSitePhone          String?
+  /// Issued by the server when a professional is assigned; the professional
+  /// says it at the door, and the person at home opens only to that.
+  doorCode             String?
+  /// sha256 of the link the orderer shares; the link itself is never stored.
+  onSiteTokenHash      String?   @unique
+  onSiteTokenExpiresAt DateTime?
+  structuredAnswers    Json?
+  approvedQuoteId      String?   @unique
+
+  idempotencyKey String? @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  media    JobMedia[]
+  events   JobEvent[]
+  offers   DispatchOffer[]
+  quotes   Quote[]
+  payments Payment[]
+  review   Review?
+
+  @@index([status])
+  @@index([customerId])
+  @@index([assignedProfessionalId])
+  @@map("jobs")
+}
+
+model JobMedia {
+  id         String   @id @default(cuid())
+  jobId      String
+  job        Job      @relation(fields: [jobId], references: [id])
+  kind       String // PHOTO | VIDEO | VOICE_NOTE
+  storageRef String
+  uploadId   String?
+  upload     Upload?  @relation(fields: [uploadId], references: [id])
+  createdAt  DateTime @default(now())
+
+  @@index([jobId])
+  @@index([uploadId])
+  @@map("job_media")
+}
+
+model JobEvent {
+  id        String   @id @default(cuid())
+  jobId     String
+  job       Job      @relation(fields: [jobId], references: [id])
+  type      String
+  actor     String // CUSTOMER | PROFESSIONAL | SYSTEM | OPS
+  actorId   String?
+  metadata  Json?
+  requestId String?
+  createdAt DateTime @default(now())
+
+  @@index([jobId, createdAt])
+  @@map("job_events")
+}
+
+enum DispatchOfferStatus {
+  CREATED
+  SENT
+  VIEWED
+  ACCEPTED
+  SKIPPED
+  EXPIRED
+  REVOKED
+}
+
+model DispatchOffer {
+  id                       String              @id @default(cuid())
+  jobId                    String
+  job                      Job                 @relation(fields: [jobId], references: [id])
+  professionalId           String
+  professional             ProfessionalProfile @relation(fields: [professionalId], references: [id])
+  status                   DispatchOfferStatus @default(CREATED)
+  offeredAt                DateTime            @default(now())
+  expiresAt                DateTime
+  respondedAt              DateTime?
+  scoreSnapshot            Float?
+  etaSecondsSnapshot       Int?
+  payoutMinorUnitsSnapshot Int?
+
+  // Prevents a duplicate *live* offer for the same job/professional pair.
+  @@unique([jobId, professionalId, status])
+  @@index([jobId, status])
+  @@index([professionalId, status])
+  @@map("dispatch_offers")
+}
+
+model Quote {
+  id              String   @id @default(cuid())
+  jobId           String
+  job             Job      @relation(fields: [jobId], references: [id])
+  version         Int      @default(1)
+  versionHash     String
+  status          String   @default("SENT") // SENT | APPROVED | DECLINED | SUPERSEDED
+  totalMinorUnits Int
+  notes           String?
+  createdAt       DateTime @default(now())
+
+  lineItems QuoteItem[]
+
+  @@index([jobId, version])
+  @@map("quotes")
+}
+
+model QuoteItem {
+  id                  String @id @default(cuid())
+  quoteId             String
+  quote               Quote  @relation(fields: [quoteId], references: [id])
+  description         String
+  quantity            Float
+  unitPriceMinorUnits Int
+  kind                String @default("OTHER") // LABOR | MATERIALS | OTHER
+
+  @@index([quoteId])
+  @@map("quote_items")
+}
+
+// ---------------------------------------------------------------------
+// Payments & ledger — see /docs/09-PAYMENTS.md
+// ---------------------------------------------------------------------
+
+enum PaymentStatus {
+  CREATED
+  AUTHORIZING
+  AUTHORIZED
+  CAPTURING
+  CAPTURED
+  FAILED
+  REFUND_PENDING
+  PARTIALLY_REFUNDED
+  REFUNDED
+}
+
+model Payment {
+  id                String        @id @default(cuid())
+  jobId             String
+  job               Job           @relation(fields: [jobId], references: [id])
+  status            PaymentStatus @default(CREATED)
+  amountMinorUnits  Int
+  currency          String        @default("ILS")
+  providerName      String
+  isSandbox         Boolean       @default(true)
+  providerReference String?
+  idempotencyKey    String        @unique
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  events        PaymentEvent[]
+  ledgerEntries LedgerEntry[]
+  refunds       Refund[]
+
+  @@index([jobId])
+  @@map("payments")
+}
+
+model PaymentEvent {
+  id              String   @id @default(cuid())
+  paymentId       String
+  payment         Payment  @relation(fields: [paymentId], references: [id])
+  providerEventId String   @unique
+  type            String
+  rawPayload      Json?
+  createdAt       DateTime @default(now())
+
+  @@map("payment_events")
+}
+
+model LedgerEntry {
+  id               String   @id @default(cuid())
+  paymentId        String
+  payment          Payment  @relation(fields: [paymentId], references: [id])
+  entryType        String // CUSTOMER_CHARGE | PLATFORM_FEE | PROFESSIONAL_PAYABLE | REFUND
+  amountMinorUnits Int // signed
+  currency         String   @default("ILS")
+  createdAt        DateTime @default(now())
+
+  @@index([paymentId])
+  @@map("ledger_entries")
+}
+
+model PayoutAccount {
+  id             String              @id @default(cuid())
+  professionalId String              @unique
+  professional   ProfessionalProfile @relation(fields: [professionalId], references: [id])
+  providerName   String
+  isSandbox      Boolean             @default(true)
+  status         String              @default("PENDING") // PENDING | ACTIVE | RESTRICTED
+  createdAt      DateTime            @default(now())
+
+  payouts Payout[]
+
+  @@map("payout_accounts")
+}
+
+model Payout {
+  id               String        @id @default(cuid())
+  payoutAccountId  String
+  payoutAccount    PayoutAccount @relation(fields: [payoutAccountId], references: [id])
+  amountMinorUnits Int
+  status           String        @default("PENDING") // PENDING | PAID | FAILED
+  createdAt        DateTime      @default(now())
+
+  @@map("payouts")
+}
+
+model Refund {
+  id               String   @id @default(cuid())
+  paymentId        String
+  payment          Payment  @relation(fields: [paymentId], references: [id])
+  amountMinorUnits Int
+  reason           String?
+  status           String   @default("PENDING")
+  createdAt        DateTime @default(now())
+
+  @@map("refunds")
+}
+
+// ---------------------------------------------------------------------
+// Reviews & reputation — see /docs/10-TRUST-VERIFICATION.md
+// ---------------------------------------------------------------------
+
+model Review {
+  id               String              @id @default(cuid())
+  jobId            String              @unique
+  job              Job                 @relation(fields: [jobId], references: [id])
+  reviewerId       String
+  reviewer         CustomerProfile     @relation(fields: [reviewerId], references: [id])
+  professionalId   String
+  professional     ProfessionalProfile @relation(fields: [professionalId], references: [id])
+  overallRating    Int
+  text             String?
+  moderationStatus String              @default("PUBLISHED")
+  createdAt        DateTime            @default(now())
+
+  dimensions ReviewDimension[]
+
+  @@unique([reviewerId, jobId])
+  @@index([professionalId])
+  @@map("reviews")
+}
+
+model ReviewDimension {
+  id       String @id @default(cuid())
+  reviewId String
+  review   Review @relation(fields: [reviewId], references: [id])
+  name     String // professionalism | punctuality | quality
+  score    Int
+
+  @@map("review_dimensions")
+}
+
+model ExternalReputationSource {
+  id   String @id @default(cuid())
+  code String @unique // GOOGLE | OTHER
+
+  /// What the customer is shown beside the number — "Google", "מדרג".
+  /// The source is always labelled (/docs/10: "UI always labels source +
+  /// freshness"), so it cannot be left to the client to guess.
+  displayNameHe String @default("")
+
+  /// False until somebody has an integration that its terms allow. A
+  /// source that is not enabled can hold links and must never show
+  /// numbers, which is the document's "hide the block entirely" in the
+  /// form of a column.
+  integrationEnabled Boolean @default(false)
+
+  profiles ProfessionalExternalProfile[]
+
+  @@map("external_reputation_sources")
+}
+
+model ProfessionalExternalProfile {
+  id                String                   @id @default(cuid())
+  professionalId    String
+  professional      ProfessionalProfile      @relation(fields: [professionalId], references: [id])
+  sourceId          String
+  source            ExternalReputationSource @relation(fields: [sourceId], references: [id])
+  externalProfileId String
+  profileUrl        String?
+  linkStatus        String                   @default("PENDING") // PENDING | LINKED | UNLINKED
+
+  // ---- The three fields /docs/10 §External reputation asks for and the
+  // ---- table did not have.
+  //
+  // Without them the row cannot answer the questions the rules turn on:
+  // where did this number come from, are we allowed to show it, and is it
+  // still true. A rating with no provenance and no freshness is exactly
+  // the "mock data shown as if it were live" the document forbids.
+
+  /// How this profile's numbers reach us.
+  /// PROVIDER_API — an official integration, under its terms.
+  /// PROFESSIONAL_DECLARED — the professional gave us the link and nothing else.
+  /// Never SCRAPED: /docs/10 says "Never scrape" and the interface repeats it.
+  dataProvenance String @default("PROFESSIONAL_DECLARED")
+
+  /// What the source's terms permit displaying, by name. A source that
+  /// allows a link but not a number is a real case, and the difference
+  /// has to be a fact about the row rather than a rule in somebody's head.
+  allowedDisplayFields String[] @default([])
+
+  /// NEVER_SYNCED | OK | STALE | FAILED — whether the last refresh worked.
+  syncStatus    String    @default("NEVER_SYNCED")
+  lastSyncAt    DateTime?
+  lastSyncError String?
+
+  createdAt DateTime @default(now())
+  // The DB default exists because the column was added to a table that
+  // already had rows (migration 20260922_external_reputation_provenance).
+  updatedAt DateTime @default(now()) @updatedAt
+
+  snapshots ExternalRatingSnapshot[]
+
+  @@unique([professionalId, sourceId])
+  @@index([professionalId])
+  @@map("professional_external_profiles")
+}
+
+model ExternalRatingSnapshot {
+  id             String                      @id @default(cuid())
+  profileId      String
+  profile        ProfessionalExternalProfile @relation(fields: [profileId], references: [id])
+  rating         Float?
+  reviewCount    Int?
+  lastVerifiedAt DateTime?
+  createdAt      DateTime                    @default(now())
+
+  @@map("external_rating_snapshots")
+}
+
+// ---------------------------------------------------------------------
+// Chat, notifications, support, risk, admin, audit
+// ---------------------------------------------------------------------
+
+model ChatThread {
+  id        String   @id @default(cuid())
+  jobId     String
+  createdAt DateTime @default(now())
+
+  messages ChatMessage[]
+
+  @@map("chat_threads")
+}
+
+model ChatMessage {
+  id        String     @id @default(cuid())
+  threadId  String
+  thread    ChatThread @relation(fields: [threadId], references: [id])
+  senderId  String
+  body      String
+  createdAt DateTime   @default(now())
+
+  @@index([threadId, createdAt])
+  @@map("chat_messages")
+}
+
+model Notification {
+  id          String    @id @default(cuid())
+  userId      String
+  /// What happened, as the job event type or a notice kind (docs/21 W9).
+  type        String    @default("GENERAL")
+  jobId       String?
+  title       String
+  body        String
+  data        Json?
+  deliveredAt DateTime?
+  readAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+/// A browser's Web Push subscription (docs/21 W9). Deleted when the push
+/// service says it is gone (404/410).
+model PushSubscription {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint      String    @unique
+  p256dh        String
+  auth          String
+  userAgent     String?
+  lastSuccessAt DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@index([userId])
+  @@map("push_subscriptions")
+}
+
+/// Email waiting to be sent (docs/21 W9): a worker sends and retries, so a
+/// mail provider's hiccup never fails the request that caused the email.
+model EmailOutbox {
+  id            String    @id @default(cuid())
+  toEmail       String
+  subject       String
+  text          String
+  html          String
+  status        String    @default("PENDING") // PENDING | SENT | FAILED
+  attempts      Int       @default(0)
+  nextAttemptAt DateTime  @default(now())
+  lastError     String?
+  createdAt     DateTime  @default(now())
+  sentAt        DateTime?
+
+  @@index([status, nextAttemptAt])
+  @@map("email_outbox")
+}
+
+model Dispute {
+  id        String   @id @default(cuid())
+  jobId     String
+  reason    String
+  status    String   @default("OPEN")
+  createdAt DateTime @default(now())
+
+  @@map("disputes")
+}
+
+model SupportTicket {
+  id        String   @id @default(cuid())
+  jobId     String?
+  userId    String
+  subject   String
+  status    String   @default("OPEN")
+  createdAt DateTime @default(now())
+
+  @@map("support_tickets")
+}
+
+model RiskSignal {
+  id             String              @id @default(cuid())
+  professionalId String
+  professional   ProfessionalProfile @relation(fields: [professionalId], references: [id])
+  signalType     String
+  severity       String              @default("LOW")
+  createdAt      DateTime            @default(now())
+
+  actions RiskAction[]
+
+  @@index([professionalId])
+  @@map("risk_signals")
+}
+
+model RiskAction {
+  id           String     @id @default(cuid())
+  riskSignalId String
+  riskSignal   RiskSignal @relation(fields: [riskSignalId], references: [id])
+  action       String // ALLOW | STEP_UP_VERIFICATION | MANUAL_REVIEW | TEMPORARY_LIMIT | SERVICE_DISABLE | SUSPEND | REVERIFY
+  reasonCode   String
+  actorAdminId String?
+  createdAt    DateTime   @default(now())
+
+  @@map("risk_actions")
+}
+
+model BlockedRelationship {
+  id             String   @id @default(cuid())
+  customerId     String
+  professionalId String
+  createdAt      DateTime @default(now())
+
+  @@unique([customerId, professionalId])
+  @@map("blocked_relationships")
+}
+
+model AdminUser {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  role      String // OPS | TRUST_SAFETY | FINANCE | SUPER_ADMIN
+  createdAt DateTime @default(now())
+
+  @@map("admin_users")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String
+  action     String
+  targetType String
+  targetId   String
+  beforeJson Json?
+  afterJson  Json?
+  reason     String?
+  requestId  String?
+  createdAt  DateTime @default(now())
+
+  @@index([targetType, targetId])
+  @@map("audit_logs")
+}
+
+model AppConfig {
+  key       String   @id
+  value     Json
+  updatedBy String?
+  updatedAt DateTime @updatedAt
+
+  @@map("app_config")
+}

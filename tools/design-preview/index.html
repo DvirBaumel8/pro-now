@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="he" dir="ltr">
+  <head>
+    <!--
+      An inline icon, not a file.
+
+      The browser asks for /favicon.ico whether or not anybody declared
+      one, and the 404 it gets is the only error in this preview's
+      console — which matters, because a console with one permanent
+      error in it is a console nobody reads. Declaring `/vite.svg`
+      swapped one 404 for another: that file is served from `public/`
+      in dev and is not in `dist`, and the artifact host does not serve
+      root-relative paths at all.
+
+      A data URI has no path to be wrong about.
+    -->
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2317121F'/%3E%3Ccircle cx='16' cy='16' r='6' fill='%23FF6B4A'/%3E%3C/svg%3E"
+    />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PRO NOW</title>
+    <meta name="theme-color" content="#0E0B14" />
+    <!-- The welcome's street of shops is fetched with the page, not after the app starts: it is the first thing seen. -->
+    <link rel="preload" as="image" href="./clips/welcome_street.webp" />
+    <link rel="preload" as="image" href="./world/splash_city.webp" />
+    <!--
+      dir="ltr" is deliberate and is NOT a layout bug.
+
+      apps/customer-mobile and apps/pro-mobile achieve their Hebrew RTL
+      layout with `flexDirection: "row-reverse"` rather than by enabling
+      React Native's own RTL mode (I18nManager.forceRTL). On a device,
+      I18nManager.isRTL is false, so `row-reverse` lays rows out right-to-
+      left and the screens look correct.
+
+      In the browser, react-native-web emits CSS `row-reverse`. Inside a
+      dir="rtl" container that flips a second time and every row renders
+      left-to-right — the mirror image of the device. Keeping this document
+      LTR makes the gallery faithful to what a phone actually shows.
+
+      Hebrew text still renders right-to-left either way: that comes from
+      Unicode bidi, not from this attribute.
+
+      The underlying inconsistency is recorded as a finding in
+      /docs/EPIC-0-REPORT.md — the durable fix is to enable forceRTL and use
+      logical `row`, which is a change that needs a device to verify.
+    -->
+    <style>
+      :root { color-scheme: light dark; }
+      html, body, #root { height: 100%; margin: 0; }
+      body {
+        font-family: "Noto Sans Hebrew", "Heebo", "Assistant", -apple-system,
+          BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: #0E0B14;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

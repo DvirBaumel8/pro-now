@@ -1,0 +1,20 @@
+import { writeFileSync, mkdirSync, rmSync } from 'node:fs';
+import { launchChromium } from '../browser.mjs';
+const DIR = new URL('./ad/', import.meta.url).pathname; rmSync(DIR, { recursive: true, force: true }); mkdirSync(DIR, { recursive: true });
+const b = await launchChromium();
+const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+const p = await ctx.newPage();
+await p.goto('http://127.0.0.1:4421/', { waitUntil: 'domcontentloaded' }); await p.locator('text=אני צריך מקצוען').first().waitFor(); await p.waitForTimeout(2500);
+const cdp = await ctx.newCDPSession(p); const frames = [];
+cdp.on('Page.screencastFrame', async (f) => { frames.push({ t: f.metadata.timestamp, d: f.data }); await cdp.send('Page.screencastFrameAck', { sessionId: f.sessionId }).catch(() => {}); });
+await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 88, maxWidth: 780, maxHeight: 1688, everyNthFrame: 1 });
+await p.waitForTimeout(800);
+await p.locator('text=/יש לך עסק/').first().click(); await p.waitForTimeout(3500);
+for (let i = 0; i < 6; i++) { await p.mouse.wheel(0, 180); await p.waitForTimeout(700); }
+await p.waitForTimeout(1500);
+await cdp.send('Page.stopScreencast');
+const t0 = frames[0].t;
+const idx = frames.map((f, i) => { const n = String(i).padStart(5, '0') + '.jpg'; writeFileSync(DIR + n, Buffer.from(f.d, 'base64')); return { t: +(f.t - t0).toFixed(3), f: n }; });
+writeFileSync(DIR + 'index.json', JSON.stringify({ frames: idx, marks: [{ label: 'start', t: 0 }, { label: 'end', t: idx.at(-1).t }] }));
+console.log('ad frames', frames.length, idx.at(-1).t);
+await b.close();
