@@ -3821,6 +3821,11 @@ const go = useCallback((r: CustomerRoute) => {
             liveLocation={live}
             onUseLiveLocation={askLocation}
             onSelect={(id) => { addressPickedSinceSend.current = true; setAddressId(id); setTypedAddress(null); }}
+            onRemove={(id) => {
+              setMyAddresses((cur) => cur.filter((a) => a.id !== id));
+              if (addressId === id) setAddressId("");
+              if (onSiteTyped?.forId === id) setOnSiteTyped(null);
+            }}
             onConfirm={(r) => {
               addressPickedSinceSend.current = true;
               /* What was typed (or the device's location) becomes one of my addresses, chosen now and offered next time. */
@@ -3968,6 +3973,9 @@ const go = useCallback((r: CustomerRoute) => {
         const reading = supply.supplyFor(route.serviceId);
         return (
           <ServiceDetailBody
+            orderAddressHe={hasAddress ? chosen.formattedHe || chosen.labelHe : null}
+            orderForHe={onSiteNameHe ? onSiteNameHe.replace(/ \(תצוגה\)$/, "") : null}
+            onChangeAddress={() => go({ name: "address" })}
             forSomeoneElseHe={onSiteNameHe ? onSiteNameHe.replace(/ \(תצוגה\)$/, "") : null}
             ongoingHe={
               dockOrders.filter((o) => o.proNameHe).length === 1
@@ -4020,6 +4028,9 @@ const go = useCallback((r: CustomerRoute) => {
         const page = SERVICE_PAGES[route.serviceId]!;
         return (
           <DescribeFaultBody
+            orderAddressHe={hasAddress ? chosen.formattedHe || chosen.labelHe : null}
+            orderForHe={onSiteNameHe ? onSiteNameHe.replace(/ \(תצוגה\)$/, "") : null}
+            onChangeAddress={() => go({ name: "address" })}
             serviceNameHe={page.nameHe}
             mark={page.mark}
             symptomsHe={route.symptomsHe}
@@ -5375,6 +5386,10 @@ const go = useCallback((r: CustomerRoute) => {
     <View
       key="cityLayer"
       pointerEvents={cityVisible ? "auto" : "none"}
+      /* Hidden behind a service screen: not read out either (QA). */
+      accessibilityElementsHidden={!cityVisible}
+      importantForAccessibility={cityVisible ? "auto" : "no-hide-descendants"}
+      aria-hidden={!cityVisible}
       style={{ position: "absolute", left: 0, top: 0, width, height, opacity: cityVisible ? 1 : 0, zIndex: cityVisible ? 1 : -1 }}
     >
       <City
@@ -6193,6 +6208,8 @@ function ProApp({
   // Going online is a transition the SERVER confirms, so the prototype makes
   // you wait through it rather than flipping instantly — that delay is the
   // honest part of the interaction.
+  /* "התחלת משמרת להדגמה" was used: the shift is open for showing, until the app is reopened. */
+  const [demoShift, setDemoShift] = useState(false);
   const toggle = useCallback(() => {
     if (presence === "OFFLINE") {
       setPresence("STARTING_SHIFT");
@@ -7045,8 +7062,17 @@ function ProApp({
     ) : (
       <ProShiftBody
         notApproved={
-          joined && missingForWork(joined).length > 0 && onFinishJoin
-            ? { missingHe: missingForWork(joined).join(" ו"), onFinish: onFinishJoin }
+          joined && missingForWork(joined).length > 0 && onFinishJoin && !demoShift
+            ? {
+                missingHe: missingForWork(joined).join(" ו"),
+                onFinish: onFinishJoin,
+                /* Showing the app before the identity check (Amit): the shift opens, the lock stays for the real thing. */
+                onDemoStart: () => {
+                  setDemoShift(true);
+                  onAvailableAtChange?.(null);
+                  toggle();
+                },
+              }
             : null
         }
         pendingPriceHe={
