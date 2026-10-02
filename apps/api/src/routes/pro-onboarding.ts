@@ -7,11 +7,13 @@ import {
   proBusinessSchema,
   proCredentialSchema,
   proDocumentSchema,
+  proIdentitySchema,
   proJoinSchema,
   proPortraitSchema,
   proShopSchema,
   proServicesSchema,
 } from "@pro-now/validation";
+import { ageOn, currentCheck, MINIMUM_AGE } from "../domain/identity-check.js";
 import { grantRole } from "../auth/roles.js";
 import { requireRole } from "../auth/access.js";
 import { PILOT_MARKET_CODE } from "../config/market.js";
@@ -48,6 +50,20 @@ async function readyUpload(db: PrismaClient, userId: string, uploadId: string) {
   return db.upload.findFirst({ where: { id: uploadId, ownerId: userId, status: "READY", kind: { in: ["DOCUMENT", "PHOTO"] } } });
 }
 
+/** Deletes identity photos from storage and their upload rows. A storage failure leaves the row for the clean-up to retry. */
+export async function deleteIdentityPhotos(app: FastifyInstance, uploadIds: readonly string[]): Promise<void> {
+  if (uploadIds.length === 0) return;
+  const uploads = await app.prisma.upload.findMany({ where: { id: { in: [...uploadIds] } } });
+  for (const u of uploads) {
+    try {
+      await app.providers.storage.delete(u.storageKey);
+      await app.prisma.upload.delete({ where: { id: u.id } });
+    } catch (err) {
+      app.log.warn({ err, uploadId: u.id }, "identity photo not deleted; the media clean-up retries");
+    }
+  }
+}
+
 export async function applicationView(db: PrismaClient, professionalId: string): Promise<ProApplicationView> {
   const pro = await db.professionalProfile.findUniqueOrThrow({
     where: { id: professionalId },
@@ -56,16 +72,20 @@ export async function applicationView(db: PrismaClient, professionalId: string):
       documents: true,
       credentials: true,
       businessProfile: true,
+      identityChecks: true,
     },
   });
   const area = await db.serviceArea.findFirst({ where: { professionalId }, orderBy: { id: "desc" } });
 
   const missing: string[] = [];
   if (!pro.addressAs) missing.push("ADDRESS_AS");
+  if (!pro.dateOfBirth) missing.push("DATE_OF_BIRTH");
   if (pro.services.length === 0) missing.push("SERVICES");
   if (!area) missing.push("AREA");
   if (!pro.businessProfile?.taxStatus) missing.push("TAX_STATUS");
   if (!pro.portraitKind) missing.push("PORTRAIT");
+  const identity = currentCheck(pro.identityChecks);
+  if (!identity || !["MANUAL_REVIEW", "PENDING", "VERIFIED"].includes(identity.status)) missing.push("IDENTITY");
   for (const kind of ACCOUNT_DOCUMENT_KINDS) {
     if (!pro.documents.some((d) => d.kind === kind && d.status !== "REJECTED")) missing.push(`DOCUMENT:${kind}`);
   }
@@ -105,6 +125,7 @@ export async function applicationView(db: PrismaClient, professionalId: string):
       displayName: pro.displayName,
       legalName: pro.legalName,
       addressAs: pro.addressAs,
+      dateOfBirth: pro.dateOfBirth ? pro.dateOfBirth.toISOString().slice(0, 10) : null,
       verificationStatus: pro.verificationStatus,
       shop: pro.shopName && pro.shopBrandColor ? { name: pro.shopName, brandColor: pro.shopBrandColor, logoUploadId: pro.shopLogoUploadId } : null,
       business: pro.businessProfile?.taxStatus
@@ -116,6 +137,9 @@ export async function applicationView(db: PrismaClient, professionalId: string):
     services,
     area: area ? { lat: area.centerLat, lng: area.centerLng, radiusKm: area.radiusMeters / 1000 } : null,
     documents: pro.documents.map((d) => ({ kind: d.kind, status: d.status })),
+    identity: identity
+      ? { id: identity.id, status: identity.status, submittedAt: identity.createdAt.toISOString(), reasonHe: ["RETAKE_REQUESTED", "REJECTED"].includes(identity.status) ? identity.decisionReason : null }
+      : null,
     missing,
     submitted: UNDER_REVIEW.has(pro.verificationStatus),
   };
@@ -131,11 +155,18 @@ export default async function proOnboardingRoutes(app: FastifyInstance) {
   app.post("/v1/pro/join", { onRequest: signedIn }, async (req, reply) => {
     const body = proJoinSchema.parse(req.body);
     const userId = req.user!.userId;
+    const dateOfBirth = new Date(`${body.dateOfBirth}T00:00:00Z`);
+    if (Number.isNaN(dateOfBirth.getTime()) || dateOfBirth > new Date()) {
+      return reply.status(400).send({ code: "VALIDATION_ERROR", message: "Not a date of birth", fields: [{ path: "dateOfBirth", message: "invalid" }] });
+    }
+    if (ageOn(dateOfBirth, new Date()) < MINIMUM_AGE) {
+      return reply.status(422).send({ code: "UNDER_MINIMUM_AGE", message: `Professionals join from age ${MINIMUM_AGE}` });
+    }
     await grantRole(app.prisma, userId, "PROFESSIONAL");
     const profile = await app.prisma.professionalProfile.upsert({
       where: { userId },
-      update: { displayName: body.displayName, legalName: body.legalName, addressAs: body.addressAs },
-      create: { userId, displayName: body.displayName, legalName: body.legalName, addressAs: body.addressAs },
+      update: { displayName: body.displayName, legalName: body.legalName, addressAs: body.addressAs, dateOfBirth },
+      create: { userId, displayName: body.displayName, legalName: body.legalName, addressAs: body.addressAs, dateOfBirth },
     });
     return reply.send(await applicationView(app.prisma, profile.id));
   });
@@ -330,6 +361,79 @@ export default async function proOnboardingRoutes(app: FastifyInstance) {
     await app.prisma.professionalCredential.create({
       data: { professionalId: p.id, serviceId: body.serviceId, type, number: body.number ?? null, documentRef: upload.id, status: "PENDING" },
     });
+    return reply.send(await applicationView(app.prisma, p.id));
+  });
+
+  /**
+   * The identity check (docs/10 §Identity check in the app). Four identity
+   * photos of their own go to the provider; the sandbox always answers
+   * MANUAL_REVIEW and a person decides (admin-pros.ts). A retake replaces an
+   * undecided check, and its photos are deleted (Dvir, 2026-10-02: kept only
+   * until a decision, and a replaced check will never get one).
+   */
+  const ALREADY_VERIFIED = { code: "IDENTITY_ALREADY_VERIFIED", message: "Identity is already verified" };
+  const IDENTITY_REJECTED = { code: "IDENTITY_REJECTED", message: "The identity check was refused; a refusal is final" };
+  app.post("/v1/pro/application/identity", pro, async (req, reply) => {
+    const p = await professionalOf(app, req, reply);
+    if (!p) return;
+    const body = proIdentitySchema.parse(req.body);
+    const ids = [body.documentUploadId, ...body.selfieUploadIds];
+    if (new Set(ids).size !== 4) return reply.status(422).send({ code: "UPLOAD_NOT_READY", message: "Four different photos" });
+    const uploads = await app.prisma.upload.findMany({ where: { id: { in: ids }, ownerId: req.user!.userId, status: "READY", kind: "IDENTITY" } });
+    if (uploads.length !== 4) return reply.status(422).send({ code: "UPLOAD_NOT_READY", message: "The photos must be ready identity uploads of yours" });
+
+    const sameFour = (a: { uploadIds: string[] }) => a.uploadIds.length === 4 && a.uploadIds.every((id, i) => id === ids[i]);
+    const first = currentCheck(await app.prisma.identityVerification.findMany({ where: { professionalId: p.id } }));
+    if (first?.status === "VERIFIED") return reply.status(409).send(ALREADY_VERIFIED);
+    // A refusal is final (docs/10): no new check over it.
+    if (first?.status === "REJECTED") return reply.status(409).send(IDENTITY_REJECTED);
+    // The same four photos again (a double tap): the same answer, no second attempt.
+    if (first && sameFour(first)) return reply.send(await applicationView(app.prisma, p.id));
+
+    // The provider is called outside the transaction: no row lock is held across it.
+    const result = await app.providers.identity.submit({
+      professionalId: p.id,
+      documentImageRef: uploads.find((u) => u.id === body.documentUploadId)!.storageKey,
+      selfieImageRef: uploads.find((u) => u.id === body.selfieUploadIds[0])!.storageKey,
+      declaredLegalName: p.legalName,
+      declaredDateOfBirth: p.dateOfBirth ? p.dateOfBirth.toISOString().slice(0, 10) : "",
+    });
+
+    const outcome = await app.prisma.$transaction(async (tx) => {
+      // One submission at a time per professional; what follows reads fresh.
+      await tx.$queryRawUnsafe(`SELECT id FROM professional_profiles WHERE id = $1 FOR UPDATE`, p.id);
+      const attempts = await tx.identityVerification.findMany({ where: { professionalId: p.id } });
+      const current = currentCheck(attempts);
+      if (current?.status === "VERIFIED") return { conflict: ALREADY_VERIFIED, replacedUploadIds: [] as string[] };
+      if (current?.status === "REJECTED") return { conflict: IDENTITY_REJECTED, replacedUploadIds: [] as string[] };
+      if (current && sameFour(current)) return { conflict: null, replacedUploadIds: [] as string[] };
+      const replaced = attempts.filter((a) => a.status === "MANUAL_REVIEW" || a.status === "PENDING");
+      await tx.identityVerification.create({
+        data: {
+          professionalId: p.id,
+          vendorName: app.providers.identity.vendorName,
+          isSandbox: app.providers.identity.isSandbox,
+          status: result.status,
+          method: result.status === "VERIFIED" ? "VENDOR" : null,
+          verificationId: result.verificationId,
+          uploadIds: ids,
+          nameMatch: result.nameMatch,
+          livenessPassed: result.livenessPassed,
+          documentValid: result.documentValid,
+          reasonCodes: result.reasonCodes,
+        },
+      });
+      for (const a of replaced) {
+        await tx.identityVerification.update({ where: { id: a.id }, data: { status: "SUPERSEDED", uploadIds: [], photosDeletedAt: new Date() } });
+      }
+      await tx.auditLog.create({
+        data: { actorId: req.user!.userId, action: "IDENTITY_SUBMITTED", targetType: "professional", targetId: p.id, afterJson: { status: result.status, vendor: app.providers.identity.vendorName }, requestId: req.id },
+      });
+      // A photo the new check reuses stays: it belongs to the live check now.
+      return { conflict: null, replacedUploadIds: replaced.flatMap((a) => a.uploadIds).filter((id) => !ids.includes(id)) };
+    });
+    if (outcome.conflict) return reply.status(409).send(outcome.conflict);
+    await deleteIdentityPhotos(app, outcome.replacedUploadIds);
     return reply.send(await applicationView(app.prisma, p.id));
   });
 

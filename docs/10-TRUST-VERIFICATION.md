@@ -12,6 +12,8 @@ DRAFT → IDENTITY_PENDING → IDENTITY_REVIEW → IDENTITY_VERIFIED
       → APPROVED
 APPROVED → LIMITED | SUSPENDED | REVERIFY_REQUIRED | REJECTED (per risk/expiry events)
 ```
+Since 2026-10-02 the `IDENTITY_*` states are recorded on the identity check,
+not on the account (see §Identity check in the app).
 Dispatch eligibility is **service-specific**, not merely account-specific —
 an expired required credential removes only the affected service from
 eligibility, not the whole account, where possible.
@@ -111,17 +113,28 @@ Also part of the flow:
   [straight, right, left] }`. The server checks that all four uploads belong
   to the caller, are `READY` and are of kind `IDENTITY`. It sends them to
   `IdentityVerificationProvider.submit()` and stores the result.
-- The provider's answer moves the account:
-  - `MANUAL_REVIEW` → account `IDENTITY_REVIEW`.
-  - `VERIFIED` (only a real vendor can answer this) → `IDENTITY_VERIFIED`.
-  - `REJECTED` → the professional is asked to retake.
+- The check's own status records the answer; the account's status flow is
+  unchanged (the admin queue lists `SERVICE_REVIEW`), and account approval
+  requires a `VERIFIED` current check and age 18 (plan deviation,
+  2026-10-02). `RETAKE_REQUESTED` asks the professional to retake;
+  `REJECTED` is final (a new submit is 409 `IDENTITY_REJECTED`).
+- A retake supersedes an undecided check and deletes its photos, except
+  any the new check reuses. Submit is serialized by a row lock on the
+  professional's profile. 422 `UPLOAD_NOT_READY`, 409
+  `IDENTITY_ALREADY_VERIFIED` | `IDENTITY_REJECTED`.
 - A repeated submit with the same four uploads creates one attempt.
 - In the application's missing items, one `IDENTITY` item replaces the
   `GOVERNMENT_ID` and `SELFIE` documents.
 - **The server refuses to approve an account** unless the current check is
-  `VERIFIED`. No screen can bypass this.
-- Every submit and decision is written to the event timeline and
-  `audit_logs`.
+  `VERIFIED` and the date of birth shows 18 (409 `IDENTITY_NOT_VERIFIED` |
+  `DATE_OF_BIRTH_MISSING` | `UNDER_MINIMUM_AGE`). No screen can bypass this.
+- Web: CSP `script-src` adds only `'wasm-unsafe-eval'`. The face runtime
+  lives under `/face/` (model committed, wasm copied at predev/prebuild,
+  excluded from the offline precache).
+- Customers see the badge `IDENTITY_CHECKED` ("הזהות נבדקה על ידי PRO NOW")
+  for a manual approval.
+- Every submit and decision is written to `audit_logs` (a professional's
+  timeline).
 
 **Admin review.** The application card opens with a "זהות" block:
 - The four photos side by side, through short-lived private links. Each
@@ -152,8 +165,8 @@ The reviewer's three actions:
 - Detection fails to load: the manual shutter.
 - Each photo uploads as it is taken and has its own retry. Nothing is
   submitted until all four are uploaded.
-- Leaving halfway: finished uploads are kept, and the check resumes at the
-  first missing photo on any device.
+- Leaving halfway: photos already uploaded are kept on the server. Photos
+  taken but not yet sent live only on that phone, and are retaken.
 - Retaking while a check is under review: the new attempt is current, and
   the reviewer sees the latest.
 - An approved identity later found false: admin suspends the account (an
@@ -171,8 +184,8 @@ The reviewer's three actions:
 - Integration (real Postgres):
   - another user's upload is refused;
   - a double submit makes one attempt;
-  - a sandbox submit lands in `IDENTITY_REVIEW`;
-  - a manual approval writes the audit and the timeline;
+  - a sandbox submit makes a `MANUAL_REVIEW` check and leaves the account status unchanged;
+  - a manual approval writes `audit_logs`;
   - approving an account without identity is refused;
   - the media clean-up keeps an undecided attempt's photos past 4 days;
   - a decision (each of the three) deletes that attempt's photos and keeps

@@ -5,7 +5,7 @@ import { agoHe, blockedReasonHe, earningsPropsFor, eligibilityFor, pricingRowsFo
 
 function application(over: Partial<ProApplicationView> = {}): ProApplicationView {
   return {
-    profile: { id: "p", displayName: "דנה", legalName: "דנה לוי", addressAs: "F", verificationStatus: "APPROVED", business: null, shop: null, portrait: null },
+    profile: { id: "p", displayName: "דנה", legalName: "דנה לוי", addressAs: "F", dateOfBirth: "1990-05-14", verificationStatus: "APPROVED", business: null, shop: null, portrait: null },
     services: [
       {
         id: "ps1", serviceId: "s1", code: "HOME_ELECT_FAULT", nameHe: "תקלה חשמלית", priceModel: "VISIT_QUOTE", status: "APPROVED", priced: true,
@@ -20,10 +20,8 @@ function application(over: Partial<ProApplicationView> = {}): ProApplicationView
       },
     ],
     area: null,
-    documents: [
-      { kind: "GOVERNMENT_ID", status: "VERIFIED" },
-      { kind: "SELFIE", status: "PENDING" },
-    ],
+    identity: null,
+    documents: [],
     missing: [],
     submitted: true,
     ...over,
@@ -54,11 +52,53 @@ describe("המסמכים שלי — the server's states, never assumed", () => {
   const steps = verificationStepsFor(application());
 
   it("lists the account documents, and one the server has not seen is not started", () => {
-    expect(steps.find((s) => s.id === "doc:GOVERNMENT_ID")?.state).toBe("VERIFIED");
-    expect(steps.find((s) => s.id === "doc:SELFIE")?.state).toBe("IN_REVIEW");
     const tax = steps.find((s) => s.id === "doc:TAX_FILE")!;
     expect(tax.state).toBe("NOT_STARTED");
     expect(tax.actionHe).toBe("עוד לא הועלה.");
+    expect(verificationStepsFor(application({ documents: [{ kind: "TAX_FILE", status: "PENDING" }] })).find((s) => s.id === "doc:TAX_FILE")?.state).toBe("IN_REVIEW");
+    // The ID and the face are the identity check now, not two documents.
+    expect(steps.some((s) => s.id === "doc:GOVERNMENT_ID" || s.id === "doc:SELFIE")).toBe(false);
+  });
+
+  describe("the identity check is one step, read from the current check", () => {
+    // An applicant still in review: the check is theirs to do.
+    const inReview = (over: Partial<ProApplicationView> = {}) => {
+      const base = application();
+      return application({ profile: { ...base.profile, verificationStatus: "SERVICE_REVIEW" }, ...over });
+    };
+    const identity = (status: string | null, reasonHe: string | null = null) => {
+      const view = inReview({ identity: status ? { id: "iv1", status, submittedAt: "2026-10-02T10:00:00Z", reasonHe } : null });
+      return verificationStepsFor(view).find((s) => s.id === "identity")!;
+    };
+    it("is first, and titled זהות", () => {
+      expect(verificationStepsFor(inReview())[0]).toMatchObject({ id: "identity", titleHe: "זהות" });
+    });
+    it("an account approved before the check existed is not asked for one (no reviewer queue for it yet)", () => {
+      expect(steps.some((s) => s.id === "identity")).toBe(false);
+    });
+    it("an approved account with a check on file still shows it", () => {
+      const view = application({ identity: { id: "iv1", status: "VERIFIED", submittedAt: "2026-10-02T10:00:00Z", reasonHe: null } });
+      expect(verificationStepsFor(view).find((s) => s.id === "identity")?.state).toBe("VERIFIED");
+    });
+    it("none yet: to do", () => {
+      expect(identity(null).state).toBe("NOT_STARTED");
+    });
+    it("sent, a person is looking: in review", () => {
+      expect(identity("MANUAL_REVIEW").state).toBe("IN_REVIEW");
+    });
+    it("approved: done", () => {
+      expect(identity("VERIFIED").state).toBe("VERIFIED");
+    });
+    it("a retake asked for: to do, with the reviewer's reason", () => {
+      const s = identity("RETAKE_REQUESTED", "התעודה מטושטשת");
+      expect(s.state).toBe("NOT_STARTED");
+      expect(s.actionHe).toContain("התעודה מטושטשת");
+    });
+    it("refused: to do, with the reason", () => {
+      const s = identity("REJECTED", "התעודה לא בתוקף");
+      expect(s.state).toBe("NOT_STARTED");
+      expect(s.actionHe).toContain("התעודה לא בתוקף");
+    });
   });
 
   it("names each requirement once, by its document name, with the services it holds back", () => {

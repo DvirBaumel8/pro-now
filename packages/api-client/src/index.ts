@@ -34,7 +34,7 @@ import type {
 } from "@pro-now/types";
 import type { CreateAddressInput, CustomerOnboardingInput, MatchFeedbackInput, MeResponse } from "@pro-now/validation";
 
-export type UploadKind = "PHOTO" | "VOICE_NOTE" | "DOCUMENT";
+export type UploadKind = "PHOTO" | "VOICE_NOTE" | "DOCUMENT" | "IDENTITY";
 export interface UploadRecord {
   id: string;
   status: string;
@@ -117,7 +117,7 @@ export function createApiClient(config: ProNowApiClientConfig = {}) {
     /** The page the person at home opens: no account, no address, no price. */
     getOnSite: (token: string) => request<OnSiteView>("GET", `/on-site/${encodeURIComponent(token)}`),
     // --- The professional (docs/21 W7) ---
-    proJoin: (input: { displayName: string; legalName: string; addressAs: "M" | "F" }) =>
+    proJoin: (input: { displayName: string; legalName: string; addressAs: "M" | "F"; dateOfBirth: string }) =>
       request<ProApplicationView>("POST", "/pro/join", input),
     proApplication: () => request<ProApplicationView>("GET", "/pro/application"),
     proOpenServices: () =>
@@ -125,8 +125,10 @@ export function createApiClient(config: ProNowApiClientConfig = {}) {
     proSetServices: (serviceIds: string[]) => request<ProApplicationView>("PUT", "/pro/application/services", { serviceIds }),
     proSetArea: (input: { lat: number; lng: number; radiusKm: number }) =>
       request<ProApplicationView>("PUT", "/pro/application/area", input),
-    proAddDocument: (input: { kind: "GOVERNMENT_ID" | "SELFIE" | "TAX_FILE"; uploadId: string }) =>
+    proAddDocument: (input: { kind: "TAX_FILE"; uploadId: string }) =>
       request<ProApplicationView>("POST", "/pro/application/documents", input),
+    proSubmitIdentity: (input: { documentUploadId: string; selfieUploadIds: [string, string, string] }) =>
+      request<ProApplicationView>("POST", "/pro/application/identity", input),
     proSetBusiness: (input: { tradingName?: string | null; taxStatus: "EXEMPT" | "LICENSED" | "COMPANY" }) =>
       request<ProApplicationView>("PUT", "/pro/application/business", input),
     proSetShop: (input: { name: string; brandColor: string; logoUploadId?: string | null }) =>
@@ -171,6 +173,8 @@ export function createApiClient(config: ProNowApiClientConfig = {}) {
       applications: () => request<{ applications: ProApplicationView[] }>("GET", "/admin/pro-applications"),
       professional: (id: string) => request<AdminProfessionalView>("GET", `/admin/professionals/${encodeURIComponent(id)}`),
       decideAccount: (id: string, input: AdminDecision) => request<ProApplicationView>("POST", `/admin/professionals/${encodeURIComponent(id)}/decision`, input),
+      decideIdentity: (id: string, input: { action: "APPROVE" | "RETAKE" | "REJECT"; reason?: string }) =>
+        request<ProApplicationView>("POST", `/admin/identity/${encodeURIComponent(id)}/decision`, input),
       decideCredential: (id: string, input: AdminDecision) => request<ProApplicationView>("POST", `/admin/credentials/${encodeURIComponent(id)}/decision`, input),
       decideService: (id: string, input: AdminDecision) => request<ProApplicationView>("POST", `/admin/pro-services/${encodeURIComponent(id)}/decision`, input),
       jobs: (status?: string) => request<{ jobs: AdminJobRow[] }>("GET", `/admin/jobs${status ? `?status=${encodeURIComponent(status)}` : ""}`),
@@ -264,6 +268,13 @@ export interface AdminDecision {
 }
 export interface AdminProfessionalView {
   application: ProApplicationView;
+  identity: {
+    id: string; status: string; vendorName: string; isSandbox: boolean; method: string | null;
+    submittedAt: string; decidedAt: string | null; decisionReason: string | null;
+    photos: { idCard: string | null; straight: string | null; right: string | null; left: string | null };
+    declared: { legalName: string; dateOfBirth: string | null };
+    provider: { nameMatch: boolean | null; livenessPassed: boolean | null; documentValid: boolean | null; reasonCodes: string[] };
+  } | null;
   email: string;
   joinedAt: string;
   documents: Array<{ id: string; kind: string; status: string; mime: string | null; url: string | null }>;
