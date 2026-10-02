@@ -84,6 +84,16 @@ test("back from 'check your email' returns to the email field, as in the demo", 
   await expect(page.getByPlaceholder("name@example.com")).toBeVisible();
 });
 
+test("the account image opens character selection", async ({ page }) => {
+  await signInByEmail(page, uniqueEmail("e2e-avatar-circle"));
+  await finishFirstRun(page);
+  const account = page.getByRole("button", { name: "החשבון שלי" });
+  await expect(account).toBeEnabled();
+  await account.click();
+  await expect(page).toHaveURL(/\/avatar$/);
+  await expect(page.getByText("מי מטייל ברחוב?")).toBeVisible();
+});
+
 test("a double tap on 'send link' sends one email", async ({ page }) => {
   const email = uniqueEmail("e2e-double");
   await page.goto("/sign-in");
