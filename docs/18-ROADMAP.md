@@ -44,6 +44,17 @@ and whether they ship at all (`01-PRD.md §Sponsored shops`).
     a way to, but no screen offers it.
   - *The profile shows the character the customer chose* (`/avatar`), not
     a generated face — today the header and the profile disagree.
+- **Demo bugs for Amit** (seen on an iPhone, Dvir, 2026-10-02; only Amit
+  edits the demo):
+  - *"יש לך עסק?" form, with the keyboard up* (e.g. on "האתר"): the form is
+    cut off under the field and an empty dark area fills the rest. The
+    product fixed the same thing in its request form and sign-in (#78, #80):
+    while typing, the screen is the strip above the keyboard, and a fixed
+    layout must scroll instead of stacking.
+  - *"יש לך עסק?" form, after scrolling*: the round back button floats over
+    the text ("בכנות: אנחנו בתחילת הדרך…"). The content needs the back
+    control's clearance (`BACK_BUTTON_CLEARANCE`), or the button scrolls
+    with it.
 
 ### The commission — the ledger is waiting on it
 Every completed job writes a `CUSTOMER_CHARGE` row and stops there. Setting
@@ -56,7 +67,15 @@ split (fee rounds down; fee + payable = charge). Until then
 keeps jobs, payments and reviews pointing at the anonymised user. Open: how
 long those are kept and whether a review's text is erased (needs a legal
 and tax answer). Photos, voice and text: **decided 4 days** (D3, a
-setting). Error data: follows Sentry's plan.
+setting). Error data: follows Sentry's plan. Identity-check photos (ID card,
+face): **decided, kept until the admin's decision on that check, then
+deleted**; the decision record stays (Dvir, 2026-10-02,
+`10-TRUST-VERIFICATION.md §Identity check`).
+
+### Minimum age for a professional
+**18, for now** (Dvir, 2026-10-02). The server enforces it on the date of
+birth and again at account approval (`10-TRUST-VERIFICATION.md §Identity
+check`). A legal review may change it per category.
 
 ### How long a customer waits before being told nobody is coming
 `DISPATCH_SEARCH_DEADLINE_SECONDS`, default **300**. After it, SYSTEM
