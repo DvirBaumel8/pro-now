@@ -61,6 +61,17 @@ PRs whose CI is green.
 6. **Clean up after the merge**:
    `git worktree remove ../pro-now-wt/<short-topic>`.
 
+### Branch hygiene (mirrors `CLAUDE.md §6`)
+
+- Before starting any task, `git fetch origin` and branch from
+  `origin/master`. Never start from a stale local `master` or from another
+  task's branch.
+- One task = one new branch = one new PR.
+- Once a PR is merged, delete its branch (remote and local).
+- Never push to a branch whose PR is already merged or closed. Check with
+  `gh pr view --json state` first; if MERGED/CLOSED, branch again from
+  latest `origin/master` and open a new PR (cherry-pick if needed).
+
 Keep PRs small and single-purpose. A small PR merges quickly, and a quick
 merge leaves other sessions little time to conflict with it. Only a few
 files are shared across tracks: the root `package.json`, `package-lock.json`,
