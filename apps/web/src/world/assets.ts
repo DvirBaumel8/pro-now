@@ -1,0 +1,139 @@
+/**
+ * Literal browser paths for the production world pack.
+ *
+ * Keep this map explicit: Vite and the browser can only validate/cache files
+ * that are visible in the source graph, and Metro-style dynamic requires are
+ * not valid here.
+ */
+export const WORLD_ASSETS = {
+  shared_ground_street: "shared_ground_street.webp",
+  world_ground_grass: "world_ground_grass.webp",
+  world_ground_mat_1: "world_ground_mat_1.webp",
+  world_ground_mat_2: "world_ground_mat_2.webp",
+  world_ground_mat_3: "world_ground_mat_3.webp",
+  world_ground_mat_4: "world_ground_mat_4.webp",
+  world_neighbourhood: "world_neighbourhood.webp",
+  splash_city: "splash_city.webp",
+  splash_city_day: "splash_city_day.webp",
+  // The demo's ground: photographed stone and asphalt, tiled.
+  mat_paving: "m/mat_paving.webp",
+  mat_road: "m/mat_road.webp",
+  avatar_01_portrait: "avatar_01_portrait.webp",
+  avatar_02_portrait: "avatar_02_portrait.webp",
+  avatar_03_portrait: "avatar_03_portrait.webp",
+  avatar_04_portrait: "avatar_04_portrait.webp",
+  avatar_05_portrait: "avatar_05_portrait.webp",
+  avatar_06_portrait: "avatar_06_portrait.webp",
+  avatar_07_portrait: "avatar_07_portrait.webp",
+  avatar_08_portrait: "avatar_08_portrait.webp",
+  avatar_09_portrait: "avatar_09_portrait.webp",
+  avatar_10_portrait: "avatar_10_portrait.webp",
+  avatar_11_portrait: "avatar_11_portrait.webp",
+  avatar_12_portrait: "avatar_12_portrait.webp",
+  avatar_amit_walk_01: "avatar_amit_walk_01.webp",
+  avatar_amit_walk_02: "avatar_amit_walk_02.webp",
+  avatar_amit_walk_03: "avatar_amit_walk_03.webp",
+  avatar_amit_walk_04: "avatar_amit_walk_04.webp",
+  avatar_amit_walk_05: "avatar_amit_walk_05.webp",
+  avatar_amit_walk_06: "avatar_amit_walk_06.webp",
+  avatar_amit_walk_07: "avatar_amit_walk_07.webp",
+  avatar_amit_walk_08: "avatar_amit_walk_08.webp",
+  avatar_amit_run_01: "avatar_amit_run_01.webp",
+  avatar_amit_run_02: "avatar_amit_run_02.webp",
+  avatar_amit_run_03: "avatar_amit_run_03.webp",
+  avatar_amit_run_04: "avatar_amit_run_04.webp",
+  avatar_amit_run_05: "avatar_amit_run_05.webp",
+  avatar_amit_run_06: "avatar_amit_run_06.webp",
+  avatar_amit_run_07: "avatar_amit_run_07.webp",
+  avatar_amit_run_08: "avatar_amit_run_08.webp",
+  district_home: "district_home.webp",
+  district_appliance: "district_appliance.webp",
+  district_care: "district_care.webp",
+  district_hair: "district_hair.webp",
+  district_move: "district_move.webp",
+  district_pets: "district_pets.webp",
+  district_tech: "district_tech.webp",
+  district_well: "district_well.webp",
+  district_auto: "district_auto.webp",
+  district_nails: "district_nails.webp",
+  pn_electric_side: "pn_electric_side.webp",
+  pn_appliance_side: "pn_appliance_side.webp",
+  pn_beauty_side: "pn_beauty_side.webp",
+  pn_clean_side: "pn_clean_side.webp",
+  pn_courier_side: "pn_courier_side.webp",
+  pn_tech_side: "pn_tech_side.webp",
+  pn_tow_side: "pn_tow_side.webp",
+  pn_vet_side: "pn_vet_side.webp",
+  pn_well_side: "pn_well_side.webp",
+  courier_scooter: "courier_scooter.webp",
+  moving_van: "moving_van.webp",
+  tow_truck: "tow_truck.webp",
+  hair_barbershop_hero: "hair_barbershop_hero.webp",
+  home_workshop_hero: "home_workshop_hero.webp",
+  auto_garage_hero: "auto_garage_hero.webp",
+  appliance_workshop_hero: "appliance_workshop_hero.webp",
+  care_studio_hero: "care_studio_hero.webp",
+  pets_salon_hero: "pets_salon_hero.webp",
+
+  // NPC walkers
+  walk_man: "walk_man.webp",
+  walk_woman: "walk_woman.webp",
+  walk_dogwalker: "walk_dogwalker.webp",
+
+  // Street props
+  prop_bench: "prop_bench.webp",
+  prop_bin: "prop_bin.webp",
+  prop_cafe_set: "prop_cafe_set.webp",
+  prop_jacaranda: "prop_jacaranda.webp",
+  prop_lamp: "prop_lamp.webp",
+  prop_palm: "prop_palm.webp",
+  prop_planter_box: "prop_planter_box.webp",
+  prop_planter_round: "prop_planter_round.webp",
+
+  // Places
+  place_dogpark: "place_dogpark.webp",
+  place_garden: "place_garden.webp",
+  place_pickup: "place_pickup.webp",
+  place_roadside: "place_roadside.webp",
+
+  // Dog park figures
+  park_dog1: "park_dog1.webp",
+  park_dog2: "park_dog2.webp",
+  park_dog3: "park_dog3.webp",
+  park_person1: "park_person1.webp",
+  park_person2: "park_person2.webp",
+  park_person3: "park_person3.webp",
+
+  // Parked vehicles
+  van_side: "van_side.webp",
+  scooter_side: "scooter_side.webp",
+
+  // Shop facades (medium res, used for detailed rendering)
+  shop_hair: "m/shop_hair.webp",
+  shop_pets: "m/shop_pets.webp",
+  shop_home: "m/shop_home.webp",
+  shop_tech: "m/shop_tech.webp",
+  shop_auto: "m/shop_auto.webp",
+  shop_well: "m/shop_well.webp",
+  shop_appliance: "m/shop_appliance.webp",
+  shop_care: "m/shop_care.webp",
+  shop_nails: "m/shop_nails.webp",
+  shop_move: "m/shop_move.webp",
+  shop_vet: "m/shop_vet.webp",
+  shop_build: "m/shop_build.webp",
+  shop_help: "m/shop_help.webp",
+
+  // Building facades
+  bld_1_wall: "bld_1_wall.webp",
+  bld_2_wall: "bld_2_wall.webp",
+  bld_3_wall: "bld_3_wall.webp",
+  bld_4_wall: "bld_4_wall.webp",
+  bld_5_wall: "bld_5_wall.webp",
+  bld_6_wall: "bld_6_wall.webp",
+} as const;
+
+export type WorldAssetId = keyof typeof WORLD_ASSETS;
+
+export function worldAssetUrl(id: WorldAssetId): string {
+  return `/world/${WORLD_ASSETS[id]}`;
+}

@@ -1,0 +1,37 @@
+import { writeFileSync, mkdirSync, rmSync } from 'node:fs';
+import { launchChromium } from '../browser.mjs';
+const [name, query, settle, script] = process.argv.slice(2);
+const DIR = new URL(`./${name}/`, import.meta.url).pathname; rmSync(DIR, { recursive: true, force: true }); mkdirSync(DIR, { recursive: true });
+const W = +(process.env.W || 1280), H = +(process.env.H || 720), DSF = +(process.env.DSF || 1.5);
+const b = await launchChromium({ args: ['--enable-gpu', '--ignore-gpu-blocklist', '--use-angle=metal'] });
+const ctx = await b.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: DSF });
+const RATE = +(process.env.RATE || 1);
+await ctx.addInitScript((rate) => {
+  if (rate === 1) return;
+  const pn = performance.now.bind(performance), dn = Date.now;
+  const p0 = pn(), d0 = dn();
+  performance.now = () => p0 + (pn() - p0) * rate;
+  Date.now = () => Math.round(d0 + (dn() - d0) * rate);
+  const raf = window.requestAnimationFrame.bind(window);
+  window.requestAnimationFrame = (cb) => raf((t) => cb(p0 + (t - p0) * rate));
+}, RATE);
+const p = await ctx.newPage();
+const errs = []; p.on('pageerror', e => errs.push(String(e).slice(0, 160)));
+await p.goto('http://127.0.0.1:4421/?' + query, { waitUntil: 'load', timeout: 60000 });
+await p.waitForTimeout(+settle * 1000 / RATE);
+await p.addStyleTag({ content: 'body *{visibility:hidden !important} canvas{visibility:visible !important}' });
+const cdp = await ctx.newCDPSession(p);
+const frames = [];
+cdp.on('Page.screencastFrame', async (f) => { frames.push({ t: f.metadata.timestamp, d: f.data }); await cdp.send('Page.screencastFrameAck', { sessionId: f.sessionId }).catch(() => {}); });
+const startRec = () => cdp.send('Page.startScreencast', { format: 'jpeg', quality: 90, maxWidth: W * DSF, maxHeight: H * DSF, everyNthFrame: 1 });
+const steps = JSON.parse(script || '[[0,0,6000]]');
+if (!steps.some((s) => s[0] === 'rec')) await startRec();
+const stick = (x, y) => p.evaluate(([x, y]) => { for (const el of document.querySelectorAll('div')) if (el.__stick) { el.__stick(x, y); return true; } return false; }, [x, y]);
+for (const [x, y, ms] of steps) { if (x === 'rec') { await startRec(); continue; } if (x === 'found') { await p.evaluate(() => window.__found?.()); continue; } await stick(x, y); await p.waitForTimeout(ms / RATE); }
+await stick(0, 0);
+await cdp.send('Page.stopScreencast');
+const t0 = frames[0].t;
+const idx = frames.map((f, i) => { const n = String(i).padStart(5, '0') + '.jpg'; writeFileSync(DIR + n, Buffer.from(f.d, 'base64')); return { t: +((f.t - t0) * RATE).toFixed(3), f: n }; });
+writeFileSync(DIR + 'index.json', JSON.stringify({ frames: idx, marks: [{ label: 'start', t: 0 }, { label: 'end', t: idx.at(-1).t }] }));
+console.log(name, 'frames', frames.length, idx.at(-1).t.toFixed(1) + 's', 'fps', (frames.length / idx.at(-1).t).toFixed(1), 'errors', errs.join(' | '));
+await b.close();

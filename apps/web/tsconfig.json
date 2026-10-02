@@ -1,0 +1,22 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "noEmit": true,
+    "declaration": false,
+    "types": ["vite/client"],
+    /*
+     * One React for the type checker too: react-native's typings would
+     * otherwise load the workspace root's @types/react 18 (kept for Expo
+     * and Next) beside this app's React 19 types.
+     */
+    "paths": {
+      "react": ["./node_modules/@types/react"],
+      "react/*": ["./node_modules/@types/react/*"]
+    }
+  },
+  "include": ["src", "e2e", "parity", "vite.config.ts", "playwright.config.ts", "parity.config.ts"]
+}

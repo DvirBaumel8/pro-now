@@ -1,0 +1,170 @@
+import { describe, expect, it } from "vitest";
+
+import { CUSTOMER_POINT } from "../src/assignment-route";
+import {
+  CARRIAGEWAY,
+  DEFAULT_VEHICLE_OF_PERSON,
+  PLATE_SPOTS,
+  personHeight,
+  VEHICLE_OF_PERSON,
+  vehicleHeight,
+  ROAD_SAMPLES,
+  WORLD_SIZE,
+  roadAt,
+} from "../src/world-neighbourhood";
+
+/**
+ * TWO MEASUREMENTS OF THE SAME PLATE, MADE TO ARGUE WITH EACH OTHER.
+ *
+ * `PLATE_SPOTS` comes from `measure-spots.mjs` — where a building may
+ * stand. `ROAD_SAMPLES` comes from `measure-road.mjs` — where a vehicle
+ * may drive. They read the same image by complementary tests, and for a
+ * long time they disagreed silently: one shopfront stood in the middle of
+ * the carriageway, on the painted crossing, because the building script
+ * was still asking whether the ground was BRIGHT and a zebra crossing is
+ * brighter than the pavement beside it.
+ *
+ * Nothing on screen made that obvious — a shop on a road at dusk, seen
+ * from above, looks like a shop. So the two answers are compared here
+ * instead, which is the only place the contradiction is cheap to see.
+ */
+describe("the plate's ground", () => {
+  const halfShop = WORLD_SIZE.venue / 2;
+
+  it("stands no shopfront in the road", () => {
+    const offenders = PLATE_SPOTS.filter((spot) => {
+      const road = roadAt(spot.v);
+      return Math.abs(spot.u - road.u) < road.halfWidth;
+    }).map((s) => `${s.u.toFixed(3)},${s.v.toFixed(3)}`);
+
+    expect(offenders).toEqual([]);
+  });
+
+  it("does not let a shopfront overhang more than a kerb's worth of carriageway", () => {
+    // A shop is WORLD_SIZE.venue wide and centred on its spot, so a
+    // corner may touch the kerb; a third of the building in the road is a
+    // different thing entirely and is what this refuses.
+    for (const spot of PLATE_SPOTS) {
+      const road = roadAt(spot.v);
+      const gap = Math.abs(spot.u - road.u) - road.halfWidth;
+      // How much of the shop's half-width crosses the kerb line.
+      const overhang = Math.max(0, halfShop - gap) / WORLD_SIZE.venue;
+      expect(overhang).toBeLessThan(0.34);
+    }
+  });
+
+  it("keeps every shopfront behind the customer", () => {
+    // A professional leaving a shop nearer the eye than the customer
+    // drives AWAY to arrive, and shrinks as they come.
+    for (const spot of PLATE_SPOTS) expect(spot.v).toBeLessThan(CUSTOMER_POINT.v);
+  });
+
+  it("runs the carriageway from one edge of the world to the other", () => {
+    // A road that starts and stops inside the frame is a car park.
+    expect(CARRIAGEWAY[0]!.v).toBeLessThan(0.08);
+    expect(CARRIAGEWAY.at(-1)!.v).toBeGreaterThan(0.92);
+  });
+
+  it("never doubles back on itself", () => {
+    // Each sample is a band of the plate taken in order, so v must
+    // increase; a road that goes backwards is two roads mistaken for one.
+    for (let i = 1; i < ROAD_SAMPLES.length; i++) {
+      expect(ROAD_SAMPLES[i]!.v).toBeGreaterThan(ROAD_SAMPLES[i - 1]!.v);
+    }
+  });
+
+  it("bends rather than jumping", () => {
+    // The continuity rule the measurement uses, asserted on its output:
+    // a carriageway does not move a fifth of the world between two bands.
+    for (let i = 1; i < ROAD_SAMPLES.length; i++) {
+      expect(Math.abs(ROAD_SAMPLES[i]!.u - ROAD_SAMPLES[i - 1]!.u)).toBeLessThan(0.18);
+    }
+  });
+
+  it("gives every trade a spot of its own", () => {
+    const keys = new Set(PLATE_SPOTS.map((s) => `${s.u},${s.v}`));
+    expect(keys.size).toBe(PLATE_SPOTS.length);
+  });
+});
+
+describe("the professional's trip", () => {
+  it("spends the middle of the journey on the road", async () => {
+    const { assignmentRoute } = await import("../src/assignment-route");
+    for (const dept of ["BEAUTY", "LOGISTICS", "HOME_URGENT", "TECH"] as const) {
+      const route = assignmentRoute(dept, 60);
+      // The legs are 22% out, 60% along, 18% in. Sample the middle of the
+      // along-leg, which is the part that must be on tarmac.
+      const middle = route.slice(Math.round(route.length * 0.3), Math.round(route.length * 0.75));
+      for (const step of middle) {
+        const road = roadAt(step.at.v);
+        expect(Math.abs(step.at.u - road.u)).toBeLessThanOrEqual(road.halfWidth + 1e-6);
+      }
+    }
+  });
+
+  it("leaves the road to reach the person, rather than arriving on it", async () => {
+    const { assignmentRoute, CUSTOMER_POINT } = await import("../src/assignment-route");
+    const end = assignmentRoute("BEAUTY", 60).at(-1)!.at;
+    expect(end).toEqual(CUSTOMER_POINT);
+    // The customer stands in the square, which is what the square is for.
+    const road = roadAt(end.v);
+    expect(Math.abs(end.u - road.u)).toBeGreaterThan(road.halfWidth);
+  });
+
+  it("never doubles back towards the shop it started at", async () => {
+    const { assignmentRoute } = await import("../src/assignment-route");
+    // A trip whose depth goes backwards reads as the van reversing.
+    for (const dept of ["BEAUTY", "LOGISTICS", "HOME_URGENT", "TECH"] as const) {
+      const route = assignmentRoute(dept, 60);
+      for (let i = 1; i < route.length; i++) {
+        expect(route[i]!.at.v).toBeGreaterThanOrEqual(route[i - 1]!.at.v - 1e-9);
+      }
+    }
+  });
+});
+
+describe("proportions on one ruler", () => {
+  // The world is measured in world-width units here: 1 is the plate's
+  // full width, which is the unit `personHeight` and `vehicleHeight`
+  // already work in.
+  const person = personHeight(1);
+
+  it("makes a person a believable fraction of the shop they stand outside", () => {
+    // A shopfront is WORLD_SIZE.venue wide and about three quarters as
+    // tall, so a person should come up to roughly half its height: tall
+    // enough to be a person, short enough to walk through the door.
+    const shopHeight = WORLD_SIZE.venue * 0.75;
+    expect(person / shopHeight).toBeGreaterThan(0.4);
+    expect(person / shopHeight).toBeLessThan(0.75);
+  });
+
+  it("keeps the customer's own figure close to everybody else's height", () => {
+    // Nearest thing in the world, and allowed to be a little larger for
+    // it — but not a customer taller than a two-storey shop, which is
+    // what two different rulers produced once.
+    expect(WORLD_SIZE.avatarOfPerson).toBeGreaterThanOrEqual(1);
+    expect(WORLD_SIZE.avatarOfPerson).toBeLessThan(1.3);
+  });
+
+  it("never draws a vehicle shorter than the person in it", () => {
+    // The tow truck — a flatbed with a car on its back — was exactly as
+    // tall as a pedestrian, and the dog walker was 0.71 of one.
+    for (const [assetId, multiple] of Object.entries(VEHICLE_OF_PERSON)) {
+      expect(vehicleHeight(1, assetId)).toBeGreaterThanOrEqual(person - 1e-9);
+      expect(multiple).toBeLessThan(2.2);
+    }
+  });
+
+  it("puts the biggest thing on the road below the roofline", () => {
+    // A vehicle taller than the shops it drives past stops reading as a
+    // street and starts reading as a parade float.
+    const tallest = Math.max(...Object.values(VEHICLE_OF_PERSON), DEFAULT_VEHICLE_OF_PERSON);
+    expect(person * tallest).toBeLessThan(WORLD_SIZE.venue * 0.75);
+  });
+
+  it("sizes an unlisted traveller inside the range of the listed ones", () => {
+    const listed = Object.values(VEHICLE_OF_PERSON);
+    expect(DEFAULT_VEHICLE_OF_PERSON).toBeGreaterThanOrEqual(Math.min(...listed));
+    expect(DEFAULT_VEHICLE_OF_PERSON).toBeLessThanOrEqual(Math.max(...listed));
+  });
+});

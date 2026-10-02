@@ -1,0 +1,46 @@
+name: deploy-keepalive
+
+# The keepalive Worker runs independently of Render. Every branch verifies it,
+# but only master may replace the production Worker and its Cron Trigger.
+on:
+  push:
+    branches: ['**']
+    paths:
+      - 'keepalive/**'
+      - '.github/workflows/deploy-keepalive.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-keepalive-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: keepalive
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      # This package intentionally has no committed lockfile yet. Avoid npm's
+      # lockfile Arborist path on the hosted runner until the first lockfile is
+      # generated and reviewed locally.
+      - run: npm install --no-audit --no-fund --package-lock=false --legacy-peer-deps
+      - run: npm test
+      - run: npm run typecheck
+      - run: npx wrangler deploy --dry-run
+
+      - name: Deploy keepalive Worker
+        if: github.ref == 'refs/heads/master'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npm run deploy

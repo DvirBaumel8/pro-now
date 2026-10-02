@@ -1,0 +1,12 @@
+import { launchChromium } from '../browser.mjs';
+const b = await launchChromium();
+const p = await b.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
+const press = async (re) => { const loc = p.locator('[role=button],button').filter({ visible: true }); const c = await loc.count(); for (let i = 0; i < c; i++) { const el = loc.nth(i); const a = ((await el.getAttribute('aria-label')) || '').trim(); const t = ((await el.innerText().catch(() => '')) || '').trim().replace(/\s+/g, ' '); const lab = re.test(a) ? a : t; if (re.test(lab)) { await el.click({ force: true }); await p.waitForTimeout(1300); return lab; } } return null; };
+const s = async (n) => { await p.waitForTimeout(900); await p.screenshot({ path: `out/ux_home_${n}.png` }); };
+await p.goto('http://127.0.0.1:4421/?time=night'); await p.locator('text=אני צריך מקצוען').first().waitFor(); await p.waitForTimeout(2500); await s('01_welcome');
+await press(/^אני צריך מקצוען/); await s('02_phone'); await p.getByLabel('מספר טלפון').fill('0501234567'); await press(/^שליחת קוד/); await p.getByLabel('קוד האימות').fill('123456'); await press(/^כניסה/); await s('03_after_login');
+await press(/^דילוג על ההסבר/); await s('04_avatar'); await press(/^דמות 1$/); await press(/^(אישור הדמות|זו אני)/); await p.waitForTimeout(2000); await s('05_home');
+await p.mouse.move(195, 600); await p.mouse.wheel(0, 700); await s('06_home_scroll');
+await p.mouse.wheel(0, 1400); await s('07_home_scroll2');
+await p.mouse.wheel(0, -3000); await press(/^תפריט$/); await s('08_menu');
+await b.close();

@@ -1,0 +1,11 @@
+{
+  "identities": [
+    {
+      "name": "pronow-local",
+      "credentials": [
+        { "accessKey": "pronow_local", "secretKey": "pronow_local_only_secret" }
+      ],
+      "actions": ["Admin", "Read", "Write", "List", "Tagging"]
+    }
+  ]
+}
