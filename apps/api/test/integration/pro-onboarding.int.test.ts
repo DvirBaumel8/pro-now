@@ -35,7 +35,7 @@ const as = (j: CookieJar, idem?: string) => ({
   ...(idem ? { "idempotency-key": idem } : {}),
 });
 
-async function upload(jar: CookieJar, kind: "PHOTO" | "DOCUMENT"): Promise<string> {
+async function upload(jar: CookieJar, kind: "PHOTO" | "DOCUMENT" | "IDENTITY"): Promise<string> {
   const body = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
   const prepared = await app.inject({ method: "POST", url: "/api/v1/uploads", headers: as(jar), payload: { kind, mime: "image/jpeg", bytes: body.byteLength } });
   expect(prepared.statusCode, prepared.body).toBe(201);
@@ -73,14 +73,37 @@ afterAll(async () => {
 
 describe("joining as a professional", () => {
   it("any signed-in person may apply; the application lists what is required", async () => {
-    const res = await app.inject({ method: "POST", url: "/api/v1/pro/join", headers: as(applicant), payload: { displayName: "רוני", legalName: "רוני אברהם", addressAs: "F" } });
+    const res = await app.inject({ method: "POST", url: "/api/v1/pro/join", headers: as(applicant), payload: { displayName: "רוני", legalName: "רוני אברהם", addressAs: "F", dateOfBirth: "1990-05-14" } });
     expect(res.statusCode, res.body).toBe(200);
     proId = res.json().profile.id;
     expect(res.json().profile).toMatchObject({ addressAs: "F", verificationStatus: "DRAFT" });
-    expect(res.json().missing).toEqual(expect.arrayContaining(["SERVICES", "AREA", "DOCUMENT:GOVERNMENT_ID", "DOCUMENT:SELFIE", "DOCUMENT:TAX_FILE", "PORTRAIT", "TAX_STATUS"]));
+    expect(res.json().missing).toEqual(expect.arrayContaining(["SERVICES", "AREA", "DOCUMENT:TAX_FILE", "PORTRAIT", "TAX_STATUS", "IDENTITY"]));
+    expect(res.json().profile.dateOfBirth).toBe("1990-05-14");
     expect(res.json().profile.business).toBeNull();
     expect(res.json().profile.portrait).toBeNull();
     expect(res.json().missing.join()).not.toMatch(/CRIMINAL/);
+  });
+
+  it("a professional must be at least 18 (Dvir, 2026-10-02)", async () => {
+    const minor = await signInByEmail(app, uniqueEmail("w7-minor"));
+    const today = new Date();
+    const seventeen = `${today.getUTCFullYear() - 17}-01-01`;
+    const res = await app.inject({ method: "POST", url: "/api/v1/pro/join", headers: as(minor), payload: { displayName: "נוי", legalName: "נוי כהן", addressAs: "F", dateOfBirth: seventeen } });
+    expect(res.statusCode).toBe(422);
+    expect(res.json().code).toBe("UNDER_MINIMUM_AGE");
+    // Refused before anything is written: no professional role, no profile.
+    const minorId = (await whoAmI(app, minor))!.user.id;
+    expect(await db.userRole.count({ where: { userId: minorId, role: "PROFESSIONAL" } })).toBe(0);
+    expect(await db.professionalProfile.count({ where: { userId: minorId } })).toBe(0);
+    const bad = await app.inject({ method: "POST", url: "/api/v1/pro/join", headers: as(minor), payload: { displayName: "נוי", legalName: "נוי כהן", addressAs: "F", dateOfBirth: "14/05/1990" } });
+    expect(bad.statusCode).toBe(400);
+  });
+
+  it("identity photos are their own upload kind, photos only", async () => {
+    const prepare = (mime: string, bytes: number) => app.inject({ method: "POST", url: "/api/v1/uploads", headers: as(applicant), payload: { kind: "IDENTITY", mime, bytes } });
+    expect((await prepare("image/jpeg", 1000)).statusCode).toBe(201);
+    expect((await prepare("application/pdf", 1000)).statusCode).toBe(422);
+    expect((await prepare("image/jpeg", 3_000_001)).statusCode).toBe(422);
   });
 
   it("refuses a service that is not open to professionals", async () => {
@@ -163,16 +186,105 @@ describe("joining as a professional", () => {
     // What customers see of it is portrait-customers.int.test.ts (D1).
   });
 
+  describe("the identity check (docs/10 §Identity check in the app)", () => {
+    const send = (payload: object, jar = applicant) => app.inject({ method: "POST", url: "/api/v1/pro/application/identity", headers: as(jar), payload });
+    const four = async (jar = applicant) => ({
+      documentUploadId: await upload(jar, "IDENTITY"),
+      selfieUploadIds: [await upload(jar, "IDENTITY"), await upload(jar, "IDENTITY"), await upload(jar, "IDENTITY")],
+    });
+
+    it("refuses someone else's photos, and photos that are not identity uploads", async () => {
+      expect((await send(await four(customer))).statusCode).toBe(422);
+      const wrongKind = { ...(await four()), documentUploadId: await upload(applicant, "PHOTO") };
+      expect((await send(wrongKind)).statusCode).toBe(422);
+      expect((await send({ documentUploadId: "x", selfieUploadIds: ["a", "b"] })).statusCode).toBe(400);
+    });
+
+    it("goes to a person for review, and is the application's current check", async () => {
+      const res = await send(await four());
+      expect(res.statusCode, res.body).toBe(200);
+      expect(res.json().identity).toMatchObject({ status: "MANUAL_REVIEW", reasonHe: null });
+      expect(res.json().missing).not.toContain("IDENTITY");
+      const row = await db.identityVerification.findFirstOrThrow({ where: { professionalId: proId }, orderBy: { createdAt: "desc" } });
+      expect(row).toMatchObject({ vendorName: "sandbox-identity", isSandbox: true, status: "MANUAL_REVIEW", method: null });
+      expect(row.uploadIds).toHaveLength(4);
+      // The account's own status is not moved by identity (docs/10, deviation noted in the plan).
+      expect((await db.professionalProfile.findUniqueOrThrow({ where: { id: proId } })).verificationStatus).toBe("DRAFT");
+    });
+
+    it("a double tap makes one attempt", async () => {
+      const payload = await four();
+      const [a, b] = await Promise.all([send(payload), send(payload)]);
+      expect([a.statusCode, b.statusCode]).toEqual([200, 200]);
+      const live = await db.identityVerification.count({ where: { professionalId: proId, status: { not: "SUPERSEDED" } } });
+      expect(live).toBe(1);
+    });
+
+    it("a retake replaces the check under review, and deletes its photos", async () => {
+      const before = await db.identityVerification.findFirstOrThrow({ where: { professionalId: proId, status: "MANUAL_REVIEW" } });
+      expect((await send(await four())).statusCode).toBe(200);
+      const old = await db.identityVerification.findUniqueOrThrow({ where: { id: before.id } });
+      expect(old.status).toBe("SUPERSEDED");
+      expect(old.uploadIds).toEqual([]);
+      expect(old.photosDeletedAt).not.toBeNull();
+      expect(await db.upload.count({ where: { id: { in: before.uploadIds } } })).toBe(0);
+    });
+
+    it("a retake that reuses one old photo keeps it, and deletes the rest of the old check's photos", async () => {
+      const before = await db.identityVerification.findFirstOrThrow({ where: { professionalId: proId, status: "MANUAL_REVIEW" } });
+      const kept = before.uploadIds[1]!;
+      const fresh = await four();
+      const res = await send({ ...fresh, selfieUploadIds: [kept, fresh.selfieUploadIds[1], fresh.selfieUploadIds[2]] });
+      expect(res.statusCode, res.body).toBe(200);
+      expect(await db.upload.count({ where: { id: kept } })).toBe(1);
+      expect(await db.upload.count({ where: { id: { in: before.uploadIds.filter((id) => id !== kept) } } })).toBe(0);
+      const live = await db.identityVerification.findFirstOrThrow({ where: { professionalId: proId, status: "MANUAL_REVIEW" } });
+      expect(live.uploadIds).toContain(kept);
+    });
+
+    it("a refused check is final: a new submission is a 409 IDENTITY_REJECTED (docs/10)", async () => {
+      const other = await signInByEmail(app, uniqueEmail("w7-refused"));
+      const joined = await app.inject({ method: "POST", url: "/api/v1/pro/join", headers: as(other), payload: { displayName: "גל", legalName: "גל שמש", addressAs: "M", dateOfBirth: "1985-03-02" } });
+      expect(joined.statusCode, joined.body).toBe(200);
+      const otherId = joined.json().profile.id as string;
+      expect((await send(await four(other), other)).statusCode).toBe(200);
+      // A person refused it (as admin-pros.ts records a REJECT).
+      await db.identityVerification.updateMany({ where: { professionalId: otherId, status: "MANUAL_REVIEW" }, data: { status: "REJECTED", decisionReason: "התעודה לא בתוקף", decidedAt: new Date() } });
+      const again = await send(await four(other), other);
+      expect(again.statusCode, again.body).toBe(409);
+      expect(again.json().code).toBe("IDENTITY_REJECTED");
+      expect(await db.identityVerification.count({ where: { professionalId: otherId } })).toBe(1);
+    });
+
+    it("the verification page reads only what it shows of the current check, never its photos or reviewer", async () => {
+      const res = await app.inject({ method: "GET", url: "/api/v1/pro/verification", headers: as(applicant) });
+      expect(res.statusCode, res.body).toBe(200);
+      const check = res.json().professional.identityVerification;
+      expect(Object.keys(check).sort()).toEqual(["createdAt", "id", "isSandbox", "method", "status", "vendorName"]);
+      expect(check).toMatchObject({ status: "MANUAL_REVIEW", isSandbox: true, vendorName: "sandbox-identity", method: null });
+    });
+
+    it("an upload the clean-up already deleted is a 422, not a 500", async () => {
+      const payload = await four();
+      await db.upload.delete({ where: { id: payload.selfieUploadIds[1]! } });
+      expect((await send(payload)).statusCode).toBe(422);
+    });
+
+    it("the 4-day clean-up keeps an undecided check's photos", async () => {
+      const current = await db.identityVerification.findFirstOrThrow({ where: { professionalId: proId, status: "MANUAL_REVIEW" } });
+      await db.upload.updateMany({ where: { id: { in: current.uploadIds } }, data: { createdAt: new Date(Date.now() - 10 * 86400_000) } });
+      await app.cleanupMediaNow();
+      expect(await db.upload.count({ where: { id: { in: current.uploadIds } } })).toBe(4);
+    });
+  });
+
   it("with everything required, it goes to review", async () => {
     for (const svc of [approvedSvc, otherSvc]) {
       const priced = await app.inject({ method: "PATCH", url: `/api/v1/pro/services/${svc.id}/pricing`, headers: as(applicant), payload: { basePriceMinorUnits: 20000 } });
       expect(priced.statusCode, priced.body).toBe(200);
     }
     await app.inject({ method: "PUT", url: "/api/v1/pro/application/area", headers: as(applicant), payload: { lat: LAT, lng: LNG, radiusKm: 15 } });
-    for (const kind of ["GOVERNMENT_ID", "TAX_FILE"] as const) {
-      await app.inject({ method: "POST", url: "/api/v1/pro/application/documents", headers: as(applicant), payload: { kind, uploadId: await upload(applicant, "DOCUMENT") } });
-    }
-    await app.inject({ method: "POST", url: "/api/v1/pro/application/documents", headers: as(applicant), payload: { kind: "SELFIE", uploadId: await upload(applicant, "PHOTO") } });
+    await app.inject({ method: "POST", url: "/api/v1/pro/application/documents", headers: as(applicant), payload: { kind: "TAX_FILE", uploadId: await upload(applicant, "DOCUMENT") } });
 
     for (const svc of [approvedSvc, otherSvc]) {
       const reqs = await db.serviceRequirement.findMany({ where: { serviceId: svc.id, mandatory: true } });
@@ -211,6 +323,41 @@ describe("the admin approves, in order, on the record", () => {
     expect(list.applications.map((a: { profile: { id: string } }) => a.profile.id)).toContain(proId);
     const ps = await db.professionalService.findFirstOrThrow({ where: { professionalId: proId, serviceId: approvedSvc.id } });
     expect((await decide(`/api/v1/admin/pro-services/${ps.id}/decision`, { approve: true })).json().code).toBe("ACCOUNT_NOT_APPROVED");
+  });
+
+  it("the account cannot be approved before identity; a person approves identity on the record", async () => {
+    const early = await decide(`/api/v1/admin/professionals/${proId}/decision`, { approve: true });
+    expect(early.statusCode).toBe(409);
+    expect(early.json().code).toBe("IDENTITY_NOT_VERIFIED");
+
+    const detail = (await app.inject({ method: "GET", url: `/api/v1/admin/professionals/${proId}`, headers: as(admin) })).json();
+    expect(detail.identity).toMatchObject({ status: "MANUAL_REVIEW", isSandbox: true, declared: { legalName: "רוני אברהם", dateOfBirth: "1990-05-14" } });
+    for (const url of Object.values(detail.identity.photos)) expect(url).toMatch(/^https?:\/\//);
+    expect(await db.auditLog.count({ where: { action: "IDENTITY_PHOTOS_VIEWED", targetId: proId } })).toBeGreaterThan(0);
+
+    const check = await db.identityVerification.findFirstOrThrow({ where: { professionalId: proId, status: "MANUAL_REVIEW" } });
+    expect((await decide(`/api/v1/admin/identity/${check.id}/decision`, { action: "RETAKE" })).statusCode).toBe(400);
+    const ok = await decide(`/api/v1/admin/identity/${check.id}/decision`, { action: "APPROVE" });
+    expect(ok.statusCode, ok.body).toBe(200);
+    const row = await db.identityVerification.findUniqueOrThrow({ where: { id: check.id } });
+    expect(row).toMatchObject({ status: "VERIFIED", method: "MANUAL", uploadIds: [] });
+    expect(row.decidedById).not.toBeNull();
+    expect(row.photosDeletedAt).not.toBeNull();
+    expect(await db.upload.count({ where: { id: { in: check.uploadIds } } })).toBe(0);
+    expect((await decide(`/api/v1/admin/identity/${check.id}/decision`, { action: "APPROVE" })).json().code).toBe("IDENTITY_ALREADY_DECIDED");
+    expect(await db.auditLog.count({ where: { action: "IDENTITY_APPROVED", targetId: proId } })).toBe(1);
+
+    const again = await app.inject({
+      method: "POST",
+      url: "/api/v1/pro/application/identity",
+      headers: as(applicant),
+      payload: {
+        documentUploadId: await upload(applicant, "IDENTITY"),
+        selfieUploadIds: [await upload(applicant, "IDENTITY"), await upload(applicant, "IDENTITY"), await upload(applicant, "IDENTITY")],
+      },
+    });
+    expect(again.statusCode).toBe(409);
+    expect(again.json().code).toBe("IDENTITY_ALREADY_VERIFIED");
   });
 
   it("refuses a service whose licence is not verified, then approves it once it is", async () => {

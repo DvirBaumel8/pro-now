@@ -79,7 +79,7 @@ export const createAddressSchema = z.discriminatedUnion("kind", [
 ]);
 export type CreateAddressInput = z.infer<typeof createAddressSchema>;
 
-export const uploadKindSchema = z.enum(["PHOTO", "VOICE_NOTE", "DOCUMENT"]);
+export const uploadKindSchema = z.enum(["PHOTO", "VOICE_NOTE", "DOCUMENT", "IDENTITY"]);
 export const createUploadSchema = z.object({
   kind: uploadKindSchema,
   mime: z.string().trim().min(1).max(120),
@@ -309,6 +309,8 @@ export const proJoinSchema = z
     legalName: z.string().trim().min(2).max(80),
     /** How to address them in Hebrew; asked, never guessed from a name. */
     addressAs: z.enum(["M", "F"]),
+    /** YYYY-MM-DD. The server enforces the minimum age (docs/18). */
+    dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   })
   .strict();
 export type ProJoinInput = z.infer<typeof proJoinSchema>;
@@ -349,8 +351,11 @@ export const proAreaSchema = z
   })
   .strict();
 
-/** Account-level documents everyone gives (the research, 2026-09-29). No criminal record: asking is an offence. */
-export const ACCOUNT_DOCUMENT_KINDS = ["GOVERNMENT_ID", "SELFIE", "TAX_FILE"] as const;
+/**
+ * Account-level documents everyone gives (the research, 2026-09-29). No criminal record: asking is an offence.
+ * The ID card and the face are the identity check now (docs/10 §Identity check in the app).
+ */
+export const ACCOUNT_DOCUMENT_KINDS = ["TAX_FILE"] as const;
 
 /** `POST /api/v1/pro/application/documents`. */
 export const proDocumentSchema = z
@@ -377,11 +382,25 @@ export const proCredentialSchema = z
   })
   .strict();
 
+/** `POST /api/v1/pro/application/identity`: the ID card, then the face straight, right and left (docs/10). */
+export const proIdentitySchema = z
+  .object({
+    documentUploadId: z.string().min(1),
+    selfieUploadIds: z.tuple([z.string().min(1), z.string().min(1), z.string().min(1)]),
+  })
+  .strict();
+
 /** `POST /api/v1/admin/...` decisions: a reason is required to refuse. */
 export const adminDecisionSchema = z
   .object({ approve: z.boolean(), reason: z.string().trim().max(500).optional(), expiresAt: z.string().datetime().optional() })
   .strict()
   .refine((d) => d.approve || Boolean(d.reason), { message: "A refusal needs a reason", path: ["reason"] });
+
+/** `POST /api/v1/admin/identity/:id/decision` (docs/10): a retake or a refusal says why, to the professional. */
+export const adminIdentityDecisionSchema = z
+  .object({ action: z.enum(["APPROVE", "RETAKE", "REJECT"]), reason: z.string().trim().min(3).max(500).optional() })
+  .strict()
+  .refine((d) => d.action === "APPROVE" || Boolean(d.reason), { message: "A retake or a refusal needs a reason", path: ["reason"] });
 
 /** `POST /api/v1/admin/users/:id/roles`. ADMIN is not grantable here: only the ADMIN_EMAILS allowlist (docs/21 W1). */
 export const adminRoleChangeSchema = z
