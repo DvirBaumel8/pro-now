@@ -8,7 +8,7 @@ const row = (over: Partial<MyJobRow> = {}): MyJobRow => ({
   createdAt: new Date("2026-09-30T10:00:00.000Z"),
   catalogServiceNameHe: null,
   service: { nameHe: "תיקון נזילה", code: "PLUMB_LEAK" },
-  assignedProfessional: { id: "pro_1", displayName: "יוסי" },
+  assignedProfessional: { id: "pro_1", displayName: "יוסי", addressAs: "M" },
   review: { overallRating: 4 },
   events: [{ type: "SETTLED_OUTSIDE_APP", metadata: { paidInApp: false, amountMinorUnits: 22000, currency: "ILS" } }],
   ...over,
@@ -22,10 +22,17 @@ describe("the customer's job list row (GET /v1/jobs)", () => {
       createdAt: "2026-09-30T10:00:00.000Z",
       serviceNameHe: "תיקון נזילה",
       serviceCode: "PLUMB_LEAK",
-      professional: { id: "pro_1", displayName: "יוסי" },
+      professional: { id: "pro_1", displayName: "יוסי", addressAs: "M" },
       ratingGiven: 4,
       amountMinorUnits: 22000,
     });
+  });
+
+  it("says how the professional asked to be addressed, and null when they never chose", () => {
+    const she = { id: "pro_2", displayName: "דנה", addressAs: "F" };
+    expect(toMyJobSummary(row({ assignedProfessional: she })).professional).toEqual(she);
+    expect(toMyJobSummary(row({ assignedProfessional: { ...she, addressAs: null } })).professional?.addressAs).toBeNull();
+    expect(toMyJobSummary(row({ assignedProfessional: { ...she, addressAs: "x" } })).professional?.addressAs).toBeNull();
   });
 
   it("names the service as the customer picked it, when the job kept that name (audit v2 #1)", () => {

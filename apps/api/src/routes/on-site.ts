@@ -4,6 +4,7 @@ import type { JobState, OnSiteView } from "@pro-now/types";
 import { customerJob, notFound, requireRole } from "../auth/access.js";
 import { portraitForViewer } from "../domain/portrait.js";
 import { currentCheck, identityBadge } from "../domain/identity-check.js";
+import { addressAsView } from "../domain/address-as.js";
 import { jobServiceNameHe } from "../domain/job/service-name.js";
 
 /**
@@ -85,6 +86,7 @@ export default async function onSiteRoutes(app: FastifyInstance) {
             displayName: pro.displayName,
             photoUrl: face?.photoUrl ?? null,
             portraitKind: face?.portraitKind ?? null,
+            addressAs: addressAsView(pro.addressAs),
             // A sandbox check is not a verification (see routes/match.ts).
             verifications: [identityBadge(currentCheck(pro.identityChecks))].filter((b): b is NonNullable<typeof b> => b !== null),
           }
