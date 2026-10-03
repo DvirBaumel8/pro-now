@@ -1,0 +1,4 @@
+{
+  "world-night-1-opening": { "frame": 0.2179, "sky": { "demo": [12, 17, 51], "product": [37, 33, 68], "delta": 0.098 }, "ground": { "demo": [113, 79, 77], "product": [59, 46, 58], "delta": 0.212 } },
+  "world-night-2-street": { "frame": 0.4891, "sky": { "demo": [12, 16, 51], "product": [41, 35, 69], "delta": 0.114 }, "ground": { "demo": [131, 81, 63], "product": [44, 29, 37], "delta": 0.341 } }
+}
