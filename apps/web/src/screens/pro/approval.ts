@@ -1,4 +1,4 @@
-import type { ProApplicationView } from "@pro-now/types";
+import { documentInfoFor, type ProApplicationView } from "@pro-now/types";
 
 /**
  * What the review after sending checks (Amit, 2026-09-29; the demo's
@@ -95,6 +95,55 @@ export function approvalProgress(view: ProApplicationView): ApprovalRow[] {
 }
 
 /**
+ * Which page the professional's home is (docs/10 §Review loop): the joining
+ * steps until the application is first sent; their page with its status —
+ * and, when sent back, the fixes — after that; the work screen once the
+ * account and at least one service are approved. An application sent back
+ * is not "submitted" again until it is resent, and must not fall back to
+ * the joining steps.
+ */
+export function applicationPage(view: ProApplicationView | null): "join" | "status" | "working" {
+  if (!view || (!view.submitted && !view.changesRequested)) return "join";
+  if (view.profile.verificationStatus === "APPROVED" && view.services.some((s) => s.status === "APPROVED")) return "working";
+  return "status";
+}
+
+const FIX_LABEL_HE: Readonly<Record<string, string>> = {
+  IDENTITY: "בדיקת הזהות",
+  DETAILS: "הפרטים",
+  AREA: "אזור העבודה",
+  PORTRAIT: "התמונה",
+  SHOP: "החנות",
+  "DOCUMENT:TAX_FILE": "תיק עוסק",
+};
+const UNKNOWN_FIX_HE = "פריט בבקשה";
+
+/** A requested fix's item, named as the professional knows it. */
+export function fixLabelHe(itemKey: string, view: ProApplicationView): string {
+  const fixed = FIX_LABEL_HE[itemKey];
+  if (fixed) return fixed;
+  const serviceName = (serviceId: string | undefined) => view.services.find((s) => s.serviceId === serviceId)?.nameHe;
+  const [kind, serviceId, ...rest] = itemKey.split(":");
+  if (kind === "SERVICE" && rest.length === 0) {
+    const name = serviceName(serviceId);
+    return name ? `${name} והמחיר` : UNKNOWN_FIX_HE;
+  }
+  if (kind === "CREDENTIAL" && rest.length > 0) {
+    const name = serviceName(serviceId);
+    return name ? `${documentInfoFor(rest.join(":"))?.nameHe ?? "מסמך"} · ${name}` : UNKNOWN_FIX_HE;
+  }
+  return UNKNOWN_FIX_HE;
+}
+
+/** The joining step where a requested fix is made. */
+export function fixLinkFor(itemKey: string): string {
+  if (itemKey === "IDENTITY" || itemKey.startsWith("DOCUMENT:") || itemKey.startsWith("CREDENTIAL:")) return "/pro/join?at=documents";
+  if (itemKey.startsWith("SERVICE:")) return "/pro/join?at=prices";
+  const step: Readonly<Record<string, string>> = { DETAILS: "details", AREA: "area", PORTRAIT: "portrait", SHOP: "shop" };
+  return `/pro/join?at=${step[itemKey] ?? "summary"}`;
+}
+
+/**
  * A date of birth as typed in Israel (DD/MM/YYYY, also D/M/YYYY, with / . or -)
  * into the server's YYYY-MM-DD. Null for anything that is not a real day.
  * Whether it is old enough is the server's answer (UNDER_MINIMUM_AGE), not this.
@@ -112,4 +161,17 @@ export function parseDateOfBirthHe(text: string): string | null {
 export function formatDateOfBirthHe(iso: string | null | undefined): string {
   const m = iso ? /^(\d{4})-(\d{2})-(\d{2})/.exec(iso) : null;
   return m ? `${m[3]}/${m[2]}/${m[1]}` : "";
+}
+
+/** The resend's refusals (docs/10 §Review loop), in the professional's words; null for anything else. */
+export function resendErrorHe(code: string | undefined): string | null {
+  if (code === "FIXES_OPEN") return "עדיין יש דברים לתקן";
+  if (code === "APPLICATION_INCOMPLETE") return "חסרים עוד פרטים בבקשה";
+  return null;
+}
+
+/** Saves one after another; stops at the first that fails, so a step moves on only when everything was saved. */
+export async function saveInOrder(saves: Array<() => Promise<boolean>>): Promise<boolean> {
+  for (const s of saves) if (!(await s())) return false;
+  return true;
 }

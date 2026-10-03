@@ -176,10 +176,19 @@ export function createApiClient(config: ProNowApiClientConfig = {}) {
       request<{ quote: { id: string }; autoApproved?: boolean }>("POST", `/jobs/${encodeURIComponent(jobId)}/quotes`, input),
     // --- The admin (docs/21 W8). The server enforces ADMIN on every one. ---
     admin: {
-      applications: () => request<{ applications: ProApplicationView[] }>("GET", "/admin/pro-applications"),
+      applications: () => request<{ applications: Array<ProApplicationView & { returned: boolean }> }>("GET", "/admin/pro-applications"),
       professional: (id: string) => request<AdminProfessionalView>("GET", `/admin/professionals/${encodeURIComponent(id)}`),
+      /** Marks an item for fixing (a draft until the round is sent). */
+      markFix: (professionalId: string, input: { itemKey: string; reasonHe: string }) =>
+        request<{ id: string }>("POST", `/admin/professionals/${encodeURIComponent(professionalId)}/fix-requests`, input),
+      /** The 204 has no body; `request` reads an empty one as null. */
+      cancelFix: async (fixRequestId: string): Promise<void> => {
+        await request<null>("DELETE", `/admin/fix-requests/${encodeURIComponent(fixRequestId)}`);
+      },
+      sendRound: (professionalId: string) =>
+        request<{ roundId: string; count: number }>("POST", `/admin/professionals/${encodeURIComponent(professionalId)}/review-round/send`, {}),
       decideAccount: (id: string, input: AdminDecision) => request<ProApplicationView>("POST", `/admin/professionals/${encodeURIComponent(id)}/decision`, input),
-      decideIdentity: (id: string, input: { action: "APPROVE" | "RETAKE" | "REJECT"; reason?: string }) =>
+      decideIdentity: (id: string, input: { action: "APPROVE" | "REJECT"; reason?: string }) =>
         request<ProApplicationView>("POST", `/admin/identity/${encodeURIComponent(id)}/decision`, input),
       decideCredential: (id: string, input: AdminDecision) => request<ProApplicationView>("POST", `/admin/credentials/${encodeURIComponent(id)}/decision`, input),
       decideService: (id: string, input: AdminDecision) => request<ProApplicationView>("POST", `/admin/pro-services/${encodeURIComponent(id)}/decision`, input),
@@ -282,6 +291,13 @@ export interface AdminDecision {
 }
 export interface AdminProfessionalView {
   application: ProApplicationView;
+  /** The review loop: marks not yet sent, the latest sent round, older ones, and items changed since the send (or, before any round, since the submission). */
+  review: {
+    draft: Array<{ id: string; itemKey: string; reasonHe: string }>;
+    current: { roundId: string; status: "SENT" | "ANSWERED" | "CLOSED"; sentAt: string; requests: Array<{ id: string; itemKey: string; reasonHe: string; status: "OPEN" | "FIXED" | "CANCELLED"; fixedAt: string | null }> } | null;
+    earlier: Array<{ roundId: string; sentAt: string; requests: Array<{ itemKey: string; reasonHe: string; status: string }> }>;
+    changedItemKeys: string[];
+  };
   identity: {
     id: string; status: string; vendorName: string; isSandbox: boolean; method: string | null;
     submittedAt: string; decidedAt: string | null; decisionReason: string | null;

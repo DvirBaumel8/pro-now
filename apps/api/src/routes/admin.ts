@@ -54,7 +54,50 @@ export default async function adminRoutes(app: FastifyInstance) {
     if (photos && Object.values(photos).some(Boolean)) {
       await app.prisma.auditLog.create({ data: { actorId: req.user!.userId, action: "IDENTITY_PHOTOS_VIEWED", targetType: "professional", targetId: id, requestId: req.id } });
     }
+    const rounds = await app.prisma.reviewRound.findMany({
+      where: { professionalId: id },
+      orderBy: { createdAt: "desc" },
+      include: { requests: { orderBy: { createdAt: "asc" } } },
+    });
+    const draftRound = rounds.find((r) => r.status === "DRAFT");
+    const sentRounds = rounds.filter((r) => r.sentAt && r.status !== "DRAFT");
+    const [latest, ...older] = sentRounds;
+    // "Changed" since the reviewer last asked: the latest sent round, or before any round, the latest submission.
+    const since =
+      latest?.sentAt ??
+      (await app.prisma.auditLog.findFirst({ where: { targetId: id, action: "PRO_APPLICATION_SUBMITTED" }, orderBy: { createdAt: "desc" }, select: { createdAt: true } }))?.createdAt;
+    const changes = since
+      ? await app.prisma.auditLog.findMany({
+          where: { targetId: id, action: "PRO_APPLICATION_ITEM_CHANGED", createdAt: { gt: since } },
+          select: { afterJson: true },
+        })
+      : [];
+    const changedItemKeys = [
+      ...new Set(
+        changes
+          .map((c) => (c.afterJson as { itemKey?: unknown } | null)?.itemKey)
+          .filter((k): k is string => typeof k === "string")
+      ),
+    ];
+    const review = {
+      draft: (draftRound?.requests ?? []).filter((r) => r.status === "OPEN").map((r) => ({ id: r.id, itemKey: r.itemKey, reasonHe: r.reasonHe })),
+      current: latest
+        ? {
+            roundId: latest.id,
+            status: latest.status as "SENT" | "ANSWERED" | "CLOSED",
+            sentAt: latest.sentAt!.toISOString(),
+            requests: latest.requests.map((r) => ({ id: r.id, itemKey: r.itemKey, reasonHe: r.reasonHe, status: r.status, fixedAt: r.fixedAt?.toISOString() ?? null })),
+          }
+        : null,
+      earlier: older.map((r) => ({
+        roundId: r.id,
+        sentAt: r.sentAt!.toISOString(),
+        requests: r.requests.map((q) => ({ itemKey: q.itemKey, reasonHe: q.reasonHe, status: q.status })),
+      })),
+      changedItemKeys,
+    };
     return reply.send({
+      review,
       identity:
         check && photos
           ? {
