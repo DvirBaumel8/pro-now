@@ -121,6 +121,36 @@ test("by day the sky over the street is the demo's deep blue, not the haze", asy
   expect(b - r, "the sky is blue, not white haze").toBeGreaterThan(100);
 });
 
+/** Mean luma (0–255) of the bottom `share` of the shot. */
+function bottomLuma(png: PNG, share: number): number {
+  let sum = 0;
+  const from = Math.floor(png.height * (1 - share)) * png.width * 4;
+  for (let i = from; i < png.data.length; i += 4) {
+    sum += 0.2126 * png.data[i]! + 0.7152 * png.data[i + 1]! + 0.0722 * png.data[i + 2]!;
+  }
+  return sum / ((png.data.length - from) / 4);
+}
+
+test("at eight in the evening the lamps and shops light the street around you", async ({ page }) => {
+  test.setTimeout(120_000);
+  await signInByEmail(page, uniqueEmail("e2e-world-evening"));
+  await finishFirstRun(page);
+
+  await page.clock.setFixedTime(new Date("2026-10-02T20:00:00"));
+  await page.goto("/world");
+  const canvas = page.locator(".world-canvas__surface canvas");
+  await expect(canvas).toBeVisible();
+  await expect(page.getByText("נכנסים לעיר")).toBeHidden({ timeout: 30_000 });
+  await page.waitForTimeout(3000);
+
+  // The near street, under the opening view. Lamps at 2.4 cd left it near
+  // black, a luma about 40; at the demo's 95 cd (and the shops' light) it is
+  // about 75, where the demo's own street reads about 90.
+  const luma = bottomLuma(PNG.sync.read(await canvas.screenshot()), 0.25);
+  console.log(`world evening street luma (bottom 25%): ${luma.toFixed(0)}`);
+  expect(luma, "the evening street is lit, not dark").toBeGreaterThan(58);
+});
+
 test.describe("arriving on a slow network", () => {
   // page.route cannot see what a service worker answers, so none for this one.
   test.use({ serviceWorkers: "block" });
