@@ -87,6 +87,40 @@ test("at the start the street is in view, not a wall in front of the camera", as
   expect(share, `${(share * 100).toFixed(1)}% of the street view is black`).toBeLessThan(0.15);
 });
 
+/** Mean colour of the top `share` of the shot. */
+function topBand(png: PNG, share: number): [number, number, number] {
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  const rows = Math.floor(png.height * share);
+  for (let i = 0; i < rows * png.width * 4; i += 4) {
+    r += png.data[i]!;
+    g += png.data[i + 1]!;
+    b += png.data[i + 2]!;
+  }
+  const n = rows * png.width;
+  return [r / n, g / n, b / n];
+}
+
+test("by day the sky over the street is the demo's deep blue, not the haze", async ({ page }) => {
+  test.setTimeout(120_000);
+  await signInByEmail(page, uniqueEmail("e2e-world-sky"));
+  await finishFirstRun(page);
+
+  await page.clock.setFixedTime(new Date("2026-10-02T12:00:00"));
+  await page.goto("/world");
+  const canvas = page.locator(".world-canvas__surface canvas");
+  await expect(canvas).toBeVisible();
+  await expect(page.getByText("נכנסים לעיר")).toBeHidden({ timeout: 30_000 });
+  await page.waitForTimeout(3000);
+
+  // The opening view looks along the street with the sky above it. The demo's
+  // reads about (64, 129, 208); a sky lost in the fog was (187, 209, 229).
+  const [r, , b] = topBand(PNG.sync.read(await canvas.screenshot()), 0.1);
+  console.log(`world sky (top 10%): r=${r.toFixed(0)} b=${b.toFixed(0)}`);
+  expect(b - r, "the sky is blue, not white haze").toBeGreaterThan(100);
+});
+
 test.describe("arriving on a slow network", () => {
   // page.route cannot see what a service worker answers, so none for this one.
   test.use({ serviceWorkers: "block" });

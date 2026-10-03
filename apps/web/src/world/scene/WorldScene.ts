@@ -29,7 +29,16 @@ import {
 } from "./street";
 import { createPlayer, movePlayer, createContactShadow, type PlayerState } from "./player";
 import { createRoom } from "./shopRooms";
-import { paving, asphalt, plaster, neonGlow, glow, skyGradient } from "./textures";
+import { paving, asphalt, plaster, neonGlow, glow } from "./textures";
+import {
+  WORLD_LIGHTING,
+  aimSun,
+  configureSunShadow,
+  createShadowCaster,
+  shadowFocus,
+  shadowForSprite,
+  skyTexture,
+} from "./lighting";
 import { advanceAlongStreet } from "./ambient";
 import { createFrameGovernor } from "./frameGovernor";
 import { createPostProcessing, type PostProcessingHandle } from "./postProcessing";
@@ -94,6 +103,7 @@ function disposeObject(root: THREE.Object3D): void {
   root.traverse((object) => {
     const mesh = object as THREE.Mesh;
     if (mesh.geometry) mesh.geometry.dispose();
+    mesh.customDepthMaterial?.dispose();
     const material = mesh.material;
     const materials = Array.isArray(material) ? material : material ? [material] : [];
     for (const item of materials) {
@@ -153,20 +163,25 @@ function buildStreetGeometry(
   const asphaltTex = tiledPhoto(tryLoadTexture(loader, "mat_road"), 2, 34) ?? asphalt();
 
   const groundGeo = new THREE.PlaneGeometry(FRONT_X * 2, STREET_LENGTH);
+  // The demo's ground: cut stone with a little sheen, so the sun finds it.
+  const pavingMaterial = () =>
+    new THREE.MeshStandardMaterial({ map: pavingTex, roughness: 0.45, metalness: 0.08 });
   const leftPavement = new THREE.Mesh(
     groundGeo.clone(),
-    new THREE.MeshStandardMaterial({ map: pavingTex, roughness: 0.85 }),
+    pavingMaterial(),
   );
   leftPavement.rotation.x = -Math.PI / 2;
   leftPavement.position.set(-FRONT_X / 2 - ROAD_HALF / 2, -0.02, 0);
+  leftPavement.receiveShadow = true;
   root.add(leftPavement);
 
   const rightPavement = new THREE.Mesh(
     groundGeo.clone(),
-    new THREE.MeshStandardMaterial({ map: pavingTex, roughness: 0.85 }),
+    pavingMaterial(),
   );
   rightPavement.rotation.x = -Math.PI / 2;
   rightPavement.position.set(FRONT_X / 2 + ROAD_HALF / 2, -0.02, 0);
+  rightPavement.receiveShadow = true;
   root.add(rightPavement);
 
   const roadGeo = new THREE.PlaneGeometry(ROAD_HALF * 2, STREET_LENGTH);
@@ -174,21 +189,24 @@ function buildStreetGeometry(
     roadGeo,
     new THREE.MeshStandardMaterial({
       map: asphaltTex,
-      roughness: day ? 0.85 : 0.4,
-      metalness: day ? 0 : 0.3,
+      roughness: 0.22,
+      metalness: 0.35,
     }),
   );
   road.rotation.x = -Math.PI / 2;
   road.position.set(0, 0, 0);
+  road.receiveShadow = true;
   root.add(road);
 
   const kerbGeo = new THREE.BoxGeometry(0.18, 0.15, STREET_LENGTH);
-  const kerbMat = new THREE.MeshStandardMaterial({ color: "#5a5060", roughness: 0.8 });
+  const kerbMat = new THREE.MeshStandardMaterial({ color: 0x7d7488, roughness: 0.7 });
   const leftKerb = new THREE.Mesh(kerbGeo, kerbMat);
   leftKerb.position.set(-KERB_X, 0.06, 0);
+  leftKerb.castShadow = leftKerb.receiveShadow = true;
   root.add(leftKerb);
   const rightKerb = new THREE.Mesh(kerbGeo.clone(), kerbMat.clone());
   rightKerb.position.set(KERB_X, 0.06, 0);
+  rightKerb.castShadow = rightKerb.receiveShadow = true;
   root.add(rightKerb);
 
   /* ---------- filler buildings ---------- */
@@ -214,10 +232,13 @@ function buildStreetGeometry(
           map: wallTex,
           roughness: 0.9,
           color: bldTextures.length > 0 ? "#cccccc" : "#3a3040",
+          // A face turned from the sun still throws its shadow into the street.
+          shadowSide: THREE.DoubleSide,
         }),
       );
       wall.rotation.y = frontageYaw(side);
       wall.position.set(side * FRONT_X, buildingHeight / 2, z);
+      wall.castShadow = wall.receiveShadow = true;
       root.add(wall);
 
       if (!day) {
@@ -263,6 +284,7 @@ function buildStreetGeometry(
           new THREE.MeshStandardMaterial({ color: "#4a4650", roughness: 0.9, metalness: 0.2 }),
         );
         box.position.set(rx, roofY + 0.2, rz);
+        box.castShadow = true;
         root.add(box);
       }
     }
@@ -284,11 +306,12 @@ function buildStreetGeometry(
         );
         lampSprite.scale.set(1.5, LAMP_HEIGHT + 0.5, 1);
         lampSprite.position.set(lx, (LAMP_HEIGHT + 0.5) / 2, z);
-        root.add(lampSprite);
+        root.add(lampSprite, shadowForSprite(lampSprite));
       } else {
         const poleMat = new THREE.MeshStandardMaterial({ color: "#2a2530", metalness: 0.5 });
         const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, LAMP_HEIGHT, 6), poleMat);
         pole.position.set(lx, LAMP_HEIGHT / 2, z);
+        pole.castShadow = true;
         root.add(pole);
 
         const armLen = 0.8;
@@ -338,11 +361,12 @@ function buildStreetGeometry(
         );
         treeSprite.scale.set(3.6, 5.4, 1);
         treeSprite.position.set(tx, 2.7, z);
-        root.add(treeSprite);
+        root.add(treeSprite, shadowForSprite(treeSprite));
       } else {
         const trunkMat = new THREE.MeshStandardMaterial({ color: "#3d2b1a" });
         const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.14, 3, 6), trunkMat);
         trunk.position.set(tx, 1.5, z);
+        trunk.castShadow = true;
         root.add(trunk);
 
         const canopyMat = new THREE.MeshStandardMaterial({
@@ -354,6 +378,7 @@ function buildStreetGeometry(
         const canopy = new THREE.Mesh(new THREE.SphereGeometry(1.8, 8, 6), canopyMat);
         canopy.scale.set(1, 0.7, 1);
         canopy.position.set(tx, 3.6, z);
+        canopy.castShadow = true;
         root.add(canopy);
       }
     }
@@ -438,7 +463,7 @@ function buildStreetGeometry(
       );
       cafeSprite.scale.set(1.35, 1.2, 1);
       cafeSprite.position.set(fx, 0.6, spot.z);
-      root.add(cafeSprite);
+      root.add(cafeSprite, shadowForSprite(cafeSprite));
 
       if (!day) {
         const candle = new THREE.Sprite(
@@ -463,7 +488,7 @@ function buildStreetGeometry(
       );
       planterSprite.scale.set(0.8, 0.9, 1);
       planterSprite.position.set(fx + spot.side * 1.5, 0.45, spot.z + 3);
-      root.add(planterSprite);
+      root.add(planterSprite, shadowForSprite(planterSprite));
     }
   }
 
@@ -481,7 +506,7 @@ function buildStreetGeometry(
       );
       benchSprite.scale.set(1.4, 0.9, 1);
       benchSprite.position.set(bx, 0.45, spot.z);
-      root.add(benchSprite);
+      root.add(benchSprite, shadowForSprite(benchSprite));
     }
   }
 
@@ -499,7 +524,7 @@ function buildStreetGeometry(
       );
       binSprite.scale.set(0.5, 0.7, 1);
       binSprite.position.set(bx, 0.35, spot.z);
-      root.add(binSprite);
+      root.add(binSprite, shadowForSprite(binSprite));
     }
   }
 
@@ -758,16 +783,9 @@ function buildTraffic(
 }
 
 function buildSky(scene: THREE.Scene, day: boolean): void {
-  const skyTex = skyGradient(day);
-  const skyGeo = new THREE.SphereGeometry(180, 16, 8);
-  const skyMat = new THREE.MeshBasicMaterial({
-    map: skyTex,
-    side: THREE.BackSide,
-    depthWrite: false,
-  });
-  const sky = new THREE.Mesh(skyGeo, skyMat);
-  scene.add(sky);
-
+  // The gradient itself is the scene's background (createWorldScene), out of
+  // the fog's reach. What stands in it is past the fog too: at 170 m the
+  // evening haze would leave 1% of a star.
   if (!day) {
     const starCount = 420;
     const starPositions = new Float32Array(starCount * 3);
@@ -781,13 +799,14 @@ function buildSky(scene: THREE.Scene, day: boolean): void {
     }
     const starGeo = new THREE.BufferGeometry();
     starGeo.setAttribute("position", new THREE.BufferAttribute(starPositions, 3));
+    // The demo's stars: cool white, a little larger, unfogged.
     const starMat = new THREE.PointsMaterial({
-      color: "#ffffff",
-      size: 0.6,
+      color: 0xcfd4ff,
+      size: 0.9,
       transparent: true,
-      opacity: 0.7,
-      blending: THREE.AdditiveBlending,
+      opacity: 0.75,
       depthWrite: false,
+      fog: false,
     });
     scene.add(new THREE.Points(starGeo, starMat));
   }
@@ -869,46 +888,38 @@ export function createWorldScene({
   const coarse = window.matchMedia?.("(pointer: coarse)").matches === true || window.innerWidth < 768;
   const ticking: TickFn[] = [];
 
+  const lighting = WORLD_LIGHTING[day ? "day" : "night"];
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = day ? 1.2 : 1.0;
-  renderer.shadowMap.enabled = !day;
-  if (renderer.shadowMap.enabled) {
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  }
+  renderer.toneMappingExposure = lighting.exposure;
+  // Day and evening: the sun's (or the moon's) shadows, as in the demo.
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
   camera.fov = 72;
   camera.near = 0.1;
   camera.far = 400;
   camera.updateProjectionMatrix();
 
-  if (day) {
-    scene.fog = new THREE.FogExp2(0xc4d8ec, 0.0075);
-    renderer.setClearColor(0xc4d8ec);
-  } else {
-    scene.fog = new THREE.FogExp2(0x2a2448, 0.0125);
-    renderer.setClearColor(0x120c18);
-  }
+  scene.fog = new THREE.FogExp2(lighting.fog.colour, lighting.fog.density);
+  renderer.setClearColor(lighting.fog.colour);
+  const skyBackground = skyTexture(day ? "day" : "night");
+  const previousBackground = scene.background;
+  scene.background = skyBackground;
 
   buildSky(scene, day);
 
   const hemi = new THREE.HemisphereLight(
-    day ? "#b8d8f0" : "#8090c0",
-    day ? "#705830" : "#1a1018",
-    day ? 1.9 : 0.95,
+    lighting.hemisphere.sky,
+    lighting.hemisphere.ground,
+    lighting.hemisphere.intensity,
   );
   scene.add(hemi);
 
-  const sun = new THREE.DirectionalLight(day ? "#ffd8a8" : "#c8b8e0", day ? 2.9 : 0.8);
-  sun.position.set(day ? 8 : -4, 10, 8);
-  if (!day) {
-    sun.castShadow = true;
-    sun.shadow.mapSize.setScalar(1024);
-    sun.shadow.camera.left = -14;
-    sun.shadow.camera.right = 14;
-    sun.shadow.camera.top = 14;
-    sun.shadow.camera.bottom = -14;
-  }
-  scene.add(sun);
+  const sun = new THREE.DirectionalLight(lighting.sun.colour, lighting.sun.intensity);
+  configureSunShadow(sun);
+  scene.add(sun, sun.target);
+  const sunFocus = new THREE.Vector3();
+  const cameraDirection = new THREE.Vector3();
 
   const { lamps, lampLights } = buildStreetGeometry(root, scene, loader, ticking);
   buildNPCs(root, loader, ticking);
@@ -946,7 +957,15 @@ export function createWorldScene({
     const usesShopArt = shopArtId in WORLD_ASSETS;
     const facadeId = usesShopArt ? shopArtId : (shop.assetId as WorldAssetId);
     const facade = createSprite(loader, facadeId, FACADE_SCALE, [shop.x, FACADE_Y, shop.z]);
-    root.add(facade);
+    // The shopfront's shadow is a building's: lined up with the street, not turned to the sun.
+    const facadeShadow = createShadowCaster(
+      (facade.material as THREE.SpriteMaterial).map,
+      FACADE_SCALE[0],
+      FACADE_SCALE[1],
+      [shop.x, FACADE_Y, shop.z],
+      frontageYaw(shop.side),
+    );
+    root.add(facade, facadeShadow);
 
     if (!day) {
       root.add(buildNeonHalo(shop.neonColour, new THREE.Vector3(shop.x, 3.8, shop.z), shop.side));
@@ -1035,18 +1054,6 @@ export function createWorldScene({
     material.needsUpdate = true;
   };
 
-  const updateShadowTarget = () => {
-    if (sun.castShadow) {
-      sun.shadow.camera.left = player.x - 14;
-      sun.shadow.camera.right = player.x + 14;
-      sun.shadow.camera.top = player.z + 14;
-      sun.shadow.camera.bottom = player.z - 14;
-      sun.target.position.set(player.x, 0, player.z);
-      sun.target.updateMatrixWorld();
-      sun.shadow.camera.updateProjectionMatrix();
-    }
-  };
-
   const enterShop = () => {
     if (!nearbyShopId || insideShopId) return;
     const trade = tradeForShop(model, nearbyShopId);
@@ -1095,7 +1102,6 @@ export function createWorldScene({
           leaving = true;
           movePlayer(player, moveCommand, walkDt);
           emitNear();
-          updateShadowTarget();
           tintPlayerFromLamps();
         }
         poolLampLights();
@@ -1125,6 +1131,10 @@ export function createWorldScene({
       // reduced motion they hold still. The player and camera still move.
       if (!reducedMotion) for (const fn of ticking) fn(dt, elapsed);
 
+      // The shadow box rides a few metres ahead of the camera, as in the demo.
+      camera.getWorldDirection(cameraDirection);
+      aimSun(sun, shadowFocus(camera.position, cameraDirection, sunFocus));
+
       if (postProcessing && glowGovernor.record(nowMs - lastMs) === "drop") {
         postProcessing.dispose();
         postProcessing = null;
@@ -1146,7 +1156,10 @@ export function createWorldScene({
     dispose() {
       disposeObject(root);
       disposeObject(roomLayer);
-      scene.remove(hemi, sun, root, roomLayer);
+      scene.remove(hemi, sun, sun.target, root, roomLayer);
+      sun.dispose();
+      scene.background = previousBackground;
+      skyBackground.dispose();
       postProcessing?.dispose();
     },
   };

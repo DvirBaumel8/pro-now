@@ -91,22 +91,3 @@ export function glow(colour = "255,180,94"): THREE.Texture {
   t.colorSpace = THREE.SRGBColorSpace;
   return t;
 }
-
-export function skyGradient(day: boolean): THREE.Texture {
-  const [c, x] = canvas(1, 512);
-  const g = x.createLinearGradient(0, 0, 0, 512);
-  if (day) {
-    g.addColorStop(0, "#3a7bd5");
-    g.addColorStop(0.6, "#85c1e9");
-    g.addColorStop(1, "#d4e6f1");
-  } else {
-    g.addColorStop(0, "#0b1030");
-    g.addColorStop(0.5, "#1a1540");
-    g.addColorStop(1, "#3d2850");
-  }
-  x.fillStyle = g;
-  x.fillRect(0, 0, 1, 512);
-  const t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace;
-  return t;
-}
