@@ -89,10 +89,20 @@ test("a professional joins, is reviewed, and is approved for one service", async
   await (await idChooser).setFiles({ name: "id.jpg", mimeType: "image/jpeg", buffer: Buffer.from(png) });
   await page.getByRole("button", { name: "נראה טוב" }).click();
   // Chromium's fake camera shows no face, so nothing is taken by itself: the shutter, three times.
-  for (const tick of ["ישר ✓", "ימינה ✓", "שמאלה ✓"]) {
-    await page.getByRole("button", { name: "צילום", exact: true }).click();
+  // The shutter does nothing until the camera has its first frame (IdentityCheck's captureFrame
+  // returns while videoWidth is 0), and on a slow CI runner that can come after the first press.
+  await page.waitForFunction(() => {
+    const v = document.querySelector("video");
+    return !!v && v.videoWidth > 0;
+  }, undefined, { timeout: 20_000 });
+  const shutter = page.getByRole("button", { name: "צילום", exact: true });
+  for (const tick of ["ישר ✓", "ימינה ✓"]) {
+    await shutter.click();
     await expect(page.getByText(tick)).toBeVisible();
   }
+  // The third photo sends all three by itself once they are uploaded, so its tick ("שמאלה ✓")
+  // can be gone before anyone looks: the sent state is what proves it was taken.
+  await shutter.click();
   await expect(page.getByText("הזהות נשלחה לבדיקה")).toBeVisible();
   // The tax file, then the licences.
   await uploadVia(page.getByRole("button", { name: "העלאה" }).first());
