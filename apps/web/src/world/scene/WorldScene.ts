@@ -39,6 +39,14 @@ import {
   shadowForSprite,
   skyTexture,
 } from "./lighting";
+import {
+  EVENING_LIGHT,
+  LEND_INTERVAL_S,
+  createLightPool,
+  emitter,
+  lendLights,
+  type LightEmitter,
+} from "./lightPool";
 import { advanceAlongStreet } from "./ambient";
 import { createFrameGovernor } from "./frameGovernor";
 import { createPostProcessing, type PostProcessingHandle } from "./postProcessing";
@@ -153,7 +161,7 @@ function buildStreetGeometry(
   ticking: TickFn[],
 ): {
   lamps: THREE.Vector3[];
-  lampLights: THREE.PointLight[];
+  emitters: LightEmitter[];
 } {
   const day = isDaytime();
   const halfStreet = STREET_LENGTH / 2;
@@ -292,7 +300,7 @@ function buildStreetGeometry(
 
   /* ---------- street lamps ---------- */
   const lamps: THREE.Vector3[] = [];
-  const lampLights: THREE.PointLight[] = [];
+  const emitters: LightEmitter[] = [];
   const glowTex = glow();
   const lampTex = tryLoadTexture(loader, "prop_lamp");
 
@@ -335,10 +343,32 @@ function buildStreetGeometry(
         lampGlow.position.set(lx, LAMP_HEIGHT + 0.3, z);
         root.add(lampGlow);
 
-        const point = new THREE.PointLight("#ffcf8a", 2.4, 14, 1.5);
-        point.position.set(lx, LAMP_HEIGHT - 0.2, z);
-        root.add(point);
-        lampLights.push(point);
+        // A real light only while one of the pool's is lent to it (lightPool.ts).
+        const { colour, intensity, distance, height } = EVENING_LIGHT.lamp;
+        emitters.push(emitter(lx, height, z, colour, intensity, distance));
+
+        // The painted pool under the lamp and its streak on the wet stone, as
+        // the demo's: for a lamp without a real light, this IS its light.
+        const disc = new THREE.Mesh(
+          new THREE.PlaneGeometry(11, 11),
+          new THREE.MeshBasicMaterial({
+            map: glowTex, color: colour, transparent: true, opacity: 0.16,
+            blending: THREE.AdditiveBlending, depthWrite: false,
+          }),
+        );
+        disc.rotation.x = -Math.PI / 2;
+        disc.position.set(lx, 0.02, z);
+        root.add(disc);
+        const streak = new THREE.Mesh(
+          new THREE.PlaneGeometry(1.6, 17),
+          new THREE.MeshBasicMaterial({
+            map: glowTex, color: colour, transparent: true, opacity: 0.1,
+            blending: THREE.AdditiveBlending, depthWrite: false,
+          }),
+        );
+        streak.rotation.x = -Math.PI / 2;
+        streak.position.set(lx, 0.025, z + 7.5);
+        root.add(streak);
       }
 
       lamps.push(new THREE.Vector3(lx, LAMP_HEIGHT, z));
@@ -641,7 +671,7 @@ function buildStreetGeometry(
     }
   }
 
-  return { lamps, lampLights };
+  return { lamps, emitters };
 }
 
 function buildNPCs(
@@ -921,12 +951,11 @@ export function createWorldScene({
   const sunFocus = new THREE.Vector3();
   const cameraDirection = new THREE.Vector3();
 
-  const { lamps, lampLights } = buildStreetGeometry(root, scene, loader, ticking);
+  const { lamps, emitters } = buildStreetGeometry(root, scene, loader, ticking);
   buildNPCs(root, loader, ticking);
   buildTraffic(root, loader, ticking);
 
   const LAMP_TINT_RANGE = 14;
-  const LAMP_POOL_RANGE = 40;
 
   const tintPlayerFromLamps = () => {
     if (day || lamps.length === 0) return;
@@ -943,12 +972,16 @@ export function createWorldScene({
     mat.color.copy(tint);
   };
 
-  const poolLampLights = () => {
-    if (lampLights.length === 0) return;
-    const cz = camera.position.z;
-    for (const light of lampLights) {
-      light.visible = Math.abs(light.position.z - cz) < LAMP_POOL_RANGE;
-    }
+  // By day there is no pool: the demo's lamps are on at a fifth in the
+  // morning, which nobody sees, and ten lights would cost every pixel.
+  const lightPool = day ? [] : createLightPool(root);
+  let lendClock = LEND_INTERVAL_S;
+  const lendEveningLights = (dt: number) => {
+    if (lightPool.length === 0) return;
+    lendClock += dt;
+    if (lendClock < LEND_INTERVAL_S) return;
+    lendClock = 0;
+    lendLights(lightPool, emitters, camera.position);
   };
 
   /* ---------- shop facades (prefer shop_* art over district_*) ---------- */
@@ -970,9 +1003,15 @@ export function createWorldScene({
     if (!day) {
       root.add(buildNeonHalo(shop.neonColour, new THREE.Vector3(shop.x, 3.8, shop.z), shop.side));
 
-      const spillLight = new THREE.PointLight(shop.neonColour, 1.2, 8, 2);
-      spillLight.position.set(shop.x - shop.side * 2, 2.0, shop.z);
-      root.add(spillLight);
+      // The shop's warm light on its own pavement, and its sign's colour, as the demo's.
+      const spill = EVENING_LIGHT.shopSpill;
+      emitters.push(
+        emitter(shop.x - shop.side * spill.out, spill.height, shop.z, spill.colour, spill.intensity, spill.distance),
+      );
+      const sign = EVENING_LIGHT.shopSign;
+      emitters.push(
+        emitter(shop.x - shop.side * sign.out, sign.height, shop.z, shop.neonColour, sign.intensity, sign.distance),
+      );
     }
   }
 
@@ -1104,7 +1143,6 @@ export function createWorldScene({
           emitNear();
           tintPlayerFromLamps();
         }
-        poolLampLights();
 
         // As in the demo: the world opens high over the street and the first
         // move flies the camera down behind the walker. Standing by a shop
@@ -1123,13 +1161,14 @@ export function createWorldScene({
           reducedMotion,
         );
       } else {
-        poolLampLights();
         frameStreet(camera, reducedMotion);
       }
 
       // Ambient loops (flicker, steam, walkers, traffic) are decoration: with
       // reduced motion they hold still. The player and camera still move.
       if (!reducedMotion) for (const fn of ticking) fn(dt, elapsed);
+
+      lendEveningLights(dt);
 
       // The shadow box rides a few metres ahead of the camera, as in the demo.
       camera.getWorldDirection(cameraDirection);
