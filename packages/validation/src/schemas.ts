@@ -435,14 +435,21 @@ export const proIdentitySchema = z
 
 /** `POST /api/v1/admin/...` decisions: a reason is required to refuse. */
 export const adminDecisionSchema = z
-  .object({ approve: z.boolean(), reason: z.string().trim().max(500).optional(), expiresAt: z.string().datetime().optional() })
+  .object({ approve: z.boolean(), reason: z.string().trim().max(500).optional(), expiresAt: z.string().datetime().optional(), noExpiry: z.boolean().optional() })
   .strict()
-  .refine((d) => d.approve || Boolean(d.reason), { message: "A refusal needs a reason", path: ["reason"] });
+  .refine((d) => d.approve || Boolean(d.reason), { message: "A refusal needs a reason", path: ["reason"] })
+  .refine((d) => !(d.expiresAt && d.noExpiry), { message: "Either an expiry date or no expiry, not both", path: ["noExpiry"] });
 
 /** `POST /api/v1/admin/professionals/:id/fix-requests` (docs/10 §Review loop). */
 export const adminFixMarkSchema = z
   .object({ itemKey: z.string().min(1).max(200), reasonHe: z.string().trim().min(3).max(500) })
   .strict();
+
+/** `PATCH /api/v1/admin/professionals/:id/identity-details` (docs/10 §Life after approval). */
+export const adminIdentityDetailsSchema = z
+  .object({ legalName: z.string().trim().min(2).max(80).optional(), dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), reason: z.string().trim().min(3).max(500) })
+  .strict()
+  .refine((d) => d.legalName !== undefined || d.dateOfBirth !== undefined, { message: "Nothing to correct", path: ["legalName"] });
 
 /** `POST /api/v1/admin/identity/:id/decision` (docs/10): a refusal says why, to the professional. A retake is the IDENTITY mark of a review round now. */
 export const adminIdentityDecisionSchema = z

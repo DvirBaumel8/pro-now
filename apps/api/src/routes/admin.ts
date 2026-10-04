@@ -33,7 +33,7 @@ export default async function adminRoutes(app: FastifyInstance) {
         user: { select: { email: true, createdAt: true } },
         documents: { include: { upload: true } },
         portraitUpload: true,
-        credentials: { include: { service: { select: { nameHe: true } } } },
+        credentials: { include: { service: { select: { nameHe: true } } }, orderBy: { createdAt: "asc" } },
         identityChecks: true,
       },
     });
@@ -96,8 +96,20 @@ export default async function adminRoutes(app: FastifyInstance) {
       })),
       changedItemKeys,
     };
+    const since30 = new Date(Date.now() - 30 * 86400_000);
+    const changeRows = await app.prisma.auditLog.findMany({
+      where: { targetId: id, action: { in: ["PRO_APPLICATION_ITEM_CHANGED", "PRO_IDENTITY_DETAILS_CORRECTED"] }, createdAt: { gte: since30 } },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      select: { createdAt: true, action: true, afterJson: true },
+    });
+    const recentChanges = changeRows.map((c) => {
+      const key = (c.afterJson as { itemKey?: unknown } | null)?.itemKey;
+      return { at: c.createdAt.toISOString(), action: c.action, itemKey: typeof key === "string" ? key : null, byStaff: c.action === "PRO_IDENTITY_DETAILS_CORRECTED" };
+    });
     return reply.send({
       review,
+      recentChanges,
       identity:
         check && photos
           ? {
@@ -149,6 +161,7 @@ export default async function adminRoutes(app: FastifyInstance) {
             number: c.number,
             status: c.status,
             expiresAt: c.expiresAt?.toISOString() ?? null,
+            noExpiry: c.noExpiry,
             mime: u?.mime ?? null,
             url: u ? await signed(u.storageKey) : null,
           };
