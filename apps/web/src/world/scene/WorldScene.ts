@@ -29,6 +29,7 @@ import {
 import { createPlayer, movePlayer, createContactShadow, type PlayerState } from "./player";
 import { createRoom } from "./shopRooms";
 import { createShopFront, facadeSize, type ShopFront } from "./shopFront";
+import { WALKER_SHEETS, createWalker, cycleFromSheet, planWalkers, type Walker } from "./walkers";
 import {
   BUILDING_KINDS,
   BUILDING_LAYERS,
@@ -71,7 +72,6 @@ import {
   lendLights,
   type LightEmitter,
 } from "./lightPool";
-import { advanceAlongStreet } from "./ambient";
 import { createFrameGovernor } from "./frameGovernor";
 import { createPostProcessing, type PostProcessingHandle } from "./postProcessing";
 
@@ -90,7 +90,6 @@ const VEHICLE_BY_DEPARTMENT: Partial<Record<string, WorldAssetId>> = {
 const LAMP_SPACING = 31;
 const LAMP_HEIGHT = 4.2;
 const TREE_SPACING = 35;
-const NPC_COUNT = 14;
 
 function loadTexture(loader: THREE.TextureLoader, id: WorldAssetId): THREE.Texture {
   return loader.load(worldAssetUrl(id));
@@ -146,18 +145,6 @@ function tradeForShop(model: WorldSceneModel, shopId: string): WorldTrade | null
 function isDaytime(): boolean {
   const h = new Date().getHours();
   return h >= 6 && h < 18;
-}
-
-interface NPC {
-  sprite: THREE.Sprite;
-  shadow: THREE.Sprite;
-  x: number;
-  z: number;
-  speed: number;
-  direction: 1 | -1;
-  lane: number;
-  frameDistance: number;
-  textures: THREE.Texture[];
 }
 
 type TickFn = (dt: number, elapsed: number) => void;
@@ -636,66 +623,32 @@ function buildStreetGeometry(
   return { lamps, emitters, parked, shopCarcass: carcassMaterials[1]! };
 }
 
-function buildNPCs(
-  root: THREE.Group,
-  loader: THREE.TextureLoader,
-  ticking: TickFn[],
-): NPC[] {
-  const day = isDaytime();
-  const halfStreet = STREET_LENGTH / 2;
-  const npcs: NPC[] = [];
-  const glowTex = glow();
+/**
+ * The passers-by, as the demo's (walkers.ts): each sheet sliced into its poses
+ * once it arrives, then the crowd laid out on the pavements, walking away from
+ * the camera and stepping through their poses by the ground they cover.
+ */
+function buildWalkers(root: THREE.Group, loader: THREE.TextureLoader, ticking: TickFn[]): void {
+  const plans = planWalkers();
+  const walkers: Walker[] = [];
+  const contactShadow = glow();
 
-  const walkerIds: WorldAssetId[] = ["walk_man", "walk_woman", "walk_dogwalker"];
-
-  for (let i = 0; i < NPC_COUNT; i++) {
-    const walkerId = walkerIds[i % walkerIds.length]!;
-    const tex = tryLoadTexture(loader, walkerId as string);
-    if (!tex) continue;
-
-    const direction = (i % 2 === 0 ? 1 : -1) as 1 | -1;
-    const lane = i % 2 === 0 ? -1 : 1;
-    const npcX = lane * (KERB_X + PAVEMENT * (0.2 + Math.random() * 0.5));
-    const npcZ = -halfStreet + (i / NPC_COUNT) * STREET_LENGTH;
-    const speed = 0.8 + Math.random() * 0.6;
-
-    const mat = new THREE.SpriteMaterial({
-      map: tex,
-      transparent: true,
-      depthWrite: false,
-      alphaTest: 0.1,
+  WALKER_SHEETS.forEach(({ id, forceEven }, sheet) => {
+    loader.load(worldAssetUrl(id), (loaded) => {
+      const cycle = cycleFromSheet(loaded, forceEven);
+      if (!cycle) return;
+      for (const plan of plans) {
+        if (plan.sheet !== sheet) continue;
+        const walker = createWalker(plan, cycle, contactShadow);
+        walkers.push(walker);
+        root.add(walker.group);
+      }
     });
-    if (!day) {
-      mat.color.set("#b8b0c8");
-    }
-    const sprite = new THREE.Sprite(mat);
-    sprite.scale.set(1.1, 1.7, 1);
-    sprite.position.set(npcX, 0.85, npcZ);
-    root.add(sprite);
-
-    const shadow = new THREE.Sprite(
-      new THREE.SpriteMaterial({
-        map: glowTex, transparent: true, depthWrite: false,
-        opacity: 0.2, color: new THREE.Color("#000000"),
-      }),
-    );
-    shadow.scale.set(0.9, 0.25, 1);
-    shadow.position.set(npcX, 0.02, npcZ);
-    root.add(shadow);
-
-    const npc: NPC = { sprite, shadow, x: npcX, z: npcZ, speed, direction, lane, frameDistance: 0, textures: [tex] };
-    npcs.push(npc);
-  }
-
-  ticking.push((dt) => {
-    for (const npc of npcs) {
-      npc.z = advanceAlongStreet(npc.z, npc.direction * npc.speed, dt, halfStreet, 10);
-      npc.sprite.position.set(npc.x, 0.85, npc.z);
-      npc.shadow.position.set(npc.x, 0.02, npc.z);
-    }
   });
 
-  return npcs;
+  ticking.push((dt) => {
+    for (const walker of walkers) walker.step(dt);
+  });
 }
 
 /**
@@ -897,7 +850,7 @@ export function createWorldScene({
   const cameraDirection = new THREE.Vector3();
 
   const { lamps, emitters, parked, shopCarcass } = buildStreetGeometry(root, scene, loader, ticking);
-  buildNPCs(root, loader, ticking);
+  buildWalkers(root, loader, ticking);
   buildTraffic(root, loader, ticking, emitters, parked);
 
   const LAMP_TINT_RANGE = 14;
