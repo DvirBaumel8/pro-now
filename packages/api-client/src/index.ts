@@ -187,6 +187,8 @@ export function createApiClient(config: ProNowApiClientConfig = {}) {
       },
       sendRound: (professionalId: string) =>
         request<{ roundId: string; count: number }>("POST", `/admin/professionals/${encodeURIComponent(professionalId)}/review-round/send`, {}),
+      correctIdentityDetails: (id: string, input: { legalName?: string; dateOfBirth?: string; reason: string }) =>
+        request<ProApplicationView>("PATCH", `/admin/professionals/${encodeURIComponent(id)}/identity-details`, input),
       decideAccount: (id: string, input: AdminDecision) => request<ProApplicationView>("POST", `/admin/professionals/${encodeURIComponent(id)}/decision`, input),
       decideIdentity: (id: string, input: { action: "APPROVE" | "REJECT"; reason?: string }) =>
         request<ProApplicationView>("POST", `/admin/identity/${encodeURIComponent(id)}/decision`, input),
@@ -200,6 +202,9 @@ export function createApiClient(config: ProNowApiClientConfig = {}) {
       market: () => request<{ activations: AdminActivationRow[] }>("GET", "/admin/market"),
       changeMarket: (id: string, input: { customerVisible?: boolean; providerOnboardingEnabled?: boolean; dispatchEnabled?: boolean; reason: string }) =>
         request<AdminActivationRow>("PATCH", `/admin/market/${encodeURIComponent(id)}`, input),
+      credentialExpiry: () =>
+        request<{ expiring: AdminCredentialRow[]; expired: AdminCredentialRow[]; undated: AdminCredentialRow[] }>("GET", "/admin/credentials/expiry"),
+      credentialRenewals: () => request<{ renewals: AdminCredentialRenewalRow[] }>("GET", "/admin/credentials/renewals"),
       matchFeedback: () => request<{ feedback: AdminFeedbackRow[] }>("GET", "/admin/match-feedback"),
       usage: () => request<AdminUsageView>("GET", "/admin/usage"),
       supportTickets: (status: "OPEN" | "HANDLED" = "OPEN") =>
@@ -288,6 +293,7 @@ export interface AdminDecision {
   approve: boolean;
   reason?: string;
   expiresAt?: string;
+  noExpiry?: boolean;
 }
 export interface AdminProfessionalView {
   application: ProApplicationView;
@@ -305,12 +311,14 @@ export interface AdminProfessionalView {
     declared: { legalName: string; dateOfBirth: string | null };
     provider: { nameMatch: boolean | null; livenessPassed: boolean | null; documentValid: boolean | null; reasonCodes: string[] };
   } | null;
+  /** The last 30 days of edits by the professional or by staff, newest first (at most 50). */
+  recentChanges: Array<{ at: string; action: string; itemKey: string | null; byStaff: boolean }>;
   email: string;
   joinedAt: string;
   documents: Array<{ id: string; kind: string; status: string; mime: string | null; url: string | null }>;
   /** The face they chose while joining; `url` is a short-lived link to their photo. */
   portrait: { kind: "PHOTO" | "CHARACTER"; mime: string | null; url: string | null } | null;
-  credentials: Array<{ id: string; serviceNameHe: string; type: string; number: string | null; status: string; expiresAt: string | null; mime: string | null; url: string | null }>;
+  credentials: Array<{ id: string; serviceNameHe: string; type: string; number: string | null; status: string; expiresAt: string | null; noExpiry: boolean; mime: string | null; url: string | null }>;
 }
 export interface AdminJobRow { id: string; status: string; serviceNameHe: string; professional: string | null; createdAt: string; updatedAt: string }
 export interface AdminJobDetail {
@@ -345,6 +353,8 @@ export interface AdminActivationRow {
   providerOnboardingEnabled: boolean;
   dispatchEnabled: boolean;
 }
+export interface AdminCredentialRow { credentialId: string; professionalId: string; displayName: string; serviceNameHe: string; type: string; expiresAt: string | null }
+export interface AdminCredentialRenewalRow { credentialId: string; professionalId: string; displayName: string; serviceNameHe: string; type: string; replacesExpiresAt: string | null }
 export interface AdminFeedbackRow { id: string; text: string; suggested: string[]; chosen: string | null; confidence: string; missed: boolean; at: string }
 export interface AdminUsageView {
   users: number;

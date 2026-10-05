@@ -16,6 +16,7 @@ import dispatchSweeperPlugin from "./plugins/dispatch-sweeper.js";
 import mediaCleanupPlugin from "./plugins/media-cleanup.js";
 import presenceSweeperPlugin from "./plugins/presence-sweeper.js";
 import notificationsPlugin from "./plugins/notifications.js";
+import credentialExpiryPlugin from "./plugins/credential-expiry.js";
 import authPlugin from "./plugins/auth.js";
 import webAppPlugin from "./plugins/web-app.js";
 
@@ -29,7 +30,9 @@ import onSiteRoutes from "./routes/on-site.js";
 import proOnboardingRoutes from "./routes/pro-onboarding.js";
 import adminProsRoutes from "./routes/admin-pros.js";
 import adminReviewRoutes from "./routes/admin-review.js";
+import adminIdentityDetailsRoutes from "./routes/admin-identity-details.js";
 import adminRoutes from "./routes/admin.js";
+import adminCredentialsRoutes from "./routes/admin-credentials.js";
 import safetyReportRoutes from "./routes/safety-reports.js";
 import notificationRoutes from "./routes/notifications.js";
 import offersRoutes from "./routes/offers.js";
@@ -147,6 +150,7 @@ export async function buildServer(opts: { logger?: boolean } = {}) {
   await app.register(presenceSweeperPlugin);
   await app.register(authPlugin);
   await app.register(notificationsPlugin);
+  await app.register(credentialExpiryPlugin);
   await app.register(demoAuthRoutes);
 
   app.get("/health", async () => ({
@@ -266,7 +270,9 @@ export async function buildServer(opts: { logger?: boolean } = {}) {
   await app.register(proOnboardingRoutes, { prefix: API_PREFIX });
   await app.register(adminProsRoutes, { prefix: API_PREFIX });
   await app.register(adminReviewRoutes, { prefix: API_PREFIX });
+  await app.register(adminIdentityDetailsRoutes, { prefix: API_PREFIX });
   await app.register(adminRoutes, { prefix: API_PREFIX });
+  await app.register(adminCredentialsRoutes, { prefix: API_PREFIX });
   await app.register(safetyReportRoutes, { prefix: API_PREFIX });
   await app.register(notificationRoutes, { prefix: API_PREFIX });
   await app.register(offersRoutes, { prefix: API_PREFIX });
