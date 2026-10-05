@@ -37,7 +37,11 @@ export interface TreeSpot {
  * Trees at the kerb, every 46 m on each side, staggered (the demo's): crossed
  * cut-outs 4.9–5.8 m tall at 0.94–1.06 of that, turned at random.
  */
-export function treeLayout(random: () => number = Math.random): TreeSpot[] {
+export function treeLayout(
+  random: () => number = Math.random,
+  /** Whether a spot is clear of a see-into window (the demo's `clearOfWindow`, 16 m for a tree). */
+  clear: (x: number, z: number, reach: number) => boolean = () => true,
+): TreeSpot[] {
   const out: TreeSpot[] = [];
   let turn = 0;
   const tree = (x: number, z: number) => {
@@ -48,8 +52,8 @@ export function treeLayout(random: () => number = Math.random): TreeSpot[] {
     out.push({ x, z, height, yaw, tree: TREE_IDS[turn++ % TREE_IDS.length]! });
   };
   for (let z = HALF - 8; z > -HALF; z -= 46) {
-    tree(FURNITURE_X - 0.3, z - 7);
-    tree(-FURNITURE_X + 0.3, z - 18.5);
+    if (clear(FURNITURE_X, z - 7, 16)) tree(FURNITURE_X - 0.3, z - 7);
+    if (clear(-FURNITURE_X, z - 18.5, 16)) tree(-FURNITURE_X + 0.3, z - 18.5);
   }
   return out;
 }

@@ -22,6 +22,7 @@ import {
 } from "./dressing";
 import { KERB_X, STREET_LENGTH } from "./street";
 import { cutout, imageAspect, type Cutout } from "./vans";
+import { clearOfWindow } from "./shopWindow";
 
 /**
  * The scene side of dressing.ts: the demo's drawings stood up as crossed or
@@ -83,7 +84,7 @@ function standUp(art: Art, id: WorldAssetId, height: number, sides = 2): THREE.G
 
 /** Trees at the kerb; the camera passing through one hides it (`canopies`). */
 export function buildTrees(root: THREE.Group, art: Art, canopies: THREE.Object3D[]): void {
-  for (const spot of treeLayout()) {
+  for (const spot of treeLayout(Math.random, clearOfWindow)) {
     const tree = standUp(art, spot.tree, spot.height);
     tree.position.set(spot.x, 0, spot.z);
     tree.rotation.y = spot.yaw;
@@ -94,7 +95,7 @@ export function buildTrees(root: THREE.Group, art: Art, canopies: THREE.Object3D
 
 /** Café tables with a candle, planters, benches and bins (the demo's layout and sizes). */
 export function buildFurniture(root: THREE.Group, art: Art, glow: THREE.Texture, ticking: Tick[]): void {
-  for (const spot of furnitureLayout()) {
+  for (const spot of furnitureLayout(Math.random, clearOfWindow)) {
     const id: WorldAssetId =
       spot.kind === "cafe" ? "prop_cafe_set" : spot.kind === "bench" ? "prop_bench" : spot.kind === "bin" ? "prop_bin" : spot.planter!;
     const sides = spot.kind === "bench" || spot.kind === "bin" ? 1 : 2;

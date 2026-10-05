@@ -67,10 +67,10 @@ export default defineConfig({
             handler: "StaleWhileRevalidate",
             options: {
               cacheName: "art",
-              // Room for every file under /world and /clips (about 205 with the
-              // street's walkers, the fleet's vans, props and the terrace's
-              // buildings), with headroom, not more.
-              expiration: { maxEntries: 240 },
+              // Room for every file under /world and /clips (about 295 with the
+              // street's walkers, the fleet's vans, props, the terrace's
+              // buildings and the shops' rooms), with headroom, not more.
+              expiration: { maxEntries: 330 },
             },
           },
         ],
