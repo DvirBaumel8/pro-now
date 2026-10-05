@@ -251,6 +251,41 @@ test("the terrace's buildings are the demo's: three drawn layers, a drawn relief
   expect(roofs.size, "the six roof pieces").toBe(6);
 });
 
+test.describe("the shops' windows", () => {
+  // page.route cannot see what a service worker answers, so none for this one.
+  test.use({ serviceWorkers: "block" });
+
+  test("every shop can be seen into: its room arrives after the street, without holding the arrival", async ({ page }) => {
+    test.setTimeout(120_000);
+    await signInByEmail(page, uniqueEmail("e2e-world-windows"));
+    await finishFirstRun(page);
+
+    // Each shop's drawing has its glass cut out and its room stands behind it
+    // (shopWindow.ts). Every room is held back until the arrival has lifted:
+    // if the arrival waited for them, it would never lift.
+    let release!: () => void;
+    const arrived = new Promise<void>((resolve) => (release = resolve));
+    await page.route(/\/world\/s\/room_[a-z]+_[a-z0-9]+\.webp$/, async (route) => {
+      await arrived;
+      await route.continue();
+    });
+    const rooms = new Set<string>();
+    page.on("response", (response) => {
+      const m = /\/world\/s\/room_([a-z]+)_back\.webp$/.exec(new URL(response.url()).pathname);
+      if (m && response.ok()) rooms.add(m[1]!);
+    });
+
+    await page.goto("/world");
+    await expect(page.locator(".world-canvas__surface canvas")).toBeVisible();
+    await expect(page.getByText("נכנסים לעיר")).toBeHidden({ timeout: 30_000 });
+    expect(rooms.size, "no room is in before the arrival lifts").toBe(0);
+    release();
+
+    await expect.poll(() => rooms.size, { timeout: 45_000 }).toBe(13);
+    console.log(`world rooms: ${[...rooms].sort().join(", ")}`);
+  });
+});
+
 test.describe("arriving on a slow network", () => {
   // page.route cannot see what a service worker answers, so none for this one.
   test.use({ serviceWorkers: "block" });

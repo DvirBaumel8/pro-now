@@ -398,17 +398,53 @@ export function createBuilding(bay: Bay, art: TerraceArt): Building {
  * wide, 11 m deep, half a metre under the facade, at least 3.4 m tall. The
  * drawings carry their own roofs and silhouettes, so it stays inside them.
  */
-export function createShopCarcass(material: THREE.Material): { mesh: THREE.Mesh; fit(faceHeight: number): void } {
-  const mesh = new THREE.Mesh(unitBox, material);
+export function createShopCarcass(material: THREE.Material): {
+  mesh: THREE.Mesh<THREE.BoxGeometry, THREE.Material | THREE.Material[]>;
+  fit(faceHeight: number): void;
+  /**
+   * Open the front where a shop's window is (shop frame: x along the
+   * frontage, y up), so its room shows and nothing else: the box loses its
+   * front face and a wall with the window's hole in it stands there instead.
+   */
+  openWindow(hole: { x0: number; x1: number; y0: number; y1: number }): THREE.Mesh;
+} {
+  const mesh = new THREE.Mesh<THREE.BoxGeometry, THREE.Material | THREE.Material[]>(unitBox, material);
   mesh.name = "shop-carcass";
   mesh.castShadow = mesh.receiveShadow = true;
+  let height = 0;
   const fit = (faceHeight: number) => {
-    const height = Math.max(3.4, faceHeight - 0.5);
+    height = Math.max(3.4, faceHeight - 0.5);
     mesh.scale.set(SHOP_BAY, height, CARCASS_DEPTH);
     mesh.position.set(0, height / 2, -CARCASS_DEPTH / 2 - 0.05);
   };
   fit(8.8);
-  return { mesh, fit };
+  return {
+    mesh,
+    fit,
+    openWindow(hole) {
+      // BoxGeometry's groups run +x, −x, +y, −y, +z, −z: the front is 4.
+      const hidden = new THREE.MeshBasicMaterial({ visible: false });
+      mesh.material = [0, 1, 2, 3, 4, 5].map((i) => (i === 4 ? hidden : material));
+      const front = new THREE.Shape();
+      front.moveTo(-SHOP_BAY / 2, 0);
+      front.lineTo(SHOP_BAY / 2, 0);
+      front.lineTo(SHOP_BAY / 2, height);
+      front.lineTo(-SHOP_BAY / 2, height);
+      front.closePath();
+      const opening = new THREE.Path();
+      opening.moveTo(hole.x0, hole.y0);
+      opening.lineTo(hole.x0, hole.y1);
+      opening.lineTo(hole.x1, hole.y1);
+      opening.lineTo(hole.x1, hole.y0);
+      opening.closePath();
+      front.holes.push(opening);
+      const panel = new THREE.Mesh(new THREE.ShapeGeometry(front), material);
+      panel.name = "shop-carcass-front";
+      panel.position.z = -0.05;
+      panel.receiveShadow = true;
+      return panel;
+    },
+  };
 }
 
 /** The carcass plaster: the delivered stone and plaster, tiled 3 × 3 (the demo's `wallMats`). */
