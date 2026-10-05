@@ -50,7 +50,8 @@ describe("worldTradesFromCatalog", () => {
       shopId: "home",
       departmentCode: "HOME_URGENT",
       nameHe: "תיקונים דחופים",
-      interiorAssetId: "home_workshop_hero",
+      // Its built room's back wall: the door walks you in (the demo's BUILT_ROOMS).
+      interiorAssetId: "room_home_back",
     });
     expect(trades.home!.services).toEqual([
       { id: "svc-leak", nameHe: "נזילה או דליפת מים", descriptionHe: "מים שמופיעים איפה שהם לא אמורים." },

@@ -56,6 +56,21 @@
   line-height: 1;
 }
 .world-overlay .world-overlay__back:focus-visible { outline: 2px solid #ff6b4a; outline-offset: 2px; }
+/* The demo's "‹ חזרה לרחוב" in a shop (City.tsx S.leaveRoom): top left, clear of the stick. */
+.world-overlay .world-overlay__leave {
+  position: absolute;
+  left: 16px;
+  top: 124px;
+  border: 1px solid rgba(247, 243, 250, 0.22);
+  border-radius: 999px;
+  padding: 11px 20px;
+  background: rgba(16, 12, 22, 0.72);
+  color: rgba(247, 243, 250, 0.86);
+  font-size: 14px;
+  font-weight: 400;
+  backdrop-filter: blur(8px);
+}
+.world-overlay .world-overlay__leave:focus-visible { outline: 2px solid #ff6b4a; outline-offset: 2px; }
 .world-overlay__professional { top: 14px; right: 64px; padding: 8px 12px; border-radius: 12px; }
 .world-overlay__sheet { left: 16px; right: 16px; bottom: 16px; padding: 16px; border-radius: 20px; }
 .world-overlay__sheet h2 { margin: 0 0 10px; font-size: 20px; }
