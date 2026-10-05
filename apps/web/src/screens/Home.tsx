@@ -36,6 +36,7 @@ import { RequestComposer } from "./RequestComposer";
 import { Addresses } from "./Addresses";
 import { jobKey } from "./Job";
 import { activeLabelHe } from "./activeLabel";
+import { strollHref, worldHref, worldShopParam } from "../world/worldLinks";
 
 
 /**
@@ -87,13 +88,19 @@ export function Home() {
   const [seedQuery, setSeedQuery] = useState<string | null>(null);
   // The sentence the service was chosen from, carried into the request.
   const [typedText, setTypedText] = useState("");
+  /*
+   * A service chosen inside a shop in the street: its page's back returns
+   * into that shop, as the demo's kept city does, not to home.
+   */
+  const [worldShop, setWorldShop] = useState<string | null>(null);
   useEffect(() => {
     const service = searchParams.get("service");
     if (!service) return;
     setRequestServiceId(service);
+    setWorldShop(worldShopParam((location.state as { worldShop?: string | null } | null)?.worldShop));
     searchParams.delete("service");
     setSearchParams(searchParams, { replace: true });
-  }, [searchParams, setSearchParams]);
+  }, [searchParams, setSearchParams, location.state]);
   const me = useMe();
   const media = useWebMediaCapture();
   /* The face they chose, in the header, as in the demo; the glyph if none. */
@@ -141,6 +148,7 @@ export function Home() {
     setTypedText("");
     setComposing(false);
     setRequestServiceId(null);
+    setWorldShop(null);
   };
   /*
    * Typing, the screen is the strip above the keyboard, and the field being
@@ -248,7 +256,7 @@ export function Home() {
             availableNowCount={null}
             width={width}
             height={bodyH}
-            onBack={closeService}
+            onBack={worldShop ? () => navigate(worldHref({ shop: worldShop }), { replace: true }) : closeService}
             onRequestNow={(_symptoms, noteHe) => {
               // What they typed here IS the description; carry it on.
               if (noteHe) setTypedText((cur) => cur || noteHe);
@@ -320,7 +328,7 @@ export function Home() {
               void api.sendMatchFeedback(choice).catch(() => {});
             }}
             // The door into the street; without a figure it picks one on the way (demo: strollDoor).
-            onStroll={() => navigate(hasAvatar ? "/world" : "/avatar?then=world")}
+            onStroll={() => navigate(strollHref(hasAvatar))}
             strollNeedsAvatar={!hasAvatar}
             advertiseUpcoming
             width={width}

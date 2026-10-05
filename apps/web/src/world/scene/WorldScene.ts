@@ -28,6 +28,7 @@ import {
 } from "./street";
 import { createPlayer, movePlayer, createContactShadow, type PlayerState } from "./player";
 import { createRoom } from "./shopRooms";
+import { searchFlightFactor, searchFlightPose } from "./searchFlight";
 import { createShopFront, facadeSize, type ShopFront } from "./shopFront";
 import { WALKER_SHEETS, createWalker, cycleFromSheet, planWalkers, type Walker } from "./walkers";
 import {
@@ -1066,6 +1067,9 @@ export function createWorldScene({
           followFactor(walkDt),
           reducedMotion,
         );
+      } else if (model.mode === "SEARCH" && !reducedMotion) {
+        // The demo's search flight (searchFlight.ts); reduced motion keeps the still view below.
+        easeTowards(camera, searchFlightPose(nowMs / 1000), searchFlightFactor(dt), false);
       } else {
         frameStreet(camera, reducedMotion);
       }
