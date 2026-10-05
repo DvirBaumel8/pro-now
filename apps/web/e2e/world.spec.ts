@@ -221,6 +221,36 @@ test("the street's traffic is the trades' own vans, drawn from behind and in fro
   expect(whole.length, "the fleet's trades, each with its rear and front").toBeGreaterThanOrEqual(8);
 });
 
+test("the terrace's buildings are the demo's: three drawn layers, a drawn relief and things on the roofs", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  await signInByEmail(page, uniqueEmail("e2e-world-terrace"));
+  await finishFirstRun(page);
+
+  // Each of the six buildings is a wall, balconies (mid) and plants (front) on
+  // one registration plus the wall's height map; the old filler was one flat wall.
+  const parts = new Map<string, Set<string>>();
+  const roofs = new Set<string>();
+  page.on("response", (response) => {
+    if (!response.ok()) return;
+    const path = new URL(response.url()).pathname;
+    const building = /\/world\/s\/bld_(\d)_(wall|mid|front|wall_height)\.webp$/.exec(path);
+    if (building) parts.set(building[1]!, (parts.get(building[1]!) ?? new Set<string>()).add(building[2]!));
+    const roof = /\/world\/s\/(roof_[a-z]+)\.webp$/.exec(path);
+    if (roof) roofs.add(roof[1]!);
+  });
+
+  await page.goto("/world");
+  await expect(page.locator(".world-canvas__surface canvas")).toBeVisible();
+  await expect(page.getByText("נכנסים לעיר")).toBeHidden({ timeout: 30_000 });
+
+  const whole = [...parts].filter(([, got]) => got.size === 4).map(([kind]) => kind);
+  console.log(`world buildings with all four drawings: ${whole.sort().join(", ")}; roofs: ${roofs.size}`);
+  expect(whole, "all six buildings, each with wall, balconies, plants and relief").toHaveLength(6);
+  expect(roofs.size, "the six roof pieces").toBe(6);
+});
+
 test.describe("arriving on a slow network", () => {
   // page.route cannot see what a service worker answers, so none for this one.
   test.use({ serviceWorkers: "block" });

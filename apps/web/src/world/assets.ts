@@ -163,13 +163,44 @@ export const WORLD_ASSETS = {
   shop_build: "m/shop_build.webp",
   shop_help: "m/shop_help.webp",
 
-  // Building facades
-  bld_1_wall: "bld_1_wall.webp",
-  bld_2_wall: "bld_2_wall.webp",
-  bld_3_wall: "bld_3_wall.webp",
-  bld_4_wall: "bld_4_wall.webp",
-  bld_5_wall: "bld_5_wall.webp",
-  bld_6_wall: "bld_6_wall.webp",
+  // The terrace's buildings, as the demo's phone edition: each is three
+  // drawings on one registration (wall, balconies, plants) plus the wall's
+  // drawn height map (terrace.ts).
+  bld_1_wall: "s/bld_1_wall.webp",
+  bld_1_mid: "s/bld_1_mid.webp",
+  bld_1_front: "s/bld_1_front.webp",
+  bld_1_wall_height: "s/bld_1_wall_height.webp",
+  bld_2_wall: "s/bld_2_wall.webp",
+  bld_2_mid: "s/bld_2_mid.webp",
+  bld_2_front: "s/bld_2_front.webp",
+  bld_2_wall_height: "s/bld_2_wall_height.webp",
+  bld_3_wall: "s/bld_3_wall.webp",
+  bld_3_mid: "s/bld_3_mid.webp",
+  bld_3_front: "s/bld_3_front.webp",
+  bld_3_wall_height: "s/bld_3_wall_height.webp",
+  bld_4_wall: "s/bld_4_wall.webp",
+  bld_4_mid: "s/bld_4_mid.webp",
+  bld_4_front: "s/bld_4_front.webp",
+  bld_4_wall_height: "s/bld_4_wall_height.webp",
+  bld_5_wall: "s/bld_5_wall.webp",
+  bld_5_mid: "s/bld_5_mid.webp",
+  bld_5_front: "s/bld_5_front.webp",
+  bld_5_wall_height: "s/bld_5_wall_height.webp",
+  bld_6_wall: "s/bld_6_wall.webp",
+  bld_6_mid: "s/bld_6_mid.webp",
+  bld_6_front: "s/bld_6_front.webp",
+  bld_6_wall_height: "s/bld_6_wall_height.webp",
+  // What stands on a roof (the demo's CITY_ROOF_IDS, in its order).
+  roof_tank: "s/roof_tank.webp",
+  roof_chimney: "s/roof_chimney.webp",
+  roof_ac: "s/roof_ac.webp",
+  roof_aerial: "s/roof_aerial.webp",
+  roof_laundry: "s/roof_laundry.webp",
+  roof_rail: "s/roof_rail.webp",
+  // The plaster and stone the buildings' carcasses are made of.
+  mat_plaster_warm: "s/mat_plaster_warm.webp",
+  mat_plaster_cool: "s/mat_plaster_cool.webp",
+  mat_stone: "s/mat_stone.webp",
 } as const;
 
 export type WorldAssetId = keyof typeof WORLD_ASSETS;
