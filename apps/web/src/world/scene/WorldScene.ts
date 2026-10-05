@@ -25,10 +25,12 @@ import {
   STREET_LENGTH,
   KERB_X,
   PAVEMENT,
+  SPAWN,
 } from "./street";
 import { createPlayer, movePlayer, createContactShadow, type PlayerState } from "./player";
 import { createRoom } from "./shopRooms";
 import { createShopFront, facadeSize, type ShopFront } from "./shopFront";
+import { ROOM_PROPS, SHOP_WINDOWS, createShopWindow, punchWindow, roomArtIds, type ShopWindow } from "./shopWindow";
 import { WALKER_SHEETS, createWalker, cycleFromSheet, planWalkers, type Walker } from "./walkers";
 import {
   BUILDING_KINDS,
@@ -53,6 +55,7 @@ import {
   fleetTrade,
   imageAspect,
   parkedLayout,
+  type Cutout,
   type ParkedSpot,
   type Van,
 } from "./vans";
@@ -160,6 +163,8 @@ function buildStreetGeometry(
   parked: ParkedSpot[];
   /** The plaster behind the shops' drawings (the demo's wallMats[1]). */
   shopCarcass: THREE.Material;
+  /** A roof piece by its index in ROOF_IDS, sized to its sheet once that is in. */
+  roofPiece(pick: number, height: number): Cutout;
 } {
   const day = isDaytime();
   const halfStreet = STREET_LENGTH / 2;
@@ -245,10 +250,15 @@ function buildStreetGeometry(
     });
     return materials;
   });
+  const roofAspects: Array<number | null> = ROOF_IDS.map(() => null);
+  const roofFits: Array<(pick: number, aspect: number) => void> = [];
   const roofSheets = ROOF_IDS.map((id, pick) =>
     loader.load(worldAssetUrl(id), (loaded) => {
       const aspect = cropToCentrePiece(loaded);
-      if (aspect) for (const building of buildings) building.fitRoof(pick, aspect);
+      if (!aspect) return;
+      roofAspects[pick] = aspect;
+      for (const building of buildings) building.fitRoof(pick, aspect);
+      for (const fitRoof of roofFits) fitRoof(pick, aspect);
     }),
   );
   const terraceArt: TerraceArt = { layers: layerMaterials, roof: roofSheets, carcass: carcassMaterials };
@@ -620,7 +630,16 @@ function buildStreetGeometry(
     parked.push({ side: spot.side, z: spot.z });
   }
 
-  return { lamps, emitters, parked, shopCarcass: carcassMaterials[1]! };
+  const roofPiece = (pick: number, height: number) => {
+    const piece = cutout(roofSheets[pick]!, height);
+    const aspect = roofAspects[pick];
+    if (aspect) piece.fit(aspect);
+    roofFits.push((fitted, fittedAspect) => {
+      if (fitted === pick) piece.fit(fittedAspect);
+    });
+    return piece;
+  };
+  return { lamps, emitters, parked, shopCarcass: carcassMaterials[1]!, roofPiece };
 }
 
 /**
@@ -810,6 +829,9 @@ export function createWorldScene({
     for (const listener of artListeners.splice(0)) listener();
   });
   const loader = new THREE.TextureLoader(manager);
+  // What comes after arrival (the shops' rooms) loads outside the manager.
+  const roomLoader = new THREE.TextureLoader();
+  let disposed = false;
   const root = new THREE.Group();
   scene.add(root);
 
@@ -848,8 +870,9 @@ export function createWorldScene({
   scene.add(sun, sun.target);
   const sunFocus = new THREE.Vector3();
   const cameraDirection = new THREE.Vector3();
+  const viewerLocal = new THREE.Vector3();
 
-  const { lamps, emitters, parked, shopCarcass } = buildStreetGeometry(root, scene, loader, ticking);
+  const { lamps, emitters, parked, shopCarcass, roofPiece } = buildStreetGeometry(root, scene, loader, ticking);
   buildWalkers(root, loader, ticking);
   buildTraffic(root, loader, ticking, emitters, parked);
 
@@ -885,26 +908,80 @@ export function createWorldScene({
   /* ---------- shop facades (prefer shop_* art over district_*) ---------- */
   const shopGlow = glow();
   const shopFronts: ShopFront[] = [];
+  // Shops you can see into (shopWindow.ts): their rooms are fetched once the
+  // street is in, nearest first, and each window opens when its room arrives.
+  const seeInto: Array<{ shop: (typeof WORLD_SHOPS)[number]; open(): void }> = [];
+  const windows: Array<{ group: THREE.Group; seen: ShopWindow }> = [];
   for (const shop of WORLD_SHOPS) {
     const shopArtId = `shop_${shop.shopId}` as WorldAssetId;
     const usesShopArt = shopArtId in WORLD_ASSETS;
     const facadeId = usesShopArt ? shopArtId : (shop.assetId as WorldAssetId);
+    const spec = usesShopArt ? SHOP_WINDOWS[shop.shopId] : undefined;
     // The drawing as a lit wall at its own proportions, dressed as the demo's
     // (shopFront.ts); it is sized to the drawing once the drawing is in.
+    let drawingIn = false;
     const drawing: THREE.Texture = loader.load(worldAssetUrl(facadeId), (loaded) => {
       const image = loaded.image as { width?: number; height?: number } | undefined;
       if (image?.width && image.height) {
         front.fit(image.width / image.height);
         carcass.fit(facadeSize(image.width / image.height).h);
       }
+      drawingIn = true;
+      if (spec) {
+        // The demo's redrawn shops carry a tank and an aerial on the roof.
+        const { w, h } = front.size();
+        for (const [pick, height, side] of [
+          [0, 1.9, -1],
+          [3, 1.5, 1],
+        ] as const) {
+          const holder = new THREE.Group();
+          holder.position.set(side * w * 0.22, h - 0.1, -1.2);
+          holder.add(roofPiece(pick, height));
+          front.group.add(holder);
+        }
+      }
     });
     drawing.colorSpace = THREE.SRGBColorSpace;
-    const front = createShopFront(shop, drawing, shopGlow);
+    const front = createShopFront(shop, drawing, shopGlow, { seeInto: Boolean(spec) });
     // The block the shop stands in, behind its drawing (terrace.ts).
     const carcass = createShopCarcass(shopCarcass);
     front.group.add(carcass.mesh);
     shopFronts.push(front);
     root.add(front.group);
+
+    if (spec) {
+      seeInto.push({
+        shop,
+        open() {
+          const ids = roomArtIds(shop.shopId, ROOM_PROPS[shop.shopId] ?? 0);
+          // Not through the arrival's manager: the street is already up.
+          const pieces = ids.map(
+            (id) =>
+              new Promise<THREE.Texture | null>((resolve) => {
+                if (!(id in WORLD_ASSETS)) return resolve(null);
+                roomLoader.load(worldAssetUrl(id as WorldAssetId), resolve, undefined, () => resolve(null));
+              }),
+          );
+          void Promise.all(pieces).then(([back, left, right, floor, ...props]) => {
+            if (disposed || !back || !drawingIn) return;
+            const punched = punchWindow(drawing, spec);
+            if (!punched) return;
+            const { w, h } = front.size();
+            const seen = createShopWindow(
+              spec,
+              w,
+              h,
+              { back, left: left ?? null, right: right ?? null, floor: floor ?? null, props: props.filter((p): p is THREE.Texture => Boolean(p)) },
+              shopGlow,
+              shop.neonColour,
+            );
+            front.setDrawing(punched);
+            front.group.add(seen.group, carcass.openWindow(seen.hole));
+            windows.push({ group: front.group, seen });
+          });
+        },
+      });
+    }
 
     if (!day) {
       root.add(buildNeonHalo(shop.neonColour, new THREE.Vector3(shop.x, 3.8, shop.z), shop.side));
@@ -920,6 +997,13 @@ export function createWorldScene({
       );
     }
   }
+
+  const openWindows = () => {
+    const byDistance = [...seeInto].sort((a, b) => Math.abs(a.shop.z - SPAWN.z) - Math.abs(b.shop.z - SPAWN.z));
+    for (const { open } of byDistance) open();
+  };
+  if (artReady) openWindows();
+  else artListeners.push(openWindows);
 
   const walkTextures: THREE.Texture[] = [];
   const runTextures: THREE.Texture[] = [];
@@ -1077,6 +1161,12 @@ export function createWorldScene({
       lendEveningLights(dt);
       // A projecting sign seen edge-on fades rather than becoming a streak.
       if (root.visible) for (const front of shopFronts) front.face(camera.position);
+      // Behind the glass the furniture turns to you and the sheen slides.
+      if (root.visible) {
+        for (const { group, seen } of windows) {
+          seen.update(group.worldToLocal(viewerLocal.copy(camera.position)), reducedMotion ? 0 : elapsed);
+        }
+      }
 
       // The shadow box rides a few metres ahead of the camera, as in the demo.
       camera.getWorldDirection(cameraDirection);
@@ -1101,6 +1191,7 @@ export function createWorldScene({
       else artListeners.push(listener);
     },
     dispose() {
+      disposed = true;
       disposeObject(root);
       disposeObject(roomLayer);
       scene.remove(hemi, sun, sun.target, root, roomLayer);

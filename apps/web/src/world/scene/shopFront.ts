@@ -115,6 +115,10 @@ export interface ShopFront {
   group: THREE.Group;
   /** Size the facade, cornice and canopy to the drawing, once it has loaded. */
   fit(aspect: number): void;
+  /** The facade's size, as last fitted. */
+  size(): { w: number; h: number };
+  /** Draw a different picture on the facade (the drawing with its glass cut out). */
+  setDrawing(texture: THREE.Texture): void;
   /** Fade the blade's faces by how square-on the viewer is to them. */
   face(viewer: THREE.Vector3): void;
 }
@@ -123,6 +127,11 @@ export function createShopFront(
   shop: Pick<WorldShopPosition, "x" | "z" | "side" | "labelHe" | "neonColour">,
   drawing: THREE.Texture,
   glowTexture: THREE.Texture,
+  /**
+   * A shop you can see into (shopWindow.ts): its awning is built out over the
+   * pavement, so it takes no canopy ledge, as the demo's redrawn shops.
+   */
+  { seeInto = false }: { seeInto?: boolean } = {},
 ): ShopFront {
   const group = new THREE.Group();
   group.name = "shopfront";
@@ -149,10 +158,13 @@ export function createShopFront(
   face.castShadow = face.receiveShadow = true;
   const cornice = ledge(0, 1, 0.3, 0.22, LEDGE);
   const canopy = ledge(0, 1, 0.55, 0.14, CANOPY);
-  group.add(face, cornice, canopy);
+  group.add(face, cornice);
+  if (!seeInto) group.add(canopy);
 
+  let size = { w: 1, h: 1 };
   const fit = (aspect: number) => {
     const { w, h } = facadeSize(aspect > 0 && Number.isFinite(aspect) ? aspect : 1);
+    size = { w, h };
     face.scale.set(w, h, 1);
     face.position.set(0, h / 2, FACADE_OUT);
     cornice.scale.x = w + 0.22;
@@ -218,6 +230,12 @@ export function createShopFront(
   return {
     group,
     fit,
+    size: () => size,
+    setDrawing(texture) {
+      face.material.map = texture;
+      face.material.emissiveMap = texture;
+      face.material.needsUpdate = true;
+    },
     face(viewer) {
       for (const blade of blades) {
         blade.getWorldPosition(at);
