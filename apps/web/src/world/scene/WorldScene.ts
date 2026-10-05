@@ -19,7 +19,6 @@ import {
   canEnterTrade,
   nearestShop,
   WORLD_SHOPS,
-  WORLD_PLACES,
   FRONT_X,
   ROAD_HALF,
   STREET_LENGTH,
@@ -41,11 +40,12 @@ import {
   cropToCentrePiece,
   dressLayer,
   flatHeightMap,
+  reliefNormalMap,
   terraceBays,
   type Building,
   type TerraceArt,
 } from "./terrace";
-import { paving, asphalt, neonGlow, glow, wordmark } from "./textures";
+import { paving, asphalt, glow, wordmark } from "./textures";
 import {
   createVan,
   cutout,
@@ -73,6 +73,18 @@ import {
   type LightEmitter,
 } from "./lightPool";
 import { createFrameGovernor } from "./frameGovernor";
+import {
+  artLoader,
+  buildDogPark,
+  buildFurniture,
+  buildKerbs,
+  buildPlaces,
+  buildSignWet,
+  buildSteam,
+  buildTrees,
+  hideCanopies,
+} from "./dressingScene";
+import { ROOF_SIGN } from "./dressing";
 import { createPostProcessing, type PostProcessingHandle } from "./postProcessing";
 
 const VEHICLE_BY_DEPARTMENT: Partial<Record<string, WorldAssetId>> = {
@@ -89,7 +101,6 @@ const VEHICLE_BY_DEPARTMENT: Partial<Record<string, WorldAssetId>> = {
 
 const LAMP_SPACING = 31;
 const LAMP_HEIGHT = 4.2;
-const TREE_SPACING = 35;
 
 function loadTexture(loader: THREE.TextureLoader, id: WorldAssetId): THREE.Texture {
   return loader.load(worldAssetUrl(id));
@@ -154,8 +165,11 @@ function buildStreetGeometry(
   scene: THREE.Scene,
   loader: THREE.TextureLoader,
   ticking: TickFn[],
+  camera: THREE.Camera,
 ): {
   lamps: THREE.Vector3[];
+  /** Cut-outs the camera can stand in (trees, the layby, parked vehicles): hidden while it does. */
+  canopies: THREE.Object3D[];
   emitters: LightEmitter[];
   parked: ParkedSpot[];
   /** The plaster behind the shops' drawings (the demo's wallMats[1]). */
@@ -165,13 +179,29 @@ function buildStreetGeometry(
   const halfStreet = STREET_LENGTH / 2;
 
   // The demo's photographed stone and asphalt; the drawn ones if the art is missing.
-  const pavingTex = tiledPhoto(tryLoadTexture(loader, "mat_paving"), 12, 62) ?? paving(26);
-  const asphaltTex = tiledPhoto(tryLoadTexture(loader, "mat_road"), 2, 34) ?? asphalt();
+  // Once a photograph is in, its relief is read from its brightness into a
+  // normal map (the demo's `relief`), so a lamp finds the lip on every stone.
+  const groundMaterials = { paving: [] as THREE.MeshStandardMaterial[], road: [] as THREE.MeshStandardMaterial[] };
+  const reliefOnto = (which: keyof typeof groundMaterials, scale: number) => (loaded: THREE.Texture) => {
+    const normal = reliefNormalMap(loaded);
+    if (!normal) return;
+    normal.repeat.copy(loaded.repeat);
+    for (const material of groundMaterials[which]) {
+      material.normalMap = normal;
+      material.normalScale.set(scale, scale);
+      material.needsUpdate = true;
+    }
+  };
+  const pavingTex = tiledPhoto(loader.load(worldAssetUrl("mat_paving"), reliefOnto("paving", 0.55)), 12, 62) ?? paving(26);
+  const asphaltTex = tiledPhoto(loader.load(worldAssetUrl("mat_road"), reliefOnto("road", 0.35)), 2, 34) ?? asphalt();
 
   const groundGeo = new THREE.PlaneGeometry(FRONT_X * 2, STREET_LENGTH);
   // The demo's ground: cut stone with a little sheen, so the sun finds it.
-  const pavingMaterial = () =>
-    new THREE.MeshStandardMaterial({ map: pavingTex, roughness: 0.45, metalness: 0.08 });
+  const pavingMaterial = () => {
+    const material = new THREE.MeshStandardMaterial({ map: pavingTex, roughness: 0.45, metalness: 0.08 });
+    groundMaterials.paving.push(material);
+    return material;
+  };
   const leftPavement = new THREE.Mesh(
     groundGeo.clone(),
     pavingMaterial(),
@@ -191,29 +221,20 @@ function buildStreetGeometry(
   root.add(rightPavement);
 
   const roadGeo = new THREE.PlaneGeometry(ROAD_HALF * 2, STREET_LENGTH);
-  const road = new THREE.Mesh(
-    roadGeo,
-    new THREE.MeshStandardMaterial({
-      map: asphaltTex,
-      roughness: 0.22,
-      metalness: 0.35,
-    }),
-  );
+  const roadMaterial = new THREE.MeshStandardMaterial({
+    map: asphaltTex,
+    roughness: 0.22,
+    metalness: 0.35,
+  });
+  groundMaterials.road.push(roadMaterial);
+  const road = new THREE.Mesh(roadGeo, roadMaterial);
   road.rotation.x = -Math.PI / 2;
   road.position.set(0, 0, 0);
   road.receiveShadow = true;
   root.add(road);
 
-  const kerbGeo = new THREE.BoxGeometry(0.18, 0.15, STREET_LENGTH);
-  const kerbMat = new THREE.MeshStandardMaterial({ color: 0x7d7488, roughness: 0.7 });
-  const leftKerb = new THREE.Mesh(kerbGeo, kerbMat);
-  leftKerb.position.set(-KERB_X, 0.06, 0);
-  leftKerb.castShadow = leftKerb.receiveShadow = true;
-  root.add(leftKerb);
-  const rightKerb = new THREE.Mesh(kerbGeo.clone(), kerbMat.clone());
-  rightKerb.position.set(KERB_X, 0.06, 0);
-  rightKerb.castShadow = rightKerb.receiveShadow = true;
-  root.add(rightKerb);
+  // The demo's kerb: 0.55 m wide, 0.28 m high.
+  buildKerbs(root);
 
   /* ---------- the terrace: the demo's drawn buildings (terrace.ts) ---------- */
   const carcassMaterials = (["mat_plaster_warm", "mat_plaster_cool", "mat_stone"] as const).map((id) =>
@@ -335,47 +356,13 @@ function buildStreetGeometry(
     }
   }
 
-  /* ---------- trees (art or procedural) ---------- */
-  const palmTex = tryLoadTexture(loader, "prop_palm");
-  const jacarandaTex = tryLoadTexture(loader, "prop_jacaranda");
+  /* ---------- trees, at the kerb (dressing.ts) ---------- */
+  const art = artLoader(loader);
+  const canopies: THREE.Object3D[] = [];
+  buildTrees(root, art, canopies);
 
-  for (let z = -halfStreet + 20; z < halfStreet; z += TREE_SPACING) {
-    for (const side of [-1, 1] as const) {
-      const tx = side * (KERB_X + PAVEMENT * 0.7);
-      const usePalm = Math.random() > 0.5;
-      const treeTex = usePalm ? palmTex : jacarandaTex;
-
-      if (treeTex) {
-        const treeSprite = new THREE.Sprite(
-          new THREE.SpriteMaterial({ map: treeTex, transparent: true, depthWrite: false, alphaTest: 0.1 }),
-        );
-        treeSprite.scale.set(3.6, 5.4, 1);
-        treeSprite.position.set(tx, 2.7, z);
-        root.add(treeSprite, shadowForSprite(treeSprite));
-      } else {
-        const trunkMat = new THREE.MeshStandardMaterial({ color: "#3d2b1a" });
-        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.14, 3, 6), trunkMat);
-        trunk.position.set(tx, 1.5, z);
-        trunk.castShadow = true;
-        root.add(trunk);
-
-        const canopyMat = new THREE.MeshStandardMaterial({
-          color: day ? "#2d5a1e" : "#1a3312",
-          roughness: 0.95,
-          transparent: true,
-          opacity: 0.85,
-        });
-        const canopy = new THREE.Mesh(new THREE.SphereGeometry(1.8, 8, 6), canopyMat);
-        canopy.scale.set(1, 0.7, 1);
-        canopy.position.set(tx, 3.6, z);
-        canopy.castShadow = true;
-        root.add(canopy);
-      }
-    }
-  }
-
-  /* ---------- festoon / string lights ---------- */
-  if (!day) {
+  /* ---------- festoon / string lights: day and evening, as the demo's ---------- */
+  {
     const bulbs: number[] = [];
     const tints: number[] = [];
     const cablePts: number[] = [];
@@ -427,182 +414,11 @@ function buildStreetGeometry(
     });
   }
 
-  /* ---------- street furniture: café sets, planters, benches, bins ---------- */
-  const cafeSetTex = tryLoadTexture(loader, "prop_cafe_set");
-  const benchTex = tryLoadTexture(loader, "prop_bench");
-  const binTex = tryLoadTexture(loader, "prop_bin");
-  const planterBoxTex = tryLoadTexture(loader, "prop_planter_box");
-  const planterRoundTex = tryLoadTexture(loader, "prop_planter_round");
-
-  const furnitureSpots = [
-    { z: 40, side: 1 },
-    { z: 8, side: -1 },
-    { z: -10, side: 1 },
-    { z: -44, side: -1 },
-    { z: -60, side: 1 },
-    { z: -96, side: -1 },
-    { z: -130, side: 1 },
-  ];
-
-  for (const spot of furnitureSpots) {
-    const fx = spot.side * (KERB_X + PAVEMENT * 0.5);
-
-    if (cafeSetTex && Math.random() > 0.4) {
-      const cafeSprite = new THREE.Sprite(
-        new THREE.SpriteMaterial({ map: cafeSetTex, transparent: true, depthWrite: false, alphaTest: 0.1 }),
-      );
-      cafeSprite.scale.set(1.35, 1.2, 1);
-      cafeSprite.position.set(fx, 0.6, spot.z);
-      root.add(cafeSprite, shadowForSprite(cafeSprite));
-
-      if (!day) {
-        const candle = new THREE.Sprite(
-          new THREE.SpriteMaterial({
-            map: glowTex, transparent: true, blending: THREE.AdditiveBlending,
-            depthWrite: false, opacity: 0.6, color: new THREE.Color("#ffcc66"),
-          }),
-        );
-        candle.scale.set(0.3, 0.4, 1);
-        candle.position.set(fx, 0.75, spot.z);
-        root.add(candle);
-        ticking.push((_dt, t) => {
-          candle.material.opacity = 0.5 + Math.sin(t * 3 + spot.z) * 0.15;
-        });
-      }
-    }
-
-    const planterTex = Math.random() > 0.5 ? planterBoxTex : planterRoundTex;
-    if (planterTex) {
-      const planterSprite = new THREE.Sprite(
-        new THREE.SpriteMaterial({ map: planterTex, transparent: true, depthWrite: false, alphaTest: 0.1 }),
-      );
-      planterSprite.scale.set(0.8, 0.9, 1);
-      planterSprite.position.set(fx + spot.side * 1.5, 0.45, spot.z + 3);
-      root.add(planterSprite, shadowForSprite(planterSprite));
-    }
-  }
-
-  const benchSpots = [
-    { z: 26, side: -1 },
-    { z: -26, side: 1 },
-    { z: -78, side: -1 },
-    { z: -114, side: 1 },
-  ];
-  for (const spot of benchSpots) {
-    const bx = spot.side * (KERB_X + PAVEMENT * 0.6);
-    if (benchTex) {
-      const benchSprite = new THREE.Sprite(
-        new THREE.SpriteMaterial({ map: benchTex, transparent: true, depthWrite: false, alphaTest: 0.1 }),
-      );
-      benchSprite.scale.set(1.4, 0.9, 1);
-      benchSprite.position.set(bx, 0.45, spot.z);
-      root.add(benchSprite, shadowForSprite(benchSprite));
-    }
-  }
-
-  const binSpots = [
-    { z: 44, side: 1 },
-    { z: -4, side: -1 },
-    { z: -50, side: 1 },
-    { z: -100, side: -1 },
-  ];
-  for (const spot of binSpots) {
-    const bx = spot.side * (KERB_X + PAVEMENT * 0.4);
-    if (binTex) {
-      const binSprite = new THREE.Sprite(
-        new THREE.SpriteMaterial({ map: binTex, transparent: true, depthWrite: false, alphaTest: 0.1 }),
-      );
-      binSprite.scale.set(0.5, 0.7, 1);
-      binSprite.position.set(bx, 0.35, spot.z);
-      root.add(binSprite, shadowForSprite(binSprite));
-    }
-  }
-
-  /* ---------- steam vents ---------- */
-  if (!day) {
-    const steamPositions = [
-      { x: -1.5, z: 20 },
-      { x: 2.0, z: -40 },
-    ];
-    for (const pos of steamPositions) {
-      const grateGeo = new THREE.PlaneGeometry(0.8, 0.8);
-      const grate = new THREE.Mesh(
-        grateGeo,
-        new THREE.MeshStandardMaterial({ color: "#2a2530", roughness: 0.6, metalness: 0.4 }),
-      );
-      grate.rotation.x = -Math.PI / 2;
-      grate.position.set(pos.x, 0.02, pos.z);
-      root.add(grate);
-
-      for (let p = 0; p < 4; p++) {
-        const puff = new THREE.Sprite(
-          new THREE.SpriteMaterial({
-            map: glowTex, transparent: true, blending: THREE.AdditiveBlending,
-            depthWrite: false, opacity: 0.15, color: new THREE.Color("#c8c0d0"),
-          }),
-        );
-        const phase = p * Math.PI / 2;
-        puff.scale.set(0.8, 1.2, 1);
-        puff.position.set(pos.x + (Math.random() - 0.5) * 0.3, 0.5, pos.z);
-        root.add(puff);
-        ticking.push((_dt, t) => {
-          const cycle = ((t + phase) % 3) / 3;
-          puff.position.y = 0.3 + cycle * 2.5;
-          puff.material.opacity = 0.2 * (1 - cycle);
-          puff.scale.set(0.6 + cycle * 1.2, 0.8 + cycle * 1.8, 1);
-        });
-      }
-    }
-  }
-
-  /* ---------- places: dog park, garden, etc. ---------- */
-  for (const place of WORLD_PLACES) {
-    const placeId = `place_${place.id.replace("roadside", "roadside")}` as string;
-    const placeTex = tryLoadTexture(loader, placeId);
-    if (placeTex) {
-      const placeSprite = new THREE.Sprite(
-        new THREE.SpriteMaterial({ map: placeTex, transparent: true, depthWrite: false, alphaTest: 0.1 }),
-      );
-      placeSprite.scale.set(6, 3.5, 1);
-      placeSprite.position.set(place.x, 1.75, place.z);
-      root.add(placeSprite);
-    }
-  }
-
-  /* dog park details */
-  const dogParkPlace = WORLD_PLACES.find((p) => p.id === "dogpark");
-  if (dogParkPlace) {
-    const parkFigures: Array<{ id: string; height: number; xOff: number; zOff: number }> = [
-      { id: "park_person1", height: 1.7, xOff: -1, zOff: -1 },
-      { id: "park_person2", height: 1.65, xOff: 1.5, zOff: 0.5 },
-      { id: "park_person3", height: 1.6, xOff: 0, zOff: 2 },
-      { id: "park_dog1", height: 0.6, xOff: -2, zOff: 1 },
-      { id: "park_dog2", height: 0.5, xOff: 2.5, zOff: -0.5 },
-      { id: "park_dog3", height: 0.55, xOff: -0.5, zOff: -2 },
-    ];
-    for (const fig of parkFigures) {
-      const figTex = tryLoadTexture(loader, fig.id);
-      if (figTex) {
-        const figSprite = new THREE.Sprite(
-          new THREE.SpriteMaterial({ map: figTex, transparent: true, depthWrite: false, alphaTest: 0.1 }),
-        );
-        figSprite.scale.set(fig.height * 0.7, fig.height, 1);
-        figSprite.position.set(
-          dogParkPlace.x + fig.xOff,
-          fig.height / 2,
-          dogParkPlace.z + fig.zOff,
-        );
-        root.add(figSprite);
-
-        if (fig.id.startsWith("park_dog")) {
-          const baseY = figSprite.position.y;
-          ticking.push((_dt, t) => {
-            figSprite.position.y = baseY + Math.sin(t * 4 + fig.xOff) * 0.03;
-          });
-        }
-      }
-    }
-  }
+  /* ---------- café tables, planters, benches, bins; steam; places; the dog park (dressing.ts) ---------- */
+  buildFurniture(root, art, glowTex, ticking);
+  buildSteam(root, glowTex, ticking);
+  buildPlaces(root, art, canopies);
+  buildDogPark(root, art, glowTex, camera, ticking, canopies);
 
   /* ---------- parked vehicles (the demo's: half up on the kerb, every 47 m) ---------- */
   const parked: ParkedSpot[] = [];
@@ -617,10 +433,11 @@ function buildStreetGeometry(
     stand.position.set(spot.x, 0, spot.z);
     stand.rotation.y = spot.yaw;
     root.add(stand);
+    canopies.push(stand);
     parked.push({ side: spot.side, z: spot.z });
   }
 
-  return { lamps, emitters, parked, shopCarcass: carcassMaterials[1]! };
+  return { lamps, emitters, canopies, parked, shopCarcass: carcassMaterials[1]! };
 }
 
 /**
@@ -770,28 +587,6 @@ function buildSky(scene: THREE.Scene, day: boolean): void {
   }
 }
 
-function buildNeonHalo(
-  colour: string,
-  position: THREE.Vector3,
-  side: -1 | 1,
-): THREE.Sprite {
-  const haloTex = neonGlow(colour);
-  const halo = new THREE.Sprite(
-    new THREE.SpriteMaterial({
-      map: haloTex,
-      transparent: true,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      opacity: 0.6,
-    }),
-  );
-  halo.scale.set(5, 3.5, 1);
-  halo.position.copy(position);
-  halo.position.x -= side * 0.5;
-  halo.position.y = 3.8;
-  return halo;
-}
-
 export function createWorldScene({
   renderer,
   scene,
@@ -849,7 +644,7 @@ export function createWorldScene({
   const sunFocus = new THREE.Vector3();
   const cameraDirection = new THREE.Vector3();
 
-  const { lamps, emitters, parked, shopCarcass } = buildStreetGeometry(root, scene, loader, ticking);
+  const { lamps, emitters, canopies, parked, shopCarcass } = buildStreetGeometry(root, scene, loader, ticking, camera);
   buildWalkers(root, loader, ticking);
   buildTraffic(root, loader, ticking, emitters, parked);
 
@@ -885,6 +680,8 @@ export function createWorldScene({
   /* ---------- shop facades (prefer shop_* art over district_*) ---------- */
   const shopGlow = glow();
   const shopFronts: ShopFront[] = [];
+  // Each sign's light follows its facade's height once the drawing is in.
+  const signLights = new Map<ShopFront, LightEmitter>();
   for (const shop of WORLD_SHOPS) {
     const shopArtId = `shop_${shop.shopId}` as WorldAssetId;
     const usesShopArt = shopArtId in WORLD_ASSETS;
@@ -895,29 +692,32 @@ export function createWorldScene({
       const image = loaded.image as { width?: number; height?: number } | undefined;
       if (image?.width && image.height) {
         front.fit(image.width / image.height);
-        carcass.fit(facadeSize(image.width / image.height).h);
+        const h = facadeSize(image.width / image.height).h;
+        carcass.fit(h);
+        signLights.get(front)?.position.setY(h + ROOF_SIGN.above - ROOF_SIGN.light.below);
       }
     });
     drawing.colorSpace = THREE.SRGBColorSpace;
-    const front = createShopFront(shop, drawing, shopGlow);
+    const front = createShopFront(shop, drawing, shopGlow, { day });
     // The block the shop stands in, behind its drawing (terrace.ts).
     const carcass = createShopCarcass(shopCarcass);
     front.group.add(carcass.mesh);
     shopFronts.push(front);
     root.add(front.group);
+    // Its sign's colour on the wet road in front of it.
+    buildSignWet(root, shop, shopGlow);
 
     if (!day) {
-      root.add(buildNeonHalo(shop.neonColour, new THREE.Vector3(shop.x, 3.8, shop.z), shop.side));
-
-      // The shop's warm light on its own pavement, and its sign's colour, as the demo's.
+      // The shop's warm light on its own pavement, and its sign's colour from
+      // the flat sign over the front, as the demo's (85 cd over 16 m).
       const spill = EVENING_LIGHT.shopSpill;
       emitters.push(
         emitter(shop.x - shop.side * spill.out, spill.height, shop.z, spill.colour, spill.intensity, spill.distance),
       );
-      const sign = EVENING_LIGHT.shopSign;
-      emitters.push(
-        emitter(shop.x - shop.side * sign.out, sign.height, shop.z, shop.neonColour, sign.intensity, sign.distance),
-      );
+      const { light } = ROOF_SIGN;
+      const signLight = emitter(shop.x - shop.side * light.out, facadeSize(1).h + ROOF_SIGN.above - light.below, shop.z, shop.neonColour, light.intensity, light.distance);
+      emitters.push(signLight);
+      signLights.set(front, signLight);
     }
   }
 
@@ -1077,6 +877,8 @@ export function createWorldScene({
       lendEveningLights(dt);
       // A projecting sign seen edge-on fades rather than becoming a streak.
       if (root.visible) for (const front of shopFronts) front.face(camera.position);
+      // The camera standing in a tree, the layby or a parked van: it is hidden (the demo's).
+      hideCanopies(canopies, camera);
 
       // The shadow box rides a few metres ahead of the camera, as in the demo.
       camera.getWorldDirection(cameraDirection);

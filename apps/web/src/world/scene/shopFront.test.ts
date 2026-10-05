@@ -104,4 +104,33 @@ describe("the dressed shopfront", () => {
     front.face(bladeAt.clone().addScaledVector(along, 20));
     for (const blade of blades) expect(blade.material.opacity).toBeCloseTo(1);
   });
+
+  it("carries its name flat over the front, 1.1 m above the facade, square-on from across the street", () => {
+    const { front } = build();
+    front.fit(1);
+    const { h } = facadeSize(1);
+    expect(front.roofSign.geometry.parameters).toMatchObject({ width: 6.6, height: 1.65 });
+    expect(front.roofSign.position.toArray()).toEqual([0, h + 1.1, 1.1]);
+    front.group.updateMatrixWorld(true);
+    const at = front.roofSign.getWorldPosition(new THREE.Vector3());
+    const wallOut = new THREE.Vector3(0, 0, 1).applyQuaternion(front.group.quaternion);
+    front.face(at.clone().addScaledVector(wallOut, 20));
+    expect(front.roofSign.material.opacity).toBeCloseTo(1);
+    const along = new THREE.Vector3(1, 0, 0).applyQuaternion(front.group.quaternion);
+    front.face(at.clone().addScaledVector(along, 20));
+    expect(front.roofSign.material.opacity).toBe(0);
+  });
+
+  it("throws its light on the ground: a pool on its pavement and a streak out from its door", () => {
+    const { front } = build();
+    const pool = front.group.getObjectByName("shopfront-pool") as THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
+    const wet = front.group.getObjectByName("shopfront-wet") as THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
+    expect(pool.geometry.parameters).toMatchObject({ width: 13, height: 13 });
+    expect(pool.position.z).toBeCloseTo(3.6);
+    expect(pool.material.opacity).toBeCloseTo(0.07);
+    expect(wet.geometry.parameters).toMatchObject({ width: 3.4, height: 15 });
+    expect(wet.position.z).toBeCloseTo(7.5);
+    expect(wet.material.opacity).toBeCloseTo(0.05);
+    expect(pool.material.blending).toBe(THREE.AdditiveBlending);
+  });
 });
