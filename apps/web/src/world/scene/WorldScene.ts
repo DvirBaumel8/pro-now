@@ -21,7 +21,6 @@ import {
   WORLD_SHOPS,
   WORLD_PLACES,
   FRONT_X,
-  frontageYaw,
   ROAD_HALF,
   STREET_LENGTH,
   KERB_X,
@@ -29,8 +28,23 @@ import {
 } from "./street";
 import { createPlayer, movePlayer, createContactShadow, type PlayerState } from "./player";
 import { createRoom } from "./shopRooms";
-import { createShopFront, type ShopFront } from "./shopFront";
-import { paving, asphalt, plaster, neonGlow, glow, wordmark } from "./textures";
+import { createShopFront, facadeSize, type ShopFront } from "./shopFront";
+import {
+  BUILDING_KINDS,
+  BUILDING_LAYERS,
+  ROOF_IDS,
+  carcassMaterial,
+  createBuilding,
+  createLayerMaterial,
+  createShopCarcass,
+  cropToCentrePiece,
+  dressLayer,
+  flatHeightMap,
+  terraceBays,
+  type Building,
+  type TerraceArt,
+} from "./terrace";
+import { paving, asphalt, neonGlow, glow, wordmark } from "./textures";
 import {
   createVan,
   cutout,
@@ -77,10 +91,6 @@ const LAMP_SPACING = 31;
 const LAMP_HEIGHT = 4.2;
 const TREE_SPACING = 35;
 const NPC_COUNT = 14;
-
-function BAY_W(): number {
-  return 8.8;
-}
 
 function loadTexture(loader: THREE.TextureLoader, id: WorldAssetId): THREE.Texture {
   return loader.load(worldAssetUrl(id));
@@ -161,6 +171,8 @@ function buildStreetGeometry(
   lamps: THREE.Vector3[];
   emitters: LightEmitter[];
   parked: ParkedSpot[];
+  /** The plaster behind the shops' drawings (the demo's wallMats[1]). */
+  shopCarcass: THREE.Material;
 } {
   const day = isDaytime();
   const halfStreet = STREET_LENGTH / 2;
@@ -216,85 +228,47 @@ function buildStreetGeometry(
   rightKerb.castShadow = rightKerb.receiveShadow = true;
   root.add(rightKerb);
 
-  /* ---------- filler buildings ---------- */
-  const plasterTex = plaster();
-  const buildingHeight = 8.5;
-  const bldTextures: THREE.Texture[] = [];
-  for (let i = 1; i <= 6; i++) {
-    const t = tryLoadTexture(loader, `bld_${i}_wall`);
-    if (t) bldTextures.push(t);
-  }
-
-  let bldIdx = 0;
-  for (let z = -halfStreet; z <= halfStreet; z += BAY_W()) {
-    for (const side of [-1, 1] as const) {
-      const isShop = WORLD_SHOPS.some((s) => Math.abs(s.z - z) < BAY_W() / 2 && s.side === side);
-      if (isShop) continue;
-
-      const wallTex = bldTextures.length > 0 ? bldTextures[bldIdx % bldTextures.length] : plasterTex.clone();
-      bldIdx++;
-      const wall = new THREE.Mesh(
-        new THREE.PlaneGeometry(BAY_W(), buildingHeight),
-        new THREE.MeshStandardMaterial({
-          map: wallTex,
-          roughness: 0.9,
-          color: bldTextures.length > 0 ? "#cccccc" : "#3a3040",
-          // A face turned from the sun still throws its shadow into the street.
-          shadowSide: THREE.DoubleSide,
-        }),
-      );
-      wall.rotation.y = frontageYaw(side);
-      wall.position.set(side * FRONT_X, buildingHeight / 2, z);
-      wall.castShadow = wall.receiveShadow = true;
-      root.add(wall);
-
-      if (!day) {
-        const storeys = 2 + Math.floor(Math.random() * 2);
-        for (let s = 1; s <= storeys; s++) {
-          if (Math.random() > 0.4) {
-            const winGeo = new THREE.PlaneGeometry(1.2, 1.5);
-            const winMat = new THREE.MeshBasicMaterial({
-              color: new THREE.Color().setHSL(
-                0.1 + Math.random() * 0.05,
-                0.3,
-                0.15 + Math.random() * 0.1,
-              ),
-              transparent: true,
-              opacity: 0.7,
-            });
-            const win = new THREE.Mesh(winGeo, winMat);
-            win.rotation.y = frontageYaw(side);
-            const wx = side * FRONT_X + side * -0.01;
-            const wy = 3.2 + (s - 1) * 2.9 + 0.5;
-            const wz = z + (Math.random() - 0.5) * 4;
-            win.position.set(wx, wy, wz);
-            root.add(win);
-
-            if (Math.random() > 0.6) {
-              const base = 0.7;
-              const rate = 1.5 + Math.random();
-              ticking.push((_dt, t) => {
-                winMat.opacity = base + Math.sin(t * rate) * 0.2;
-              });
-            }
-          }
+  /* ---------- the terrace: the demo's drawn buildings (terrace.ts) ---------- */
+  const carcassMaterials = (["mat_plaster_warm", "mat_plaster_cool", "mat_stone"] as const).map((id) =>
+    carcassMaterial(loadTexture(loader, id)),
+  );
+  const buildings: Building[] = [];
+  const layerMaterials = Array.from({ length: BUILDING_KINDS }, (_, k) => {
+    const kind = k + 1;
+    let wallHeight: THREE.Texture | null = null;
+    let wallIn = false;
+    const materials = BUILDING_LAYERS.map(({ layer, lit }, i) => {
+      const drawing = loader.load(worldAssetUrl(`bld_${kind}_${layer}` as WorldAssetId), (loaded) => {
+        if (i === 0) {
+          wallIn = true;
+          dressLayer(material, wallHeight);
+          const aspect = imageAspect(loaded);
+          if (aspect) for (const building of buildings) if (building.kind === kind) building.fit(aspect);
+        } else {
+          dressLayer(material);
         }
-      }
-
-      /* roof props: AC units, tanks */
-      const roofY = buildingHeight + 0.15;
-      for (let ri = 0; ri < 1 + Math.floor(Math.random() * 2); ri++) {
-        const rz = z + (Math.random() - 0.5) * 5;
-        const rx = side * (FRONT_X - 0.4 - Math.random() * 2);
-        const box = new THREE.Mesh(
-          new THREE.BoxGeometry(0.6 + Math.random() * 0.8, 0.4 + Math.random() * 0.3, 0.5 + Math.random() * 0.6),
-          new THREE.MeshStandardMaterial({ color: "#4a4650", roughness: 0.9, metalness: 0.2 }),
-        );
-        box.position.set(rx, roofY + 0.2, rz);
-        box.castShadow = true;
-        root.add(box);
-      }
-    }
+      });
+      const material = createLayerMaterial(drawing, lit);
+      return material;
+    });
+    // The wall's drawn relief; whichever of it and the wall arrives second dresses the wall.
+    loader.load(worldAssetUrl(`bld_${kind}_wall_height` as WorldAssetId), (loaded) => {
+      wallHeight = flatHeightMap(loaded);
+      if (wallIn) dressLayer(materials[0]!, wallHeight);
+    });
+    return materials;
+  });
+  const roofSheets = ROOF_IDS.map((id, pick) =>
+    loader.load(worldAssetUrl(id), (loaded) => {
+      const aspect = cropToCentrePiece(loaded);
+      if (aspect) for (const building of buildings) building.fitRoof(pick, aspect);
+    }),
+  );
+  const terraceArt: TerraceArt = { layers: layerMaterials, roof: roofSheets, carcass: carcassMaterials };
+  for (const bay of terraceBays(WORLD_SHOPS)) {
+    const building = createBuilding(bay, terraceArt);
+    buildings.push(building);
+    root.add(building.group);
   }
 
   /* ---------- street lamps ---------- */
@@ -659,7 +633,7 @@ function buildStreetGeometry(
     parked.push({ side: spot.side, z: spot.z });
   }
 
-  return { lamps, emitters, parked };
+  return { lamps, emitters, parked, shopCarcass: carcassMaterials[1]! };
 }
 
 function buildNPCs(
@@ -922,7 +896,7 @@ export function createWorldScene({
   const sunFocus = new THREE.Vector3();
   const cameraDirection = new THREE.Vector3();
 
-  const { lamps, emitters, parked } = buildStreetGeometry(root, scene, loader, ticking);
+  const { lamps, emitters, parked, shopCarcass } = buildStreetGeometry(root, scene, loader, ticking);
   buildNPCs(root, loader, ticking);
   buildTraffic(root, loader, ticking, emitters, parked);
 
@@ -966,10 +940,16 @@ export function createWorldScene({
     // (shopFront.ts); it is sized to the drawing once the drawing is in.
     const drawing: THREE.Texture = loader.load(worldAssetUrl(facadeId), (loaded) => {
       const image = loaded.image as { width?: number; height?: number } | undefined;
-      if (image?.width && image.height) front.fit(image.width / image.height);
+      if (image?.width && image.height) {
+        front.fit(image.width / image.height);
+        carcass.fit(facadeSize(image.width / image.height).h);
+      }
     });
     drawing.colorSpace = THREE.SRGBColorSpace;
     const front = createShopFront(shop, drawing, shopGlow);
+    // The block the shop stands in, behind its drawing (terrace.ts).
+    const carcass = createShopCarcass(shopCarcass);
+    front.group.add(carcass.mesh);
     shopFronts.push(front);
     root.add(front.group);
 

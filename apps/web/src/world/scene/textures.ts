@@ -53,18 +53,6 @@ export function asphalt(): THREE.Texture {
   return texture(c, 1, 9);
 }
 
-export function plaster(tint = "#241d2b"): THREE.Texture {
-  const [c, x] = canvas(256, 256);
-  x.fillStyle = tint;
-  x.fillRect(0, 0, 256, 256);
-  for (let i = 0; i < 2600; i += 1) {
-    const a = Math.random() * 0.05;
-    x.fillStyle = Math.random() > 0.5 ? `rgba(255,255,255,${a})` : `rgba(0,0,0,${a * 1.6})`;
-    x.fillRect(Math.random() * 256, Math.random() * 256, 3, 3);
-  }
-  return texture(c, 3, 2);
-}
-
 export function neonGlow(colour = "#ff5f7a", size = 256): THREE.Texture {
   const [c, x] = canvas(size, size);
   x.clearRect(0, 0, size, size);

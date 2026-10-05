@@ -27,7 +27,7 @@ export const FACADE_BAND = { min: 7.9, max: 9.2 } as const;
 /** How far the drawing stands proud of the frontage line. */
 export const FACADE_OUT = 0.42;
 
-const LEDGE = new THREE.MeshStandardMaterial({ color: 0xbfae99, roughness: 0.85 });
+export const LEDGE = new THREE.MeshStandardMaterial({ color: 0xbfae99, roughness: 0.85 });
 const CANOPY = new THREE.MeshStandardMaterial({ color: 0x4a3540, roughness: 0.8 });
 const TRIM = new THREE.MeshStandardMaterial({ color: 0x2b2536, roughness: 0.72, metalness: 0.18 });
 
@@ -41,7 +41,7 @@ export const BLADE = { arm: 2.5, armY: 6.9, top: 6.72, width: 2.2, height: 1.2 }
  * it gives a little vertically. The delivered drawings are all square (8.8 m
  * square, inside the band) and are not changed at all.
  */
-export function facadeSize(aspect: number, bay = SHOP_BAY, band = FACADE_BAND): { w: number; h: number } {
+export function facadeSize(aspect: number, bay = SHOP_BAY, band: { min: number; max: number } = FACADE_BAND): { w: number; h: number } {
   let w = bay;
   let h = w / aspect;
   if (h > band.max) {
@@ -103,7 +103,7 @@ function neonText(label: string, colour: string): THREE.Texture {
   return texture;
 }
 
-function ledge(y: number, width: number, out: number, thick: number, material: THREE.Material): THREE.Mesh {
+export function ledge(y: number, width: number, out: number, thick: number, material: THREE.Material): THREE.Mesh {
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(1, thick, out), material);
   mesh.scale.x = width;
   mesh.position.set(0, y, out / 2 + 0.36);
