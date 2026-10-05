@@ -41,6 +41,7 @@ import { answerRound, currentRoundRequests, lockProfessional, recordChange } fro
  * asked about fixes that request; a save of the same values fixes nothing.
  */
 
+const TAX_HE: Record<string, string> = { EXEMPT: "עוסק פטור", LICENSED: "עוסק מורשה", COMPANY: "חברה בע״מ" };
 const UNDER_REVIEW = new Set(["SERVICE_REVIEW", "APPROVED", "LIMITED"]);
 
 async function professionalOf(app: FastifyInstance, req: FastifyRequest, reply: FastifyReply) {
@@ -76,7 +77,7 @@ export async function applicationView(db: PrismaClient, professionalId: string):
     include: {
       services: { include: { service: { include: { requirements: true } } }, orderBy: { createdAt: "asc" } },
       documents: true,
-      credentials: true,
+      credentials: { orderBy: { createdAt: "asc" } },
       businessProfile: true,
       identityChecks: true,
     },
@@ -104,13 +105,19 @@ export async function applicationView(db: PrismaClient, professionalId: string):
       .filter((r) => credentialTypeFor(r.requirement) !== null)
       .map((r) => {
         const type = credentialTypeFor(r.requirement)!;
-        const credential =
-          [...pro.credentials].reverse().find((c) => c.serviceId === ps.serviceId && c.type === type && c.status !== "REJECTED") ?? null;
+        const sameType = pro.credentials.filter((c) => c.serviceId === ps.serviceId && c.type === type);
+        const now = new Date();
+        const current = sameType.find((c) => c.status === "VERIFIED" && (c.noExpiry || (c.expiresAt !== null && c.expiresAt > now)));
+        // Not the newest row: an EXPIRED credential can be updated after its renewal was created. A decided one (EXPIRED...) shows; the pending renewal is the flag.
+        const live = [...sameType].reverse().filter((c) => c.status !== "REJECTED");
+        const credential = current ?? live.find((c) => c.status !== "PENDING") ?? live[0] ?? null;
+        const renewalPending = sameType.some((c) => c.status === "PENDING" && c.id !== credential?.id);
         if (r.mandatory && !credential) missing.push(`CREDENTIAL:${ps.service.code}:${r.requirement}`);
         return {
           requirement: r.requirement,
           mandatory: r.mandatory,
-          credential: credential ? { id: credential.id, status: credential.status, number: credential.number } : null,
+          credential: credential ? { id: credential.id, status: credential.status, number: credential.number, expiresAt: credential.expiresAt?.toISOString() ?? null, noExpiry: credential.noExpiry } : null,
+          renewalPending,
         };
       });
     return {
@@ -171,8 +178,16 @@ export default async function proOnboardingRoutes(app: FastifyInstance) {
     if (ageOn(dateOfBirth, new Date()) < MINIMUM_AGE) {
       return reply.status(422).send({ code: "UNDER_MINIMUM_AGE", message: `Professionals join from age ${MINIMUM_AGE}` });
     }
+    const before = await app.prisma.professionalProfile.findUnique({ where: { userId }, include: { identityChecks: true } });
+    // docs/10 §Life after approval: only staff can change them (PATCH …/identity-details).
+    if (
+      before &&
+      currentCheck(before.identityChecks)?.status === "VERIFIED" &&
+      (before.legalName !== body.legalName.trim() || before.dateOfBirth?.toISOString().slice(0, 10) !== body.dateOfBirth)
+    ) {
+      return reply.status(409).send({ code: "IDENTITY_LOCKED", message: "Legal name and date of birth are locked after identity verification" });
+    }
     await grantRole(app.prisma, userId, "PROFESSIONAL");
-    const before = await app.prisma.professionalProfile.findUnique({ where: { userId } });
     const profile = await app.prisma.professionalProfile.upsert({
       where: { userId },
       update: { displayName: body.displayName, legalName: body.legalName, addressAs: body.addressAs, dateOfBirth },
@@ -298,6 +313,21 @@ export default async function proOnboardingRoutes(app: FastifyInstance) {
     await app.prisma.businessProfile.upsert({ where: { professionalId: p.id }, update: data, create: { professionalId: p.id, ...data } });
     const changed = valuesChanged({ tradingName: before?.tradingName ?? null, taxStatus: before?.taxStatus ?? null }, data);
     await recordChange(app.prisma, { professionalId: p.id, itemKey: "DETAILS", actorId: req.user!.userId, requestId: req.id, changed });
+    // A change of tax status on an approved account is one staff should know about (docs/10 §Life after approval).
+    if (p.verificationStatus === "APPROVED" && before?.taxStatus && before.taxStatus !== data.taxStatus) {
+      const text = `${p.displayName}: ${TAX_HE[before.taxStatus] ?? before.taxStatus} → ${TAX_HE[data.taxStatus] ?? data.taxStatus}`;
+      try {
+        const admins = await app.prisma.userRole.findMany({ where: { role: "ADMIN" }, select: { userId: true } });
+        if (admins.length > 0) {
+          await app.prisma.notification.createMany({
+            data: admins.map((a) => ({ userId: a.userId, type: "STAFF_TAX_STATUS_CHANGED", title: "שינוי סטטוס מס", body: text, data: { url: "/admin" } })),
+          });
+          for (const a of admins) app.userEvents.publish(a.userId, { type: "NOTIFICATION", title: "שינוי סטטוס מס", body: text, url: "/admin" });
+        }
+      } catch (err) {
+        app.log.warn({ err, professionalId: p.id }, "staff were not told of the tax-status change");
+      }
+    }
     return reply.send(await applicationView(app.prisma, p.id));
   });
 
