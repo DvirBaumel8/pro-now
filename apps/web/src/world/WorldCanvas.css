@@ -114,6 +114,17 @@
   }
 }
 
+/* The demo's veil (City.tsx S.veil): the shop's colour over the street as you
+   go in, lifting off the room once you are there. Never takes a touch. */
+.world-canvas__veil {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 460ms ease;
+}
+
 /* The thumb stick, where the finger came down. */
 .world-canvas__stick {
   position: absolute;

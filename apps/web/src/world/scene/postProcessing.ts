@@ -8,6 +8,8 @@ export interface PostProcessingHandle {
   composer: EffectComposer;
   gradeUniforms: { uTime: { value: number }; uAspect: { value: number } };
   resize(width: number, height: number): void;
+  /** Draw another scene through the same glow and grade (a shop's room, as the demo's `streetPass`). */
+  setView(scene: THREE.Scene, camera: THREE.Camera): void;
   render(timeMs: number): void;
   dispose(): void;
 }
@@ -31,7 +33,8 @@ export function createPostProcessing(
   composer.setPixelRatio(dpr);
   composer.setSize(w, h);
 
-  composer.addPass(new RenderPass(scene, camera));
+  const view = new RenderPass(scene, camera);
+  composer.addPass(view);
 
   const bloom = new UnrealBloomPass(
     new THREE.Vector2(w, h),
@@ -88,6 +91,10 @@ export function createPostProcessing(
       composer.setSize(width, height);
       bloom.setSize(width, height);
       gradeUniforms.uAspect.value = width / Math.max(1, height);
+    },
+    setView(nextScene: THREE.Scene, nextCamera: THREE.Camera) {
+      view.scene = nextScene;
+      view.camera = nextCamera;
     },
     render(timeMs: number) {
       gradeUniforms.uTime.value = (timeMs % 10000) / 1000;

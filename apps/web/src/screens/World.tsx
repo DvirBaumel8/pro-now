@@ -22,7 +22,10 @@ export function World() {
   const me = useMe();
   const catalog = useQuery({ queryKey: ["catalog"], queryFn: api.getCatalog, staleTime: 5 * 60_000 });
   const [nearShopId, setNearShopId] = useState<string | null>(null);
+  // The shop asked for (the walk in starts) and the shop you are standing in
+  // (the scene says so once the walk in ends, and null once the walk out does).
   const [openShopId, setOpenShopId] = useState<string | null>(null);
+  const [insideShopId, setInsideShopId] = useState<string | null>(null);
   const [worldError, setWorldError] = useState(false);
 
   const trades = useMemo(
@@ -44,8 +47,13 @@ export function World() {
   if (catalog.isPending) return <LoadingScreen />;
   if (catalog.isError) return <ErrorScreen offline={!navigator.onLine} onRetry={() => void catalog.refetch()} />;
 
-  const nearbyTrade = nearShopId ? trades[nearShopId] ?? null : null;
-  const openTrade = openShopId ? trades[openShopId] ?? null : null;
+  // Without the 3D street there is no walk: the shop's list opens at once.
+  const flat = scene.mode === "FALLBACK";
+  const inside = flat ? openShopId : insideShopId;
+  // While the camera walks you in or out, the screen is the camera's, as in the demo.
+  const walking = !flat && openShopId !== insideShopId;
+  const nearbyTrade = !walking && nearShopId ? trades[nearShopId] ?? null : null;
+  const openTrade = !walking && inside ? trades[inside] ?? null : null;
 
   const onEvent = (event: WorldEvent) => {
     switch (event.type) {
@@ -54,6 +62,13 @@ export function World() {
         return;
       case "ENTER_SHOP":
         setOpenShopId(event.shopId);
+        return;
+      case "INSIDE_SHOP":
+        setInsideShopId(event.shopId);
+        return;
+      case "LEAVE_SHOP":
+        setOpenShopId(null);
+        if (flat) setInsideShopId(null);
         return;
       case "REQUEST_SERVICE":
         navigate(`/?service=${encodeURIComponent(event.serviceId)}`);
