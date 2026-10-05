@@ -134,6 +134,24 @@ describe("a van", () => {
     expect(van.light.distance).toBe(14);
   });
 
+  it("as the professional's own van: his trade's livery, placed rather than driven", () => {
+    const van = createVan({ dir: -1, laneX: LANES.away, speed: 0, z: 52.8 }, drawings(), textures, {
+      day: false,
+      trade: "electric",
+    });
+    expect(van.trade).toBe("electric");
+    const wheel = van.group.children.find((o) => o instanceof THREE.Group && o !== van.group.children[0])!;
+    // Its own speed is nought: tick leaves it where it is; placeAt moves it.
+    van.tick(0.5, 1, []);
+    expect(van.group.position.z).toBeCloseTo(52.8);
+    van.placeAt(40, 4, 0.5, 1);
+    expect(van.group.position.z).toBe(40);
+    expect(wheel.rotation.x).toBeCloseTo(-(4 * 0.5) / VAN.wheelRadius);
+    expect(van.light.position.z).toBeCloseTo(40 - VAN_LIGHT.ahead);
+    van.placeAt(40, 0, 0.5, 2);
+    expect(wheel.rotation.x).toBeCloseTo(-(4 * 0.5) / VAN.wheelRadius);
+  });
+
   it("is laid out again when its side drawing arrives", () => {
     const d = { ...drawings(), side: new THREE.Texture() };
     const van = createVan({ dir: -1, laneX: LANES.away, speed: 6, z: 0 }, d, textures, { day: false });

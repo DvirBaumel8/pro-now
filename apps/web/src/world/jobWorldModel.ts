@@ -7,17 +7,25 @@ export interface JobWorldModelInput {
   status: JobState | null;
   match: JobMatchView | null;
   departmentCode: DepartmentCode | null;
+  /** The catalogue service id (the van's livery follows it). */
+  serviceId?: string | null;
   nowMs: number;
   reducedMotion?: boolean;
 }
 
 export function buildJobWorldModel(input: JobWorldModelInput): WorldSceneModel {
+  const route = worldRouteFor({ ...input, reducedMotion: input.reducedMotion ?? false });
+  const pro = input.match?.professional ?? null;
   return {
     mode: worldModeFor({ ...input, reducedMotion: input.reducedMotion ?? false }),
     departmentCode: input.departmentCode,
     avatarNo: null,
     shopId: null,
-    route: worldRouteFor({ ...input, reducedMotion: input.reducedMotion ?? false }),
+    route: {
+      ...route,
+      serviceId: input.serviceId ?? null,
+      professional: pro ? { nameHe: pro.displayName, photoUrl: pro.profilePhotoUrl } : null,
+    },
     trades: {},
   };
 }
