@@ -184,6 +184,18 @@ export async function pendingApplicant(serviceCode: string, displayName: string)
  * service approved, every document current except that licence. The
  * professional signs in themselves, as a person does.
  */
+/**
+ * Noon UTC (14:00 or 15:00 in Israel) on the Israel calendar day `days` from
+ * today. The expiry rules count Israel calendar days; "now + days × 24 h + 1 h"
+ * landed on the next day whenever the run was in the last hour before
+ * midnight in Israel, and the warning then said 6 days, not 5.
+ */
+function israelDaysFromToday(days: number): Date {
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jerusalem", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  const [y, m, d] = today.split("-").map(Number) as [number, number, number];
+  return new Date(Date.UTC(y, m - 1, d + days, 12));
+}
+
 export async function approvedProWithExpiringCredential(days: number, serviceCode = "HOME_PLUMB_LEAK") {
   const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }) });
   try {
@@ -212,7 +224,7 @@ export async function approvedProWithExpiringCredential(days: number, serviceCod
         data: {
           professionalId: profile.id, serviceId: service.id, type, number: "88888", issuer: "e2e", documentRef: u.id, status: "VERIFIED",
           // Only the first one runs out; the rest hold for a year.
-          expiresAt: new Date(Date.now() + (first ? days : 365) * 86400_000 + 3600_000),
+          expiresAt: israelDaysFromToday(first ? days : 365),
         },
       });
       first = false;
