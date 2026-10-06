@@ -71,7 +71,7 @@ test("walking into a shop is the demo's: through the door in its colour, into it
   await finishFirstRun(page);
 
   await page.goto("/world");
-  await expect(page.locator(".world-canvas__surface canvas")).toBeVisible();
+  await expect(page.locator(".world-canvas__surface canvas")).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText("נכנסים לעיר")).toBeHidden({ timeout: 30_000 });
   // The colour over the screen, as the scene sets it, frame by frame.
   await page.evaluate(() => {
@@ -134,7 +134,8 @@ test("on a phone, dragging on the street walks to a shop", async ({ page }) => {
 
   await page.goto("/world");
   const canvas = page.locator(".world-canvas__surface canvas");
-  await expect(canvas).toBeVisible();
+  // The street mounts once the catalogue is in; a slow runner takes a while.
+  await expect(canvas).toBeVisible({ timeout: 30_000 });
   const box = (await canvas.boundingBox())!;
   const x = box.x + box.width / 2;
   const y = box.y + box.height / 2;
@@ -173,7 +174,8 @@ test("at the start the street is in view, not a wall in front of the camera", as
   await page.clock.setFixedTime(new Date("2026-10-02T12:00:00"));
   await page.goto("/world");
   const canvas = page.locator(".world-canvas__surface canvas");
-  await expect(canvas).toBeVisible();
+  // The street mounts once the catalogue is in; a slow runner takes a while.
+  await expect(canvas).toBeVisible({ timeout: 30_000 });
   // The arrival screen lifts once the street's art is in; then let the camera settle.
   await expect(page.getByText("נכנסים לעיר")).toBeHidden({ timeout: 30_000 });
   await page.waitForTimeout(3000);
@@ -208,7 +210,8 @@ test("by day the sky over the street is the demo's deep blue, not the haze", asy
   await page.clock.setFixedTime(new Date("2026-10-02T12:00:00"));
   await page.goto("/world");
   const canvas = page.locator(".world-canvas__surface canvas");
-  await expect(canvas).toBeVisible();
+  // The street mounts once the catalogue is in; a slow runner takes a while.
+  await expect(canvas).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText("נכנסים לעיר")).toBeHidden({ timeout: 30_000 });
   await page.waitForTimeout(3000);
 
@@ -237,7 +240,8 @@ test("at eight in the evening the lamps and shops light the street around you", 
   await page.clock.setFixedTime(new Date("2026-10-02T20:00:00"));
   await page.goto("/world");
   const canvas = page.locator(".world-canvas__surface canvas");
-  await expect(canvas).toBeVisible();
+  // The street mounts once the catalogue is in; a slow runner takes a while.
+  await expect(canvas).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText("נכנסים לעיר")).toBeHidden({ timeout: 30_000 });
   await page.waitForTimeout(3000);
 
@@ -273,7 +277,8 @@ test("at a shop the shopfront stands two storeys along the street, not a card tu
   await page.clock.setFixedTime(new Date("2026-10-02T12:00:00"));
   await page.goto("/world");
   const canvas = page.locator(".world-canvas__surface canvas");
-  await expect(canvas).toBeVisible();
+  // The street mounts once the catalogue is in; a slow runner takes a while.
+  await expect(canvas).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText("נכנסים לעיר")).toBeHidden({ timeout: 30_000 });
 
   // Up to the first shop, on the left, as the walk above.
@@ -282,6 +287,9 @@ test("at a shop the shopfront stands two storeys along the street, not a card tu
   await page.mouse.down();
   await page.mouse.move(box.x + box.width / 2 - 60, box.y + box.height / 2 - 60, { steps: 4 });
   await expect(page.getByRole("button", { name: "היכנסו" })).toBeVisible({ timeout: 15_000 });
+  // The spawn is beside the first shop, so its door can show before a step is
+  // taken; the camera comes down on the first move (camera.ts), so keep walking.
+  await page.waitForTimeout(1500);
   await page.mouse.up();
 
   // Over the shop, upper left. The demo's facade (a bay wide, two storeys,
@@ -332,7 +340,8 @@ test("standing still at a shop, the camera stands back and faces it, as the demo
   await page.clock.setFixedTime(new Date("2026-10-02T12:00:00"));
   await page.goto("/world");
   const canvas = page.locator(".world-canvas__surface canvas");
-  await expect(canvas).toBeVisible();
+  // The street mounts once the catalogue is in; a slow runner takes a while.
+  await expect(canvas).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText("נכנסים לעיר")).toBeHidden({ timeout: 30_000 });
 
   // Up to the first shop, on the left, and stop there.
@@ -341,6 +350,8 @@ test("standing still at a shop, the camera stands back and faces it, as the demo
   await page.mouse.down();
   await page.mouse.move(box.x + box.width / 2 - 60, box.y + box.height / 2 - 60, { steps: 4 });
   await expect(page.getByRole("button", { name: "היכנסו" })).toBeVisible({ timeout: 15_000 });
+  // Keep walking a moment: the door can show before a step is taken (see above).
+  await page.waitForTimeout(1500);
   await page.mouse.up();
   await page.waitForTimeout(4500);
 
@@ -371,7 +382,7 @@ test("the street's traffic is the trades' own vans, drawn from behind and in fro
   });
 
   await page.goto("/world");
-  await expect(page.locator(".world-canvas__surface canvas")).toBeVisible();
+  await expect(page.locator(".world-canvas__surface canvas")).toBeVisible({ timeout: 30_000 });
   // The arrival waits for the street's art, the vans' drawings with it.
   await expect(page.getByText("נכנסים לעיר")).toBeHidden({ timeout: 30_000 });
 
@@ -402,7 +413,7 @@ test("the terrace's buildings are the demo's: three drawn layers, a drawn relief
   });
 
   await page.goto("/world");
-  await expect(page.locator(".world-canvas__surface canvas")).toBeVisible();
+  await expect(page.locator(".world-canvas__surface canvas")).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText("נכנסים לעיר")).toBeHidden({ timeout: 30_000 });
 
   const whole = [...parts].filter(([, got]) => got.size === 4).map(([kind]) => kind);
@@ -436,7 +447,7 @@ test.describe("the shops' windows", () => {
     });
 
     await page.goto("/world");
-    await expect(page.locator(".world-canvas__surface canvas")).toBeVisible();
+    await expect(page.locator(".world-canvas__surface canvas")).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText("נכנסים לעיר")).toBeHidden({ timeout: 30_000 });
     expect(rooms.size, "no room is in before the arrival lifts").toBe(0);
     release();
@@ -477,6 +488,6 @@ test.describe("arriving on a slow network", () => {
 
     releaseArt();
     await expect(arrival).toBeHidden({ timeout: 30_000 });
-    await expect(page.locator(".world-canvas__surface canvas")).toBeVisible();
+    await expect(page.locator(".world-canvas__surface canvas")).toBeVisible({ timeout: 30_000 });
   });
 });

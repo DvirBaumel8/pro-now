@@ -50,3 +50,44 @@ export function revealFigure(face: string | null, character: boolean): { uri: st
   if (!face) return null;
   return character ? { uri: face.replace("_icon.", "_world."), round: false } : { uri: face, round: true };
 }
+
+/**
+ * ON THE WAY, IN THE STREET (the demo's ASSIGNED_ROUTE).
+ *
+ * After "כן, מתאים לי" the demo stays in the street: the professional's van
+ * drives to you, a live card counts down to when they arrive, and an invite
+ * offers a walk in the meantime ("נקרא לכם כשהוא מתקרב": the server's
+ * PRO_NEARBY). The route is the one assignment; the street shows no
+ * position the server has not given (no fixes: the van's place comes from
+ * the server's ETA, scene/drive.ts).
+ */
+export function onTheWayState(
+  match: Pick<JobMatchView, "jobId" | "professional">,
+  departmentCode: string | null,
+  serviceNameHe: string,
+  face: string | null,
+): LivingMapState {
+  const reveal = matchRevealState(match, departmentCode, serviceNameHe, face);
+  return {
+    ...reveal,
+    phase: "ASSIGNED_ROUTE",
+    journey: { assignmentId: `${match.jobId}:${match.professional.id}`, latestFix: null, previousFix: null },
+  };
+}
+
+/**
+ * The live card's clock, from the server's ETA only: arrival is when it was
+ * computed plus the ETA, and the trip is measured against the ETA at
+ * assignment (as the home capsule does), so the card never invents progress.
+ * Null without an ETA: the card is not shown.
+ */
+export function liveEtaClock(
+  eta: { etaSeconds: number; computedAt: string } | null,
+  etaSecondsAtAssignment: number | null,
+): { arrivalAtMs: number; startedAtMs: number } | null {
+  if (!eta) return null;
+  const arrivalAtMs = Date.parse(eta.computedAt) + eta.etaSeconds * 1000;
+  if (!Number.isFinite(arrivalAtMs)) return null;
+  const total = Math.max(eta.etaSeconds, etaSecondsAtAssignment ?? eta.etaSeconds);
+  return { arrivalAtMs, startedAtMs: arrivalAtMs - total * 1000 };
+}

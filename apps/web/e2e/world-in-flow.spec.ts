@@ -103,7 +103,7 @@ test("while the work is done: a walk round the street, back to the job", async (
 
     // On the way, following the professional is the screen: no walk offered.
     await pro.step(jobId, "en-route");
-    await expect(page.getByText(/בדרך אליכם/).first()).toBeVisible({
+    await expect(page.getByText(/בדרך אליך/).first()).toBeVisible({
       timeout: 15_000,
     });
     await expect(

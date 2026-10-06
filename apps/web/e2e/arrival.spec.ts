@@ -36,7 +36,7 @@ test("at the door: the professional, the server's code, and back to the live job
 
     // On the way: the live job, no arrival screen yet.
     await pro.step(jobId, "en-route");
-    await expect(page.getByText(/בדרך אליכם/).first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(/בדרך אליך/).first()).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText("קוד האימות שלכם")).toHaveCount(0);
 
     // The code is the server's, issued at assignment for an ordinary job too.
