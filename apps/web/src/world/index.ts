@@ -8,3 +8,4 @@ export * from "./WorldOverlay";
 export * from "./scene/WorldScene";
 export * from "./jobWorldModel";
 export * from "./JobWorldBackdrop";
+export * from "./worldLinks";

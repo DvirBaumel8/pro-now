@@ -42,6 +42,7 @@ import {
   roomVeil,
   streetShot,
 } from "./shopEntry";
+import { searchFlightFactor, searchFlightPose } from "./searchFlight";
 import { createShopFront, facadeSize, type ShopFront } from "./shopFront";
 import { createIdleQueue, type IdleQueue } from "./idleQueue";
 import { LAMP_CLEARANCE, ROOM_PROPS, SHOP_WINDOWS, clearOfWindow, createShopWindow, punchWindow, roomArtIds, type RoomArt, type ShopWindow } from "./shopWindow";
@@ -1246,6 +1247,9 @@ export function createWorldScene({
           followFactor(walkDt),
           reducedMotion,
         );
+      } else if (!entry && !insideShopId && model.mode === "SEARCH" && !reducedMotion) {
+        // The demo's search flight (searchFlight.ts); reduced motion keeps the still view below.
+        easeTowards(camera, searchFlightPose(nowMs / 1000), searchFlightFactor(dt), false);
       } else if (!entry && !insideShopId) {
         frameStreet(camera, reducedMotion);
       } else if (!entry && insideShopId) {

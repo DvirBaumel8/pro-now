@@ -1,0 +1,80 @@
+/* The search over the street (the demo's SearchCity): radar waves over the flight. */
+.job-world {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #1a1222;
+}
+
+/*
+ * No brightening filter, unlike the demo's: its night street was dark from
+ * up high, ours is lit to the demo's levels already and the filter washed it
+ * out (parity walk, 2026-10-05).
+ */
+.job-world__street {
+  position: absolute;
+  inset: 0;
+}
+
+.job-world__radar {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 154, 107, 0.85);
+  box-shadow: 0 0 30px rgba(255, 107, 74, 0.45) inset;
+  transform: translate(-50%, -50%) scale(0.15);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 2;
+  animation: job-world-radar 2.4s ease-out infinite;
+}
+
+.job-world__radar--2 {
+  animation-delay: 0.8s;
+}
+
+.job-world__radar--3 {
+  animation-delay: 1.6s;
+}
+
+.job-world__dot {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ff6b4a;
+  box-shadow: 0 0 20px #ff6b4a;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 2;
+}
+
+@keyframes job-world-radar {
+  0% {
+    transform: translate(-50%, -50%) scale(0.15);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2.6);
+    opacity: 0;
+  }
+}
+
+/* Reduced motion: one still ring around the dot instead of waves. */
+@media (prefers-reduced-motion: reduce) {
+  .job-world__radar {
+    animation: none;
+    transform: translate(-50%, -50%) scale(0.6);
+    opacity: 0.6;
+  }
+
+  .job-world__radar--2,
+  .job-world__radar--3 {
+    display: none;
+  }
+}

@@ -8,6 +8,7 @@ import { api, meKey, useMe } from "../api";
 import { IntroBackdrop } from "../art/IntroBackdrop";
 import { worldSources } from "../art/worldSources";
 import { useFrame } from "../frame";
+import { worldHref, worldReturnPath } from "../world/worldLinks";
 
 /**
  * The first-run steps after a new customer's first sign-in, in the demo's
@@ -53,9 +54,11 @@ export function Avatar() {
   // From home's stroll card: a figure chosen goes on into the street (the demo's strollDoor).
   const [params] = useSearchParams();
   const toStreet = params.get("then") === "world";
+  // Opened from a job (the stroll while the work is done): the street, or without a figure the job again.
+  const from = worldReturnPath(params.get("from"));
   const done = async (avatarId: string | null) => {
     await answer.mutateAsync({ avatarId });
-    navigate(toStreet && avatarId ? "/world" : "/", { replace: true });
+    navigate(toStreet && avatarId ? worldHref({ from }) : (from ?? "/"), { replace: true });
   };
   return (
     <AvatarPickerBody

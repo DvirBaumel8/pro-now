@@ -15,17 +15,19 @@ import {
   catalogServicePages,
   customerDarkTheme,
   departmentCodeByServiceId,
+  radii,
   spacing,
   type as t,
   type MarkName,
 } from "@pro-now/ui";
 
-import { api } from "../api";
+import { api, useMe } from "../api";
 import { useFrame } from "../frame";
 import { ErrorScreen, LoadingScreen } from "../states";
 import { tradeCharacterFor } from "../tradeCharacter";
 import { useJobSocket } from "../useJobSocket";
 import { JobWorldBackdrop } from "../world";
+import { strollHref } from "../world/worldLinks";
 import { CityHero } from "../art/CityHero";
 import { arrivalHeadlineHe, showsArrival } from "./arrival";
 import { SafetySheet } from "./SafetySheet";
@@ -53,6 +55,14 @@ const ASSIGNED: ReadonlySet<JobState> = new Set([
   "REVIEW_PENDING",
   "CLOSED",
 ]);
+/**
+ * Once the professional is at the door there is nobody to follow, so the
+ * same place offers a walk round the street while the work is done (the
+ * demo's "✦ סיור בעיר שלנו", on its tracking stages from "arrived" on). The
+ * quote has its own screen there, without it.
+ */
+const STROLL_WHILE_WORKING: ReadonlySet<JobState> = new Set(["PRO_ARRIVED", "DIAGNOSIS", "IN_PROGRESS", "COMPLETION_PENDING"]);
+
 /** Where the customer may still cancel (docs/05 §Job transitions). */
 const CUSTOMER_MAY_CANCEL: ReadonlySet<JobState> = new Set([
   "DRAFT",
@@ -79,6 +89,10 @@ export function Job() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [safetyOpen, setSafetyOpen] = useState(false);
+  const me = useMe();
+  // Into the street and back to this job; without a figure, the picker first (the demo's strollDoor).
+  const hasAvatar = Boolean(me.data?.customer?.avatarId);
+  const stroll = () => navigate(strollHref(hasAvatar, `/jobs/${id}`));
 
   // The socket is the fast path; this interval is the net under it.
   const job = useQuery({ queryKey: jobKey(id), queryFn: () => api.getJob(id), refetchInterval: 20_000 });
@@ -252,6 +266,8 @@ export function Job() {
         paymentCaptured={false}
         ratingGiven={job.data.ratingGiven}
         onDone={() => navigate("/")}
+        onStroll={stroll}
+        strollNeedsAvatar={!hasAvatar}
         width={width}
         height={height}
       />
@@ -324,6 +340,12 @@ export function Job() {
     );
   }
 
+  const strollPill = STROLL_WHILE_WORKING.has(data.status) ? (
+    <Pressable onPress={stroll} accessibilityRole="button" accessibilityLabel="סיור בעיר שלנו" style={styles.groundSwitch}>
+      <Text style={styles.groundSwitchText}>✦ סיור בעיר שלנו</Text>
+    </Pressable>
+  ) : null;
+
   return withError(
     <TrackingBody
       backdrop={<JobWorldBackdrop status={data.status} match={m} departmentCode={departmentCode} serviceId={pilotId} fallback={<CityHero />} />}
@@ -349,7 +371,8 @@ export function Job() {
       onBack={() => navigate("/")}
       width={width}
       height={height}
-    />
+    />,
+    strollPill
   );
 }
 
@@ -385,6 +408,20 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: "rgba(14,10,20,0.72)",
   },
+  // The demo's ground switch, under the back control on the tracking screen.
+  groundSwitch: {
+    position: "absolute",
+    zIndex: 5,
+    top: spacing.xl * 2,
+    left: spacing.md,
+    minHeight: 44,
+    justifyContent: "center",
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.pill,
+    backgroundColor: "rgba(46,38,64,0.92)",
+    alignItems: "center",
+  },
+  groundSwitchText: { ...t.bodyStrong, color: "#F7F3FA", writingDirection: "rtl" },
   cancelSearchText: { ...t.body, color: colors.textPrimary, writingDirection: "rtl" },
   notice: {
     position: "absolute",
