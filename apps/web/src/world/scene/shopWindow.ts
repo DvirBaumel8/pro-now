@@ -1,6 +1,7 @@
 import * as THREE from "three";
 
 import { FACADE_OUT } from "./shopFront";
+import { WORLD_SHOPS } from "./street";
 
 /**
  * A SHOP YOU CAN SEE INTO, AS THE DEMO'S (tools/design-preview/src/city/street.ts,
@@ -132,6 +133,21 @@ export const SHOP_WINDOWS: Readonly<Record<string, WindowSpec>> = {
     stripe: "#3fa8d8",
   },
 };
+
+/**
+ * Nothing stands in front of a shop window you can see into (the demo's
+ * `clearOfWindow`): a lamp post, a tree or a parked van across the glass is
+ * exactly where the eye was meant to go. True when (x, z) is further than
+ * `reach` along the street from every see-into shop on its side.
+ */
+export function clearOfWindow(x: number, z: number, reach: number): boolean {
+  return !WORLD_SHOPS.some(
+    (shop) => SHOP_WINDOWS[shop.shopId] && Math.sign(x) === Math.sign(shop.x) && Math.abs(z - shop.z) < reach,
+  );
+}
+
+/** How far a lamp keeps from a see-into window (the demo's; a tree keeps 16 m, a café 7, a parked van 8). */
+export const LAMP_CLEARANCE = 6.5;
 
 /** The room's art, per shop, in the demo's phone edition. */
 export function roomArtIds(shopId: string, props: number): string[] {

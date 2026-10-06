@@ -80,29 +80,33 @@ export const WORLD_ASSETS = {
   walk_woman: "walk_woman.webp",
   walk_dogwalker: "walk_dogwalker.webp",
 
-  // Street props
-  prop_bench: "prop_bench.webp",
-  prop_bin: "prop_bin.webp",
-  prop_cafe_set: "prop_cafe_set.webp",
-  prop_jacaranda: "prop_jacaranda.webp",
+  // The street's furniture, places and the dog park's figures, as the demo's
+  // phone edition (s/), the one its city loads on a phone (dressing.ts).
+  prop_bench: "s/prop_bench.webp",
+  prop_bin: "s/prop_bin.webp",
+  prop_cafe_set: "s/prop_cafe_set.webp",
+  prop_jacaranda: "s/prop_jacaranda.webp",
   prop_lamp: "prop_lamp.webp",
-  prop_palm: "prop_palm.webp",
-  prop_planter_box: "prop_planter_box.webp",
-  prop_planter_round: "prop_planter_round.webp",
+  prop_palm: "s/prop_palm.webp",
+  prop_planter_box: "s/prop_planter_box.webp",
+  prop_planter_round: "s/prop_planter_round.webp",
 
   // Places
-  place_dogpark: "place_dogpark.webp",
-  place_garden: "place_garden.webp",
-  place_pickup: "place_pickup.webp",
-  place_roadside: "place_roadside.webp",
+  place_dogpark: "s/place_dogpark.webp",
+  place_garden: "s/place_garden.webp",
+  place_pickup: "s/place_pickup.webp",
+  place_roadside: "s/place_roadside.webp",
+  place_bench_stop: "s/place_bench_stop.webp",
 
-  // Dog park figures
-  park_dog1: "park_dog1.webp",
-  park_dog2: "park_dog2.webp",
-  park_dog3: "park_dog3.webp",
-  park_person1: "park_person1.webp",
-  park_person2: "park_person2.webp",
-  park_person3: "park_person3.webp",
+  // The dog park's dogs and the people with them
+  park_dog1: "s/park_dog1.webp",
+  park_dog2: "s/park_dog2.webp",
+  park_dog3: "s/park_dog3.webp",
+  park_dog4: "s/park_dog4.webp",
+  park_dog5: "s/park_dog5.webp",
+  park_person1: "s/park_person1.webp",
+  park_person2: "s/park_person2.webp",
+  park_person3: "s/park_person3.webp",
 
   // Parked vehicles
   van_side: "van_side.webp",

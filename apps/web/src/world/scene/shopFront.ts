@@ -1,5 +1,6 @@
 import * as THREE from "three";
 
+import { ROOF_SIGN, SHOP_GROUND } from "./dressing";
 import { frontageYaw, type WorldShopPosition } from "./street";
 
 /**
@@ -17,7 +18,11 @@ import { frontageYaw, type WorldShopPosition } from "./street";
  *   every shopfront has, which throw the shadows that make it a building;
  * - a PROJECTING SIGN on a bracket over the pavement, the shop's name in neon
  *   on both faces, at right angles to the wall, so it faces the people walking
- *   towards it. Seen edge-on it fades rather than becoming a bright streak.
+ *   towards it. Seen edge-on it fades rather than becoming a bright streak;
+ * - the same name in neon FLAT over the front, above the cornice (6.6 × 1.65 m,
+ *   its halo 9 × 5 m), fading edge-on too;
+ * - its light on the ground: a warm pool on its pavement and a streak out
+ *   from the door (dressing.ts `SHOP_GROUND`).
  */
 
 /** A bay along the street (street.ts BAY). */
@@ -113,6 +118,8 @@ export function ledge(y: number, width: number, out: number, thick: number, mate
 
 export interface ShopFront {
   group: THREE.Group;
+  /** The flat sign over the front (its height follows the facade). */
+  roofSign: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
   /** Size the facade, cornice and canopy to the drawing, once it has loaded. */
   fit(aspect: number): void;
   /** The facade's size, as last fitted. */
@@ -132,12 +139,20 @@ export function createShopFront(
   shop: Pick<WorldShopPosition, "x" | "z" | "side" | "labelHe" | "neonColour">,
   drawing: THREE.Texture,
   glowTexture: THREE.Texture,
-  /**
-   * A shop you can see into (shopWindow.ts): its awning is built out over the
-   * pavement, so it takes no canopy ledge, as the demo's redrawn shops.
-   */
-  { seeInto = false }: { seeInto?: boolean } = {},
+  {
+    day = false,
+    seeInto = false,
+  }: {
+    day?: boolean;
+    /**
+     * A shop you can see into (shopWindow.ts): its awning is built out over the
+     * pavement, so it takes no canopy ledge, as the demo's redrawn shops.
+     */
+    seeInto?: boolean;
+  } = {},
 ): ShopFront {
+  // By day an additive halo is a smudge in the sky, not a light (the demo's ×0.3).
+  const haloScale = day ? 0.3 : 1;
   const group = new THREE.Group();
   group.name = "shopfront";
   group.position.set(shop.x, 0, shop.z);
@@ -176,8 +191,9 @@ export function createShopFront(
     cornice.position.y = h - 0.2;
     canopy.scale.x = w + 0.06;
     canopy.position.y = h * 0.45;
+    roofSign.position.set(0, h + ROOF_SIGN.above, ROOF_SIGN.out);
+    roofHalo.position.copy(roofSign.position);
   };
-  fit(1);
 
   // The projecting sign: an arm over the pavement, a plate on the wall, two
   // drops, and the name painted on both faces (one plane each, so neither
@@ -196,6 +212,57 @@ export function createShopFront(
   bracket.castShadow = plate.castShadow = true;
 
   const signTexture = neonText(shop.labelHe, shop.neonColour);
+  const additive = (opacity: number, colour: THREE.ColorRepresentation = 0xffffff) =>
+    new THREE.MeshBasicMaterial({
+      map: glowTexture,
+      color: colour,
+      transparent: true,
+      opacity,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+
+  // The name flat over the front, above the cornice (the demo's, for a shop not redrawn).
+  const roofSign = new THREE.Mesh(
+    new THREE.PlaneGeometry(ROOF_SIGN.width, ROOF_SIGN.height),
+    new THREE.MeshBasicMaterial({
+      map: signTexture,
+      transparent: true,
+      depthWrite: false,
+      toneMapped: false,
+      blending: THREE.AdditiveBlending,
+    }),
+  );
+  roofSign.name = "shopfront-roof-sign";
+  const roofHalo = new THREE.Sprite(
+    new THREE.SpriteMaterial({
+      map: glowTexture,
+      color: new THREE.Color(shop.neonColour),
+      transparent: true,
+      opacity: ROOF_SIGN.halo.opacity * haloScale,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    }),
+  );
+  roofHalo.scale.set(ROOF_SIGN.halo.width, ROOF_SIGN.halo.height, 1);
+  group.add(roofSign, roofHalo);
+
+  // Its light on the ground: a warm pool on its pavement, a streak out from the door.
+  const { pool: poolSpec, wet: wetSpec } = SHOP_GROUND;
+  const pool = new THREE.Mesh(new THREE.PlaneGeometry(poolSpec.size, poolSpec.size), additive(poolSpec.opacity, poolSpec.colour));
+  pool.rotation.x = -Math.PI / 2;
+  pool.position.set(0, 0.03, poolSpec.out);
+  const wet = new THREE.Mesh(
+    new THREE.PlaneGeometry(wetSpec.width, wetSpec.length),
+    additive(wetSpec.opacity, new THREE.Color(shop.neonColour)),
+  );
+  wet.rotation.x = -Math.PI / 2;
+  wet.position.set(0, 0.04, wetSpec.out);
+  pool.name = "shopfront-pool";
+  wet.name = "shopfront-wet";
+  group.add(pool, wet);
+  fit(1);
+
   const blades: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>[] = [];
   for (const side of [1, -1] as const) {
     const blade = new THREE.Mesh(
@@ -219,7 +286,7 @@ export function createShopFront(
       map: glowTexture,
       color: new THREE.Color(shop.neonColour),
       transparent: true,
-      opacity: 0.26,
+      opacity: 0.26 * haloScale,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     }),
@@ -232,8 +299,10 @@ export function createShopFront(
   const at = new THREE.Vector3();
   const toViewer = new THREE.Vector3();
   const turn = new THREE.Quaternion();
+  const facing = [...blades, roofSign];
   return {
     group,
+    roofSign,
     fit,
     size: () => size,
     setDrawing(texture) {
@@ -251,7 +320,7 @@ export function createShopFront(
       material.needsUpdate = true;
     },
     face(viewer) {
-      for (const blade of blades) {
+      for (const blade of facing) {
         blade.getWorldPosition(at);
         normal.set(0, 0, 1).applyQuaternion(blade.getWorldQuaternion(turn));
         toViewer.copy(viewer).sub(at).normalize();

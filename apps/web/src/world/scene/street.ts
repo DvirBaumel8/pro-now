@@ -98,9 +98,11 @@ export interface PlacePosition {
 
 export const WORLD_PLACES: readonly PlacePosition[] = [
   { id: "roadside", labelHe: "מפרץ עצירה",     departmentCode: "VEHICLE",   x:  KERB_X, z:  BAY },
-  // Up the street from spawn, not beside it: at 58.4 its picture stood between
-  // the camera and the player and hid them both on arrival.
-  { id: "dogpark",  labelHe: "גינת הכלבים",     departmentCode: "PETS",      x: -FRONT_X + 2, z: 35.2 },
+  // The demo's: built against the right-hand buildings at z 58.4, short of the
+  // pet shop (dressing.ts DOG_PARK), across the road from the walker's start.
+  // On the left pavement at 58.4 its picture had stood between the camera and
+  // the player and hid them both on arrival.
+  { id: "dogpark",  labelHe: "גינת הכלבים",     departmentCode: "PETS",      x: FRONT_X - 2.2, z: 58.4 },
   { id: "garden",   labelHe: "פינת המשתלה",     departmentCode: "HOME_CARE", x: -FRONT_X + 2, z: -26.4 },
   { id: "pickup",   labelHe: "נקודת שליחויות",  departmentCode: "LOGISTICS", x:  FRONT_X - 2, z: -79.2 },
   { id: "bench",    labelHe: "פינת ישיבה",       departmentCode: null,        x:  FRONT_X - 2, z: -114.4 },

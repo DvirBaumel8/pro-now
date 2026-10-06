@@ -103,7 +103,10 @@ export interface ParkedVehicle extends ParkedSpot {
 }
 
 /** The demo's kerb: every 47 m, alternating sides, half up on the kerb. */
-export function parkedLayout(): ParkedVehicle[] {
+export function parkedLayout(
+  /** Never parked across a see-into window (the demo's `clearOfWindow`, 8 m). */
+  clear: (x: number, z: number, reach: number) => boolean = () => true,
+): ParkedVehicle[] {
   const kinds: Array<[ParkedId, number]> = [
     ["parked_van_side", 2.3],
     ["parked_scooter_side", 1.3],
@@ -115,6 +118,7 @@ export function parkedLayout(): ParkedVehicle[] {
   for (let z = HALF - 34; z > -HALF + 10; z -= 47) {
     const [id, height] = kinds[k++ % kinds.length]!;
     const side: Direction = k % 2 ? 1 : -1;
+    if (!clear(side * KERB_X, z, 8)) continue;
     const yaw = id.endsWith("_side") ? (side > 0 ? -Math.PI / 2 : Math.PI / 2) : 0;
     out.push({ id, height, side, z, yaw, x: side * (KERB_X - 0.55) });
   }
