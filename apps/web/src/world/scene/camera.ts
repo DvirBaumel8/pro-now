@@ -223,8 +223,8 @@ export function easeTowards(
   camera.lookAt(look);
 }
 
-/** Look straight at a point and remember it, for views that do not ease. */
-function lookAtNow(camera: THREE.PerspectiveCamera, x: number, y: number, z: number): void {
+/** Look straight at a point and remember it, for views that do not ease (and scripted moves). */
+export function lookAtNow(camera: THREE.PerspectiveCamera, x: number, y: number, z: number): void {
   const look = lookTargets.get(camera) ?? new THREE.Vector3();
   look.set(x, y, z);
   lookTargets.set(camera, look);
@@ -250,17 +250,4 @@ export function frameStreet(
   if (reducedMotion) camera.position.copy(desired);
   else camera.position.lerp(desired, 0.04);
   lookAtNow(camera, 0, 0, SPAWN.z - 40);
-}
-
-/**
- * Camera position inside a shop room.
- */
-export function followInsideShop(
-  camera: THREE.PerspectiveCamera,
-  reducedMotion: boolean,
-): void {
-  const desired = new THREE.Vector3(0, 1.8, 3.2);
-  const lerpFactor = reducedMotion ? 1 : 0.06;
-  camera.position.lerp(desired, lerpFactor);
-  lookAtNow(camera, 0, 1.6, -1.5);
 }

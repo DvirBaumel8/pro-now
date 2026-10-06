@@ -5,8 +5,12 @@ import { WORLD_ASSETS } from "../assets";
 import { WORLD_SHOPS } from "./street";
 import { FACADE_OUT } from "./shopFront";
 import { createShopCarcass } from "./terrace";
+import { furnitureLayout, treeLayout } from "./dressing";
+import { parkedLayout } from "./vans";
 import {
+  LAMP_CLEARANCE,
   ROOM_DEPTH,
+  clearOfWindow,
   ROOM_PROPS,
   SHOP_WINDOWS,
   createShopWindow,
@@ -126,5 +130,27 @@ describe("a window, built", () => {
     const prop = built.group.getObjectByName("shop-room-prop")!;
     built.update(new THREE.Vector3(prop.position.x + 100, 0, prop.position.z), 0);
     expect(prop.rotation.y).toBe(1);
+  });
+});
+
+describe("nothing stands in front of a see-into window", () => {
+  const near = (x: number, z: number, reach: number) =>
+    WORLD_SHOPS.some((shop) => Math.sign(x) === Math.sign(shop.x) && Math.abs(z - shop.z) < reach);
+
+  it("is clear only past the reach, on that side of the street", () => {
+    const home = WORLD_SHOPS.find((shop) => shop.shopId === "home")!;
+    expect(clearOfWindow(home.x, home.z + LAMP_CLEARANCE - 0.1, LAMP_CLEARANCE)).toBe(false);
+    expect(clearOfWindow(home.x, home.z + LAMP_CLEARANCE + 0.1, LAMP_CLEARANCE)).toBe(!near(home.x, home.z + LAMP_CLEARANCE + 0.1, LAMP_CLEARANCE));
+    expect(clearOfWindow(home.x, 150, LAMP_CLEARANCE)).toBe(true);
+  });
+
+  it("keeps trees 16 m, café sets 7 m and parked vehicles 8 m from one, as the demo's", () => {
+    for (const tree of treeLayout(Math.random, clearOfWindow)) expect(near(tree.x, tree.z, 16)).toBe(false);
+    for (const spot of furnitureLayout(Math.random, clearOfWindow).filter((s) => s.kind === "cafe")) {
+      expect(near(spot.x, spot.z, 7)).toBe(false);
+    }
+    for (const parked of parkedLayout(clearOfWindow)) expect(near(parked.x, parked.z, 8)).toBe(false);
+    // Without windows the kerb holds more: the rule is what took them away.
+    expect(parkedLayout().length).toBeGreaterThan(parkedLayout(clearOfWindow).length);
   });
 });

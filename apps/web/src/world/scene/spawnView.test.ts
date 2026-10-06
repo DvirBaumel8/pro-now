@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { inSpawnView, SPAWN, WORLD_PLACES, WORLD_SHOPS } from "./street";
+import { FRONT_X, inSpawnView, SPAWN, WORLD_PLACES, WORLD_SHOPS } from "./street";
 
 describe("the first view", () => {
   it("contains the player", () => {
@@ -13,9 +13,11 @@ describe("the first view", () => {
     }
   });
 
-  it("would have caught the dog park where it stood", () => {
+  it("would have caught the dog park where it stood, on the walker's own pavement", () => {
+    expect(inSpawnView(-FRONT_X + 2, 58.4, 3)).toBe(true);
+    // Where the demo builds it, across the road, it is clear.
     const dogpark = WORLD_PLACES.find((place) => place.id === "dogpark")!;
-    expect(inSpawnView(dogpark.x, 58.4, 3)).toBe(true);
+    expect(dogpark).toMatchObject({ x: FRONT_X - 2.2, z: 58.4 });
   });
 
   it("leaves the shopfronts on the building line, the home shop just ahead of it", () => {

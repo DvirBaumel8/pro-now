@@ -29,6 +29,70 @@ test("the customer can walk into a catalogue-backed shop and start a request", a
   await expect(page.getByRole("textbox", { name: "מה צריך, במילים שלך" })).toBeVisible();
 });
 
+test("walking into a shop is the demo's: through the door in its colour, into its room, and back out to the street", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  await signInByEmail(page, uniqueEmail("e2e-world-room"));
+  await finishFirstRun(page);
+
+  await page.goto("/world");
+  await expect(page.locator(".world-canvas__surface canvas")).toBeVisible();
+  await expect(page.getByText("נכנסים לעיר")).toBeHidden({ timeout: 30_000 });
+  // The colour over the screen, as the scene sets it, frame by frame.
+  await page.evaluate(() => {
+    const veil = document.querySelector<HTMLElement>(".world-canvas__veil")!;
+    const seen = { max: 0, colour: "" };
+    (window as unknown as { __veil: typeof seen }).__veil = seen;
+    new MutationObserver(() => {
+      const opacity = Number(veil.style.opacity || 0);
+      if (opacity > seen.max) seen.max = opacity;
+      if (opacity > 0) seen.colour = veil.style.background;
+    }).observe(veil, { attributes: true, attributeFilter: ["style"] });
+  });
+
+  // The home shop's door: up the street and to the left.
+  await page.keyboard.down("ArrowUp");
+  await page.keyboard.down("ArrowLeft");
+  await expect(page.getByRole("button", { name: "היכנסו" })).toBeVisible();
+  await page.keyboard.up("ArrowLeft");
+  await page.keyboard.up("ArrowUp");
+  await page.getByRole("button", { name: "היכנסו" }).click();
+
+  // In the room: its catalogue and the demo's way back out.
+  const leave = page.getByRole("button", { name: "‹ חזרה לרחוב" });
+  await expect(leave).toBeVisible();
+  await expect(page.getByRole("button", { name: "נזילה או דליפת מים" })).toBeVisible();
+  // The walk in rose into the shop's own colour (תיקונים דחופים, #ffb45e) and opened out of it.
+  const veil = await page.evaluate(() => (window as unknown as { __veil: { max: number; colour: string } }).__veil);
+  console.log(`world walk-in veil: max ${veil.max}, ${veil.colour}`);
+  expect(veil.max, "the shop's colour covered the door").toBeGreaterThan(0.95);
+  expect(veil.colour).toBe("rgb(255, 180, 94)");
+  await expect
+    .poll(() => page.locator(".world-canvas__veil").evaluate((el) => Number((el as HTMLElement).style.opacity)))
+    .toBe(0);
+
+  // The room is drawn, not a blank: its lit walls fill the phone. Only the
+  // home shop's dark ceiling between its downlights is near black (about 10%).
+  const room = PNG.sync.read(await page.locator(".world-canvas__surface canvas").screenshot());
+  const black = nearBlackShare(room);
+  console.log(`world room near-black share: ${(black * 100).toFixed(1)}%`);
+  expect(black, "the room is lit").toBeLessThan(0.25);
+
+  // Pulling back at the edge of the room walks you out, as in the demo.
+  await page.keyboard.down("ArrowDown");
+  await expect(leave).toBeHidden({ timeout: 20_000 });
+  await page.keyboard.up("ArrowDown");
+  await expect(page.getByRole("button", { name: "היכנסו" })).toBeVisible();
+
+  // And so does the button.
+  await page.getByRole("button", { name: "היכנסו" }).click();
+  await expect(leave).toBeVisible();
+  await leave.click();
+  await expect(page.getByRole("button", { name: "היכנסו" })).toBeVisible();
+  await expect(leave).toBeHidden();
+});
+
 test("on a phone, dragging on the street walks to a shop", async ({ page }) => {
   test.setTimeout(120_000);
   await signInByEmail(page, uniqueEmail("e2e-world-drag"));
@@ -185,11 +249,26 @@ test("at a shop the shopfront stands two storeys along the street, not a card tu
   await page.mouse.move(box.x + box.width / 2 - 60, box.y + box.height / 2 - 60, { steps: 4 });
   await expect(page.getByRole("button", { name: "היכנסו" })).toBeVisible({ timeout: 15_000 });
   await page.mouse.up();
-  await page.waitForTimeout(3000);
 
   // Over the shop, upper left. The demo's facade (a bay wide, two storeys,
   // with its cornice) fills it; the old 5.2 m card left it all sky (100%).
-  const share = skyShare(PNG.sync.read(await canvas.screenshot()), 0, 0.4, 0.05, 0.3);
+  // The camera's descent from high over the street runs on rendered frames,
+  // so on a loaded machine it can still be up there after a fixed wait (all
+  // sky): measure once the view has settled, two samples half a second apart.
+  const sample = async () => skyShare(PNG.sync.read(await canvas.screenshot()), 0, 0.4, 0.05, 0.3);
+  let share = await sample();
+  await expect
+    .poll(
+      async () => {
+        await page.waitForTimeout(500);
+        const next = await sample();
+        const settled = Math.abs(next - share) < 0.03;
+        share = next;
+        return settled;
+      },
+      { timeout: 20_000 },
+    )
+    .toBe(true);
   console.log(`world sky over the first shop: ${(share * 100).toFixed(0)}%`);
   expect(share, "the shopfront rises over the pavement").toBeLessThan(0.4);
 });

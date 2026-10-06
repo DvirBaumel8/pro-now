@@ -4,16 +4,16 @@ import { departmentCodeByServiceId } from "@pro-now/ui";
 
 import type { WorldShopPosition } from "./scene/street";
 import { WORLD_SHOPS } from "./scene/street";
+import { ROOM_PROPS } from "./scene/shopWindow";
 import type { WorldTrade } from "./types";
 
-const INTERIOR_BY_SHOP: Partial<Record<string, string>> = {
-  home: "home_workshop_hero",
-  appliance: "appliance_workshop_hero",
-  care: "care_studio_hero",
-  hair: "hair_barbershop_hero",
-  auto: "auto_garage_hero",
-  pets: "pets_salon_hero",
-};
+/**
+ * A shop you can walk into is one whose room has been built (the demo's
+ * `BUILT_ROOMS`, City.tsx): its back wall is what says the door opens.
+ */
+function interiorFor(shopId: string): string | null {
+  return ROOM_PROPS[shopId] === undefined ? null : `room_${shopId}_back`;
+}
 
 /**
  * Adapts the server's market catalogue into the shops the world can render.
@@ -59,7 +59,7 @@ export function worldTradesFromCatalog(catalog: CatalogResponse): Readonly<Recor
         departmentCode,
         nameHe: shop.labelHe,
         services,
-        interiorAssetId: INTERIOR_BY_SHOP[shop.shopId] ?? null,
+        interiorAssetId: interiorFor(shop.shopId),
       };
     }
   }

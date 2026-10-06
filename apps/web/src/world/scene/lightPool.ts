@@ -13,8 +13,10 @@ import * as THREE from "three";
  * painted pools under the lamps, which cost nothing.
  *
  * The values are the demo's, in physical units (candela, metres): a street
- * lamp 95 cd reaching 22 m, a shop's spill on its pavement 42 cd over 11 m,
- * its neon sign 210 cd over 24 m.
+ * lamp 95 cd reaching 22 m, a shop's spill on its pavement 42 cd over 11 m.
+ * A shop's sign lights the street from over its front, 85 cd over 16 m
+ * (dressing.ts `ROOF_SIGN`); the demo's 210 cd over 24 m is its sponsor's
+ * bottle, which the product does not have.
  */
 export interface LightEmitter {
   position: THREE.Vector3;
@@ -34,7 +36,6 @@ const DECAY = 2;
 export const EVENING_LIGHT = {
   lamp: { colour: 0xffb45e, intensity: 95, distance: 22, height: 5.0 },
   shopSpill: { colour: 0xffc07a, intensity: 42, distance: 11, height: 2.7, out: 2.4 },
-  shopSign: { intensity: 210, distance: 24, height: 4.6, out: 2.6 },
 } as const;
 
 export function emitter(

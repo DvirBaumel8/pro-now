@@ -66,3 +66,55 @@ function median(values: readonly number[]): number {
   const mid = Math.floor(sorted.length / 2);
   return sorted.length % 2 === 1 ? sorted[mid]! : (sorted[mid - 1]! + sorted[mid]!) / 2;
 }
+
+/**
+ * THE PAGE COMES FIRST.
+ *
+ * The street renders behind the job's screens (JobWorldBackdrop). Without a
+ * GPU (software WebGL, as on a CI runner) Chrome composites in software too,
+ * and every street frame is read back to the CPU on the main thread: the page
+ * waits until that frame is fully drawn. Traced: 15 frames held the main
+ * thread 15.4 s in one job flow (median 0.5 s, the first ones 4 s), and the
+ * customer's "שליחת … אליי" took more than 15 s to become clickable.
+ *
+ * That wait lands after the render call returns, so a frame's real cost is
+ * the time until the next animation frame. Whatever it overran a display
+ * frame by, the street now waits again before drawing, which leaves the page
+ * about half the main thread. With a GPU a frame takes one display frame and
+ * nothing changes. It applies behind a screen only: on the street you walk the
+ * street is the screen.
+ */
+export function nextRenderAfter(nowMs: number, lastRenderStartMs: number, displayFrameMs: number): number {
+  const cost = nowMs - lastRenderStartMs;
+  if (!(cost > 0) || !Number.isFinite(cost)) return nowMs;
+  return nowMs + Math.max(0, cost - 2 * displayFrameMs);
+}
+
+/** The display's frame interval, learnt as the shortest gap between animation frames (at most 1/30 s). */
+export function displayFrame(previousMs: number, gapMs: number): number {
+  return gapMs > 0 && Number.isFinite(gapMs) ? Math.min(previousMs, Math.max(gapMs, 1000 / 240)) : previousMs;
+}
+
+/**
+ * WITHOUT A GPU, THE STREET BEHIND A SCREEN IS A STILL.
+ *
+ * Software WebGL (SwiftShader, llvmpipe: a phone or a CI runner with no GPU)
+ * renders the street on the same CPU the app and the browser run on. Behind a
+ * job's screens the street is decoration, and there it costs the screens their
+ * responsiveness: with SwiftShader the arrival flow took 18 s instead of 3.5 s.
+ * So on a software renderer a backdrop draws at most every 200 ms. The street
+ * you walk is not capped, and a renderer with a GPU never is.
+ */
+export const SOFTWARE_BACKDROP_GAP_MS = 200;
+
+/** Without a GPU: one pixel per CSS pixel, and no sun shadows (3.5 s of an 18 s job flow, traced). */
+export const SOFTWARE_PIXEL_RATIO = 1;
+
+export function isSoftwareRenderer(name: string | null | undefined): boolean {
+  return /swiftshader|llvmpipe|softpipe|software/i.test(name ?? "");
+}
+
+/** The least time between two backdrop frames: none with a GPU, 200 ms without. */
+export function backdropGapMs(software: boolean, walking: boolean): number {
+  return software && !walking ? SOFTWARE_BACKDROP_GAP_MS : 0;
+}

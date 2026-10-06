@@ -103,7 +103,10 @@ export interface ParkedVehicle extends ParkedSpot {
 }
 
 /** The demo's kerb: every 47 m, alternating sides, half up on the kerb. */
-export function parkedLayout(): ParkedVehicle[] {
+export function parkedLayout(
+  /** Never parked across a see-into window (the demo's `clearOfWindow`, 8 m). */
+  clear: (x: number, z: number, reach: number) => boolean = () => true,
+): ParkedVehicle[] {
   const kinds: Array<[ParkedId, number]> = [
     ["parked_van_side", 2.3],
     ["parked_scooter_side", 1.3],
@@ -115,6 +118,7 @@ export function parkedLayout(): ParkedVehicle[] {
   for (let z = HALF - 34; z > -HALF + 10; z -= 47) {
     const [id, height] = kinds[k++ % kinds.length]!;
     const side: Direction = k % 2 ? 1 : -1;
+    if (!clear(side * KERB_X, z, 8)) continue;
     const yaw = id.endsWith("_side") ? (side > 0 ? -Math.PI / 2 : Math.PI / 2) : 0;
     out.push({ id, height, side, z, yaw, x: side * (KERB_X - 0.55) });
   }
@@ -202,16 +206,22 @@ export interface Van {
   /** Lay the van out along its side drawing, once that is in. */
   fit(sideAspect: number | null): void;
   tick(dt: number, t: number, parked: readonly ParkedSpot[]): void;
+  /**
+   * Put the van at `z` rather than driving it (the professional's own van,
+   * placed by the job's progress — drive.ts): on its springs, its wheels
+   * turning at `speed`, its headlight pool ahead of it.
+   */
+  placeAt(z: number, speed: number, dt: number, t: number): void;
 }
 
 export function createVan(
   slot: FleetSlot,
   drawings: VanDrawings,
   textures: { wordmark: THREE.Texture; glow: THREE.Texture },
-  options: { day: boolean },
+  options: { day: boolean; trade?: FleetTrade },
 ): Van {
   const { dir, laneX, speed } = slot;
-  const trade = fleetTrade(slot.z, dir);
+  const trade = options.trade ?? fleetTrade(slot.z, dir);
   const H = VAN.height;
   const Wd = VAN.width;
   const away = dir < 0;
@@ -353,6 +363,15 @@ export function createVan(
       body.position.y = r.y;
       body.rotation.z = r.roll;
       for (const wheel of wheels) wheel.rotation.x -= (speed * dt) / VAN.wheelRadius;
+      light.position.set(p.x, VAN_LIGHT.height, p.z + dir * VAN_LIGHT.ahead);
+    },
+    placeAt(z, wheelSpeed, dt, t) {
+      const p = group.position;
+      p.z = z;
+      const r = ride(t + phase);
+      body.position.y = r.y;
+      body.rotation.z = r.roll;
+      for (const wheel of wheels) wheel.rotation.x -= (wheelSpeed * dt) / VAN.wheelRadius;
       light.position.set(p.x, VAN_LIGHT.height, p.z + dir * VAN_LIGHT.ahead);
     },
   };
