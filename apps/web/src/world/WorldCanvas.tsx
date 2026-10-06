@@ -49,6 +49,8 @@ export interface WorldSceneFactoryArgs {
 export type WorldSceneFactory = (args: WorldSceneFactoryArgs) => WorldSceneHandle;
 
 export interface WorldCanvasProps {
+  /** Mounted but not drawn: a street kept under a service (keptWorld.tsx). */
+  paused?: boolean;
   mode: WorldMode;
   route: WorldRouteModel | null;
   avatarNo: number | null;
@@ -85,7 +87,11 @@ export function WorldCanvas({
   fallback,
   sceneFactory,
   arrival = false,
+  paused: pausedByHost = false,
 }: WorldCanvasProps) {
+  // Hidden by the app (a street kept under a service, keptWorld.tsx): no frames.
+  const hostPausedRef = useRef(pausedByHost);
+  hostPausedRef.current = pausedByHost;
   const hostRef = useRef<HTMLDivElement | null>(null);
   const modelRef = useRef(scene);
   modelRef.current = scene;
@@ -214,7 +220,7 @@ export function WorldCanvas({
         if (!walking) nextAt = Math.max(nextAt, nextRenderAfter(nowMs, lastRenderAt, frameMs));
         lastRenderAt = Number.NaN;
       }
-      if (!paused && nowMs >= nextAt) {
+      if (!paused && !hostPausedRef.current && nowMs >= nextAt) {
         handle.update(modelRef.current);
         handle.render(nowMs);
         const next = handle.veil?.();

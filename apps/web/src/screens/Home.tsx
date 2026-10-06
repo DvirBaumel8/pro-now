@@ -37,6 +37,7 @@ import { Addresses } from "./Addresses";
 import { jobKey } from "./Job";
 import { activeLabelHe } from "./activeLabel";
 import { strollHref, worldHref, worldShopParam } from "../world/worldLinks";
+import { useWorldKeeper } from "../world/keptWorld";
 
 
 /**
@@ -143,7 +144,10 @@ export function Home() {
   const { target } = useOrderTarget();
   const firstAddress = resolveAddress(addresses.data?.addresses ?? [], target.addressId);
   const servicePage = requestServiceId ? catalogServicePages[requestServiceId] : undefined;
+  const keeper = useWorldKeeper();
   const closeService = () => {
+    // The service flow from a shop ends here without going back: the kept street goes too.
+    if (worldShop) keeper.release();
     setPickingAddress(false);
     setTypedText("");
     setComposing(false);

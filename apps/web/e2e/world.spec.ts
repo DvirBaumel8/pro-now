@@ -29,6 +29,40 @@ test("the customer can walk into a catalogue-backed shop and start a request", a
   await expect(page.getByRole("textbox", { name: "מה צריך, במילים שלך" })).toBeVisible();
 });
 
+test("the street waits under a service: back returns into the same shop, nothing built again", async ({ page }) => {
+  test.setTimeout(120_000);
+  await signInByEmail(page, uniqueEmail("e2e-world-kept"));
+  await finishFirstRun(page);
+
+  await page.goto("/world");
+  await expect(page.getByText("נכנסים לעיר")).toBeHidden({ timeout: 30_000 });
+  await page.keyboard.down("ArrowUp");
+  await page.keyboard.down("ArrowLeft");
+  await expect(page.getByRole("button", { name: "היכנסו" })).toBeVisible({ timeout: 10_000 });
+  await page.keyboard.up("ArrowLeft");
+  await page.keyboard.up("ArrowUp");
+  await page.getByRole("button", { name: "היכנסו" }).click();
+  await page.getByRole("button", { name: "נזילה או דליפת מים" }).click();
+  await expect(page.getByRole("button", { name: /^בקשת .* עכשיו$/ })).toBeVisible();
+
+  // The street's own canvas, marked while the service page is over it.
+  const canvas = page.locator(".world-canvas__surface canvas");
+  await expect(canvas).toHaveCount(1);
+  await canvas.evaluate((el) => el.setAttribute("data-kept", "yes"));
+
+  await page.getByRole("button", { name: "חזרה", exact: true }).first().click();
+  await expect(page).toHaveURL(/\/world\?shop=[a-z_]+$/);
+  // The same street, not a new one: no arrival, the same canvas, still in the shop.
+  await expect(page.getByText("נכנסים לעיר")).toHaveCount(0);
+  await expect(page.locator('.world-canvas__surface canvas[data-kept="yes"]')).toBeVisible();
+  await expect(page.getByRole("button", { name: "נזילה או דליפת מים" })).toBeVisible();
+
+  // Out through the street's own exit: home, and the street is let go.
+  await page.getByRole("button", { name: "יציאה מהעולם" }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.locator(".world-canvas__surface canvas")).toHaveCount(0);
+});
+
 test("walking into a shop is the demo's: through the door in its colour, into its room, and back out to the street", async ({
   page,
 }) => {
