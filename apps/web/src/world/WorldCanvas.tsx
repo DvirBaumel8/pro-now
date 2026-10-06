@@ -194,8 +194,11 @@ export function WorldCanvas({
     const render = (nowMs: number) => {
       frameMs = displayFrame(frameMs, nowMs - lastFrameAt);
       lastFrameAt = nowMs;
+      // Only behind a screen: on the street you walk the street is the screen,
+      // and its walk and descent move by drawn frames (WorldScene's 200 ms cap).
+      const walking = modelRef.current.mode === "EXPLORE";
       if (!Number.isNaN(lastRenderAt)) {
-        nextAt = Math.max(nextAt, nextRenderAfter(nowMs, lastRenderAt, frameMs));
+        if (!walking) nextAt = Math.max(nextAt, nextRenderAfter(nowMs, lastRenderAt, frameMs));
         lastRenderAt = Number.NaN;
       }
       if (!paused && nowMs >= nextAt) {
@@ -203,7 +206,7 @@ export function WorldCanvas({
         handle.render(nowMs);
         lastRenderAt = nowMs;
         // Without a GPU the street behind a screen draws at most every 200 ms.
-        nextAt = nowMs + backdropGapMs(software, modelRef.current.mode === "EXPLORE");
+        nextAt = nowMs + backdropGapMs(software, walking);
       }
       frame = window.requestAnimationFrame(render);
     };

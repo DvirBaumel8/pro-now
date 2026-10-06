@@ -81,7 +81,8 @@ function median(values: readonly number[]): number {
  * the time until the next animation frame. Whatever it overran a display
  * frame by, the street now waits again before drawing, which leaves the page
  * about half the main thread. With a GPU a frame takes one display frame and
- * nothing changes.
+ * nothing changes. It applies behind a screen only: on the street you walk the
+ * street is the screen.
  */
 export function nextRenderAfter(nowMs: number, lastRenderStartMs: number, displayFrameMs: number): number {
   const cost = nowMs - lastRenderStartMs;
