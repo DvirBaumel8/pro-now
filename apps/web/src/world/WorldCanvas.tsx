@@ -5,6 +5,7 @@ import type { WorldMode, WorldMoveCommand, WorldRouteModel, WorldSceneModel } fr
 import { detectWorldCapabilities, shouldPauseWorld } from "./worldCapabilities";
 import { worldAssetUrl } from "./assets";
 import { movementFromPointer, stickKnobOffset, useWorldInput } from "./worldInput";
+import { SOFTWARE_PIXEL_RATIO, backdropGapMs, displayFrame, isSoftwareRenderer, nextRenderAfter } from "./scene/frameGovernor";
 import "./WorldCanvas.css";
 
 /** How far a drag must travel from its start for full walking speed, in px. */
@@ -68,6 +69,13 @@ function webglAvailable(): boolean {
   } catch {
     return false;
   }
+}
+
+/** Whether WebGL is drawn on the CPU (SwiftShader, llvmpipe): no GPU behind it. */
+function softwareRenderer(renderer: THREE.WebGLRenderer): boolean {
+  const gl = renderer.getContext();
+  const debug = gl.getExtension("WEBGL_debug_renderer_info");
+  return isSoftwareRenderer(String(gl.getParameter(debug ? debug.UNMASKED_RENDERER_WEBGL : gl.RENDERER)));
 }
 
 export function WorldCanvas({
@@ -134,6 +142,8 @@ export function WorldCanvas({
     try {
       renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
       renderer.setPixelRatio(capabilities.pixelRatio);
+      // Without a GPU the street is drawn by the CPU, pixel by pixel (frameGovernor.ts).
+      if (softwareRenderer(renderer)) renderer.setPixelRatio(SOFTWARE_PIXEL_RATIO);
       renderer.setSize(host.clientWidth || window.innerWidth, host.clientHeight || window.innerHeight, false);
       renderer.outputColorSpace = THREE.SRGBColorSpace;
       renderer.setClearColor("#120c18", 1);
@@ -155,6 +165,9 @@ export function WorldCanvas({
       dispose: () => undefined,
     } satisfies WorldSceneHandle;
     sceneHandleRef.current = handle;
+    const software = softwareRenderer(renderer);
+    // No sun shadows without a GPU: the scene turns them on, this turns them off.
+    if (software) renderer.shadowMap.enabled = false;
 
     setArriving(true);
     const arrived = () => setArriving(false);
@@ -182,8 +195,26 @@ export function WorldCanvas({
 
     let frame = 0;
     let paused = shouldPauseWorld(document.visibilityState);
+    // The street takes at most half the main thread, so the screens over it
+    // stay responsive on a slow device (frameGovernor.ts, nextRenderAt).
+    // The page comes first (frameGovernor.ts): a frame's real cost shows at the
+    // next animation frame (a software compositor reads the canvas back after
+    // the render call returns), and the street waits as long as it overran.
+    let nextAt = 0;
+    let lastRenderAt = Number.NaN;
+    let lastFrameAt = Number.NaN;
+    let frameMs = 1000 / 30;
     const render = (nowMs: number) => {
-      if (!paused) {
+      frameMs = displayFrame(frameMs, nowMs - lastFrameAt);
+      lastFrameAt = nowMs;
+      // Only behind a screen: on the street you walk the street is the screen,
+      // and its walk and descent move by drawn frames (WorldScene's 200 ms cap).
+      const walking = modelRef.current.mode === "EXPLORE";
+      if (!Number.isNaN(lastRenderAt)) {
+        if (!walking) nextAt = Math.max(nextAt, nextRenderAfter(nowMs, lastRenderAt, frameMs));
+        lastRenderAt = Number.NaN;
+      }
+      if (!paused && nowMs >= nextAt) {
         handle.update(modelRef.current);
         handle.render(nowMs);
         const next = handle.veil?.();
@@ -195,6 +226,9 @@ export function WorldCanvas({
           veil.style.background = next?.colour ?? "transparent";
           veil.style.opacity = String(opacity);
         }
+        lastRenderAt = nowMs;
+        // Without a GPU the street behind a screen draws at most every 200 ms.
+        nextAt = nowMs + backdropGapMs(software, walking);
       }
       frame = window.requestAnimationFrame(render);
     };
