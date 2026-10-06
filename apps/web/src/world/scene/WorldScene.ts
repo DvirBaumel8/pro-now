@@ -1,5 +1,4 @@
 import * as THREE from "three";
-import { routeAt } from "@pro-now/types";
 
 import type { WorldSceneFactoryArgs, WorldSceneHandle } from "../WorldCanvas";
 import { WORLD_ASSETS, type WorldAssetId, worldAssetUrl } from "../assets";
@@ -60,6 +59,7 @@ import {
 } from "./terrace";
 import { paving, asphalt, neonGlow, glow, wordmark } from "./textures";
 import {
+  LANES,
   createVan,
   cutout,
   fleetSchedule,
@@ -67,9 +67,25 @@ import {
   imageAspect,
   parkedLayout,
   type Cutout,
+  type FleetSlot,
+  type FleetTrade,
   type ParkedSpot,
   type Van,
 } from "./vans";
+import {
+  LABEL_HEIGHT,
+  blocksHero,
+  createDriveMarks,
+  driveSpan,
+  driveSpeed,
+  driveTarget,
+  droneFactor,
+  droneShot,
+  easeDrive,
+  heroTrade,
+  onScreen,
+  type DriveSpan,
+} from "./drive";
 import {
   WORLD_LIGHTING,
   aimSun,
@@ -88,18 +104,6 @@ import {
 } from "./lightPool";
 import { createFrameGovernor } from "./frameGovernor";
 import { createPostProcessing, type PostProcessingHandle } from "./postProcessing";
-
-const VEHICLE_BY_DEPARTMENT: Partial<Record<string, WorldAssetId>> = {
-  HOME_URGENT: "pn_electric_side",
-  APPLIANCES: "pn_appliance_side",
-  HOME_CARE: "pn_clean_side",
-  BEAUTY: "pn_beauty_side",
-  LOGISTICS: "moving_van",
-  PETS: "pn_vet_side",
-  TECH: "pn_tech_side",
-  WELLNESS: "pn_well_side",
-  VEHICLE: "tow_truck",
-};
 
 const LAMP_SPACING = 31;
 const LAMP_HEIGHT = 4.2;
@@ -121,20 +125,6 @@ function tiledPhoto(tex: THREE.Texture | null, repeatX: number, repeatY: number)
 function tryLoadTexture(loader: THREE.TextureLoader, id: string): THREE.Texture | null {
   if (id in WORLD_ASSETS) return loadTexture(loader, id as WorldAssetId);
   return null;
-}
-
-function createSprite(
-  loader: THREE.TextureLoader,
-  id: WorldAssetId,
-  scale: [number, number],
-  position: [number, number, number],
-): THREE.Sprite {
-  const sprite = new THREE.Sprite(
-    new THREE.SpriteMaterial({ map: loadTexture(loader, id), transparent: true, depthWrite: false }),
-  );
-  sprite.scale.set(scale[0], scale[1], 1);
-  sprite.position.set(position[0], position[1], position[2]);
-  return sprite;
 }
 
 function disposeObject(root: THREE.Object3D): void {
@@ -687,6 +677,8 @@ function buildWalkers(root: THREE.Group, loader: THREE.TextureLoader, ticking: T
  * The street's traffic: the demo's PRO NOW fleet, each trade's van built from
  * its drawings (vans.ts). Each van lends its headlight pool to the evening's
  * light pool through `emitters`, and eases out round the parked vehicles.
+ * `build` makes one more of the fleet's vans, of a given trade, from the same
+ * drawings (the professional's own van, drive.ts).
  */
 function buildTraffic(
   root: THREE.Group,
@@ -694,7 +686,7 @@ function buildTraffic(
   ticking: TickFn[],
   emitters: LightEmitter[],
   parked: readonly ParkedSpot[],
-): Van[] {
+): { vans: Van[]; build: (slot: FleetSlot, trade: FleetTrade) => Van } {
   const day = isDaytime();
   const textures = { wordmark: wordmark(), glow: glow() };
   // One load per drawing, shared by every van of that trade; each van is laid
@@ -714,9 +706,7 @@ function buildTraffic(
     return entry.texture;
   };
 
-  const vans: Van[] = [];
-  for (const slot of fleetSchedule()) {
-    const trade = fleetTrade(slot.z, slot.dir);
+  const build = (slot: FleetSlot, trade: FleetTrade): Van => {
     const sideId = `fleet_${trade}_side` in WORLD_ASSETS ? (`fleet_${trade}_side` as WorldAssetId) : "parked_van_side";
     const refit = () => van.fit(imageAspect(side));
     const side = drawing(sideId, refit);
@@ -728,8 +718,14 @@ function buildTraffic(
         side,
       },
       textures,
-      { day },
+      { day, trade },
     );
+    return van;
+  };
+
+  const vans: Van[] = [];
+  for (const slot of fleetSchedule()) {
+    const van = build(slot, fleetTrade(slot.z, slot.dir));
     root.add(van.group);
     emitters.push(van.light);
     vans.push(van);
@@ -739,7 +735,7 @@ function buildTraffic(
     for (const van of vans) van.tick(dt, elapsed, parked);
   });
 
-  return vans;
+  return { vans, build };
 }
 
 function buildSky(scene: THREE.Scene, day: boolean): void {
@@ -888,7 +884,7 @@ export function createWorldScene({
 
   const { lamps, emitters, parked, shopCarcass, roofPiece } = buildStreetGeometry(root, scene, loader, ticking, idle);
   buildWalkers(root, loader, ticking);
-  buildTraffic(root, loader, ticking, emitters, parked);
+  const traffic = buildTraffic(root, loader, ticking, emitters, parked);
 
   const LAMP_TINT_RANGE = 14;
 
@@ -1072,14 +1068,110 @@ export function createWorldScene({
   player.group.add(shadow);
   shadow.position.set(0, -player.group.position.y + 0.03, 0);
 
-  const vehicle = createSprite(
-    loader,
-    VEHICLE_BY_DEPARTMENT.HOME_URGENT!,
-    [2.8, 1.65],
-    [0, 0.85, -48],
-  );
-  vehicle.visible = false;
-  root.add(vehicle);
+  /* ---------- the professional's own van, driving to you (drive.ts) ---------- */
+  const marks = createDriveMarks();
+  marks.group.visible = false;
+  root.add(marks.group);
+  const drive: { van: Van | null; trade: FleetTrade | null; span: DriveSpan | null } = {
+    van: null,
+    trade: null,
+    span: null,
+  };
+  // The demo's two labels over the street: your home, and his face over his van.
+  const labelHost = renderer.domElement.parentElement;
+  const homeLabel = document.createElement("div");
+  homeLabel.className = "world-canvas__home-label";
+  homeLabel.textContent = "הבית שלך";
+  homeLabel.hidden = true;
+  const vanLabel = document.createElement("div");
+  vanLabel.className = "world-canvas__van-label";
+  vanLabel.setAttribute("role", "img");
+  vanLabel.hidden = true;
+  const vanFace = document.createElement("img");
+  vanFace.alt = "";
+  vanLabel.append(vanFace);
+  labelHost?.append(homeLabel, vanLabel);
+  const labelPoint = new THREE.Vector3();
+  const placeLabel = (label: HTMLElement, x: number, y: number, z: number, needsInView: boolean) => {
+    const at = onScreen(labelPoint.set(x, y, z), camera);
+    label.style.opacity = at && (!needsInView || at.inView) ? "1" : "0";
+    if (at) {
+      label.style.left = `${at.left}%`;
+      label.style.top = `${at.top}%`;
+    }
+  };
+
+  const endDrive = () => {
+    if (drive.van) {
+      root.remove(drive.van.group);
+      disposeObject(drive.van.group);
+      const i = emitters.indexOf(drive.van.light);
+      if (i >= 0) emitters.splice(i, 1);
+    }
+    drive.van = null;
+    drive.trade = null;
+    drive.span = null;
+    marks.group.visible = false;
+    homeLabel.hidden = true;
+    vanLabel.hidden = true;
+    for (const van of traffic.vans) van.group.visible = true;
+  };
+
+  /** The van, the ribbon, the light over your home and the drone over them, from the job. */
+  const stepDrive = (dt: number, reducedMotion: boolean): boolean => {
+    const route = model.route;
+    if (model.mode !== "ROUTE" || !route || insideShopId) {
+      if (drive.van) endDrive();
+      return false;
+    }
+    const department = route.departmentCode ?? model.departmentCode;
+    const trade = heroTrade(route.serviceId, department);
+    if (!drive.van || drive.trade !== trade) {
+      endDrive();
+      const span = driveSpan(department);
+      const van = traffic.build({ dir: -1, laneX: LANES.away, speed: 0, z: span.startZ }, trade);
+      van.group.name = "hero-van";
+      // Drawn where the job is, at once: no drive from the shop on opening the page.
+      van.group.position.z = driveTarget(span, route.progress);
+      root.add(van.group);
+      emitters.push(van.light);
+      drive.van = van;
+      drive.trade = trade;
+      drive.span = span;
+      marks.group.visible = true;
+      homeLabel.hidden = false;
+      camera.position.set(4, 9, van.group.position.z + 16);
+    }
+    const van = drive.van!;
+    const span = drive.span!;
+    const was = van.group.position.z;
+    const target = driveTarget(span, route.progress);
+    const z = reducedMotion ? target : easeDrive(was, target, dt);
+    van.placeAt(z, driveSpeed(was, z, dt, route.moving), dt, elapsed);
+    const vx = van.group.position.x;
+    marks.update(vx, z, span, reducedMotion ? 0 : elapsed);
+
+    // Nobody drives through the professional's van.
+    for (const other of traffic.vans) other.group.visible = !blocksHero(van.group.position, other.group.position);
+
+    const shot = droneShot(vx, z, reducedMotion ? 0 : elapsed, route.moving);
+    if (reducedMotion) camera.position.copy(shot.position);
+    else camera.position.lerp(shot.position, droneFactor(dt));
+    camera.lookAt(shot.look);
+    camera.updateMatrixWorld();
+
+    placeLabel(homeLabel, span.homeX, LABEL_HEIGHT.home, span.endZ, true);
+    const pro = route.professional ?? null;
+    if (pro?.photoUrl) {
+      if (vanFace.getAttribute("src") !== pro.photoUrl) vanFace.src = pro.photoUrl;
+      vanLabel.setAttribute("aria-label", `המקצוען בדרך · ${pro.nameHe}`);
+      vanLabel.hidden = false;
+      placeLabel(vanLabel, vx, LABEL_HEIGHT.van, z, false);
+    } else {
+      vanLabel.hidden = true;
+    }
+    return true;
+  };
 
   // The walker as you are in a shop: the same figure, in the room's own scene.
   // The demo's figure is 1.78 m tall, as wide as its frame; drawn after the
@@ -1167,28 +1259,6 @@ export function createWorldScene({
     if (next === nearbyShopId) return;
     nearbyShopId = next;
     onEvent({ type: "SHOP_NEAR", shopId: next });
-  };
-
-  const updateVehicle = () => {
-    const route = model.route;
-    const department = route?.departmentCode ?? model.departmentCode;
-    if (!route || route.progress === null || !department || insideShopId) {
-      vehicle.visible = false;
-      return;
-    }
-    const step = routeAt(department, route.progress);
-    const x = (step.at.u - 0.5) * 12;
-    const z = 4 - step.at.v * 68;
-    vehicle.position.set(x, 0.8 + step.scale * 0.3, z);
-    vehicle.scale.set(2.2 * step.scale, 1.3 * step.scale, 1);
-    vehicle.visible = model.mode === "ROUTE";
-  };
-
-  const updateVehicleAsset = () => {
-    const id = VEHICLE_BY_DEPARTMENT[model.departmentCode ?? ""] ?? "courier_scooter";
-    const material = vehicle.material as THREE.SpriteMaterial;
-    material.map = loadTexture(loader, id);
-    material.needsUpdate = true;
   };
 
   const reduced = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
@@ -1281,14 +1351,11 @@ export function createWorldScene({
 
   return {
     update(nextModel) {
-      const departmentChanged = nextModel.departmentCode !== model.departmentCode;
       model = nextModel;
       if (artReady) openWindows();
-      if (departmentChanged) updateVehicleAsset();
       // The app says which shop you are in; the scene walks there (or back out).
       if (!entry && nextModel.shopId && !insideShopId) goIn(nextModel.shopId);
       else if (!entry && !nextModel.shopId && insideShopId) goOut();
-      updateVehicle();
     },
     move(command: WorldMoveCommand) {
       moveCommand = command;
@@ -1305,6 +1372,9 @@ export function createWorldScene({
         playDoorMove(entry, nowMs, dt);
       }
       const room = !entry && insideShopId ? rooms.get(insideShopId) : undefined;
+      // On the way to you the street is his drive, seen from the drone: nobody walks it.
+      const driving = !entry && !room && stepDrive(dt, reducedMotion);
+      player.group.visible = !driving;
       if (room) {
         // In the room: the stick turns you and steps you; pulled back at the edge, you walk out.
         show(room);
@@ -1319,7 +1389,10 @@ export function createWorldScene({
           onEvent({ type: "LEAVE_SHOP" });
           goOut();
         }
-      } else if (!entry && !insideShopId && (model.mode === "EXPLORE" || model.mode === "ROUTE")) {
+      } else if (driving) {
+        // The drone has the camera (stepDrive).
+        show("street");
+      } else if (!entry && !insideShopId && model.mode === "EXPLORE") {
         show("street");
         // The walk keeps its own 200 ms cap (#62): a slow renderer (SwiftShader
         // in CI at 2-3 fps) must still cover ground. Animations use the 50 ms dt.
@@ -1401,6 +1474,8 @@ export function createWorldScene({
       disposed = true;
       idle.dispose();
       show("street");
+      homeLabel.remove();
+      vanLabel.remove();
       disposeObject(root);
       for (const room of rooms.values()) room?.dispose();
       rooms.clear();

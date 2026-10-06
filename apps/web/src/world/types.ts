@@ -17,6 +17,10 @@ export interface WorldRouteModel {
   progress: number | null;
   eta: EtaView | null;
   departmentCode: DepartmentCode | null;
+  /** The catalogue service, for which trade's van drives to you (scene/drive.ts). */
+  serviceId?: string | null;
+  /** Who is on the way: their name, and their own photo over their van when they have one. */
+  professional?: { nameHe: string; photoUrl: string | null } | null;
 }
 
 export interface WorldTrade {

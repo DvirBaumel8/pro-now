@@ -50,6 +50,22 @@ describe("buildJobWorldModel", () => {
     expect(model.route?.progress).toBeCloseTo(1 / 3);
   });
 
+  it("carries the service and who is coming, for his van and his face over it", () => {
+    const model = buildJobWorldModel({
+      status: "PRO_EN_ROUTE",
+      match: { ...match, professional: { ...match.professional, profilePhotoUrl: "/media/p.jpg" } },
+      departmentCode: "HOME_URGENT",
+      serviceId: "svc-electric",
+      nowMs,
+    });
+    expect(model.route).toMatchObject({
+      serviceId: "svc-electric",
+      professional: { nameHe: "עמית", photoUrl: "/media/p.jpg" },
+    });
+    const searching = buildJobWorldModel({ status: "SEARCHING", match: null, departmentCode: "HOME_URGENT", nowMs });
+    expect(searching.route).toMatchObject({ serviceId: null, professional: null });
+  });
+
   it("stops at arrival and does not invent movement without ETA", () => {
     const arrived = buildJobWorldModel({ status: "PRO_ARRIVED", match, departmentCode: "HOME_URGENT", nowMs });
     const noEta = buildJobWorldModel({ status: "PRO_EN_ROUTE", match: { ...match, eta: null }, departmentCode: "HOME_URGENT", nowMs });
