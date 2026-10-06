@@ -185,11 +185,26 @@ test("at a shop the shopfront stands two storeys along the street, not a card tu
   await page.mouse.move(box.x + box.width / 2 - 60, box.y + box.height / 2 - 60, { steps: 4 });
   await expect(page.getByRole("button", { name: "היכנסו" })).toBeVisible({ timeout: 15_000 });
   await page.mouse.up();
-  await page.waitForTimeout(3000);
 
   // Over the shop, upper left. The demo's facade (a bay wide, two storeys,
   // with its cornice) fills it; the old 5.2 m card left it all sky (100%).
-  const share = skyShare(PNG.sync.read(await canvas.screenshot()), 0, 0.4, 0.05, 0.3);
+  // The camera's descent from high over the street runs on rendered frames,
+  // so on a loaded machine it can still be up there after a fixed wait (all
+  // sky): measure once the view has settled, two samples half a second apart.
+  const sample = async () => skyShare(PNG.sync.read(await canvas.screenshot()), 0, 0.4, 0.05, 0.3);
+  let share = await sample();
+  await expect
+    .poll(
+      async () => {
+        await page.waitForTimeout(500);
+        const next = await sample();
+        const settled = Math.abs(next - share) < 0.03;
+        share = next;
+        return settled;
+      },
+      { timeout: 20_000 },
+    )
+    .toBe(true);
   console.log(`world sky over the first shop: ${(share * 100).toFixed(0)}%`);
   expect(share, "the shopfront rises over the pavement").toBeLessThan(0.4);
 });
