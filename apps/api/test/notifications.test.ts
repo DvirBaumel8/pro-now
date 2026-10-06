@@ -23,6 +23,13 @@ describe("who hears what (policy)", () => {
     expect(deliveriesFor({ type: "PRO_ARRIVED_REQUESTED" }, { ...ctx, professional: { ...ctx.professional!, addressAs: "M" } })[0]!.titleHe).toBe("דנה הגיע");
   });
 
+  it("'he's near' reaches the customer in-app and by push, in the professional's own gender", () => {
+    const [d] = deliveriesFor({ type: "PRO_NEARBY" }, ctx);
+    expect(d).toMatchObject({ userId: "cust", channels: ["inapp", "push"], titleHe: "דנה מתקרבת", bodyHe: "נזילה · עוד כמה דקות היא אצלכם", url: "/jobs/j1" });
+    const him = deliveriesFor({ type: "PRO_NEARBY" }, { ...ctx, professional: { ...ctx.professional!, addressAs: "M" } })[0]!;
+    expect([him.titleHe, him.bodyHe]).toEqual(["דנה מתקרב", "נזילה · עוד כמה דקות הוא אצלכם"]);
+  });
+
   it("email only where it matters after the screen is closed", () => {
     const withEmail = ["SERVICE_COMPLETION_REQUESTED", "JOB_CANCELLED"].map((type) =>
       deliveriesFor({ type, actor: "SYSTEM", metadata: { reason: "NO_PROFESSIONAL_AVAILABLE" } }, ctx)[0]!.channels.includes("email")

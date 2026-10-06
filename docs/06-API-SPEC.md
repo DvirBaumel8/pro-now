@@ -97,6 +97,12 @@ stores the key + response for replay.
   (`GET /v1/push/public-key`, `POST/DELETE /v1/me/push-subscriptions`).
   The channel policy per event is `domain/notifications/policy.ts`. SMS is
   an interface only (D4).
+  **"He's near" (2026-10-06):** while the professional is on the way, a
+  location ping whose ETA to the job (by the maps provider) is three minutes
+  or less writes one `PRO_NEARBY` job event, and the customer is told "דנה
+  מתקרבת" in-app and by push. A partial unique index keeps it to one per job
+  (`domain/notifications/nearby.ts`). It is what the on-the-way screen's
+  "נקרא לכם כשהוא מתקרב" promises.
 - Events are versioned with sequence IDs to support dedupe/resync on
   reconnect. No sensitive broadcast rooms. Push notifications (FCM/APNs)
   are a wake/fallback mechanism only — the socket + a resync-from-server
