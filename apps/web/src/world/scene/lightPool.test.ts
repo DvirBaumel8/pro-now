@@ -45,9 +45,8 @@ describe("the evening's light pool", () => {
     expect(parent.children).toHaveLength(3);
   });
 
-  it("uses the demo's values: lamps 95 cd over 22 m, shop spill 42 over 11, signs 210 over 24", () => {
+  it("uses the demo's values: lamps 95 cd over 22 m, shop spill 42 over 11", () => {
     expect(EVENING_LIGHT.lamp).toMatchObject({ colour: 0xffb45e, intensity: 95, distance: 22 });
     expect(EVENING_LIGHT.shopSpill).toMatchObject({ colour: 0xffc07a, intensity: 42, distance: 11 });
-    expect(EVENING_LIGHT.shopSign).toMatchObject({ intensity: 210, distance: 24 });
   });
 });

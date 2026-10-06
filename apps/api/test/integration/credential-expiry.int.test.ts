@@ -6,6 +6,7 @@ import { credentialTypeFor } from "@pro-now/types";
 import { startApp } from "./harness.js";
 import { signInByEmail, uniqueEmail, type CookieJar } from "./auth-helpers.js";
 import { createPrisma } from "../../src/db/prisma-client.js";
+import { israelDay } from "../../src/domain/credentials/expiry.js";
 import { dispatchablePro, takeOffline } from "./pro-helpers.js";
 
 /**
@@ -22,11 +23,23 @@ let svcId: string;
 const created: string[] = [];
 
 const DAY = 86_400_000;
+/**
+ * Noon (UTC, so 14:00 or 15:00 in Israel) on the Israel calendar day `days`
+ * from today. The rules count Israel calendar days; "now + days × 24 h" lands
+ * a day short when a clock change falls in between and the run is just after
+ * midnight in Israel (it failed at 00:35 on 6 October, three weeks before the
+ * clocks go back).
+ */
+function israelDaysFromToday(days: number): Date {
+  const [y, m, d] = israelDay(new Date()).split("-").map(Number) as [number, number, number];
+  return new Date(Date.UTC(y, m - 1, d + days, 12));
+}
+
 async function proWithCredentialExpiringIn(days: number) {
   const p = await dispatchablePro(db, uniqueEmail("exp"), svcId, 31.25, 34.79);
   created.push(p.id);
   const c = await db.professionalCredential.findFirstOrThrow({ where: { professionalId: p.id } });
-  await db.professionalCredential.update({ where: { id: c.id }, data: { expiresAt: new Date(Date.now() + days * DAY) } });
+  await db.professionalCredential.update({ where: { id: c.id }, data: { expiresAt: israelDaysFromToday(days) } });
   return { pro: p, credentialId: c.id };
 }
 const notices = (userId: string) =>

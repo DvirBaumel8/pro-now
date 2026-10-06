@@ -11,6 +11,8 @@ export interface JobWorldBackdropProps {
   status: JobState | null;
   match: JobMatchView | null;
   departmentCode: DepartmentCode | null;
+  /** The catalogue service: which trade's van drives to you (scene/drive.ts). */
+  serviceId?: string | null;
   fallback: ReactNode;
 }
 
@@ -20,7 +22,7 @@ export interface JobWorldBackdropProps {
  * scene's SEARCH mode) with radar waves spreading from the middle
  * — a picture of looking, never a count or a name the server has not given.
  */
-export function JobWorldBackdrop({ status, match, departmentCode, fallback }: JobWorldBackdropProps) {
+export function JobWorldBackdrop({ status, match, departmentCode, serviceId = null, fallback }: JobWorldBackdropProps) {
   const [nowMs, setNowMs] = useState(() => Date.now());
   const isRoute = status === "PRO_ASSIGNED" || status === "PRO_EN_ROUTE";
 
@@ -30,7 +32,7 @@ export function JobWorldBackdrop({ status, match, departmentCode, fallback }: Jo
     return () => window.clearInterval(timer);
   }, [isRoute]);
 
-  const scene = buildJobWorldModel({ status, match, departmentCode, nowMs });
+  const scene = buildJobWorldModel({ status, match, departmentCode, serviceId, nowMs });
   const searching = scene.mode === "SEARCH";
   return (
     <div className={`job-world${searching ? " job-world--search" : ""}`} aria-hidden="true" data-testid="job-world">

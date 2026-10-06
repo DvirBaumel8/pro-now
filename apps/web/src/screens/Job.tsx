@@ -198,7 +198,7 @@ export function Job() {
     return withError(
       <>
         <SearchingBody
-          backdrop={<JobWorldBackdrop status={data.status} match={match.data ?? null} departmentCode={departmentCode} fallback={<CityHero />} />}
+          backdrop={<JobWorldBackdrop status={data.status} match={match.data ?? null} departmentCode={departmentCode} serviceId={pilotId} fallback={<CityHero />} />}
           serviceNameHe={serviceNameHe}
           elapsedSeconds={elapsedSeconds}
           departmentCode={departmentCode ?? undefined}
@@ -348,7 +348,7 @@ export function Job() {
 
   return withError(
     <TrackingBody
-      backdrop={<JobWorldBackdrop status={data.status} match={m} departmentCode={departmentCode} fallback={<CityHero />} />}
+      backdrop={<JobWorldBackdrop status={data.status} match={m} departmentCode={departmentCode} serviceId={pilotId} fallback={<CityHero />} />}
       status={data.status}
       serviceNameHe={serviceNameHe}
       professional={professional}
