@@ -5,13 +5,18 @@ import { WORLD_ASSETS, type WorldAssetId, worldAssetUrl } from "../assets";
 import type { WorldMoveCommand, WorldSceneModel, WorldTrade } from "../types";
 import {
   DESCENT_SECONDS,
+  FRAME,
+  LOOK,
+  easeBy,
   easeTowards,
   entryPose,
   followFactor,
-  followPose,
   frameStreet,
+  frameWant,
   lookAtNow,
-  shopPose,
+  lookWant,
+  shopBeside,
+  streetPose,
   smoothstep01,
 } from "./camera";
 import {
@@ -745,6 +750,9 @@ export function createWorldScene({
     return art;
   };
   const frontByShop = new Map<string, ShopFront>();
+  // The demo's `windowShops`: shops whose window is open, so the camera frames
+  // them close (camera.ts, closeUp).
+  const windowShops = new Set<string>();
   for (const shop of WORLD_SHOPS) {
     const shopArtId = `shop_${shop.shopId}` as WorldAssetId;
     const usesShopArt = shopArtId in WORLD_ASSETS;
@@ -820,6 +828,7 @@ export function createWorldScene({
             front.setDrawing(punched);
             front.group.add(seen.group, carcass.openWindow(seen.hole));
             windows.push({ group: front.group, seen });
+            windowShops.add(shop.shopId);
           }
         },
       });
@@ -1005,6 +1014,10 @@ export function createWorldScene({
   // The entry flight: 0 high over the street, 1 behind the walker; it runs once.
   let descend = 0;
   let leaving = false;
+  // The camera's head turned towards a shop, and how far it has stood back
+  // to frame one (camera.ts, as the demo's `look` and `frame`).
+  let look = 0;
+  let frame = 0;
 
   // Going in and coming out (shopEntry.ts): a scripted move on the wall clock.
   type DoorMove = {
@@ -1209,18 +1222,27 @@ export function createWorldScene({
         }
 
         // As in the demo: the world opens high over the street and the first
-        // move flies the camera down behind the walker. Standing by a shop
-        // frames it; walking on brings the camera back in behind you.
+        // move flies the camera down behind the walker. Passing a shop the
+        // view drifts towards it; stopping beside one stands the camera back
+        // to frame it, close for a shop you can see into (camera.ts). Until
+        // the first move the opening view stays as it is: the product's spawn
+        // is beside a shop, the demo's is not.
         if (reducedMotion) descend = 1;
         else if (leaving && descend < 1) descend = Math.min(1, descend + walkDt / DESCENT_SECONDS);
-        const nearShop = nearestShop(player.x, player.z, 6);
-        const ground =
-          nearShop && !moving
-            ? shopPose(player.group.position, nearShop)
-            : followPose(player.group.position);
+        const push = Math.min(1, Math.hypot(moveCommand.x, moveCommand.z));
+        const beside = leaving ? shopBeside(player.x, player.z, WORLD_SHOPS) : null;
+        const closeUp = Boolean(beside && windowShops.has(beside.shop.shopId));
+        const wantLook = lookWant(player.x, player.z, beside, push, closeUp);
+        const wantFrame = frameWant(beside, push);
+        look = reducedMotion ? wantLook : easeBy(look, wantLook, LOOK.ease, walkDt);
+        frame = reducedMotion ? wantFrame : easeBy(frame, wantFrame, FRAME.ease, walkDt);
         easeTowards(
           camera,
-          entryPose(player.group.position, smoothstep01(descend), ground),
+          entryPose(
+            player.group.position,
+            smoothstep01(descend),
+            streetPose(player.group.position, look, frame, closeUp),
+          ),
           followFactor(walkDt),
           reducedMotion,
         );
