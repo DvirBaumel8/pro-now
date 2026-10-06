@@ -1021,14 +1021,16 @@ export function createWorldScene({
   }
 
   // Only on the street you walk (EXPLORE): behind a job's screens nobody looks
-  // into a shop, and the rooms are 88 pictures to fetch, cut and upload. Then
-  // one shop after another, nearest first, so the page keeps answering.
+  // into a shop, and the rooms are 88 pictures to fetch, cut and upload. The
+  // pictures are all asked for at once, nearest shop first; cutting each window
+  // and building its room then waits its turn in the idle queue, so the page
+  // keeps answering.
   let windowsStarted = false;
   const openWindows = () => {
     if (windowsStarted || model.mode !== "EXPLORE") return;
     windowsStarted = true;
     const byDistance = [...seeInto].sort((a, b) => Math.abs(a.shop.z - SPAWN.z) - Math.abs(b.shop.z - SPAWN.z));
-    void byDistance.reduce<Promise<void>>((previous, { open }) => previous.then(() => (disposed ? undefined : open())), Promise.resolve());
+    for (const { open } of byDistance) void open();
   };
   // The art is never in yet while the scene is being built; update() catches a later EXPLORE.
   artListeners.push(openWindows);
