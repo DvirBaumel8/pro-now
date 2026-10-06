@@ -1,6 +1,6 @@
 import type { DepartmentCode, JobMatchView, JobState, EtaView } from "@pro-now/types";
 
-export type WorldMode = "AMBIENT" | "EXPLORE" | "SEARCH" | "ROUTE" | "FALLBACK";
+export type WorldMode = "AMBIENT" | "EXPLORE" | "SEARCH" | "FOUND" | "ROUTE" | "FALLBACK";
 
 export type WorldMoveCommand = { x: number; z: number; sprint: boolean };
 
@@ -36,6 +36,8 @@ export interface WorldSceneModel {
   departmentCode: DepartmentCode | null;
   avatarNo: number | null;
   shopId: string | null;
+  /** FOUND: the shop the camera flies into once the server has assigned (searchFlight.ts). */
+  foundShopId?: string | null;
   route: WorldRouteModel | null;
   trades: Readonly<Record<string, WorldTrade>>;
 }

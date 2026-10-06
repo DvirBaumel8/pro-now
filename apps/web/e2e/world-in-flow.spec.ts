@@ -98,7 +98,7 @@ test("while the work is done: a walk round the street, back to the job", async (
     const jobId = new URL(page.url()).pathname.split("/").pop()!;
     await pro.acceptOfferFor(jobId);
     await page
-      .getByRole("button", { name: /^שליחת .* אליי$/ })
+      .getByRole("button", { name: "כן, מתאים לי" })
       .click({ timeout: 15_000 });
 
     // On the way, following the professional is the screen: no walk offered.

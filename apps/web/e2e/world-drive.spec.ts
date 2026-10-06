@@ -50,7 +50,7 @@ test("on the way, his own van drives down the street to the light over your home
     await expect(page).toHaveURL(/\/jobs\//);
     const jobId = new URL(page.url()).pathname.split("/").pop()!;
     await pro.acceptOfferFor(jobId);
-    await page.getByRole("button", { name: /^שליחת .* אליי$/ }).click({ timeout: 15_000 });
+    await page.getByRole("button", { name: "כן, מתאים לי" }).click({ timeout: 15_000 });
     await pro.step(jobId, "en-route");
     await expect(page.getByText(/בדרך אליכם/).first()).toBeVisible({ timeout: 15_000 });
 
