@@ -48,7 +48,7 @@ test("the customer and the professional, two browsers, request to review", async
     await expect(p.getByText("דיזנגוף 50")).toBeVisible();
 
     // The customer sees who is coming.
-    await c.getByRole("button", { name: /^שליחת .* אליי$/ }).click({ timeout: 15_000 });
+    await c.getByRole("button", { name: "כן, מתאים לי" }).click({ timeout: 15_000 });
 
     // Her steps, each reaching the customer live.
     await p.getByRole("button", { name: "יציאה לדרך" }).click();

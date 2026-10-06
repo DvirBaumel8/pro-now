@@ -1,7 +1,8 @@
+import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 
 import { WORLD_SHOPS } from "./street";
-import { SEARCH_FLIGHT, searchFlightFactor, searchFlightPose } from "./searchFlight";
+import { FOUND_FLIGHT, FOUND_SHOP_BY_DEPARTMENT, SEARCH_FLIGHT, foundFlightPose, searchFlightFactor, searchFlightPose } from "./searchFlight";
 
 describe("the search flight", () => {
   it("stays high over the street, looking down on it", () => {
@@ -32,5 +33,44 @@ describe("the search flight", () => {
     // Two half-frames cover what one whole frame does.
     const half = searchFlightFactor(0.5);
     expect(1 - (1 - half) * (1 - half)).toBeCloseTo(searchFlightFactor(1));
+  });
+});
+
+describe("found: the flight into the trade's shop", () => {
+  const home = WORLD_SHOPS.find((shop) => shop.shopId === "home")!;
+  const shop = { faceX: home.x, z: home.z, side: home.side };
+  const from = new THREE.Vector3(0, 30, home.z + 40);
+  const aimFrom = new THREE.Vector3(0, 0, home.z + 20);
+
+  it("starts where the search left the camera", () => {
+    const pose = foundFlightPose(from, aimFrom, shop, 0);
+    expect(pose.position.distanceTo(from)).toBeCloseTo(0);
+    expect(pose.look.distanceTo(aimFrom)).toBeCloseTo(0);
+  });
+
+  it("ends at eye height in front of the window, looking into the shop", () => {
+    const pose = foundFlightPose(from, aimFrom, shop, FOUND_FLIGHT.seconds);
+    expect(pose.position.y).toBeCloseTo(FOUND_FLIGHT.up);
+    // Out over the pavement, on the street side of the facade.
+    expect(Math.abs(pose.position.x)).toBeCloseTo(Math.abs(home.x) - FOUND_FLIGHT.out);
+    expect(pose.position.z).toBeCloseTo(home.z + FOUND_FLIGHT.along);
+    // Aimed inside the shop, past its front.
+    expect(Math.abs(pose.look.x)).toBeGreaterThan(Math.abs(home.x));
+    expect(pose.look.y).toBeCloseTo(FOUND_FLIGHT.aimUp);
+    // And it stays there.
+    expect(foundFlightPose(from, aimFrom, shop, 60).position.distanceTo(pose.position)).toBeCloseTo(0);
+  });
+
+  it("comes down in an arc, never through the roofs", () => {
+    for (let s = 0; s <= FOUND_FLIGHT.seconds; s += 0.3) {
+      const pose = foundFlightPose(from, aimFrom, shop, s);
+      expect(pose.position.y).toBeGreaterThanOrEqual(FOUND_FLIGHT.up - 1e-6);
+    }
+  });
+
+  it("knows each department's shop, as the demo's", () => {
+    for (const code of Object.keys(FOUND_SHOP_BY_DEPARTMENT)) {
+      expect(WORLD_SHOPS.some((s) => s.shopId === FOUND_SHOP_BY_DEPARTMENT[code])).toBe(true);
+    }
   });
 });

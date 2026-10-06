@@ -40,11 +40,12 @@ test("from a typed sentence to a review, with no money in the app", async ({ pag
   const jobId = new URL(page.url()).pathname.split("/").pop()!;
   await pro.acceptOfferFor(jobId);
 
-  // The socket announces the acceptance; who is coming appears, with their own price.
-  await expect(page.getByText("נמצאה התאמה לבקשה שלך")).toBeVisible({ timeout: 15_000 });
+  // The socket announces the acceptance; who is coming appears over the
+  // street (the demo's reveal), with their own price.
+  await expect(page.getByRole("button", { name: "כן, מתאים לי" })).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText("באפליקציה לא עובר כסף")).toBeVisible();
   await shot("match");
-  await page.getByRole("button", { name: /^שליחת .* אליי$/ }).click();
+  await page.getByRole("button", { name: "כן, מתאים לי" }).click();
 
   // An ordinary visit ends at the diagnosis (docs/18, 2026-09-29): the visit
   // fee is all the app carries; the repair is settled at the door.

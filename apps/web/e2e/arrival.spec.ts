@@ -32,7 +32,7 @@ test("at the door: the professional, the server's code, and back to the live job
     await expect(page).toHaveURL(/\/jobs\//);
     const jobId = new URL(page.url()).pathname.split("/").pop()!;
     await pro.acceptOfferFor(jobId);
-    await page.getByRole("button", { name: /^שליחת .* אליי$/ }).click({ timeout: 15_000 });
+    await page.getByRole("button", { name: "כן, מתאים לי" }).click({ timeout: 15_000 });
 
     // On the way: the live job, no arrival screen yet.
     await pro.step(jobId, "en-route");
@@ -93,7 +93,7 @@ test("the arrival screen gives way by itself when the diagnosis starts", async (
     await expect(page).toHaveURL(/\/jobs\//);
     const jobId = new URL(page.url()).pathname.split("/").pop()!;
     await pro.acceptOfferFor(jobId);
-    await page.getByRole("button", { name: /^שליחת .* אליי$/ }).click({ timeout: 15_000 });
+    await page.getByRole("button", { name: "כן, מתאים לי" }).click({ timeout: 15_000 });
     for (const step of ["en-route", "arrive"] as const) await pro.step(jobId, step);
     await expect(page.getByText("קוד האימות שלכם")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText("דנה הגיע", { exact: true })).toBeVisible();

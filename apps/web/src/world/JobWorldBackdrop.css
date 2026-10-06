@@ -78,3 +78,72 @@
     display: none;
   }
 }
+
+/*
+ * Found (the demo's SearchCity once found): when the camera has come down
+ * into the shop's window, the professional stands in the doorway with a pill
+ * saying who. The figure is their own: the trade character they chose, full
+ * length, or their photo in a ring.
+ */
+.job-world__pro {
+  position: absolute;
+  right: 6%;
+  bottom: 30%;
+  height: 38%;
+  filter: drop-shadow(0 16px 24px rgba(0, 0, 0, 0.55));
+  animation: job-world-pro-in 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.job-world__pro--photo {
+  right: 8%;
+  bottom: 34%;
+  width: 96px;
+  height: 96px;
+  border-radius: 48px;
+  object-fit: cover;
+  border: 3px solid #2fbf8a;
+  box-shadow: 0 0 22px #2fbf8a;
+  filter: none;
+}
+
+.job-world__pro-pill {
+  position: absolute;
+  right: 6%;
+  bottom: calc(30% + 38% + 8px);
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #2fbf8a;
+  color: #0d0a16;
+  font-weight: 800;
+  font-size: 13px;
+  direction: rtl;
+  white-space: nowrap;
+  animation: job-world-pro-in 0.8s 0.2s both;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.job-world__pro-pill--photo {
+  right: 6%;
+  bottom: calc(34% + 96px + 8px);
+}
+
+@keyframes job-world-pro-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .job-world__pro,
+  .job-world__pro-pill {
+    animation: none;
+  }
+}

@@ -40,7 +40,7 @@ test("the person at home gets a page with the professional and the door code", a
     const jobId = new URL(page.url()).pathname.split("/").pop()!;
 
     await pro.acceptOfferFor(jobId);
-    await page.getByRole("button", { name: /^שליחת .* אליי$/ }).click({ timeout: 15_000 });
+    await page.getByRole("button", { name: "כן, מתאים לי" }).click({ timeout: 15_000 });
 
     // The orderer sees the code the server issued at assignment.
     const status = page.getByText(/^הקוד לדלת: \d{4} · לחצו לשליחת הקישור לסבא יוסף$/);

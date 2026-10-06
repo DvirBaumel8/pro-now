@@ -8,7 +8,7 @@ import {
   ArrivalVerifyBody,
   JobClosedBody,
   JobCompleteBody,
-  MatchConfirmBody,
+  priceExplainer,
   PrimaryAction,
   SearchingBody,
   TrackingBody,
@@ -31,6 +31,7 @@ import { strollHref } from "../world/worldLinks";
 import { CityHero } from "../art/CityHero";
 import { arrivalHeadlineHe, showsArrival } from "./arrival";
 import { SafetySheet } from "./SafetySheet";
+import { matchRevealState, revealFigure } from "./matchReveal";
 
 /**
  * One job, from "looking for a professional" to the review (docs/21 W6).
@@ -188,7 +189,11 @@ export function Job() {
     );
   }
 
-  if (SEARCHING.has(data.status)) {
+  // Assigned, but who it is has not arrived yet (`/match`): the search stays
+  // up rather than a loading screen, so the street flying it carries on into
+  // the flight to the shop instead of being torn down and built again.
+  const awaitingReveal = data.status === "PRO_ASSIGNED" && !matchSeen && !match.data && !match.isError;
+  if (SEARCHING.has(data.status) || awaitingReveal) {
     const elapsedSeconds = Math.max(0, Math.round((Date.now() - new Date(data.createdAt).getTime()) / 1000));
     /*
      * The search has no cancel of its own in the shared screen (its
@@ -274,30 +279,48 @@ export function Job() {
     );
   }
 
-  // Assigned: first the reveal of who is coming, then the visit itself.
+  // Assigned: first the reveal of who is coming, then the visit itself. As
+  // the demo's: the search screen stays, the camera flies into the trade's
+  // shop, and the match card rises over it with the one person the server
+  // assigned (matchReveal.ts).
   if (data.status === "PRO_ASSIGNED" && !matchSeen) {
+    const explain = priceExplainer(m.price, { stage: "match", proFirstNameHe: professional.displayName.split(" ")[0] });
+    const character = m.professional.portraitKind === "CHARACTER";
+    // The same shape as the search above (a fragment holding the screen), so
+    // React keeps the street that has been flying the search: the flight into
+    // the shop starts from wherever the search left the camera.
     return withError(
-      <MatchConfirmBody
+      <>
+      <SearchingBody
+        backdrop={
+          <JobWorldBackdrop
+            status={data.status}
+            match={m}
+            departmentCode={departmentCode}
+            serviceId={pilotId}
+            reveal={{
+              nameHe: professional.displayName,
+              female: professionalFemale,
+              figure: revealFigure(professional.profilePhotoUrl, character),
+            }}
+            fallback={<CityHero />}
+          />
+        }
+        living={matchRevealState(m, departmentCode, serviceNameHe, professional.profilePhotoUrl)}
         serviceNameHe={serviceNameHe}
-        displayNameHe={professional.displayName}
-        professionalFemale={professionalFemale}
-        headlineHe={`אימות לשירות: ${serviceNameHe}`}
-        photoUri={professional.profilePhotoUrl}
-        portfolio={[]}
-        reasons={[]}
-        ratingAverage={professional.proNowRatingAverage}
-        ratingCount={professional.proNowRatingCount}
-        completedJobs={professional.proNowCompletedJobs}
-        credentialsHe={[]}
-        eta={m.eta}
+        departmentCode={departmentCode ?? undefined}
+        etaMinutes={m.eta ? Math.round(m.eta.etaSeconds / 60) : null}
         arrivalClockHe={m.eta ? clockIn(m.eta.etaSeconds) : null}
-        price={m.price}
-        hasAlternative={false}
+        visitFeeHe={`${explain.headline} · ${explain.detail}`}
+        checkingEligibility
+        onSiteNameHe={onSite?.name ?? null}
+        onOpenOnSite={shareOnSite}
         onAccept={() => setMatchSeen(true)}
         onBack={() => navigate("/")}
         width={width}
         height={height}
       />
+      </>
     );
   }
 

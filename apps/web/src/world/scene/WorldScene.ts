@@ -42,7 +42,7 @@ import {
   roomVeil,
   streetShot,
 } from "./shopEntry";
-import { searchFlightFactor, searchFlightPose } from "./searchFlight";
+import { FOUND_FLIGHT, foundFlightPose, searchFlightFactor, searchFlightPose } from "./searchFlight";
 import { createShopFront, facadeSize, type ShopFront } from "./shopFront";
 import { createIdleQueue, type IdleQueue } from "./idleQueue";
 import { LAMP_CLEARANCE, ROOM_PROPS, SHOP_WINDOWS, clearOfWindow, createShopWindow, punchWindow, roomArtIds, type RoomArt, type ShopWindow } from "./shopWindow";
@@ -684,6 +684,8 @@ export function createWorldScene({
   const sunFocus = new THREE.Vector3();
   const cameraDirection = new THREE.Vector3();
   const viewerLocal = new THREE.Vector3();
+  // The found flight: where it started and into which shop (reset when the shop changes).
+  let found: { shopId: string; startedAt: number; from: THREE.Vector3; aimFrom: THREE.Vector3 } | null = null;
 
   const { lamps, emitters, canopies, parked, shopCarcass, roofPiece } = buildStreetGeometry(root, scene, loader, ticking, idle, camera);
   buildWalkers(root, loader, ticking);
@@ -855,11 +857,23 @@ export function createWorldScene({
   // and building its room then waits its turn in the idle queue, so the page
   // keeps answering.
   let windowsStarted = false;
+  const opened = new Set<string>();
+  const openOne = ({ shop, open }: (typeof seeInto)[number]) => {
+    if (opened.has(shop.shopId)) return;
+    opened.add(shop.shopId);
+    void open();
+  };
   const openWindows = () => {
+    // Found (searchFlight.ts): the camera flies into one shop's window, so that one opens.
+    if (model.mode === "FOUND") {
+      const target = seeInto.find((item) => item.shop.shopId === model.foundShopId);
+      if (target) openOne(target);
+      return;
+    }
     if (windowsStarted || model.mode !== "EXPLORE") return;
     windowsStarted = true;
     const byDistance = [...seeInto].sort((a, b) => Math.abs(a.shop.z - SPAWN.z) - Math.abs(b.shop.z - SPAWN.z));
-    for (const { open } of byDistance) void open();
+    for (const item of byDistance) openOne(item);
   };
   // The art is never in yet while the scene is being built; update() catches a later EXPLORE.
   artListeners.push(openWindows);
@@ -1168,6 +1182,7 @@ export function createWorldScene({
   return {
     update(nextModel) {
       model = nextModel;
+      if (model.mode !== "FOUND") found = null;
       if (artReady) openWindows();
       // The app says which shop you are in; the scene walks there (or back out).
       if (!entry && nextModel.shopId && !insideShopId) goIn(nextModel.shopId);
@@ -1187,6 +1202,9 @@ export function createWorldScene({
         show("street");
         playDoorMove(entry, nowMs, dt);
       }
+      // The flights are timed by the clock; their easing is too, so behind a
+      // screen, where frames are spaced out (WorldCanvas), they still arrive.
+      const flightDt = Math.min(1, Math.max(0, (nowMs - lastMs) / 1000));
       const room = !entry && insideShopId ? rooms.get(insideShopId) : undefined;
       // On the way to you the street is his drive, seen from the drone: nobody walks it.
       const driving = !entry && !room && stepDrive(dt, reducedMotion);
@@ -1247,9 +1265,26 @@ export function createWorldScene({
           followFactor(walkDt),
           reducedMotion,
         );
+      } else if (!entry && !insideShopId && model.mode === "FOUND") {
+        // Found: down and in at an angle, into the trade's shop window (searchFlight.ts).
+        show("street");
+        player.group.visible = false;
+        const shop = WORLD_SHOPS.find((s) => s.shopId === model.foundShopId) ?? WORLD_SHOPS[0]!;
+        if (!found || found.shopId !== shop.shopId) {
+          camera.getWorldDirection(cameraDirection);
+          found = {
+            shopId: shop.shopId,
+            startedAt: nowMs,
+            from: camera.position.clone(),
+            aimFrom: camera.position.clone().addScaledVector(cameraDirection, 20),
+          };
+        }
+        const seconds = reducedMotion ? FOUND_FLIGHT.seconds : (nowMs - found.startedAt) / 1000;
+        const pose = foundFlightPose(found.from, found.aimFrom, { faceX: shop.x, z: shop.z, side: shop.side }, seconds);
+        easeTowards(camera, pose, searchFlightFactor(flightDt), reducedMotion);
       } else if (!entry && !insideShopId && model.mode === "SEARCH" && !reducedMotion) {
         // The demo's search flight (searchFlight.ts); reduced motion keeps the still view below.
-        easeTowards(camera, searchFlightPose(nowMs / 1000), searchFlightFactor(dt), false);
+        easeTowards(camera, searchFlightPose(nowMs / 1000), searchFlightFactor(flightDt), false);
       } else if (!entry && !insideShopId) {
         frameStreet(camera, reducedMotion);
       } else if (!entry && insideShopId) {
