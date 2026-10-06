@@ -249,11 +249,26 @@ test("at a shop the shopfront stands two storeys along the street, not a card tu
   await page.mouse.move(box.x + box.width / 2 - 60, box.y + box.height / 2 - 60, { steps: 4 });
   await expect(page.getByRole("button", { name: "היכנסו" })).toBeVisible({ timeout: 15_000 });
   await page.mouse.up();
-  await page.waitForTimeout(3000);
 
   // Over the shop, upper left. The demo's facade (a bay wide, two storeys,
   // with its cornice) fills it; the old 5.2 m card left it all sky (100%).
-  const share = skyShare(PNG.sync.read(await canvas.screenshot()), 0, 0.4, 0.05, 0.3);
+  // The camera's descent from high over the street runs on rendered frames,
+  // so on a loaded machine it can still be up there after a fixed wait (all
+  // sky): measure once the view has settled, two samples half a second apart.
+  const sample = async () => skyShare(PNG.sync.read(await canvas.screenshot()), 0, 0.4, 0.05, 0.3);
+  let share = await sample();
+  await expect
+    .poll(
+      async () => {
+        await page.waitForTimeout(500);
+        const next = await sample();
+        const settled = Math.abs(next - share) < 0.03;
+        share = next;
+        return settled;
+      },
+      { timeout: 20_000 },
+    )
+    .toBe(true);
   console.log(`world sky over the first shop: ${(share * 100).toFixed(0)}%`);
   expect(share, "the shopfront rises over the pavement").toBeLessThan(0.4);
 });
@@ -313,6 +328,41 @@ test("the terrace's buildings are the demo's: three drawn layers, a drawn relief
   console.log(`world buildings with all four drawings: ${whole.sort().join(", ")}; roofs: ${roofs.size}`);
   expect(whole, "all six buildings, each with wall, balconies, plants and relief").toHaveLength(6);
   expect(roofs.size, "the six roof pieces").toBe(6);
+});
+
+test.describe("the shops' windows", () => {
+  // page.route cannot see what a service worker answers, so none for this one.
+  test.use({ serviceWorkers: "block" });
+
+  test("every shop can be seen into: its room arrives after the street, without holding the arrival", async ({ page }) => {
+    test.setTimeout(120_000);
+    await signInByEmail(page, uniqueEmail("e2e-world-windows"));
+    await finishFirstRun(page);
+
+    // Each shop's drawing has its glass cut out and its room stands behind it
+    // (shopWindow.ts). Every room is held back until the arrival has lifted:
+    // if the arrival waited for them, it would never lift.
+    let release!: () => void;
+    const arrived = new Promise<void>((resolve) => (release = resolve));
+    await page.route(/\/world\/s\/room_[a-z]+_[a-z0-9]+\.webp$/, async (route) => {
+      await arrived;
+      await route.continue();
+    });
+    const rooms = new Set<string>();
+    page.on("response", (response) => {
+      const m = /\/world\/s\/room_([a-z]+)_back\.webp$/.exec(new URL(response.url()).pathname);
+      if (m && response.ok()) rooms.add(m[1]!);
+    });
+
+    await page.goto("/world");
+    await expect(page.locator(".world-canvas__surface canvas")).toBeVisible();
+    await expect(page.getByText("נכנסים לעיר")).toBeHidden({ timeout: 30_000 });
+    expect(rooms.size, "no room is in before the arrival lifts").toBe(0);
+    release();
+
+    await expect.poll(() => rooms.size, { timeout: 45_000 }).toBe(13);
+    console.log(`world rooms: ${[...rooms].sort().join(", ")}`);
+  });
 });
 
 test.describe("arriving on a slow network", () => {

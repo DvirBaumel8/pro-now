@@ -39,6 +39,7 @@ import {
   streetShot,
 } from "./shopEntry";
 import { createShopFront, facadeSize, type ShopFront } from "./shopFront";
+import { createIdleQueue, type IdleQueue } from "./idleQueue";
 import { ROOM_PROPS, SHOP_WINDOWS, createShopWindow, punchWindow, roomArtIds, type RoomArt, type ShopWindow } from "./shopWindow";
 import { WALKER_SHEETS, createWalker, cycleFromSheet, planWalkers, type Walker } from "./walkers";
 import {
@@ -157,6 +158,7 @@ function buildStreetGeometry(
   scene: THREE.Scene,
   loader: THREE.TextureLoader,
   ticking: TickFn[],
+  idle: IdleQueue,
 ): {
   lamps: THREE.Vector3[];
   emitters: LightEmitter[];
@@ -231,13 +233,14 @@ function buildStreetGeometry(
     let wallIn = false;
     const materials = BUILDING_LAYERS.map(({ layer, lit }, i) => {
       const drawing = loader.load(worldAssetUrl(`bld_${kind}_${layer}` as WorldAssetId), (loaded) => {
+        // The relief is read from the drawing on the CPU: one layer per idle period (idleQueue.ts).
         if (i === 0) {
           wallIn = true;
-          dressLayer(material, wallHeight);
+          idle.push(() => dressLayer(material, wallHeight));
           const aspect = imageAspect(loaded);
           if (aspect) for (const building of buildings) if (building.kind === kind) building.fit(aspect);
         } else {
-          dressLayer(material);
+          idle.push(() => dressLayer(material));
         }
       });
       const material = createLayerMaterial(drawing, lit);
@@ -246,7 +249,7 @@ function buildStreetGeometry(
     // The wall's drawn relief; whichever of it and the wall arrives second dresses the wall.
     loader.load(worldAssetUrl(`bld_${kind}_wall_height` as WorldAssetId), (loaded) => {
       wallHeight = flatHeightMap(loaded);
-      if (wallIn) dressLayer(materials[0]!, wallHeight);
+      if (wallIn) idle.push(() => dressLayer(materials[0]!, wallHeight));
     });
     return materials;
   });
@@ -837,6 +840,7 @@ export function createWorldScene({
   const loader = new THREE.TextureLoader(manager);
   // What comes after arrival (the shops' rooms) loads outside the manager.
   const roomLoader = new THREE.TextureLoader();
+  const idle = createIdleQueue();
   let disposed = false;
   const root = new THREE.Group();
   scene.add(root);
@@ -878,7 +882,7 @@ export function createWorldScene({
   const cameraDirection = new THREE.Vector3();
   const viewerLocal = new THREE.Vector3();
 
-  const { lamps, emitters, parked, shopCarcass, roofPiece } = buildStreetGeometry(root, scene, loader, ticking);
+  const { lamps, emitters, parked, shopCarcass, roofPiece } = buildStreetGeometry(root, scene, loader, ticking, idle);
   buildWalkers(root, loader, ticking);
   const traffic = buildTraffic(root, loader, ticking, emitters, parked);
 
@@ -916,7 +920,7 @@ export function createWorldScene({
   const shopFronts: ShopFront[] = [];
   // Shops you can see into (shopWindow.ts): their rooms are fetched once the
   // street is in, nearest first, and each window opens when its room arrives.
-  const seeInto: Array<{ shop: (typeof WORLD_SHOPS)[number]; open(): void }> = [];
+  const seeInto: Array<{ shop: (typeof WORLD_SHOPS)[number]; open(): Promise<void> }> = [];
   const windows: Array<{ group: THREE.Group; seen: ShopWindow }> = [];
   // Each shop's room art, fetched once: the window shows it from the street,
   // and walking in builds the room from the same textures (boxRoom.ts).
@@ -983,9 +987,22 @@ export function createWorldScene({
     if (spec) {
       seeInto.push({
         shop,
-        open() {
-          void roomArt(shop.shopId).then((art) => {
-            if (disposed || !art || !drawingIn) return;
+        open(): Promise<void> {
+          // Fetched once and shared with the room you walk into; the cut waits in the idle queue.
+          return roomArt(shop.shopId).then(
+            (art) =>
+              new Promise<void>((done) =>
+                idle.push(() => {
+                  try {
+                    openWindow(art);
+                  } finally {
+                    done();
+                  }
+                }),
+              ),
+          );
+          function openWindow(art: RoomArt | null) {
+            if (disposed || !art || !drawingIn || !spec) return;
             const punched = punchWindow(drawing, spec);
             if (!punched) return;
             const { w, h } = front.size();
@@ -1000,7 +1017,7 @@ export function createWorldScene({
             front.setDrawing(punched);
             front.group.add(seen.group, carcass.openWindow(seen.hole));
             windows.push({ group: front.group, seen });
-          });
+          }
         },
       });
     }
@@ -1020,12 +1037,20 @@ export function createWorldScene({
     }
   }
 
+  // Only on the street you walk (EXPLORE): behind a job's screens nobody looks
+  // into a shop, and the rooms are 88 pictures to fetch, cut and upload. The
+  // pictures are all asked for at once, nearest shop first; cutting each window
+  // and building its room then waits its turn in the idle queue, so the page
+  // keeps answering.
+  let windowsStarted = false;
   const openWindows = () => {
+    if (windowsStarted || model.mode !== "EXPLORE") return;
+    windowsStarted = true;
     const byDistance = [...seeInto].sort((a, b) => Math.abs(a.shop.z - SPAWN.z) - Math.abs(b.shop.z - SPAWN.z));
-    for (const { open } of byDistance) open();
+    for (const { open } of byDistance) void open();
   };
-  if (artReady) openWindows();
-  else artListeners.push(openWindows);
+  // The art is never in yet while the scene is being built; update() catches a later EXPLORE.
+  artListeners.push(openWindows);
 
   const walkTextures: THREE.Texture[] = [];
   const runTextures: THREE.Texture[] = [];
@@ -1327,6 +1352,7 @@ export function createWorldScene({
   return {
     update(nextModel) {
       model = nextModel;
+      if (artReady) openWindows();
       // The app says which shop you are in; the scene walks there (or back out).
       if (!entry && nextModel.shopId && !insideShopId) goIn(nextModel.shopId);
       else if (!entry && !nextModel.shopId && insideShopId) goOut();
@@ -1446,6 +1472,7 @@ export function createWorldScene({
     },
     dispose() {
       disposed = true;
+      idle.dispose();
       show("street");
       homeLabel.remove();
       vanLabel.remove();
