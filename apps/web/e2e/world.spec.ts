@@ -253,6 +253,9 @@ test("at a shop the shopfront stands two storeys along the street, not a card tu
   await page.mouse.down();
   await page.mouse.move(box.x + box.width / 2 - 60, box.y + box.height / 2 - 60, { steps: 4 });
   await expect(page.getByRole("button", { name: "היכנסו" })).toBeVisible({ timeout: 15_000 });
+  // The spawn is beside the first shop, so its door can show before a step is
+  // taken; the camera comes down on the first move (camera.ts), so keep walking.
+  await page.waitForTimeout(1500);
   await page.mouse.up();
 
   // Over the shop, upper left. The demo's facade (a bay wide, two storeys,
@@ -313,6 +316,8 @@ test("standing still at a shop, the camera stands back and faces it, as the demo
   await page.mouse.down();
   await page.mouse.move(box.x + box.width / 2 - 60, box.y + box.height / 2 - 60, { steps: 4 });
   await expect(page.getByRole("button", { name: "היכנסו" })).toBeVisible({ timeout: 15_000 });
+  // Keep walking a moment: the door can show before a step is taken (see above).
+  await page.waitForTimeout(1500);
   await page.mouse.up();
   await page.waitForTimeout(4500);
 
