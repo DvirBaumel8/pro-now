@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createFrameGovernor, DEFAULT_FRAME_GOVERNOR, nextRenderAt } from "./frameGovernor";
+import { backdropGapMs, createFrameGovernor, DEFAULT_FRAME_GOVERNOR, displayFrame, isSoftwareRenderer, nextRenderAfter } from "./frameGovernor";
 
 const feed = (frames: number[]) => {
   const governor = createFrameGovernor();
@@ -49,17 +49,40 @@ describe("frame governor", () => {
 });
 
 describe("the page comes first", () => {
-  it("leaves the main thread at least half of the time after each frame", () => {
-    expect(nextRenderAt(1000, 60)).toBe(1120);
-    expect(nextRenderAt(1000, 60, 0.25)).toBe(1240);
+  it("waits as long as a frame overran, so the page gets about half the main thread", () => {
+    // A software frame: rendered at 1000, read back until the next animation frame at 1500.
+    expect(nextRenderAfter(1500, 1000, 16.7)).toBeCloseTo(1500 + 500 - 33.4);
   });
 
-  it("changes nothing for a fast frame: the next display frame is already later", () => {
-    expect(nextRenderAt(1000, 3) - 1000).toBeLessThan(1000 / 60);
+  it("changes nothing with a GPU: a frame takes one display frame", () => {
+    expect(nextRenderAfter(1016.7, 1000, 16.7)).toBe(1016.7);
+    expect(nextRenderAfter(1033, 1000, 16.7)).toBe(1033);
   });
 
-  it("ignores frames that measured nothing", () => {
-    expect(nextRenderAt(1000, 0)).toBe(1000);
-    expect(nextRenderAt(1000, NaN)).toBe(1000);
+  it("ignores a frame with no measured cost", () => {
+    expect(nextRenderAfter(1000, 1000, 16.7)).toBe(1000);
+    expect(nextRenderAfter(1000, NaN, 16.7)).toBe(1000);
+  });
+
+  it("learns the display frame as the shortest gap, within reason", () => {
+    expect(displayFrame(1000 / 30, 16.7)).toBe(16.7);
+    expect(displayFrame(16.7, 500)).toBe(16.7);
+    expect(displayFrame(16.7, 0)).toBe(16.7);
+    expect(displayFrame(16.7, 1)).toBeCloseTo(1000 / 240);
+  });
+});
+
+describe("without a GPU the street behind a screen is a still", () => {
+  it("knows a software renderer by its name", () => {
+    expect(isSoftwareRenderer("ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero)), SwiftShader driver)")).toBe(true);
+    expect(isSoftwareRenderer("llvmpipe (LLVM 15.0.7, 256 bits)")).toBe(true);
+    expect(isSoftwareRenderer("Apple GPU")).toBe(false);
+    expect(isSoftwareRenderer(null)).toBe(false);
+  });
+
+  it("caps only a backdrop, only without a GPU", () => {
+    expect(backdropGapMs(true, false)).toBe(200);
+    expect(backdropGapMs(true, true)).toBe(0);
+    expect(backdropGapMs(false, false)).toBe(0);
   });
 });

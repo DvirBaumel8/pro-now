@@ -70,22 +70,50 @@ function median(values: readonly number[]): number {
 /**
  * THE PAGE COMES FIRST.
  *
- * The street renders behind the job's screens (JobWorldBackdrop), and on a
- * slow device every frame of it is main-thread time the buttons over it do not
- * get. Measured: at 4× CPU throttling the customer's "שליחת … אליי" took over
- * 15 s to become clickable with the street behind it, and 3.5 s without it; CI's
- * software WebGL failed the job flows the same way.
+ * The street renders behind the job's screens (JobWorldBackdrop). Without a
+ * GPU (software WebGL, as on a CI runner) Chrome composites in software too,
+ * and every street frame is read back to the CPU on the main thread: the page
+ * waits until that frame is fully drawn. Traced: 15 frames held the main
+ * thread 15.4 s in one job flow (median 0.5 s, the first ones 4 s), and the
+ * customer's "שליחת … אליי" took more than 15 s to become clickable.
  *
- * So the street takes at most `share` of the main thread: after a frame that
- * cost `costMs`, the next one is drawn no sooner than `costMs / share` after
- * this one started. A phone frame of 3 ms waits 6 ms, under one display frame,
- * so nothing changes there; a 60 ms software frame waits 120 ms, leaving the
- * page half of every second.
+ * That wait lands after the render call returns, so a frame's real cost is
+ * the time until the next animation frame. Whatever it overran a display
+ * frame by, the street now waits again before drawing, which leaves the page
+ * about half the main thread. With a GPU a frame takes one display frame and
+ * nothing changes.
  */
-export const RENDER_SHARE = 0.5;
+export function nextRenderAfter(nowMs: number, lastRenderStartMs: number, displayFrameMs: number): number {
+  const cost = nowMs - lastRenderStartMs;
+  if (!(cost > 0) || !Number.isFinite(cost)) return nowMs;
+  return nowMs + Math.max(0, cost - 2 * displayFrameMs);
+}
 
-/** When the next frame may start, given when this one started and what it cost. */
-export function nextRenderAt(startMs: number, costMs: number, share = RENDER_SHARE): number {
-  if (!(costMs > 0) || !Number.isFinite(costMs)) return startMs;
-  return startMs + costMs / share;
+/** The display's frame interval, learnt as the shortest gap between animation frames (at most 1/30 s). */
+export function displayFrame(previousMs: number, gapMs: number): number {
+  return gapMs > 0 && Number.isFinite(gapMs) ? Math.min(previousMs, Math.max(gapMs, 1000 / 240)) : previousMs;
+}
+
+/**
+ * WITHOUT A GPU, THE STREET BEHIND A SCREEN IS A STILL.
+ *
+ * Software WebGL (SwiftShader, llvmpipe: a phone or a CI runner with no GPU)
+ * renders the street on the same CPU the app and the browser run on. Behind a
+ * job's screens the street is decoration, and there it costs the screens their
+ * responsiveness: with SwiftShader the arrival flow took 18 s instead of 3.5 s.
+ * So on a software renderer a backdrop draws at most every 200 ms. The street
+ * you walk is not capped, and a renderer with a GPU never is.
+ */
+export const SOFTWARE_BACKDROP_GAP_MS = 200;
+
+/** Without a GPU: one pixel per CSS pixel, and no sun shadows (3.5 s of an 18 s job flow, traced). */
+export const SOFTWARE_PIXEL_RATIO = 1;
+
+export function isSoftwareRenderer(name: string | null | undefined): boolean {
+  return /swiftshader|llvmpipe|softpipe|software/i.test(name ?? "");
+}
+
+/** The least time between two backdrop frames: none with a GPU, 200 ms without. */
+export function backdropGapMs(software: boolean, walking: boolean): number {
+  return software && !walking ? SOFTWARE_BACKDROP_GAP_MS : 0;
 }
