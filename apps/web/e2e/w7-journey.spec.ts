@@ -52,7 +52,7 @@ test("the customer and the professional, two browsers, request to review", async
 
     // Her steps, each reaching the customer live.
     await p.getByRole("button", { name: "יציאה לדרך" }).click();
-    await expect(c.getByText(/בדרך אליכם/).first()).toBeVisible({ timeout: 15_000 });
+    await expect(c.getByText(/בדרך אליך/).first()).toBeVisible({ timeout: 15_000 });
     await p.getByRole("button", { name: "הגעתי" }).click();
     await p.getByRole("button", { name: "התחלת בדיקה" }).click();
 

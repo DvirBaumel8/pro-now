@@ -31,7 +31,7 @@ import { strollHref } from "../world/worldLinks";
 import { CityHero } from "../art/CityHero";
 import { arrivalHeadlineHe, showsArrival } from "./arrival";
 import { SafetySheet } from "./SafetySheet";
-import { matchRevealState, revealFigure } from "./matchReveal";
+import { liveEtaClock, matchRevealState, onTheWayState, revealFigure } from "./matchReveal";
 
 /**
  * One job, from "looking for a professional" to the review (docs/21 W6).
@@ -90,6 +90,10 @@ export function Job() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [safetyOpen, setSafetyOpen] = useState(false);
+  // On the way: the street is the screen (the demo's), and the tracking card
+  // is its "פרטי ההזמנה" — open while this is true.
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const addresses = useQuery({ queryKey: ["addresses"], queryFn: api.getAddresses });
   const me = useMe();
   // Into the street and back to this job; without a figure, the picker first (the demo's strollDoor).
   const hasAvatar = Boolean(me.data?.customer?.avatarId);
@@ -325,6 +329,72 @@ export function Job() {
   }
 
   /*
+   * ON THE WAY, IN THE STREET (the demo's ASSIGNED_ROUTE). The same screen
+   * as the search and the reveal, so the street carries on: their van drives
+   * to you, the live card counts down to the server's ETA, and an invite
+   * offers a walk meanwhile ("נקרא לכם כש… מתקרב": the server's PRO_NEARBY).
+   * "פרטי ההזמנה" opens the tracking card, which has everything else
+   * (cancelling, the money).
+   *
+   * Not for an order for someone else: the demo's wait there says "{name}
+   * קיבל הודעה עם הפרטים וקוד לדלת", and nothing is sent by itself here (no
+   * SMS, D4): the person who ordered sends the link, from the tracking card's
+   * door-code line. So that card stays the screen for them.
+   */
+  if ((data.status === "PRO_ASSIGNED" || data.status === "PRO_EN_ROUTE") && !detailsOpen && !onSite) {
+    const clock = liveEtaClock(m.eta, m.etaSecondsAtAssignment ?? null);
+    const explain = priceExplainer(m.price, { stage: "match", proFirstNameHe: professional.displayName.split(" ")[0] });
+    const addressHe = addresses.data?.addresses.find((a) => a.id === data.addressId)?.formatted ?? null;
+    return withError(
+      <>
+      <SearchingBody
+        backdrop={<JobWorldBackdrop status={data.status} match={m} departmentCode={departmentCode} serviceId={pilotId} fallback={<CityHero />} />}
+        living={onTheWayState(m, departmentCode, serviceNameHe, professional.profilePhotoUrl)}
+        serviceNameHe={serviceNameHe}
+        departmentCode={departmentCode ?? undefined}
+        etaMinutes={m.eta ? Math.round(m.eta.etaSeconds / 60) : null}
+        arrivalClockHe={m.eta ? clockIn(m.eta.etaSeconds) : null}
+        liveEta={
+          clock
+            ? {
+                proFirstNameHe: professional.displayName.split(" ")[0] ?? professional.displayName,
+                female: professionalFemale,
+                proPhotoUri: professional.profilePhotoUrl,
+                serviceNameHe,
+                ...clock,
+              }
+            : null
+        }
+        onStroll={stroll}
+        waitDetailsHe={[
+          { labelHe: "העבודה", valueHe: serviceNameHe },
+          { labelHe: "המחיר", valueHe: explain.headline },
+          ...(addressHe ? [{ labelHe: "הכתובת", valueHe: addressHe }] : []),
+        ]}
+        onPlayAction={(action) => {
+          if (action === "JOB_DETAILS") setDetailsOpen(true);
+          if (action === "PLAY_MORE" || action === "WHILE_YOU_WAIT") stroll();
+        }}
+        onSafety={() => setSafetyOpen(true)}
+        onLeaveWait={() => navigate("/")}
+        onBack={() => navigate("/")}
+        width={width}
+        height={height}
+      />
+      </>,
+      <SafetySheet
+        visible={safetyOpen}
+        onClose={() => setSafetyOpen(false)}
+        jobId={id}
+        onSiteNameHe={null}
+        onShare={shareOnSite}
+        width={width}
+        height={height}
+      />
+    );
+  }
+
+  /*
    * AT THE DOOR: who to expect, the server's code to ask for, and the car
    * when the professional gave one (audit v2 #8a: the server sends it only
    * from assignment, and of the plate only its last digits). No call or
@@ -391,7 +461,7 @@ export function Job() {
       onOpenOnSiteView={shareOnSite}
       onConfirmCompletion={data.status === "COMPLETION_PENDING" ? act(() => api.confirmCompletion(id)) : undefined}
       onCancelJob={cancel}
-      onBack={() => navigate("/")}
+      onBack={() => (data.status === "PRO_ASSIGNED" || data.status === "PRO_EN_ROUTE" ? setDetailsOpen(false) : navigate("/"))}
       width={width}
       height={height}
     />,
