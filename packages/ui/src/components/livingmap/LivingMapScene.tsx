@@ -1936,7 +1936,11 @@ export function LivingMapScene({
           onSiteNameHe={onSiteNameHe}
           onOpenOnSite={onOpenOnSite}
           statusHe={liveEta ? "בינתיים" : null}
-          omit={liveEta && onStroll ? ["PLAY_MORE"] : []}
+          omit={[
+            ...(liveEta && onStroll ? (["PLAY_MORE"] as const) : []),
+            /* Following them is the real map; with none to open, no button that does nothing. */
+            ...(onOpenRealMap ? [] : (["FOLLOW_PRO"] as const)),
+          ]}
           detailsHe={waitDetailsHe}
         />
       ) : null}
