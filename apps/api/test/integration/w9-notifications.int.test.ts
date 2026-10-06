@@ -79,7 +79,8 @@ describe("notifications", () => {
     await settle();
     const offer = (await app.inject({ method: "GET", url: "/api/v1/pro/offers/current", headers: as(pro) })).json();
     await app.inject({ method: "POST", url: `/api/v1/offers/${offer.offerId}/accept`, headers: as(pro, `a-${Date.now()}`), payload: {} });
-    await settle();
+    // The notice is sent after the accept commits, asynchronously: wait for it rather than a fixed moment.
+    await expect.poll(() => got.some((m) => m.type === "NOTIFICATION"), { timeout: 5_000 }).toBe(true);
     const found = got.find((m) => m.type === "NOTIFICATION") as { title?: string; body?: string } | undefined;
     expect(found?.title).toBe("נמצא מקצוען");
     // Named, and in the professional's own gender, although the event is announced before the accept commits.
