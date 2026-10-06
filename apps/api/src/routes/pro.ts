@@ -8,6 +8,7 @@ import type { OfferCardView, ProPresenceState, ProPublicProfileView } from "@pro
 import { currentCheck } from "../domain/identity-check.js";
 import { coarseAreaLabel } from "../domain/privacy/area-label.js";
 import { jobServiceNameHe } from "../domain/job/service-name.js";
+import { noticeNearby } from "../domain/notifications/nearby.js";
 
 /**
  * See /docs/06-API-SPEC.md, /docs/07-JOB-STATE-MACHINE.md §Professional
@@ -94,6 +95,8 @@ export default async function proRoutes(app: FastifyInstance) {
     });
     // After the write: the customer re-reads the position just stored.
     await announceLocation(app, professional.id);
+    // And once, when they are near: "he's near" to the customer (nearby.ts).
+    await noticeNearby(app, professional.id, { lat: body.lat, lng: body.lng });
     return reply.send({ ok: true });
   });
 

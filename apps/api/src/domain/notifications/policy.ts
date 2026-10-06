@@ -56,6 +56,9 @@ export function deliveriesFor(event: { type: string; actor?: string; metadata?: 
       return [toCustomer(["inapp", "push"], "נמצא מקצוען", `${pro} ${f(ctx, "יצא", "יצאה")} אליכם בקרוב · ${ctx.serviceNameHe}`)];
     case "PRO_EN_ROUTE_REQUESTED":
       return [toCustomer(["inapp", "push"], `${pro} בדרך אליכם`, ctx.serviceNameHe)];
+    case "PRO_NEARBY":
+      // Once per job, when their ETA is three minutes or less (nearby.ts).
+      return [toCustomer(["inapp", "push"], `${pro} ${f(ctx, "מתקרב", "מתקרבת")}`, `${ctx.serviceNameHe} · עוד כמה דקות ${f(ctx, "הוא", "היא")} אצלכם`)];
     case "PRO_ARRIVED_REQUESTED":
       return [toCustomer(["inapp", "push"], `${pro} ${f(ctx, "הגיע", "הגיעה")}`, ctx.serviceNameHe)];
     case "QUOTE_SENT":
