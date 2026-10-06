@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createFrameGovernor, DEFAULT_FRAME_GOVERNOR } from "./frameGovernor";
+import { createFrameGovernor, DEFAULT_FRAME_GOVERNOR, nextRenderAt } from "./frameGovernor";
 
 const feed = (frames: number[]) => {
   const governor = createFrameGovernor();
@@ -45,5 +45,21 @@ describe("frame governor", () => {
     [...warmup, ...Array(12).fill(16)].forEach((ms) => governor.record(ms));
     expect(governor.record(500)).toBe("keep");
     expect(governor.verdict).toBe("keep");
+  });
+});
+
+describe("the page comes first", () => {
+  it("leaves the main thread at least half of the time after each frame", () => {
+    expect(nextRenderAt(1000, 60)).toBe(1120);
+    expect(nextRenderAt(1000, 60, 0.25)).toBe(1240);
+  });
+
+  it("changes nothing for a fast frame: the next display frame is already later", () => {
+    expect(nextRenderAt(1000, 3) - 1000).toBeLessThan(1000 / 60);
+  });
+
+  it("ignores frames that measured nothing", () => {
+    expect(nextRenderAt(1000, 0)).toBe(1000);
+    expect(nextRenderAt(1000, NaN)).toBe(1000);
   });
 });

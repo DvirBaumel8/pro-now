@@ -66,3 +66,26 @@ function median(values: readonly number[]): number {
   const mid = Math.floor(sorted.length / 2);
   return sorted.length % 2 === 1 ? sorted[mid]! : (sorted[mid - 1]! + sorted[mid]!) / 2;
 }
+
+/**
+ * THE PAGE COMES FIRST.
+ *
+ * The street renders behind the job's screens (JobWorldBackdrop), and on a
+ * slow device every frame of it is main-thread time the buttons over it do not
+ * get. Measured: at 4× CPU throttling the customer's "שליחת … אליי" took over
+ * 15 s to become clickable with the street behind it, and 3.5 s without it; CI's
+ * software WebGL failed the job flows the same way.
+ *
+ * So the street takes at most `share` of the main thread: after a frame that
+ * cost `costMs`, the next one is drawn no sooner than `costMs / share` after
+ * this one started. A phone frame of 3 ms waits 6 ms, under one display frame,
+ * so nothing changes there; a 60 ms software frame waits 120 ms, leaving the
+ * page half of every second.
+ */
+export const RENDER_SHARE = 0.5;
+
+/** When the next frame may start, given when this one started and what it cost. */
+export function nextRenderAt(startMs: number, costMs: number, share = RENDER_SHARE): number {
+  if (!(costMs > 0) || !Number.isFinite(costMs)) return startMs;
+  return startMs + costMs / share;
+}

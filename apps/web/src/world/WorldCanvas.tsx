@@ -5,6 +5,7 @@ import type { WorldMode, WorldMoveCommand, WorldRouteModel, WorldSceneModel } fr
 import { detectWorldCapabilities, shouldPauseWorld } from "./worldCapabilities";
 import { worldAssetUrl } from "./assets";
 import { movementFromPointer, stickKnobOffset, useWorldInput } from "./worldInput";
+import { nextRenderAt } from "./scene/frameGovernor";
 import "./WorldCanvas.css";
 
 /** How far a drag must travel from its start for full walking speed, in px. */
@@ -169,10 +170,15 @@ export function WorldCanvas({
 
     let frame = 0;
     let paused = shouldPauseWorld(document.visibilityState);
+    // The street takes at most half the main thread, so the screens over it
+    // stay responsive on a slow device (frameGovernor.ts, nextRenderAt).
+    let nextAt = 0;
     const render = (nowMs: number) => {
-      if (!paused) {
+      if (!paused && nowMs >= nextAt) {
+        const started = performance.now();
         handle.update(modelRef.current);
         handle.render(nowMs);
+        nextAt = nextRenderAt(nowMs, performance.now() - started);
       }
       frame = window.requestAnimationFrame(render);
     };
