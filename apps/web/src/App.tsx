@@ -24,6 +24,7 @@ import { Avatar, Intro } from "./screens/Onboarding";
 import { SignIn } from "./screens/SignIn";
 import { Welcome } from "./screens/Welcome";
 import { World } from "./screens/World";
+import { KeptWorldLayer, WorldKeeperProvider } from "./world/keptWorld";
 
 /**
  * Who may see what is decided by the server's session, never by the client
@@ -75,13 +76,15 @@ export function App() {
         <LiveChannel />
         <Frame>
           <OrderTargetProvider>
+          <WorldKeeperProvider>
           <Routes>
             <Route path="/welcome" element={<SignedOut><Welcome /></SignedOut>} />
             <Route path="/sign-in" element={<SignedOut><SignIn /></SignedOut>} />
             <Route path="/intro" element={<SignedIn><Intro /></SignedIn>} />
             <Route path="/avatar" element={<SignedIn><Avatar /></SignedIn>} />
             <Route path="/addresses" element={<SignedIn><Addresses /></SignedIn>} />
-            <Route path="/world" element={<SignedIn><FirstRun><World /></FirstRun></SignedIn>} />
+            {/* The street is drawn by the layer below, so it can stay mounted under a service (keptWorld.tsx). */}
+            <Route path="/world" element={null} />
             <Route path="/jobs/:id" element={<SignedIn><WithHeader><Job /></WithHeader></SignedIn>} />
             {/* הקריאות שלי: every job of theirs, under the same header (the demo's calls tab). */}
             <Route path="/calls" element={<SignedIn><WithHeader><Calls /></WithHeader></SignedIn>} />
@@ -103,6 +106,8 @@ export function App() {
             <Route path="/" element={<SignedIn><FirstRun><Home /></FirstRun></SignedIn>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          <KeptWorldLayer render={(hidden) => <SignedIn><FirstRun><World hidden={hidden} /></FirstRun></SignedIn>} />
+          </WorldKeeperProvider>
           </OrderTargetProvider>
         </Frame>
       </BrowserRouter>

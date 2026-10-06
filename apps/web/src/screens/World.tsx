@@ -16,11 +16,13 @@ import {
   type WorldEvent,
 } from "../world";
 import { worldReturnPath, worldShopParam } from "../world/worldLinks";
+import { useWorldKeeper } from "../world/keptWorld";
 
-export function World() {
+export function World({ hidden = false }: { hidden?: boolean } = {}) {
   const { width, height } = useFrame();
   const navigate = useNavigate();
   const me = useMe();
+  const keeper = useWorldKeeper();
   const catalog = useQuery({ queryKey: ["catalog"], queryFn: api.getCatalog, staleTime: 5 * 60_000 });
   /*
    * Back is back (the demo's city onExit): to the job the street was opened
@@ -62,7 +64,11 @@ export function World() {
   const walking = !flat && openShopId !== insideShopId;
   const nearbyTrade = !walking && nearShopId ? trades[nearShopId] ?? null : null;
   const openTrade = !walking && inside ? trades[inside] ?? null : null;
-  const exit = () => navigate(from ?? "/");
+  const exit = () => {
+    // Leaving the street through its own way out lets it go (keptWorld.tsx).
+    keeper.release();
+    navigate(from ?? "/");
+  };
 
   const onEvent = (event: WorldEvent) => {
     switch (event.type) {
@@ -80,7 +86,9 @@ export function World() {
         if (flat) setInsideShopId(null);
         return;
       case "REQUEST_SERVICE":
-        // The service page's back returns into this shop (Home reads `worldShop`).
+        // The service page's back returns into this shop (Home reads
+        // `worldShop`), and the street waits under it, paused (keptWorld.tsx).
+        keeper.keep();
         navigate(`/?service=${encodeURIComponent(event.serviceId)}`, { state: { worldShop: openShopId } });
         return;
       case "EXIT":
@@ -102,6 +110,7 @@ export function World() {
         scene={scene}
         sceneFactory={createWorldScene}
         arrival
+        paused={hidden}
         onEvent={onEvent}
         fallback={<CityHero />}
       />
