@@ -32,6 +32,12 @@ export function WorldOverlay({
         <span aria-hidden="true">‹</span>
       </button>
       {professionalNameHe ? <div className="world-overlay__professional">{professionalNameHe}{eta === null ? "" : ` · ${eta} דק׳`}</div> : null}
+      {openTrade ? (
+        // The demo's way back out of a shop (City.tsx S.leaveRoom), top left.
+        <button type="button" className="world-overlay__leave" onClick={() => onEvent({ type: "LEAVE_SHOP" })}>
+          ‹ חזרה לרחוב
+        </button>
+      ) : null}
       {activeTrade ? (
         <section className="world-overlay__sheet" aria-label={activeTrade.nameHe}>
           <h2>{activeTrade.nameHe}</h2>

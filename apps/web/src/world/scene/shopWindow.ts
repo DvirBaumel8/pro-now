@@ -276,7 +276,7 @@ export function isNeon(r: number, g: number, b: number): boolean {
 }
 
 /** The neon on a back wall, with a soft halo, or null if it has almost none. */
-function neonMask(wall: THREE.Texture): THREE.Texture | null {
+export function neonMask(wall: THREE.Texture): THREE.Texture | null {
   const image = wall.image as Picture | undefined;
   if (!image?.width) return null;
   const w = Math.min(512, image.width);
@@ -308,7 +308,7 @@ function neonMask(wall: THREE.Texture): THREE.Texture | null {
   return prep(new THREE.CanvasTexture(hc));
 }
 
-function contactShadow(): THREE.Texture | null {
+export function contactShadow(): THREE.Texture | null {
   const made = canvas(128, 64);
   if (!made) return null;
   const [c, g] = made;

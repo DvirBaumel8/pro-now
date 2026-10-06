@@ -10,8 +10,8 @@ import {
   entryPose,
   followFactor,
   followPose,
-  followInsideShop,
   frameStreet,
+  lookAtNow,
   shopPose,
   smoothstep01,
 } from "./camera";
@@ -27,11 +27,21 @@ import {
   PAVEMENT,
   SPAWN,
 } from "./street";
-import { createPlayer, movePlayer, createContactShadow, type PlayerState } from "./player";
-import { createRoom } from "./shopRooms";
+import { createPlayer, movePlayer, createContactShadow, stepWalkCycle, type PlayerState } from "./player";
+import { ROOM_FIGURE, buildBoxRoom, freshStand, stepInRoom, type BoxRoom, type RoomStand } from "./boxRoom";
+import {
+  ENTRY_MS,
+  WALKER_AIM_Y,
+  doorShot,
+  entryProgress,
+  entryVeil,
+  faceFade,
+  roomVeil,
+  streetShot,
+} from "./shopEntry";
 import { createShopFront, facadeSize, type ShopFront } from "./shopFront";
 import { createIdleQueue, type IdleQueue } from "./idleQueue";
-import { ROOM_PROPS, SHOP_WINDOWS, createShopWindow, punchWindow, roomArtIds, type ShopWindow } from "./shopWindow";
+import { ROOM_PROPS, SHOP_WINDOWS, createShopWindow, punchWindow, roomArtIds, type RoomArt, type ShopWindow } from "./shopWindow";
 import { WALKER_SHEETS, createWalker, cycleFromSheet, planWalkers, type Walker } from "./walkers";
 import {
   BUILDING_KINDS,
@@ -916,6 +926,30 @@ export function createWorldScene({
   // street is in, nearest first, and each window opens when its room arrives.
   const seeInto: Array<{ shop: (typeof WORLD_SHOPS)[number]; open(): Promise<void> }> = [];
   const windows: Array<{ group: THREE.Group; seen: ShopWindow }> = [];
+  // Each shop's room art, fetched once: the window shows it from the street,
+  // and walking in builds the room from the same textures (boxRoom.ts).
+  const roomArts = new Map<string, Promise<RoomArt | null>>();
+  const roomArt = (shopId: string): Promise<RoomArt | null> => {
+    const known = roomArts.get(shopId);
+    if (known) return known;
+    const ids = roomArtIds(shopId, ROOM_PROPS[shopId] ?? 0);
+    // Not through the arrival's manager: the street is already up.
+    const pieces = ids.map(
+      (id) =>
+        new Promise<THREE.Texture | null>((resolve) => {
+          if (!(id in WORLD_ASSETS)) return resolve(null);
+          roomLoader.load(worldAssetUrl(id as WorldAssetId), resolve, undefined, () => resolve(null));
+        }),
+    );
+    const art = Promise.all(pieces).then(([back, left, right, floor, ...props]): RoomArt | null =>
+      back
+        ? { back, left: left ?? null, right: right ?? null, floor: floor ?? null, props: props.filter((p): p is THREE.Texture => Boolean(p)) }
+        : null,
+    );
+    roomArts.set(shopId, art);
+    return art;
+  };
+  const frontByShop = new Map<string, ShopFront>();
   for (const shop of WORLD_SHOPS) {
     const shopArtId = `shop_${shop.shopId}` as WorldAssetId;
     const usesShopArt = shopArtId in WORLD_ASSETS;
@@ -951,41 +985,28 @@ export function createWorldScene({
     const carcass = createShopCarcass(shopCarcass);
     front.group.add(carcass.mesh);
     shopFronts.push(front);
+    frontByShop.set(shop.shopId, front);
     root.add(front.group);
 
     if (spec) {
       seeInto.push({
         shop,
         open(): Promise<void> {
-          const ids = roomArtIds(shop.shopId, ROOM_PROPS[shop.shopId] ?? 0);
-          // Not through the arrival's manager: the street is already up.
-          const pieces = ids.map(
-            (id) =>
-              new Promise<THREE.Texture | null>((resolve) => {
-                if (!(id in WORLD_ASSETS)) return resolve(null);
-                roomLoader.load(worldAssetUrl(id as WorldAssetId), resolve, undefined, () => resolve(null));
-              }),
-          );
-          return Promise.all(pieces).then(
-            ([back, left, right, floor, ...props]) =>
+          // Fetched once and shared with the room you walk into; the cut waits in the idle queue.
+          return roomArt(shop.shopId).then(
+            (art) =>
               new Promise<void>((done) =>
                 idle.push(() => {
                   try {
-                    openWindow(back, left, right, floor, props);
+                    openWindow(art);
                   } finally {
                     done();
                   }
                 }),
               ),
           );
-          function openWindow(
-            back: THREE.Texture | null | undefined,
-            left: THREE.Texture | null | undefined,
-            right: THREE.Texture | null | undefined,
-            floor: THREE.Texture | null | undefined,
-            props: Array<THREE.Texture | null>,
-          ) {
-            if (disposed || !back || !drawingIn || !spec) return;
+          function openWindow(art: RoomArt | null) {
+            if (disposed || !art || !drawingIn || !spec) return;
             const punched = punchWindow(drawing, spec);
             if (!punched) return;
             const { w, h } = front.size();
@@ -993,7 +1014,7 @@ export function createWorldScene({
               spec,
               w,
               h,
-              { back, left: left ?? null, right: right ?? null, floor: floor ?? null, props: props.filter((p): p is THREE.Texture => Boolean(p)) },
+              art,
               shopGlow,
               shop.neonColour,
             );
@@ -1060,9 +1081,17 @@ export function createWorldScene({
   vehicle.visible = false;
   root.add(vehicle);
 
-  const roomLayer = new THREE.Group();
-  roomLayer.visible = false;
-  scene.add(roomLayer);
+  // The walker as you are in a shop: the same figure, in the room's own scene.
+  // The demo's figure is 1.78 m tall, as wide as its frame; drawn after the
+  // shining floor, which would otherwise lie over its legs.
+  const roomPlayer: PlayerState = createPlayer(walkTextures, runTextures);
+  roomPlayer.group.renderOrder = 3;
+  const sizeRoomPlayer = () => {
+    const image = (roomPlayer.group.material as THREE.SpriteMaterial).map?.image as { width?: number; height?: number } | undefined;
+    const frameAspect = image?.width && image.height ? image.width / image.height : 0.36;
+    roomPlayer.group.scale.set(ROOM_FIGURE * frameAspect, ROOM_FIGURE, 1);
+    roomPlayer.group.position.y = ROOM_FIGURE / 2;
+  };
 
   let postProcessing: PostProcessingHandle | null = null;
   try {
@@ -1082,6 +1111,55 @@ export function createWorldScene({
   // The entry flight: 0 high over the street, 1 behind the walker; it runs once.
   let descend = 0;
   let leaving = false;
+
+  // Going in and coming out (shopEntry.ts): a scripted move on the wall clock.
+  type DoorMove = {
+    shop: (typeof WORLD_SHOPS)[number];
+    startedAt: number;
+    dir: 1 | -1;
+    from: THREE.Vector3;
+    cameraFrom: THREE.Vector3;
+  };
+  let entry: DoorMove | null = null;
+  // The shops' rooms, built the first time you walk in and kept (boxRoom.ts).
+  const rooms = new Map<string, BoxRoom | null>();
+  const building = new Set<string>();
+  let stand: RoomStand = freshStand();
+  let insideSince = 0;
+  // The shop's colour over the screen as you go in; WorldCanvas draws it.
+  let veil = { colour: "#ff6b4a", opacity: 0 };
+  let viewing: "street" | BoxRoom = "street";
+  let aspect = camera.aspect;
+  const walkTo = new THREE.Vector3();
+  const cameraTo = new THREE.Vector3();
+  const aimTo = new THREE.Vector3();
+  const aim = new THREE.Vector3();
+
+  const buildRoom = (shopId: string) => {
+    if (rooms.has(shopId) || building.has(shopId)) return;
+    building.add(shopId);
+    void roomArt(shopId).then((art) => {
+      building.delete(shopId);
+      if (disposed) return;
+      const room = art ? buildBoxRoom(art) : null;
+      room?.setAspect(aspect);
+      rooms.set(shopId, room);
+    });
+  };
+
+  const show = (view: "street" | BoxRoom) => {
+    if (viewing === view) return;
+    if (viewing !== "street") viewing.follow(null);
+    viewing = view;
+    if (view === "street") {
+      postProcessing?.setView(scene, camera);
+      root.visible = true;
+    } else {
+      view.follow(roomPlayer.group);
+      postProcessing?.setView(view.scene, view.camera);
+      root.visible = false;
+    }
+  };
 
   const emitNear = () => {
     const shop = nearestShop(player.x, player.z);
@@ -1113,19 +1191,92 @@ export function createWorldScene({
     material.needsUpdate = true;
   };
 
+  const reduced = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
+
+  /** Walk in through the door of `shopId` (it must be a catalogue-backed shop with a room). */
+  const goIn = (shopId: string): boolean => {
+    if (entry || insideShopId) return false;
+    const trade = tradeForShop(model, shopId);
+    const shop = WORLD_SHOPS.find((s) => s.shopId === shopId);
+    if (!trade || !shop || !canEnterTrade(trade)) return false;
+    buildRoom(shopId);
+    // Pressed before the first step: going in is coming down.
+    descend = 1;
+    leaving = true;
+    const now = performance.now();
+    entry = {
+      shop,
+      startedAt: reduced() ? now - ENTRY_MS : now,
+      dir: 1,
+      from: new THREE.Vector3(player.x, 0, player.z),
+      cameraFrom: camera.position.clone(),
+    };
+    veil = { colour: shop.neonColour, opacity: 0 };
+    return true;
+  };
+
+  /** And back out to the pavement: the same move with the sign flipped. */
+  const goOut = () => {
+    if (entry || !insideShopId) return;
+    const shop = WORLD_SHOPS.find((s) => s.shopId === insideShopId);
+    if (!shop) {
+      insideShopId = null;
+      return;
+    }
+    const street = streetShot(shop);
+    const now = performance.now();
+    entry = {
+      shop,
+      startedAt: reduced() ? now - ENTRY_MS : now,
+      dir: -1,
+      from: new THREE.Vector3(street.walker.x, 0, street.walker.z),
+      cameraFrom: new THREE.Vector3(street.camera.x, street.camera.y, street.camera.z),
+    };
+    veil = { colour: shop.neonColour, opacity: 0 };
+    show("street");
+  };
+
   const enterShop = () => {
-    if (!nearbyShopId || insideShopId) return;
-    const trade = tradeForShop(model, nearbyShopId);
-    if (!trade || !canEnterTrade(trade)) return;
-    const key = trade.interiorAssetId as WorldAssetId;
-    if (!(key in WORLD_ASSETS)) return;
-    insideShopId = nearbyShopId;
-    for (const child of roomLayer.children) disposeObject(child);
-    roomLayer.clear();
-    roomLayer.add(createRoom(loadTexture(loader, key)));
-    roomLayer.visible = true;
-    root.visible = false;
-    onEvent({ type: "ENTER_SHOP", shopId: insideShopId });
+    if (!nearbyShopId || !goIn(nearbyShopId)) return;
+    onEvent({ type: "ENTER_SHOP", shopId: nearbyShopId });
+  };
+
+  /** One frame of the walk in or out; true while it is still going. */
+  const playDoorMove = (move: DoorMove, nowMs: number, dt: number): void => {
+    const raw = Math.min(1, (nowMs - move.startedAt) / ENTRY_MS);
+    const k = entryProgress(raw, move.dir);
+    const shot = doorShot(move.shop);
+    walkTo.set(shot.walkTo.x, 0, shot.walkTo.z);
+    cameraTo.set(shot.camera.x, shot.camera.y, shot.camera.z);
+    aimTo.set(shot.aim.x, shot.aim.y, shot.aim.z);
+    frontByShop.get(move.shop.shopId)?.fadeFace(faceFade(k));
+
+    // The walker walks it; the ground covered drives the legs, as the stick's walk does.
+    const at = new THREE.Vector3().lerpVectors(move.from, walkTo, k);
+    player.x = at.x;
+    player.z = at.z;
+    player.group.position.set(at.x, player.group.position.y, at.z);
+    stepWalkCycle(player, move.from.distanceTo(walkTo) * ((dt * 1000) / ENTRY_MS));
+
+    camera.position.lerpVectors(move.cameraFrom, cameraTo, k);
+    aim.set(player.x, WALKER_AIM_Y, player.z).lerp(aimTo, k);
+    lookAtNow(camera, aim.x, aim.y, aim.z);
+    veil = { colour: move.shop.neonColour, opacity: entryVeil(k, move.dir) };
+
+    if (raw < 1) return;
+    // In: wait behind the shop's colour for the room, if it is still being built.
+    if (move.dir > 0 && building.has(move.shop.shopId)) return;
+    entry = null;
+    if (move.dir > 0) {
+      insideShopId = move.shop.shopId;
+      insideSince = nowMs;
+      stand = freshStand();
+      onEvent({ type: "INSIDE_SHOP", shopId: insideShopId });
+    } else {
+      insideShopId = null;
+      veil = { colour: move.shop.neonColour, opacity: 0 };
+      onEvent({ type: "INSIDE_SHOP", shopId: null });
+    }
   };
 
   return {
@@ -1134,25 +1285,42 @@ export function createWorldScene({
       model = nextModel;
       if (artReady) openWindows();
       if (departmentChanged) updateVehicleAsset();
-      if (nextModel.shopId && nextModel.shopId !== insideShopId) {
-        nearbyShopId = nextModel.shopId;
-        enterShop();
-      }
+      // The app says which shop you are in; the scene walks there (or back out).
+      if (!entry && nextModel.shopId && !insideShopId) goIn(nextModel.shopId);
+      else if (!entry && !nextModel.shopId && insideShopId) goOut();
       updateVehicle();
     },
     move(command: WorldMoveCommand) {
       moveCommand = command;
     },
     enter: enterShop,
+    veil: () => veil,
     render(nowMs) {
       const dt = Math.min(0.05, Math.max(0, (nowMs - lastMs) / 1000));
       elapsed += dt;
 
-      const reducedMotion =
-        window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
-      if (insideShopId) {
-        followInsideShop(camera, reducedMotion);
-      } else if (model.mode === "EXPLORE" || model.mode === "ROUTE") {
+      const reducedMotion = reduced();
+      if (entry) {
+        show("street");
+        playDoorMove(entry, nowMs, dt);
+      }
+      const room = !entry && insideShopId ? rooms.get(insideShopId) : undefined;
+      if (room) {
+        // In the room: the stick turns you and steps you; pulled back at the edge, you walk out.
+        show(room);
+        // The stick's 200 ms cap, as on the street (#62), so a slow renderer still gets you out.
+        const step = stepInRoom(stand, moveCommand, Math.min(0.2, Math.max(0, (nowMs - lastMs) / 1000)));
+        stepWalkCycle(roomPlayer, step.stand.walked - stand.walked);
+        sizeRoomPlayer();
+        stand = step.stand;
+        room.update(dt, reducedMotion ? 0 : elapsed, stand);
+        veil = { colour: veil.colour, opacity: roomVeil((nowMs - insideSince) / 1000) };
+        if (step.leave) {
+          onEvent({ type: "LEAVE_SHOP" });
+          goOut();
+        }
+      } else if (!entry && !insideShopId && (model.mode === "EXPLORE" || model.mode === "ROUTE")) {
+        show("street");
         // The walk keeps its own 200 ms cap (#62): a slow renderer (SwiftShader
         // in CI at 2-3 fps) must still cover ground. Animations use the 50 ms dt.
         // The entry's descent uses it too, so it takes 1.9 s on any renderer.
@@ -1181,27 +1349,31 @@ export function createWorldScene({
           followFactor(walkDt),
           reducedMotion,
         );
-      } else {
+      } else if (!entry && !insideShopId) {
         frameStreet(camera, reducedMotion);
+      } else if (!entry && insideShopId) {
+        // A room that could not be built: you stand in the doorway, in the clear.
+        show("street");
+        veil = { colour: veil.colour, opacity: 0 };
       }
 
-      // Ambient loops (flicker, steam, walkers, traffic) are decoration: with
-      // reduced motion they hold still. The player and camera still move.
-      if (!reducedMotion) for (const fn of ticking) fn(dt, elapsed);
+      if (viewing === "street") {
+        // Ambient loops (flicker, steam, walkers, traffic) are decoration: with
+        // reduced motion they hold still. The player and camera still move.
+        if (!reducedMotion) for (const fn of ticking) fn(dt, elapsed);
 
-      lendEveningLights(dt);
-      // A projecting sign seen edge-on fades rather than becoming a streak.
-      if (root.visible) for (const front of shopFronts) front.face(camera.position);
-      // Behind the glass the furniture turns to you and the sheen slides.
-      if (root.visible) {
+        lendEveningLights(dt);
+        // A projecting sign seen edge-on fades rather than becoming a streak.
+        for (const front of shopFronts) front.face(camera.position);
+        // Behind the glass the furniture turns to you and the sheen slides.
         for (const { group, seen } of windows) {
           seen.update(group.worldToLocal(viewerLocal.copy(camera.position)), reducedMotion ? 0 : elapsed);
         }
-      }
 
-      // The shadow box rides a few metres ahead of the camera, as in the demo.
-      camera.getWorldDirection(cameraDirection);
-      aimSun(sun, shadowFocus(camera.position, cameraDirection, sunFocus));
+        // The shadow box rides a few metres ahead of the camera, as in the demo.
+        camera.getWorldDirection(cameraDirection);
+        aimSun(sun, shadowFocus(camera.position, cameraDirection, sunFocus));
+      }
 
       if (postProcessing && glowGovernor.record(nowMs - lastMs) === "drop") {
         postProcessing.dispose();
@@ -1209,13 +1381,17 @@ export function createWorldScene({
       }
       if (postProcessing) {
         postProcessing.render(nowMs);
-      } else {
+      } else if (viewing === "street") {
         renderer.render(scene, camera);
+      } else {
+        renderer.render(viewing.scene, viewing.camera);
       }
       lastMs = nowMs;
     },
     resize(width: number, height: number) {
       postProcessing?.resize(width, height);
+      aspect = width / Math.max(1, height);
+      for (const room of rooms.values()) room?.setAspect(aspect);
     },
     onArtReady(listener: () => void) {
       if (artReady) listener();
@@ -1224,9 +1400,12 @@ export function createWorldScene({
     dispose() {
       disposed = true;
       idle.dispose();
+      show("street");
       disposeObject(root);
-      disposeObject(roomLayer);
-      scene.remove(hemi, sun, sun.target, root, roomLayer);
+      for (const room of rooms.values()) room?.dispose();
+      rooms.clear();
+      disposeObject(roomPlayer.group);
+      scene.remove(hemi, sun, sun.target, root);
       sun.dispose();
       scene.background = previousBackground;
       skyBackground.dispose();

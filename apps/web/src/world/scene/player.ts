@@ -57,22 +57,24 @@ export function movePlayer(
   player.group.position.set(player.x, PLAYER_HEIGHT / 2 + 0.66, player.z);
 
   const moved = Math.hypot(dx, dz);
-  if (moved > 0.001) {
-    player.distance += moved;
-    player.sprinting = command.sprint;
-    if (command.z !== 0) player.facing = command.z > 0 ? 1 : -1;
-  }
+  if (moved > 0.001 && command.z !== 0) player.facing = command.z > 0 ? 1 : -1;
+  stepWalkCycle(player, moved, command.sprint);
+}
 
-  const stride = command.sprint ? RUN_STRIDE : WALK_STRIDE;
-  const frames = command.sprint ? player.runTextures : player.walkTextures;
-  if (frames.length > 0 && moved > 0.001) {
-    const frameIndex = Math.floor(player.distance / stride) % frames.length;
-    const material = player.group.material as THREE.SpriteMaterial;
-    const tex = frames[frameIndex] ?? null;
-    if (material.map !== tex) {
-      material.map = tex;
-      material.needsUpdate = true;
-    }
+/** The walker covered `moved` metres: the cycle follows the ground, as the stick's walk does. */
+export function stepWalkCycle(player: PlayerState, moved: number, sprint = false): void {
+  if (moved <= 0.001) return;
+  player.distance += moved;
+  player.sprinting = sprint;
+  const stride = sprint ? RUN_STRIDE : WALK_STRIDE;
+  const frames = sprint ? player.runTextures : player.walkTextures;
+  if (frames.length === 0) return;
+  const frameIndex = Math.floor(player.distance / stride) % frames.length;
+  const material = player.group.material as THREE.SpriteMaterial;
+  const tex = frames[frameIndex] ?? null;
+  if (material.map !== tex) {
+    material.map = tex;
+    material.needsUpdate = true;
   }
 }
 

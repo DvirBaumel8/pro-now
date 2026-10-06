@@ -18,12 +18,18 @@ export type WorldEvent =
   | { type: "REQUEST_SERVICE"; serviceId: string }
   | { type: "SHOP_NEAR"; shopId: string | null }
   | { type: "ENTER_SHOP"; shopId: string }
+  /** You are now standing in this shop (after the walk in), or back on the street (null). */
+  | { type: "INSIDE_SHOP"; shopId: string | null }
+  /** Walk back out to the street (the room's button, or pulling back at its edge). */
+  | { type: "LEAVE_SHOP" }
   | { type: "WORLD_ERROR"; code: "WEBGL_UNAVAILABLE" | "ASSET_FAILED" | "RENDER_FAILED" };
 
 export interface WorldSceneHandle {
   update(model: WorldSceneModel): void;
   move(command: WorldMoveCommand): void;
   enter?(): void;
+  /** The shop's colour over the screen while you walk in (the demo's veil), read every frame. */
+  veil?(): { colour: string; opacity: number };
   render(nowMs: number): void;
   /** The canvas changed size; anything sized to it (post-processing) follows. */
   resize?(width: number, height: number): void;
@@ -180,6 +186,13 @@ export function WorldCanvas({
     stick.hidden = true;
     host.appendChild(stick);
 
+    // The demo's veil: the shop's own colour, over everything, as the door opens.
+    const veil = document.createElement("div");
+    veil.className = "world-canvas__veil";
+    veil.setAttribute("aria-hidden", "true");
+    host.appendChild(veil);
+    let veilShown = "";
+
     let frame = 0;
     let paused = shouldPauseWorld(document.visibilityState);
     // The street takes at most half the main thread, so the screens over it
@@ -204,6 +217,15 @@ export function WorldCanvas({
       if (!paused && nowMs >= nextAt) {
         handle.update(modelRef.current);
         handle.render(nowMs);
+        const next = handle.veil?.();
+        // Thousandths: enough for a fade, and a fade that ends lands on 0 exactly.
+        const opacity = Math.round((next?.opacity ?? 0) * 1000) / 1000;
+        const key = `${next?.colour ?? ""}|${opacity}`;
+        if (key !== veilShown) {
+          veilShown = key;
+          veil.style.background = next?.colour ?? "transparent";
+          veil.style.opacity = String(opacity);
+        }
         lastRenderAt = nowMs;
         // Without a GPU the street behind a screen draws at most every 200 ms.
         nextAt = nowMs + backdropGapMs(software, walking);
@@ -268,6 +290,7 @@ export function WorldCanvas({
       window.cancelAnimationFrame(frame);
       window.clearTimeout(arrivalTimer);
       stick.remove();
+      veil.remove();
       document.removeEventListener("visibilitychange", onVisibility);
       canvas.removeEventListener("pointerdown", onPointerDown);
       canvas.removeEventListener("pointermove", onPointerMove);

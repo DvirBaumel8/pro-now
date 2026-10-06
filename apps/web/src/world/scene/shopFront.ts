@@ -121,6 +121,11 @@ export interface ShopFront {
   setDrawing(texture: THREE.Texture): void;
   /** Fade the blade's faces by how square-on the viewer is to them. */
   face(viewer: THREE.Vector3): void;
+  /**
+   * The front gets out of the way as you walk through it (the demo's
+   * `fadeFace`, street.ts): 0 is the drawing whole, 1 is gone.
+   */
+  fadeFace(k: number): void;
 }
 
 export function createShopFront(
@@ -235,6 +240,15 @@ export function createShopFront(
       face.material.map = texture;
       face.material.emissiveMap = texture;
       face.material.needsUpdate = true;
+    },
+    fadeFace(k) {
+      const material = face.material;
+      material.opacity = 1 - k;
+      // alphaTest keeps every pixel the drawing calls solid, whatever the
+      // opacity says: released for the fade, restored after.
+      material.alphaTest = k > 0.02 ? 0 : 0.35;
+      material.depthWrite = k < 0.5;
+      material.needsUpdate = true;
     },
     face(viewer) {
       for (const blade of blades) {
