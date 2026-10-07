@@ -40,11 +40,11 @@ export async function notifyForJobEvent(deps: DispatchDeps, notice: JobEventNoti
   });
   if (!job) return [];
   /*
-   * THE ACCEPTANCE IS ANNOUNCED BEFORE IT COMMITS. OFFER_ACCEPTED is
-   * written inside the accept's transaction, so the job read here may not
-   * show the assignment yet, and the customer was told "המקצוען יצא" with
-   * no name and the wrong gender. The event names who accepted
-   * (actorId), so the professional is taken from it.
+   * Events are announced after their transaction commits (plugins/prisma.ts),
+   * so the job read here shows the assignment. The event also names who
+   * accepted (actorId); kept as the fallback it was when the announcement
+   * came before the commit and the customer was told "המקצוען יצא" with no
+   * name and the wrong gender.
    */
   const professional =
     job.assignedProfessional ??
