@@ -102,3 +102,4 @@ export * from "./screens/SponsorShopBody";
 export * from "./screens/AdvertiseBody";
 export * from "./screens/ProVerificationStepBody";
 export * from "./screens/AppMenuBody";
+export * from "./components/OrdersDock";
