@@ -6,6 +6,7 @@ import { ApiError } from "@pro-now/api-client";
 import type { OfferCardView } from "@pro-now/types";
 import { ProOfferBody, ProShiftBody, customerDarkTheme, spacing, type as t } from "@pro-now/ui";
 
+import type { ProApplicationView } from "@pro-now/types";
 import { api } from "../../api";
 import { useFrame } from "../../frame";
 import { CityHero } from "../../art/CityHero";
@@ -13,6 +14,8 @@ import { ErrorScreen, LoadingScreen } from "../../states";
 import { ProDocumentsTab, ProEarningsTab, ProPricingPage, ProProfileTab } from "./ProTabs";
 import { PRO_TAB_BAR_H, ProTabBar } from "./ProTabBar";
 import { markFor, proPageFromPath, shiftChipsFor } from "./proPages";
+import { ShiftStorefront, STOREFRONT_BAND_H, type StorefrontShop } from "../../art/ShiftStorefront";
+import { applicationKey } from "./ProJoin";
 
 /**
  * THE PROFESSIONAL'S SIDE, ONCE APPROVED (docs/21 W7; the demo's tabs,
@@ -68,6 +71,8 @@ export function ProOnline() {
     refetchInterval: OFFER_POLL_MS,
   });
   const services = useQuery({ queryKey: proServicesKey, queryFn: api.proServices });
+  // Their shop from the join, for the shift's band; none designed yet, the city as before.
+  const application = useQuery({ queryKey: applicationKey, queryFn: api.proApplication });
 
   // The heartbeat: position while online, every 20 s, whatever tab is open.
   useEffect(() => {
@@ -164,6 +169,7 @@ export function ProOnline() {
   const strip = online ? KEEP_OPEN_H : 0;
   const bodyH = height - PRO_TAB_BAR_H - strip;
   const names = s.approvedServices.map((x) => x.nameHe);
+  const shop = storefrontFor(application.data, s.approvedServices[0]?.code ?? null);
 
   const body = (() => {
     switch (page) {
@@ -178,7 +184,8 @@ export function ProOnline() {
       default:
         return (
           <ProShiftBody
-            backdrop={<CityHero />}
+            backdrop={shop ? <ShiftStorefront shop={shop} online={online} /> : <CityHero />}
+            bandHeight={shop ? STOREFRONT_BAND_H : undefined}
             displayNameHe={s.displayName}
             tradeHe={names.length ? `${names[0]}${names.length > 1 ? ` ועוד ${names.length - 1}` : ""}` : null}
             presenceState={s.presenceState}
@@ -230,3 +237,18 @@ const styles = StyleSheet.create({
   keepOpen: { ...t.meta, height: KEEP_OPEN_H, lineHeight: KEEP_OPEN_H, color: colors.textSecondary, textAlign: "center", writingDirection: "rtl", paddingHorizontal: spacing.lg, backgroundColor: colors.bg },
   problem: { ...t.body, position: "absolute", bottom: PRO_TAB_BAR_H + spacing.xl, left: spacing.lg, right: spacing.lg, color: colors.statusDanger, textAlign: "center", writingDirection: "rtl" },
 });
+
+/** Their shop as they designed it when joining (the demo's `ownShopDesign`), or null when they skipped it. */
+function storefrontFor(view: ProApplicationView | undefined, serviceCode: string | null): StorefrontShop | null {
+  const shop = view?.profile.shop;
+  if (!view || !shop) return null;
+  const media = (id: string) => `/api/v1/media/${encodeURIComponent(id)}`;
+  const portrait = view.profile.portrait;
+  return {
+    name: shop.name,
+    brandColor: shop.brandColor,
+    logoUri: shop.logoUploadId ? media(shop.logoUploadId) : null,
+    serviceCode: serviceCode ?? view.services[0]?.code ?? null,
+    portraitUri: portrait?.kind === "PHOTO" && portrait.uploadId ? media(portrait.uploadId) : null,
+  };
+}
