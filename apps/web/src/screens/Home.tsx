@@ -4,6 +4,7 @@ import { View } from "react-native";
 import { useLocation, useNavigate, useSearchParams } from "react-router";
 import {
   ActiveJobCapsule,
+  OrdersDock,
   AppHeader,
   AppMenuBody,
   CAPSULE_HEIGHT,
@@ -38,6 +39,8 @@ import { jobKey } from "./Job";
 import { activeLabelHe } from "./activeLabel";
 import { strollHref, worldHref, worldShopParam } from "../world/worldLinks";
 import { useWorldKeeper } from "../world/keptWorld";
+import { severalOrders } from "../orders";
+import { useOrders } from "../useOrders";
 
 
 /**
@@ -161,6 +164,9 @@ export function Home() {
    * form's send panel covered the text box).
    */
   const showCapsule = Boolean(active) && !typing;
+  // Two orders or more: the dock, a chip each, in the capsule's place (the demo's).
+  const orders = useOrders();
+  const several = severalOrders(orders);
   const headerH = typing ? 0 : HEADER_H;
   const bodyH = height - headerH - (showCapsule ? CAPSULE_HEIGHT : 0);
 
@@ -340,7 +346,11 @@ export function Home() {
           />
         )}
       </View>
-      {active && showCapsule ? (
+      {active && showCapsule && several ? (
+        <View style={{ height: CAPSULE_HEIGHT, justifyContent: "center" }}>
+          <OrdersDock orders={orders} onOpen={(id) => navigate(`/jobs/${id}`)} width={width} />
+        </View>
+      ) : active && showCapsule ? (
         <ActiveJobCapsule
           textHe={`${active.serviceNameHe} · ${activeLabelHe(active.status, active.professional?.addressAs === "F")}`}
           etaMinutes={trip?.etaMinutes ?? null}

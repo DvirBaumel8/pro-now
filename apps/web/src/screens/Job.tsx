@@ -9,6 +9,7 @@ import {
   JobClosedBody,
   JobCompleteBody,
   priceExplainer,
+  OrdersDock,
   PrimaryAction,
   SearchingBody,
   TrackingBody,
@@ -32,6 +33,8 @@ import { CityHero } from "../art/CityHero";
 import { arrivalHeadlineHe, showsArrival } from "./arrival";
 import { SafetySheet } from "./SafetySheet";
 import { liveEtaClock, matchRevealState, onTheWayState, revealFigure } from "./matchReveal";
+import { severalOrders } from "../orders";
+import { useOrders } from "../useOrders";
 
 /**
  * One job, from "looking for a professional" to the review (docs/21 W6).
@@ -79,7 +82,29 @@ const ils = (minor: number | null | undefined) => (minor ? formatMoney(money(min
 const clockIn = (seconds: number) =>
   new Date(Date.now() + seconds * 1000).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
 
+/**
+ * An order's screens, with the other orders one tap away: with two orders or
+ * more, the demo's switcher (OrdersDock, "1 מתוך 2") over the order's own
+ * screens, beside the back control.
+ */
 export function Job() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { width } = useFrame();
+  const orders = useOrders(id ?? null);
+  return (
+    <View style={{ flex: 1 }}>
+      <JobScreen />
+      {severalOrders(orders) ? (
+        <View style={styles.switcher} pointerEvents="box-none">
+          <OrdersDock variant="switcher" orders={orders} onOpen={(next) => navigate(`/jobs/${next}`)} width={width} />
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function JobScreen() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -483,6 +508,8 @@ function Ended({ titleHe, bodyHe, onHome }: { titleHe: string; bodyHe?: string; 
 
 const colors = customerDarkTheme.colors;
 const styles = StyleSheet.create({
+  // Over the order's screens, beside the back control (the demo's top-left).
+  switcher: { position: "absolute", top: spacing.sm, left: spacing.lg, zIndex: 20 },
   screen: {
     flex: 1,
     backgroundColor: colors.bg,

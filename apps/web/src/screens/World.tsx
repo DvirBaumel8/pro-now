@@ -17,12 +17,17 @@ import {
 } from "../world";
 import { worldReturnPath, worldShopParam } from "../world/worldLinks";
 import { useWorldKeeper } from "../world/keptWorld";
+import { OrdersDock } from "@pro-now/ui";
+import { severalOrders } from "../orders";
+import { useOrders } from "../useOrders";
 
 export function World({ hidden = false }: { hidden?: boolean } = {}) {
   const { width, height } = useFrame();
   const navigate = useNavigate();
   const me = useMe();
   const keeper = useWorldKeeper();
+  // Walking the street with several orders under way: each stays in sight (the demo's HUD strip).
+  const orders = useOrders();
   const catalog = useQuery({ queryKey: ["catalog"], queryFn: api.getCatalog, staleTime: 5 * 60_000 });
   /*
    * Back is back (the demo's city onExit): to the job the street was opened
@@ -120,6 +125,11 @@ export function World({ hidden = false }: { hidden?: boolean } = {}) {
         openTrade={openTrade}
         onEvent={onEvent}
       />
+      {severalOrders(orders) && !hidden ? (
+        <View style={{ position: "absolute", top: 14, left: 14 }} pointerEvents="box-none">
+          <OrdersDock variant="hud" orders={orders} onOpen={(id) => navigate(`/jobs/${id}`)} width={width} />
+        </View>
+      ) : null}
     </View>
   );
 }
