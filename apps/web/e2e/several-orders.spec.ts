@@ -30,6 +30,7 @@ test("two orders at once: a chip each on home, a switcher on each order, a strip
   });
   expect(address.ok(), await address.text()).toBe(true);
   const pro = await dispatchableProfessional({ serviceCode: "HOME_PLUMB_LEAK", lat: LAT, lng: LNG, baseURL: baseURL! });
+  let second: string | null = null;
 
   try {
     // The first: a plumber, on the way.
@@ -40,7 +41,7 @@ test("two orders at once: a chip each on home, a switcher on each order, a strip
 
     // The second, while the first is under way: nobody takes it yet.
     await page.goto("/");
-    await order(page, "נזילה בשירותים", /המשך עם נזילה/);
+    second = await order(page, "נזילה בשירותים", /המשך עם נזילה/);
 
     // On the order's own screen: the switcher, "2 מתוך 2" in focus.
     const chip2 = page.getByRole("tab", { name: /^הזמנה 2 מתוך 2: .*מחפשים/ });
@@ -60,6 +61,8 @@ test("two orders at once: a chip each on home, a switcher on each order, a strip
     await page.goto("/world");
     await expect(page.getByRole("button", { name: /^הזמנה 1 מתוך 2:/ })).toBeVisible({ timeout: 30_000 });
   } finally {
+    // Nobody takes the second order: left searching, it would be offered to a later spec's professional nearby.
+    if (second) await page.request.post(`/api/v1/jobs/${second}/cancel`, { headers: { origin: baseURL! } });
     await pro.dispose();
   }
 });
