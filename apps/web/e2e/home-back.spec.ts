@@ -34,6 +34,11 @@ test("the phone's back closes the list of every service and stays home", async (
   await expect(page).toHaveURL(/\/calls$/);
 });
 
+const cleanup: string[] = [];
+test.afterEach(async ({ page, baseURL }) => {
+  for (const id of cleanup.splice(0)) await page.request.post(`/api/v1/jobs/${id}/cancel`, { headers: { origin: baseURL! } });
+});
+
 test("the phone's back steps through home's own views: the menu, a service, its form, and home after sending", async ({ page, baseURL }) => {
   test.setTimeout(120_000);
   await signInByEmail(page, uniqueEmail("e2e-home-back-views"));
@@ -83,6 +88,9 @@ test("the phone's back steps through home's own views: the menu, a service, its 
   await request.click();
   await send.click();
   await expect(page).toHaveURL(/\/jobs\//);
+  // Nobody takes it: left searching, it would be offered to a later spec's professional nearby.
+  const sent = new URL(page.url()).pathname.split("/").pop()!;
+  cleanup.push(sent);
   await page.goBack();
   await expect(page).toHaveURL(/\/$/);
   await expect(request).toHaveCount(0);
