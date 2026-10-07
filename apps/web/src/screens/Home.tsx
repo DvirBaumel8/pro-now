@@ -41,6 +41,7 @@ import { strollHref, worldHref, worldShopParam } from "../world/worldLinks";
 import { useWorldKeeper } from "../world/keptWorld";
 import { severalOrders } from "../orders";
 import { useOrders } from "../useOrders";
+import { useOverlayBack } from "../overlayBack";
 
 
 /**
@@ -105,6 +106,8 @@ export function Home() {
     searchParams.delete("service");
     setSearchParams(searchParams, { replace: true });
   }, [searchParams, setSearchParams, location.state]);
+  // The phone's back closes home's open lists (all the services, all the departments) first.
+  const openOverlay = useOverlayBack();
   const me = useMe();
   const media = useWebMediaCapture();
   /* The face they chose, in the header, as in the demo; the glyph if none. */
@@ -157,6 +160,21 @@ export function Home() {
     setRequestServiceId(null);
     setWorldShop(null);
   };
+  /*
+   * The phone's back closes the view on top and stays home (overlayBack.ts):
+   * the menu, a category, a service's page and its form, the address picker.
+   * A service opened from a shop in the street is left out: its entry is the
+   * street's own step, and back returns there as its arrow does.
+   */
+  useEffect(() => (tab === "menu" ? openOverlay(() => setTab("home")) : undefined), [tab, openOverlay]);
+  useEffect(() => (categoryId ? openOverlay(() => setCategoryId(null)) : undefined), [categoryId, openOverlay]);
+  useEffect(
+    () => (requestServiceId && !worldShop ? openOverlay(closeService) : undefined),
+    // closeService only sets state; the opening is what registers.
+    [requestServiceId, worldShop, openOverlay],
+  );
+  useEffect(() => (composing ? openOverlay(() => setComposing(false)) : undefined), [composing, openOverlay]);
+  useEffect(() => (pickingAddress ? openOverlay(() => setPickingAddress(false)) : undefined), [pickingAddress, openOverlay]);
   /*
    * Typing, the screen is the strip above the keyboard, and the field being
    * typed in needs all of it: the header and the live job's capsule step
@@ -313,6 +331,7 @@ export function Home() {
           />
         ) : (
           <CustomerHomeBody
+            onOverlay={openOverlay}
             backdrop={<CityHero />}
             greetingHe={greetingAt(new Date())}
             services={HOME_SERVICES}

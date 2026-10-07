@@ -40,8 +40,9 @@ test("the shift page is their shop: the shutter down off shift, up once it start
 
     await page.getByRole("button", { name: "התחלת משמרת" }).click();
     await expect(shop).toHaveAttribute("data-open", "yes", { timeout: 20_000 });
-    // The shutter rolled up: nothing of it left over the shopfront.
-    await expect.poll(async () => (await page.getByTestId("shift-shutter").boundingBox())?.height ?? 0, { timeout: 5_000 }).toBeLessThan(2);
+    // The shutter rolls up all the way (scaleY(0)), given time: CI's software renderer can be
+    // seconds behind on a 0.9s roll (it measured 12-15px there after 5s).
+    await expect(page.getByTestId("shift-shutter")).toHaveCSS("transform", "matrix(1, 0, 0, 0, 0, 0)", { timeout: 15_000 });
   } finally {
     await pro.dispose();
   }
