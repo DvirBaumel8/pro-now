@@ -208,7 +208,8 @@ export function ProShiftBody({
    * `worldSources`. What is NOT a world is an empty object, which is what
    * a build without the art has, so the plate itself is the test.
    */
-  const hasWorld = Boolean(worldSources?.[ROAD_PLATE_ASSET_ID]);
+  // A backdrop the host draws (the city, their own shop) is art of its own.
+  const hasWorld = Boolean(backdrop) || Boolean(worldSources?.[ROAD_PLATE_ASSET_ID]);
   const money0 = (v: number | null) => (v === null ? "—" : formatMoney(money(v, "ILS")));
 
   return (
